@@ -1,0 +1,28 @@
+apiVersion: skaffold/v4beta8
+kind: Config
+metadata:
+  name: dpf-operator
+build:
+  local:
+    useBuildkit: true
+  artifacts:
+    - image: nvidia/dpf-controller
+      runtimeType: go
+      docker:
+        buildArgs:
+          ## Used for debugging. Disable inlining and optimizations in the go compiler. Passed to go build using `-gcflags`
+          GCFLAGS: "all=-N -l"
+          ARCH: "amd64"
+        dockerfile: Dockerfile
+manifests:
+  ## Deploy the manager.
+  kustomize:
+    paths:
+      - config/default
+portForward:
+  - resourceType: deployment
+    resourceName: dpf-operator-controller-manager
+    namespace: dpf-operator-system
+    port: 56268
+    localPort: 8080
+    address: 0.0.0.0
