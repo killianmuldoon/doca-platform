@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"gitlab-master.nvidia.com/kmuldoon/doca-platform-foundation/dpf-operator/test/utils"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils"
 )
 
 const namespace = "dpf-operator-system"
@@ -74,6 +74,7 @@ var _ = Describe("controller", Ordered, func() {
 			By("installing CRDs")
 			cmd = exec.Command("make", "install")
 			_, err = utils.Run(cmd)
+			ExpectWithOffset(1, err).NotTo(HaveOccurred())
 
 			By("deploying the controller-manager")
 			cmd = exec.Command("make", "deploy", fmt.Sprintf("IMG=%s", projectimage))
