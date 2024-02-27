@@ -1,0 +1,25 @@
+image: golang:1.22.0
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+stages:
+  - lint
+  - test
+  - build
+
+lint:
+  stage: lint
+  script:
+    - make lint
+
+test:
+  stage: test
+  script:
+    - make test
+
+build-binaries:
+  stage: build
+  script:
+    - make binaries
