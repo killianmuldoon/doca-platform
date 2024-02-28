@@ -1,0 +1,12 @@
+apiVersion: svc.dpf.nvidia.com/v1alpha1
+kind: DPUService
+metadata:
+  labels:
+    app.kubernetes.io/name: dpuservice
+    app.kubernetes.io/instance: dpuservice-sample
+    app.kubernetes.io/part-of: dpf-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: dpf-operator
+  name: dpuservice-sample
+spec:
+  # TODO(user): Add fields here
