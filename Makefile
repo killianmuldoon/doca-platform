@@ -50,7 +50,11 @@ GENERATE_TARGETS ?= dpuservice controlplane
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
-	$(MAKE) generate-modules generate-manifests generate-go-deepcopy
+	$(MAKE) generate-mocks generate-modules generate-manifests generate-go-deepcopy
+
+.PHONY: generate-mocks
+generate-mocks: mockgen
+	go generate ./...
 
 .PHONY: generate-modules
 generate-modules: ## Run go mod tidy to update go modules
@@ -178,12 +182,14 @@ KUSTOMIZE ?= $(TOOLSDIR)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(TOOLSDIR)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(TOOLSDIR)/setup-envtest-$(ENVTEST_VERSION)
 GOLANGCI_LINT = $(TOOLSDIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+MOCKGEN = $(TOOLSDIR)/mockgen
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.3.0
 CONTROLLER_TOOLS_VERSION ?= v0.14.0
 ENVTEST_VERSION ?= latest
 GOLANGCI_LINT_VERSION ?= v1.54.2
+MOCKGEN_VERSION ?= v0.4.0
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -204,6 +210,11 @@ $(ENVTEST): $(TOOLSDIR)
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(TOOLSDIR)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
+
+.PHONY: mockgen
+mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
+$(MOCKGEN): $(TOOLSDIR)
+	$(call go-install-tool,$(MOCKGEN),go.uber.org/mock/mockgen,${MOCKGEN_VERSION})
 
 .PHONY: clean
 clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
