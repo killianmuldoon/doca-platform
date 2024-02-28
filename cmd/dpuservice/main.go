@@ -22,7 +22,7 @@ import (
 	"os"
 
 	controlplanedpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
-	svcdpfcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice"
+	svcdpfcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/controllers"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
