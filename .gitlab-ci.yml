@@ -14,6 +14,11 @@ lint:
   script:
     - make lint
 
+verify-generate:
+  stage: lint
+  script:
+    - make verify-generate
+
 test:
   stage: test
   script:

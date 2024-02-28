@@ -61,7 +61,7 @@ generate-modules: ## Run go mod tidy to update go modules
 	go mod tidy
 
 .PHONY: generate-manifests
-generate-manifests: $(addprefix generate-manifests-,$(GENERATE_TARGETS)) ## Run all generate-manifests-* targets
+generate-manifests: controller-gen $(addprefix generate-manifests-,$(GENERATE_TARGETS)) ## Run all generate-manifests-* targets
 
 .PHONY: generate-manifests-dpuservice
 generate-manifests-dpuservice: ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
@@ -107,9 +107,15 @@ test: envtest ## Run tests.
 test-e2e:
 	go test ./test/e2e/ -v -ginkgo.v
 
+##@ lint and verify
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter & yamllint
 	$(GOLANGCI_LINT) run
+
+.PHONY: verify-generate
+verify-generate: generate
+	$(info checking for git diff after running 'make generate')
+	git diff --quiet ; if [ $$? -eq 1 ] ; then echo "Please, commit manifests after running 'make generate'"; exit 1 ; fi
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
@@ -182,7 +188,7 @@ KUSTOMIZE ?= $(TOOLSDIR)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(TOOLSDIR)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
 ENVTEST ?= $(TOOLSDIR)/setup-envtest-$(ENVTEST_VERSION)
 GOLANGCI_LINT = $(TOOLSDIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
-MOCKGEN = $(TOOLSDIR)/mockgen
+MOCKGEN = $(TOOLSDIR)/mockgen-$(MOCKGEN_VERSION)
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.3.0
@@ -215,6 +221,7 @@ $(GOLANGCI_LINT): $(TOOLSDIR)
 mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
 $(MOCKGEN): $(TOOLSDIR)
 	$(call go-install-tool,$(MOCKGEN),go.uber.org/mock/mockgen,${MOCKGEN_VERSION})
+	ln -f $(MOCKGEN) $(abspath $(TOOLSDIR)/mockgen)
 
 .PHONY: clean
 clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
