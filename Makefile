@@ -117,7 +117,7 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 
 ##@ Build
 
-BUILD_TARGETS ?= dpuservice controlplane
+BUILD_TARGETS ?= dpuservice controlplane dpucniprovisioner
 REGISTRY ?= harbor.mellanox.com/cloud-orchestration-dev/dpf
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 TAG ?= v0.0.1
@@ -133,8 +133,12 @@ binary-dpuservice: ## Build the dpuservice controller binary.
 binary-controlplane: ## Build the controlplane controller binary.
 	go build -trimpath -o $(LOCALBIN)/controlplane-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/controlplane
 
+.PHONY: binary-dpucniprovisioner
+binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
+	go build -trimpath -o $(LOCALBIN)/dpucniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/dpucniprovisioner
+
 .PHONY: docker-build-all
-docker-build-all: ## Build docker images for all BUILT_TARGETS
+docker-build-all: ## Build docker images for all BUILD_TARGETS
 	$(MAKE) $(addprefix docker-build-,$(BUILD_TARGETS))
 
 DPUSERVICE_IMAGE_NAME ?= dpuservice-controller-manager
@@ -150,6 +154,10 @@ docker-build-dpuservice: ## Build docker images for the dpuservice-controller
 .PHONY: docker-build-controlplane
 docker-build-controlplane: ## Build docker images for the controlplane-controller
 	docker build --build-arg builder_image=$(BUILD_IMAGE) --build-arg package=./cmd/controlplane . -t $(CONTROLPLANE_IMAGE):$(TAG)
+
+## TODO: Implement using correct OVS dependencies.
+.PHONY: docker-build-dpucniprovisioner
+docker-build-dpucniprovisioner: ;## Build docker images for the DPU CNI Provisioner
 
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(BUILD_TARGETS))  ## Push the docker images for all controllers.

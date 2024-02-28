@@ -16,4 +16,28 @@ limitations under the License.
 
 package main
 
-func main() {}
+import (
+	"os"
+	"os/signal"
+
+	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils"
+)
+
+func main() {
+	ovsClient, err := utils.NewOVSClient()
+	if err != nil {
+		panic(err)
+	}
+
+	provisioner := dpucniprovisioner.New(ovsClient)
+
+	err = provisioner.RunOnce()
+	if err != nil {
+		panic(err)
+	}
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	<-c
+}
