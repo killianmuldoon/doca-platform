@@ -19,22 +19,68 @@ package dpucniprovisioner_test
 import (
 	"errors"
 	"net"
+	"os"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
+	kexec "k8s.io/utils/exec"
+	kexecTesting "k8s.io/utils/exec/testing"
 
 	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
 	ovsclient "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
 	ovsclientMock "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient/mock"
 )
 
+const (
+	ovsSystemdConfigContentDefault = `# This is a POSIX shell fragment                -*- sh -*-
+
+# FORCE_COREFILES: If 'yes' then core files will be enabled.
+# FORCE_COREFILES=yes
+
+# OVS_CTL_OPTS: Extra options to pass to ovs-ctl.  This is, for example,
+# a suitable place to specify --ovs-vswitchd-wrapper=valgrind.
+# OVS_CTL_OPTS=`
+	ovsSystemdConfigContentPopulated = `# This is a POSIX shell fragment                -*- sh -*-
+
+# FORCE_COREFILES: If 'yes' then core files will be enabled.
+# FORCE_COREFILES=yes
+
+# OVS_CTL_OPTS: Extra options to pass to ovs-ctl.  This is, for example,
+# a suitable place to specify --ovs-vswitchd-wrapper=valgrind.
+# OVS_CTL_OPTS=
+OVS_CTL_OPTS="--ovsdb-server-options=--remote=ptcp:8500"`
+)
+
 var _ = Describe("DPU CNI Provisioner", func() {
-	Context("When it runs once", func() {
+	Context("When it runs once for the first time", func() {
 		It("should configure the system fully", func() {
 			testCtrl := gomock.NewController(GinkgoT())
 			ovsClient := ovsclientMock.NewMockOVSClient(testCtrl)
-			provisioner := dpucniprovisioner.New(ovsClient)
+			fakeExec := &kexecTesting.FakeExec{}
+			provisioner := dpucniprovisioner.New(ovsClient, fakeExec)
+
+			// Prepare Filesystem
+			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
+			defer func() {
+				err := os.RemoveAll(tmpDir)
+				Expect(err).ToNot(HaveOccurred())
+			}()
+			Expect(err).NotTo(HaveOccurred())
+			dpucniprovisioner.FileSystemRoot = tmpDir
+			ovsSystemdConfigPath := filepath.Join(tmpDir, "/etc/default/openvswitch-switch")
+			err = os.MkdirAll(filepath.Dir(ovsSystemdConfigPath), 0755)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = os.WriteFile(ovsSystemdConfigPath, []byte(ovsSystemdConfigContentDefault), 0644)
+			Expect(err).NotTo(HaveOccurred())
+			ovsClient.EXPECT().SetDOCAInit(true)
+			fakeExec.CommandScript = append(fakeExec.CommandScript, kexecTesting.FakeCommandAction(func(cmd string, args ...string) kexec.Cmd {
+				Expect(cmd).To(Equal("systemctl"))
+				Expect(args).To(Equal([]string{"restart", "openvswitch-switch.service"}))
+				return kexec.New().Command("echo")
+			}))
 
 			ovsClient.EXPECT().AddBridge("br-int")
 			ovsClient.EXPECT().SetBridgeDataPathType("br-int", ovsclient.NetDev)
@@ -66,8 +112,12 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			mac, _ := net.ParseMAC("00:00:00:00:00:01")
 			ovsClient.EXPECT().SetBridgeMAC("ens2f0np0", mac)
 
-			err := provisioner.RunOnce()
+			err = provisioner.RunOnce()
 			Expect(err).ToNot(HaveOccurred())
+
+			ovsSystemdConfig, err := os.ReadFile(ovsSystemdConfigPath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(ovsSystemdConfig)).To(Equal(ovsSystemdConfigContentPopulated))
 		})
 	})
 })
