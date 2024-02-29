@@ -168,6 +168,20 @@ func (mr *MockOVSClientMockRecorder) SetBridgeUplinkPort(bridge, port any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetBridgeUplinkPort", reflect.TypeOf((*MockOVSClient)(nil).SetBridgeUplinkPort), bridge, port)
 }
 
+// SetDOCAInit mocks base method.
+func (m *MockOVSClient) SetDOCAInit(enable bool) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetDOCAInit", enable)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetDOCAInit indicates an expected call of SetDOCAInit.
+func (mr *MockOVSClientMockRecorder) SetDOCAInit(enable any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDOCAInit", reflect.TypeOf((*MockOVSClient)(nil).SetDOCAInit), enable)
+}
+
 // SetOVNEncapIP mocks base method.
 func (m *MockOVSClient) SetOVNEncapIP(ip net.IP) error {
 	m.ctrl.T.Helper()

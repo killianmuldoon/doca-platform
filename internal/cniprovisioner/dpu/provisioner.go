@@ -19,6 +19,11 @@ package dpucniprovisioner
 import (
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
+	"strings"
+
+	kexec "k8s.io/utils/exec"
 
 	ovsclient "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
 )
@@ -31,21 +36,36 @@ const (
 	// brOVN is the name of the bridge that is used to communicate with OVN. This is the bridge where the rest of the HBN
 	// will connect.
 	brOVN = "br-ovn"
+
+	// ovsSystemdConfigPath is the configuration file of the openvswitch systemd service
+	ovsSystemdConfigPath = "/etc/default/openvswitch-switch"
 )
 
 type DPUCNIProvisioner struct {
 	ovsClient ovsclient.OVSClient
+	exec      kexec.Interface
+
+	// FileSystemRoot controls the file system root. It's used for enabling easier testing of the package. Defaults to
+	// empty.
+	FileSystemRoot string
 }
 
 // New creates a DPUCNIProvisioner that can configure the system
-func New(ovsClient ovsclient.OVSClient) *DPUCNIProvisioner {
+func New(ovsClient ovsclient.OVSClient, exec kexec.Interface) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
-		ovsClient: ovsClient,
+		ovsClient:      ovsClient,
+		exec:           exec,
+		FileSystemRoot: "",
 	}
 }
 
 // RunOnce runs the provisioning flow once and exits
 func (p *DPUCNIProvisioner) RunOnce() error {
+	err := p.configureOVSDaemon()
+	if err != nil {
+		return err
+	}
+
 	// TODO: Create a better data structure for bridges.
 	// TODO: Parse IP for br-int via the interface which will use DHCP.
 	for bridge, controller := range map[string]string{
@@ -200,13 +220,41 @@ func (p *DPUCNIProvisioner) configureVFs() error { panic("unimplemented") }
 // cleanUpBridges removes all the relevant bridges. Errors are not checked, deletion is best effort.
 //
 //nolint:unused
-func (p *DPUCNIProvisioner) cleanUpBridges() {
-	panic("unimplemented")
+func (p *DPUCNIProvisioner) cleanUpBridges() { panic("unimplemented") }
+
+// configureOVSDaemon configures the OVS Daemon and triggers a restart of the daemon via systemd
+func (p *DPUCNIProvisioner) configureOVSDaemon() error {
+	err := p.exposeOVSDBOverTCP()
+	if err != nil {
+		return err
+	}
+
+	// Enable OVS DOCA. It requires hugepages which are going to be configured by the provisioning workstream.
+	err = p.ovsClient.SetDOCAInit(true)
+	if err != nil {
+		return err
+	}
+
+	cmd := p.exec.Command("systemctl", "restart", "openvswitch-switch.service")
+	return cmd.Run()
 }
 
 // exposeOVSDBOverTCP reconfigures OVS to expose ovs-db via TCP
-//
-//nolint:unused
 func (p *DPUCNIProvisioner) exposeOVSDBOverTCP() error {
-	panic("unimplemented")
+	configPath := filepath.Join(p.FileSystemRoot, ovsSystemdConfigPath)
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Could do better parsing here but that _should_ be good enough given that the default is that
+	// OVS_CTL_OPTS is not specified.
+	if !strings.Contains(string(content), "--remote=ptcp:8500") {
+		content = append(content, "\nOVS_CTL_OPTS=\"--ovsdb-server-options=--remote=ptcp:8500\""...)
+		err := os.WriteFile(configPath, content, 0644)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }

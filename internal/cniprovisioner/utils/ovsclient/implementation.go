@@ -98,3 +98,8 @@ func (c *ovsClient) SetPatchPortPeer(port string, peer string) error {
 func (c *ovsClient) SetOVNEncapIP(ip net.IP) error {
 	return c.runOVSVsctl("set", "Open_vSwitch", ".", fmt.Sprintf("external_ids:ovn-encap-ip=%s", ip.String()))
 }
+
+// SetDOCAInit sets the doca-init other_config in the Open_vSwitch table in OVS
+func (c *ovsClient) SetDOCAInit(enable bool) error {
+	return c.runOVSVsctl("set", "Open_vSwitch", ".", fmt.Sprintf("other_config:doca-init=%t", enable))
+}

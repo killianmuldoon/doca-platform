@@ -20,9 +20,11 @@ import (
 	"os"
 	"os/signal"
 
+	"k8s.io/klog/v2"
+	kexec "k8s.io/utils/exec"
+
 	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
 	ovsclient "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
-	"k8s.io/klog/v2"
 )
 
 func main() {
@@ -32,7 +34,7 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	provisioner := dpucniprovisioner.New(ovsClient)
+	provisioner := dpucniprovisioner.New(ovsClient, kexec.New())
 
 	err = provisioner.RunOnce()
 	if err != nil {
