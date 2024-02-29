@@ -14,13 +14,15 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package types
+package ovsclient
 
-import "net"
+import (
+	"net"
+)
 
 // OVSClient is a client that can be used to do specific actions on OVS.
 //
-//go:generate ../../../../hack/tools/bin/mockgen -copyright_file ../../../../hack/boilerplate.go.txt -package utils -destination ../mock/ovsclient.go -source ovs.go
+//go:generate ../../../../hack/tools/bin/mockgen -copyright_file ../../../../hack/boilerplate.go.txt -destination mock/ovsclient.go -source types.go
 type OVSClient interface {
 	// AddBridge adds a bridge
 	AddBridge(name string) error
