@@ -41,19 +41,21 @@ const (
 	ovsSystemdConfigPath = "/etc/default/openvswitch-switch"
 )
 
-// FileSystemRoot is only used for testing. This variable must not be changed outside of testing packages.
-var FileSystemRoot = ""
-
 type DPUCNIProvisioner struct {
 	ovsClient ovsclient.OVSClient
 	exec      kexec.Interface
+
+	// FileSystemRoot controls the file system root. It's used for enabling easier testing of the package. Defaults to
+	// empty.
+	FileSystemRoot string
 }
 
 // New creates a DPUCNIProvisioner that can configure the system
 func New(ovsClient ovsclient.OVSClient, exec kexec.Interface) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
-		ovsClient: ovsClient,
-		exec:      exec,
+		ovsClient:      ovsClient,
+		exec:           exec,
+		FileSystemRoot: "",
 	}
 }
 
@@ -239,7 +241,7 @@ func (p *DPUCNIProvisioner) configureOVSDaemon() error {
 
 // exposeOVSDBOverTCP reconfigures OVS to expose ovs-db via TCP
 func (p *DPUCNIProvisioner) exposeOVSDBOverTCP() error {
-	configPath := filepath.Join(FileSystemRoot, ovsSystemdConfigPath)
+	configPath := filepath.Join(p.FileSystemRoot, ovsSystemdConfigPath)
 	content, err := os.ReadFile(configPath)
 	if err != nil {
 		return err

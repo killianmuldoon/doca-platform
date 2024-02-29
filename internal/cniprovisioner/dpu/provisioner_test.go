@@ -68,7 +68,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}()
 			Expect(err).NotTo(HaveOccurred())
-			dpucniprovisioner.FileSystemRoot = tmpDir
+			provisioner.FileSystemRoot = tmpDir
 			ovsSystemdConfigPath := filepath.Join(tmpDir, "/etc/default/openvswitch-switch")
 			err = os.MkdirAll(filepath.Dir(ovsSystemdConfigPath), 0755)
 			Expect(err).NotTo(HaveOccurred())
