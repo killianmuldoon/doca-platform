@@ -24,11 +24,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/vishvananda/netlink"
 	"go.uber.org/mock/gomock"
 	kexec "k8s.io/utils/exec"
 	kexecTesting "k8s.io/utils/exec/testing"
 
 	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
+	networkhelperMock "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper/mock"
 	ovsclient "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
 	ovsclientMock "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient/mock"
 )
@@ -58,8 +60,9 @@ var _ = Describe("DPU CNI Provisioner", func() {
 		It("should configure the system fully", func() {
 			testCtrl := gomock.NewController(GinkgoT())
 			ovsClient := ovsclientMock.NewMockOVSClient(testCtrl)
+			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
 			fakeExec := &kexecTesting.FakeExec{}
-			provisioner := dpucniprovisioner.New(ovsClient, fakeExec)
+			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -111,6 +114,10 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovsClient.EXPECT().SetOVNEncapIP(net.ParseIP("192.168.1.1"))
 			mac, _ := net.ParseMAC("00:00:00:00:00:01")
 			ovsClient.EXPECT().SetBridgeMAC("ens2f0np0", mac)
+
+			ipNet, _ := netlink.ParseIPNet("192.168.1.1/24")
+			networkhelper.EXPECT().SetLinkIPAddress("vtep0", ipNet)
+			networkhelper.EXPECT().SetLinkUp("vtep0")
 
 			err = provisioner.RunOnce()
 			Expect(err).ToNot(HaveOccurred())

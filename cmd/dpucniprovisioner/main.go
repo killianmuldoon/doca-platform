@@ -24,7 +24,8 @@ import (
 	kexec "k8s.io/utils/exec"
 
 	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
-	ovsclient "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
 )
 
 func main() {
@@ -34,7 +35,7 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	provisioner := dpucniprovisioner.New(ovsClient, kexec.New())
+	provisioner := dpucniprovisioner.New(ovsClient, networkhelper.New(), kexec.New())
 
 	err = provisioner.RunOnce()
 	if err != nil {
