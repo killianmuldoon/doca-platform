@@ -119,6 +119,10 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			networkhelper.EXPECT().SetLinkIPAddress("vtep0", ipNet)
 			networkhelper.EXPECT().SetLinkUp("vtep0")
 
+			networkhelper.EXPECT().SetLinkDown("pf0vf0")
+			networkhelper.EXPECT().RenameLink("pf0vf0", "ovn-k8s-mp0_0")
+			networkhelper.EXPECT().SetLinkUp("ovn-k8s-mp0_0")
+
 			err = provisioner.RunOnce()
 			Expect(err).ToNot(HaveOccurred())
 

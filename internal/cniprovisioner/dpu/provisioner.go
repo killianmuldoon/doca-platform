@@ -103,6 +103,11 @@ func (p *DPUCNIProvisioner) RunOnce() error {
 		return err
 	}
 
+	err = p.configureOVNManagementVF()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -226,10 +231,24 @@ func (p *DPUCNIProvisioner) configureHostToServiceConnectivity() error {
 	return p.ovsClient.SetBridgeMAC(brEx, mac)
 }
 
-// configureOVNManagementVF configures the VF that is going to be used by OVN Kubernetes for the management (ovn-k8s-mp0)
-//
-//nolint:unused
-func (p *DPUCNIProvisioner) configureOVNManagementVF() error { panic("unimplemented") }
+// configureOVNManagementVF configures the VF that is going to be used by OVN Kubernetes for the management
+// (ovn-k8s-mp0_0). We need to do that because OVN Kubernetes will rename the interface on the host, but it won't be
+// able to plug that interface on the OVS since the DPU won't have such interface.
+func (p *DPUCNIProvisioner) configureOVNManagementVF() error {
+	vfRepresentorLinkName := "pf0vf0"
+	expectedLinkName := "ovn-k8s-mp0_0"
+	err := p.networkHelper.SetLinkDown(vfRepresentorLinkName)
+	if err != nil {
+		return err
+	}
+
+	err = p.networkHelper.RenameLink(vfRepresentorLinkName, expectedLinkName)
+	if err != nil {
+		return err
+	}
+
+	return p.networkHelper.SetLinkUp(expectedLinkName)
+}
 
 // configureVFs renames the existing VFs to map the fake environment we have on the host
 //
