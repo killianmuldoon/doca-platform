@@ -87,6 +87,12 @@ var _ = Describe("DPU CNI Provisioner", func() {
 
 			ovsClient.EXPECT().BridgeExists("br-int").Return(false, nil)
 
+			ovsClient.EXPECT().DeleteBridgeIfExists("ovsbr1")
+			ovsClient.EXPECT().DeleteBridgeIfExists("ovsbr2")
+			ovsClient.EXPECT().DeleteBridgeIfExists("br-int")
+			ovsClient.EXPECT().DeleteBridgeIfExists("ens2f0np0")
+			ovsClient.EXPECT().DeleteBridgeIfExists("br-ovn")
+
 			ovsClient.EXPECT().AddBridge("br-int")
 			ovsClient.EXPECT().SetBridgeDataPathType("br-int", ovsclient.NetDev)
 			ovsClient.EXPECT().SetBridgeController("br-int", "ptcp:8510:10.100.1.1")

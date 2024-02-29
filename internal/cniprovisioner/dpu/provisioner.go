@@ -82,6 +82,11 @@ func (p *DPUCNIProvisioner) configure() error {
 		return err
 	}
 
+	err = p.cleanUpBridges()
+	if err != nil {
+		return err
+	}
+
 	// TODO: Create a better data structure for bridges.
 	// TODO: Parse IP for br-int via the interface which will use DHCP.
 	for bridge, controller := range map[string]string{
@@ -298,10 +303,30 @@ func (p *DPUCNIProvisioner) isSystemAlreadyConfigured() (bool, error) {
 	return true, nil
 }
 
-// cleanUpBridges removes all the relevant bridges. Errors are not checked, deletion is best effort.
-//
-//nolint:unused
-func (p *DPUCNIProvisioner) cleanUpBridges() { panic("unimplemented") }
+// cleanUpBridges removes all the relevant bridges
+func (p *DPUCNIProvisioner) cleanUpBridges() error {
+	// Default bridges that exist in freshly installed DPUs. This step is required as we need to plug in the PF later,
+	// see plugOVSUplink(). Without p0 plugged into OVS, adding ports of type DPDK fails.
+	err := p.ovsClient.DeleteBridgeIfExists("ovsbr1")
+	if err != nil {
+		return err
+	}
+	err = p.ovsClient.DeleteBridgeIfExists("ovsbr2")
+	if err != nil {
+		return err
+	}
+
+	// Bridges that are created as part of this process
+	err = p.ovsClient.DeleteBridgeIfExists(brInt)
+	if err != nil {
+		return err
+	}
+	err = p.ovsClient.DeleteBridgeIfExists(brEx)
+	if err != nil {
+		return err
+	}
+	return p.ovsClient.DeleteBridgeIfExists(brOVN)
+}
 
 // configureOVSDaemon configures the OVS Daemon and triggers a restart of the daemon via systemd
 func (p *DPUCNIProvisioner) configureOVSDaemon() error {
