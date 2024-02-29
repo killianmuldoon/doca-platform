@@ -31,7 +31,7 @@ import (
 
 	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
 	networkhelperMock "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper/mock"
-	ovsclient "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
 	ovsclientMock "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient/mock"
 )
 
@@ -85,6 +85,8 @@ var _ = Describe("DPU CNI Provisioner", func() {
 				return kexec.New().Command("echo")
 			}))
 
+			ovsClient.EXPECT().BridgeExists("br-int").Return(false, nil)
+
 			ovsClient.EXPECT().AddBridge("br-int")
 			ovsClient.EXPECT().SetBridgeDataPathType("br-int", ovsclient.NetDev)
 			ovsClient.EXPECT().SetBridgeController("br-int", "ptcp:8510:10.100.1.1")
@@ -129,6 +131,22 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovsSystemdConfig, err := os.ReadFile(ovsSystemdConfigPath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(ovsSystemdConfig)).To(Equal(ovsSystemdConfigContentPopulated))
+		})
+	})
+	Context("When it runs once when the system is configured", func() {
+		It("should skip configuration", func() {
+			testCtrl := gomock.NewController(GinkgoT())
+			ovsClient := ovsclientMock.NewMockOVSClient(testCtrl)
+			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			fakeExec := &kexecTesting.FakeExec{}
+			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec)
+
+			ovsClient.EXPECT().BridgeExists("br-int").Return(true, nil)
+			ovsClient.EXPECT().BridgeExists("ens2f0np0").Return(true, nil)
+			ovsClient.EXPECT().BridgeExists("br-ovn").Return(true, nil)
+
+			err := provisioner.RunOnce()
+			Expect(err).ToNot(HaveOccurred())
 		})
 	})
 })
