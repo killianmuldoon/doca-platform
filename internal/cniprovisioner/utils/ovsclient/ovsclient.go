@@ -14,14 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package utils
+package ovsclient
 
-import (
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/internal/ovsclient"
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/types"
-)
-
-// NewOVSClient creates a new OVSClient
-func NewOVSClient() (types.OVSClient, error) {
-	return ovsclient.New()
+// New creates a new OVSClient
+func New() (OVSClient, error) {
+	return newOvsClient()
 }

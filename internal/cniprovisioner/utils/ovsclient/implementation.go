@@ -20,8 +20,6 @@ import (
 	"fmt"
 	"net"
 	"os/exec"
-
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/types"
 )
 
 const ovsVsctl = "ovs-vsctl"
@@ -31,7 +29,7 @@ type ovsClient struct {
 }
 
 // New creates an OVSClient and returns an error if the OVS util binaries can't be found.
-func New() (types.OVSClient, error) {
+func newOvsClient() (OVSClient, error) {
 	var err error
 	c := &ovsClient{}
 	c.ovsVsctlPath, err = exec.LookPath(ovsVsctl)
@@ -57,7 +55,7 @@ func (c *ovsClient) DeleteBridge(name string) error {
 }
 
 // SetBridgeDataPathType sets the datapath type of a bridge
-func (c *ovsClient) SetBridgeDataPathType(bridge string, bridgeType types.BridgeDataPathType) error {
+func (c *ovsClient) SetBridgeDataPathType(bridge string, bridgeType BridgeDataPathType) error {
 	return c.runOVSVsctl("set", "bridge", bridge, fmt.Sprintf("type=%s", bridgeType))
 }
 
@@ -87,7 +85,7 @@ func (c *ovsClient) AddPort(bridge string, port string) error {
 }
 
 // SetPortType adds a port to a bridge
-func (c *ovsClient) SetPortType(port string, portType types.PortType) error {
+func (c *ovsClient) SetPortType(port string, portType PortType) error {
 	return c.runOVSVsctl("set", "interface", port, fmt.Sprintf("type=%s", portType))
 }
 
