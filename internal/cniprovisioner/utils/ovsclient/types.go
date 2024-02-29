@@ -28,8 +28,8 @@ type OVSClient interface {
 	BridgeExists(name string) (bool, error)
 	// AddBridge adds a bridge
 	AddBridge(name string) error
-	// DeleteBridge deletes a bridge
-	DeleteBridge(name string) error
+	// DeleteBridgeIfExists deletes a bridge if it exists
+	DeleteBridgeIfExists(name string) error
 	// SetBridgeDataPathType sets the datapath type of a bridge
 	SetBridgeDataPathType(bridge string, bridgeType BridgeDataPathType) error
 	// SetBridgeMAC sets the MAC address for the bridge interface
