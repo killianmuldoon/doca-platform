@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"net"
 
-	utilsTypes "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/types"
+	ovsclient "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
 )
 
 const (
@@ -34,11 +34,11 @@ const (
 )
 
 type DPUCNIProvisioner struct {
-	ovsClient utilsTypes.OVSClient
+	ovsClient ovsclient.OVSClient
 }
 
 // New creates a DPUCNIProvisioner that can configure the system
-func New(ovsClient utilsTypes.OVSClient) *DPUCNIProvisioner {
+func New(ovsClient ovsclient.OVSClient) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
 		ovsClient: ovsClient,
 	}
@@ -89,7 +89,7 @@ func (p *DPUCNIProvisioner) setupOVSBridge(name string, controller string) error
 		return err
 	}
 
-	err = p.ovsClient.SetBridgeDataPathType(name, utilsTypes.NetDev)
+	err = p.ovsClient.SetBridgeDataPathType(name, ovsclient.NetDev)
 	if err != nil {
 		return err
 	}
@@ -123,7 +123,7 @@ func (p *DPUCNIProvisioner) connectOVSBridges(brA string, brB string) (string, s
 func (p *DPUCNIProvisioner) addOVSPatchPortWithPeer(bridge string, port string, peer string) error {
 	// TODO: Check for this error and validate expected error, otherwise return error
 	_ = p.ovsClient.AddPort(bridge, port)
-	err := p.ovsClient.SetPortType(port, utilsTypes.Patch)
+	err := p.ovsClient.SetPortType(port, ovsclient.Patch)
 	if err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func (p *DPUCNIProvisioner) plugOVSUplink() error {
 	if err != nil {
 		return err
 	}
-	return p.ovsClient.SetPortType(uplink, utilsTypes.DPDK)
+	return p.ovsClient.SetPortType(uplink, ovsclient.DPDK)
 }
 
 // configurePodToPodOnDifferentNodeConnectivity configures a VTEP interface and the ovn-encap-ip external ID so that
@@ -150,7 +150,7 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 	if err != nil {
 		return err
 	}
-	err = p.ovsClient.SetPortType(vtep0, utilsTypes.Internal)
+	err = p.ovsClient.SetPortType(vtep0, ovsclient.Internal)
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func (p *DPUCNIProvisioner) configureHostToServiceConnectivity() error {
 	if err != nil {
 		return err
 	}
-	err = p.ovsClient.SetPortType(pfRep, utilsTypes.DPDK)
+	err = p.ovsClient.SetPortType(pfRep, ovsclient.DPDK)
 	if err != nil {
 		return err
 	}

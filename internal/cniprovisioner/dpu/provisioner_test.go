@@ -22,42 +22,43 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
-	utils "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/mock"
-	utilsTypes "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/types"
 	"go.uber.org/mock/gomock"
+
+	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
+	ovsclient "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
+	ovsclientMock "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient/mock"
 )
 
 var _ = Describe("DPU CNI Provisioner", func() {
 	Context("When it runs once", func() {
 		It("should configure the system fully", func() {
 			testCtrl := gomock.NewController(GinkgoT())
-			ovsClient := utils.NewMockOVSClient(testCtrl)
+			ovsClient := ovsclientMock.NewMockOVSClient(testCtrl)
 			provisioner := dpucniprovisioner.New(ovsClient)
 
 			ovsClient.EXPECT().AddBridge("br-int")
-			ovsClient.EXPECT().SetBridgeDataPathType("br-int", utilsTypes.NetDev)
+			ovsClient.EXPECT().SetBridgeDataPathType("br-int", ovsclient.NetDev)
 			ovsClient.EXPECT().SetBridgeController("br-int", "ptcp:8510:10.100.1.1")
 			ovsClient.EXPECT().AddBridge("ens2f0np0")
-			ovsClient.EXPECT().SetBridgeDataPathType("ens2f0np0", utilsTypes.NetDev)
+			ovsClient.EXPECT().SetBridgeDataPathType("ens2f0np0", ovsclient.NetDev)
 			ovsClient.EXPECT().SetBridgeController("ens2f0np0", "ptcp:8511")
 			ovsClient.EXPECT().AddBridge("br-ovn")
-			ovsClient.EXPECT().SetBridgeDataPathType("br-ovn", utilsTypes.NetDev)
+			ovsClient.EXPECT().SetBridgeDataPathType("br-ovn", ovsclient.NetDev)
 
 			ovsClient.EXPECT().AddPort("ens2f0np0", "ens2f0np0-to-br-ovn").Return(errors.New("some error related to creating patch ports"))
-			ovsClient.EXPECT().SetPortType("ens2f0np0-to-br-ovn", utilsTypes.Patch)
+			ovsClient.EXPECT().SetPortType("ens2f0np0-to-br-ovn", ovsclient.Patch)
 			ovsClient.EXPECT().SetPatchPortPeer("ens2f0np0-to-br-ovn", "br-ovn-to-ens2f0np0")
 			ovsClient.EXPECT().AddPort("br-ovn", "br-ovn-to-ens2f0np0").Return(errors.New("some error related to creating patch ports"))
-			ovsClient.EXPECT().SetPortType("br-ovn-to-ens2f0np0", utilsTypes.Patch)
+			ovsClient.EXPECT().SetPortType("br-ovn-to-ens2f0np0", ovsclient.Patch)
 			ovsClient.EXPECT().SetPatchPortPeer("br-ovn-to-ens2f0np0", "ens2f0np0-to-br-ovn")
 
 			ovsClient.EXPECT().AddPort("br-ovn", "p0")
-			ovsClient.EXPECT().SetPortType("p0", utilsTypes.DPDK)
+			ovsClient.EXPECT().SetPortType("p0", ovsclient.DPDK)
 			ovsClient.EXPECT().AddPort("br-ovn", "vtep0")
-			ovsClient.EXPECT().SetPortType("vtep0", utilsTypes.Internal)
+			ovsClient.EXPECT().SetPortType("vtep0", ovsclient.Internal)
 
 			ovsClient.EXPECT().AddPort("ens2f0np0", "pf0hpf")
-			ovsClient.EXPECT().SetPortType("pf0hpf", utilsTypes.DPDK)
+			ovsClient.EXPECT().SetPortType("pf0hpf", ovsclient.DPDK)
 			ovsClient.EXPECT().SetBridgeHostToServicePort("ens2f0np0", "pf0hpf")
 			ovsClient.EXPECT().SetBridgeUplinkPort("ens2f0np0", "ens2f0np0-to-br-ovn")
 

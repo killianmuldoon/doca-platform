@@ -21,20 +21,22 @@ import (
 	"os/signal"
 
 	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils"
+	ovsclient "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
+	"k8s.io/klog/v2"
 )
 
 func main() {
-	ovsClient, err := utils.NewOVSClient()
+	klog.Info("Starting DPU CNI Provisioner")
+	ovsClient, err := ovsclient.New()
 	if err != nil {
-		panic(err)
+		klog.Fatal(err)
 	}
 
 	provisioner := dpucniprovisioner.New(ovsClient)
 
 	err = provisioner.RunOnce()
 	if err != nil {
-		panic(err)
+		klog.Fatal(err)
 	}
 
 	c := make(chan os.Signal, 1)
