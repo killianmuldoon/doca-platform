@@ -23,9 +23,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/vishvananda/netlink"
 	kexec "k8s.io/utils/exec"
 
-	ovsclient "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
 )
 
 const (
@@ -42,8 +44,9 @@ const (
 )
 
 type DPUCNIProvisioner struct {
-	ovsClient ovsclient.OVSClient
-	exec      kexec.Interface
+	ovsClient     ovsclient.OVSClient
+	networkHelper networkhelper.NetworkHelper
+	exec          kexec.Interface
 
 	// FileSystemRoot controls the file system root. It's used for enabling easier testing of the package. Defaults to
 	// empty.
@@ -51,9 +54,10 @@ type DPUCNIProvisioner struct {
 }
 
 // New creates a DPUCNIProvisioner that can configure the system
-func New(ovsClient ovsclient.OVSClient, exec kexec.Interface) *DPUCNIProvisioner {
+func New(ovsClient ovsclient.OVSClient, networkHelper networkhelper.NetworkHelper, exec kexec.Interface) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
 		ovsClient:      ovsClient,
+		networkHelper:  networkHelper,
 		exec:           exec,
 		FileSystemRoot: "",
 	}
@@ -164,21 +168,36 @@ func (p *DPUCNIProvisioner) plugOVSUplink() error {
 // configurePodToPodOnDifferentNodeConnectivity configures a VTEP interface and the ovn-encap-ip external ID so that
 // traffic going through the geneve tunnels can function as expected.
 func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkPort string) error {
-	// TODO: Assign IP and bring interface up
-	vtep0 := "vtep0"
-	err := p.ovsClient.AddPort(brOVN, vtep0)
+	vtep := "vtep0"
+	err := p.ovsClient.AddPort(brOVN, vtep)
 	if err != nil {
 		return err
 	}
-	err = p.ovsClient.SetPortType(vtep0, ovsclient.Internal)
+
+	err = p.ovsClient.SetPortType(vtep, ovsclient.Internal)
 	if err != nil {
 		return err
 	}
-	// TODO: IP of vtep0 must match this one
-	err = p.ovsClient.SetOVNEncapIP(net.ParseIP("192.168.1.1"))
+
+	// TODO: Still undecided on how we get that IP. Adjust as needed after decision is made.
+	ipNet, err := netlink.ParseIPNet("192.168.1.1/24")
 	if err != nil {
 		return err
 	}
+	err = p.networkHelper.SetLinkIPAddress(vtep, ipNet)
+	if err != nil {
+		return err
+	}
+	err = p.networkHelper.SetLinkUp(vtep)
+	if err != nil {
+		return err
+	}
+
+	err = p.ovsClient.SetOVNEncapIP(ipNet.IP)
+	if err != nil {
+		return err
+	}
+
 	// This is also needed for pods to access the internet
 	return p.ovsClient.SetBridgeUplinkPort(brEx, uplinkPort)
 }
