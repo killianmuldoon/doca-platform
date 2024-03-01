@@ -21,8 +21,8 @@ import (
 	"flag"
 	"os"
 
-	controlplanedpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
-	controlplanedpfcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/controllers"
+	controlplanev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
+	controlplanecontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/controllers"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -42,7 +42,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(controlplanedpfv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(controlplanev1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -117,7 +117,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&controlplanedpfcontroller.DPFClusterReconciler{
+	if err = (&controlplanecontroller.DPFClusterReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {

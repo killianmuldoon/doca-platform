@@ -19,11 +19,11 @@ package controllers
 import (
 	"context"
 
-	controlplanedpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
+	controlplanev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -39,13 +39,13 @@ var _ = Describe("DPFCluster Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		dpfcluster := &controlplanedpfv1alpha1.DPFCluster{}
+		dpfcluster := &controlplanev1.DPFCluster{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind DPFCluster")
 			err := k8sClient.Get(ctx, typeNamespacedName, dpfcluster)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &controlplanedpfv1alpha1.DPFCluster{
+			if err != nil && apierrors.IsNotFound(err) {
+				resource := &controlplanev1.DPFCluster{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -58,7 +58,7 @@ var _ = Describe("DPFCluster Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &controlplanedpfv1alpha1.DPFCluster{}
+			resource := &controlplanev1.DPFCluster{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
