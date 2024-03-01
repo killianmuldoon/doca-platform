@@ -90,7 +90,8 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, service *dpu
 	return ctrl.Result{}, nil
 }
 
-func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) { //nolint:unparam //TODO: remove once function is implemented.
+//nolint:unparam //TODO: remove once function is implemented.
+func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) {
 	// Get the list of clusters this DPUService targets.
 	clusters := getClusters(ctx, r.Client)
 
@@ -125,7 +126,7 @@ func (r *DPUServiceReconciler) reconcileArgoCDAppProject(ctx context.Context) er
 
 }
 
-func (r *DPUServiceReconciler) reconcileArgoApplication(ctx context.Context, clusterNames []string, dpuService *dpuservicev1.DPUService) error {
+func (r *DPUServiceReconciler) reconcileArgoApplication(ctx context.Context, clusters []string, dpuService *dpuservicev1.DPUService) error {
 	return nil
 
 }
