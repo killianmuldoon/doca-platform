@@ -40,7 +40,7 @@ type DPUServiceReconciler struct {
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/finalizers,verbs=update
 
-var dpuServiceControllerName = "dpuservice-manager"
+const dpuServiceControllerName = "dpuservice-manager"
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPUServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
