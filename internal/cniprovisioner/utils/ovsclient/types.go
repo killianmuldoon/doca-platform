@@ -24,6 +24,8 @@ import (
 //
 //go:generate ../../../../hack/tools/bin/mockgen -copyright_file ../../../../hack/boilerplate.go.txt -destination mock/ovsclient.go -source types.go
 type OVSClient interface {
+	// BridgeExists checks if a bridge exists
+	BridgeExists(name string) (bool, error)
 	// AddBridge adds a bridge
 	AddBridge(name string) error
 	// DeleteBridge deletes a bridge

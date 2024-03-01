@@ -44,6 +44,22 @@ func (c *ovsClient) runOVSVsctl(args ...string) error {
 	return cmd.Run()
 }
 
+// BridgeExists checks if a bridge exists
+func (c *ovsClient) BridgeExists(name string) (bool, error) {
+	err := c.runOVSVsctl("br-exists", name)
+	if err != nil {
+		if exiterr, ok := err.(*exec.ExitError); ok {
+			// https://github.com/openvswitch/ovs/blob/166ee41d282c506d100bc2185d60af277121b55b/utilities/ovs-vsctl.8.in#L203-L206
+			if exiterr.ExitCode() == 2 {
+				return false, nil
+			}
+		}
+		return false, err
+	}
+
+	return true, nil
+}
+
 // AddBridge adds a bridge
 func (c *ovsClient) AddBridge(name string) error {
 	return c.runOVSVsctl("add-br", name)

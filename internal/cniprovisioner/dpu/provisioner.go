@@ -65,6 +65,18 @@ func New(ovsClient ovsclient.OVSClient, networkHelper networkhelper.NetworkHelpe
 
 // RunOnce runs the provisioning flow once and exits
 func (p *DPUCNIProvisioner) RunOnce() error {
+	isConfigured, err := p.isSystemAlreadyConfigured()
+	if err != nil {
+		return err
+	}
+	if isConfigured {
+		return nil
+	}
+	return p.configure()
+}
+
+// configure runs the provisioning flow without checking existing configuration
+func (p *DPUCNIProvisioner) configure() error {
 	err := p.configureOVSDaemon()
 	if err != nil {
 		return err
@@ -254,6 +266,37 @@ func (p *DPUCNIProvisioner) configureOVNManagementVF() error {
 //
 //nolint:unused
 func (p *DPUCNIProvisioner) configureVFs() error { panic("unimplemented") }
+
+// isSystemAlreadyConfigured checks if the system is already configured. No thorough checks are done, just a high level
+// check to avoid re-running the configuration.
+// TODO: Make rest of the calls idempotent and skip such check.
+func (p *DPUCNIProvisioner) isSystemAlreadyConfigured() (bool, error) {
+	exists, err := p.ovsClient.BridgeExists(brInt)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, nil
+	}
+
+	exists, err = p.ovsClient.BridgeExists(brEx)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, nil
+	}
+
+	exists, err = p.ovsClient.BridgeExists(brOVN)
+	if err != nil {
+		return false, err
+	}
+	if !exists {
+		return false, nil
+	}
+
+	return true, nil
+}
 
 // cleanUpBridges removes all the relevant bridges. Errors are not checked, deletion is best effort.
 //

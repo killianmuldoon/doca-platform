@@ -84,6 +84,21 @@ func (mr *MockOVSClientMockRecorder) AddPort(bridge, port any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPort", reflect.TypeOf((*MockOVSClient)(nil).AddPort), bridge, port)
 }
 
+// BridgeExists mocks base method.
+func (m *MockOVSClient) BridgeExists(name string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BridgeExists", name)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BridgeExists indicates an expected call of BridgeExists.
+func (mr *MockOVSClientMockRecorder) BridgeExists(name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BridgeExists", reflect.TypeOf((*MockOVSClient)(nil).BridgeExists), name)
+}
+
 // DeleteBridge mocks base method.
 func (m *MockOVSClient) DeleteBridge(name string) error {
 	m.ctrl.T.Helper()
