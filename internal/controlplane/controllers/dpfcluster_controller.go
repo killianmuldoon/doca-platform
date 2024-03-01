@@ -19,12 +19,12 @@ package controllers
 import (
 	"context"
 
+	controlplanedpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	controlplanedpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
 )
 
 // DPFClusterReconciler reconciles a DPFCluster object

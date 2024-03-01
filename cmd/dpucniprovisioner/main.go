@@ -20,12 +20,12 @@ import (
 	"os"
 	"os/signal"
 
-	"k8s.io/klog/v2"
-	kexec "k8s.io/utils/exec"
-
 	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
+
+	"k8s.io/klog/v2"
+	kexec "k8s.io/utils/exec"
 )
 
 func main() {

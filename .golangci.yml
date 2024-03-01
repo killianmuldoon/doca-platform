@@ -8,6 +8,7 @@ linters:
     - dupl
     - errcheck
     - exportloopref
+    - gci
     - ginkgolinter
     - goconst
     - gocyclo
@@ -25,10 +26,18 @@ linters:
     - unconvert
     - unparam
     - unused
+
 linters-settings:
   lll:
     line-length: 140
+  gci:
+    sections:
+      - standard # Standard packages.
+      - prefix(gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator) # Packages from this go module.
+      - default # All other packages.
+    custom-order: true
   ginkgolinter:
     forbid-focus-container: true
+
 issues:
   exclude-use-default: false
