@@ -99,18 +99,18 @@ func (mr *MockOVSClientMockRecorder) BridgeExists(name any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BridgeExists", reflect.TypeOf((*MockOVSClient)(nil).BridgeExists), name)
 }
 
-// DeleteBridge mocks base method.
-func (m *MockOVSClient) DeleteBridge(name string) error {
+// DeleteBridgeIfExists mocks base method.
+func (m *MockOVSClient) DeleteBridgeIfExists(name string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteBridge", name)
+	ret := m.ctrl.Call(m, "DeleteBridgeIfExists", name)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DeleteBridge indicates an expected call of DeleteBridge.
-func (mr *MockOVSClientMockRecorder) DeleteBridge(name any) *gomock.Call {
+// DeleteBridgeIfExists indicates an expected call of DeleteBridgeIfExists.
+func (mr *MockOVSClientMockRecorder) DeleteBridgeIfExists(name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBridge", reflect.TypeOf((*MockOVSClient)(nil).DeleteBridge), name)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteBridgeIfExists", reflect.TypeOf((*MockOVSClient)(nil).DeleteBridgeIfExists), name)
 }
 
 // SetBridgeController mocks base method.

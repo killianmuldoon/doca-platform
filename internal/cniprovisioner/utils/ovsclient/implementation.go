@@ -65,9 +65,9 @@ func (c *ovsClient) AddBridge(name string) error {
 	return c.runOVSVsctl("add-br", name)
 }
 
-// DeleteBridge deletes a bridge
-func (c *ovsClient) DeleteBridge(name string) error {
-	return c.runOVSVsctl("del-br", name)
+// DeleteBridgeIfExists deletes a bridge if it exists
+func (c *ovsClient) DeleteBridgeIfExists(name string) error {
+	return c.runOVSVsctl("--if-exists", "del-br", name)
 }
 
 // SetBridgeDataPathType sets the datapath type of a bridge
