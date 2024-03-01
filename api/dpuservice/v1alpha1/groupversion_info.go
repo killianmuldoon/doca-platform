@@ -25,6 +25,10 @@ import (
 )
 
 var (
+	DPUServiceKind             = "DPUService"
+	DPUServiceGroupVersionKind = GroupVersion.WithKind(DPUServiceKind)
+)
+var (
 	// GroupVersion is group version used to register these objects
 	GroupVersion = schema.GroupVersion{Group: "svc.dpf.nvidia.com", Version: "v1alpha1"}
 

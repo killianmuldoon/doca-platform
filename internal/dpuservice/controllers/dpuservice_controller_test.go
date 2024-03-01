@@ -17,68 +17,53 @@ limitations under the License.
 package controllers
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	svcdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 )
 
 var _ = Describe("DPUService Controller", func() {
 	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+		testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+		dpuServiceName := "dpu-one"
 
-		ctx := context.Background()
-
-		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
-		}
-		dpuservice := &svcdpfv1alpha1.DPUService{}
+		dpuServiceKey := types.NamespacedName{}
+		dpuService := &dpuservicev1.DPUService{}
 
 		BeforeEach(func() {
-			By("creating the custom resource for the Kind DPUService")
-			err := k8sClient.Get(ctx, typeNamespacedName, dpuservice)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &svcdpfv1alpha1.DPUService{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
-					},
-					// TODO(user): Specify other spec details if needed.
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+			By("creating the namespace")
+			Expect(testClient.Create(ctx, testNS)).To(Succeed())
+			dpuServiceKey = types.NamespacedName{Name: dpuServiceName, Namespace: testNS.Name}
+			dpuService = &dpuservicev1.DPUService{
+				ObjectMeta: metav1.ObjectMeta{Name: dpuServiceName, Namespace: testNS.Name},
 			}
+			By("creating the DPUService")
+			Expect(testClient.Create(ctx, dpuService)).To(Succeed())
 		})
-
 		AfterEach(func() {
-			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &svcdpfv1alpha1.DPUService{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
-			Expect(err).NotTo(HaveOccurred())
-
-			By("Cleanup the specific resource instance DPUService")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			By("Cleanup the DPUService and Namespace")
+			Expect(testClient.Delete(ctx, dpuService)).To(Succeed())
+			Expect(testClient.Delete(ctx, testNS)).To(Succeed())
 		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
+		It("should successfully add the DPUService finalizer", func() {
+			By("Reconciling the created resource for the first time")
 			controllerReconciler := &DPUServiceReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
+				Client: testClient,
+				Scheme: testClient.Scheme(),
 			}
-
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
+				NamespacedName: dpuServiceKey,
 			})
 			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
+			gotDPUService := &dpuservicev1.DPUService{}
+			Expect(testClient.Get(ctx, dpuServiceKey, gotDPUService)).To(Succeed())
+			Expect(gotDPUService.GetFinalizers()).To(ConsistOf(dpuservicev1.DPUServiceFinalizer))
 		})
 	})
 })

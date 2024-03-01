@@ -38,11 +38,6 @@ spec:
             type: object
           spec:
             description: DPUServiceSpec defines the desired state of DPUService
-            properties:
-              foo:
-                description: Foo is an example field of DPUService. Edit dpuservice_types.go
-                  to remove/update
-                type: string
             type: object
           status:
             description: DPUServiceStatus defines the observed state of DPUService
