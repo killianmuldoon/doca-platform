@@ -1,10 +1,10 @@
-
 ARG builder_image
+ARG base_image
+ARG target_arch
 
 # Build the manager binary
 FROM ${builder_image} as builder
-ARG TARGETOS
-ARG TARGETARCH
+ARG target_arch
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -22,13 +22,11 @@ ARG package=.
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux \
+    CGO_ENABLED=0 GOOS=linux GOARCH=${target_arch} \
     go build -trimpath -ldflags "-extldflags '-static'" \
     -o manager ${package}
 
-# Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-FROM gcr.io/distroless/static:nonroot
+FROM --platform=linux/${target_arch} ${base_image}
 WORKDIR /
 COPY --from=builder /workspace/manager .
 USER 65532:65532

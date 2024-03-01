@@ -128,6 +128,15 @@ REGISTRY ?= harbor.mellanox.com/cloud-orchestration-dev/dpf
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 TAG ?= v0.0.1
 
+HOST_ARCH = amd64
+# Note: If you make this variable configurable, ensure that the custom base image that is built in
+# docker-build-base-image-ovs is fetching binaries with the correct architecture.
+DPU_ARCH = arm64
+
+# Use distroless as minimal base image to package the manager binary
+# Refer to https://github.com/GoogleContainerTools/distroless for more details
+BASE_IMAGE = gcr.io/distroless/static:nonroot
+
 .PHONY: binaries
 binaries: $(addprefix binary-,$(BUILD_TARGETS)) ## Build all binaries
 
@@ -147,23 +156,56 @@ binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
 docker-build-all: ## Build docker images for all BUILD_TARGETS
 	$(MAKE) $(addprefix docker-build-,$(BUILD_TARGETS))
 
+OVS_BASE_IMAGE_NAME = base-image-ovs
+OVS_BASE_IMAGE = $(REGISTRY)/$(OVS_BASE_IMAGE_NAME)
+
 DPUSERVICE_IMAGE_NAME ?= dpuservice-controller-manager
 DPUSERVICE_IMAGE ?= $(REGISTRY)/$(DPUSERVICE_IMAGE_NAME)
 
 CONTROLPLANE_IMAGE_NAME ?= controlplane-controller-manager
 CONTROLPLANE_IMAGE ?= $(REGISTRY)/$(CONTROLPLANE_IMAGE_NAME)
 
+DPUCNIPROVISIONER_IMAGE_NAME ?= dpu-cni-provisioner
+DPUCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(DPUCNIPROVISIONER_IMAGE_NAME)
+
 .PHONY: docker-build-dpuservice
 docker-build-dpuservice: ## Build docker images for the dpuservice-controller
-	docker build --build-arg builder_image=$(BUILD_IMAGE) --build-arg package=./cmd/dpuservice . -t $(DPUSERVICE_IMAGE):$(TAG)
+	docker build \
+		--build-arg builder_image=$(BUILD_IMAGE) \
+		--build-arg base_image=$(BASE_IMAGE) \
+		--build-arg target_arch=$(HOST_ARCH) \
+		--build-arg package=./cmd/dpuservice \
+		. \
+		-t $(DPUSERVICE_IMAGE):$(TAG)
 
 .PHONY: docker-build-controlplane
 docker-build-controlplane: ## Build docker images for the controlplane-controller
-	docker build --build-arg builder_image=$(BUILD_IMAGE) --build-arg package=./cmd/controlplane . -t $(CONTROLPLANE_IMAGE):$(TAG)
+	docker build \
+		--build-arg builder_image=$(BUILD_IMAGE) \
+		--build-arg base_image=$(BASE_IMAGE) \
+		--build-arg target_arch=$(HOST_ARCH) \
+		--build-arg package=./cmd/controlplane \
+		. \
+		-t $(CONTROLPLANE_IMAGE):$(TAG)
 
-## TODO: Implement using correct OVS dependencies.
 .PHONY: docker-build-dpucniprovisioner
-docker-build-dpucniprovisioner: ;## Build docker images for the DPU CNI Provisioner
+docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker images for the DPU CNI Provisioner
+	docker build \
+		--build-arg builder_image=$(BUILD_IMAGE) \
+		--build-arg base_image=$(OVS_BASE_IMAGE):$(TAG) \
+		--build-arg target_arch=$(DPU_ARCH) \
+		--build-arg package=./cmd/dpucniprovisioner \
+		. \
+		-t $(DPUCNIPROVISIONER_IMAGE):$(TAG)
+
+.PHONY: docker-build-base-image-ovs
+docker-build-base-image-ovs: ## Build base docker image with OVS dependencies
+	docker buildx build \
+		--load \
+		--platform linux/${DPU_ARCH} \
+		-f Dockerfile.ovs \
+		. \
+		-t $(OVS_BASE_IMAGE):$(TAG)
 
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(BUILD_TARGETS))  ## Push the docker images for all controllers.
@@ -175,6 +217,10 @@ docker-push-dpuservice: ## Push the docker image for dpuservice.
 .PHONY: docker-push-controlplane
 docker-push-controlplane: ## Push the docker image for dpuservice.
 	docker push $(CONTROLPLANE_IMAGE):$(TAG)
+
+.PHONY: docker-push-dpucniprovisioner
+docker-push-dpucniprovisioner: ## Push the docker image for DPU CNI Provisioner.
+	docker push $(DPUCNIPROVISIONER_IMAGE):$(TAG)
 
 ##@ Dependencies
 LOCALBIN ?= $(shell pwd)/bin
