@@ -8,6 +8,7 @@ linters:
     - dupl
     - errcheck
     - exportloopref
+    - ginkgolinter
     - goconst
     - gocyclo
     - gofmt
@@ -27,5 +28,7 @@ linters:
 linters-settings:
   lll:
     line-length: 140
+  ginkgolinter:
+    forbid-focus-container: true
 issues:
   exclude-use-default: false
