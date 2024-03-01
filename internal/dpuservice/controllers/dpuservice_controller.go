@@ -19,14 +19,14 @@ package controllers
 import (
 	"context"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -40,7 +40,7 @@ type DPUServiceReconciler struct {
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/finalizers,verbs=update
 
-var dpuServiceControllerName = "dpuservice-manager"
+const dpuServiceControllerName = "dpuservice-manager"
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPUServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -90,7 +90,8 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, service *dpu
 	return ctrl.Result{}, nil
 }
 
-func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) { //nolint:unparam //TODO: remove once function is implemented.
+//nolint:unparam //TODO: remove once function is implemented.
+func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) {
 	// Get the list of clusters this DPUService targets.
 	clusters := getClusters(ctx, r.Client)
 
@@ -125,7 +126,7 @@ func (r *DPUServiceReconciler) reconcileArgoCDAppProject(ctx context.Context) er
 
 }
 
-func (r *DPUServiceReconciler) reconcileArgoApplication(ctx context.Context, clusterNames []string, dpuService *dpuservicev1.DPUService) error {
+func (r *DPUServiceReconciler) reconcileArgoApplication(ctx context.Context, clusters []string, dpuService *dpuservicev1.DPUService) error {
 	return nil
 
 }

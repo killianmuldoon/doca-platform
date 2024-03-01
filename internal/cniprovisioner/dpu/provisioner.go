@@ -23,11 +23,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/vishvananda/netlink"
-	kexec "k8s.io/utils/exec"
-
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
+
+	"github.com/vishvananda/netlink"
+	kexec "k8s.io/utils/exec"
 )
 
 const (

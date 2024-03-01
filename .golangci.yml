@@ -2,32 +2,21 @@ run:
   deadline: 5m
   allow-parallel-runners: true
 
-issues:
-  # don't skip warning about doc comments
-  # don't exclude the default set of lint
-  exclude-use-default: false
-  # restore some of the defaults
-  # (fill in the rest as needed)
-  exclude-rules:
-    - path: "api/*"
-      linters:
-        - lll
-    - path: "internal/*"
-      linters:
-        - dupl
-        - lll
 linters:
   disable-all: true
   enable:
     - dupl
     - errcheck
     - exportloopref
+    - gci
+    - ginkgolinter
     - goconst
     - gocyclo
     - gofmt
     - goimports
     - gosimple
     - govet
+    - importas
     - ineffassign
     - lll
     - misspell
@@ -38,3 +27,48 @@ linters:
     - unconvert
     - unparam
     - unused
+
+linters-settings:
+  lll:
+    line-length: 140
+  gci:
+    sections:
+      - standard # Standard packages.
+      - prefix(gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator) # Packages from this go module.
+      - default # All other packages.
+    custom-order: true
+  ginkgolinter:
+    forbid-focus-container: true
+  importas:
+    no-unaliased: true
+    alias:
+      # DPF
+      - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1
+        alias: controlplanev1
+      - pkg:  gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1
+        alias: dpuservicev1
+      - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/controllers
+        alias: dpuservicecontroller
+      - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/controllers
+        alias: controlplanecontroller
+
+        # Kubernetes
+      - pkg: k8s.io/api/core/v1
+        alias: corev1
+      - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+        alias: metav1
+      - pkg: k8s.io/apimachinery/pkg/api/errors
+        alias: apierrors
+      - pkg: k8s.io/apimachinery/pkg/util/errors
+        alias: kerrors
+      - pkg: k8s.io/component-base/logs/api/v1
+        alias: logsv1
+      - pkg: k8s.io/utils/exec
+        alias: kexec
+
+      # Controller Runtime
+      - pkg: sigs.k8s.io/controller-runtime
+        alias: ctrl
+
+issues:
+  exclude-use-default: false

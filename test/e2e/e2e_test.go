@@ -21,10 +21,10 @@ import (
 	"os/exec"
 	"time"
 
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils"
 )
 
 const namespace = "dpf-operator-system"

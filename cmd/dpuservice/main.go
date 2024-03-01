@@ -21,12 +21,9 @@ import (
 	"flag"
 	"os"
 
-	controlplanedpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
-	svcdpfcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/controllers"
-
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	controlplanev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
+	dpuservicecontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/controllers"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -36,9 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-
-	svcdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
-	//+kubebuilder:scaffold:imports
 )
 
 var (
@@ -49,8 +43,8 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(svcdpfv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(controlplanedpfv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(dpuservicev1.AddToScheme(scheme))
+	utilruntime.Must(controlplanev1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -125,7 +119,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&svcdpfcontroller.DPUServiceReconciler{
+	if err = (&dpuservicecontroller.DPUServiceReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
