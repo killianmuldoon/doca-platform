@@ -247,7 +247,7 @@ MOCKGEN = $(TOOLSDIR)/mockgen-$(MOCKGEN_VERSION)
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.3.0
 CONTROLLER_TOOLS_VERSION ?= v0.14.0
-ENVTEST_VERSION ?= latest
+ENVTEST_VERSION ?= v0.0.0-20240110160329-8f8247fdc1c3
 GOLANGCI_LINT_VERSION ?= v1.54.2
 MOCKGEN_VERSION ?= v0.4.0
 
@@ -277,10 +277,94 @@ $(MOCKGEN): $(TOOLSDIR)
 	$(call go-install-tool,$(MOCKGEN),go.uber.org/mock/mockgen,${MOCKGEN_VERSION})
 	ln -f $(MOCKGEN) $(abspath $(TOOLSDIR)/mockgen)
 
+# helm is used to manage helm deployments and artifacts.
+GET_HELM = $(TOOLSDIR)/get_helm.sh
+HELM_VER = v3.13.3
+HELM_BIN = helm
+HELM = $(abspath $(TOOLSDIR)/$(HELM_BIN)-$(HELM_VER))
+$(HELM): | $(TOOLSDIR)
+	$Q echo "Installing helm-$(HELM_VER) to $(TOOLSDIR)"
+	$Q curl -fsSL -o $(GET_HELM) https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
+	$Q chmod +x $(GET_HELM)
+	$Q env HELM_INSTALL_DIR=$(TOOLSDIR) PATH=$(PATH):$(TOOLSDIR) $(GET_HELM) --no-sudo -v $(HELM_VER)
+	$Q mv $(TOOLSDIR)/$(HELM_BIN) $(TOOLSDIR)/$(HELM_BIN)-$(HELM_VER)
+	$Q rm -f $(GET_HELM)
+
+# kamaji is the underlying control plane provider
+KAMAJI_REPO_URL=https://clastix.github.io/charts
+KAMAJI_REPO_NAME=clastix
+KAMAJI_CHART_VERSION=0.15.0
+KAMAJI_CHART_NAME=kamaji
+KAMAJI := $(abspath $(CHARTSDIR)/$(KAMAJI_CHART_NAME)-$(KAMAJI_CHART_VERSION).tgz)
+$(KAMAJI): | $(CHARTSDIR) $(HELM)
+	$Q $(HELM) repo add $(KAMAJI_REPO_NAME) $(KAMAJI_REPO_URL)
+	$Q $(HELM) repo update
+	$Q $(HELM) pull $(KAMAJI_REPO_NAME)/$(KAMAJI_CHART_NAME) --version $(KAMAJI_CHART_VERSION) -d $(CHARTSDIR)
+
+# skaffold is used to run a debug build of the network operator for dev work.
+SKAFFOLD_VER := v2.10.0
+SKAFFOLD_BIN := skaffold
+SKAFFOLD := $(abspath $(TOOLSDIR)/$(SKAFFOLD_BIN)-$(SKAFFOLD_VER))
+$(SKAFFOLD): | $(TOOLSDIR)
+	$Q echo "Installing skaffold-$(SKAFFOLD_VER) to $(TOOLSDIR)"
+	$Q curl -fsSL https://storage.googleapis.com/skaffold/releases/latest/skaffold-$(OS)-$(ARCH) -o $(SKAFFOLD)
+	$Q chmod +x $(SKAFFOLD)
+
+# minikube is used to set-up a local kubernetes cluster for dev work.
+MINIKUBE_VER := v0.0.0-20231012212722-e25aeebc7846
+MINIKUBE_BIN := minikube
+MINIKUBE := $(abspath $(TOOLSDIR)/$(MINIKUBE_BIN)-$(MINIKUBE_VER))
+$(MINIKUBE): | $(TOOLSDIR)
+	$Q echo "Installing minikube-$(MINIKUBE_VER) to $(TOOLSDIR)"
+	$Q curl -fsSL https://storage.googleapis.com/minikube/releases/latest/minikube-$(OS)-$(ARCH) -o $(MINIKUBE)
+	$Q chmod +x $(MINIKUBE)
+
+# cert-manager is used for webhook certs in the dev setup.
+CERT_MANAGER_YAML=$(CHARTSDIR)/cert-manager.yaml
+CERT_MANAGER_VER=v1.13.3
+$(CERT_MANAGER_YAML): | $(CHARTSDIR)
+	curl -fSsL "https://github.com/cert-manager/cert-manager/releases/download/$(CERT_MANAGER_VER)/cert-manager.yaml" -o $(CERT_MANAGER_YAML)
+
+# argoCD is the underlying application service provider
+ARGOCD_YAML=$(CHARTSDIR)/argocd.yaml
+ARGOCD_VER=v2.10.1
+$(ARGOCD_YAML): | $(CHARTSDIR)
+	curl -fSsL "https://raw.githubusercontent.com/argoproj/argo-cd/$(ARGOCD_VER)/manifests/core-install.yaml" -o $(ARGOCD_YAML)
+
 .PHONY: clean
 clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
 	@rm -rf $(TOOLSDIR)
 	@rm -rf $(CHARTSDIR)
+
+
+# dev environment
+MINIKUBE_CLUSTER_NAME = dpf-dev
+dev-minikube: $(MINIKUBE) ## Create a minikube cluster for development.
+	CLUSTER_NAME=$(MINIKUBE_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
+
+clean-minikube: $(MINIKUBE)  ## Delete the development minikube cluster.
+	$(MINIKUBE) delete -p $(MINIKUBE_CLUSTER_NAME)
+
+dev-prereqs-dpuservice: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(SKAFFOLD) dev-minikube ## Create a development minikube cluster and deploy the operator in debug mode.
+	# Deploy the dpuservice CRD.
+	$(KUSTOMIZE) build config/dpuservice/crd | $(KUBECTL) apply -f -
+
+    # Deploy cert manager to provide certificates for webhooks.
+	$Q kubectl apply -f $(CERT_MANAGER_YAML) \
+	&& echo "Waiting for cert-manager deployment to be ready."\
+	&& kubectl wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
+
+	# Deploy argoCD as the underlying application provider.
+	$Q kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f - && kubectl apply -f $(ARGOCD_YAML)
+
+	# Deploy Kamaji as the underlying control plane provider. This values file is required due to a bug in a dependency.
+	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml
+
+SKAFFOLD_REGISTRY=localhost:5000
+dev-dpuservice: kustomize generate
+	# Use minikube for docker build and deployment and run skaffold
+	$Q eval $$($(MINIKUBE) -p $(MINIKUBE_CLUSTER_NAME) docker-env); \
+	$(SKAFFOLD) debug -p dpuservice --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary (ideally with version)

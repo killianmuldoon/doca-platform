@@ -1,0 +1,6 @@
+# This values file replaces the cfssl image as the upstream image has a bug in the arm64 build.
+# For more info see: https://github.com/clastix/kamaji/pull/419
+cfssl:
+  image:
+    repository: harbor.mellanox.com/cloud-orchestration-dev/killian/cfssl
+    tag: 1.6.4

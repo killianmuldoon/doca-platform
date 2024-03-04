@@ -6,8 +6,8 @@ metadata:
     app.kubernetes.io/name: namespace
     app.kubernetes.io/instance: system
     app.kubernetes.io/component: manager
-    app.kubernetes.io/created-by: dpf-operator
-    app.kubernetes.io/part-of: dpf-operator
+    app.kubernetes.io/created-by: dpf-dpuservice
+    app.kubernetes.io/part-of: dpf-dpuservice
     app.kubernetes.io/managed-by: kustomize
   name: system
 ---
@@ -21,8 +21,8 @@ metadata:
     app.kubernetes.io/name: deployment
     app.kubernetes.io/instance: controller-manager
     app.kubernetes.io/component: manager
-    app.kubernetes.io/created-by: dpf-operator
-    app.kubernetes.io/part-of: dpf-operator
+    app.kubernetes.io/created-by: dpf-dpuservice
+    app.kubernetes.io/part-of: dpf-dpuservice
     app.kubernetes.io/managed-by: kustomize
 spec:
   selector:
@@ -39,8 +39,8 @@ spec:
       containers:
       - command:
         - /manager
-        args:
-        - --leader-elect
+        #args: dropped to allow debugging
+        #- --leader-elect
         image: controller:latest
         name: manager
         securityContext:
