@@ -18,11 +18,15 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
+	controlplanev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,6 +43,7 @@ type DPUServiceReconciler struct {
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=persistentvolumeclaims;events;configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
 
 const dpuServiceControllerName = "dpuservice-manager"
 
@@ -93,7 +98,11 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, service *dpu
 //nolint:unparam //TODO: remove once function is implemented.
 func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) {
 	// Get the list of clusters this DPUService targets.
-	clusters := getClusters(ctx, r.Client)
+	clusters, err := getClusters(ctx, r.Client)
+	if err != nil {
+		// TODO: In future we should tolerate this error, but only when we have status reporting.
+		return ctrl.Result{}, err
+	}
 
 	// Ensure the Argo secret for each cluster is up-to-date.
 	if err := r.reconcileSecrets(ctx, clusters); err != nil {
@@ -117,16 +126,15 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	return ctrl.Result{}, nil
 }
 
-func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, clusters []string) error {
+func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, clusters []types.NamespacedName) error {
 	return nil
 }
-
 func (r *DPUServiceReconciler) reconcileArgoCDAppProject(ctx context.Context) error {
 	return nil
-
 }
 
-func (r *DPUServiceReconciler) reconcileArgoApplication(ctx context.Context, clusters []string, dpuService *dpuservicev1.DPUService) error {
+func (r *DPUServiceReconciler) reconcileArgoApplication(
+	ctx context.Context, clusters []types.NamespacedName, dpuService *dpuservicev1.DPUService) error {
 	return nil
 
 }
@@ -135,6 +143,25 @@ func (r *DPUServiceReconciler) reconcileStatus(ctx context.Context) error {
 	return nil
 }
 
-func getClusters(ctx context.Context, c client.Client) []string {
-	return []string{}
+func getClusters(ctx context.Context, c client.Client) ([]types.NamespacedName, error) {
+	var errs []error
+	secrets := &corev1.SecretList{}
+	err := c.List(ctx, secrets, client.MatchingLabels(controlplanev1.DPFClusterSecretLabels))
+	if err != nil {
+		return nil, err
+	}
+	clusters := []types.NamespacedName{}
+	for _, secret := range secrets.Items {
+		clusterName, found := secret.GetLabels()[controlplanev1.DPFClusterSecretClusterNameLabelKey]
+		if !found {
+			errs = append(errs, fmt.Errorf("could not identify cluster name for secret %v/%v", secret.Namespace, secret.Name))
+			continue
+		}
+		clusters = append(clusters, types.NamespacedName{
+			Namespace: secret.Namespace,
+			Name:      clusterName,
+		})
+		fmt.Printf("%v", clusters)
+	}
+	return clusters, kerrors.NewAggregate(errs)
 }
