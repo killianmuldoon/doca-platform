@@ -48,7 +48,7 @@ metadata:
 spec:
   source:
     repoURL: https://helm.ngc.nvidia.com/nvidia
-    targetRevision: v1.1.1
+    version: v1.1.1
     chart: dpu-service-name
   values:
     arbitrary-value-one: "value"
@@ -188,7 +188,7 @@ spec:
        - `.project` is the name of the single DPF `AppProject`
          - `.destination` is the server of the DPUCluster
          `.source`:
-         - `.repoURL`, `.targetRevision` and `.chart` are copied from DPUService `.spec.source` `.repoURL`, `.targetRevision` and `.chart`
+         - `.repoURL`, `.version` and `.chart` are copied from DPUService `.spec.source` `.repoURL`, `.version` and `.chart`
            `.helm.valuesObject`
            - `.serviceDaemonSet.nodeSelector` is from DPUService `.spec.serviceDaemonSet.NodeSelector`
            - `.serviceDaemonSet.labels` is from DPUService `.spec.serviceDaemonSet.Labels`
@@ -217,7 +217,7 @@ spec:
       namespace: default
   source:
     repoURL: https://helm.ngc.nvidia.com/nvidia # From DPUService `.spec.source.repoURL`
-    targetRevision: v1.1.1 # From DPUService `.spec.source.targetRevision`
+    targetRevision: v1.1.1 # From DPUService `.spec.source.version`
     chart: dpu-service-name #From DPUService `.spec.source.targetRevision`
     helm:
       valuesObject:
