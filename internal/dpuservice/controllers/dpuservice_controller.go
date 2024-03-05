@@ -86,7 +86,10 @@ func (r *DPUServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	return r.reconcile(ctx, dpuService)
 
 }
-func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, service *dpuservicev1.DPUService) (ctrl.Result, error) {
+
+//nolint:unparam
+func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) {
+	controllerutil.RemoveFinalizer(dpuService, dpuservicev1.DPUServiceFinalizer)
 	return ctrl.Result{}, nil
 }
 

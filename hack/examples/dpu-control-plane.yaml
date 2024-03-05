@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: dpu-01
+---
+apiVersion: kamaji.clastix.io/v1alpha1
+kind: TenantControlPlane
+metadata:
+  name: dpu-cluster-01
+  namespace: dpu-01
+  labels:
+    tenant.clastix.io: dpu-cluster-01
+spec:
+  dataStore: default
+  controlPlane:
+    deployment:
+      replicas: 3
+      additionalMetadata:
+        labels:
+          tenant.clastix.io: dpu-cluster-01
+      extraArgs:
+        apiServer: []
+        controllerManager: []
+        scheduler: []
+    service:
+      additionalMetadata:
+        labels:
+          tenant.clastix.io: dpu-cluster-01
+      serviceType: LoadBalancer
+  kubernetes:
+    version: v1.28.0
+    kubelet:
+      cgroupfs: systemd
+    admissionControllers:
+      - ResourceQuota
+      - LimitRanger
+  networkProfile:
+    port: 6443
+    certSANs:
+    - dpu-cluster-01.clastix.labs
+    serviceCidr: 10.96.0.0/16
+    podCidr: 10.244.0.0/16
+    dnsServiceIPs:
+    - 10.96.0.10
+  addons:
+    coreDNS: {}
+    kubeProxy: {}
