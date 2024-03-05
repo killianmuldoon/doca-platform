@@ -66,3 +66,52 @@ var _ = Describe("DPUService Controller", func() {
 		})
 	})
 })
+
+var _ = Describe("getClusters", func() {
+	Context("When reconciling a resource", func() {
+		testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+
+		var clusters []types.NamespacedName
+		BeforeEach(func() {
+			By("creating the namespace")
+			Expect(testClient.Create(ctx, testNS)).To(Succeed())
+			By("creating the Secrets")
+			clusters = []types.NamespacedName{
+				{Namespace: testNS.Name, Name: "cluster-one"},
+				{Namespace: testNS.Name, Name: "cluster-two"},
+				{Namespace: testNS.Name, Name: "cluster-three"},
+			}
+			secrets := []*corev1.Secret{
+				testKamajiClusterSecret(clusters[0]),
+				testKamajiClusterSecret(clusters[1]),
+				testKamajiClusterSecret(clusters[2]),
+			}
+			for _, s := range secrets {
+				Expect(testClient.Create(ctx, s)).To(Succeed())
+			}
+		})
+		AfterEach(func() {
+			By("Cleanup the test Namespace")
+			Expect(testClient.Delete(ctx, testNS)).To(Succeed())
+		})
+		It("should list the clusters referenced by admin-kubeconfig secrets", func() {
+			clusters, err := getClusters(ctx, testClient)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(clusters).To(ConsistOf(clusters))
+		})
+	})
+})
+
+func testKamajiClusterSecret(cluster types.NamespacedName) *corev1.Secret {
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "cluster-",
+			Namespace:    cluster.Namespace,
+			Labels: map[string]string{
+				"kamaji.clastix.io/name":      cluster.Name,
+				"kamaji.clastix.io/component": "admin-kubeconfig",
+				"kamaji.clastix.io/project":   "kamaji",
+			},
+		},
+	}
+}

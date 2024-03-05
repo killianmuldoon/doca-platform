@@ -20,8 +20,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+var (
+	// DPFClusterSecretLabels are the labels that identify the admin kubeconfig of a DPF cluster.
+	DPFClusterSecretLabels = map[string]string{"kamaji.clastix.io/component": "admin-kubeconfig", "kamaji.clastix.io/project": "kamaji"}
+
+	// DPFClusterSecretClusterNameLabelKey is the key of the label linking a DPFClusterSecret to the name of the cluster.
+	DPFClusterSecretClusterNameLabelKey = "kamaji.clastix.io/name"
+)
 
 // DPFClusterSpec defines the desired state of DPFCluster
 type DPFClusterSpec struct {
