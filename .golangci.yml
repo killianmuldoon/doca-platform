@@ -18,7 +18,6 @@ linters:
     - govet
     - importas
     - ineffassign
-    - lll
     - misspell
     - nakedret
     - prealloc
@@ -29,8 +28,6 @@ linters:
     - unused
 
 linters-settings:
-  lll:
-    line-length: 140
   gci:
     sections:
       - standard # Standard packages.
