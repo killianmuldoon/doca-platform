@@ -23,6 +23,7 @@ import (
 
 	controlplanev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
+	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/kubeconfig"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,53 +31,123 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var _ = Describe("DPUService Controller", func() {
 	Context("When reconciling a resource", func() {
-		testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
-		dpuServiceName := "dpu-one"
-
-		dpuServiceKey := types.NamespacedName{}
-		dpuService := &dpuservicev1.DPUService{}
-
+		var testNS *corev1.Namespace
+		var secrets []*corev1.Secret
 		BeforeEach(func() {
 			By("creating the namespace")
+			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
-			dpuServiceKey = types.NamespacedName{Name: dpuServiceName, Namespace: testNS.Name}
-			dpuService = &dpuservicev1.DPUService{
-				ObjectMeta: metav1.ObjectMeta{Name: dpuServiceName, Namespace: testNS.Name},
+
+			By("creating the Kamaji secrets")
+			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one"}})).To(Succeed())
+			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two"}})).To(Succeed())
+			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-three"}})).To(Succeed())
+
+			// TODO: This implementation assumes all DPUClusters are in the same namespace. This is a limitation of the naming of the secret. The argoCD secrets must be in the same namespace.
+			// This could be alleviated.
+			secrets = []*corev1.Secret{
+				testKamajiClusterSecret(dpfCluster{Namespace: "dpu-one", Name: "cluster-one"}),
+				testKamajiClusterSecret(dpfCluster{Namespace: "dpu-two", Name: "cluster-two"}),
+				testKamajiClusterSecret(dpfCluster{Namespace: "dpu-three", Name: "cluster-three"}),
 			}
-			By("creating the DPUService")
-			Expect(testClient.Create(ctx, dpuService)).To(Succeed())
+			for _, s := range secrets {
+				Expect(testClient.Create(ctx, s)).To(Succeed())
+			}
 		})
 		AfterEach(func() {
-			By("Cleanup the DPUService and Namespace")
-			Expect(testClient.Delete(ctx, dpuService)).To(Succeed())
+			By("Cleanup the Namespace and Secrets")
 			Expect(testClient.Delete(ctx, testNS)).To(Succeed())
-		})
-		It("should successfully add the DPUService finalizer", func() {
-			By("Reconciling the created resource for the first time")
-			r := &DPUServiceReconciler{
-				Client: testClient,
-				Scheme: testClient.Scheme(),
+			for i := range secrets {
+				Expect(testClient.Delete(ctx, secrets[i])).To(Succeed())
 			}
-			_, err := r.Reconcile(ctx, reconcile.Request{
-				NamespacedName: dpuServiceKey,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			gotDPUService := &dpuservicev1.DPUService{}
-			Expect(testClient.Get(ctx, dpuServiceKey, gotDPUService)).To(Succeed())
-			Expect(gotDPUService.GetFinalizers()).To(ConsistOf(dpuservicev1.DPUServiceFinalizer))
+		})
+		It("should successfully reconcile the DPUService", func() {
+			dpuServices := []*dpuservicev1.DPUService{
+				{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one", Namespace: testNS.Name}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two", Namespace: testNS.Name}},
+			}
+
+			for i := range dpuServices {
+				Expect(testClient.Create(ctx, dpuServices[i])).To(Succeed())
+			}
+
+			Eventually(func() error {
+				return assertDPUService(testClient, dpuServices...)
+			}).WithTimeout(30 * time.Second).Should(BeNil())
+
+			// Check that argo secrets have been created correctly.
+			Eventually(func() error {
+				return assertArgoCDSecrets(testClient)
+			}).WithTimeout(30 * time.Second).Should(BeNil())
+
+			// Check that the argo AppProject has been created correctly
+			Eventually(func() error {
+				return assertAppProject(testClient)
+			}).WithTimeout(30 * time.Second).Should(BeNil())
 		})
 	})
 })
+
+func assertDPUService(testClient client.Client, dpuServices ...*dpuservicev1.DPUService) error {
+	for i := range dpuServices {
+		gotDPUService := &dpuservicev1.DPUService{}
+		if err := testClient.Get(ctx, client.ObjectKeyFromObject(dpuServices[i]), gotDPUService); err != nil {
+			return err
+		}
+		if len(gotDPUService.Finalizers) != 1 || gotDPUService.Finalizers[0] != dpuservicev1.DPUServiceFinalizer {
+			return fmt.Errorf("wrong finalizer")
+		}
+	}
+	return nil
+}
+func assertArgoCDSecrets(testClient client.Client) error {
+	secrets := &corev1.SecretList{}
+	if err := testClient.List(ctx, secrets, client.HasLabels{argoCDSecretLabelKey, dpfClusterLabelKey}); err != nil {
+		return err
+	}
+	foundSecretNames := []string{}
+	for _, secret := range secrets.Items {
+		foundSecretNames = append(foundSecretNames, secret.Name)
+	}
+	if len(foundSecretNames) != 3 {
+		return fmt.Errorf("error")
+	}
+	return nil
+}
+
+func assertAppProject(testClient client.Client) error {
+	// Check that an argo project has been created.
+	appProject := &argov1.AppProject{}
+	if err := testClient.Get(ctx, client.ObjectKey{Namespace: argoCDNamespace, Name: appProjectName}, appProject); err != nil {
+		return err
+	}
+	expectedDestinations := []argov1.ApplicationDestination{
+		{
+			Server:    "cluster-one",
+			Namespace: "*",
+		},
+		{
+			Server:    "cluster-two",
+			Namespace: "*",
+		},
+		{
+			Server:    "cluster-three",
+			Namespace: "*",
+		},
+	}
+	if len(appProject.Spec.Destinations) != len(expectedDestinations) {
+		return fmt.Errorf("wrong")
+	}
+	return nil
+}
 
 var _ = Describe("test DPUService reconciler step-by-step", func() {
 	Context("When reconciling", func() {
@@ -99,11 +170,11 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			for _, s := range secretList.Items {
 				objs = append(objs, s.DeepCopy())
 			}
-			Expect(cleanupAndWait(ctx, testClient, objs)).To(Succeed())
+			Expect(cleanupAndWait(ctx, testClient, objs...)).To(Succeed())
 		})
 		// Get Clusters.
 		It("should list the clusters referenced by admin-kubeconfig secrets", func() {
-			clusters := []types.NamespacedName{
+			clusters := []dpfCluster{
 				{Namespace: testNS.Name, Name: "cluster-one"},
 				{Namespace: testNS.Name, Name: "cluster-two"},
 				{Namespace: testNS.Name, Name: "cluster-three"},
@@ -121,7 +192,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			Expect(gotClusters).To(ConsistOf(clusters))
 		})
 		It("should aggregate errors and return valid clusters when one secret is malformed", func() {
-			clusters := []types.NamespacedName{
+			clusters := []dpfCluster{
 				{Namespace: testNS.Name, Name: "cluster-one"},
 				{Namespace: testNS.Name, Name: "cluster-two"},
 				{Namespace: testNS.Name, Name: "cluster-three"},
@@ -147,7 +218,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 
 		// reconcileSecrets
 		It("should create an Argo secret based on the admin-kubeconfig for each cluster", func() {
-			clusters := []types.NamespacedName{
+			clusters := []dpfCluster{
 				{Namespace: testNS.Name, Name: "cluster-one"},
 				{Namespace: testNS.Name, Name: "cluster-two"},
 				{Namespace: testNS.Name, Name: "cluster-three"},
@@ -165,7 +236,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			err := r.reconcileSecrets(ctx, dpuService, clusters)
 			Expect(err).NotTo(HaveOccurred())
 			secretList := &corev1.SecretList{}
-			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, dpfClusterNameLabelKey})).To(Succeed())
+			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, dpfClusterLabelKey})).To(Succeed())
 			Expect(secretList.Items).To(HaveLen(3))
 			for _, s := range secretList.Items {
 				Expect(s.Data).To(HaveKey("config"))
@@ -174,7 +245,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 		})
 		It("should create secrets for existing clusters when one cluster does not exist", func() {
-			clusters := []types.NamespacedName{
+			clusters := []dpfCluster{
 				{Namespace: testNS.Name, Name: "cluster-four"},
 				{Namespace: testNS.Name, Name: "cluster-five"},
 				{Namespace: testNS.Name, Name: "cluster-six"},
@@ -197,7 +268,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 
 			// Expect reconciliation to have continued and created the other secrets.
 			secretList := &corev1.SecretList{}
-			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, dpfClusterNameLabelKey})).To(Succeed())
+			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, dpfClusterLabelKey})).To(Succeed())
 			Expect(secretList.Items).To(HaveLen(2))
 			for _, s := range secretList.Items {
 				Expect(s.Data).To(HaveKey("config"))
@@ -206,7 +277,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 		})
 		It("should create secrets for existing clusters when one cluster secret is malformed", func() {
-			clusters := []types.NamespacedName{
+			clusters := []dpfCluster{
 				{Namespace: testNS.Name, Name: "cluster-seven"},
 				{Namespace: testNS.Name, Name: "cluster-eight"},
 				{Namespace: testNS.Name, Name: "cluster-nine"},
@@ -231,7 +302,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 
 			// Expect reconciliation to have continued and created the other secrets.
 			secretList := &corev1.SecretList{}
-			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, dpfClusterNameLabelKey})).To(Succeed())
+			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, dpfClusterLabelKey})).To(Succeed())
 			Expect(secretList.Items).To(HaveLen(2))
 			for _, s := range secretList.Items {
 				Expect(s.Data).To(HaveKey("config"))
@@ -242,7 +313,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 	})
 })
 
-func testKamajiClusterSecret(cluster types.NamespacedName) *corev1.Secret {
+func testKamajiClusterSecret(cluster dpfCluster) *corev1.Secret {
 	adminConfig := &kubeconfig.Type{
 		Clusters: []*kubeconfig.KubectlClusterWithName{
 			{
@@ -279,9 +350,10 @@ func testKamajiClusterSecret(cluster types.NamespacedName) *corev1.Secret {
 			"admin.conf": confData,
 		},
 	}
+	// TODO: Test for ownerReferences.
 }
 
-func cleanupAndWait(ctx context.Context, c client.Client, objs []client.Object) error {
+func cleanupAndWait(ctx context.Context, c client.Client, objs ...client.Object) error {
 	for _, o := range objs {
 		if err := c.Delete(ctx, o); err != nil && !apierrors.IsNotFound(err) {
 			return err

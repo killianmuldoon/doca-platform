@@ -22,6 +22,7 @@ import (
 
 	controlplanev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/kubeconfig"
 
 	corev1 "k8s.io/api/core/v1"
@@ -32,7 +33,6 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -52,15 +52,25 @@ type DPUServiceReconciler struct {
 
 const (
 	// TODO: These constants don't belong here and should be moved as they're shared with other packages.
-	dpfClusterNameLabelKey = "dpf.nvidia.com/cluster-name"
+	dpfClusterLabelKey     = "dpf.nvidia.com/cluster"
 	argoCDNamespace        = "default"
 	argoCDSecretLabelKey   = "argocd.argoproj.io/secret-type"
 	argoCDSecretLabelValue = "cluster"
+	appProjectName         = "doca-platform-project"
 )
 
 const (
 	dpuServiceControllerName = "dpuservice-manager"
 )
+
+// dpfCluster represents a single Kubernetes cluster in DPF.
+// TODO: Consider if this should be a more complex type carrying more data about the cluster.
+// TODO: Consider making this part of a shared metadata package.
+type dpfCluster types.NamespacedName
+
+func (c *dpfCluster) String() string {
+	return fmt.Sprintf("%s-%s", c.Namespace, c.Name)
+}
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPUServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -128,14 +138,14 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 		return ctrl.Result{}, err
 	}
 
-	//  Ensure the ArgoCD project exists and is up-to-date.
-	if err := r.reconcileArgoCDAppProject(ctx); err != nil {
+	//  Ensure the ArgoCD AppProject exists and is up-to-date.
+	if err := r.reconcileAppProject(ctx, dpuService, clusters); err != nil {
 		// TODO: In future we should tolerate this error, but only when we have status reporting.
 		return ctrl.Result{}, err
 	}
 
 	// Update the ArgoApplication for all target clusters.
-	if err := r.reconcileArgoApplication(ctx, clusters, dpuService); err != nil {
+	if err := r.reconcileApplication(ctx, clusters, dpuService); err != nil {
 		// TODO: In future we should tolerate this error, but only when we have status reporting.
 		return ctrl.Result{}, err
 	}
@@ -148,7 +158,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 }
 
 // reconcileSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
-func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []types.NamespacedName) error {
+func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []dpfCluster) error {
 	var errs []error
 	for _, cluster := range clusters {
 		// Get the control plane secret using the naming convention - $CLUSTERNAME-admin-kubeconfig.
@@ -159,11 +169,15 @@ func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, dpuService 
 			continue
 		}
 		// Template an argoSecret using information from the control plane secret.
-		argoSecret, err := createArgoSecretFromControlPlaneSecret(secret, dpuService, cluster.Name)
+		argoSecret, err := createArgoSecretFromControlPlaneSecret(secret, cluster)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
+		// Ensure this secret is owned by the dpuService being reconciled.
+		argoSecret.SetOwnerReferences(
+			ensureOwnerRef(argoSecret.GetOwnerReferences(), metav1.NewControllerRef(dpuService, dpuservicev1.DPUServiceGroupVersionKind)),
+		)
 		// Create or patch
 		if err := r.Client.Patch(ctx, argoSecret, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
 			errs = append(errs, err)
@@ -175,7 +189,7 @@ func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, dpuService 
 
 // createArgoSecretFromControlPlaneSecret generates an ArgoCD cluster secret from the control plane secret. This control plane secret is strictly tied
 // to the Kamaji implementation.
-func createArgoSecretFromControlPlaneSecret(secret *corev1.Secret, dpuService *dpuservicev1.DPUService, clusterName string) (*corev1.Secret, error) {
+func createArgoSecretFromControlPlaneSecret(secret *corev1.Secret, cluster dpfCluster) (*corev1.Secret, error) {
 	adminSecret, ok := secret.Data["admin.conf"]
 	if !ok {
 		return nil, fmt.Errorf("secret %v/%v not in the expected format: data.admin.conf not found", secret.Namespace, secret.Name)
@@ -200,34 +214,28 @@ func createArgoSecretFromControlPlaneSecret(secret *corev1.Secret, dpuService *d
 	if err != nil {
 		return nil, err
 	}
-	return createArgoCDSecret(dpuService, secretConfig, clusterName, clusterConfigName, clusterConfigServer), nil
+	return createArgoCDSecret(secretConfig, cluster, clusterConfigName, clusterConfigServer), nil
 }
 
 // createArgoCDSecret templates an ArgoCD cluster Secret with the passed values.
-func createArgoCDSecret(dpuService *dpuservicev1.DPUService, secretConfig []byte, clusterName, clusterConfigName, clusterConfigServer string) *corev1.Secret {
+func createArgoCDSecret(secretConfig []byte, cluster dpfCluster, clusterConfigName, clusterConfigServer string) *corev1.Secret {
 	return &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      clusterName,
+			// The secret name is a combination of the cluster Name and Namespace.
+			// This is because Secrets must exist in the argoCD Namespace while DPUClusters can each have their own namespace.
+			// TODO: Validate that the secret name is always under the length limit.
+			Name:      cluster.String(),
 			Namespace: argoCDNamespace,
 			Labels: map[string]string{
-				argoCDSecretLabelKey:   argoCDSecretLabelValue,
-				dpfClusterNameLabelKey: clusterName,
+				argoCDSecretLabelKey: argoCDSecretLabelValue,
+				dpfClusterLabelKey:   cluster.String(),
 			},
-			OwnerReferences: []metav1.OwnerReference{
-				{
-					APIVersion:         dpuservicev1.GroupVersion.String(),
-					Kind:               dpuservicev1.DPUServiceKind,
-					Name:               dpuService.Name,
-					UID:                dpuService.UID,
-					Controller:         ptr.To(true),
-					BlockOwnerDeletion: ptr.To(true),
-				},
-			},
-			Annotations: nil,
+			OwnerReferences: nil,
+			Annotations:     nil,
 		},
 		Type: corev1.SecretTypeOpaque,
 		Data: map[string][]byte{
@@ -250,39 +258,61 @@ type tlsClientConfig struct {
 	CertData []byte `json:"certData,omitempty"`
 }
 
-func (r *DPUServiceReconciler) reconcileArgoCDAppProject(ctx context.Context) error {
-	return nil
-}
-
-func (r *DPUServiceReconciler) reconcileArgoApplication(
-	ctx context.Context, clusters []types.NamespacedName, dpuService *dpuservicev1.DPUService) error {
-	return nil
-
-}
-
 func (r *DPUServiceReconciler) reconcileStatus(ctx context.Context) error {
 	return nil
 }
 
+func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []dpfCluster) error {
+	clusterKeys := []types.NamespacedName{}
+	for i := range clusters {
+		clusterKeys = append(clusterKeys, types.NamespacedName{Namespace: clusters[i].Namespace, Name: clusters[i].Name})
+	}
+	appProject := argocd.NewAppProject(types.NamespacedName{Name: appProjectName, Namespace: argoCDNamespace}, clusterKeys)
+	// Ensure this appProject is owned by the dpuService which is currently reconciling it.
+	appProject.SetOwnerReferences(
+		ensureOwnerRef(appProject.GetOwnerReferences(), metav1.NewControllerRef(dpuService, dpuservicev1.DPUServiceGroupVersionKind)),
+	)
+	if err := r.Client.Patch(ctx, appProject, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, clusters []dpfCluster, dpuService *dpuservicev1.DPUService) error {
+	return nil
+}
+
 // getClusters returns a list of the Clusters ArgoCD should install to.
-func getClusters(ctx context.Context, c client.Client) ([]types.NamespacedName, error) {
+func getClusters(ctx context.Context, c client.Client) ([]dpfCluster, error) {
 	var errs []error
 	secrets := &corev1.SecretList{}
 	err := c.List(ctx, secrets, client.MatchingLabels(controlplanev1.DPFClusterSecretLabels))
 	if err != nil {
 		return nil, err
 	}
-	clusters := []types.NamespacedName{}
+	clusters := []dpfCluster{}
 	for _, secret := range secrets.Items {
 		clusterName, found := secret.GetLabels()[controlplanev1.DPFClusterSecretClusterNameLabelKey]
 		if !found {
 			errs = append(errs, fmt.Errorf("could not identify cluster name for secret %v/%v", secret.Namespace, secret.Name))
 			continue
 		}
-		clusters = append(clusters, types.NamespacedName{
+		clusters = append(clusters, dpfCluster{
 			Namespace: secret.Namespace,
 			Name:      clusterName,
 		})
 	}
 	return clusters, kerrors.NewAggregate(errs)
+}
+
+// ensureOwnerRef makes sure the slice contains the passed OwnerReference.
+func ensureOwnerRef(ownerReferences []metav1.OwnerReference, owner *metav1.OwnerReference) []metav1.OwnerReference {
+	for index, r := range ownerReferences {
+		if r.UID == owner.UID {
+			// Update the ownerReference in place to ensure apiVersion is up-to-date.
+			ownerReferences[index] = *owner
+			return ownerReferences
+		}
+	}
+	return append(ownerReferences, *owner)
 }

@@ -17,12 +17,14 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"runtime"
 	"testing"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
+	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,6 +35,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -41,8 +44,7 @@ import (
 var cfg *rest.Config
 var testClient client.Client
 var testEnv *envtest.Environment
-
-var ctx = ctrl.SetupSignalHandler()
+var ctx, testManagerCancelFunc = context.WithCancel(ctrl.SetupSignalHandler())
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -55,7 +57,10 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "dpuservice", "crd", "bases")},
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "dpuservice", "crd", "bases"),
+			filepath.Join("..", "..", "..", "test", "crd"),
+		},
 		ErrorIfCRDPathMissing: true,
 
 		// The BinaryAssetsDirectory is only required if you want to run the tests directly
@@ -68,13 +73,15 @@ var _ = BeforeSuite(func() {
 	}
 
 	var err error
-
 	// cfg is defined in this file globally.
 	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
 	err = dpuservicev1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = argov1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	s := scheme.Scheme
@@ -84,10 +91,34 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(testClient).NotTo(BeNil())
 
+	By("setting up and running the test reconciler")
+	testManager, err := ctrl.NewManager(cfg,
+		ctrl.Options{
+			Scheme: scheme.Scheme,
+			// Set metrics server bind address to 0 to disable it.
+			Metrics: server.Options{
+				BindAddress: "0",
+			}})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&DPUServiceReconciler{
+		Client: testClient,
+		Scheme: testManager.GetScheme(),
+	}).SetupWithManager(testManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	go func() {
+		defer GinkgoRecover()
+		err = testManager.Start(ctx)
+		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+	}()
 })
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	if testManagerCancelFunc != nil {
+		testManagerCancelFunc()
+	}
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })
