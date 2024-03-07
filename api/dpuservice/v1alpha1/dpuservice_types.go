@@ -24,7 +24,9 @@ import (
 )
 
 var (
-	DPUServiceFinalizer = "dpf.nvidia.com/dpuservice"
+	DPUServiceFinalizer         = "dpf.nvidia.com/dpuservice"
+	DPUServiceNameLabelKey      = "dpf.nvidia.com/dpuservice-name"
+	DPUServiceNamespaceLabelKey = "dpf.nvidia.com/dpuservice-namespace"
 )
 
 //+kubebuilder:object:root=true
@@ -61,7 +63,7 @@ type ApplicationSource struct {
 	Chart string `json:"chart"`
 	// ReleaseName is the name to give to the release generate from the DPUService.
 	// +optional
-	ReleaseName *string `json:"releaseName,omitempty"`
+	ReleaseName string `json:"releaseName,omitempty"`
 }
 
 type ServiceDaemonSetValues struct {

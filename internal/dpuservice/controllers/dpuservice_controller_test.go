@@ -28,12 +28,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -69,7 +75,63 @@ var _ = Describe("DPUService Controller", func() {
 			}
 
 			dpuServices := []*dpuservicev1.DPUService{
-				{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one", Namespace: testNS.Name}},
+				{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one", Namespace: testNS.Name},
+					Spec: dpuservicev1.DPUServiceSpec{
+						Source: dpuservicev1.ApplicationSource{
+							RepoURL:     "repository.com",
+							Version:     "v1.1",
+							Chart:       "first-chart",
+							ReleaseName: "release-one",
+						},
+						ServiceID: ptr.To("service-one"),
+						Values: &runtime.RawExtension{
+							Object: &unstructured.Unstructured{
+								Object: map[string]interface{}{
+									"value": "one",
+									"other": "two",
+								},
+							},
+						},
+						ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+							NodeSelector: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "key",
+												Operator: "Exists",
+											},
+										},
+									},
+								},
+							},
+							Resources: corev1.ResourceList{
+								"cpu": *resource.NewQuantity(5, resource.DecimalSI),
+							},
+							UpdateStrategy: &appsv1.DaemonSetUpdateStrategy{
+								Type: appsv1.RollingUpdateDaemonSetStrategyType,
+								RollingUpdate: &appsv1.RollingUpdateDaemonSet{
+									MaxUnavailable: &intstr.IntOrString{
+										Type:   0,
+										IntVal: 0,
+										StrVal: "",
+									},
+									MaxSurge: &intstr.IntOrString{
+										Type:   0,
+										IntVal: 0,
+										StrVal: "",
+									},
+								},
+							},
+							Labels: map[string]string{
+								"label-one": "label-value",
+							},
+							Annotations: map[string]string{
+								"annotation-one": "annotation",
+							},
+						},
+					},
+				},
 				{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two", Namespace: testNS.Name}},
 			}
 			for i := range dpuServices {
@@ -90,6 +152,11 @@ var _ = Describe("DPUService Controller", func() {
 			Eventually(func(g Gomega) {
 				assertAppProject(g, testClient, clusters)
 			}).WithTimeout(30 * time.Second).Should(BeNil())
+
+			// Check that the argo Application has been created correctly
+			Eventually(func(g Gomega) {
+				assertApplication(g, testClient, dpuServices, clusters)
+			}).WithTimeout(30 * time.Second).Should(BeNil())
 		})
 	})
 })
@@ -104,7 +171,7 @@ func assertDPUService(g Gomega, testClient client.Client, dpuServices []*dpuserv
 
 func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []dpfCluster) {
 	gotArgoSecrets := &corev1.SecretList{}
-	g.Expect(testClient.List(ctx, gotArgoSecrets, client.HasLabels{argoCDSecretLabelKey, dpfClusterLabelKey})).To(Succeed())
+	g.Expect(testClient.List(ctx, gotArgoSecrets, client.HasLabels{argoCDSecretLabelKey, controlplanev1.DPFClusterLabelKey})).To(Succeed())
 	// Assert the correct number of secrets was found.
 	g.Expect(gotArgoSecrets.Items).To(HaveLen(len(clusters)))
 	for _, s := range gotArgoSecrets.Items {
@@ -131,6 +198,68 @@ func assertAppProject(g Gomega, testClient client.Client, clusters []dpfCluster)
 		})
 	}
 	g.Expect(gotDestinations).To(ConsistOf(expectedDestinations))
+}
+
+func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, clusters []dpfCluster) {
+	// Check that argoApplications are created for each of the clusters.
+	applications := &argov1.ApplicationList{}
+	g.Expect(testClient.List(ctx, applications)).To(Succeed())
+
+	// Check that we have one application for each cluster and dpuService.
+	g.Expect(applications.Items).To(HaveLen(len(clusters) * len(dpuServices)))
+	for _, app := range applications.Items {
+		g.Expect(app.Labels).To(HaveKey(dpuservicev1.DPUServiceNameLabelKey))
+		g.Expect(app.Labels).To(HaveKey(dpuservicev1.DPUServiceNamespaceLabelKey))
+		dpuServiceName := app.Labels[dpuservicev1.DPUServiceNameLabelKey]
+		dpuServiceNS := app.Labels[dpuservicev1.DPUServiceNamespaceLabelKey]
+		for _, service := range dpuServices {
+			if service.Name != dpuServiceName || service.Namespace != dpuServiceNS {
+				continue
+			}
+			// Check the helm fields are set as expected.
+			g.Expect(app.Spec.Source.Chart).To(Equal(service.Spec.Source.Chart))
+			g.Expect(app.Spec.Source.RepoURL).To(Equal(service.Spec.Source.RepoURL))
+			g.Expect(app.Spec.Source.TargetRevision).To(Equal(service.Spec.Source.Version))
+			g.Expect(app.Spec.Source.Helm.ReleaseName).To(Equal(service.Spec.Source.ReleaseName))
+
+			// If the DPUService doesn't define a ServiceDaemonSet the below assertions are not applicable.
+			if service.Spec.ServiceDaemonSet == nil {
+				return
+			}
+
+			// Check that the values fields are set as expected.
+			var appValuesMap, serviceValuesMap map[string]interface{}
+			g.Expect(json.Unmarshal(app.Spec.Source.Helm.ValuesObject.Raw, &appValuesMap)).To(Succeed())
+
+			// Expect values to be correctly transposed from the DPUService serviceDaemonSet values.
+			Expect(appValuesMap).To(HaveKey("serviceDaemonSet"))
+			var appServiceDaemonSet = struct {
+				ServiceDaemonSet dpuservicev1.ServiceDaemonSetValues `json:"serviceDaemonSet"`
+			}{}
+			Expect(json.Unmarshal(app.Spec.Source.Helm.ValuesObject.Raw, &appServiceDaemonSet)).To(Succeed())
+			appService := appServiceDaemonSet.ServiceDaemonSet
+			for k, v := range service.Spec.ServiceDaemonSet.Labels {
+				Expect(appService.Labels).To(HaveKeyWithValue(k, v))
+			}
+			Expect(appService.Labels).To(HaveKeyWithValue(dpfServiceIDLabelKey, *service.Spec.ServiceID))
+			Expect(appService.Resources).To(Equal(service.Spec.ServiceDaemonSet.Resources))
+			Expect(appService.Annotations).To(Equal(service.Spec.ServiceDaemonSet.Annotations))
+			Expect(appService.NodeSelector).To(Equal(service.Spec.ServiceDaemonSet.NodeSelector))
+			Expect(appService.UpdateStrategy).To(Equal(service.Spec.ServiceDaemonSet.UpdateStrategy))
+
+			// If this field is unset skip this assertion.
+			if service.Spec.Values == nil {
+				continue
+			}
+
+			// Expect every value passed in the service spec `.values` to be set in the application helm valuesObject.
+			g.Expect(json.Unmarshal(service.Spec.Values.Raw, &serviceValuesMap)).To(Succeed())
+			for k, v := range serviceValuesMap {
+				g.Expect(appValuesMap).To(HaveKeyWithValue(k, v))
+			}
+		}
+	}
+
 }
 
 var _ = Describe("test DPUService reconciler step-by-step", func() {
@@ -219,7 +348,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			err := r.reconcileSecrets(ctx, clusters)
 			Expect(err).NotTo(HaveOccurred())
 			secretList := &corev1.SecretList{}
-			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, dpfClusterLabelKey})).To(Succeed())
+			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, controlplanev1.DPFClusterLabelKey})).To(Succeed())
 			Expect(secretList.Items).To(HaveLen(3))
 			for _, s := range secretList.Items {
 				Expect(s.Data).To(HaveKey("config"))
@@ -251,7 +380,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 
 			// Expect reconciliation to have continued and created the other secrets.
 			secretList := &corev1.SecretList{}
-			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, dpfClusterLabelKey})).To(Succeed())
+			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, controlplanev1.DPFClusterLabelKey})).To(Succeed())
 			Expect(secretList.Items).To(HaveLen(2))
 			for _, s := range secretList.Items {
 				Expect(s.Data).To(HaveKey("config"))
@@ -285,7 +414,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 
 			// Expect reconciliation to have continued and created the other secrets.
 			secretList := &corev1.SecretList{}
-			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, dpfClusterLabelKey})).To(Succeed())
+			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, controlplanev1.DPFClusterLabelKey})).To(Succeed())
 			Expect(secretList.Items).To(HaveLen(2))
 			for _, s := range secretList.Items {
 				Expect(s.Data).To(HaveKey("config"))

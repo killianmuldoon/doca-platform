@@ -52,11 +52,11 @@ type DPUServiceReconciler struct {
 
 const (
 	// TODO: These constants don't belong here and should be moved as they're shared with other packages.
-	dpfClusterLabelKey     = "dpf.nvidia.com/cluster"
 	argoCDNamespace        = "default"
 	argoCDSecretLabelKey   = "argocd.argoproj.io/secret-type"
 	argoCDSecretLabelValue = "cluster"
 	appProjectName         = "doca-platform-project"
+	dpfServiceIDLabelKey   = "dpf.nvidia.com/service-id"
 )
 
 const (
@@ -228,8 +228,8 @@ func createArgoCDSecret(secretConfig []byte, cluster dpfCluster, clusterConfigNa
 			Name:      cluster.String(),
 			Namespace: argoCDNamespace,
 			Labels: map[string]string{
-				argoCDSecretLabelKey: argoCDSecretLabelValue,
-				dpfClusterLabelKey:   cluster.String(),
+				argoCDSecretLabelKey:              argoCDSecretLabelValue,
+				controlplanev1.DPFClusterLabelKey: cluster.String(),
 			},
 			OwnerReferences: nil,
 			Annotations:     nil,
@@ -264,7 +264,7 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters
 	for i := range clusters {
 		clusterKeys = append(clusterKeys, types.NamespacedName{Namespace: clusters[i].Namespace, Name: clusters[i].Name})
 	}
-	appProject := argocd.NewAppProject(types.NamespacedName{Name: appProjectName, Namespace: argoCDNamespace}, clusterKeys)
+	appProject := argocd.NewAppProject(appProjectName, clusterKeys)
 	if err := r.Client.Patch(ctx, appProject, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
 		return err
 	}
@@ -272,7 +272,67 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters
 }
 
 func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, clusters []dpfCluster, dpuService *dpuservicev1.DPUService) error {
-	return nil
+	var errs []error
+	values, err := argoCDValuesFromDPUService(dpuService)
+	if err != nil {
+		return err
+	}
+	for _, cluster := range clusters {
+		clusterKey := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}
+		argoApplication := argocd.NewApplication(appProjectName, clusterKey, dpuService, values)
+		argoApplication.SetOwnerReferences(
+			ensureOwnerRef(argoApplication.GetOwnerReferences(), metav1.NewControllerRef(dpuService, dpuservicev1.DPUServiceGroupVersionKind)),
+		)
+		if err := r.Client.Patch(ctx, argoApplication, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
+			return err
+		}
+	}
+	return kerrors.NewAggregate(errs)
+
+}
+
+func argoCDValuesFromDPUService(dpuService *dpuservicev1.DPUService) (*runtime.RawExtension, error) {
+	service := dpuService.DeepCopy()
+	if service.Spec.ServiceDaemonSet == nil {
+		service.Spec.ServiceDaemonSet = &dpuservicev1.ServiceDaemonSetValues{}
+	}
+	if service.Spec.ServiceDaemonSet.Labels == nil {
+		service.Spec.ServiceDaemonSet.Labels = map[string]string{}
+	}
+	if dpuService.Spec.ServiceID != nil {
+		service.Spec.ServiceDaemonSet.Labels[dpfServiceIDLabelKey] = *dpuService.Spec.ServiceID
+	}
+
+	// Marshal the ServiceDaemonSet and other values to map[string]interface to combine them.
+	var otherValues, serviceDaemonSetValues map[string]interface{}
+	if service.Spec.Values != nil {
+		if err := json.Unmarshal(service.Spec.Values.Raw, &otherValues); err != nil {
+			return nil, err
+		}
+	}
+
+	// Unmarshal the ServiceDaemonSet to get the byte representation.
+	dsValuesData, err := json.Marshal(service.Spec.ServiceDaemonSet)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := json.Unmarshal(dsValuesData, &serviceDaemonSetValues); err != nil {
+		return nil, err
+	}
+	// Set the serviceDaemonSet values in the combined values.
+	combinedValues := map[string]interface{}{}
+	combinedValues["serviceDaemonSet"] = serviceDaemonSetValues
+	// Add all keys from other values to the ServiceDaemonSet values.
+	for k, v := range otherValues {
+		combinedValues[k] = v
+	}
+
+	data, err := json.Marshal(combinedValues)
+	if err != nil {
+		return nil, err
+	}
+	return &runtime.RawExtension{Raw: data}, nil
 }
 
 // getClusters returns a list of the Clusters ArgoCD should install to.
@@ -296,4 +356,16 @@ func getClusters(ctx context.Context, c client.Client) ([]dpfCluster, error) {
 		})
 	}
 	return clusters, kerrors.NewAggregate(errs)
+}
+
+// ensureOwnerRef makes sure the slice contains the passed OwnerReference.
+func ensureOwnerRef(ownerReferences []metav1.OwnerReference, owner *metav1.OwnerReference) []metav1.OwnerReference {
+	for index, r := range ownerReferences {
+		if r.UID == owner.UID {
+			// Update the ownerReference in place to ensure apiVersion is up-to-date.
+			ownerReferences[index] = *owner
+			return ownerReferences
+		}
+	}
+	return append(ownerReferences, *owner)
 }
