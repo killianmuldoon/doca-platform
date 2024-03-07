@@ -46,7 +46,7 @@ func NewAppProject(namespacedName types.NamespacedName, clusters []types.Namespa
 	}
 	for _, cluster := range clusters {
 		project.Spec.Destinations = append(project.Spec.Destinations, argov1.ApplicationDestination{
-			Server:    cluster.Name,
+			Server:    fmt.Sprintf("%s-%s", cluster.Namespace, cluster.Name),
 			Namespace: "*",
 		})
 	}

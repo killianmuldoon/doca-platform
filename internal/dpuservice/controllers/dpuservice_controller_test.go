@@ -40,119 +40,102 @@ import (
 var _ = Describe("DPUService Controller", func() {
 	Context("When reconciling a resource", func() {
 		var testNS *corev1.Namespace
-		var secrets []*corev1.Secret
 		BeforeEach(func() {
-			By("creating the namespace")
+			By("creating the namespaces")
 			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
-
-			By("creating the Kamaji secrets")
 			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one"}})).To(Succeed())
 			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two"}})).To(Succeed())
 			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-three"}})).To(Succeed())
-
-			// TODO: This implementation assumes all DPUClusters are in the same namespace. This is a limitation of the naming of the secret. The argoCD secrets must be in the same namespace.
-			// This could be alleviated.
-			secrets = []*corev1.Secret{
-				testKamajiClusterSecret(dpfCluster{Namespace: "dpu-one", Name: "cluster-one"}),
-				testKamajiClusterSecret(dpfCluster{Namespace: "dpu-two", Name: "cluster-two"}),
-				testKamajiClusterSecret(dpfCluster{Namespace: "dpu-three", Name: "cluster-three"}),
-			}
-			for _, s := range secrets {
-				Expect(testClient.Create(ctx, s)).To(Succeed())
-			}
 		})
 		AfterEach(func() {
 			By("Cleanup the Namespace and Secrets")
 			Expect(testClient.Delete(ctx, testNS)).To(Succeed())
-			for i := range secrets {
-				Expect(testClient.Delete(ctx, secrets[i])).To(Succeed())
-			}
 		})
 		It("should successfully reconcile the DPUService", func() {
+			cleanupObjs := []client.Object{}
+			defer func() {
+				Expect(cleanupAndWait(ctx, testClient, cleanupObjs...)).To(Succeed())
+			}()
+
+			clusters := []dpfCluster{
+				{Namespace: "dpu-one", Name: "cluster-one"},
+				{Namespace: "dpu-two", Name: "cluster-two"},
+				{Namespace: "dpu-three", Name: "cluster-three"},
+			}
+			for i := range clusters {
+				cleanupObjs = append(cleanupObjs, testKamajiClusterSecret(clusters[i]))
+				Expect(testClient.Create(ctx, testKamajiClusterSecret(clusters[i]))).To(Succeed())
+			}
+
 			dpuServices := []*dpuservicev1.DPUService{
 				{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one", Namespace: testNS.Name}},
 				{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two", Namespace: testNS.Name}},
 			}
-
 			for i := range dpuServices {
+				cleanupObjs = append(cleanupObjs, dpuServices[i])
 				Expect(testClient.Create(ctx, dpuServices[i])).To(Succeed())
 			}
 
-			Eventually(func() error {
-				return assertDPUService(testClient, dpuServices...)
+			Eventually(func(g Gomega) {
+				assertDPUService(g, testClient, dpuServices)
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 
 			// Check that argo secrets have been created correctly.
-			Eventually(func() error {
-				return assertArgoCDSecrets(testClient)
+			Eventually(func(g Gomega) {
+				assertArgoCDSecrets(g, testClient, clusters)
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 
 			// Check that the argo AppProject has been created correctly
-			Eventually(func() error {
-				return assertAppProject(testClient)
+			Eventually(func(g Gomega) {
+				assertAppProject(g, testClient, clusters)
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 		})
 	})
 })
 
-func assertDPUService(testClient client.Client, dpuServices ...*dpuservicev1.DPUService) error {
+func assertDPUService(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService) {
 	for i := range dpuServices {
 		gotDPUService := &dpuservicev1.DPUService{}
-		if err := testClient.Get(ctx, client.ObjectKeyFromObject(dpuServices[i]), gotDPUService); err != nil {
-			return err
-		}
-		if len(gotDPUService.Finalizers) != 1 || gotDPUService.Finalizers[0] != dpuservicev1.DPUServiceFinalizer {
-			return fmt.Errorf("wrong finalizer")
-		}
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServices[i]), gotDPUService)).To(Succeed())
+		g.Expect(gotDPUService.Finalizers).To(ConsistOf([]string{dpuservicev1.DPUServiceFinalizer}))
 	}
-	return nil
-}
-func assertArgoCDSecrets(testClient client.Client) error {
-	secrets := &corev1.SecretList{}
-	if err := testClient.List(ctx, secrets, client.HasLabels{argoCDSecretLabelKey, dpfClusterLabelKey}); err != nil {
-		return err
-	}
-	foundSecretNames := []string{}
-	for _, secret := range secrets.Items {
-		foundSecretNames = append(foundSecretNames, secret.Name)
-	}
-	if len(foundSecretNames) != 3 {
-		return fmt.Errorf("error")
-	}
-	return nil
 }
 
-func assertAppProject(testClient client.Client) error {
+func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []dpfCluster) {
+	gotArgoSecrets := &corev1.SecretList{}
+	g.Expect(testClient.List(ctx, gotArgoSecrets, client.HasLabels{argoCDSecretLabelKey, dpfClusterLabelKey})).To(Succeed())
+	// Assert the correct number of secrets was found.
+	g.Expect(gotArgoSecrets.Items).To(HaveLen(len(clusters)))
+	for _, s := range gotArgoSecrets.Items {
+		// Assert each secret contains the required keys in Data.
+		for _, key := range []string{"config", "name", "server"} {
+			if _, ok := s.Data[key]; !ok {
+				g.Expect(s.Data).To(HaveKey(key))
+			}
+		}
+	}
+}
+
+func assertAppProject(g Gomega, testClient client.Client, clusters []dpfCluster) {
 	// Check that an argo project has been created.
 	appProject := &argov1.AppProject{}
-	if err := testClient.Get(ctx, client.ObjectKey{Namespace: argoCDNamespace, Name: appProjectName}, appProject); err != nil {
-		return err
-	}
-	expectedDestinations := []argov1.ApplicationDestination{
-		{
-			Server:    "cluster-one",
+	g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: argoCDNamespace, Name: appProjectName}, appProject)).To(Succeed())
+	gotDestinations := appProject.Spec.Destinations
+	g.Expect(gotDestinations).To(HaveLen(len(clusters)))
+	expectedDestinations := []argov1.ApplicationDestination{}
+	for _, c := range clusters {
+		expectedDestinations = append(expectedDestinations, argov1.ApplicationDestination{
+			Server:    fmt.Sprintf("%s-%s", c.Namespace, c.Name),
 			Namespace: "*",
-		},
-		{
-			Server:    "cluster-two",
-			Namespace: "*",
-		},
-		{
-			Server:    "cluster-three",
-			Namespace: "*",
-		},
+		})
 	}
-	if len(appProject.Spec.Destinations) != len(expectedDestinations) {
-		return fmt.Errorf("wrong")
-	}
-	return nil
+	g.Expect(gotDestinations).To(ConsistOf(expectedDestinations))
 }
 
 var _ = Describe("test DPUService reconciler step-by-step", func() {
 	Context("When reconciling", func() {
 		var testNS *corev1.Namespace
-		dpuService := &dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: "service-01", Namespace: "", UID: "one"}}
 		BeforeEach(func() {
 			By("creating the namespaces")
 			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
@@ -233,7 +216,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
-			err := r.reconcileSecrets(ctx, dpuService, clusters)
+			err := r.reconcileSecrets(ctx, clusters)
 			Expect(err).NotTo(HaveOccurred())
 			secretList := &corev1.SecretList{}
 			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, dpfClusterLabelKey})).To(Succeed())
@@ -262,7 +245,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
 
-			err := r.reconcileSecrets(ctx, dpuService, clusters)
+			err := r.reconcileSecrets(ctx, clusters)
 			// Expect an error to be reported.
 			Expect(err).To(HaveOccurred())
 
@@ -296,7 +279,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
 
-			err := r.reconcileSecrets(ctx, dpuService, clusters)
+			err := r.reconcileSecrets(ctx, clusters)
 			// Expect an error to be reported.
 			Expect(err).To(HaveOccurred())
 
@@ -367,7 +350,7 @@ func cleanupAndWait(ctx context.Context, c client.Client, objs ...client.Object)
 			wait.Backoff{
 				Duration: 100 * time.Millisecond,
 				Factor:   1.5,
-				Steps:    8,
+				Steps:    10,
 				Jitter:   0.4,
 			},
 			func() (done bool, err error) {

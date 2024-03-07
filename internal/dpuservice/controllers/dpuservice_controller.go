@@ -120,6 +120,7 @@ func (r *DPUServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 //nolint:unparam
 func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) {
 	controllerutil.RemoveFinalizer(dpuService, dpuservicev1.DPUServiceFinalizer)
+	// We should have an ownerReference chain in order to delete subordinate objects.
 	return ctrl.Result{}, nil
 }
 
@@ -133,13 +134,13 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	}
 
 	// Ensure the Argo secret for each cluster is up-to-date.
-	if err := r.reconcileSecrets(ctx, dpuService, clusters); err != nil {
+	if err := r.reconcileSecrets(ctx, clusters); err != nil {
 		// TODO: In future we should tolerate this error, but only when we have status reporting.
 		return ctrl.Result{}, err
 	}
 
 	//  Ensure the ArgoCD AppProject exists and is up-to-date.
-	if err := r.reconcileAppProject(ctx, dpuService, clusters); err != nil {
+	if err := r.reconcileAppProject(ctx, clusters); err != nil {
 		// TODO: In future we should tolerate this error, but only when we have status reporting.
 		return ctrl.Result{}, err
 	}
@@ -158,7 +159,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 }
 
 // reconcileSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
-func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []dpfCluster) error {
+func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, clusters []dpfCluster) error {
 	var errs []error
 	for _, cluster := range clusters {
 		// Get the control plane secret using the naming convention - $CLUSTERNAME-admin-kubeconfig.
@@ -174,10 +175,6 @@ func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, dpuService 
 			errs = append(errs, err)
 			continue
 		}
-		// Ensure this secret is owned by the dpuService being reconciled.
-		argoSecret.SetOwnerReferences(
-			ensureOwnerRef(argoSecret.GetOwnerReferences(), metav1.NewControllerRef(dpuService, dpuservicev1.DPUServiceGroupVersionKind)),
-		)
 		// Create or patch
 		if err := r.Client.Patch(ctx, argoSecret, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
 			errs = append(errs, err)
@@ -262,16 +259,12 @@ func (r *DPUServiceReconciler) reconcileStatus(ctx context.Context) error {
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []dpfCluster) error {
+func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters []dpfCluster) error {
 	clusterKeys := []types.NamespacedName{}
 	for i := range clusters {
 		clusterKeys = append(clusterKeys, types.NamespacedName{Namespace: clusters[i].Namespace, Name: clusters[i].Name})
 	}
 	appProject := argocd.NewAppProject(types.NamespacedName{Name: appProjectName, Namespace: argoCDNamespace}, clusterKeys)
-	// Ensure this appProject is owned by the dpuService which is currently reconciling it.
-	appProject.SetOwnerReferences(
-		ensureOwnerRef(appProject.GetOwnerReferences(), metav1.NewControllerRef(dpuService, dpuservicev1.DPUServiceGroupVersionKind)),
-	)
 	if err := r.Client.Patch(ctx, appProject, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
 		return err
 	}
@@ -303,16 +296,4 @@ func getClusters(ctx context.Context, c client.Client) ([]dpfCluster, error) {
 		})
 	}
 	return clusters, kerrors.NewAggregate(errs)
-}
-
-// ensureOwnerRef makes sure the slice contains the passed OwnerReference.
-func ensureOwnerRef(ownerReferences []metav1.OwnerReference, owner *metav1.OwnerReference) []metav1.OwnerReference {
-	for index, r := range ownerReferences {
-		if r.UID == owner.UID {
-			// Update the ownerReference in place to ensure apiVersion is up-to-date.
-			ownerReferences[index] = *owner
-			return ownerReferences
-		}
-	}
-	return append(ownerReferences, *owner)
 }
