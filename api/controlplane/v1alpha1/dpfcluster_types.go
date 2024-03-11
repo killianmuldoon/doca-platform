@@ -26,6 +26,8 @@ var (
 
 	// DPFClusterSecretClusterNameLabelKey is the key of the label linking a DPFClusterSecret to the name of the cluster.
 	DPFClusterSecretClusterNameLabelKey = "kamaji.clastix.io/name"
+
+	DPFClusterLabelKey = "dpf.nvidia.com/cluster"
 )
 
 // DPFClusterSpec defines the desired state of DPFCluster

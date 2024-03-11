@@ -228,7 +228,8 @@ spec:
                 dpf.nvidia.com/dpu-label: dpu
               matchExpressions:
                 - { key: tier, operator: In, values: [critical-dpus] }
-            labels: # From DPUService `.spec.labels`
+            labels: # From DPUService `.spec.serviceDaemonSetlabels`
+              service-ID: service-one # From DPUService `.spec.serviceID`
               arbitrary-labels: my-app-label
             annotations: # From DPUService `.spec.serviceDaemonSet.annotations`
               arbitrary-annotation: my-app-annotation
