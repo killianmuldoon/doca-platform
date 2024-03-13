@@ -18,15 +18,24 @@ package hostcniprovisioner_test
 
 import (
 	hostcniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host"
+	networkhelperMock "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper/mock"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/vishvananda/netlink"
+	"go.uber.org/mock/gomock"
 )
 
 var _ = Describe("Host CNI Provisioner", func() {
 	Context("When it runs once for the first time", func() {
 		It("should configure the system fully", func() {
-			provisioner := hostcniprovisioner.New()
+			testCtrl := gomock.NewController(GinkgoT())
+			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			provisioner := hostcniprovisioner.New(networkhelper)
+
+			ipNet, _ := netlink.ParseIPNet("192.168.1.2/24")
+			networkhelper.EXPECT().SetLinkIPAddress("ens2f0np0", ipNet)
+
 			err := provisioner.RunOnce()
 			Expect(err).ToNot(HaveOccurred())
 		})
