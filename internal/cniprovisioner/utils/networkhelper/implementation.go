@@ -94,7 +94,7 @@ func (n *networkHelper) DeleteLinkIPAddress(link string, ipNet *net.IPNet) error
 // DeleteNeighbour deletes a neighbour
 func (n *networkHelper) DeleteNeighbour(ip net.IP, device string) error {
 	if ip == nil {
-		return errors.New("ip is empty, can't delete network")
+		return errors.New("ip is empty, can't delete neighbour")
 	}
 	l, err := netlink.LinkByName(device)
 	if err != nil {
@@ -111,9 +111,6 @@ func (n *networkHelper) DeleteNeighbour(ip net.IP, device string) error {
 func (n *networkHelper) DeleteRoute(network *net.IPNet, gateway net.IP, device string) error {
 	if network == nil {
 		return errors.New("network is empty, can't delete route")
-	}
-	if gateway == nil {
-		return errors.New("gateway is empty, can't delete route")
 	}
 	l, err := netlink.LinkByName(device)
 	if err != nil {
