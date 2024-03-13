@@ -16,17 +16,31 @@ limitations under the License.
 
 package hostcniprovisioner
 
-import "k8s.io/klog/v2"
+import (
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
+
+	"github.com/vishvananda/netlink"
+	"k8s.io/klog/v2"
+)
+
+const (
+	// pf is the name of the PF on the host.
+	// TODO: Discover that instead of hardcoding it
+	pf = "ens2f0np0"
+)
 
 type HostCNIProvisioner struct {
+	networkHelper networkhelper.NetworkHelper
+
 	// FileSystemRoot controls the file system root. It's used for enabling easier testing of the package. Defaults to
 	// empty.
 	FileSystemRoot string
 }
 
 // New creates a HostCNIProvisioner that can configure the system
-func New() *HostCNIProvisioner {
+func New(networkHelper networkhelper.NetworkHelper) *HostCNIProvisioner {
 	return &HostCNIProvisioner{
+		networkHelper:  networkHelper,
 		FileSystemRoot: "",
 	}
 }
@@ -83,9 +97,18 @@ func (p *HostCNIProvisioner) configure() error {
 
 // configurePF configures an IP on the PF that is in the same subnet as the VTEP. This is essential for enabling Pod
 // to External connectivity.
-func (p *HostCNIProvisioner) configurePF() error { return nil }
+func (p *HostCNIProvisioner) configurePF() error {
+	// TODO: Still undecided on how we get that IP. Adjust as needed after decision is made.
+	ipNet, err := netlink.ParseIPNet("192.168.1.2/24")
+	if err != nil {
+		return err
+	}
 
-// configureFakeEnvironment configures a fake environment that tricks OVN Kubernetes to think that VF representors are on the host
+	return p.networkHelper.SetLinkIPAddress(pf, ipNet)
+}
+
+// configureFakeEnvironment configures a fake environment that tricks OVN Kubernetes to think that VF representors are
+// on the host.
 func (p *HostCNIProvisioner) configureFakeEnvironment() error {
 	err := p.createFakeFS()
 	if err != nil {

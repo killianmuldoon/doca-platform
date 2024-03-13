@@ -21,6 +21,7 @@ import (
 	"os/signal"
 
 	hostcniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
 
 	"k8s.io/klog/v2"
 )
@@ -28,7 +29,7 @@ import (
 func main() {
 	klog.Info("Starting Host CNI Provisioner")
 
-	provisioner := hostcniprovisioner.New()
+	provisioner := hostcniprovisioner.New(networkhelper.New())
 
 	err := provisioner.RunOnce()
 	if err != nil {
