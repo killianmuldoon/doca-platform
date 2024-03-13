@@ -72,7 +72,7 @@ func (c *ovsClient) DeleteBridgeIfExists(name string) error {
 
 // SetBridgeDataPathType sets the datapath type of a bridge
 func (c *ovsClient) SetBridgeDataPathType(bridge string, bridgeType BridgeDataPathType) error {
-	return c.runOVSVsctl("set", "bridge", bridge, fmt.Sprintf("type=%s", bridgeType))
+	return c.runOVSVsctl("set", "bridge", bridge, fmt.Sprintf("datapath_type=%s", bridgeType))
 }
 
 // SetBridgeMAC sets the MAC address for the bridge interface
