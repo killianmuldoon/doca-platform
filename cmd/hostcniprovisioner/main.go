@@ -16,4 +16,28 @@ limitations under the License.
 
 package main
 
-func main() {}
+import (
+	"os"
+	"os/signal"
+
+	hostcniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host"
+
+	"k8s.io/klog/v2"
+)
+
+func main() {
+	klog.Info("Starting Host CNI Provisioner")
+
+	provisioner := hostcniprovisioner.New()
+
+	err := provisioner.RunOnce()
+	if err != nil {
+		klog.Fatal(err)
+	}
+
+	go provisioner.EnsureConfiguration()
+
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	<-c
+}
