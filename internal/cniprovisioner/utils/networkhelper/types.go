@@ -16,7 +16,9 @@ limitations under the License.
 
 package networkhelper
 
-import "net"
+import (
+	"net"
+)
 
 // NetworkHelper is a helper that can be used to configure networking related settings on the system.
 
@@ -30,4 +32,10 @@ type NetworkHelper interface {
 	RenameLink(link string, newName string) error
 	// SetLinkIPAddress sets the IP address of a link
 	SetLinkIPAddress(link string, ipNet *net.IPNet) error
+	// DeleteLinkIPAddress deletes the given IP of a link
+	DeleteLinkIPAddress(link string, ipNet *net.IPNet) error
+	// DeleteNeighbour deletes a neighbour
+	DeleteNeighbour(ip net.IP, device string) error
+	// DeleteRoute deletes a route
+	DeleteRoute(network *net.IPNet, gateway net.IP, device string) error
 }

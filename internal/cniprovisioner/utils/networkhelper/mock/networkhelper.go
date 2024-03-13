@@ -55,6 +55,48 @@ func (m *MockNetworkHelper) EXPECT() *MockNetworkHelperMockRecorder {
 	return m.recorder
 }
 
+// DeleteLinkIPAddress mocks base method.
+func (m *MockNetworkHelper) DeleteLinkIPAddress(link string, ipNet *net.IPNet) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteLinkIPAddress", link, ipNet)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteLinkIPAddress indicates an expected call of DeleteLinkIPAddress.
+func (mr *MockNetworkHelperMockRecorder) DeleteLinkIPAddress(link, ipNet any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLinkIPAddress", reflect.TypeOf((*MockNetworkHelper)(nil).DeleteLinkIPAddress), link, ipNet)
+}
+
+// DeleteNeighbour mocks base method.
+func (m *MockNetworkHelper) DeleteNeighbour(ip net.IP, device string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteNeighbour", ip, device)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteNeighbour indicates an expected call of DeleteNeighbour.
+func (mr *MockNetworkHelperMockRecorder) DeleteNeighbour(ip, device any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNeighbour", reflect.TypeOf((*MockNetworkHelper)(nil).DeleteNeighbour), ip, device)
+}
+
+// DeleteRoute mocks base method.
+func (m *MockNetworkHelper) DeleteRoute(network *net.IPNet, gateway net.IP, device string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteRoute", network, gateway, device)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeleteRoute indicates an expected call of DeleteRoute.
+func (mr *MockNetworkHelperMockRecorder) DeleteRoute(network, gateway, device any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRoute", reflect.TypeOf((*MockNetworkHelper)(nil).DeleteRoute), network, gateway, device)
+}
+
 // RenameLink mocks base method.
 func (m *MockNetworkHelper) RenameLink(link, newName string) error {
 	m.ctrl.T.Helper()

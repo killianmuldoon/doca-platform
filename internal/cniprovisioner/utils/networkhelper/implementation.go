@@ -73,3 +73,57 @@ func (n *networkHelper) SetLinkIPAddress(link string, ipNet *net.IPNet) error {
 
 	return netlink.AddrAdd(l, ip)
 }
+
+// DeleteLinkIPAddress deletes the given IP of a link
+func (n *networkHelper) DeleteLinkIPAddress(link string, ipNet *net.IPNet) error {
+	if ipNet == nil {
+		return errors.New("ipNet is empty, can't delete link IP")
+	}
+	l, err := netlink.LinkByName(link)
+	if err != nil {
+		return err
+	}
+	ip, err := netlink.ParseAddr(ipNet.String())
+	if err != nil {
+		return err
+	}
+
+	return netlink.AddrDel(l, ip)
+}
+
+// DeleteNeighbour deletes a neighbour
+func (n *networkHelper) DeleteNeighbour(ip net.IP, device string) error {
+	if ip == nil {
+		return errors.New("ip is empty, can't delete network")
+	}
+	l, err := netlink.LinkByName(device)
+	if err != nil {
+		return err
+	}
+	neigh := &netlink.Neigh{
+		LinkIndex: l.Attrs().Index,
+		IP:        ip,
+	}
+	return netlink.NeighDel(neigh)
+}
+
+// DeleteRoute deletes a route
+func (n *networkHelper) DeleteRoute(network *net.IPNet, gateway net.IP, device string) error {
+	if network == nil {
+		return errors.New("network is empty, can't delete route")
+	}
+	if gateway == nil {
+		return errors.New("gateway is empty, can't delete route")
+	}
+	l, err := netlink.LinkByName(device)
+	if err != nil {
+		return err
+	}
+	r := &netlink.Route{
+		Dst:       network,
+		Gw:        gateway,
+		LinkIndex: l.Attrs().Index,
+	}
+
+	return netlink.RouteDel(r)
+}
