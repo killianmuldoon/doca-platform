@@ -123,7 +123,7 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 
 ##@ Build
 
-BUILD_TARGETS ?= dpuservice controlplane dpucniprovisioner
+BUILD_TARGETS ?= dpuservice controlplane dpucniprovisioner hostcniprovisioner
 REGISTRY ?= harbor.mellanox.com/cloud-orchestration-dev/dpf
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 TAG ?= v0.0.1
@@ -152,6 +152,10 @@ binary-controlplane: ## Build the controlplane controller binary.
 binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
 	go build -trimpath -o $(LOCALBIN)/dpucniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/dpucniprovisioner
 
+.PHONY: binary-hostcniprovisioner
+binary-hostcniprovisioner: ## Build the Host CNI Provisioner binary.
+	go build -trimpath -o $(LOCALBIN)/hostcniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/hostcniprovisioner
+
 .PHONY: docker-build-all
 docker-build-all: ## Build docker images for all BUILD_TARGETS
 	$(MAKE) $(addprefix docker-build-,$(BUILD_TARGETS))
@@ -167,6 +171,9 @@ CONTROLPLANE_IMAGE ?= $(REGISTRY)/$(CONTROLPLANE_IMAGE_NAME)
 
 DPUCNIPROVISIONER_IMAGE_NAME ?= dpu-cni-provisioner
 DPUCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(DPUCNIPROVISIONER_IMAGE_NAME)
+
+HOSTCNIPROVISIONER_IMAGE_NAME ?= host-cni-provisioner
+HOSTCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(HOSTCNIPROVISIONER_IMAGE_NAME)
 
 .PHONY: docker-build-dpuservice
 docker-build-dpuservice: ## Build docker images for the dpuservice-controller
@@ -198,6 +205,9 @@ docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker imag
 		. \
 		-t $(DPUCNIPROVISIONER_IMAGE):$(TAG)
 
+.PHONY: docker-build-hostcniprovisioner
+docker-build-hostcniprovisioner: ;## Build docker images for the HOST CNI Provisioner
+
 .PHONY: docker-build-base-image-ovs
 docker-build-base-image-ovs: ## Build base docker image with OVS dependencies
 	docker buildx build \
@@ -221,6 +231,10 @@ docker-push-controlplane: ## Push the docker image for dpuservice.
 .PHONY: docker-push-dpucniprovisioner
 docker-push-dpucniprovisioner: ## Push the docker image for DPU CNI Provisioner.
 	docker push $(DPUCNIPROVISIONER_IMAGE):$(TAG)
+
+.PHONY: docker-push-hostcniprovisioner
+docker-push-hostcniprovisioner: ## Push the docker image for Host CNI Provisioner.
+	docker push $(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
 ##@ Dependencies
 LOCALBIN ?= $(shell pwd)/bin
