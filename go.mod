@@ -7,6 +7,7 @@ require (
 	github.com/onsi/gomega v1.30.0
 	github.com/vishvananda/netlink v1.1.0
 	go.uber.org/mock v0.4.0
+	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
 	k8s.io/client-go v0.29.0
@@ -53,7 +54,6 @@ require (
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
-	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e // indirect
 	golang.org/x/net v0.19.0 // indirect
 	golang.org/x/oauth2 v0.12.0 // indirect
 	golang.org/x/sys v0.16.0 // indirect
