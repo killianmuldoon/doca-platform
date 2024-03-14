@@ -86,7 +86,7 @@ fi
 $MINIKUBE_BIN start --profile $CLUSTER_NAME $MINIKUBE_ARGS $MINIKUBE_EXTRA_ARGS
 
 ## Update the MetalLB configuration to give it some IPs to give out. Take them from the same range as minikube uses.
-MINIKUBE_IP=$(minikube ip -p $CLUSTER_NAME)
+MINIKUBE_IP=$($MINIKUBE_BIN ip -p $CLUSTER_NAME)
 MINIKUBE_IP_NETWORK=$(echo $MINIKUBE_IP | sed -E 's/([0-9]+\.[0-9]+\.[0-9]+)\.[0-9]+/\1/')
 MINIKUBE_LB_RANGE="${MINIKUBE_IP_NETWORK}.20-${MINIKUBE_IP_NETWORK}.29"
 

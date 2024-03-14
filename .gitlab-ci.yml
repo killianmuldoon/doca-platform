@@ -28,3 +28,18 @@ build-binaries:
   stage: build
   script:
     - make binaries
+
+e2e:
+  stage: test
+  when: manual
+  variables:
+    REGISTRY: localhost:5000
+    MINIKUBE_DRIVER: docker
+  tags:
+    - e2e
+  before_script:
+    - make test-env-e2e
+  script:
+    - make test-deploy-dpuservice && make test-e2e
+  after_script:
+    -  make clean-test-env
