@@ -216,20 +216,24 @@ spec:
                   chart:
                     description: Chart is the name of the helm chart.
                     type: string
+                  path:
+                    description: Path is the location of the chart inside the repo.
+                    type: string
                   releaseName:
                     description: ReleaseName is the name to give to the release generate
                       from the DPUService.
                     type: string
                   repoURL:
-                    description: RepoURL is the URL to the repository that contains
-                      the application helm chart.
+                    description: |-
+                      TODO: This currently allows deploying a helm chart either from a helm repo. This should be validated as such.
+                      RepoURL is the URL to the repository that contains the application helm chart.
                     type: string
-                  targetRevision:
+                  version:
                     description: Version is a semver tag for the Chart's version.
                     type: string
                 required:
-                - chart
                 - repoURL
+                - version
                 type: object
               values:
                 description: Values specifies Helm values to be passed to helm template,

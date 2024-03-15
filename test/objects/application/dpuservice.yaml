@@ -2,8 +2,10 @@ apiVersion: svc.dpf.nvidia.com/v1alpha1
 kind: DPUService
 metadata:
   name: dpu-01
-  project: "doca-platform-project"
+  namespace: "default"
+spec:
+  # TODO: Should we allow installing from a git repo or just a registry? We should validate so the user knows when input does not match.
   source:
-    repoURL: https://github.com/argoproj/argocd-example-apps.git
-    version: 0.1.0
+    repoURL: https://github.com/argoproj/argocd-example-apps
     path: helm-guestbook
+    version: HEAD

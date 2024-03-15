@@ -193,7 +193,7 @@ func assertAppProject(g Gomega, testClient client.Client, clusters []dpfCluster)
 	expectedDestinations := []argov1.ApplicationDestination{}
 	for _, c := range clusters {
 		expectedDestinations = append(expectedDestinations, argov1.ApplicationDestination{
-			Server:    fmt.Sprintf("%s-%s", c.Namespace, c.Name),
+			Name:      c.Name,
 			Namespace: "*",
 		})
 	}
@@ -218,6 +218,7 @@ func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuser
 			}
 			// Check the helm fields are set as expected.
 			g.Expect(app.Spec.Source.Chart).To(Equal(service.Spec.Source.Chart))
+			g.Expect(app.Spec.Source.Path).To(Equal(service.Spec.Source.Path))
 			g.Expect(app.Spec.Source.RepoURL).To(Equal(service.Spec.Source.RepoURL))
 			g.Expect(app.Spec.Source.TargetRevision).To(Equal(service.Spec.Source.Version))
 			g.Expect(app.Spec.Source.Helm.ReleaseName).To(Equal(service.Spec.Source.ReleaseName))
@@ -427,19 +428,19 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 
 func testKamajiClusterSecret(cluster dpfCluster) *corev1.Secret {
 	adminConfig := &kubeconfig.Type{
-		Clusters: []*kubeconfig.KubectlClusterWithName{
+		Clusters: []*kubeconfig.ClusterWithName{
 			{
 				Name: cluster.Name,
-				Cluster: kubeconfig.KubectlCluster{
+				Cluster: kubeconfig.Cluster{
 					Server:                   "https://localhost.com:6443",
 					CertificateAuthorityData: []byte("lotsofdifferentletterstobesecure"),
 				},
 			},
 		},
-		Users: []*kubeconfig.KubectlUserWithName{
+		Users: []*kubeconfig.UserWithName{
 			{
 				Name: "not-used",
-				User: kubeconfig.KubectlUser{
+				User: kubeconfig.User{
 					ClientKeyData:         []byte("lotsofdifferentletterstobesecure"),
 					ClientCertificateData: []byte("lotsofdifferentletterstobesecure"),
 				},

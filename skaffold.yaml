@@ -17,7 +17,7 @@ profiles:
               GCFLAGS: "all=-N -l"
               target_arch: "arm64"
               package: ./cmd/dpuservice
-              builder_image: golang:1.22
+              builder_image: golang:1.21.7
               base_image: gcr.io/distroless/static:nonroot
             dockerfile: Dockerfile
     manifests:

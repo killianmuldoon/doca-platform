@@ -3,7 +3,6 @@ package argocd
 
 import (
 	"fmt"
-	"strings"
 
 	controlplanev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
@@ -13,7 +12,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/uuid"
 )
 
 var (
@@ -36,7 +34,7 @@ func NewAppProject(name string, clusters []types.NamespacedName) *argov1.AppProj
 			OwnerReferences: nil,
 		},
 		Spec: argov1.AppProjectSpec{
-			SourceRepos:                nil,
+			SourceRepos:                []string{"*"},
 			Destinations:               nil,
 			Description:                "Installing DPU Services",
 			Roles:                      nil,
@@ -56,7 +54,7 @@ func NewAppProject(name string, clusters []types.NamespacedName) *argov1.AppProj
 	}
 	for _, cluster := range clusters {
 		project.Spec.Destinations = append(project.Spec.Destinations, argov1.ApplicationDestination{
-			Server:    fmt.Sprintf("%s-%s", cluster.Namespace, cluster.Name),
+			Name:      cluster.Name,
 			Namespace: "*",
 		})
 	}
@@ -64,8 +62,6 @@ func NewAppProject(name string, clusters []types.NamespacedName) *argov1.AppProj
 }
 
 func NewApplication(projectName string, cluster types.NamespacedName, dpuService *dpuservicev1.DPUService, values *runtime.RawExtension) *argov1.Application {
-	uid := string(uuid.NewUUID())
-	suffix := strings.Split(uid, "-")[0]
 	return &argov1.Application{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       argoapplication.ApplicationKind,
@@ -73,29 +69,40 @@ func NewApplication(projectName string, cluster types.NamespacedName, dpuService
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			// TODO: Revisit this naming.
-			Name:      fmt.Sprintf("%v-%v", dpuService.Name, suffix),
+			Name:      fmt.Sprintf("%v-%v", cluster.Name, dpuService.Name),
 			Namespace: argoCDNamespace,
 			// TODO: Consider adding labels for the Application.
 			Labels: map[string]string{
-				controlplanev1.DPFClusterLabelKey:        fmt.Sprintf("%s-%s", cluster.Namespace, cluster.Name),
+				controlplanev1.DPFClusterLabelKey:        cluster.Name,
 				dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
 				dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
 			},
+			// This finalizer is what enables cascading deletion in ArgoCD.
+			Finalizers:  []string{"resources-finalizer.argocd.argoproj.io"},
 			Annotations: nil,
 		},
 		Spec: argov1.ApplicationSpec{
 			Source: &argov1.ApplicationSource{
 				RepoURL:        dpuService.Spec.Source.RepoURL,
 				Chart:          dpuService.Spec.Source.Chart,
+				Path:           dpuService.Spec.Source.Path,
 				TargetRevision: dpuService.Spec.Source.Version,
 				Helm: &argov1.ApplicationSourceHelm{
 					ReleaseName:  dpuService.Spec.Source.ReleaseName,
 					ValuesObject: values,
 				},
 			},
+			SyncPolicy: &argov1.SyncPolicy{
+				Automated: &argov1.SyncPolicyAutomated{
+					Prune:    true,
+					SelfHeal: true,
+				},
+			},
 			Destination: argov1.ApplicationDestination{
-				Server:    fmt.Sprintf("%s-%s", cluster.Namespace, cluster.Name),
-				Namespace: "*",
+				// TODO: We should ensure cluster names are unique.
+				Name: cluster.Name,
+				// TODO: Either all resources have namespace defined or else they're deployed to the default namespace. Reconsider this.
+				Namespace: "default",
 			},
 			Project: projectName,
 		},

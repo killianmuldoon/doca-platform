@@ -33,6 +33,14 @@ rules:
   - update
   - watch
 - apiGroups:
+  - kamaji.clastix.io
+  resources:
+  - tenantcontrolplanes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - svc.dpf.nvidia.com
   resources:
   - dpuservices

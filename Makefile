@@ -12,7 +12,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-GO_VERSION ?= 1.22.0
+GO_VERSION ?= 1.21.7
 
 # CONTAINER_TOOL defines the container tool to be used for building images.
 # Be aware that the target commands are only tested with Docker which is
@@ -153,7 +153,7 @@ $(CERT_MANAGER_YAML): | $(CHARTSDIR)
 ARGOCD_YAML=$(CHARTSDIR)/argocd.yaml
 ARGOCD_VER=v2.10.1
 $(ARGOCD_YAML): | $(CHARTSDIR)
-	curl -fSsL "https://raw.githubusercontent.com/argoproj/argo-cd/$(ARGOCD_VER)/manifests/core-install.yaml" -o $(ARGOCD_YAML)
+	curl -fSsL "https://raw.githubusercontent.com/argoproj/argo-cd/$(ARGOCD_VER)/manifests/install.yaml" -o $(ARGOCD_YAML)
 
 .PHONY: clean
 clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
@@ -194,7 +194,7 @@ generate-manifests-dpuservice: ## Generate manifests e.g. CRD, RBAC. for the dpu
 generate-manifests-controlplane: ## Generate manifests e.g. CRD, RBAC. for the controlplane controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/controlplane/crd/bases"
 	$(CONTROLLER_GEN) \
-    paths="./internal/controlplane/..."
+    paths="./internal/controlplane/..." \
 	paths="./internal/controlplane/..." \
 	paths="./api/controlplane/..." \
 	crd:crdVersions=v1 \
@@ -387,7 +387,7 @@ docker-push-hostcniprovisioner: ## Push the docker image for Host CNI Provisione
 	docker push $(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
 # dev environment
-MINIKUBE_CLUSTER_NAME = dpf-dev
+MINIKUBE_CLUSTER_NAME ?= dpf-dev
 dev-minikube: $(MINIKUBE) ## Create a minikube cluster for development.
 	CLUSTER_NAME=$(MINIKUBE_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
 
@@ -410,7 +410,7 @@ dev-prereqs-dpuservice: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(SKAFFOLD
 	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml
 
 SKAFFOLD_REGISTRY=localhost:5000
-dev-dpuservice: kustomize generate
+dev-dpuservice: $(MINIKUBE) $(SKAFFOLD)
 	# Use minikube for docker build and deployment and run skaffold
 	$Q eval $$($(MINIKUBE) -p $(MINIKUBE_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p dpuservice --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
