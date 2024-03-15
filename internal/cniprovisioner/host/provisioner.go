@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
 
@@ -142,90 +143,119 @@ func (p *HostCNIProvisioner) configurePF() error {
 // configureFakeEnvironment configures a fake environment that tricks OVN Kubernetes to think that VF representors are
 // on the host.
 func (p *HostCNIProvisioner) configureFakeEnvironment() error {
-	err := p.createFakeFS()
+	pfToNumVFs, err := p.discoverVFs()
 	if err != nil {
 		return err
 	}
-	return p.createDummyNetDevices()
+	err = p.createFakeFS(pfToNumVFs)
+	if err != nil {
+		return err
+	}
+	return p.createDummyLinks(pfToNumVFs)
+}
+
+// discoverVFs discovers the available VFs on the system and returns a map of PF to number of VFs
+// TODO: Discover VFs from multiple PFs
+func (p *HostCNIProvisioner) discoverVFs() (map[string]int, error) {
+	m := make(map[string]int)
+	sriovNumVfsPath := filepath.Join(p.FileSystemRoot, fmt.Sprintf("/sys/class/net/%s/device/sriov_numvfs", pf))
+	content, err := os.ReadFile(sriovNumVfsPath)
+	if err != nil {
+		return nil, err
+	}
+
+	s := string(content)
+	s = strings.TrimSpace(s)
+	numVfs, err := strconv.Atoi(s)
+	if err != nil {
+		return nil, err
+	}
+
+	m[pf] = numVfs
+	return m, nil
 }
 
 // createFakeFS creates a fake filesystem with VF representors to trick OVN Kubernetes functions.
-func (p *HostCNIProvisioner) createFakeFS() error {
+func (p *HostCNIProvisioner) createFakeFS(pfToNumVFs map[string]int) error {
 	fsPath := filepath.Join(p.FileSystemRoot, fakeFSPath, "/sys/class/net")
 	err := os.MkdirAll(fsPath, 0755)
 	if err != nil {
 		return err
 	}
 
-	// /var/dpf/sys/class/net/ens2f0np0
-	pfPath := filepath.Join(fsPath, pf)
-	err = os.Mkdir(pfPath, 0755)
-	if err != nil {
-		return err
-	}
-
-	// /var/dpf/sys/class/net/ens2f0np0/phys_port_name
-	path := filepath.Join(pfPath, "phys_port_name")
-	// TODO: Find port number and parameterize static p0 when introducing support for VFs on both PFs
-	err = os.WriteFile(path, []byte("p0"), 0444)
-	if err != nil {
-		return err
-	}
-
-	// /var/dpf/sys/class/net/ens2f0np0/phys_switch_id
-	path = filepath.Join(pfPath, "phys_switch_id")
-	err = os.WriteFile(path, []byte(physSwitchIDValue), 0444)
-	if err != nil {
-		return err
-	}
-
-	// /var/dpf/sys/class/net/ens2f0np0/subsystem -> /var/dpf/sys/class/net/
-	path = filepath.Join(pfPath, "subsystem")
-	err = os.Symlink(fsPath, path)
-	if err != nil {
-		return err
-	}
-
-	sriovNumVfsPath := filepath.Join(p.FileSystemRoot, fmt.Sprintf("/sys/class/net/%s/device/sriov_numvfs", pf))
-	content, err := os.ReadFile(sriovNumVfsPath)
-	if err != nil {
-		return err
-	}
-
-	numVfs, err := strconv.Atoi(string(content))
-	if err != nil {
-		return err
-	}
-
-	for i := 0; i < numVfs; i++ {
-		// TODO: Find port number and parameterize static 0 when introducing support for VFs on both PFs
-		// /var/dpf/sys/class/net/pf0vf0
-		vfRepPath := filepath.Join(fsPath, fmt.Sprintf(vfRepresentorPattern, 0, i))
-		err := os.Mkdir(vfRepPath, 0755)
+	for pf, numVfs := range pfToNumVFs {
+		// /var/dpf/sys/class/net/ens2f0np0
+		pfPath := filepath.Join(fsPath, pf)
+		err = os.Mkdir(pfPath, 0755)
 		if err != nil {
 			return err
 		}
 
-		// /var/dpf/sys/class/net/pf0vf0/phys_port_name
-		path := filepath.Join(vfRepPath, "phys_port_name")
-		err = os.WriteFile(path, []byte(fmt.Sprintf(vfRepresentorPortPattern, 0, i)), 0444)
+		// /var/dpf/sys/class/net/ens2f0np0/phys_port_name
+		path := filepath.Join(pfPath, "phys_port_name")
+		// TODO: Find port number and parameterize static p0 when introducing support for VFs on both PFs
+		err = os.WriteFile(path, []byte("p0"), 0444)
 		if err != nil {
 			return err
 		}
 
-		// /var/dpf/sys/class/net/pf0vf0/phys_switch_id
-		path = filepath.Join(vfRepPath, "phys_switch_id")
+		// /var/dpf/sys/class/net/ens2f0np0/phys_switch_id
+		path = filepath.Join(pfPath, "phys_switch_id")
 		err = os.WriteFile(path, []byte(physSwitchIDValue), 0444)
 		if err != nil {
 			return err
+		}
+
+		// /var/dpf/sys/class/net/ens2f0np0/subsystem -> /var/dpf/sys/class/net/
+		path = filepath.Join(pfPath, "subsystem")
+		err = os.Symlink(fsPath, path)
+		if err != nil {
+			return err
+		}
+
+		for i := 0; i < numVfs; i++ {
+			// TODO: Find port number and parameterize static 0 when introducing support for VFs on both PFs
+			// /var/dpf/sys/class/net/pf0vf0
+			vfRepPath := filepath.Join(fsPath, fmt.Sprintf(vfRepresentorPattern, 0, i))
+			err := os.Mkdir(vfRepPath, 0755)
+			if err != nil {
+				return err
+			}
+
+			// /var/dpf/sys/class/net/pf0vf0/phys_port_name
+			path := filepath.Join(vfRepPath, "phys_port_name")
+			err = os.WriteFile(path, []byte(fmt.Sprintf(vfRepresentorPortPattern, 0, i)), 0444)
+			if err != nil {
+				return err
+			}
+
+			// /var/dpf/sys/class/net/pf0vf0/phys_switch_id
+			path = filepath.Join(vfRepPath, "phys_switch_id")
+			err = os.WriteFile(path, []byte(physSwitchIDValue), 0444)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-// createFakeFS creates dummy devices that represent the VF representors and are used to trick OVN Kubernetes functions.
-func (p *HostCNIProvisioner) createDummyNetDevices() error { return nil }
+// createDummyLinks creates dummy links for the VF representors (that exist in the DPU but not on the host) which are
+// used to trick OVN Kubernetes functions.
+func (p *HostCNIProvisioner) createDummyLinks(pfToNumVFs map[string]int) error {
+	for _, numVfs := range pfToNumVFs {
+		for i := 0; i < numVfs; i++ {
+			// TODO: Find port number and parameterize static 0 when introducing support for VFs on both PFs
+			vfRep := fmt.Sprintf(vfRepresentorPattern, 0, i)
+			err := p.networkHelper.AddDummyLink(vfRep)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
 
 // ensureDummyNetDevice ensures that a dummy net device is in place
 func (p *HostCNIProvisioner) ensureDummyNetDevice() error { return nil }

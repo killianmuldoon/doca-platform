@@ -18,6 +18,7 @@ package networkhelper
 
 import (
 	"errors"
+	"fmt"
 	"net"
 
 	"github.com/vishvananda/netlink"
@@ -123,4 +124,33 @@ func (n *networkHelper) DeleteRoute(network *net.IPNet, gateway net.IP, device s
 	}
 
 	return netlink.RouteDel(r)
+}
+
+// AddDummyLink adds a dummy link
+func (n *networkHelper) AddDummyLink(link string) error {
+	l := netlink.Dummy{
+		LinkAttrs: netlink.LinkAttrs{
+			Name: link,
+		},
+	}
+
+	return netlink.LinkAdd(&l)
+}
+
+// DummyLinkExists checks if a dummy link exists
+func (n *networkHelper) DummyLinkExists(link string) (bool, error) {
+	l, err := netlink.LinkByName(link)
+	if err != nil {
+		if _, ok := err.(netlink.LinkNotFoundError); ok {
+			return false, nil
+		}
+		return false, err
+	}
+
+	d := netlink.Dummy{}
+	if l.Type() != d.Type() {
+		return false, fmt.Errorf("link %s exists but is not of type dummy: type=%s", link, l.Type())
+	}
+
+	return true, nil
 }
