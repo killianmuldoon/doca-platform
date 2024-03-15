@@ -17,6 +17,10 @@ limitations under the License.
 package hostcniprovisioner_test
 
 import (
+	"net"
+	"os"
+	"path/filepath"
+
 	hostcniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host"
 	networkhelperMock "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper/mock"
 
@@ -33,11 +37,41 @@ var _ = Describe("Host CNI Provisioner", func() {
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
 			provisioner := hostcniprovisioner.New(networkhelper)
 
+			// Prepare Filesystem
+			tmpDir, err := os.MkdirTemp("", "hostcniprovisioner")
+			defer func() {
+				err := os.RemoveAll(tmpDir)
+				Expect(err).ToNot(HaveOccurred())
+			}()
+			Expect(err).NotTo(HaveOccurred())
+			provisioner.FileSystemRoot = tmpDir
+			ovnDBsPath := filepath.Join(tmpDir, "/var/lib/ovn-ic/etc/")
+			err = os.MkdirAll(ovnDBsPath, 0755)
+			Expect(err).NotTo(HaveOccurred())
+
+			_, err = os.Create(filepath.Join(ovnDBsPath, "file1.db"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = os.Create(filepath.Join(ovnDBsPath, "file2.db"))
+			Expect(err).NotTo(HaveOccurred())
+
 			ipNet, _ := netlink.ParseIPNet("192.168.1.2/24")
 			networkhelper.EXPECT().SetLinkIPAddress("ens2f0np0", ipNet)
 
-			err := provisioner.RunOnce()
+			networkhelper.EXPECT().DeleteNeighbour(net.ParseIP("169.254.169.1"), "br-ex")
+			networkhelper.EXPECT().DeleteNeighbour(net.ParseIP("169.254.169.4"), "br-ex")
+			hostMasqueradeIP, _ := netlink.ParseIPNet("169.254.169.2/29")
+			networkhelper.EXPECT().DeleteLinkIPAddress("br-ex", hostMasqueradeIP)
+			kubernetesServiceCIDR, _ := netlink.ParseIPNet("172.30.0.0/16")
+			networkhelper.EXPECT().DeleteRoute(kubernetesServiceCIDR, net.ParseIP("169.254.169.4"), "br-ex")
+			ovnMasqueradeIP, _ := netlink.ParseIPNet("169.254.169.1/32")
+			networkhelper.EXPECT().DeleteRoute(ovnMasqueradeIP, nil, "br-ex")
+
+			err = provisioner.RunOnce()
 			Expect(err).ToNot(HaveOccurred())
+
+			files, err := os.ReadDir(ovnDBsPath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(files).To(BeEmpty())
 		})
 	})
 })
