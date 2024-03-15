@@ -17,28 +17,41 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"os"
 	"os/signal"
+	"sync"
 
 	hostcniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
 
 	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
 )
 
 func main() {
 	klog.Info("Starting Host CNI Provisioner")
 
-	provisioner := hostcniprovisioner.New(networkhelper.New())
+	ctx, cancel := context.WithCancel(context.Background())
+	c := clock.RealClock{}
+	provisioner := hostcniprovisioner.New(ctx, c, networkhelper.New())
 
 	err := provisioner.RunOnce()
 	if err != nil {
 		klog.Fatal(err)
 	}
 
-	go provisioner.EnsureConfiguration()
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		provisioner.EnsureConfiguration()
+	}()
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	<-c
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
+	<-ch
+	klog.Info("Received termination signal, terminating.")
+	cancel()
+	wg.Wait()
 }
