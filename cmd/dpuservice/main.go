@@ -23,6 +23,7 @@ import (
 
 	controlplanev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
+	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	dpuservicecontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/controllers"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,6 +46,7 @@ func init() {
 
 	utilruntime.Must(dpuservicev1.AddToScheme(scheme))
 	utilruntime.Must(controlplanev1.AddToScheme(scheme))
+	utilruntime.Must(argov1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

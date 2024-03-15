@@ -182,6 +182,7 @@ generate-manifests: controller-gen $(addprefix generate-manifests-,$(GENERATE_TA
 generate-manifests-dpuservice: ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/dpuservice/crd/bases"
 	$(CONTROLLER_GEN) \
+    paths="./cmd/dpuservice/..." \
 	paths="./internal/dpuservice/..." \
 	paths="./api/dpuservice/..." \
 	crd:crdVersions=v1 \
@@ -193,6 +194,7 @@ generate-manifests-dpuservice: ## Generate manifests e.g. CRD, RBAC. for the dpu
 generate-manifests-controlplane: ## Generate manifests e.g. CRD, RBAC. for the controlplane controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/controlplane/crd/bases"
 	$(CONTROLLER_GEN) \
+    paths="./internal/controlplane/..."
 	paths="./internal/controlplane/..." \
 	paths="./api/controlplane/..." \
 	crd:crdVersions=v1 \
@@ -276,7 +278,6 @@ REGISTRY ?= harbor.mellanox.com/cloud-orchestration-dev/dpf
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 TAG ?= v0.0.1
 
-HOST_ARCH = amd64
 # Note: If you make this variable configurable, ensure that the custom base image that is built in
 # docker-build-base-image-ovs is fetching binaries with the correct architecture.
 DPU_ARCH = arm64
@@ -328,7 +329,7 @@ docker-build-dpuservice: ## Build docker images for the dpuservice-controller
 	docker build \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
-		--build-arg target_arch=$(HOST_ARCH) \
+		--build-arg target_arch=$(ARCH) \
 		--build-arg package=./cmd/dpuservice \
 		. \
 		-t $(DPUSERVICE_IMAGE):$(TAG)
@@ -338,7 +339,7 @@ docker-build-controlplane: ## Build docker images for the controlplane-controlle
 	docker build \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
-		--build-arg target_arch=$(HOST_ARCH) \
+		--build-arg target_arch=$(ARCH) \
 		--build-arg package=./cmd/controlplane \
 		. \
 		-t $(CONTROLPLANE_IMAGE):$(TAG)
