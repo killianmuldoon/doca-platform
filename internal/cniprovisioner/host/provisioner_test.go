@@ -17,9 +17,12 @@ limitations under the License.
 package hostcniprovisioner_test
 
 import (
+	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	hostcniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host"
 	networkhelperMock "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper/mock"
@@ -28,6 +31,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
 	"go.uber.org/mock/gomock"
+	"golang.org/x/exp/maps"
 )
 
 var _ = Describe("Host CNI Provisioner", func() {
@@ -45,13 +49,19 @@ var _ = Describe("Host CNI Provisioner", func() {
 			}()
 			Expect(err).NotTo(HaveOccurred())
 			provisioner.FileSystemRoot = tmpDir
+
 			ovnDBsPath := filepath.Join(tmpDir, "/var/lib/ovn-ic/etc/")
 			err = os.MkdirAll(ovnDBsPath, 0755)
 			Expect(err).NotTo(HaveOccurred())
-
 			_, err = os.Create(filepath.Join(ovnDBsPath, "file1.db"))
 			Expect(err).NotTo(HaveOccurred())
 			_, err = os.Create(filepath.Join(ovnDBsPath, "file2.db"))
+			Expect(err).NotTo(HaveOccurred())
+
+			sriovNumVfsPath := filepath.Join(tmpDir, "/sys/class/net/ens2f0np0/device/sriov_numvfs")
+			err = os.MkdirAll(filepath.Dir(sriovNumVfsPath), 0755)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(sriovNumVfsPath, []byte(strconv.Itoa(2)), 0444)
 			Expect(err).NotTo(HaveOccurred())
 
 			ipNet, _ := netlink.ParseIPNet("192.168.1.2/24")
@@ -72,6 +82,91 @@ var _ = Describe("Host CNI Provisioner", func() {
 			files, err := os.ReadDir(ovnDBsPath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(files).To(BeEmpty())
+
+			By("Asserting fake filesystem")
+			assertFakeFilesystem(tmpDir)
 		})
 	})
 })
+
+func assertFakeFilesystem(tmpDir string) {
+	expectedEntries := map[string]struct {
+		isDir     bool
+		isSymlink bool
+		content   string
+	}{
+		"/var/dpf/sys/class/net": {
+			isDir: true,
+		},
+		"/var/dpf/sys/class/net/ens2f0np0": {
+			isDir: true,
+		},
+		"/var/dpf/sys/class/net/ens2f0np0/subsystem": {
+			isSymlink: true,
+			content:   "/var/dpf/sys/class/net",
+		},
+		"/var/dpf/sys/class/net/ens2f0np0/phys_switch_id": {
+			isDir:   false,
+			content: "custom_value",
+		},
+		"/var/dpf/sys/class/net/ens2f0np0/phys_port_name": {
+			isDir:   false,
+			content: "p0",
+		},
+		"/var/dpf/sys/class/net/pf0vf0": {
+			isDir: true,
+		},
+		"/var/dpf/sys/class/net/pf0vf0/phys_switch_id": {
+			isDir:   false,
+			content: "custom_value",
+		},
+		"/var/dpf/sys/class/net/pf0vf0/phys_port_name": {
+			isDir:   false,
+			content: "c1pf0vf0",
+		},
+		"/var/dpf/sys/class/net/pf0vf1": {
+			isDir: true,
+		},
+		"/var/dpf/sys/class/net/pf0vf1/phys_switch_id": {
+			isDir:   false,
+			content: "custom_value",
+		},
+		"/var/dpf/sys/class/net/pf0vf1/phys_port_name": {
+			isDir:   false,
+			content: "c1pf0vf1",
+		},
+	}
+
+	path := filepath.Join(tmpDir, "/var/dpf/sys/class/net")
+	foundPaths := []string{}
+	err := filepath.WalkDir(path, func(path string, dirEntry fs.DirEntry, err error) error {
+		Expect(err).ToNot(HaveOccurred())
+		By(fmt.Sprintf("Checking %s", path))
+
+		pathWithoutTmpDir, err := filepath.Rel(tmpDir, path)
+		Expect(err).ToNot(HaveOccurred())
+		pathWithoutTmpDir = filepath.Join("/", pathWithoutTmpDir)
+		foundPaths = append(foundPaths, pathWithoutTmpDir)
+
+		expectedEntry, ok := expectedEntries[pathWithoutTmpDir]
+		Expect(ok).To(BeTrue())
+		Expect(dirEntry.IsDir()).To(Equal(expectedEntry.isDir))
+		Expect(dirEntry.Type().Type() == fs.ModeSymlink).To(Equal(expectedEntry.isSymlink))
+
+		if !expectedEntry.isDir && !expectedEntry.isSymlink {
+			content, err := os.ReadFile(path)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(content).To(Equal([]byte(expectedEntry.content)))
+		}
+
+		if expectedEntry.isSymlink {
+			link, err := filepath.EvalSymlinks(path)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(link).To(Equal(link))
+		}
+
+		return nil
+	})
+	Expect(err).ToNot(HaveOccurred())
+	Expect(foundPaths).To(ConsistOf(maps.Keys(expectedEntries)))
+}

@@ -17,9 +17,11 @@ limitations under the License.
 package hostcniprovisioner
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
 
@@ -46,6 +48,17 @@ const (
 
 	// kubernetesServiceCIDR represents the Kubernetes Service CIDR.
 	kubernetesServiceCIDR = "172.30.0.0/16"
+	// fakeFSPath represents the directory where the fake filesystem is created.
+	fakeFSPath = "/var/dpf"
+
+	// vfRepresentorPattern is the naming pattern of the VF representors.
+	vfRepresentorPattern = "pf%dvf%d"
+	//vfRepresentorPortPattern is the naming pattern of the VF representor part. This can be found in
+	// /sys/class/net/<vf_rep>/phys_port_name
+	vfRepresentorPortPattern = "c1pf%dvf%d"
+	// physSwitchID is the content of /sys/class/net/<vf_rep>/phys_switch_id. In our case, we don't care about the value
+	// as long as the value is the same for the PF and VF representors.
+	physSwitchIDValue = "custom_value"
 )
 
 type HostCNIProvisioner struct {
@@ -137,7 +150,79 @@ func (p *HostCNIProvisioner) configureFakeEnvironment() error {
 }
 
 // createFakeFS creates a fake filesystem with VF representors to trick OVN Kubernetes functions.
-func (p *HostCNIProvisioner) createFakeFS() error { return nil }
+func (p *HostCNIProvisioner) createFakeFS() error {
+	fsPath := filepath.Join(p.FileSystemRoot, fakeFSPath, "/sys/class/net")
+	err := os.MkdirAll(fsPath, 0755)
+	if err != nil {
+		return err
+	}
+
+	// /var/dpf/sys/class/net/ens2f0np0
+	pfPath := filepath.Join(fsPath, pf)
+	err = os.Mkdir(pfPath, 0755)
+	if err != nil {
+		return err
+	}
+
+	// /var/dpf/sys/class/net/ens2f0np0/phys_port_name
+	path := filepath.Join(pfPath, "phys_port_name")
+	// TODO: Find port number and parameterize static p0 when introducing support for VFs on both PFs
+	err = os.WriteFile(path, []byte("p0"), 0444)
+	if err != nil {
+		return err
+	}
+
+	// /var/dpf/sys/class/net/ens2f0np0/phys_switch_id
+	path = filepath.Join(pfPath, "phys_switch_id")
+	err = os.WriteFile(path, []byte(physSwitchIDValue), 0444)
+	if err != nil {
+		return err
+	}
+
+	// /var/dpf/sys/class/net/ens2f0np0/subsystem -> /var/dpf/sys/class/net/
+	path = filepath.Join(pfPath, "subsystem")
+	err = os.Symlink(fsPath, path)
+	if err != nil {
+		return err
+	}
+
+	sriovNumVfsPath := filepath.Join(p.FileSystemRoot, fmt.Sprintf("/sys/class/net/%s/device/sriov_numvfs", pf))
+	content, err := os.ReadFile(sriovNumVfsPath)
+	if err != nil {
+		return err
+	}
+
+	numVfs, err := strconv.Atoi(string(content))
+	if err != nil {
+		return err
+	}
+
+	for i := 0; i < numVfs; i++ {
+		// TODO: Find port number and parameterize static 0 when introducing support for VFs on both PFs
+		// /var/dpf/sys/class/net/pf0vf0
+		vfRepPath := filepath.Join(fsPath, fmt.Sprintf(vfRepresentorPattern, 0, i))
+		err := os.Mkdir(vfRepPath, 0755)
+		if err != nil {
+			return err
+		}
+
+		// /var/dpf/sys/class/net/pf0vf0/phys_port_name
+		path := filepath.Join(vfRepPath, "phys_port_name")
+		err = os.WriteFile(path, []byte(fmt.Sprintf(vfRepresentorPortPattern, 0, i)), 0444)
+		if err != nil {
+			return err
+		}
+
+		// /var/dpf/sys/class/net/pf0vf0/phys_switch_id
+		path = filepath.Join(vfRepPath, "phys_switch_id")
+		err = os.WriteFile(path, []byte(physSwitchIDValue), 0444)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
 
 // createFakeFS creates dummy devices that represent the VF representors and are used to trick OVN Kubernetes functions.
 func (p *HostCNIProvisioner) createDummyNetDevices() error { return nil }
