@@ -17,12 +17,15 @@ limitations under the License.
 package hostcniprovisioner_test
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"io/fs"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	hostcniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host"
 	networkhelperMock "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper/mock"
@@ -32,6 +35,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"go.uber.org/mock/gomock"
 	"golang.org/x/exp/maps"
+	clock "k8s.io/utils/clock/testing"
 )
 
 var _ = Describe("Host CNI Provisioner", func() {
@@ -39,7 +43,7 @@ var _ = Describe("Host CNI Provisioner", func() {
 		It("should configure the system fully", func() {
 			testCtrl := gomock.NewController(GinkgoT())
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
-			provisioner := hostcniprovisioner.New(networkhelper)
+			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "hostcniprovisioner")
@@ -89,7 +93,40 @@ var _ = Describe("Host CNI Provisioner", func() {
 			By("Asserting fake filesystem")
 			assertFakeFilesystem(tmpDir)
 		})
+		It("should ensure that the OVN management link is always in place", func(ctx context.Context) {
+			testCtrl := gomock.NewController(GinkgoT())
+			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			ctx, cancel := context.WithCancel(ctx)
+			c := clock.NewFakeClock(time.Now())
+			provisioner := hostcniprovisioner.New(ctx, c, networkhelper)
+
+			networkhelper.EXPECT().DummyLinkExists("pf0vf0").DoAndReturn(func(link string) (bool, error) {
+				c.Step(2 * time.Second)
+				return false, errors.New("some-error")
+			})
+
+			networkhelper.EXPECT().DummyLinkExists("pf0vf0").DoAndReturn(func(link string) (bool, error) {
+				By("error occurred, it retries")
+				return false, nil
+			})
+			networkhelper.EXPECT().AddDummyLink("pf0vf0").Do(func(link string) {
+				c.Step(2 * time.Second)
+			})
+
+			networkhelper.EXPECT().DummyLinkExists("pf0vf0").DoAndReturn(func(link string) (bool, error) {
+				By("link exists, it should not add a link again")
+				cancel()
+				return true, nil
+			})
+
+			Eventually(func(g Gomega) {
+				c.Step(2 * time.Second)
+				provisioner.EnsureConfiguration()
+			}).Should(BeNil())
+
+		}, SpecTimeout(5*time.Second))
 	})
+
 })
 
 func assertFakeFilesystem(tmpDir string) {

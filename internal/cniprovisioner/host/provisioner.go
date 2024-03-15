@@ -17,17 +17,20 @@ limitations under the License.
 package hostcniprovisioner
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
 
 	"github.com/vishvananda/netlink"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
 )
 
 const (
@@ -60,10 +63,17 @@ const (
 	// physSwitchID is the content of /sys/class/net/<vf_rep>/phys_switch_id. In our case, we don't care about the value
 	// as long as the value is the same for the PF and VF representors.
 	physSwitchIDValue = "custom_value"
+
+	// ovnManagementVFRep is the VF *representor* used by OVN Kubernetes. This assumes that we select that particular VF
+	// (name would be something like enp23s0f0v0) for the OVN management in the OVN Kubernetes configuration
+	// (i.e. OVNKUBE_NODE_MGMT_PORT_NETDEV env variable).
+	ovnManagementVFRep = "pf0vf0"
 )
 
 type HostCNIProvisioner struct {
-	networkHelper networkhelper.NetworkHelper
+	ctx                       context.Context
+	ensureConfigurationTicker clock.Ticker
+	networkHelper             networkhelper.NetworkHelper
 
 	// FileSystemRoot controls the file system root. It's used for enabling easier testing of the package. Defaults to
 	// empty.
@@ -71,10 +81,12 @@ type HostCNIProvisioner struct {
 }
 
 // New creates a HostCNIProvisioner that can configure the system
-func New(networkHelper networkhelper.NetworkHelper) *HostCNIProvisioner {
+func New(ctx context.Context, clock clock.WithTicker, networkHelper networkhelper.NetworkHelper) *HostCNIProvisioner {
 	return &HostCNIProvisioner{
-		networkHelper:  networkHelper,
-		FileSystemRoot: "",
+		ctx:                       ctx,
+		ensureConfigurationTicker: clock.NewTicker(2 * time.Second),
+		networkHelper:             networkHelper,
+		FileSystemRoot:            "",
 	}
 }
 
@@ -92,13 +104,17 @@ func (p *HostCNIProvisioner) RunOnce() error {
 
 // EnsureConfiguration ensures that particular configuration is in place. This is a blocking function.
 func (p *HostCNIProvisioner) EnsureConfiguration() {
-	// TODO: Use ticker + context
 	for {
-		// The VF used for OVN management is getting renamed when OVN Kubernetes starts. On restart, the device is no
-		// longer there and OVN Kubernetes can't start, therefore we need to ensure the device always exists.
-		err := p.ensureDummyNetDevice()
-		if err != nil {
-			klog.Error("failed to ensure dummy net device: %w", err)
+		select {
+		case <-p.ctx.Done():
+			return
+		case <-p.ensureConfigurationTicker.C():
+			// The VF used for OVN management is getting renamed when OVN Kubernetes starts. On restart, the link is no
+			// longer there and OVN Kubernetes can't start, therefore we need to ensure the link always exists.
+			err := p.ensureDummyLink(ovnManagementVFRep)
+			if err != nil {
+				klog.Error("failed to ensure dummy link: ", err)
+			}
 		}
 	}
 }
@@ -257,8 +273,19 @@ func (p *HostCNIProvisioner) createDummyLinks(pfToNumVFs map[string]int) error {
 	return nil
 }
 
-// ensureDummyNetDevice ensures that a dummy net device is in place
-func (p *HostCNIProvisioner) ensureDummyNetDevice() error { return nil }
+// ensureDummyLink ensures that a dummy link is in place
+func (p *HostCNIProvisioner) ensureDummyLink(link string) error {
+	exists, err := p.networkHelper.DummyLinkExists(link)
+	if err != nil {
+		return err
+	}
+
+	if exists {
+		return nil
+	}
+
+	return p.networkHelper.AddDummyLink(link)
+}
 
 // removeOVNKubernetesLeftovers removes OVN Kubernetes leftovers that interfere with the custom OVN we deploy. This is
 // needed so that the Host to Service connectivity works but also to avoid creating loops in OVS from patch ports created
