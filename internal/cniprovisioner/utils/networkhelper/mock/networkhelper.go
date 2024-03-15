@@ -55,6 +55,20 @@ func (m *MockNetworkHelper) EXPECT() *MockNetworkHelperMockRecorder {
 	return m.recorder
 }
 
+// AddDummyLink mocks base method.
+func (m *MockNetworkHelper) AddDummyLink(link string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddDummyLink", link)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddDummyLink indicates an expected call of AddDummyLink.
+func (mr *MockNetworkHelperMockRecorder) AddDummyLink(link any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddDummyLink", reflect.TypeOf((*MockNetworkHelper)(nil).AddDummyLink), link)
+}
+
 // DeleteLinkIPAddress mocks base method.
 func (m *MockNetworkHelper) DeleteLinkIPAddress(link string, ipNet *net.IPNet) error {
 	m.ctrl.T.Helper()
@@ -95,6 +109,21 @@ func (m *MockNetworkHelper) DeleteRoute(network *net.IPNet, gateway net.IP, devi
 func (mr *MockNetworkHelperMockRecorder) DeleteRoute(network, gateway, device any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteRoute", reflect.TypeOf((*MockNetworkHelper)(nil).DeleteRoute), network, gateway, device)
+}
+
+// DummyLinkExists mocks base method.
+func (m *MockNetworkHelper) DummyLinkExists(link string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DummyLinkExists", link)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DummyLinkExists indicates an expected call of DummyLinkExists.
+func (mr *MockNetworkHelperMockRecorder) DummyLinkExists(link any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DummyLinkExists", reflect.TypeOf((*MockNetworkHelper)(nil).DummyLinkExists), link)
 }
 
 // RenameLink mocks base method.

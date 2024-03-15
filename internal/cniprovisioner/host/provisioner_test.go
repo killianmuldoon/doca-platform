@@ -67,6 +67,9 @@ var _ = Describe("Host CNI Provisioner", func() {
 			ipNet, _ := netlink.ParseIPNet("192.168.1.2/24")
 			networkhelper.EXPECT().SetLinkIPAddress("ens2f0np0", ipNet)
 
+			networkhelper.EXPECT().AddDummyLink("pf0vf0")
+			networkhelper.EXPECT().AddDummyLink("pf0vf1")
+
 			networkhelper.EXPECT().DeleteNeighbour(net.ParseIP("169.254.169.1"), "br-ex")
 			networkhelper.EXPECT().DeleteNeighbour(net.ParseIP("169.254.169.4"), "br-ex")
 			hostMasqueradeIP, _ := netlink.ParseIPNet("169.254.169.2/29")
