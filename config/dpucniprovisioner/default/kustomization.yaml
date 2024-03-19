@@ -1,0 +1,7 @@
+namespace: dpf-operator-system
+resources:
+- daemonset.yaml
+images:
+- name: dpu-cni-provisioner
+  newName: harbor.mellanox.com/cloud-orchestration-dev/dpf/dpu-cni-provisioner
+  newTag: v0.0.1
