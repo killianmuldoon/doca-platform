@@ -354,7 +354,14 @@ docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker imag
 		-t $(DPUCNIPROVISIONER_IMAGE):$(TAG)
 
 .PHONY: docker-build-hostcniprovisioner
-docker-build-hostcniprovisioner: ;## Build docker images for the HOST CNI Provisioner
+docker-build-hostcniprovisioner: ## Build docker images for the HOST CNI Provisioner
+	docker build \
+		--build-arg builder_image=$(BUILD_IMAGE) \
+		--build-arg base_image=$(BASE_IMAGE) \
+		--build-arg target_arch=$(HOST_ARCH) \
+		--build-arg package=./cmd/hostcniprovisioner \
+		. \
+		-t $(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
 .PHONY: docker-build-base-image-ovs
 docker-build-base-image-ovs: ## Build base docker image with OVS dependencies
@@ -380,7 +387,6 @@ docker-push-controlplane: ## Push the docker image for dpuservice.
 docker-push-dpucniprovisioner: ## Push the docker image for DPU CNI Provisioner.
 	docker push $(DPUCNIPROVISIONER_IMAGE):$(TAG)
 
-.PHONY: docker-push-hostcniprovisioner
 .PHONY: docker-push-hostcniprovisioner
 docker-push-hostcniprovisioner: ## Push the docker image for Host CNI Provisioner.
 	docker push $(HOSTCNIPROVISIONER_IMAGE):$(TAG)

@@ -1,0 +1,8 @@
+namespace: dpf-operator-system
+resources:
+- daemonset.yaml
+- rbac.yaml
+images:
+- name: host-cni-provisioner
+  newName: harbor.mellanox.com/cloud-orchestration-dev/dpf/host-cni-provisioner
+  newTag: v0.0.1
