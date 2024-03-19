@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: host-cni-provisioner
+  labels:
+    app.kubernetes.io/name: host-cni-provisioner
+    app.kubernetes.io/created-by: dpf-operator
+    app.kubernetes.io/part-of: dpf-operator
+    app.kubernetes.io/managed-by: kustomize
+automountServiceAccountToken: false
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: host-cni-provisioner-scc
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:privileged
+subjects:
+- kind: ServiceAccount
+  name: host-cni-provisioner

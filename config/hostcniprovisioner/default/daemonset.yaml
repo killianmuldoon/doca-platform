@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: host-cni-provisioner
+  labels:
+    app.kubernetes.io/name: host-cni-provisioner
+    app.kubernetes.io/created-by: dpf-operator
+    app.kubernetes.io/part-of: dpf-operator
+    app.kubernetes.io/managed-by: kustomize
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: host-cni-provisioner
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: host-cni-provisioner
+    spec:
+      serviceAccountName: host-cni-provisioner
+      hostNetwork: true
+      containers:
+      - name: host-cni-provisioner
+        image: host-cni-provisioner
+        imagePullPolicy: Always
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - name: fakefs
+          mountPath: /var/dpf
+        - name: ovndb
+          mountPath: /var/lib/ovn-ic/etc
+      volumes:
+      - name: fakefs
+        hostPath:
+          path: /var/dpf
+      - name: ovndb
+        hostPath:
+          path: /var/lib/ovn-ic/etc
