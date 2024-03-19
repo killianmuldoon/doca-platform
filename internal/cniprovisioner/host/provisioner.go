@@ -126,16 +126,19 @@ func (p *HostCNIProvisioner) isSystemAlreadyConfigured() (bool, error) { return 
 
 // configure runs the provisioning flow without checking existing configuration
 func (p *HostCNIProvisioner) configure() error {
+	klog.Info("Configuring PF")
 	err := p.configurePF()
 	if err != nil {
 		return err
 	}
 
+	klog.Info("Configuring Fake Environment")
 	err = p.configureFakeEnvironment()
 	if err != nil {
 		return err
 	}
 
+	klog.Info("Removing OVN Kubernetes leftovers")
 	err = p.removeOVNKubernetesLeftovers()
 	if err != nil {
 		return err
@@ -150,10 +153,14 @@ func (p *HostCNIProvisioner) configurePF() error {
 	// TODO: Still undecided on how we get that IP. Adjust as needed after decision is made.
 	ipNet, err := netlink.ParseIPNet("192.168.1.2/24")
 	if err != nil {
-		return err
+		return fmt.Errorf("error while parsing PF IP: %w", err)
 	}
 
-	return p.networkHelper.SetLinkIPAddress(pf, ipNet)
+	err = p.networkHelper.SetLinkIPAddress(pf, ipNet)
+	if err != nil {
+		return fmt.Errorf("error while setting PF IP: %w", err)
+	}
+	return nil
 }
 
 // configureFakeEnvironment configures a fake environment that tricks OVN Kubernetes to think that VF representors are
@@ -177,14 +184,14 @@ func (p *HostCNIProvisioner) discoverVFs() (map[string]int, error) {
 	sriovNumVfsPath := filepath.Join(p.FileSystemRoot, fmt.Sprintf("/sys/class/net/%s/device/sriov_numvfs", pf))
 	content, err := os.ReadFile(sriovNumVfsPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while reading number of VFs: %w", err)
 	}
 
 	s := string(content)
 	s = strings.TrimSpace(s)
 	numVfs, err := strconv.Atoi(s)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error while converting string to int: %w", err)
 	}
 
 	m[pf] = numVfs
@@ -196,7 +203,7 @@ func (p *HostCNIProvisioner) createFakeFS(pfToNumVFs map[string]int) error {
 	fsPath := filepath.Join(p.FileSystemRoot, fakeFSPath, "/sys/class/net")
 	err := os.MkdirAll(fsPath, 0755)
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating fake dir %s: %w", fsPath, err)
 	}
 
 	for pf, numVfs := range pfToNumVFs {
@@ -204,7 +211,7 @@ func (p *HostCNIProvisioner) createFakeFS(pfToNumVFs map[string]int) error {
 		pfPath := filepath.Join(fsPath, pf)
 		err = os.Mkdir(pfPath, 0755)
 		if err != nil {
-			return err
+			return fmt.Errorf("error creating fake dir %s: %w", pfPath, err)
 		}
 
 		// /var/dpf/sys/class/net/ens2f0np0/phys_port_name
@@ -212,21 +219,21 @@ func (p *HostCNIProvisioner) createFakeFS(pfToNumVFs map[string]int) error {
 		// TODO: Find port number and parameterize static p0 when introducing support for VFs on both PFs
 		err = os.WriteFile(path, []byte("p0"), 0444)
 		if err != nil {
-			return err
+			return fmt.Errorf("error creating fake phys_port_name file %s: %w", path, err)
 		}
 
 		// /var/dpf/sys/class/net/ens2f0np0/phys_switch_id
 		path = filepath.Join(pfPath, "phys_switch_id")
 		err = os.WriteFile(path, []byte(physSwitchIDValue), 0444)
 		if err != nil {
-			return err
+			return fmt.Errorf("error creating fake phys_switch_id file %s: %w", path, err)
 		}
 
 		// /var/dpf/sys/class/net/ens2f0np0/subsystem -> /var/dpf/sys/class/net/
 		path = filepath.Join(pfPath, "subsystem")
 		err = os.Symlink(fsPath, path)
 		if err != nil {
-			return err
+			return fmt.Errorf("error creating subsystem symlink %s->%s: %w", path, fsPath, err)
 		}
 
 		for i := 0; i < numVfs; i++ {
@@ -235,21 +242,21 @@ func (p *HostCNIProvisioner) createFakeFS(pfToNumVFs map[string]int) error {
 			vfRepPath := filepath.Join(fsPath, fmt.Sprintf(vfRepresentorPattern, 0, i))
 			err := os.Mkdir(vfRepPath, 0755)
 			if err != nil {
-				return err
+				return fmt.Errorf("error creating fake dir %s: %w", vfRepPath, err)
 			}
 
 			// /var/dpf/sys/class/net/pf0vf0/phys_port_name
 			path := filepath.Join(vfRepPath, "phys_port_name")
 			err = os.WriteFile(path, []byte(fmt.Sprintf(vfRepresentorPortPattern, 0, i)), 0444)
 			if err != nil {
-				return err
+				return fmt.Errorf("error creating fake phys_port_name file %s: %w", path, err)
 			}
 
 			// /var/dpf/sys/class/net/pf0vf0/phys_switch_id
 			path = filepath.Join(vfRepPath, "phys_switch_id")
 			err = os.WriteFile(path, []byte(physSwitchIDValue), 0444)
 			if err != nil {
-				return err
+				return fmt.Errorf("error creating fake phys_switch_id file %s: %w", path, err)
 			}
 		}
 	}
@@ -266,7 +273,7 @@ func (p *HostCNIProvisioner) createDummyLinks(pfToNumVFs map[string]int) error {
 			vfRep := fmt.Sprintf(vfRepresentorPattern, 0, i)
 			err := p.networkHelper.AddDummyLink(vfRep)
 			if err != nil {
-				return err
+				return fmt.Errorf("error adding dummy link %s: %w", vfRep, err)
 			}
 		}
 	}
@@ -277,14 +284,19 @@ func (p *HostCNIProvisioner) createDummyLinks(pfToNumVFs map[string]int) error {
 func (p *HostCNIProvisioner) ensureDummyLink(link string) error {
 	exists, err := p.networkHelper.DummyLinkExists(link)
 	if err != nil {
-		return err
+		return fmt.Errorf("error checking for dummy link existence with name %s: %w", link, err)
 	}
 
 	if exists {
 		return nil
 	}
 
-	return p.networkHelper.AddDummyLink(link)
+	err = p.networkHelper.AddDummyLink(link)
+	if err != nil {
+		return fmt.Errorf("error adding dummy link %s: %w", link, err)
+	}
+
+	return nil
 }
 
 // removeOVNKubernetesLeftovers removes OVN Kubernetes leftovers that interfere with the custom OVN we deploy. This is
@@ -293,47 +305,47 @@ func (p *HostCNIProvisioner) ensureDummyLink(link string) error {
 func (p *HostCNIProvisioner) removeOVNKubernetesLeftovers() error {
 	ovnMasqueradeIP, err := netlink.ParseIPNet(hostToServiceOVNMasqueradeIP)
 	if err != nil {
-		return err
+		return fmt.Errorf("error parsing IPNet %s: %w", hostToServiceHostMasqueradeIP, err)
 	}
 
 	err = p.networkHelper.DeleteNeighbour(ovnMasqueradeIP.IP, originalBrEx)
 	if err != nil {
-		return err
+		return fmt.Errorf("error deleting neighbour %s %s: %w", ovnMasqueradeIP.IP.String(), originalBrEx, err)
 	}
 
 	dummyNextHopMasqueradeIP, err := netlink.ParseIPNet(hostToServiceDummyNextHopMasqueradeIP)
 	if err != nil {
-		return err
+		return fmt.Errorf("error parsing IPNet %s: %w", hostToServiceDummyNextHopMasqueradeIP, err)
 	}
 
 	err = p.networkHelper.DeleteNeighbour(dummyNextHopMasqueradeIP.IP, originalBrEx)
 	if err != nil {
-		return err
+		return fmt.Errorf("error deleting neighbour %s %s: %w", dummyNextHopMasqueradeIP.IP.String(), originalBrEx, err)
 	}
 
 	hostMasqueradeIP, err := netlink.ParseIPNet(hostToServiceHostMasqueradeIP)
 	if err != nil {
-		return err
+		return fmt.Errorf("error parsing IPNet %s: %w", hostToServiceHostMasqueradeIP, err)
 	}
 	err = p.networkHelper.DeleteLinkIPAddress(originalBrEx, hostMasqueradeIP)
 	if err != nil {
-		return err
+		return fmt.Errorf("error deleting IP address %s from link IPNet %s: %w", hostMasqueradeIP, originalBrEx, err)
 	}
 
 	svcNet, err := netlink.ParseIPNet(kubernetesServiceCIDR)
 	if err != nil {
-		return err
+		return fmt.Errorf("error parsing IPNet %s: %w", kubernetesServiceCIDR, err)
 	}
 
 	err = p.networkHelper.DeleteRoute(svcNet, dummyNextHopMasqueradeIP.IP, originalBrEx)
 	if err != nil {
-		return err
+		return fmt.Errorf("error deleting route %s %s %s: %w", svcNet, dummyNextHopMasqueradeIP.IP.String(), originalBrEx, err)
 	}
 
 	ovnMasqueradeIP.Mask = net.CIDRMask(32, 32)
 	err = p.networkHelper.DeleteRoute(ovnMasqueradeIP, nil, originalBrEx)
 	if err != nil {
-		return err
+		return fmt.Errorf("error deleting route %s %s: %w", svcNet, originalBrEx, err)
 	}
 
 	// We need to drop the OVN databases so that the custom OVN Kubernetes which will be deployed doesn't recreate
@@ -341,12 +353,12 @@ func (p *HostCNIProvisioner) removeOVNKubernetesLeftovers() error {
 	path := filepath.Join(p.FileSystemRoot, ovnDBsPath)
 	err = os.RemoveAll(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("error removing OVN DB path %s: %w", path, err)
 	}
 
 	err = os.MkdirAll(path, 0755)
 	if err != nil {
-		return err
+		return fmt.Errorf("error creating new OVN DB path %s: %w", path, err)
 	}
 
 	return nil

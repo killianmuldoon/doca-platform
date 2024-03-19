@@ -35,27 +35,39 @@ func newNetworkHelper() NetworkHelper {
 func (n *networkHelper) SetLinkUp(link string) error {
 	l, err := netlink.LinkByName(link)
 	if err != nil {
-		return err
+		return fmt.Errorf("netlink.LinkByName() failed: %w", err)
 	}
-	return netlink.LinkSetUp(l)
+	err = netlink.LinkSetUp(l)
+	if err != nil {
+		return fmt.Errorf("netlink.LinkSetUp() failed: %w", err)
+	}
+	return nil
 }
 
 // SetLinkDown sets the administrative state of a link to "down"
 func (n *networkHelper) SetLinkDown(link string) error {
 	l, err := netlink.LinkByName(link)
 	if err != nil {
-		return err
+		return fmt.Errorf("netlink.LinkByName() failed: %w", err)
 	}
-	return netlink.LinkSetDown(l)
+	err = netlink.LinkSetDown(l)
+	if err != nil {
+		return fmt.Errorf("netlink.LinkSetDown() failed: %w", err)
+	}
+	return nil
 }
 
 // RenameLink renames a link to the given name
 func (n *networkHelper) RenameLink(link string, newName string) error {
 	l, err := netlink.LinkByName(link)
 	if err != nil {
-		return err
+		return fmt.Errorf("netlink.LinkByName() failed: %w", err)
 	}
-	return netlink.LinkSetName(l, newName)
+	err = netlink.LinkSetName(l, newName)
+	if err != nil {
+		return fmt.Errorf("netlink.LinkSetName() failed: %w", err)
+	}
+	return nil
 }
 
 // SetLinkIPAddress sets the IP address of a link
@@ -65,14 +77,17 @@ func (n *networkHelper) SetLinkIPAddress(link string, ipNet *net.IPNet) error {
 	}
 	l, err := netlink.LinkByName(link)
 	if err != nil {
-		return err
+		return fmt.Errorf("netlink.LinkByName() failed: %w", err)
 	}
 	ip, err := netlink.ParseAddr(ipNet.String())
 	if err != nil {
-		return err
+		return fmt.Errorf("netlink.ParseAddr() failed: %w", err)
 	}
-
-	return netlink.AddrAdd(l, ip)
+	err = netlink.AddrAdd(l, ip)
+	if err != nil {
+		return fmt.Errorf("netlink.AddrAdd() failed: %w", err)
+	}
+	return nil
 }
 
 // DeleteLinkIPAddress deletes the given IP of a link
@@ -82,14 +97,17 @@ func (n *networkHelper) DeleteLinkIPAddress(link string, ipNet *net.IPNet) error
 	}
 	l, err := netlink.LinkByName(link)
 	if err != nil {
-		return err
+		return fmt.Errorf("netlink.LinkByName() failed: %w", err)
 	}
 	ip, err := netlink.ParseAddr(ipNet.String())
 	if err != nil {
-		return err
+		return fmt.Errorf("netlink.ParseAddr() failed: %w", err)
 	}
-
-	return netlink.AddrDel(l, ip)
+	err = netlink.AddrDel(l, ip)
+	if err != nil {
+		return fmt.Errorf("netlink.AddrDel() failed: %w", err)
+	}
+	return nil
 }
 
 // DeleteNeighbour deletes a neighbour
@@ -99,13 +117,17 @@ func (n *networkHelper) DeleteNeighbour(ip net.IP, device string) error {
 	}
 	l, err := netlink.LinkByName(device)
 	if err != nil {
-		return err
+		return fmt.Errorf("netlink.LinkByName() failed: %w", err)
 	}
 	neigh := &netlink.Neigh{
 		LinkIndex: l.Attrs().Index,
 		IP:        ip,
 	}
-	return netlink.NeighDel(neigh)
+	err = netlink.NeighDel(neigh)
+	if err != nil {
+		return fmt.Errorf("netlink.NeighDel() failed: %w", err)
+	}
+	return nil
 }
 
 // DeleteRoute deletes a route
@@ -115,15 +137,18 @@ func (n *networkHelper) DeleteRoute(network *net.IPNet, gateway net.IP, device s
 	}
 	l, err := netlink.LinkByName(device)
 	if err != nil {
-		return err
+		return fmt.Errorf("netlink.LinkByName() failed: %w", err)
 	}
 	r := &netlink.Route{
 		Dst:       network,
 		Gw:        gateway,
 		LinkIndex: l.Attrs().Index,
 	}
-
-	return netlink.RouteDel(r)
+	err = netlink.RouteDel(r)
+	if err != nil {
+		return fmt.Errorf("netlink.RouteDel() failed: %w", err)
+	}
+	return nil
 }
 
 // AddDummyLink adds a dummy link
@@ -133,8 +158,11 @@ func (n *networkHelper) AddDummyLink(link string) error {
 			Name: link,
 		},
 	}
-
-	return netlink.LinkAdd(&l)
+	err := netlink.LinkAdd(&l)
+	if err != nil {
+		return fmt.Errorf("netlink.LinkAdd() failed: %w", err)
+	}
+	return nil
 }
 
 // DummyLinkExists checks if a dummy link exists
@@ -144,7 +172,7 @@ func (n *networkHelper) DummyLinkExists(link string) (bool, error) {
 		if _, ok := err.(netlink.LinkNotFoundError); ok {
 			return false, nil
 		}
-		return false, err
+		return false, fmt.Errorf("netlink.LinkByName() failed: %w", err)
 	}
 
 	d := netlink.Dummy{}
