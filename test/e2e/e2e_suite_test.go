@@ -23,20 +23,25 @@ import (
 	"path/filepath"
 	"testing"
 
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
+	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
-	// kubeconfig path to be used for this test.
-	kubeconfig string
+	// testKubeconfig path to be used for this test.
+	testKubeconfig string
 )
 
 func init() {
-	flag.StringVar(&kubeconfig, "e2e.kubeconfig", "", "path to the kubeconfig file")
+	flag.StringVar(&testKubeconfig, "e2e.testKubeconfig", "", "path to the testKubeconfig file")
 }
 
 var (
@@ -50,18 +55,23 @@ func TestE2E(t *testing.T) {
 	g := NewWithT(t)
 	defer GinkgoRecover()
 	fmt.Fprintf(GinkgoWriter, "Starting dpf-operator suite\n")
+	ctrl.SetLogger(klog.Background())
 
-	// If kubeconfig is not set default it to $HOME/.kube/config
-	if kubeconfig == "" {
+	Expect(dpuservicev1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(argov1.AddToScheme(scheme.Scheme)).To(Succeed())
+	s := scheme.Scheme
+
+	// If testKubeconfig is not set default it to $HOME/.kube/config
+	if testKubeconfig == "" {
 		home, exists := os.LookupEnv("HOME")
 		g.Expect(exists).To(BeTrue())
-		kubeconfig = filepath.Join(home, ".kube/config")
+		testKubeconfig = filepath.Join(home, ".kube/config")
 	}
 
 	// Create a client to use throughout the test.
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	config, err := clientcmd.BuildConfigFromFlags("", testKubeconfig)
 	g.Expect(err).NotTo(HaveOccurred())
-	testClient, err = client.New(config, client.Options{})
+	testClient, err = client.New(config, client.Options{Scheme: s})
 	g.Expect(err).NotTo(HaveOccurred())
 	RunSpecs(t, "e2e suite")
 }

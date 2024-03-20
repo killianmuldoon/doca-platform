@@ -20,6 +20,27 @@ rules:
   - update
   - watch
 - apiGroups:
+  - argoproj.io
+  resources:
+  - applications
+  - appprojects
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kamaji.clastix.io
+  resources:
+  - tenantcontrolplanes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - svc.dpf.nvidia.com
   resources:
   - dpuservices
