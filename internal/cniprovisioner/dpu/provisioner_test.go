@@ -120,7 +120,9 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovsClient.EXPECT().SetBridgeUplinkPort("ens2f0np0", "ens2f0np0-to-br-ovn")
 
 			ovsClient.EXPECT().SetOVNEncapIP(net.ParseIP("192.168.1.1"))
+
 			mac, _ := net.ParseMAC("00:00:00:00:00:01")
+			networkhelper.EXPECT().GetPFRepMACAddress("pf0hpf").Return(mac, nil)
 			ovsClient.EXPECT().SetBridgeMAC("ens2f0np0", mac)
 
 			ipNet, _ := netlink.ParseIPNet("192.168.1.1/24")

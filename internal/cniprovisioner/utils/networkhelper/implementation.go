@@ -22,6 +22,7 @@ import (
 	"net"
 
 	"github.com/vishvananda/netlink"
+	"github.com/vishvananda/netlink/nl"
 )
 
 type networkHelper struct{}
@@ -181,4 +182,20 @@ func (n *networkHelper) DummyLinkExists(link string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// GetPFRepMacAddress returns the MAC address of the PF Representor provided as input. When you run this function in
+// the DPU, it will give you the MAC address of the PF Representor on the host.
+func (n *networkHelper) GetPFRepMACAddress(device string) (net.HardwareAddr, error) {
+	ports, err := netlink.DevLinkGetAllPortList()
+	if err != nil {
+		return nil, fmt.Errorf("netlink.DevLinkGetAllPortList() failed: %w", err)
+	}
+
+	for _, p := range ports {
+		if p.PortFlavour == nl.DEVLINK_PORT_FLAVOUR_PCI_PF && p.Fn != nil {
+			return p.Fn.HwAddr, nil
+		}
+	}
+	return nil, fmt.Errorf("MAC Address not found for PF Representor %s", device)
 }
