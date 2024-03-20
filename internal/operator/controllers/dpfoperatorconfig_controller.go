@@ -21,10 +21,13 @@ import (
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // DPFOperatorConfigReconciler reconciles a DPFOperatorConfig object
@@ -37,21 +40,88 @@ type DPFOperatorConfigReconciler struct {
 //+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs/finalizers,verbs=update
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the DPFOperatorConfig object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.0/pkg/reconcile
-func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = log.FromContext(ctx)
+const (
+	dpfOperatorConfigControllerName = "dpfoperatorconfig-controller"
+)
 
-	// TODO(user): your logic here
+// Reconcile reconciles changes in a DPFOperatorConfig.
+func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+	log := ctrllog.FromContext(ctx)
+	log.Info("Reconciling")
+	dpfOperatorConfig := &operatorv1.DPFOperatorConfig{}
+	if err := r.Client.Get(ctx, req.NamespacedName, dpfOperatorConfig); err != nil {
+		if apierrors.IsNotFound(err) {
+			// Return early if the object is not found.
+			return ctrl.Result{}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	//original := dpfOperatorConfig.DeepCopy()
+	// Defer a patch call to always patch the object when Reconcile exits.
+	defer func() {
+		log.Info("Calling defer")
+		// TODO: Make this a generic patcher.
+		// TODO: There is an issue patching status here with SSA - the finalizer managed field becomes broken and the finalizer can not be removed. Investigate.
+		// Set the GVK explicitly for the patch.
+		dpfOperatorConfig.SetGroupVersionKind(operatorv1.DPFOperatorConfigGroupVersionKind)
+		// Do not include manged fields in the patch call. This does not remove existing fields.
+		dpfOperatorConfig.ObjectMeta.ManagedFields = nil
+		err := r.Client.Patch(ctx, dpfOperatorConfig, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
+		reterr = kerrors.NewAggregate([]error{reterr, err})
+	}()
+
+	// Handle deletion reconciliation loop.
+	if !dpfOperatorConfig.ObjectMeta.DeletionTimestamp.IsZero() {
+		log.Info("Removing")
+		return r.reconcileDelete(ctx, dpfOperatorConfig)
+	}
+
+	// Add finalizer if not set.
+	if !controllerutil.ContainsFinalizer(dpfOperatorConfig, operatorv1.DPFOperatorConfigFinalizer) {
+		log.Info("Adding finalizer")
+		controllerutil.AddFinalizer(dpfOperatorConfig, operatorv1.DPFOperatorConfigFinalizer)
+		return ctrl.Result{}, nil
+	}
+	return r.reconcile(ctx, dpfOperatorConfig)
+}
+
+//nolint:unparam
+func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (ctrl.Result, error) {
+	log := ctrllog.FromContext(ctx)
+	log.Info("Removing finalizer")
+	controllerutil.RemoveFinalizer(dpfOperatorConfig, operatorv1.DPFOperatorConfigFinalizer)
+	// We should have an ownerReference chain in order to delete subordinate objects.
+	return ctrl.Result{}, nil
+}
+
+//nolint:unparam
+func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (ctrl.Result, error) {
+	// Ensure Custom OVN Kubernetes Deployment is done
+	if err := r.reconcileCustomOVNKubernetesDeployment(ctx); err != nil {
+		// TODO: In future we should tolerate this error, but only when we have status reporting.
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
+}
+
+// reconcileCustomOVNKubernetesDeployment ensures that custom OVN Kubernetes is deployed
+func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx context.Context) error {
+	// Phase 1
+	// - ensure cluster version operator is scaled down
+	// - ensure network operator is scaled down
+	// - ensure webhook is removed
+	// - ensure OVN Kubernetes daemonset has different nodeSelector (i.e. point to control plane only)
+	// Phase 2
+	// - ensure no original OVN Kubernetes pods runs on worker
+	// - remove node annotation k8s.ovn.org/node-chassis-id (avoid removing again on next reconciliation loop, needs status)
+	// - ensure DPU CNI Provisioner is deployed
+	// - ensure Host CNI provisioner is deployed
+	// - ensure both provisioners are ready and have more than 1 pods
+	// Phase 3
+	// - deploy custom OVN Kubernetes
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
