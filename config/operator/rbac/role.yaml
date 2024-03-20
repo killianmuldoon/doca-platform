@@ -1,0 +1,32 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - operator.dpf.nvidia.com
+  resources:
+  - dpfoperatorconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator.dpf.nvidia.com
+  resources:
+  - dpfoperatorconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - operator.dpf.nvidia.com
+  resources:
+  - dpfoperatorconfigs/status
+  verbs:
+  - get
+  - patch
+  - update
