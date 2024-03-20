@@ -126,6 +126,21 @@ func (mr *MockNetworkHelperMockRecorder) DummyLinkExists(link any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DummyLinkExists", reflect.TypeOf((*MockNetworkHelper)(nil).DummyLinkExists), link)
 }
 
+// GetPFRepMACAddress mocks base method.
+func (m *MockNetworkHelper) GetPFRepMACAddress(device string) (net.HardwareAddr, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPFRepMACAddress", device)
+	ret0, _ := ret[0].(net.HardwareAddr)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPFRepMACAddress indicates an expected call of GetPFRepMACAddress.
+func (mr *MockNetworkHelperMockRecorder) GetPFRepMACAddress(device any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPFRepMACAddress", reflect.TypeOf((*MockNetworkHelper)(nil).GetPFRepMACAddress), device)
+}
+
 // RenameLink mocks base method.
 func (m *MockNetworkHelper) RenameLink(link, newName string) error {
 	m.ctrl.T.Helper()

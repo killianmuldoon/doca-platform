@@ -42,4 +42,7 @@ type NetworkHelper interface {
 	AddDummyLink(link string) error
 	// DummyLinkExists checks if a dummy link exists
 	DummyLinkExists(link string) (bool, error)
+	// GetPFRepMacAddress returns the MAC address of the PF Representor provided as input. When you run this function in
+	// the DPU, it will give you the MAC address of the PF Representor on the host.
+	GetPFRepMACAddress(device string) (net.HardwareAddr, error)
 }

@@ -18,7 +18,6 @@ package dpucniprovisioner
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -240,8 +239,8 @@ func (p *DPUCNIProvisioner) configureHostToServiceConnectivity() error {
 	if err != nil {
 		return err
 	}
-	// TODO: This must match the MAC address of the PF representor on the host
-	mac, err := net.ParseMAC("00:00:00:00:00:01")
+
+	mac, err := p.networkHelper.GetPFRepMACAddress(pfRep)
 	if err != nil {
 		return err
 	}
