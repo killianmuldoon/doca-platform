@@ -19,12 +19,12 @@ package controller
 import (
 	"context"
 
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	operatorv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/v1alpha1"
 )
 
 // DPFOperatorConfigReconciler reconciles a DPFOperatorConfig object
@@ -57,6 +57,6 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPFOperatorConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&operatorv1alpha1.DPFOperatorConfig{}).
+		For(&operatorv1.DPFOperatorConfig{}).
 		Complete(r)
 }

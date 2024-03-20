@@ -19,15 +19,14 @@ package controller
 import (
 	"context"
 
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	operatorv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/v1alpha1"
 )
 
 var _ = Describe("DPFOperatorConfig Controller", func() {
@@ -40,13 +39,13 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			Name:      resourceName,
 			Namespace: "default", // TODO(user):Modify as needed
 		}
-		dpfoperatorconfig := &operatorv1alpha1.DPFOperatorConfig{}
+		dpfoperatorconfig := &operatorv1.DPFOperatorConfig{}
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind DPFOperatorConfig")
 			err := k8sClient.Get(ctx, typeNamespacedName, dpfoperatorconfig)
-			if err != nil && errors.IsNotFound(err) {
-				resource := &operatorv1alpha1.DPFOperatorConfig{
+			if err != nil && apierrors.IsNotFound(err) {
+				resource := &operatorv1.DPFOperatorConfig{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
 						Namespace: "default",
@@ -59,7 +58,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
-			resource := &operatorv1alpha1.DPFOperatorConfig{}
+			resource := &operatorv1.DPFOperatorConfig{}
 			err := k8sClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
