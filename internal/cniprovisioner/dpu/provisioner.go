@@ -73,7 +73,12 @@ func (p *DPUCNIProvisioner) RunOnce() error {
 		klog.Info("System is already configured, skipping configuration")
 		return nil
 	}
-	return p.configure()
+	err = p.configure()
+	if err != nil {
+		return err
+	}
+	klog.Info("Configuration complete.")
+	return nil
 }
 
 // configure runs the provisioning flow without checking existing configuration

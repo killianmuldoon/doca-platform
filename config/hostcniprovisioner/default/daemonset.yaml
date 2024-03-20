@@ -22,6 +22,11 @@ spec:
       - name: host-cni-provisioner
         image: controller
         imagePullPolicy: Always
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /var/run/readyz
         securityContext:
           privileged: true
         volumeMounts:
