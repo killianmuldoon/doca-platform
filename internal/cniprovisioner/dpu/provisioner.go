@@ -27,6 +27,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
 
 	"github.com/vishvananda/netlink"
+	"k8s.io/klog/v2"
 	kexec "k8s.io/utils/exec"
 )
 
@@ -70,6 +71,7 @@ func (p *DPUCNIProvisioner) RunOnce() error {
 		return err
 	}
 	if isConfigured {
+		klog.Info("System is already configured, skipping configuration")
 		return nil
 	}
 	return p.configure()
@@ -77,16 +79,19 @@ func (p *DPUCNIProvisioner) RunOnce() error {
 
 // configure runs the provisioning flow without checking existing configuration
 func (p *DPUCNIProvisioner) configure() error {
+	klog.Info("Configuring OVS Daemon")
 	err := p.configureOVSDaemon()
 	if err != nil {
 		return err
 	}
 
+	klog.Info("Cleaning up initial OVS setup")
 	err = p.cleanUpBridges()
 	if err != nil {
 		return err
 	}
 
+	klog.Info("Configuring OVS bridges and ports")
 	// TODO: Create a better data structure for bridges.
 	// TODO: Parse IP for br-int via the interface which will use DHCP.
 	for bridge, controller := range map[string]string{
@@ -110,16 +115,19 @@ func (p *DPUCNIProvisioner) configure() error {
 		return err
 	}
 
+	klog.Info("Configuring system to enable pod to pod on different node connectivity")
 	err = p.configurePodToPodOnDifferentNodeConnectivity(brExTobrOVNPatchPort)
 	if err != nil {
 		return err
 	}
 
+	klog.Info("Configuring system to enable host to service connectivity")
 	err = p.configureHostToServiceConnectivity()
 	if err != nil {
 		return err
 	}
 
+	klog.Info("Configuring VF used for OVN Management")
 	err = p.configureOVNManagementVF()
 	if err != nil {
 		return err
@@ -208,11 +216,11 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 	}
 	err = p.networkHelper.SetLinkIPAddress(vtep, ipNet)
 	if err != nil {
-		return err
+		return fmt.Errorf("error while setting VTEP IP: %w", err)
 	}
 	err = p.networkHelper.SetLinkUp(vtep)
 	if err != nil {
-		return err
+		return fmt.Errorf("error while setting link %s up: %w", vtep, err)
 	}
 
 	err = p.ovsClient.SetOVNEncapIP(ipNet.IP)
@@ -256,15 +264,19 @@ func (p *DPUCNIProvisioner) configureOVNManagementVF() error {
 	expectedLinkName := "ovn-k8s-mp0_0"
 	err := p.networkHelper.SetLinkDown(vfRepresentorLinkName)
 	if err != nil {
-		return err
+		return fmt.Errorf("error while setting link %s down: %w", vfRepresentorLinkName, err)
 	}
 
 	err = p.networkHelper.RenameLink(vfRepresentorLinkName, expectedLinkName)
 	if err != nil {
-		return err
+		return fmt.Errorf("error while renaming link %s to %s: %w", vfRepresentorLinkName, expectedLinkName, err)
 	}
 
-	return p.networkHelper.SetLinkUp(expectedLinkName)
+	err = p.networkHelper.SetLinkUp(expectedLinkName)
+	if err != nil {
+		return fmt.Errorf("error while setting link %s up: %w", expectedLinkName, err)
+	}
+	return nil
 }
 
 // configureVFs renames the existing VFs to map the fake environment we have on the host
@@ -342,7 +354,11 @@ func (p *DPUCNIProvisioner) configureOVSDaemon() error {
 	}
 
 	cmd := p.exec.Command("systemctl", "restart", "openvswitch-switch.service")
-	return cmd.Run()
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error while restarting OVS systemd service: %w", err)
+	}
+	return nil
 }
 
 // exposeOVSDBOverTCP reconfigures OVS to expose ovs-db via TCP
@@ -350,7 +366,7 @@ func (p *DPUCNIProvisioner) exposeOVSDBOverTCP() error {
 	configPath := filepath.Join(p.FileSystemRoot, ovsSystemdConfigPath)
 	content, err := os.ReadFile(configPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("error while reading file %s: %w", configPath, err)
 	}
 
 	// TODO: Could do better parsing here but that _should_ be good enough given that the default is that
@@ -359,7 +375,7 @@ func (p *DPUCNIProvisioner) exposeOVSDBOverTCP() error {
 		content = append(content, "\nOVS_CTL_OPTS=\"--ovsdb-server-options=--remote=ptcp:8500\""...)
 		err := os.WriteFile(configPath, content, 0644)
 		if err != nil {
-			return err
+			return fmt.Errorf("error while writing file %s: %w", configPath, err)
 		}
 	}
 	return nil

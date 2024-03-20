@@ -17,6 +17,8 @@ limitations under the License.
 package ovsclient
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"net"
 	"os/exec"
@@ -41,16 +43,23 @@ func newOvsClient() (OVSClient, error) {
 
 func (c *ovsClient) runOVSVsctl(args ...string) error {
 	cmd := exec.Command(c.ovsVsctlPath, args...)
-	return cmd.Run()
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error running ovs-vsctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
+	}
+	return nil
 }
 
 // BridgeExists checks if a bridge exists
 func (c *ovsClient) BridgeExists(name string) (bool, error) {
 	err := c.runOVSVsctl("br-exists", name)
 	if err != nil {
-		if exiterr, ok := err.(*exec.ExitError); ok {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
 			// https://github.com/openvswitch/ovs/blob/166ee41d282c506d100bc2185d60af277121b55b/utilities/ovs-vsctl.8.in#L203-L206
-			if exiterr.ExitCode() == 2 {
+			if exitErr.ExitCode() == 2 {
 				return false, nil
 			}
 		}
