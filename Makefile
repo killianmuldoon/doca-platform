@@ -12,7 +12,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-GO_VERSION ?= 1.21.7
+GO_VERSION ?= 1.22.1
 
 # CONTAINER_TOOL defines the container tool to be used for building images.
 # Be aware that the target commands are only tested with Docker which is
@@ -194,7 +194,7 @@ generate-manifests-dpuservice: ## Generate manifests e.g. CRD, RBAC. for the dpu
 generate-manifests-controlplane: ## Generate manifests e.g. CRD, RBAC. for the controlplane controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/controlplane/crd/bases"
 	$(CONTROLLER_GEN) \
-    paths="./internal/controlplane/..." \
+    paths="./cmd/controlplane/..." \
 	paths="./internal/controlplane/..." \
 	paths="./api/controlplane/..." \
 	crd:crdVersions=v1 \
