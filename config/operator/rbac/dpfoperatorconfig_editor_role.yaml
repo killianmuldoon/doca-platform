@@ -1,0 +1,31 @@
+# permissions for end users to edit dpfoperatorconfigs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: dpfoperatorconfig-editor-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: dpf-operator
+    app.kubernetes.io/part-of: dpf-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: dpfoperatorconfig-editor-role
+rules:
+- apiGroups:
+  - operator.dpf.nvidia.com
+  resources:
+  - dpfoperatorconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operator.dpf.nvidia.com
+  resources:
+  - dpfoperatorconfigs/status
+  verbs:
+  - get

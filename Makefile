@@ -161,7 +161,7 @@ clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
 	@rm -rf $(CHARTSDIR)
 
 ##@ Development
-GENERATE_TARGETS ?= dpuservice controlplane
+GENERATE_TARGETS ?= operator dpuservice controlplane
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -177,6 +177,18 @@ generate-modules: ## Run go mod tidy to update go modules
 
 .PHONY: generate-manifests
 generate-manifests: controller-gen $(addprefix generate-manifests-,$(GENERATE_TARGETS)) ## Run all generate-manifests-* targets
+
+.PHONY: generate-manifests-operator
+generate-manifests-operator: ## Generate manifests e.g. CRD, RBAC. for the operator controller.
+	$(MAKE) clean-generated-yaml SRC_DIRS="./config/operator/crd/bases"
+	$(CONTROLLER_GEN) \
+    paths="./cmd/operator/..." \
+	paths="./internal/operator/..." \
+	paths="./api/operator/..." \
+	crd:crdVersions=v1 \
+	rbac:roleName=manager-role \
+	output:crd:dir=./config/operator/crd/bases \
+	output:rbac:dir=./config/operator/rbac
 
 .PHONY: generate-manifests-dpuservice
 generate-manifests-dpuservice: ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
@@ -273,7 +285,7 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 
 ##@ Build
 
-BUILD_TARGETS ?= dpuservice controlplane dpucniprovisioner hostcniprovisioner
+BUILD_TARGETS ?= operator dpuservice controlplane dpucniprovisioner hostcniprovisioner
 REGISTRY ?= harbor.mellanox.com/cloud-orchestration-dev/dpf
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 TAG ?= v0.0.1
@@ -288,6 +300,10 @@ BASE_IMAGE = gcr.io/distroless/static:nonroot
 
 .PHONY: binaries
 binaries: $(addprefix binary-,$(BUILD_TARGETS)) ## Build all binaries
+
+.PHONY: binary-operator
+binary-operator: ## Build the operator controller binary.
+	go build -trimpath -o $(LOCALBIN)/operator-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/operator
 
 .PHONY: binary-dpuservice
 binary-dpuservice: ## Build the dpuservice controller binary.
@@ -312,6 +328,9 @@ docker-build-all: ## Build docker images for all BUILD_TARGETS
 OVS_BASE_IMAGE_NAME = base-image-ovs
 OVS_BASE_IMAGE = $(REGISTRY)/$(OVS_BASE_IMAGE_NAME)
 
+DPFOPERATOR_IMAGE_NAME ?= operator-controller-manager
+DPFOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOPERATOR_IMAGE_NAME)
+
 DPUSERVICE_IMAGE_NAME ?= dpuservice-controller-manager
 DPUSERVICE_IMAGE ?= $(REGISTRY)/$(DPUSERVICE_IMAGE_NAME)
 
@@ -323,6 +342,16 @@ DPUCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(DPUCNIPROVISIONER_IMAGE_NAME)
 
 HOSTCNIPROVISIONER_IMAGE_NAME ?= host-cni-provisioner
 HOSTCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(HOSTCNIPROVISIONER_IMAGE_NAME)
+
+.PHONY: docker-build-operator
+docker-build-operator: ## Build docker images for the operator-controller
+	docker build \
+		--build-arg builder_image=$(BUILD_IMAGE) \
+		--build-arg base_image=$(BASE_IMAGE) \
+		--build-arg target_arch=$(ARCH) \
+		--build-arg package=./cmd/operator \
+		. \
+		-t $(DPFOPERATOR_IMAGE):$(TAG)
 
 .PHONY: docker-build-dpuservice
 docker-build-dpuservice: ## Build docker images for the dpuservice-controller
@@ -375,6 +404,10 @@ docker-build-base-image-ovs: ## Build base docker image with OVS dependencies
 
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(BUILD_TARGETS))  ## Push the docker images for all controllers.
+
+.PHONY: docker-push-operator
+docker-push-operator: ## Push the docker image for operator.
+	docker push $(DPFOPERATOR_IMAGE):$(TAG)
 
 .PHONY: docker-push-dpuservice
 docker-push-dpuservice: ## Push the docker image for dpuservice.
