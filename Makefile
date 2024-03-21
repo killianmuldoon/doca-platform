@@ -290,6 +290,7 @@ REGISTRY ?= harbor.mellanox.com/cloud-orchestration-dev/dpf
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 TAG ?= v0.0.1
 
+HOST_ARCH = amd64
 # Note: If you make this variable configurable, ensure that the custom base image that is built in
 # docker-build-base-image-ovs is fetching binaries with the correct architecture.
 DPU_ARCH = arm64

@@ -99,7 +99,12 @@ func (p *HostCNIProvisioner) RunOnce() error {
 	if isConfigured {
 		return nil
 	}
-	return p.configure()
+	err = p.configure()
+	if err != nil {
+		return err
+	}
+	klog.Info("Configuration complete.")
+	return nil
 }
 
 // EnsureConfiguration ensures that particular configuration is in place. This is a blocking function.

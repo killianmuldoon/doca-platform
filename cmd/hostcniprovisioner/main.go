@@ -24,6 +24,7 @@ import (
 
 	hostcniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/readyz"
 
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
@@ -47,6 +48,13 @@ func main() {
 		defer wg.Done()
 		provisioner.EnsureConfiguration()
 	}()
+
+	err = readyz.ReportReady()
+	if err != nil {
+		klog.Fatal(err)
+	}
+
+	klog.Info("Host CNI Provisioner is ready")
 
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt)

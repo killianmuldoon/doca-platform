@@ -23,6 +23,7 @@ import (
 	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/readyz"
 
 	"k8s.io/klog/v2"
 	kexec "k8s.io/utils/exec"
@@ -41,6 +42,13 @@ func main() {
 	if err != nil {
 		klog.Fatal(err)
 	}
+
+	err = readyz.ReportReady()
+	if err != nil {
+		klog.Fatal(err)
+	}
+
+	klog.Info("DPU CNI Provisioner is ready")
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
