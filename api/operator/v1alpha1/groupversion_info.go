@@ -25,6 +25,11 @@ import (
 )
 
 var (
+	DPFOperatorConfigKind             = "DPFOperatorConfig"
+	DPFOperatorConfigGroupVersionKind = GroupVersion.WithKind(DPFOperatorConfigKind)
+)
+
+var (
 	// GroupVersion is group version used to register these objects
 	GroupVersion = schema.GroupVersion{Group: "operator.dpf.nvidia.com", Version: "v1alpha1"}
 
