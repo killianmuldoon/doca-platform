@@ -1,11 +1,12 @@
 # Must be ubuntu because of how the linking is taking place for the OVS packages.
 FROM --platform=${BUILDPLATFORM} ubuntu:22.04
 
-# Aside from wget, all the rest are dependencies for the packages we install below. We didn't opt for
+# Aside from wget and systemd, all the rest are dependencies for the packages we install below. We didn't opt for
 # apt install -y ../<deb> just to ensure we see all dependencies and don't install something from upstream while it should
 # be downstream.
+# TODO: Remove systemd if OVS DOCA is configured as part of provisioning and OVS systemd service doesn't need a restart
 RUN apt update && \
-    apt install -y wget python3 libbsd0 libelf1 libibverbs1 libjansson4 libnuma1 libpcap0.8 libunbound8 libunwind8 kmod ifupdown netbase uuid-runtime
+    apt install -y wget systemd python3 libbsd0 libelf1 libibverbs1 libjansson4 libnuma1 libpcap0.8 libunbound8 libunwind8 kmod ifupdown netbase uuid-runtime
 
 # TODO: Replace with official repository instead of Alin's once we have such repo.
 # TODO: Potentially parameterize architecture to ensure the image can be build for x86 architecture.
