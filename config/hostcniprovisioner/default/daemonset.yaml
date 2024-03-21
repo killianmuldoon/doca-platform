@@ -20,7 +20,7 @@ spec:
       hostNetwork: true
       containers:
       - name: host-cni-provisioner
-        image: host-cni-provisioner
+        image: controller
         imagePullPolicy: Always
         securityContext:
           privileged: true

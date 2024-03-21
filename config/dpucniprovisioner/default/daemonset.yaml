@@ -21,7 +21,7 @@ spec:
         runAsUser: 0
       containers:
       - name: dpu-cni-provisioner
-        image: dpu-cni-provisioner
+        image: controller
         imagePullPolicy: Always
         securityContext:
           privileged: true
