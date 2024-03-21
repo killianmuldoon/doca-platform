@@ -50,8 +50,6 @@ linters-settings:
         alias: operatorcontroller
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/controllers
         alias: dpuservicecontroller
-      - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/controllers
-        alias: controlplanecontroller
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1
         alias: argov1
 

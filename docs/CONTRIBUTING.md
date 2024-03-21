@@ -23,7 +23,7 @@ The following general principles should be taken into account when reviewing a P
 - A shared package is on the same level in the directory structure as its highest-level consumer.
 
   
-The repo has the following base structure:
+The below is a representation of how multiple components are structured in the repo:
 ```
 ├── Dockerfile
 ├── Makefile
