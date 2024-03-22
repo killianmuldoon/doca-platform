@@ -22,9 +22,8 @@ import (
 	"path/filepath"
 	"time"
 
-	controlplanev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
-	dpuservicecontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/controllers"
+	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -100,7 +99,7 @@ var _ = Describe("Testing DPUService controller", Ordered, func() {
 			}
 			Eventually(func(g Gomega) {
 				clusters := &unstructured.UnstructuredList{}
-				clusters.SetGroupVersionKind(dpuservicecontroller.TenantControlPlaneGVK)
+				clusters.SetGroupVersionKind(controlplanemeta.TenantControlPlaneGVK)
 				g.Expect(testClient.List(ctx, clusters)).To(Succeed())
 				g.Expect(clusters.Items).To(HaveLen(2))
 				for _, cluster := range clusters.Items {
@@ -133,7 +132,7 @@ var _ = Describe("Testing DPUService controller", Ordered, func() {
 			Eventually(func(g Gomega) {
 				// Get the control plane secrets.
 				controlPlaneSecrets := corev1.SecretList{}
-				g.Expect(testClient.List(ctx, &controlPlaneSecrets, client.MatchingLabels(controlplanev1.DPFClusterSecretLabels))).To(Succeed())
+				g.Expect(testClient.List(ctx, &controlPlaneSecrets, client.MatchingLabels(controlplanemeta.DPFClusterSecretLabels))).To(Succeed())
 				g.Expect(controlPlaneSecrets.Items).To(HaveLen(numClusters))
 
 				for i := range controlPlaneSecrets.Items {
@@ -153,7 +152,7 @@ var _ = Describe("Testing DPUService controller", Ordered, func() {
 			Expect(testClient.Delete(ctx, svc)).To(Succeed())
 			// Get the control plane secrets.
 			controlPlaneSecrets := corev1.SecretList{}
-			Expect(testClient.List(ctx, &controlPlaneSecrets, client.MatchingLabels(controlplanev1.DPFClusterSecretLabels))).To(Succeed())
+			Expect(testClient.List(ctx, &controlPlaneSecrets, client.MatchingLabels(controlplanemeta.DPFClusterSecretLabels))).To(Succeed())
 			Expect(controlPlaneSecrets.Items).To(HaveLen(numClusters))
 			Eventually(func(g Gomega) {
 				for i := range controlPlaneSecrets.Items {
