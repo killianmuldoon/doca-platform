@@ -161,7 +161,7 @@ clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
 	@rm -rf $(CHARTSDIR)
 
 ##@ Development
-GENERATE_TARGETS ?= operator dpuservice
+GENERATE_TARGETS ?= operator dpuservice embedded
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.

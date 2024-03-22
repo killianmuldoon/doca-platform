@@ -60,3 +60,12 @@ func CleanupAndWait(ctx context.Context, c client.Client, objs ...client.Object)
 	}
 	return kerrors.NewAggregate(errs)
 }
+
+// CreateResourceIfNotExist creates a resource if it doesn't exist
+func CreateResourceIfNotExist(ctx context.Context, c client.Client, obj client.Object) error {
+	err := c.Create(ctx, obj)
+	if err != nil && !apierrors.IsAlreadyExists(err) {
+		return err
+	}
+	return nil
+}

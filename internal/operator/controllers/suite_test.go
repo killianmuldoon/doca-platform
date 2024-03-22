@@ -44,6 +44,7 @@ var cfg *rest.Config
 var testClient client.Client
 var testEnv *envtest.Environment
 var ctx, testManagerCancelFunc = context.WithCancel(ctrl.SetupSignalHandler())
+var reconciler *DPFOperatorConfigReconciler
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -94,10 +95,11 @@ var _ = BeforeSuite(func() {
 			}})
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&DPFOperatorConfigReconciler{
+	reconciler = &DPFOperatorConfigReconciler{
 		Client: testClient,
 		Scheme: testManager.GetScheme(),
-	}).SetupWithManager(testManager)
+	}
+	err = reconciler.SetupWithManager(testManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {
