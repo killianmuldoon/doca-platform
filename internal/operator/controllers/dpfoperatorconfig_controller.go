@@ -18,16 +18,32 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	ovnKubernetesNamespace               = "openshift-ovn-kubernetes"
+	ovnKubernetesDaemonsetName           = "ovnkube-node"
+	networkOperatorNamespace             = "openshift-network-operator"
+	networkOperatorDeploymentName        = "network-operator"
+	clusterVersionOperatorNamespace      = "openshift-cluster-version"
+	clusterVersionOperatorDeploymentName = "cluster-version-operator"
+	nodeIdentityWebhookConfigurationName = "network-node-identity.openshift.io"
+	controlPlaneNodeLabel                = "node-role.kubernetes.io/control-plane"
 )
 
 // DPFOperatorConfigReconciler reconciles a DPFOperatorConfig object
@@ -113,6 +129,9 @@ func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx
 	// - ensure network operator is scaled down
 	// - ensure webhook is removed
 	// - ensure OVN Kubernetes daemonset has different nodeSelector (i.e. point to control plane only)
+	if err := r.ScaleDownOVNKubernetesComponents(ctx); err != nil {
+		return fmt.Errorf("error while scaling down OVN Kubernetes components: %w", err)
+	}
 	// Phase 2
 	// - ensure no original OVN Kubernetes pods runs on worker
 	// - remove node annotation k8s.ovn.org/node-chassis-id (avoid removing again on next reconciliation loop, needs status)
@@ -122,6 +141,93 @@ func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx
 	// Phase 3
 	// - deploy custom OVN Kubernetes
 	return nil
+}
+
+func (r *DPFOperatorConfigReconciler) ScaleDownOVNKubernetesComponents(ctx context.Context) error {
+	var errs []error
+
+	// Ensure cluster version operator is scaled down
+	clusterVersionOperatorDeployment := &appsv1.Deployment{}
+	key := client.ObjectKey{Namespace: clusterVersionOperatorNamespace, Name: clusterVersionOperatorDeploymentName}
+	err := r.Client.Get(ctx, key, clusterVersionOperatorDeployment)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			errs = append(errs, fmt.Errorf("error while getting %s: %w", key.String(), err))
+		}
+	} else {
+		clusterVersionOperatorDeployment.Spec.Replicas = ptr.To[int32](0)
+		clusterVersionOperatorDeployment.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("Deployment"))
+		clusterVersionOperatorDeployment.ObjectMeta.ManagedFields = nil
+		if err := r.Client.Patch(ctx, clusterVersionOperatorDeployment, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+			errs = append(errs, fmt.Errorf("error while patching %s: %w", key.String(), err))
+		}
+	}
+
+	// Ensure network operator is scaled down
+	networkOperatorDeployment := &appsv1.Deployment{}
+	key = client.ObjectKey{Namespace: networkOperatorNamespace, Name: networkOperatorDeploymentName}
+	err = r.Client.Get(ctx, key, networkOperatorDeployment)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			errs = append(errs, fmt.Errorf("error while getting %s: %w", key.String(), err))
+		}
+	} else {
+		networkOperatorDeployment.Spec.Replicas = ptr.To[int32](0)
+		networkOperatorDeployment.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("Deployment"))
+		networkOperatorDeployment.ObjectMeta.ManagedFields = nil
+		if err := r.Client.Patch(ctx, networkOperatorDeployment, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+			errs = append(errs, fmt.Errorf("error while patching %s: %w", key.String(), err))
+		}
+	}
+
+	// Ensure node identity webhook is removed
+	nodeIdentityWebhookConfiguration := &admissionregistrationv1.ValidatingWebhookConfiguration{}
+	key = client.ObjectKey{Name: nodeIdentityWebhookConfigurationName}
+	err = r.Client.Get(ctx, key, nodeIdentityWebhookConfiguration)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			errs = append(errs, fmt.Errorf("error while getting %s: %w", key.String(), err))
+		}
+	} else {
+		if err := r.Client.Delete(ctx, nodeIdentityWebhookConfiguration); err != nil {
+			errs = append(errs, fmt.Errorf("error while deleting %s: %w", key.String(), err))
+		}
+	}
+
+	// Ensure OVN Kubernetes daemonset has different nodeSelector (i.e. point to control plane only)
+	ovnKubernetesDaemonset := &appsv1.DaemonSet{}
+	key = client.ObjectKey{Namespace: ovnKubernetesNamespace, Name: ovnKubernetesDaemonsetName}
+	err = r.Client.Get(ctx, key, ovnKubernetesDaemonset)
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			errs = append(errs, fmt.Errorf("error while getting %s: %w", key.String(), err))
+		}
+	} else {
+		affinity := &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{
+									Key:      controlPlaneNodeLabel,
+									Operator: corev1.NodeSelectorOpExists,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+		ovnKubernetesDaemonset.Spec.Template.Spec.Affinity = affinity
+		ovnKubernetesDaemonset.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("DaemonSet"))
+		ovnKubernetesDaemonset.ObjectMeta.ManagedFields = nil
+		if err := r.Client.Patch(ctx, ovnKubernetesDaemonset, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+			errs = append(errs, fmt.Errorf("error while patching %s: %w", key.String(), err))
+		}
+	}
+
+	return kerrors.NewAggregate(errs)
 }
 
 // SetupWithManager sets up the controller with the Manager.

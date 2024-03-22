@@ -70,6 +70,8 @@ linters-settings:
         alias: logsv1
       - pkg: k8s.io/utils/exec
         alias: kexec
+      - pkg: k8s.io/api/admissionregistration/v1
+        alias: admissionregistrationv1
 
       # Controller Runtime
       - pkg: sigs.k8s.io/controller-runtime
