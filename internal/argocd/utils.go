@@ -4,10 +4,10 @@ package argocd
 import (
 	"fmt"
 
-	controlplanev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	argoapplication "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
+	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -73,7 +73,7 @@ func NewApplication(projectName string, cluster types.NamespacedName, dpuService
 			Namespace: argoCDNamespace,
 			// TODO: Consider adding labels for the Application.
 			Labels: map[string]string{
-				controlplanev1.DPFClusterLabelKey:        cluster.Name,
+				controlplanemeta.DPFClusterLabelKey:      cluster.Name,
 				dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
 				dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
 			},

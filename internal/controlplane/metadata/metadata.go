@@ -14,14 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package metadata
 
+import "k8s.io/apimachinery/pkg/runtime/schema"
+
+// TODO: Review this package when implementing control plane provisioning.
 var (
 	// DPFClusterSecretLabels are the labels that identify the admin kubeconfig of a DPF cluster.
 	DPFClusterSecretLabels = map[string]string{"kamaji.clastix.io/component": "admin-kubeconfig", "kamaji.clastix.io/project": "kamaji"}
 
 	// DPFClusterSecretClusterNameLabelKey is the key of the label linking a DPFClusterSecret to the name of the cluster.
+	// TODO: When implementing control plane provisioning replace this with a DPF-specific label.
 	DPFClusterSecretClusterNameLabelKey = "kamaji.clastix.io/name"
 
+	// DPFClusterLabelKey is the key of the label linking objects to a specific DPF Cluster.
 	DPFClusterLabelKey = "dpf.nvidia.com/cluster"
+)
+
+var (
+	TenantControlPlaneGVK = schema.GroupVersion{Group: "kamaji.clastix.io", Version: "v1alpha1"}.WithKind("TenantControlPlane")
 )

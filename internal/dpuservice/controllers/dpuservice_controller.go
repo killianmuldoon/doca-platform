@@ -20,17 +20,16 @@ import (
 	"context"
 	"fmt"
 
-	controlplanev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
+	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/kubeconfig"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/json"
@@ -68,11 +67,6 @@ const (
 	dpuServiceControllerName = "dpuservice-manager"
 )
 
-var (
-	// TODO: Move this to a shared package.
-	TenantControlPlaneGVK = schema.GroupVersion{Group: "kamaji.clastix.io", Version: "v1alpha1"}.WithKind("TenantControlPlane")
-)
-
 // dpfCluster represents a single Kubernetes cluster in DPF.
 // TODO: Consider if this should be a more complex type carrying more data about the cluster.
 // TODO: Consider making this part of a shared metadata package.
@@ -85,7 +79,7 @@ func (c *dpfCluster) String() string {
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPUServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	tenantControlPlane := &metav1.PartialObjectMetadata{}
-	tenantControlPlane.SetGroupVersionKind(TenantControlPlaneGVK)
+	tenantControlPlane.SetGroupVersionKind(controlplanemeta.TenantControlPlaneGVK)
 	return ctrl.NewControllerManagedBy(mgr).
 		// TODO: Consider also watching on Application reconcile. This was very noisy when initially tried.
 		For(&dpuservicev1.DPUService{}).
@@ -93,8 +87,6 @@ func (r *DPUServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		WatchesMetadata(tenantControlPlane, handler.EnqueueRequestsFromMapFunc(r.DPUClusterToDPUService)).
 		Complete(r)
 }
-
-// TODO: Should also watch on reconcile.
 
 // Reconcile reconciles changes in a DPUService.
 func (r *DPUServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
@@ -257,8 +249,8 @@ func createArgoCDSecret(secretConfig []byte, cluster dpfCluster, clusterConfigNa
 			Name:      cluster.String(),
 			Namespace: argoCDNamespace,
 			Labels: map[string]string{
-				argoCDSecretLabelKey:              argoCDSecretLabelValue,
-				controlplanev1.DPFClusterLabelKey: cluster.String(),
+				argoCDSecretLabelKey:                argoCDSecretLabelValue,
+				controlplanemeta.DPFClusterLabelKey: cluster.String(),
 			},
 			OwnerReferences: nil,
 			Annotations:     nil,
@@ -395,13 +387,13 @@ func argoCDValuesFromDPUService(dpuService *dpuservicev1.DPUService) (*runtime.R
 func getClusters(ctx context.Context, c client.Client) ([]dpfCluster, error) {
 	var errs []error
 	secrets := &corev1.SecretList{}
-	err := c.List(ctx, secrets, client.MatchingLabels(controlplanev1.DPFClusterSecretLabels))
+	err := c.List(ctx, secrets, client.MatchingLabels(controlplanemeta.DPFClusterSecretLabels))
 	if err != nil {
 		return nil, err
 	}
 	clusters := []dpfCluster{}
 	for _, secret := range secrets.Items {
-		clusterName, found := secret.GetLabels()[controlplanev1.DPFClusterSecretClusterNameLabelKey]
+		clusterName, found := secret.GetLabels()[controlplanemeta.DPFClusterSecretClusterNameLabelKey]
 		if !found {
 			errs = append(errs, fmt.Errorf("could not identify cluster name for secret %v/%v", secret.Namespace, secret.Name))
 			continue

@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"time"
 
-	controlplanev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1"
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
+	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/kubeconfig"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -171,7 +171,7 @@ func assertDPUService(g Gomega, testClient client.Client, dpuServices []*dpuserv
 
 func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []dpfCluster) {
 	gotArgoSecrets := &corev1.SecretList{}
-	g.Expect(testClient.List(ctx, gotArgoSecrets, client.HasLabels{argoCDSecretLabelKey, controlplanev1.DPFClusterLabelKey})).To(Succeed())
+	g.Expect(testClient.List(ctx, gotArgoSecrets, client.HasLabels{argoCDSecretLabelKey, controlplanemeta.DPFClusterLabelKey})).To(Succeed())
 	// Assert the correct number of secrets was found.
 	g.Expect(gotArgoSecrets.Items).To(HaveLen(len(clusters)))
 	for _, s := range gotArgoSecrets.Items {
@@ -311,7 +311,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 				{Namespace: testNS.Name, Name: "cluster-three"},
 			}
 			brokenSecret := testKamajiClusterSecret(clusters[2])
-			delete(brokenSecret.Labels, controlplanev1.DPFClusterSecretClusterNameLabelKey)
+			delete(brokenSecret.Labels, controlplanemeta.DPFClusterSecretClusterNameLabelKey)
 			secrets := []*corev1.Secret{
 				testKamajiClusterSecret(clusters[0]),
 				testKamajiClusterSecret(clusters[1]),
@@ -349,7 +349,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			err := r.reconcileSecrets(ctx, clusters)
 			Expect(err).NotTo(HaveOccurred())
 			secretList := &corev1.SecretList{}
-			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, controlplanev1.DPFClusterLabelKey})).To(Succeed())
+			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, controlplanemeta.DPFClusterLabelKey})).To(Succeed())
 			Expect(secretList.Items).To(HaveLen(3))
 			for _, s := range secretList.Items {
 				Expect(s.Data).To(HaveKey("config"))
@@ -381,7 +381,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 
 			// Expect reconciliation to have continued and created the other secrets.
 			secretList := &corev1.SecretList{}
-			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, controlplanev1.DPFClusterLabelKey})).To(Succeed())
+			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, controlplanemeta.DPFClusterLabelKey})).To(Succeed())
 			Expect(secretList.Items).To(HaveLen(2))
 			for _, s := range secretList.Items {
 				Expect(s.Data).To(HaveKey("config"))
@@ -415,7 +415,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 
 			// Expect reconciliation to have continued and created the other secrets.
 			secretList := &corev1.SecretList{}
-			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, controlplanev1.DPFClusterLabelKey})).To(Succeed())
+			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, controlplanemeta.DPFClusterLabelKey})).To(Succeed())
 			Expect(secretList.Items).To(HaveLen(2))
 			for _, s := range secretList.Items {
 				Expect(s.Data).To(HaveKey("config"))
@@ -454,9 +454,9 @@ func testKamajiClusterSecret(cluster dpfCluster) *corev1.Secret {
 			Name:      fmt.Sprintf("%v-admin-kubeconfig", cluster.Name),
 			Namespace: cluster.Namespace,
 			Labels: map[string]string{
-				controlplanev1.DPFClusterSecretClusterNameLabelKey: cluster.Name,
-				"kamaji.clastix.io/component":                      "admin-kubeconfig",
-				"kamaji.clastix.io/project":                        "kamaji",
+				controlplanemeta.DPFClusterSecretClusterNameLabelKey: cluster.Name,
+				"kamaji.clastix.io/component":                        "admin-kubeconfig",
+				"kamaji.clastix.io/project":                          "kamaji",
 			},
 		},
 		Data: map[string][]byte{
