@@ -46,6 +46,9 @@ const (
 	controlPlaneNodeLabel                = "node-role.kubernetes.io/control-plane"
 )
 
+//go:embed manifests/hostcniprovisioner.yaml
+var hostCNIProvisionerManifestContent []byte
+
 // DPFOperatorConfigReconciler reconciles a DPFOperatorConfig object
 type DPFOperatorConfigReconciler struct {
 	client.Client
