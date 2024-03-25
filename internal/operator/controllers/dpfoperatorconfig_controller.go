@@ -70,6 +70,9 @@ const (
 //go:embed manifests/hostcniprovisioner.yaml
 var hostCNIProvisionerManifestContent []byte
 
+//go:embed manifests/dpucniprovisioner.yaml
+var dpuCNIProvisionerManifestContent []byte
+
 // DPFOperatorConfigReconciler reconciles a DPFOperatorConfig object
 type DPFOperatorConfigReconciler struct {
 	client.Client

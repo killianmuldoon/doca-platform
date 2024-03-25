@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  labels:
+    app.kubernetes.io/created-by: dpf-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: dpu-cni-provisioner
+    app.kubernetes.io/part-of: dpf-operator
+  name: dpu-cni-provisioner
+  namespace: dpf-operator-system
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: dpu-cni-provisioner
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: dpu-cni-provisioner
+    spec:
+      containers:
+      - env:
+        - name: SYSTEMCTL_FORCE_BUS
+          value: "1"
+        image: nvidia/dpu-cni-provisioner
+        imagePullPolicy: Always
+        name: dpu-cni-provisioner
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /var/run/readyz
+        securityContext:
+          privileged: true
+        volumeMounts:
+        - mountPath: /var/run/openvswitch/
+          name: ovs
+        - mountPath: /etc/default/openvswitch-switch
+          name: ovs-systemd-config
+        - mountPath: /var/run/systemd
+          name: var-run-systemd
+        - mountPath: /var/run/dbus/system_bus_socket
+          name: systemd-dbus
+      hostNetwork: true
+      securityContext:
+        runAsUser: 0
+      volumes:
+      - hostPath:
+          path: /var/run/openvswitch
+        name: ovs
+      - hostPath:
+          path: /etc/default/openvswitch-switch
+        name: ovs-systemd-config
+      - hostPath:
+          path: /var/run/systemd
+        name: var-run-systemd
+      - hostPath:
+          path: /var/run/dbus/system_bus_socket
+        name: systemd-dbus
