@@ -23,6 +23,7 @@ import (
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
+	controlplane "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/kubeconfig"
 
@@ -33,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/json"
-	"k8s.io/apimachinery/pkg/util/yaml"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -66,15 +66,6 @@ const (
 const (
 	dpuServiceControllerName = "dpuservice-manager"
 )
-
-// dpfCluster represents a single Kubernetes cluster in DPF.
-// TODO: Consider if this should be a more complex type carrying more data about the cluster.
-// TODO: Consider making this part of a shared metadata package.
-type dpfCluster types.NamespacedName
-
-func (c *dpfCluster) String() string {
-	return fmt.Sprintf("%s-%s", c.Namespace, c.Name)
-}
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPUServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -140,7 +131,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	var res ctrl.Result
 	// Get the list of clusters this DPUService targets.
 	// TODO: Add some way to check if the clusters are healthy. Reconciler should retry clusters if they're unready.
-	clusters, err := getClusters(ctx, r.Client)
+	clusters, err := controlplane.GetDPFClusters(ctx, r.Client)
 	if err != nil {
 		// TODO: In future we should tolerate this error, but only when we have status reporting.
 		return ctrl.Result{}, err
@@ -172,19 +163,18 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 }
 
 // reconcileSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
-func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, clusters []dpfCluster) error {
+func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, clusters []controlplane.DPFCluster) error {
 	var errs []error
 	for i := range clusters {
 		cluster := clusters[i]
-		// Get the control plane secret using the naming convention - $CLUSTERNAME-admin-kubeconfig.
-		secret := &corev1.Secret{}
-		key := client.ObjectKey{Namespace: cluster.Namespace, Name: fmt.Sprintf("%v-admin-kubeconfig", cluster.Name)}
-		if err := r.Client.Get(ctx, key, secret); err != nil {
+		// Get the control plane kubeconfig
+		adminConfig, err := cluster.GetKubeconfig(ctx, r.Client)
+		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
 		// Template an argoSecret using information from the control plane secret.
-		argoSecret, err := createArgoSecretFromControlPlaneSecret(secret, cluster)
+		argoSecret, err := createArgoSecretFromKubeconfig(cluster, adminConfig)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -198,19 +188,14 @@ func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, clusters []
 	return kerrors.NewAggregate(errs)
 }
 
-// createArgoSecretFromControlPlaneSecret generates an ArgoCD cluster secret from the control plane secret. This control plane secret is strictly tied
-// to the Kamaji implementation.
-func createArgoSecretFromControlPlaneSecret(secret *corev1.Secret, cluster dpfCluster) (*corev1.Secret, error) {
-	adminConfig, err := getKubeconfigFromControlPlaneSecret(secret)
-	if err != nil {
-		return nil, err
-	}
-	clusterConfigName := adminConfig.Clusters[0].Name
-	clusterConfigServer := adminConfig.Clusters[0].Cluster.Server
+// createArgoSecretFromKubeconfig generates an ArgoCD cluster secret from the given kubeconfig.
+func createArgoSecretFromKubeconfig(cluster controlplane.DPFCluster, kubeconfig *kubeconfig.Type) (*corev1.Secret, error) {
+	clusterConfigName := kubeconfig.Clusters[0].Name
+	clusterConfigServer := kubeconfig.Clusters[0].Cluster.Server
 	secretConfig, err := json.Marshal(config{TlsClientConfig: tlsClientConfig{
-		CaData:   adminConfig.Clusters[0].Cluster.CertificateAuthorityData,
-		KeyData:  adminConfig.Users[0].User.ClientKeyData,
-		CertData: adminConfig.Users[0].User.ClientCertificateData,
+		CaData:   kubeconfig.Clusters[0].Cluster.CertificateAuthorityData,
+		KeyData:  kubeconfig.Users[0].User.ClientKeyData,
+		CertData: kubeconfig.Users[0].User.ClientCertificateData,
 	}})
 	if err != nil {
 		return nil, err
@@ -218,27 +203,8 @@ func createArgoSecretFromControlPlaneSecret(secret *corev1.Secret, cluster dpfCl
 	return createArgoCDSecret(secretConfig, cluster, clusterConfigName, clusterConfigServer), nil
 }
 
-// getKubeconfigFromControlPlaneSecret returns an admin Kubeconfig stored in a control plane secret.
-func getKubeconfigFromControlPlaneSecret(secret *corev1.Secret) (*kubeconfig.Type, error) {
-	adminSecret, ok := secret.Data["admin.conf"]
-	if !ok {
-		return nil, fmt.Errorf("secret %v/%v not in the expected format: data.admin.conf not found", secret.Namespace, secret.Name)
-	}
-	var adminConfig kubeconfig.Type
-	if err := yaml.Unmarshal(adminSecret, &adminConfig); err != nil {
-		return nil, err
-	}
-	if len(adminConfig.Users) != 1 {
-		return nil, fmt.Errorf("secret %v/%v not in the expected format: user list should have one member", secret.Namespace, secret.Name)
-	}
-	if len(adminConfig.Clusters) != 1 {
-		return nil, fmt.Errorf("secret %v/%v not in the expected format: cluster list should have one member", secret.Namespace, secret.Name)
-	}
-	return &adminConfig, nil
-}
-
 // createArgoCDSecret templates an ArgoCD cluster Secret with the passed values.
-func createArgoCDSecret(secretConfig []byte, cluster dpfCluster, clusterConfigName, clusterConfigServer string) *corev1.Secret {
+func createArgoCDSecret(secretConfig []byte, cluster controlplane.DPFCluster, clusterConfigName, clusterConfigServer string) *corev1.Secret {
 	return &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -278,7 +244,7 @@ type tlsClientConfig struct {
 
 // reconcileStatus returns a reconcile result representing whether ArgoCD Applications have been fully synced.
 // TODO: This function should update status with errors representing the state of the application.
-func (r *DPUServiceReconciler) reconcileStatus(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []dpfCluster) (ctrl.Result, error) {
+func (r *DPUServiceReconciler) reconcileStatus(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []controlplane.DPFCluster) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	applicationList := &argov1.ApplicationList{}
 	var errs []error
@@ -307,7 +273,7 @@ func (r *DPUServiceReconciler) reconcileStatus(ctx context.Context, dpuService *
 	return ctrl.Result{}, nil
 }
 
-func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters []dpfCluster) error {
+func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters []controlplane.DPFCluster) error {
 	clusterKeys := []types.NamespacedName{}
 	for i := range clusters {
 		clusterKeys = append(clusterKeys, types.NamespacedName{Namespace: clusters[i].Namespace, Name: clusters[i].Name})
@@ -319,7 +285,7 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, clusters []dpfCluster, dpuService *dpuservicev1.DPUService) error {
+func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, clusters []controlplane.DPFCluster, dpuService *dpuservicev1.DPUService) error {
 	var errs []error
 	values, err := argoCDValuesFromDPUService(dpuService)
 	if err != nil {
@@ -381,29 +347,6 @@ func argoCDValuesFromDPUService(dpuService *dpuservicev1.DPUService) (*runtime.R
 		return nil, err
 	}
 	return &runtime.RawExtension{Raw: data}, nil
-}
-
-// getClusters returns a list of the Clusters ArgoCD should install to.
-func getClusters(ctx context.Context, c client.Client) ([]dpfCluster, error) {
-	var errs []error
-	secrets := &corev1.SecretList{}
-	err := c.List(ctx, secrets, client.MatchingLabels(controlplanemeta.DPFClusterSecretLabels))
-	if err != nil {
-		return nil, err
-	}
-	clusters := []dpfCluster{}
-	for _, secret := range secrets.Items {
-		clusterName, found := secret.GetLabels()[controlplanemeta.DPFClusterSecretClusterNameLabelKey]
-		if !found {
-			errs = append(errs, fmt.Errorf("could not identify cluster name for secret %v/%v", secret.Namespace, secret.Name))
-			continue
-		}
-		clusters = append(clusters, dpfCluster{
-			Namespace: secret.Namespace,
-			Name:      clusterName,
-		})
-	}
-	return clusters, kerrors.NewAggregate(errs)
 }
 
 // ensureOwnerRef makes sure the slice contains the passed OwnerReference.
