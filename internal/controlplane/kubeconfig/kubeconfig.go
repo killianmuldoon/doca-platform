@@ -11,7 +11,7 @@ type Type struct {
 	Clusters       []*ClusterWithName `json:"clusters"`
 	Users          []*UserWithName    `json:"users"`
 	CurrentContext string             `json:"current-context"`
-	Contexts       []NamedContext     `json:"contexts"`
+	Contexts       []*NamedContext    `json:"contexts"`
 }
 
 // Bytes converts Kubeconfig to bytes
@@ -49,13 +49,13 @@ type Cluster struct {
 
 // NamedContext is a struct used to create a kubectl configuration YAML file
 type NamedContext struct {
-	Name    string  `yaml:"name"`
-	Context Context `yaml:"context"`
+	Name    string  `json:"name"`
+	Context Context `json:"context"`
 }
 
 // Context is a struct used to create a kubectl configuration YAML file
 type Context struct {
-	Cluster   string `yaml:"cluster"`
-	Namespace string `yaml:"namespace,omitempty"`
-	User      string `yaml:"user"`
+	Cluster   string `json:"cluster"`
+	Namespace string `json:"namespace,omitempty"`
+	User      string `json:"user"`
 }
