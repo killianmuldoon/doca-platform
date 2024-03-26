@@ -146,7 +146,7 @@ var _ = Describe("DPUService Controller", func() {
 
 			// Check that argo secrets have been created correctly.
 			Eventually(func(g Gomega) {
-				assertArgoCDSecrets(g, testClient, clusters)
+				assertArgoCDSecrets(g, testClient, clusters, &cleanupObjs)
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 
 			// Check that the argo AppProject has been created correctly
@@ -170,7 +170,7 @@ func assertDPUService(g Gomega, testClient client.Client, dpuServices []*dpuserv
 	}
 }
 
-func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []controlplane.DPFCluster) {
+func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []controlplane.DPFCluster, cleanupObjs *[]client.Object) {
 	gotArgoSecrets := &corev1.SecretList{}
 	g.Expect(testClient.List(ctx, gotArgoSecrets, client.HasLabels{argoCDSecretLabelKey, controlplanemeta.DPFClusterLabelKey})).To(Succeed())
 	// Assert the correct number of secrets was found.
@@ -182,6 +182,7 @@ func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []controlp
 				g.Expect(s.Data).To(HaveKey(key))
 			}
 		}
+		*cleanupObjs = append(*cleanupObjs, s.DeepCopy())
 	}
 }
 
