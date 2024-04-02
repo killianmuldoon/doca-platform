@@ -17,7 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"context"
 	"fmt"
 	"time"
 
@@ -26,20 +25,18 @@ import (
 	controlplane "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
+	testutils "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/json"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -62,7 +59,7 @@ var _ = Describe("DPUService Controller", func() {
 		It("should successfully reconcile the DPUService", func() {
 			cleanupObjs := []client.Object{}
 			defer func() {
-				Expect(cleanupAndWait(ctx, testClient, cleanupObjs...)).To(Succeed())
+				Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjs...)).To(Succeed())
 			}()
 
 			clusters := []controlplane.DPFCluster{
@@ -285,7 +282,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			for _, s := range secretList.Items {
 				objs = append(objs, s.DeepCopy())
 			}
-			Expect(cleanupAndWait(ctx, testClient, objs...)).To(Succeed())
+			Expect(testutils.CleanupAndWait(ctx, testClient, objs...)).To(Succeed())
 		})
 
 		// reconcileSecrets
@@ -423,37 +420,4 @@ func testKamajiClusterSecret(cluster controlplane.DPFCluster) *corev1.Secret {
 		},
 	}
 	// TODO: Test for ownerReferences.
-}
-
-func cleanupAndWait(ctx context.Context, c client.Client, objs ...client.Object) error {
-	for _, o := range objs {
-		if err := c.Delete(ctx, o); err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-	}
-	// Ensure each object is deleted by checking that each object returns an IsNotFound error in the api server.
-	errs := []error{}
-	for _, o := range objs {
-		key := client.ObjectKeyFromObject(o)
-		err := wait.ExponentialBackoff(
-			wait.Backoff{
-				Duration: 100 * time.Millisecond,
-				Factor:   1.5,
-				Steps:    10,
-				Jitter:   0.4,
-			},
-			func() (done bool, err error) {
-				if err := c.Get(ctx, key, o); err != nil {
-					if apierrors.IsNotFound(err) {
-						return true, nil
-					}
-					return false, err
-				}
-				return false, nil
-			})
-		if err != nil {
-			errs = append(errs, fmt.Errorf("key %s, %s is not being deleted: %s", o.GetObjectKind().GroupVersionKind().String(), key, err))
-		}
-	}
-	return kerrors.NewAggregate(errs)
 }
