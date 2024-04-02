@@ -23,8 +23,9 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
+	controlplane "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/kubeconfig"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -64,7 +65,7 @@ var _ = Describe("DPUService Controller", func() {
 				Expect(cleanupAndWait(ctx, testClient, cleanupObjs...)).To(Succeed())
 			}()
 
-			clusters := []dpfCluster{
+			clusters := []controlplane.DPFCluster{
 				{Namespace: "dpu-one", Name: "cluster-one"},
 				{Namespace: "dpu-two", Name: "cluster-two"},
 				{Namespace: "dpu-three", Name: "cluster-three"},
@@ -145,7 +146,7 @@ var _ = Describe("DPUService Controller", func() {
 
 			// Check that argo secrets have been created correctly.
 			Eventually(func(g Gomega) {
-				assertArgoCDSecrets(g, testClient, clusters)
+				assertArgoCDSecrets(g, testClient, clusters, &cleanupObjs)
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 
 			// Check that the argo AppProject has been created correctly
@@ -169,7 +170,7 @@ func assertDPUService(g Gomega, testClient client.Client, dpuServices []*dpuserv
 	}
 }
 
-func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []dpfCluster) {
+func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []controlplane.DPFCluster, cleanupObjs *[]client.Object) {
 	gotArgoSecrets := &corev1.SecretList{}
 	g.Expect(testClient.List(ctx, gotArgoSecrets, client.HasLabels{argoCDSecretLabelKey, controlplanemeta.DPFClusterLabelKey})).To(Succeed())
 	// Assert the correct number of secrets was found.
@@ -181,10 +182,11 @@ func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []dpfClust
 				g.Expect(s.Data).To(HaveKey(key))
 			}
 		}
+		*cleanupObjs = append(*cleanupObjs, s.DeepCopy())
 	}
 }
 
-func assertAppProject(g Gomega, testClient client.Client, clusters []dpfCluster) {
+func assertAppProject(g Gomega, testClient client.Client, clusters []controlplane.DPFCluster) {
 	// Check that an argo project has been created.
 	appProject := &argov1.AppProject{}
 	g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: argoCDNamespace, Name: appProjectName}, appProject)).To(Succeed())
@@ -200,7 +202,7 @@ func assertAppProject(g Gomega, testClient client.Client, clusters []dpfCluster)
 	g.Expect(gotDestinations).To(ConsistOf(expectedDestinations))
 }
 
-func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, clusters []dpfCluster) {
+func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, clusters []controlplane.DPFCluster) {
 	// Check that argoApplications are created for each of the clusters.
 	applications := &argov1.ApplicationList{}
 	g.Expect(testClient.List(ctx, applications)).To(Succeed())
@@ -285,53 +287,10 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 			Expect(cleanupAndWait(ctx, testClient, objs...)).To(Succeed())
 		})
-		// Get Clusters.
-		It("should list the clusters referenced by admin-kubeconfig secrets", func() {
-			clusters := []dpfCluster{
-				{Namespace: testNS.Name, Name: "cluster-one"},
-				{Namespace: testNS.Name, Name: "cluster-two"},
-				{Namespace: testNS.Name, Name: "cluster-three"},
-			}
-			secrets := []*corev1.Secret{
-				testKamajiClusterSecret(clusters[0]),
-				testKamajiClusterSecret(clusters[1]),
-				testKamajiClusterSecret(clusters[2]),
-			}
-			for _, s := range secrets {
-				Expect(testClient.Create(ctx, s)).To(Succeed())
-			}
-			gotClusters, err := getClusters(ctx, testClient)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(gotClusters).To(ConsistOf(clusters))
-		})
-		It("should aggregate errors and return valid clusters when one secret is malformed", func() {
-			clusters := []dpfCluster{
-				{Namespace: testNS.Name, Name: "cluster-one"},
-				{Namespace: testNS.Name, Name: "cluster-two"},
-				{Namespace: testNS.Name, Name: "cluster-three"},
-			}
-			brokenSecret := testKamajiClusterSecret(clusters[2])
-			delete(brokenSecret.Labels, controlplanemeta.DPFClusterSecretClusterNameLabelKey)
-			secrets := []*corev1.Secret{
-				testKamajiClusterSecret(clusters[0]),
-				testKamajiClusterSecret(clusters[1]),
-				// This secret doesn't have one of the expected labels.
-				brokenSecret,
-			}
-			for _, s := range secrets {
-				Expect(testClient.Create(ctx, s)).To(Succeed())
-			}
-			gotClusters, err := getClusters(ctx, testClient)
-
-			// Expect an error to be reported.
-			Expect(err).To(HaveOccurred())
-			// Expect just the first two clusters to be returned.
-			Expect(gotClusters).To(ConsistOf(clusters[:2]))
-		})
 
 		// reconcileSecrets
 		It("should create an Argo secret based on the admin-kubeconfig for each cluster", func() {
-			clusters := []dpfCluster{
+			clusters := []controlplane.DPFCluster{
 				{Namespace: testNS.Name, Name: "cluster-one"},
 				{Namespace: testNS.Name, Name: "cluster-two"},
 				{Namespace: testNS.Name, Name: "cluster-three"},
@@ -358,7 +317,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 		})
 		It("should create secrets for existing clusters when one cluster does not exist", func() {
-			clusters := []dpfCluster{
+			clusters := []controlplane.DPFCluster{
 				{Namespace: testNS.Name, Name: "cluster-four"},
 				{Namespace: testNS.Name, Name: "cluster-five"},
 				{Namespace: testNS.Name, Name: "cluster-six"},
@@ -390,7 +349,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 		})
 		It("should create secrets for existing clusters when one cluster secret is malformed", func() {
-			clusters := []dpfCluster{
+			clusters := []controlplane.DPFCluster{
 				{Namespace: testNS.Name, Name: "cluster-seven"},
 				{Namespace: testNS.Name, Name: "cluster-eight"},
 				{Namespace: testNS.Name, Name: "cluster-nine"},
@@ -426,7 +385,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 	})
 })
 
-func testKamajiClusterSecret(cluster dpfCluster) *corev1.Secret {
+func testKamajiClusterSecret(cluster controlplane.DPFCluster) *corev1.Secret {
 	adminConfig := &kubeconfig.Type{
 		Clusters: []*kubeconfig.ClusterWithName{
 			{

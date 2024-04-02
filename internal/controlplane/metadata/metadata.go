@@ -16,7 +16,9 @@ limitations under the License.
 
 package metadata
 
-import "k8s.io/apimachinery/pkg/runtime/schema"
+import (
+	"k8s.io/apimachinery/pkg/runtime/schema"
+)
 
 // TODO: Review this package when implementing control plane provisioning.
 var (
