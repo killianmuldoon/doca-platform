@@ -311,22 +311,9 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 		return fmt.Errorf("error while converting Host CNI provisioner manifests to objects: %w", err)
 	}
 	for _, obj := range hostCNIProvisionerObjects {
-		key := client.ObjectKeyFromObject(obj)
-		err := r.Client.Get(ctx, key, obj)
-		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				errs = append(errs, fmt.Errorf("error while getting %s %s: %w", obj.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-			} else {
-				obj.SetManagedFields(nil)
-				if err := r.Client.Create(ctx, obj, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-					errs = append(errs, fmt.Errorf("error while creating %s %s: %w", obj.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-				}
-			}
-		} else {
-			obj.SetManagedFields(nil)
-			if err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", obj.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-			}
+		obj.SetManagedFields(nil)
+		if err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+			errs = append(errs, fmt.Errorf("error while patching %s %s: %w", obj.GetObjectKind().GroupVersionKind().String(), key.String(), err))
 		}
 	}
 
