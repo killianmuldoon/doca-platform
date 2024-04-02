@@ -20,6 +20,8 @@ import (
 	"time"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
+	testutils "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,6 +31,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,10 +47,8 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 		})
 		AfterEach(func() {
 			By("Cleaning up the Namespace")
-			for _, obj := range cleanupObjects {
-				Expect(testClient.Delete(ctx, obj)).To(Succeed())
-			}
 			Expect(testClient.Delete(ctx, testNS)).To(Succeed())
+			Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
 		})
 		It("should successfully reconcile the DPFOperatorConfig", func() {
 			By("Reconciling the created resource")
@@ -59,35 +60,66 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 				},
 			}
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, dpfOperatorConfig)
 
 			Eventually(func(g Gomega) []string {
 				gotConfig := &operatorv1.DPFOperatorConfig{}
-				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpfOperatorConfig), gotConfig)).To(Succeed())
+				Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpfOperatorConfig), gotConfig)).To(Succeed())
 				return gotConfig.Finalizers
 			}).WithTimeout(30 * time.Second).Should(ConsistOf([]string{operatorv1.DPFOperatorConfigFinalizer}))
 		})
-		It("should successfully deploy the custom OVN Kubernetes", func() {
-			By("Creating the prerequisite environment")
-			clusterVersionDeployment := getDefaultDeployment(clusterVersionOperatorDeploymentName, clusterVersionOperatorNamespace)
-			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: clusterVersionOperatorNamespace}}
-			Expect(testClient.Create(ctx, ns)).To(Succeed())
-			cleanupObjects = append(cleanupObjects, ns)
+	})
+
+	Context("When checking the custom OVN Kubernetes deployment flow", func() {
+		var testNS *corev1.Namespace
+		var cleanupObjects []client.Object
+		var clusterVersionDeployment *appsv1.Deployment
+		var networkOperatorDeployment *appsv1.Deployment
+		var nodeIdentityWebhookConfiguration *admissionregistrationv1.ValidatingWebhookConfiguration
+		var ovnKubernetesDaemonSet *appsv1.DaemonSet
+
+		BeforeEach(func() {
+			By("Creating the namespace")
+			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+			Expect(testClient.Create(ctx, testNS)).To(Succeed())
+			cleanupObjects = []client.Object{}
+
+			// TODO: Remove that one when we decide where the Host CNI Provisioner should be deployed
+			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpf-operator-system"}}
+			Expect(testutils.CreateResourceIfNotExist(ctx, testClient, ns)).To(Succeed())
+
+			By("Adding 2 worker nodes in the cluster")
+			node1 := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-1"}}
+			Expect(testClient.Create(ctx, node1)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, node1)
+			node2 := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-2"}}
+			Expect(testClient.Create(ctx, node2)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, node2)
+
+			By("Creating the prerequisite OpenShift environment")
+			ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: clusterVersionOperatorNamespace}}
+			Expect(testutils.CreateResourceIfNotExist(ctx, testClient, ns)).To(Succeed())
+			clusterVersionDeployment = getDefaultDeployment(clusterVersionOperatorDeploymentName, clusterVersionOperatorNamespace)
 			Expect(testClient.Create(ctx, clusterVersionDeployment)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, clusterVersionDeployment)
 
-			networkOperatorDeployment := getDefaultDeployment(networkOperatorDeploymentName, networkOperatorNamespace)
 			ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: networkOperatorNamespace}}
-			Expect(testClient.Create(ctx, ns)).To(Succeed())
-			cleanupObjects = append(cleanupObjects, ns)
+			Expect(testutils.CreateResourceIfNotExist(ctx, testClient, ns)).To(Succeed())
+			networkOperatorDeployment = getDefaultDeployment(networkOperatorDeploymentName, networkOperatorNamespace)
 			Expect(testClient.Create(ctx, networkOperatorDeployment)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, networkOperatorDeployment)
 
-			nodeIdentityWebhookConfiguration := &admissionregistrationv1.ValidatingWebhookConfiguration{
+			nodeIdentityWebhookConfiguration = &admissionregistrationv1.ValidatingWebhookConfiguration{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: nodeIdentityWebhookConfigurationName,
 				},
 			}
 			Expect(testClient.Create(ctx, nodeIdentityWebhookConfiguration)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, nodeIdentityWebhookConfiguration)
 
-			ovnKubernetesDaemonSet := getDefaultDaemonset(ovnKubernetesDaemonsetName, ovnKubernetesNamespace)
+			ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ovnKubernetesNamespace}}
+			Expect(testutils.CreateResourceIfNotExist(ctx, testClient, ns)).To(Succeed())
+			ovnKubernetesDaemonSet = getDefaultDaemonset(ovnKubernetesDaemonsetName, ovnKubernetesNamespace)
 			ovnKubernetesDaemonSet.Spec.Template.Spec.Affinity = &corev1.Affinity{
 				NodeAffinity: &corev1.NodeAffinity{
 					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
@@ -104,12 +136,48 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 					},
 				},
 			}
-			ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ovnKubernetesNamespace}}
-			Expect(testClient.Create(ctx, ns)).To(Succeed())
-			cleanupObjects = append(cleanupObjects, ns)
 			Expect(testClient.Create(ctx, ovnKubernetesDaemonSet)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, ovnKubernetesDaemonSet)
 
-			By("Reconciling the created resource")
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(node1), node1)).To(Succeed())
+			node1.SetLabels(map[string]string{
+				workerNodeLabel: "",
+			})
+			node1.SetAnnotations(map[string]string{
+				ovnKubernetesNodeChassisIDAnnotation: "node1",
+			})
+			node1.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
+			node1.ManagedFields = nil
+			Expect(testClient.Patch(ctx, node1, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(node2), node2)).To(Succeed())
+			node2.SetLabels(map[string]string{
+				ovnKubernetesNodeChassisIDAnnotation: "node2",
+			})
+			node2.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
+			node2.ManagedFields = nil
+			Expect(testClient.Patch(ctx, node2, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+		})
+		AfterEach(func() {
+			By("Cleaning up the created resources")
+			hostCNIProvisionerObjects, err := utils.BytesToUnstructured(hostCNIProvisionerManifestContent)
+			Expect(err).ToNot(HaveOccurred())
+			for _, o := range hostCNIProvisionerObjects {
+				key := client.ObjectKeyFromObject(o)
+				err := testClient.Get(ctx, key, o)
+				if err != nil {
+					if !apierrors.IsNotFound(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+					continue
+				}
+				cleanupObjects = append(cleanupObjects, o)
+			}
+			Expect(testClient.Delete(ctx, testNS)).To(Succeed())
+			Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
+		})
+		It("should successfully deploy the custom OVN Kubernetes", func() {
 			dpfOperatorConfig := &operatorv1.DPFOperatorConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "config",
@@ -117,6 +185,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 				},
 			}
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, dpfOperatorConfig)
 
 			Eventually(func(g Gomega) *int32 {
 				got := &appsv1.Deployment{}
@@ -156,6 +225,50 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 				},
 			},
 			))
+
+			Eventually(func(g Gomega) {
+				got := &corev1.NodeList{}
+				g.Expect(testClient.List(ctx, got)).To(Succeed())
+				workerCounter := 0
+				for _, node := range got.Items {
+					if _, ok := node.Labels[workerNodeLabel]; ok {
+						workerCounter++
+						g.Expect(node.Labels).NotTo(HaveKey(ovnKubernetesNodeChassisIDAnnotation))
+					}
+				}
+				g.Expect(workerCounter).To(Equal(1))
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				got := &appsv1.DaemonSet{}
+				key := client.ObjectKey{Namespace: "dpf-operator-system", Name: "host-cni-provisioner"}
+				g.Expect(testClient.Get(ctx, key, got)).To(Succeed())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+		})
+
+		It("should not deploy the CNI provisioners if original OVN Kubernetes pods are still running", func() {
+			got := &appsv1.DaemonSet{}
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(ovnKubernetesDaemonSet), got)).To(Succeed())
+			got.Status.NumberMisscheduled = 5
+			got.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("DaemonSet"))
+			got.ManagedFields = nil
+			Expect(testClient.Status().Patch(ctx, got, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			dpfOperatorConfig := &operatorv1.DPFOperatorConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "config",
+					Namespace: testNS.Name,
+				},
+			}
+			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, dpfOperatorConfig)
+
+			Consistently(func(g Gomega) error {
+				_, _ = reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(dpfOperatorConfig)})
+				got := &appsv1.DaemonSet{}
+				key := client.ObjectKey{Namespace: "dpf-operator-system", Name: "host-cni-provisioner"}
+				return testClient.Get(ctx, key, got)
+			}).WithTimeout(5 * time.Second).Should(HaveOccurred())
 		})
 	})
 })
