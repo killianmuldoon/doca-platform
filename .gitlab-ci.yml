@@ -1,9 +1,5 @@
 image: golang:1.22.1
 
-workflow:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-
 stages:
   - verify
   - test
@@ -11,30 +7,43 @@ stages:
 
 lint:
   stage: verify
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   script:
     - make lint
 
 verify:
   stage: verify
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   variables:
     BASE_REV: $CI_MERGE_REQUEST_DIFF_BASE_SHA # Used by the verify-copyright target
     COMPARISON_REV: $CI_COMMIT_SHA # Used by the verify-copyright target
   script:
     -  make verify-generate verify-copyright
 
-test:
-  stage: test
-  script:
-    - make test
-
 build-binaries:
   stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   script:
     - make binaries
 
+test:
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+  script:
+    - make test
+
 e2e:
   stage: test
-  when: manual
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: always
   variables:
     REGISTRY: localhost:5000
     MINIKUBE_DRIVER: docker
