@@ -21,8 +21,8 @@ import (
 	"flag"
 	"os"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/sfc/v1alpha1"
-	sfcsetcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/sfcset/controllers"
+	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
+	sfcsetcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/servicechainset/controllers"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"

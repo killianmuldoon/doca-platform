@@ -19,7 +19,7 @@ package controller
 import (
 	"context"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/sfc/v1alpha1"
+	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -27,26 +27,26 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// ServiceInterfaceReconciler reconciles a ServiceInterface object
-type ServiceInterfaceReconciler struct {
+// ServiceChainReconciler reconciles a ServiceChain object
+type ServiceChainReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the ServiceInterface object against the actual cluster state, and then
+// the ServiceChain object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.0/pkg/reconcile
-func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	_ = log.FromContext(ctx)
 
 	// TODO(user): your logic here
@@ -55,8 +55,8 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ServiceInterfaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *ServiceChainReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&sfcv1.ServiceInterface{}).
+		For(&sfcv1.ServiceChain{}).
 		Complete(r)
 }

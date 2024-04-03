@@ -19,7 +19,7 @@ package controller //nolint:dupl
 import (
 	"context"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/sfc/v1alpha1"
+	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

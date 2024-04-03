@@ -19,7 +19,7 @@ package controller
 import (
 	"context"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/sfc/v1alpha1"
+	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
