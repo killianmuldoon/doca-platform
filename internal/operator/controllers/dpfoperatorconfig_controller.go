@@ -172,6 +172,9 @@ func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx
 	}
 	// Phase 3
 	// - deploy custom OVN Kubernetes
+	if err := r.deployCustomOVNKubernetes(ctx); err != nil {
+		return fmt.Errorf("error deploying custom OVN Kubernetes: %w", err)
+	}
 	return nil
 }
 
@@ -384,6 +387,28 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	}
 
 	return kerrors.NewAggregate(errs)
+}
+
+// deployCustomOVNKubernetes reads the relevant OVN Kubernetes objects from the cluster, creates copies of them, adjusts
+// them according to https://docs.google.com/document/d/1dvFvG9NR4biWuGnTcee9t6DPAbFKKKJxGi30QuQDjqI/edit#heading=h.6kp1qrhfqf61
+// and applies them in the cluster.
+// TODO: Sort out owner references. Currently the DPFOperatorConfig is namespaced, and cross namespace ownership is not
+// allowed by design.
+func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetes(ctx context.Context) error {
+	// 1. Get ovnkube-node daemonset, ovnkube-config configmap, ovnkube-script-lib configmap
+	// 2. Rename all manifests with custom suffix
+	// 3. Make adjustments as needed
+	//   1. (configmap - ovnkube-config) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/0e5a2e5d76b1472a853e081693a9c28ae8a16b5e
+	//   2. (configmap - ovnkube-config) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/a8173f89d60949df9b8bd49697ad383db5c47353
+	//   3. (configmap - ovnkube-config) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/4ccaa91d8a242386bab7e13f240054257a904f60
+	//   4. (configmap - ovnkube-script-lib) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/2cafd30005ca855acacb9d87220052768f133094
+	//   5. (configmap - ovnkube-script-lib) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/25cc213122e0348ff1f1a275f07066c17f339f81
+	//   6. (daemonset - ovnkube-node) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/581bfbd5302195a7b44fd232995568c78d1ae92d
+	//      We just need to mount the fake fs, not the binary destination
+	//   7. (daemonset - ovnkube-node) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/57e552e831fef852ae25c24c8e02698130dd19e7
+	// 4. (Optional) Set owner references
+	// 5. Apply manifests
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
