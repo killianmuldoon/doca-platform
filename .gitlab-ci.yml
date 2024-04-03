@@ -5,19 +5,22 @@ workflow:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
 
 stages:
-  - lint
+  - verify
   - test
   - build
 
 lint:
-  stage: lint
+  stage: verify
   script:
     - make lint
 
-verify-generate:
-  stage: lint
+verify:
+  stage: verify
+  variables:
+    BASE_REV: $CI_MERGE_REQUEST_DIFF_BASE_SHA # Used by the verify-copyright target
+    COMPARISON_REV: $CI_COMMIT_SHA # Used by the verify-copyright target
   script:
-    - make verify-generate
+    -  make verify-generate verify-copyright
 
 test:
   stage: test

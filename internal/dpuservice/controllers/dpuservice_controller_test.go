@@ -1,5 +1,5 @@
 /*
-Copyright 2024.
+Copyright 2024 NVIDIA
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
-	controlplane "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils"
