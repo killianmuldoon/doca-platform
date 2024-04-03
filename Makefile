@@ -161,7 +161,7 @@ clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
 	@rm -rf $(CHARTSDIR)
 
 ##@ Development
-GENERATE_TARGETS ?= operator dpuservice embedded
+GENERATE_TARGETS ?= operator dpuservice hostcniprovisioner dpucniprovisioner embedded
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -176,7 +176,7 @@ generate-modules: ## Run go mod tidy to update go modules
 	go mod tidy
 
 .PHONY: generate-manifests
-generate-manifests: controller-gen $(addprefix generate-manifests-,$(GENERATE_TARGETS)) ## Run all generate-manifests-* targets
+generate-manifests: controller-gen kustomize $(addprefix generate-manifests-,$(GENERATE_TARGETS)) ## Run all generate-manifests-* targets
 
 .PHONY: generate-manifests-operator
 generate-manifests-operator: ## Generate manifests e.g. CRD, RBAC. for the operator controller.
@@ -189,6 +189,7 @@ generate-manifests-operator: ## Generate manifests e.g. CRD, RBAC. for the opera
 	rbac:roleName=manager-role \
 	output:crd:dir=./config/operator/crd/bases \
 	output:rbac:dir=./config/operator/rbac
+	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-dpuservice
 generate-manifests-dpuservice: ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
@@ -201,10 +202,18 @@ generate-manifests-dpuservice: ## Generate manifests e.g. CRD, RBAC. for the dpu
 	rbac:roleName=manager-role \
 	output:crd:dir=./config/dpuservice/crd/bases \
 	output:rbac:dir=./config/dpuservice/rbac
+	cd config/dpuservice/manager && $(KUSTOMIZE) edit set image controller=$(DPUSERVICE_IMAGE):$(TAG)
 
+.PHONY: generate-manifests-dpucniprovisioner
+generate-manifests-dpucniprovisioner: ## Generates DPU CNI provisioner manifests
+	cd config/dpucniprovisioner/default && $(KUSTOMIZE) edit set image controller=$(DPUCNIPROVISIONER_IMAGE):$(TAG)
+
+.PHONY: generate-manifests-hostcniprovisioner
+generate-manifests-hostcniprovisioner: ## Generates Host CNI provisioner manifests
+	cd config/hostcniprovisioner/default &&	$(KUSTOMIZE) edit set image controller=$(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-embedded
-generate-manifests-embedded: kustomize ## Generates manifests that are embedded into binaries
+generate-manifests-embedded: generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner ## Generates manifests that are embedded into binaries
 	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/operator/controllers/manifests/hostcniprovisioner.yaml
 
 .PHONY: clean-generated-yaml
@@ -279,7 +288,8 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 ##@ Build
 
 BUILD_TARGETS ?= operator dpuservice dpucniprovisioner hostcniprovisioner
-REGISTRY ?= harbor.mellanox.com/cloud-orchestration-dev/dpf
+# Note: Registry defaults to non-existing registry intentionally to avoid overriding useful images.
+REGISTRY ?= dev
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 TAG ?= v0.0.1
 
