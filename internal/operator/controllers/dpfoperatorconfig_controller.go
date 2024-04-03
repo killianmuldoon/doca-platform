@@ -23,12 +23,14 @@ import (
 	"fmt"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -69,6 +71,9 @@ const (
 
 //go:embed manifests/hostcniprovisioner.yaml
 var hostCNIProvisionerManifestContent []byte
+
+//go:embed manifests/dpucniprovisioner.yaml
+var dpuCNIProvisionerManifestContent []byte
 
 // DPFOperatorConfigReconciler reconciles a DPFOperatorConfig object
 type DPFOperatorConfigReconciler struct {
@@ -304,20 +309,60 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	}
 
 	// Ensure DPU CNI Provisioner is deployed
-	// TODO: Implement by applying directly on the DPU cluster or use DPUService
+	dpuCNIProvisionerObjects, err := utils.BytesToUnstructured(dpuCNIProvisionerManifestContent)
+	if err != nil {
+		return fmt.Errorf("error while converting DPU CNI provisioner manifests to objects: %w", err)
+	}
+	clusters, err := controlplane.GetDPFClusters(ctx, r.Client)
+	if err != nil {
+		return fmt.Errorf("error while getting the DPF clusters: %w", err)
+	}
+	clients := make(map[controlplane.DPFCluster]client.Client)
+	for _, c := range clusters {
+		cl, err := c.NewClient(ctx, r.Client)
+		if err != nil {
+			return fmt.Errorf("error while getting client for cluster %s: %w", c.String(), err)
+		}
+		clients[c] = cl
+		err = reconcileUnstructuredObjects(ctx, cl, dpuCNIProvisionerObjects)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("error while reconciling DPU CNI provisioner manifests: %w", err))
+		}
+	}
+
 	// Ensure Host CNI provisioner is deployed
 	hostCNIProvisionerObjects, err := utils.BytesToUnstructured(hostCNIProvisionerManifestContent)
 	if err != nil {
 		return fmt.Errorf("error while converting Host CNI provisioner manifests to objects: %w", err)
 	}
-	for _, obj := range hostCNIProvisionerObjects {
-		obj.SetManagedFields(nil)
-		if err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-			errs = append(errs, fmt.Errorf("error while patching %s %s: %w", obj.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-		}
+	err = reconcileUnstructuredObjects(ctx, r.Client, hostCNIProvisionerObjects)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("error while reconciling Host CNI provisioner manifests: %w", err))
 	}
 
 	// Ensure both provisioners are ready
+	dpuCNIProvisionerDaemonSet := &appsv1.DaemonSet{}
+	for _, obj := range dpuCNIProvisionerObjects {
+		if obj.GetKind() == "DaemonSet" {
+			key = client.ObjectKeyFromObject(obj)
+		}
+	}
+	if key == (client.ObjectKey{}) {
+		return fmt.Errorf("skipping cleaning up the cluster and deploying CNI provisioners since there is no DaemonSet in DPU CNI Provisioner objects")
+	}
+	for _, client := range clients {
+		err = client.Get(ctx, key, dpuCNIProvisionerDaemonSet)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				errs = append(errs, fmt.Errorf("error while getting %s %s: %w", dpuCNIProvisionerDaemonSet.GetObjectKind().GroupVersionKind().String(), key.String(), err))
+			}
+		} else {
+			if !isCNIProvisionerReady(dpuCNIProvisionerDaemonSet) {
+				errs = append(errs, errors.New("DPU CNI Provisioner is not yet ready"))
+			}
+		}
+	}
+
 	hostCNIProvisionerDaemonSet := &appsv1.DaemonSet{}
 	for _, obj := range hostCNIProvisionerObjects {
 		if obj.GetKind() == "DaemonSet" {
@@ -333,7 +378,7 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", hostCNIProvisionerDaemonSet.GetObjectKind().GroupVersionKind().String(), key.String(), err))
 		}
 	} else {
-		if hostCNIProvisionerDaemonSet.Status.DesiredNumberScheduled != hostCNIProvisionerDaemonSet.Status.NumberReady || hostCNIProvisionerDaemonSet.Status.NumberReady == 0 {
+		if !isCNIProvisionerReady(hostCNIProvisionerDaemonSet) {
 			errs = append(errs, errors.New("Host CNI Provisioner is not yet ready"))
 		}
 	}
@@ -346,4 +391,22 @@ func (r *DPFOperatorConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1.DPFOperatorConfig{}).
 		Complete(r)
+}
+
+// reconcileUnstructuredObjects reconciles unstructured objects using the given client.
+func reconcileUnstructuredObjects(ctx context.Context, c client.Client, objects []*unstructured.Unstructured) error {
+	var errs []error
+	for _, obj := range objects {
+		key := client.ObjectKeyFromObject(obj)
+		obj.SetManagedFields(nil)
+		if err := c.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+			errs = append(errs, fmt.Errorf("error while patching %s %s: %w", obj.GetObjectKind().GroupVersionKind().String(), key.String(), err))
+		}
+	}
+	return kerrors.NewAggregate(errs)
+}
+
+// checkCNIProvisionerReady checks if the given CNI provisioner is ready
+func isCNIProvisionerReady(d *appsv1.DaemonSet) bool {
+	return d.Status.DesiredNumberScheduled == d.Status.NumberReady && d.Status.NumberReady > 0
 }

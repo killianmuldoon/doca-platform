@@ -17,9 +17,14 @@ limitations under the License.
 package controller
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/kubeconfig"
+	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils"
 
@@ -77,6 +82,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 		var networkOperatorDeployment *appsv1.Deployment
 		var nodeIdentityWebhookConfiguration *admissionregistrationv1.ValidatingWebhookConfiguration
 		var ovnKubernetesDaemonSet *appsv1.DaemonSet
+		var dpfCluster controlplane.DPFCluster
 
 		BeforeEach(func() {
 			By("Creating the namespace")
@@ -158,12 +164,30 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			node2.ManagedFields = nil
 			Expect(testClient.Patch(ctx, node2, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
+			By("Faking GetDPFClusters to use the envtest cluster instead of a separate one")
+			dpfCluster = controlplane.DPFCluster{Name: "envtest", Namespace: testNS.Name}
+			kamajiSecret := getFakeKamajiClusterSecretFromEnvtest(dpfCluster)
+			Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, kamajiSecret)
 		})
 		AfterEach(func() {
 			By("Cleaning up the created resources")
 			hostCNIProvisionerObjects, err := utils.BytesToUnstructured(hostCNIProvisionerManifestContent)
 			Expect(err).ToNot(HaveOccurred())
 			for _, o := range hostCNIProvisionerObjects {
+				key := client.ObjectKeyFromObject(o)
+				err := testClient.Get(ctx, key, o)
+				if err != nil {
+					if !apierrors.IsNotFound(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+					continue
+				}
+				cleanupObjects = append(cleanupObjects, o)
+			}
+			dpuCNIProvisionerObjects, err := utils.BytesToUnstructured(dpuCNIProvisionerManifestContent)
+			Expect(err).ToNot(HaveOccurred())
+			for _, o := range dpuCNIProvisionerObjects {
 				key := client.ObjectKeyFromObject(o)
 				err := testClient.Get(ctx, key, o)
 				if err != nil {
@@ -244,6 +268,14 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 				key := client.ObjectKey{Namespace: "dpf-operator-system", Name: "host-cni-provisioner"}
 				g.Expect(testClient.Get(ctx, key, got)).To(Succeed())
 			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				got := &appsv1.DaemonSet{}
+				c, err := dpfCluster.NewClient(ctx, testClient)
+				g.Expect(err).ToNot(HaveOccurred())
+				key := client.ObjectKey{Namespace: "dpf-operator-system", Name: "dpu-cni-provisioner"}
+				g.Expect(c.Get(ctx, key, got)).To(Succeed())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 
 		It("should not deploy the CNI provisioners if original OVN Kubernetes pods are still running", func() {
@@ -263,12 +295,14 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
 			cleanupObjects = append(cleanupObjects, dpfOperatorConfig)
 
-			Consistently(func(g Gomega) error {
+			Consistently(func(g Gomega) {
 				_, _ = reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(dpfOperatorConfig)})
 				got := &appsv1.DaemonSet{}
 				key := client.ObjectKey{Namespace: "dpf-operator-system", Name: "host-cni-provisioner"}
-				return testClient.Get(ctx, key, got)
-			}).WithTimeout(5 * time.Second).Should(HaveOccurred())
+				g.Expect(testClient.Get(ctx, key, got)).To(HaveOccurred())
+				key = client.ObjectKey{Namespace: "dpf-operator-system", Name: "dpu-cni-provisioner"}
+				g.Expect(testClient.Get(ctx, key, got)).To(HaveOccurred())
+			}).WithTimeout(5 * time.Second).Should(Succeed())
 		})
 	})
 })
@@ -332,6 +366,57 @@ func getDefaultDaemonset(name string, namespace string) *appsv1.DaemonSet {
 					},
 				},
 			},
+		},
+	}
+}
+
+// getFakeKamajiClusterSecretFromEnvtest creates a kamaji secret using the envtest information to simulate that we have
+// a kamaji cluster. In reality, this is the same envtest Kubernetes API.
+func getFakeKamajiClusterSecretFromEnvtest(cluster controlplane.DPFCluster) *corev1.Secret {
+	adminConfig := &kubeconfig.Type{
+		Clusters: []*kubeconfig.ClusterWithName{
+			{
+				Name: cluster.Name,
+				Cluster: kubeconfig.Cluster{
+					Server:                   cfg.Host,
+					CertificateAuthorityData: cfg.CAData,
+				},
+			},
+		},
+		Users: []*kubeconfig.UserWithName{
+			{
+				Name: "user",
+				User: kubeconfig.User{
+					ClientKeyData:         cfg.KeyData,
+					ClientCertificateData: cfg.CertData,
+				},
+			},
+		},
+		Contexts: []*kubeconfig.NamedContext{
+			{
+				Name: "default",
+				Context: kubeconfig.Context{
+					Cluster: cluster.Name,
+					User:    "user",
+				},
+			},
+		},
+		CurrentContext: "default",
+	}
+	confData, err := json.Marshal(adminConfig)
+	Expect(err).To(Not(HaveOccurred()))
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%v-admin-kubeconfig", cluster.Name),
+			Namespace: cluster.Namespace,
+			Labels: map[string]string{
+				controlplanemeta.DPFClusterSecretClusterNameLabelKey: cluster.Name,
+				"kamaji.clastix.io/component":                        "admin-kubeconfig",
+				"kamaji.clastix.io/project":                          "kamaji",
+			},
+		},
+		Data: map[string][]byte{
+			"admin.conf": confData,
 		},
 	}
 }
