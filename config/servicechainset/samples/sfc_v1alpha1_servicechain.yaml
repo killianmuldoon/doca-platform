@@ -1,0 +1,12 @@
+apiVersion: sfc.dpf.nvidia.com/v1alpha1
+kind: ServiceChain
+metadata:
+  labels:
+    app.kubernetes.io/name: servicechain
+    app.kubernetes.io/instance: servicechain-sample
+    app.kubernetes.io/part-of: dpf-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: dpf-operator
+  name: servicechain-sample
+spec:
+  # TODO(user): Add fields here
