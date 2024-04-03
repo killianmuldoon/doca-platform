@@ -312,9 +312,9 @@ verify-copyright:
 
 BUILD_TARGETS ?= operator dpuservice dpucniprovisioner hostcniprovisioner
 # Note: Registry defaults to non-existing registry intentionally to avoid overriding useful images.
-REGISTRY ?= dev
+REGISTRY ?= nvidia.com
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
-TAG ?= v0.0.1
+TAG ?= dev
 
 HOST_ARCH = amd64
 # Note: If you make this variable configurable, ensure that the custom base image that is built in
