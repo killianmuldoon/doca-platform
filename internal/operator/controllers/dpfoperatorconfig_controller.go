@@ -17,10 +17,12 @@ limitations under the License.
 package controller
 
 import (
+	"bufio"
 	"context"
 	_ "embed"
 	"errors"
 	"fmt"
+	"strings"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
@@ -30,6 +32,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,9 +49,43 @@ const (
 	ovnKubernetesNamespace = "openshift-ovn-kubernetes"
 	// ovnKubernetesDaemonsetName is the name of the OVN Kubernetes DaemonSet in OpenShift
 	ovnKubernetesDaemonsetName = "ovnkube-node"
+	// ovnKubernetesKubeControllerContainerName is the name of the OVN kube controller container that is part of the OVN
+	// Kubernetes DaemonSet in OpenShift
+	ovnKubernetesKubeControllerContainerName = "ovnkube-controller"
+	// ovnKubernetesConfigMapName is the name of the OVN Kubernetes ConfigMap used to configure OVN Kubernetes in
+	// OpenShift
+	ovnKubernetesConfigMapName = "ovnkube-config"
+	// ovnKubernetesConfigMapDataKey is the key in the OVN Kubernetes ConfigMap where this controller makes changes
+	ovnKubernetesConfigMapDataKey = "ovnkube.conf"
+	// ovnKubernetesEntrypointConfigMapName is the name of the OVN Kubernetes ConfigMap which contains the init script
+	// used in the `ovnkube-node` DaemonSet in OpenShift.
+	ovnKubernetesEntrypointConfigMapName = "ovnkube-script-lib"
+	// ovnKubernetesEntrypointConfigMapNameDataKey is the key in the OVN Kubernetes Entrypoint ConfigMap where this
+	// controller makes changes
+	ovnKubernetesEntrypointConfigMapNameDataKey = "ovnkube-lib.sh"
 	// ovnKubernetesNodeChassisIDAnnotation is an OVN Kubernetes Annotation that we need to cleanup
 	// https://github.com/openshift/ovn-kubernetes/blob/release-4.14/go-controller/pkg/util/node_annotations.go#L65-L66
 	ovnKubernetesNodeChassisIDAnnotation = "k8s.ovn.org/node-chassis-id"
+	// ovnManagementVFName is the name of the VF that should be used by the OVN Kubernetes
+	// TODO (decision needed): Either of the following options:
+	// * Replace value with VF name coming from the DPFOperatorConfig
+	// * Keep as is and have the user configure that name for the vf0 of p0 on the host.
+	ovnManagementVFName = "enp23s0f0v0"
+	// pfRepresentor is the name of the PF representor on the host
+	// TODO (decision needed): Either of the following options
+	// * Replace with PF name coming from the DPFOperatorConfig
+	// * Keep as is and have the user configure that name for the vf0 of p0 on the host.
+	// TODO: Consider having common constants across components where needed
+	pfRepresentor = "ens2f0np0"
+	// dpuOVSRemote is the OVS remote that the host side can use to configure the OVS on the DPU side.
+	// The IP below is the static IP that uses the *Host VF<->DPU SF* communication channel
+	// The Port is statically configured by the DPU CNI Provisioner
+	// TODO: Consider having common constants across components where needed
+	dpuOVSRemote = "tcp:10.100.1.1:8500"
+
+	// customOVNKubernetesResourceNameSuffix is the suffix used in the custom OVN Kubernetes resources this controller is
+	// creating.
+	customOVNKubernetesResourceNameSuffix = "dpf"
 	// networkOperatorNamespace is the Namespace where the cluster-network-operator is deployed in OpenShift
 	networkOperatorNamespace = "openshift-network-operator"
 	// networkOperatorDeploymentName is the Deployment name of the cluster-network-operator that is deployed in
@@ -62,11 +99,15 @@ const (
 	// nodeIdentityWebhookConfigurationName is the name of the ValidatingWebhookConfiguration deployed in OpenShift that
 	// controls which entities can update the Node object.
 	nodeIdentityWebhookConfigurationName = "network-node-identity.openshift.io"
+
 	// controlPlaneNodeLabel is the well known Kubernetes label:
 	// https://kubernetes.io/docs/reference/labels-annotations-taints/#node-role-kubernetes-io-control-plane
 	controlPlaneNodeLabel = "node-role.kubernetes.io/control-plane"
 	// workerNodeLabel is the label that is added on worker nodes in OpenShift
 	workerNodeLabel = "node-role.kubernetes.io/worker"
+	// networkSetupReadyNodeLabel is the label used to determine when a node is ready to run the custom OVN Kubernetes
+	// Pod.
+	networkPreconfigurationReadyNodeLabel = "dpf.nvidia.com/network-preconfig-ready"
 )
 
 //go:embed manifests/hostcniprovisioner.yaml
@@ -395,20 +436,65 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 // TODO: Sort out owner references. Currently the DPFOperatorConfig is namespaced, and cross namespace ownership is not
 // allowed by design.
 func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetes(ctx context.Context) error {
-	// 1. Get ovnkube-node daemonset, ovnkube-config configmap, ovnkube-script-lib configmap
-	// 2. Rename all manifests with custom suffix
-	// 3. Make adjustments as needed
-	//   1. (configmap - ovnkube-config) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/0e5a2e5d76b1472a853e081693a9c28ae8a16b5e
-	//   2. (configmap - ovnkube-config) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/a8173f89d60949df9b8bd49697ad383db5c47353
-	//   3. (configmap - ovnkube-config) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/4ccaa91d8a242386bab7e13f240054257a904f60
-	//   4. (configmap - ovnkube-script-lib) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/2cafd30005ca855acacb9d87220052768f133094
-	//   5. (configmap - ovnkube-script-lib) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/25cc213122e0348ff1f1a275f07066c17f339f81
-	//   6. (daemonset - ovnkube-node) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/581bfbd5302195a7b44fd232995568c78d1ae92d
-	//      We just need to mount the fake fs, not the binary destination
-	//   7. (daemonset - ovnkube-node) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/57e552e831fef852ae25c24c8e02698130dd19e7
-	// 4. (Optional) Set owner references
-	// 5. Apply manifests
-	return nil
+	var errs []error
+
+	// Create custom OVN Kubernetes ConfigMap
+	ovnKubernetesConfigMap := &corev1.ConfigMap{}
+	key := client.ObjectKey{Namespace: ovnKubernetesNamespace, Name: ovnKubernetesConfigMapName}
+	if err := r.Client.Get(ctx, key, ovnKubernetesConfigMap); err != nil {
+		if !apierrors.IsNotFound(err) {
+			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", ovnKubernetesConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err))
+		}
+	} else {
+		if customOVNKubernetesConfigMap, err := generateCustomOVNKubernetesConfigMap(ovnKubernetesConfigMap); err != nil {
+			errs = append(errs, fmt.Errorf("error while generating custom OVN Kubernetes ConfigMap: %w", err))
+		} else {
+			customOVNKubernetesConfigMap.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("ConfigMap"))
+			customOVNKubernetesConfigMap.ObjectMeta.ManagedFields = nil
+			if err := r.Client.Patch(ctx, customOVNKubernetesConfigMap, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", customOVNKubernetesConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err))
+			}
+		}
+	}
+
+	// Create custom OVN Kubernetes Entrypoint ConfigMap
+	ovnKubernetesEntrypointConfigMap := &corev1.ConfigMap{}
+	key = client.ObjectKey{Namespace: ovnKubernetesNamespace, Name: ovnKubernetesEntrypointConfigMapName}
+	if err := r.Client.Get(ctx, key, ovnKubernetesEntrypointConfigMap); err != nil {
+		if !apierrors.IsNotFound(err) {
+			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", ovnKubernetesEntrypointConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err))
+		}
+	} else {
+		if customOVNKubernetesEntrypointConfigMap, err := generateCustomOVNKubernetesEntrypointConfigMap(ovnKubernetesEntrypointConfigMap); err != nil {
+			errs = append(errs, fmt.Errorf("error while generating custom OVN Kubernetes Entrypoint ConfigMap: %w", err))
+		} else {
+			customOVNKubernetesEntrypointConfigMap.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("ConfigMap"))
+			customOVNKubernetesEntrypointConfigMap.ObjectMeta.ManagedFields = nil
+			if err := r.Client.Patch(ctx, customOVNKubernetesEntrypointConfigMap, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", customOVNKubernetesEntrypointConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err))
+			}
+		}
+	}
+
+	// Create custom OVN Kubernetes DaemonSet
+	ovnKubernetesDaemonset := &appsv1.DaemonSet{}
+	key = client.ObjectKey{Namespace: ovnKubernetesNamespace, Name: ovnKubernetesDaemonsetName}
+	if err := r.Client.Get(ctx, key, ovnKubernetesDaemonset); err != nil {
+		if !apierrors.IsNotFound(err) {
+			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err))
+		}
+	} else {
+		if customOVNKubernetesDaemonset, err := generateCustomOVNKubernetesDaemonSet(ovnKubernetesDaemonset); err != nil {
+			errs = append(errs, fmt.Errorf("error while generating custom OVN Kubernetes DaemonSet: %w", err))
+		} else {
+			customOVNKubernetesDaemonset.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("DaemonSet"))
+			customOVNKubernetesDaemonset.ObjectMeta.ManagedFields = nil
+			if err := r.Client.Patch(ctx, customOVNKubernetesDaemonset, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", customOVNKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err))
+			}
+		}
+	}
+	return kerrors.NewAggregate(errs)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -434,4 +520,230 @@ func reconcileUnstructuredObjects(ctx context.Context, c client.Client, objects 
 // checkCNIProvisionerReady checks if the given CNI provisioner is ready
 func isCNIProvisionerReady(d *appsv1.DaemonSet) bool {
 	return d.Status.DesiredNumberScheduled == d.Status.NumberReady && d.Status.NumberReady > 0
+}
+
+// generateCustomOVNKubernetesDaemonSet returns a custom OVN Kubernetes DaemonSet based on the given DaemonSet. Returns
+// error if any of configuration is not reflected on the returned object.
+// TODO: Set custom image when image is available.
+func generateCustomOVNKubernetesDaemonSet(base *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+	if base == nil {
+		return nil, fmt.Errorf("input is nil")
+	}
+
+	dirtyOriginal := base.DeepCopy()
+	var errs []error
+
+	// Rename manifest with custom prefix
+	out := &appsv1.DaemonSet{}
+	out.ObjectMeta = metav1.ObjectMeta{
+		Name:      fmt.Sprintf("%s-%s", ovnKubernetesDaemonsetName, customOVNKubernetesResourceNameSuffix),
+		Namespace: ovnKubernetesNamespace,
+	}
+	out.Spec = dirtyOriginal.Spec
+
+	// Adjust labels
+	if out.Spec.Selector != nil {
+		if v, ok := out.Spec.Selector.MatchLabels["app"]; !ok {
+			errs = append(errs, fmt.Errorf("error while settings label selector on the %s DaemonSet: label key `app` doesn't exist", ovnKubernetesDaemonsetName))
+		} else {
+			out.Spec.Selector.MatchLabels["app"] = fmt.Sprintf("%s-%s", v, customOVNKubernetesResourceNameSuffix)
+		}
+	}
+
+	if v, ok := out.Spec.Template.Labels["app"]; !ok {
+		errs = append(errs, fmt.Errorf("error while settings label in the pod template of the %s DaemonSet: label key `app` doesn't exist", ovnKubernetesDaemonsetName))
+	} else {
+		out.Spec.Template.Labels["app"] = fmt.Sprintf("%s-%s", v, customOVNKubernetesResourceNameSuffix)
+
+	}
+
+	// Adjust affinity to run only on nodes that have the network preconfiguration done
+	affinity := &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{
+					{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      networkPreconfigurationReadyNodeLabel,
+								Operator: corev1.NodeSelectorOpExists,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	out.Spec.Template.Spec.Affinity = affinity
+
+	// Configure fake sys volume
+	// https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/581bfbd5302195a7b44fd232995568c78d1ae92d
+	volumeName := "fake-sys"
+	hostPath := "/var/dpf/sys"
+	out.Spec.Template.Spec.Volumes = append(out.Spec.Template.Spec.Volumes, corev1.Volume{
+		Name: volumeName,
+		VolumeSource: corev1.VolumeSource{
+			HostPath: &corev1.HostPathVolumeSource{
+				Path: hostPath,
+				Type: ptr.To[corev1.HostPathType](corev1.HostPathDirectory),
+			},
+		},
+	})
+
+	var configured bool
+	for i, container := range out.Spec.Template.Spec.Containers {
+		if container.Name != ovnKubernetesKubeControllerContainerName {
+			continue
+		}
+
+		out.Spec.Template.Spec.Containers[i].VolumeMounts = append(out.Spec.Template.Spec.Containers[i].VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: hostPath,
+		})
+
+		// https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/57e552e831fef852ae25c24c8e02698130dd19e7
+		out.Spec.Template.Spec.Containers[i].Env = append(out.Spec.Template.Spec.Containers[i].Env, corev1.EnvVar{
+			Name:  "OVNKUBE_NODE_MGMT_PORT_NETDEV",
+			Value: ovnManagementVFName,
+		})
+		configured = true
+		break
+	}
+
+	if !configured {
+		errs = append(errs, fmt.Errorf("error while configuring volume and env variables for container %s in %s Daemonset: container not found", ovnKubernetesKubeControllerContainerName, ovnKubernetesDaemonsetName))
+	}
+
+	// Use custom config maps
+	var configuredEntrypointConfigMap bool
+	var configuredConfigMap bool
+	for i, volume := range out.Spec.Template.Spec.Volumes {
+		if volume.Name == ovnKubernetesEntrypointConfigMapName {
+			out.Spec.Template.Spec.Volumes[i].ConfigMap.Name = fmt.Sprintf("%s-%s", ovnKubernetesEntrypointConfigMapName, customOVNKubernetesResourceNameSuffix)
+			configuredEntrypointConfigMap = true
+		}
+		if volume.Name == ovnKubernetesConfigMapName {
+			out.Spec.Template.Spec.Volumes[i].ConfigMap.Name = fmt.Sprintf("%s-%s", ovnKubernetesConfigMapName, customOVNKubernetesResourceNameSuffix)
+			configuredConfigMap = true
+		}
+	}
+
+	if !configuredEntrypointConfigMap {
+		errs = append(errs, fmt.Errorf("error while adjusting volume related to %s ConfigMap in %s Daemonset: volume not found", ovnKubernetesEntrypointConfigMapName, ovnKubernetesDaemonsetName))
+	}
+
+	if !configuredConfigMap {
+		errs = append(errs, fmt.Errorf("error while adjusting volume related to %s ConfigMap in %s Daemonset: volume not found", ovnKubernetesConfigMapName, ovnKubernetesDaemonsetName))
+	}
+
+	return out, kerrors.NewAggregate(errs)
+}
+
+// generateCustomOVNKubernetesConfigMap returns a custom OVN Kubernetes ConfigMap based on the given ConfigMap. Returns
+// error if any of configuration is not reflected on the returned object.
+func generateCustomOVNKubernetesConfigMap(base *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+	if base == nil {
+		return nil, fmt.Errorf("input is nil")
+	}
+
+	dirtyOriginal := base.DeepCopy()
+	var errs []error
+
+	// Rename manifest with custom prefix
+	out := &corev1.ConfigMap{}
+	out.ObjectMeta = metav1.ObjectMeta{
+		Name:      fmt.Sprintf("%s-%s", ovnKubernetesConfigMapName, customOVNKubernetesResourceNameSuffix),
+		Namespace: ovnKubernetesNamespace,
+	}
+	out.Data = dirtyOriginal.Data
+
+	value, ok := out.Data[ovnKubernetesConfigMapDataKey]
+	if !ok {
+		return nil, fmt.Errorf("error while trying to get key %s in %s ConfigMap: key doesn't exist", ovnKubernetesConfigMapDataKey, ovnKubernetesConfigMapName)
+	}
+
+	// OVN Kubernetes is using gcfg. Unfortunately there is neither support to write back the struct into bytes nor to
+	// read the content in a generic type like map[string]interface{}. Therefore, we have to do string manipulation instead
+	// which is not as safe.
+	// The following patches are applied:
+	//   1. https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/0e5a2e5d76b1472a853e081693a9c28ae8a16b5e
+	//   2. https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/a8173f89d60949df9b8bd49697ad383db5c47353
+	//   3. https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/4ccaa91d8a242386bab7e13f240054257a904f60
+	var customConfig strings.Builder
+	var foundGatewaySection bool
+	var foundDefaultSection bool
+	scanner := bufio.NewScanner(strings.NewReader(value))
+	for scanner.Scan() {
+		line := scanner.Text()
+		customConfig.WriteString(line + "\n")
+		if strings.Contains(line, "[gateway]") {
+			foundGatewaySection = true
+			_, err := customConfig.WriteString("next-hop=\"10.237.0.1\"\n")
+			if err != nil {
+				errs = append(errs, fmt.Errorf("error while writing next-hope setting to gateway section: %w", err))
+			}
+			_, err = customConfig.WriteString("disable-pkt-mtu-check=true\n")
+			if err != nil {
+				errs = append(errs, fmt.Errorf("error while writing disable-pkt-mtu-check setting to gateway section: %w", err))
+			}
+		}
+		if strings.Contains(line, "[default]") {
+			foundDefaultSection = true
+			_, err := customConfig.WriteString("control-ovn-encap-ip-external-id=false\n")
+			if err != nil {
+				errs = append(errs, fmt.Errorf("error while writing control-ovn-encap-ip-external-id setting to default section: %w", err))
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		errs = append(errs, fmt.Errorf("error while reading the content of key %s in ConfigMap %s: %w", ovnKubernetesConfigMapDataKey, ovnKubernetesConfigMapName, err))
+	}
+
+	if !foundDefaultSection {
+		errs = append(errs, fmt.Errorf("couldn't find default section in %s in ConfigMap %s", ovnKubernetesConfigMapDataKey, ovnKubernetesConfigMapName))
+	}
+
+	if !foundGatewaySection {
+		errs = append(errs, fmt.Errorf("couldn't find gateway section in %s in ConfigMap %s", ovnKubernetesConfigMapDataKey, ovnKubernetesConfigMapName))
+	}
+
+	out.Data[ovnKubernetesConfigMapDataKey] = strings.TrimSuffix(customConfig.String(), "\n")
+
+	return out, kerrors.NewAggregate(errs)
+}
+
+// generateCustomOVNKubernetesEntrypointConfigMap returns a custom OVN Kubernetes Entrypoint ConfigMap based on the
+// given ConfigMap. Returns error if any of configuration is not reflected on the returned object.
+func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+	if base == nil {
+		return nil, fmt.Errorf("input is nil")
+	}
+
+	dirtyOriginal := base.DeepCopy()
+	var errs []error
+
+	// Rename manifest with custom prefix
+	out := &corev1.ConfigMap{}
+	out.ObjectMeta = metav1.ObjectMeta{
+		Name:      fmt.Sprintf("%s-%s", ovnKubernetesEntrypointConfigMapName, customOVNKubernetesResourceNameSuffix),
+		Namespace: ovnKubernetesNamespace,
+	}
+	out.Data = dirtyOriginal.Data
+
+	value, ok := out.Data[ovnKubernetesEntrypointConfigMapNameDataKey]
+	if !ok {
+		return nil, fmt.Errorf("error while trying to get key %s in %s ConfigMap: key doesn't exist", ovnKubernetesEntrypointConfigMapNameDataKey, ovnKubernetesEntrypointConfigMapName)
+	}
+
+	// Apply the following patches:
+	//   1. (configmap - ovnkube-script-lib) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/2cafd30005ca855acacb9d87220052768f133094
+	//   2. (configmap - ovnkube-script-lib) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/25cc213122e0348ff1f1a275f07066c17f339f81
+	value = strings.ReplaceAll(value, "vswitch_dbsock=\"/var/run/openvswitch/db.sock\"", fmt.Sprintf("vswitch_remote=\"%s\"", dpuOVSRemote))
+	value = strings.ReplaceAll(value, "unix:${vswitch_dbsock}", "${vswitch_remote}")
+	value = strings.ReplaceAll(value, "gateway_mode_flags=\"--gateway-mode shared --gateway-interface br-ex\"", fmt.Sprintf("gateway_mode_flags=\"--gateway-mode shared --gateway-interface %s\"", pfRepresentor))
+
+	out.Data[ovnKubernetesEntrypointConfigMapNameDataKey] = value
+
+	return out, kerrors.NewAggregate(errs)
 }

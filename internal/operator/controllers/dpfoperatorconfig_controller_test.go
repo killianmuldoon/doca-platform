@@ -19,6 +19,8 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
@@ -35,6 +37,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -164,6 +168,35 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			node2.ManagedFields = nil
 			Expect(testClient.Patch(ctx, node2, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
+			var ovnKubernetesManifests []*unstructured.Unstructured
+			content, err := os.ReadFile("testdata/original/ovnkubernetes-daemonset.yaml")
+			Expect(err).ToNot(HaveOccurred())
+			manifests, err := utils.BytesToUnstructured(content)
+			Expect(err).ToNot(HaveOccurred())
+			ovnKubernetesManifests = append(ovnKubernetesManifests, manifests...)
+			content, err = os.ReadFile("testdata/original/ovnkubernetes-configmap.yaml")
+			Expect(err).ToNot(HaveOccurred())
+			manifests, err = utils.BytesToUnstructured(content)
+			Expect(err).ToNot(HaveOccurred())
+			ovnKubernetesManifests = append(ovnKubernetesManifests, manifests...)
+			content, err = os.ReadFile("testdata/original/ovnkubernetes-entrypointconfigmap.yaml")
+			Expect(err).ToNot(HaveOccurred())
+			manifests, err = utils.BytesToUnstructured(content)
+			Expect(err).ToNot(HaveOccurred())
+			ovnKubernetesManifests = append(ovnKubernetesManifests, manifests...)
+			Expect(reconcileUnstructuredObjects(ctx, testClient, ovnKubernetesManifests)).To(Succeed())
+			for _, o := range ovnKubernetesManifests {
+				key := client.ObjectKeyFromObject(o)
+				err := testClient.Get(ctx, key, o)
+				if err != nil {
+					if !apierrors.IsNotFound(err) {
+						Expect(err).ToNot(HaveOccurred())
+					}
+					continue
+				}
+				cleanupObjects = append(cleanupObjects, o)
+			}
+
 			By("Faking GetDPFClusters to use the envtest cluster instead of a separate one")
 			dpfCluster = controlplane.DPFCluster{Name: "envtest", Namespace: testNS.Name}
 			kamajiSecret := getFakeKamajiClusterSecretFromEnvtest(dpfCluster)
@@ -276,6 +309,40 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 				key := client.ObjectKey{Namespace: "dpf-operator-system", Name: "dpu-cni-provisioner"}
 				g.Expect(c.Get(ctx, key, got)).To(Succeed())
 			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			By("Turning the CNI Provisioners to ready")
+			got := &appsv1.DaemonSet{}
+			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: "dpf-operator-system", Name: "host-cni-provisioner"}, got)).To(Succeed())
+			got.Status.NumberReady = 1
+			got.Status.DesiredNumberScheduled = 1
+			got.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("DaemonSet"))
+			got.ManagedFields = nil
+			Expect(testClient.Status().Patch(ctx, got, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			got = &appsv1.DaemonSet{}
+			c, err := dpfCluster.NewClient(ctx, testClient)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(c.Get(ctx, client.ObjectKey{Namespace: "dpf-operator-system", Name: "dpu-cni-provisioner"}, got)).To(Succeed())
+			got.Status.NumberReady = 1
+			got.Status.DesiredNumberScheduled = 1
+			got.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("DaemonSet"))
+			got.ManagedFields = nil
+			Expect(c.Status().Patch(ctx, got, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			// TODO: Add label when DPU and Host CNI provisioners are ready and check for that here
+
+			By("Checking the deployment of the custom OVN Kubernetes")
+			Eventually(func(g Gomega) {
+				gotDaemonSet := &appsv1.DaemonSet{}
+				key := client.ObjectKey{Namespace: "openshift-ovn-kubernetes", Name: "ovnkube-node-dpf"}
+				g.Expect(testClient.Get(ctx, key, gotDaemonSet)).To(Succeed())
+				gotConfigMap := &corev1.ConfigMap{}
+				key = client.ObjectKey{Namespace: "openshift-ovn-kubernetes", Name: "ovnkube-config-dpf"}
+				g.Expect(testClient.Get(ctx, key, gotConfigMap)).To(Succeed())
+				gotConfigMap = &corev1.ConfigMap{}
+				key = client.ObjectKey{Namespace: "openshift-ovn-kubernetes", Name: "ovnkube-script-lib-dpf"}
+				g.Expect(testClient.Get(ctx, key, gotConfigMap)).To(Succeed())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 
 		It("should not deploy the CNI provisioners if original OVN Kubernetes pods are still running", func() {
@@ -303,6 +370,200 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 				key = client.ObjectKey{Namespace: "dpf-operator-system", Name: "dpu-cni-provisioner"}
 				g.Expect(testClient.Get(ctx, key, got)).To(HaveOccurred())
 			}).WithTimeout(5 * time.Second).Should(Succeed())
+		})
+	})
+	Context("When checking the output of custom OVN generation functions", func() {
+		Context("When checking generateCustomOVNKubernetesDaemonSet()", func() {
+			var originalDaemonset appsv1.DaemonSet
+			BeforeEach(func() {
+				content, err := os.ReadFile("testdata/original/ovnkubernetes-daemonset.yaml")
+				Expect(err).ToNot(HaveOccurred())
+				manifests, err := utils.BytesToUnstructured(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(manifests).To(HaveLen(1))
+				originalDaemonset = appsv1.DaemonSet{}
+				err = runtime.DefaultUnstructuredConverter.FromUnstructured(manifests[0].Object, &originalDaemonset)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("should generate correct object when all expected fields are there", func() {
+				out, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(out.Name).To(Equal("ovnkube-node-dpf"))
+				Expect(out.Namespace).To(Equal("openshift-ovn-kubernetes"))
+				Expect(out.Spec.Selector.MatchLabels["app"]).To(Equal("ovnkube-node-dpf"))
+				Expect(out.Spec.Template.Labels["app"]).To(Equal("ovnkube-node-dpf"))
+				Expect(out.Spec.Template.Spec.Affinity).To(Equal(&corev1.Affinity{
+					NodeAffinity: &corev1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+							NodeSelectorTerms: []corev1.NodeSelectorTerm{
+								{
+									MatchExpressions: []corev1.NodeSelectorRequirement{
+										{
+											Key:      "dpf.nvidia.com/network-preconfig-ready",
+											Operator: corev1.NodeSelectorOpExists,
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				))
+
+				Expect(out.Spec.Template.Spec.Volumes).To(ContainElement(corev1.Volume{
+					Name: "fake-sys",
+					VolumeSource: corev1.VolumeSource{
+						HostPath: &corev1.HostPathVolumeSource{
+							Path: "/var/dpf/sys",
+							Type: ptr.To[corev1.HostPathType](corev1.HostPathDirectory),
+						},
+					},
+				}))
+
+				containers := out.Spec.Template.Spec.Containers
+				Expect(containers).To(ContainElement(HaveField("Name", "ovnkube-controller")))
+				for _, c := range containers {
+					if c.Name != "ovnkube-controller" {
+						continue
+					}
+					Expect(c.VolumeMounts).To(ContainElement(corev1.VolumeMount{
+						Name:      "fake-sys",
+						MountPath: "/var/dpf/sys",
+					}))
+
+					Expect(c.Env).To(ContainElement(corev1.EnvVar{
+						Name:  "OVNKUBE_NODE_MGMT_PORT_NETDEV",
+						Value: "enp23s0f0v0",
+					}))
+					break
+				}
+			})
+			It("should error out when label app in selector is not found", func() {
+				originalDaemonset.Spec.Selector.MatchLabels = nil
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should error out when label app in pod template is not found", func() {
+				originalDaemonset.Spec.Template.Labels = nil
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should error out when relevant container is not found", func() {
+				for i, c := range originalDaemonset.Spec.Template.Spec.Containers {
+					if c.Name != "ovnkube-controller" {
+						continue
+					}
+					originalDaemonset.Spec.Template.Spec.Containers[i].Name = "other-ovnkube-controller"
+					break
+				}
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should error out when volume related to configmap ovnkube-config is not found", func() {
+				for i, v := range originalDaemonset.Spec.Template.Spec.Volumes {
+					if v.Name != "ovnkube-config" {
+						continue
+					}
+					originalDaemonset.Spec.Template.Spec.Volumes[i].Name = "other-ovnkube-config"
+					break
+				}
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should error out when volume related to configmap ovnkube-script-lib is not found", func() {
+				for i, v := range originalDaemonset.Spec.Template.Spec.Volumes {
+					if v.Name != "ovnkube-script-lib" {
+						continue
+					}
+					originalDaemonset.Spec.Template.Spec.Volumes[i].Name = "other-ovnkube-script-lib"
+					break
+				}
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset)
+				Expect(err).To(HaveOccurred())
+			})
+		})
+		Context("When checking generateCustomOVNKubernetesConfigMap()", func() {
+			var originalConfigMap corev1.ConfigMap
+			BeforeEach(func() {
+				content, err := os.ReadFile("testdata/original/ovnkubernetes-configmap.yaml")
+				Expect(err).ToNot(HaveOccurred())
+				manifests, err := utils.BytesToUnstructured(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(manifests).To(HaveLen(1))
+				originalConfigMap = corev1.ConfigMap{}
+				err = runtime.DefaultUnstructuredConverter.FromUnstructured(manifests[0].Object, &originalConfigMap)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("should generate correct object", func() {
+				out, err := generateCustomOVNKubernetesConfigMap(&originalConfigMap)
+				Expect(err).ToNot(HaveOccurred())
+
+				content, err := os.ReadFile("testdata/expected/ovnkubernetes-configmap.yaml")
+				Expect(err).ToNot(HaveOccurred())
+				manifests, err := utils.BytesToUnstructured(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(manifests).To(HaveLen(1))
+				expectedConfigMap := corev1.ConfigMap{}
+				err = runtime.DefaultUnstructuredConverter.FromUnstructured(manifests[0].Object, &expectedConfigMap)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(out.Name).To(Equal("ovnkube-config-dpf"))
+				Expect(out.Namespace).To(Equal("openshift-ovn-kubernetes"))
+				Expect(out.Data).To(BeComparableTo(expectedConfigMap.Data))
+			})
+			It("should error out when relevant key is not found in configmap", func() {
+				delete(originalConfigMap.Data, ovnKubernetesConfigMapDataKey)
+				_, err := generateCustomOVNKubernetesConfigMap(&originalConfigMap)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should error out when gateway section is not found in toml", func() {
+				originalConfigMap.Data[ovnKubernetesConfigMapDataKey] = strings.ReplaceAll(originalConfigMap.Data[ovnKubernetesConfigMapDataKey], "[gateway]", "[somesection]")
+				_, err := generateCustomOVNKubernetesConfigMap(&originalConfigMap)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should error out when default section is not found in toml", func() {
+				originalConfigMap.Data[ovnKubernetesConfigMapDataKey] = strings.ReplaceAll(originalConfigMap.Data[ovnKubernetesConfigMapDataKey], "[default]", "[somesection]")
+				_, err := generateCustomOVNKubernetesConfigMap(&originalConfigMap)
+				Expect(err).To(HaveOccurred())
+			})
+		})
+		Context("When checking generateCustomOVNKubernetesEntrypointConfigMap()", func() {
+			var originalConfigMap corev1.ConfigMap
+			BeforeEach(func() {
+				content, err := os.ReadFile("testdata/original/ovnkubernetes-entrypointconfigmap.yaml")
+				Expect(err).ToNot(HaveOccurred())
+				manifests, err := utils.BytesToUnstructured(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(manifests).To(HaveLen(1))
+				originalConfigMap = corev1.ConfigMap{}
+				err = runtime.DefaultUnstructuredConverter.FromUnstructured(manifests[0].Object, &originalConfigMap)
+				Expect(err).ToNot(HaveOccurred())
+			})
+			It("should generate correct object", func() {
+				out, err := generateCustomOVNKubernetesEntrypointConfigMap(&originalConfigMap)
+				Expect(err).ToNot(HaveOccurred())
+
+				content, err := os.ReadFile("testdata/expected/ovnkubernetes-entrypointconfigmap.yaml")
+				Expect(err).ToNot(HaveOccurred())
+				manifests, err := utils.BytesToUnstructured(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(manifests).To(HaveLen(1))
+				expectedConfigMap := corev1.ConfigMap{}
+				err = runtime.DefaultUnstructuredConverter.FromUnstructured(manifests[0].Object, &expectedConfigMap)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(out.Name).To(Equal("ovnkube-script-lib-dpf"))
+				Expect(out.Namespace).To(Equal("openshift-ovn-kubernetes"))
+				Expect(out.Data).To(BeComparableTo(expectedConfigMap.Data))
+				Expect(out.Immutable).To(BeComparableTo(expectedConfigMap.Immutable))
+				Expect(out.BinaryData).To(BeComparableTo(expectedConfigMap.BinaryData))
+			})
+			It("should error out when relevant key is not found in configmap", func() {
+				delete(originalConfigMap.Data, ovnKubernetesEntrypointConfigMapNameDataKey)
+				_, err := generateCustomOVNKubernetesEntrypointConfigMap(&originalConfigMap)
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 })
