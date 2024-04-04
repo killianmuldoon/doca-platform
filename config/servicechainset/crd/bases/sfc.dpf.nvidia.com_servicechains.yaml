@@ -39,10 +39,11 @@ spec:
           spec:
             description: ServiceChainSpec defines the desired state of ServiceChain
             properties:
-              foo:
-                description: Foo is an example field of ServiceChain. Edit servicechain_types.go
-                  to remove/update
+              node:
+                description: Node where this ServiceChain applies to
                 type: string
+            required:
+            - node
             type: object
           status:
             description: ServiceChainStatus defines the observed state of ServiceChain
