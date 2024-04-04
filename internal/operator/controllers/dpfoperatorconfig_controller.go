@@ -229,23 +229,18 @@ func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx
 // scaleDownOVNKubernetesComponents scales down pre-existing OVN Kubernetes related components to prepare the cluster
 // for subsequent configuration.
 func (r *DPFOperatorConfigReconciler) scaleDownOVNKubernetesComponents(ctx context.Context) error {
-	var errs []error
-
 	// Ensure cluster version operator is scaled down
 	clusterVersionOperatorDeployment := &appsv1.Deployment{}
 	key := client.ObjectKey{Namespace: clusterVersionOperatorNamespace, Name: clusterVersionOperatorDeploymentName}
 	err := r.Client.Get(ctx, key, clusterVersionOperatorDeployment)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", clusterVersionOperatorDeployment.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-		}
-	} else {
-		clusterVersionOperatorDeployment.Spec.Replicas = ptr.To[int32](0)
-		clusterVersionOperatorDeployment.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("Deployment"))
-		clusterVersionOperatorDeployment.ObjectMeta.ManagedFields = nil
-		if err := r.Client.Patch(ctx, clusterVersionOperatorDeployment, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-			errs = append(errs, fmt.Errorf("error while patching %s %s: %w", clusterVersionOperatorDeployment.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-		}
+		return fmt.Errorf("error while getting %s %s: %w", clusterVersionOperatorDeployment.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+	clusterVersionOperatorDeployment.Spec.Replicas = ptr.To[int32](0)
+	clusterVersionOperatorDeployment.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("Deployment"))
+	clusterVersionOperatorDeployment.ObjectMeta.ManagedFields = nil
+	if err := r.Client.Patch(ctx, clusterVersionOperatorDeployment, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+		return fmt.Errorf("error while patching %s %s: %w", clusterVersionOperatorDeployment.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
 
 	// Ensure network operator is scaled down
@@ -253,16 +248,13 @@ func (r *DPFOperatorConfigReconciler) scaleDownOVNKubernetesComponents(ctx conte
 	key = client.ObjectKey{Namespace: networkOperatorNamespace, Name: networkOperatorDeploymentName}
 	err = r.Client.Get(ctx, key, networkOperatorDeployment)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", networkOperatorDeployment.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-		}
-	} else {
-		networkOperatorDeployment.Spec.Replicas = ptr.To[int32](0)
-		networkOperatorDeployment.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("Deployment"))
-		networkOperatorDeployment.ObjectMeta.ManagedFields = nil
-		if err := r.Client.Patch(ctx, networkOperatorDeployment, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-			errs = append(errs, fmt.Errorf("error while patching %s %s: %w", networkOperatorDeployment.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-		}
+		return fmt.Errorf("error while getting %s %s: %w", networkOperatorDeployment.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+	networkOperatorDeployment.Spec.Replicas = ptr.To[int32](0)
+	networkOperatorDeployment.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("Deployment"))
+	networkOperatorDeployment.ObjectMeta.ManagedFields = nil
+	if err := r.Client.Patch(ctx, networkOperatorDeployment, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+		return fmt.Errorf("error while patching %s %s: %w", networkOperatorDeployment.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
 
 	// Ensure node identity webhook is removed
@@ -271,11 +263,11 @@ func (r *DPFOperatorConfigReconciler) scaleDownOVNKubernetesComponents(ctx conte
 	err = r.Client.Get(ctx, key, nodeIdentityWebhookConfiguration)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
-			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", nodeIdentityWebhookConfiguration.GetObjectKind().GroupVersionKind().String(), key.String(), err))
+			return fmt.Errorf("error while getting %s %s: %w", nodeIdentityWebhookConfiguration.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 		}
 	} else {
 		if err := r.Client.Delete(ctx, nodeIdentityWebhookConfiguration); err != nil {
-			errs = append(errs, fmt.Errorf("error while deleting %s %s: %w", nodeIdentityWebhookConfiguration.GetObjectKind().GroupVersionKind().String(), key.String(), err))
+			return fmt.Errorf("error while deleting %s %s: %w", nodeIdentityWebhookConfiguration.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 		}
 	}
 
@@ -284,35 +276,32 @@ func (r *DPFOperatorConfigReconciler) scaleDownOVNKubernetesComponents(ctx conte
 	key = client.ObjectKey{Namespace: ovnKubernetesNamespace, Name: ovnKubernetesDaemonsetName}
 	err = r.Client.Get(ctx, key, ovnKubernetesDaemonset)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-		}
-	} else {
-		affinity := &corev1.Affinity{
-			NodeAffinity: &corev1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-					NodeSelectorTerms: []corev1.NodeSelectorTerm{
-						{
-							MatchExpressions: []corev1.NodeSelectorRequirement{
-								{
-									Key:      controlPlaneNodeLabel,
-									Operator: corev1.NodeSelectorOpExists,
-								},
+		return fmt.Errorf("error while getting %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+	affinity := &corev1.Affinity{
+		NodeAffinity: &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{
+					{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      controlPlaneNodeLabel,
+								Operator: corev1.NodeSelectorOpExists,
 							},
 						},
 					},
 				},
 			},
-		}
-		ovnKubernetesDaemonset.Spec.Template.Spec.Affinity = affinity
-		ovnKubernetesDaemonset.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("DaemonSet"))
-		ovnKubernetesDaemonset.ObjectMeta.ManagedFields = nil
-		if err := r.Client.Patch(ctx, ovnKubernetesDaemonset, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-			errs = append(errs, fmt.Errorf("error while patching %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-		}
+		},
+	}
+	ovnKubernetesDaemonset.Spec.Template.Spec.Affinity = affinity
+	ovnKubernetesDaemonset.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("DaemonSet"))
+	ovnKubernetesDaemonset.ObjectMeta.ManagedFields = nil
+	if err := r.Client.Patch(ctx, ovnKubernetesDaemonset, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+		return fmt.Errorf("error while patching %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
 
-	return kerrors.NewAggregate(errs)
+	return nil
 }
 
 // cleanupClusterAndDeployCNIProvisioners cleans up cluster level OVN Kubernetes leftovers, deploys CNI provisioners
@@ -324,13 +313,10 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	key := client.ObjectKey{Namespace: ovnKubernetesNamespace, Name: ovnKubernetesDaemonsetName}
 	err := r.Client.Get(ctx, key, ovnKubernetesDaemonset)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-		}
-	} else {
-		if ovnKubernetesDaemonset.Status.NumberMisscheduled != 0 {
-			return fmt.Errorf("skipping cleaning up the cluster and deploying CNI provisioners since there are still OVN Kubernetes Pods running on nodes they shouldn't.")
-		}
+		return fmt.Errorf("error while getting %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+	if ovnKubernetesDaemonset.Status.NumberMisscheduled != 0 {
+		return fmt.Errorf("skipping cleaning up the cluster and deploying CNI provisioners since there are still OVN Kubernetes Pods running on nodes they shouldn't.")
 	}
 
 	// Remove node annotation k8s.ovn.org/node-chassis-id
@@ -348,20 +334,21 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	labelSelector = labelSelector.Add(*req)
 	err = r.Client.List(ctx, nodes, &client.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			errs = append(errs, fmt.Errorf("error while listting nodes with selector %s: %w", labelSelector.String(), err))
-		}
-	} else {
-		for i := range nodes.Items {
-			if _, ok := nodes.Items[i].Annotations[ovnKubernetesNodeChassisIDAnnotation]; ok {
-				delete(nodes.Items[i].Annotations, ovnKubernetesNodeChassisIDAnnotation)
-				nodes.Items[i].SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
-				nodes.Items[i].ObjectMeta.ManagedFields = nil
-				if err := r.Client.Patch(ctx, &nodes.Items[i], client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-					errs = append(errs, fmt.Errorf("error while patching %s %s: %w", nodes.Items[i].GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&nodes.Items[i]).String(), err))
-				}
+		return fmt.Errorf("error while listting nodes with selector %s: %w", labelSelector.String(), err)
+	}
+
+	for i := range nodes.Items {
+		if _, ok := nodes.Items[i].Annotations[ovnKubernetesNodeChassisIDAnnotation]; ok {
+			delete(nodes.Items[i].Annotations, ovnKubernetesNodeChassisIDAnnotation)
+			nodes.Items[i].SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
+			nodes.Items[i].ObjectMeta.ManagedFields = nil
+			if err := r.Client.Patch(ctx, &nodes.Items[i], client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", nodes.Items[i].GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&nodes.Items[i]).String(), err))
 			}
 		}
+	}
+	if len(errs) > 0 {
+		return kerrors.NewAggregate(errs)
 	}
 
 	// Ensure DPU CNI Provisioner is deployed
@@ -377,13 +364,17 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	for _, c := range clusters {
 		cl, err := c.NewClient(ctx, r.Client)
 		if err != nil {
-			return fmt.Errorf("error while getting client for cluster %s: %w", c.String(), err)
+			errs = append(errs, fmt.Errorf("error while getting client for cluster %s: %w", c.String(), err))
+			continue
 		}
 		clients[c] = cl
 		err = reconcileUnstructuredObjects(ctx, cl, dpuCNIProvisionerObjects)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error while reconciling DPU CNI provisioner manifests: %w", err))
 		}
+	}
+	if len(errs) > 0 {
+		return kerrors.NewAggregate(errs)
 	}
 
 	// Ensure Host CNI provisioner is deployed
@@ -393,7 +384,7 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	}
 	err = reconcileUnstructuredObjects(ctx, r.Client, hostCNIProvisionerObjects)
 	if err != nil {
-		errs = append(errs, fmt.Errorf("error while reconciling Host CNI provisioner manifests: %w", err))
+		return fmt.Errorf("error while reconciling Host CNI provisioner manifests: %w", err)
 	}
 
 	// Ensure both provisioners are ready
@@ -409,14 +400,15 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	for _, client := range clients {
 		err = client.Get(ctx, key, dpuCNIProvisionerDaemonSet)
 		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				errs = append(errs, fmt.Errorf("error while getting %s %s: %w", dpuCNIProvisionerDaemonSet.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-			}
-		} else {
-			if !isCNIProvisionerReady(dpuCNIProvisionerDaemonSet) {
-				errs = append(errs, errors.New("DPU CNI Provisioner is not yet ready"))
-			}
+			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", dpuCNIProvisionerDaemonSet.GetObjectKind().GroupVersionKind().String(), key.String(), err))
+			continue
 		}
+		if !isCNIProvisionerReady(dpuCNIProvisionerDaemonSet) {
+			errs = append(errs, errors.New("DPU CNI Provisioner is not yet ready"))
+		}
+	}
+	if len(errs) > 0 {
+		return kerrors.NewAggregate(errs)
 	}
 
 	hostCNIProvisionerDaemonSet := &appsv1.DaemonSet{}
@@ -430,13 +422,10 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	}
 	err = r.Client.Get(ctx, key, hostCNIProvisionerDaemonSet)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", hostCNIProvisionerDaemonSet.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-		}
-	} else {
-		if !isCNIProvisionerReady(hostCNIProvisionerDaemonSet) {
-			errs = append(errs, errors.New("Host CNI Provisioner is not yet ready"))
-		}
+		return fmt.Errorf("error while getting %s %s: %w", hostCNIProvisionerDaemonSet.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+	if !isCNIProvisionerReady(hostCNIProvisionerDaemonSet) {
+		return errors.New("Host CNI Provisioner is not yet ready")
 	}
 
 	return kerrors.NewAggregate(errs)
@@ -455,20 +444,17 @@ func (r *DPFOperatorConfigReconciler) markNetworkPreconfigurationReady(ctx conte
 	labelSelector = labelSelector.Add(*req)
 	err = r.Client.List(ctx, nodes, &client.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			errs = append(errs, fmt.Errorf("error while listting nodes with selector %s: %w", labelSelector.String(), err))
-		}
-	} else {
-		for i := range nodes.Items {
-			nodes.Items[i].Labels[networkPreconfigurationReadyNodeLabel] = ""
-			nodes.Items[i].SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
-			nodes.Items[i].ObjectMeta.ManagedFields = nil
-			if err := r.Client.Patch(ctx, &nodes.Items[i], client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", nodes.Items[i].GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&nodes.Items[i]).String(), err))
-			}
+		return fmt.Errorf("error while listting nodes with selector %s: %w", labelSelector.String(), err)
+	}
+	for i := range nodes.Items {
+		nodes.Items[i].Labels[networkPreconfigurationReadyNodeLabel] = ""
+		nodes.Items[i].SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
+		nodes.Items[i].ObjectMeta.ManagedFields = nil
+		if err := r.Client.Patch(ctx, &nodes.Items[i], client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+			errs = append(errs, fmt.Errorf("error while patching %s %s: %w", nodes.Items[i].GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&nodes.Items[i]).String(), err))
 		}
 	}
-	return nil
+	return kerrors.NewAggregate(errs)
 }
 
 // deployCustomOVNKubernetes reads the relevant OVN Kubernetes objects from the cluster, creates copies of them, adjusts
@@ -477,65 +463,55 @@ func (r *DPFOperatorConfigReconciler) markNetworkPreconfigurationReady(ctx conte
 // TODO: Sort out owner references. Currently the DPFOperatorConfig is namespaced, and cross namespace ownership is not
 // allowed by design.
 func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetes(ctx context.Context) error {
-	var errs []error
-
 	// Create custom OVN Kubernetes ConfigMap
 	ovnKubernetesConfigMap := &corev1.ConfigMap{}
 	key := client.ObjectKey{Namespace: ovnKubernetesNamespace, Name: ovnKubernetesConfigMapName}
 	if err := r.Client.Get(ctx, key, ovnKubernetesConfigMap); err != nil {
-		if !apierrors.IsNotFound(err) {
-			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", ovnKubernetesConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-		}
-	} else {
-		if customOVNKubernetesConfigMap, err := generateCustomOVNKubernetesConfigMap(ovnKubernetesConfigMap); err != nil {
-			errs = append(errs, fmt.Errorf("error while generating custom OVN Kubernetes ConfigMap: %w", err))
-		} else {
-			customOVNKubernetesConfigMap.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("ConfigMap"))
-			customOVNKubernetesConfigMap.ObjectMeta.ManagedFields = nil
-			if err := r.Client.Patch(ctx, customOVNKubernetesConfigMap, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", customOVNKubernetesConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-			}
-		}
+		return fmt.Errorf("error while getting %s %s: %w", ovnKubernetesConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+	customOVNKubernetesConfigMap, err := generateCustomOVNKubernetesConfigMap(ovnKubernetesConfigMap)
+	if err != nil {
+		return fmt.Errorf("error while generating custom OVN Kubernetes ConfigMap: %w", err)
+	}
+	customOVNKubernetesConfigMap.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("ConfigMap"))
+	customOVNKubernetesConfigMap.ObjectMeta.ManagedFields = nil
+	if err := r.Client.Patch(ctx, customOVNKubernetesConfigMap, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+		return fmt.Errorf("error while patching %s %s: %w", customOVNKubernetesConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
 
 	// Create custom OVN Kubernetes Entrypoint ConfigMap
 	ovnKubernetesEntrypointConfigMap := &corev1.ConfigMap{}
 	key = client.ObjectKey{Namespace: ovnKubernetesNamespace, Name: ovnKubernetesEntrypointConfigMapName}
 	if err := r.Client.Get(ctx, key, ovnKubernetesEntrypointConfigMap); err != nil {
-		if !apierrors.IsNotFound(err) {
-			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", ovnKubernetesEntrypointConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-		}
-	} else {
-		if customOVNKubernetesEntrypointConfigMap, err := generateCustomOVNKubernetesEntrypointConfigMap(ovnKubernetesEntrypointConfigMap); err != nil {
-			errs = append(errs, fmt.Errorf("error while generating custom OVN Kubernetes Entrypoint ConfigMap: %w", err))
-		} else {
-			customOVNKubernetesEntrypointConfigMap.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("ConfigMap"))
-			customOVNKubernetesEntrypointConfigMap.ObjectMeta.ManagedFields = nil
-			if err := r.Client.Patch(ctx, customOVNKubernetesEntrypointConfigMap, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", customOVNKubernetesEntrypointConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-			}
-		}
+		return fmt.Errorf("error while getting %s %s: %w", ovnKubernetesEntrypointConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+	customOVNKubernetesEntrypointConfigMap, err := generateCustomOVNKubernetesEntrypointConfigMap(ovnKubernetesEntrypointConfigMap)
+	if err != nil {
+		return fmt.Errorf("error while generating custom OVN Kubernetes Entrypoint ConfigMap: %w", err)
+	}
+	customOVNKubernetesEntrypointConfigMap.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("ConfigMap"))
+	customOVNKubernetesEntrypointConfigMap.ObjectMeta.ManagedFields = nil
+	if err := r.Client.Patch(ctx, customOVNKubernetesEntrypointConfigMap, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+		return fmt.Errorf("error while patching %s %s: %w", customOVNKubernetesEntrypointConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
 
 	// Create custom OVN Kubernetes DaemonSet
 	ovnKubernetesDaemonset := &appsv1.DaemonSet{}
 	key = client.ObjectKey{Namespace: ovnKubernetesNamespace, Name: ovnKubernetesDaemonsetName}
 	if err := r.Client.Get(ctx, key, ovnKubernetesDaemonset); err != nil {
-		if !apierrors.IsNotFound(err) {
-			errs = append(errs, fmt.Errorf("error while getting %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-		}
-	} else {
-		if customOVNKubernetesDaemonset, err := generateCustomOVNKubernetesDaemonSet(ovnKubernetesDaemonset); err != nil {
-			errs = append(errs, fmt.Errorf("error while generating custom OVN Kubernetes DaemonSet: %w", err))
-		} else {
-			customOVNKubernetesDaemonset.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("DaemonSet"))
-			customOVNKubernetesDaemonset.ObjectMeta.ManagedFields = nil
-			if err := r.Client.Patch(ctx, customOVNKubernetesDaemonset, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", customOVNKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err))
-			}
-		}
+		return fmt.Errorf("error while getting %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
-	return kerrors.NewAggregate(errs)
+	customOVNKubernetesDaemonset, err := generateCustomOVNKubernetesDaemonSet(ovnKubernetesDaemonset)
+	if err != nil {
+		return fmt.Errorf("error while generating custom OVN Kubernetes DaemonSet: %w", err)
+	}
+	customOVNKubernetesDaemonset.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("DaemonSet"))
+	customOVNKubernetesDaemonset.ObjectMeta.ManagedFields = nil
+	if err := r.Client.Patch(ctx, customOVNKubernetesDaemonset, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+		return fmt.Errorf("error while patching %s %s: %w", customOVNKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
