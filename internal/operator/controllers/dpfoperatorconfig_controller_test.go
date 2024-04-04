@@ -87,6 +87,9 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 		var nodeIdentityWebhookConfiguration *admissionregistrationv1.ValidatingWebhookConfiguration
 		var ovnKubernetesDaemonSet *appsv1.DaemonSet
 		var dpfCluster controlplane.DPFCluster
+		var nodeWorker1 *corev1.Node
+		var nodeWorker2 *corev1.Node
+		var nodeControlPlane1 *corev1.Node
 
 		BeforeEach(func() {
 			By("Creating the namespace")
@@ -99,12 +102,15 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			Expect(testutils.CreateResourceIfNotExist(ctx, testClient, ns)).To(Succeed())
 
 			By("Adding 2 worker nodes in the cluster")
-			node1 := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-1"}}
-			Expect(testClient.Create(ctx, node1)).To(Succeed())
-			cleanupObjects = append(cleanupObjects, node1)
-			node2 := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node-2"}}
-			Expect(testClient.Create(ctx, node2)).To(Succeed())
-			cleanupObjects = append(cleanupObjects, node2)
+			nodeWorker1 = &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker-1"}}
+			Expect(testClient.Create(ctx, nodeWorker1)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, nodeWorker1)
+			nodeWorker2 = &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "worker-2"}}
+			Expect(testClient.Create(ctx, nodeWorker2)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, nodeWorker2)
+			nodeControlPlane1 = &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "control-plane-1"}}
+			Expect(testClient.Create(ctx, nodeControlPlane1)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, nodeControlPlane1)
 
 			By("Creating the prerequisite OpenShift environment")
 			ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: clusterVersionOperatorNamespace}}
@@ -149,24 +155,39 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			Expect(testClient.Create(ctx, ovnKubernetesDaemonSet)).To(Succeed())
 			cleanupObjects = append(cleanupObjects, ovnKubernetesDaemonSet)
 
-			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(node1), node1)).To(Succeed())
-			node1.SetLabels(map[string]string{
+			// Mocked Worker Node
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker1), nodeWorker1)).To(Succeed())
+			nodeWorker1.SetLabels(map[string]string{
 				workerNodeLabel: "",
 			})
-			node1.SetAnnotations(map[string]string{
-				ovnKubernetesNodeChassisIDAnnotation: "node1",
+			nodeWorker1.SetAnnotations(map[string]string{
+				ovnKubernetesNodeChassisIDAnnotation: "worker-1",
 			})
-			node1.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
-			node1.ManagedFields = nil
-			Expect(testClient.Patch(ctx, node1, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+			nodeWorker1.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
+			nodeWorker1.ManagedFields = nil
+			Expect(testClient.Patch(ctx, nodeWorker1, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
-			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(node2), node2)).To(Succeed())
-			node2.SetLabels(map[string]string{
-				ovnKubernetesNodeChassisIDAnnotation: "node2",
+			// Mocked Worker Node
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker2), nodeWorker2)).To(Succeed())
+			nodeWorker2.SetLabels(map[string]string{
+				workerNodeLabel: "",
 			})
-			node2.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
-			node2.ManagedFields = nil
-			Expect(testClient.Patch(ctx, node2, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+			nodeWorker2.SetAnnotations(map[string]string{
+				ovnKubernetesNodeChassisIDAnnotation: "worker-2",
+			})
+			nodeWorker2.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
+			nodeWorker2.ManagedFields = nil
+			Expect(testClient.Patch(ctx, nodeWorker2, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			// Mocked Control Plane Node
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeControlPlane1), nodeControlPlane1)).To(Succeed())
+			nodeControlPlane1.SetLabels(map[string]string{})
+			nodeControlPlane1.SetAnnotations(map[string]string{
+				ovnKubernetesNodeChassisIDAnnotation: "control-plane-1",
+			})
+			nodeControlPlane1.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
+			nodeControlPlane1.ManagedFields = nil
+			Expect(testClient.Patch(ctx, nodeControlPlane1, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
 			var ovnKubernetesManifests []*unstructured.Unstructured
 			content, err := os.ReadFile("testdata/original/ovnkubernetes-daemonset.yaml")
@@ -293,7 +314,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 						g.Expect(node.Labels).NotTo(HaveKey(ovnKubernetesNodeChassisIDAnnotation))
 					}
 				}
-				g.Expect(workerCounter).To(Equal(1))
+				g.Expect(workerCounter).To(Equal(2))
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -329,7 +350,18 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			got.ManagedFields = nil
 			Expect(c.Status().Patch(ctx, got, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
-			// TODO: Add label when DPU and Host CNI provisioners are ready and check for that here
+			Eventually(func(g Gomega) {
+				got := &corev1.NodeList{}
+				g.Expect(testClient.List(ctx, got)).To(Succeed())
+				workerCounter := 0
+				for _, node := range got.Items {
+					if _, ok := node.Labels[workerNodeLabel]; ok {
+						workerCounter++
+						g.Expect(node.Labels).To(HaveKey(networkPreconfigurationReadyNodeLabel))
+					}
+				}
+				g.Expect(workerCounter).To(Equal(2))
+			}).WithTimeout(30 * time.Second).Should(Succeed())
 
 			By("Checking the deployment of the custom OVN Kubernetes")
 			Eventually(func(g Gomega) {
@@ -370,6 +402,36 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 				key = client.ObjectKey{Namespace: "dpf-operator-system", Name: "dpu-cni-provisioner"}
 				g.Expect(testClient.Get(ctx, key, got)).To(HaveOccurred())
 			}).WithTimeout(5 * time.Second).Should(Succeed())
+		})
+
+		// TODO: Consider replacing with unit test when extracting the node labeling into its own function
+		It("should not cleanup node chassis id annotation if node network preconfiguration is done", func() {
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker2), nodeWorker2)).To(Succeed())
+			nodeWorker2.SetLabels(map[string]string{
+				workerNodeLabel: "",
+			})
+			nodeWorker2.SetAnnotations(map[string]string{
+				ovnKubernetesNodeChassisIDAnnotation:  "worker-2",
+				networkPreconfigurationReadyNodeLabel: "",
+			})
+			nodeWorker2.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
+			nodeWorker2.ManagedFields = nil
+			Expect(testClient.Patch(ctx, nodeWorker2, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			dpfOperatorConfig := &operatorv1.DPFOperatorConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "config",
+					Namespace: testNS.Name,
+				},
+			}
+			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, dpfOperatorConfig)
+
+			Consistently(func(g Gomega) {
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker2), nodeWorker2)).To(Succeed())
+				g.Expect(nodeWorker2.Annotations).To(HaveKey(ovnKubernetesNodeChassisIDAnnotation))
+			}).WithTimeout(5 * time.Second).Should(Succeed())
+
 		})
 	})
 	Context("When checking the output of custom OVN generation functions", func() {

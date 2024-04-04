@@ -36,6 +36,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/selection"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -211,6 +212,12 @@ func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx
 	if err := r.cleanupClusterAndDeployCNIProvisioners(ctx); err != nil {
 		return fmt.Errorf("error while cleaning cluster and deploying CNI provisioners: %w", err)
 	}
+
+	// - ensure both provisioners are ready and have more than 1 pods
+	// - mark nodes with network preconfiguration ready label
+	if err := r.markNetworkPreconfigurationReady(ctx); err != nil {
+		return fmt.Errorf("error while marking network preconfiguration as ready: %w", err)
+	}
 	// Phase 3
 	// - deploy custom OVN Kubernetes
 	if err := r.deployCustomOVNKubernetes(ctx); err != nil {
@@ -328,10 +335,17 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 
 	// Remove node annotation k8s.ovn.org/node-chassis-id
 	nodes := &corev1.NodeList{}
-	labelSelector, err := labels.Parse(workerNodeLabel)
+	labelSelector := labels.NewSelector()
+	req, err := labels.NewRequirement(workerNodeLabel, selection.Exists, nil)
 	if err != nil {
-		return fmt.Errorf("error while parsing label %s: %w", workerNodeLabel, err)
+		return fmt.Errorf("error while creating label selector requirement for label %s: %w", workerNodeLabel, err)
 	}
+	labelSelector = labelSelector.Add(*req)
+	req, err = labels.NewRequirement(networkPreconfigurationReadyNodeLabel, selection.DoesNotExist, nil)
+	if err != nil {
+		return fmt.Errorf("error while creating label selector requirement for label %s: %w", networkPreconfigurationReadyNodeLabel, err)
+	}
+	labelSelector = labelSelector.Add(*req)
 	err = r.Client.List(ctx, nodes, &client.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -339,8 +353,6 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 		}
 	} else {
 		for i := range nodes.Items {
-			// TODO: Add specific label on the node to ensure we don't remove that label after custom OVN Kubernets has
-			// been deployed.
 			if _, ok := nodes.Items[i].Annotations[ovnKubernetesNodeChassisIDAnnotation]; ok {
 				delete(nodes.Items[i].Annotations, ovnKubernetesNodeChassisIDAnnotation)
 				nodes.Items[i].SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
@@ -428,6 +440,35 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	}
 
 	return kerrors.NewAggregate(errs)
+}
+
+// markNetworkPreconfigurationReady marks the cluster as ready to receive the custom OVN Kubernetes
+// TODO: Refactor this function to do that per node readiness vs daemonset readiness.
+func (r *DPFOperatorConfigReconciler) markNetworkPreconfigurationReady(ctx context.Context) error {
+	var errs []error
+	nodes := &corev1.NodeList{}
+	labelSelector := labels.NewSelector()
+	req, err := labels.NewRequirement(workerNodeLabel, selection.Exists, nil)
+	if err != nil {
+		return fmt.Errorf("error while creating label selector requirement for label %s: %w", workerNodeLabel, err)
+	}
+	labelSelector = labelSelector.Add(*req)
+	err = r.Client.List(ctx, nodes, &client.ListOptions{LabelSelector: labelSelector})
+	if err != nil {
+		if !apierrors.IsNotFound(err) {
+			errs = append(errs, fmt.Errorf("error while listting nodes with selector %s: %w", labelSelector.String(), err))
+		}
+	} else {
+		for i := range nodes.Items {
+			nodes.Items[i].Labels[networkPreconfigurationReadyNodeLabel] = ""
+			nodes.Items[i].SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
+			nodes.Items[i].ObjectMeta.ManagedFields = nil
+			if err := r.Client.Patch(ctx, &nodes.Items[i], client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", nodes.Items[i].GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&nodes.Items[i]).String(), err))
+			}
+		}
+	}
+	return nil
 }
 
 // deployCustomOVNKubernetes reads the relevant OVN Kubernetes objects from the cluster, creates copies of them, adjusts
