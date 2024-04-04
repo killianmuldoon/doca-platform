@@ -9,6 +9,7 @@ bin/*
 Dockerfile.cross
 hack/tools/bin
 hack/charts
+hack/repos
 
 # Test binary, built with `go test -c`
 *.test

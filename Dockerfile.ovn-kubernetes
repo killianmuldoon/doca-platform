@@ -1,0 +1,38 @@
+FROM --platform=${TARGETPLATFORM} docker.io/library/golang:1.19 as ovnkubernetes-builder
+
+WORKDIR /workspace
+RUN apt update && apt install -y make
+COPY hack/repos/ovn-kubernetes ovn-kubernetes
+RUN ls -l
+RUN cd ovn-kubernetes/go-controller && \
+    make
+
+FROM --platform=${TARGETPLATFORM} ubuntu:22.04 as ovn-builder
+
+WORKDIR /workspace
+RUN apt update && apt install -y make git autoconf libtool python3
+COPY hack/repos/ovn ovn
+WORKDIR /workspace/ovn
+RUN git submodule update --init
+RUN cd ovs && \
+    ./boot.sh && \
+    ./configure && \
+    make
+RUN ./boot.sh && \
+    ./configure --prefix="" && \
+    make
+
+# You need to follow the commands below to produce that image:
+# 1. Setup OpenShift cluster 4.14 (this is what the tests were done against)
+# 2. Run these commands to get the relevant images:
+#    * `kubectl get ds -n openshift-ovn-kubernetes -o jsonpath='{.spec.template.spec.containers[?(@.name=="ovnkube-controller")].image}' ovnkube-node`
+#    * `kubectl get ds -n openshift-ovn-kubernetes -o jsonpath='{.spec.template.spec.containers[?(@.name=="ovn-controller")].image}' ovnkube-node`
+#    * In case these two match, we can use a single image. Otherwise, we might need to split this Dockerfile into two so
+#      that each container gets its own image.
+# 3. Login into the OpenShift node and retag the image to `harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:<SHA256_OF_INPUT_IMAGE>`
+#    e.g. podman tag quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e
+# 4. Push the image
+FROM --platform=${TARGETPLATFORM} harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e
+
+COPY --from=ovnkubernetes-builder /workspace/ovn-kubernetes/go-controller/_output/go/bin/ovnkube /usr/bin/ovnkube
+COPY --from=ovn-builder /workspace/ovn/controller/ovn-controller /usr/bin/ovn-controller
