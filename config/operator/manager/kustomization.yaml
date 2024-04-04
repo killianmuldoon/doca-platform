@@ -4,5 +4,5 @@ resources:
 - manager.yaml
 images:
 - name: controller
-  newName: dev/operator-controller-manager
-  newTag: v0.0.1
+  newName: nvidia.com/operator-controller-manager
+  newTag: dev

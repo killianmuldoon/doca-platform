@@ -1,37 +1,66 @@
 image: golang:1.22.1
 
-workflow:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-
 stages:
-  - lint
+  - verify
   - test
   - build
 
 lint:
-  stage: lint
+  stage: verify
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   script:
     - make lint
 
-verify-generate:
-  stage: lint
+verify:
+  stage: verify
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  variables:
+    BASE_REV: $CI_MERGE_REQUEST_DIFF_BASE_SHA # Used by the verify-copyright target
+    COMPARISON_REV: $CI_COMMIT_SHA # Used by the verify-copyright target
   script:
-    - make verify-generate
-
-test:
-  stage: test
-  script:
-    - make test
+    -  make verify-generate verify-copyright
 
 build-binaries:
   stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   script:
     - make binaries
 
+nightly-release:
+  stage: build
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: always
+  variables:
+    TAG: nightly
+    REGISTRY: harbor.mellanox.com/cloud-orchestration-dev/dpf
+  tags:
+    - release
+  script:
+    - make docker-build-all docker-push-all
+
+test:
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_RELEASE == "true"
+  script:
+    - make test
+
 e2e:
   stage: test
-  when: manual
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: always
   variables:
     REGISTRY: localhost:5000
     MINIKUBE_DRIVER: docker

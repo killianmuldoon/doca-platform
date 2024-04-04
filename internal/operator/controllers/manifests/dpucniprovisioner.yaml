@@ -21,7 +21,7 @@ spec:
       - env:
         - name: SYSTEMCTL_FORCE_BUS
           value: "1"
-        image: nvidia/dpu-cni-provisioner
+        image: nvidia.com/dpu-cni-provisioner:dev
         imagePullPolicy: Always
         name: dpu-cni-provisioner
         readinessProbe:

@@ -5,5 +5,5 @@ resources:
 - daemonset.yaml
 images:
 - name: controller
-  newName: dev/dpu-cni-provisioner
-  newTag: v0.0.1
+  newName: nvidia.com/dpu-cni-provisioner
+  newTag: dev
