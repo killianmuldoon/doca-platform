@@ -53,6 +53,9 @@ const (
 	// ovnKubernetesKubeControllerContainerName is the name of the OVN kube controller container that is part of the OVN
 	// Kubernetes DaemonSet in OpenShift
 	ovnKubernetesKubeControllerContainerName = "ovnkube-controller"
+	// ovnKubernetesOVNControllerContainerName is the name of the OVN controller container that is part of the OVN
+	// Kubernetes DaemonSet in OpenShift
+	ovnKubernetesOVNControllerContainerName = "ovn-controller"
 	// ovnKubernetesConfigMapName is the name of the OVN Kubernetes ConfigMap used to configure OVN Kubernetes in
 	// OpenShift
 	ovnKubernetesConfigMapName = "ovnkube-config"
@@ -118,9 +121,17 @@ var hostCNIProvisionerManifestContent []byte
 var dpuCNIProvisionerManifestContent []byte
 
 // DPFOperatorConfigReconciler reconciles a DPFOperatorConfig object
+// TODO: Consider creating a constructor
 type DPFOperatorConfigReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	Settings *DPFOperatorConfigReconcilerSettings
+}
+
+// DPFOperatorConfigReconcilerSettings contains settings related to the DPFOperatorConfig.
+type DPFOperatorConfigReconcilerSettings struct {
+	// CustomOVNKubernetesImage the OVN Kubernetes image deployed by the operator
+	CustomOVNKubernetesImage string
 }
 
 //+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -501,7 +512,7 @@ func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetes(ctx context.Cont
 	if err := r.Client.Get(ctx, key, ovnKubernetesDaemonset); err != nil {
 		return fmt.Errorf("error while getting %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
-	customOVNKubernetesDaemonset, err := generateCustomOVNKubernetesDaemonSet(ovnKubernetesDaemonset)
+	customOVNKubernetesDaemonset, err := generateCustomOVNKubernetesDaemonSet(ovnKubernetesDaemonset, r.Settings.CustomOVNKubernetesImage)
 	if err != nil {
 		return fmt.Errorf("error while generating custom OVN Kubernetes DaemonSet: %w", err)
 	}
@@ -542,7 +553,7 @@ func isCNIProvisionerReady(d *appsv1.DaemonSet) bool {
 // generateCustomOVNKubernetesDaemonSet returns a custom OVN Kubernetes DaemonSet based on the given DaemonSet. Returns
 // error if any of configuration is not reflected on the returned object.
 // TODO: Set custom image when image is available.
-func generateCustomOVNKubernetesDaemonSet(base *appsv1.DaemonSet) (*appsv1.DaemonSet, error) {
+func generateCustomOVNKubernetesDaemonSet(base *appsv1.DaemonSet, customOVNKubernetesImage string) (*appsv1.DaemonSet, error) {
 	if base == nil {
 		return nil, fmt.Errorf("input is nil")
 	}
@@ -651,6 +662,28 @@ func generateCustomOVNKubernetesDaemonSet(base *appsv1.DaemonSet) (*appsv1.Daemo
 
 	if !configuredConfigMap {
 		errs = append(errs, fmt.Errorf("error while adjusting volume related to %s ConfigMap in %s Daemonset: volume not found", ovnKubernetesConfigMapName, ovnKubernetesDaemonsetName))
+	}
+
+	// Use custom images
+	var configuredKubeControllerImage bool
+	var configuredOVNControllerImage bool
+	for i, container := range out.Spec.Template.Spec.Containers {
+		if container.Name == ovnKubernetesKubeControllerContainerName {
+			out.Spec.Template.Spec.Containers[i].Image = customOVNKubernetesImage
+			configuredKubeControllerImage = true
+		}
+		if container.Name == ovnKubernetesOVNControllerContainerName {
+			out.Spec.Template.Spec.Containers[i].Image = customOVNKubernetesImage
+			configuredOVNControllerImage = true
+		}
+	}
+
+	if !configuredKubeControllerImage {
+		errs = append(errs, fmt.Errorf("error while adjusting image for container %s in %s Daemonset: container not found", ovnKubernetesKubeControllerContainerName, ovnKubernetesDaemonsetName))
+	}
+
+	if !configuredOVNControllerImage {
+		errs = append(errs, fmt.Errorf("error while adjusting image for container %s in %s Daemonset: container not found", ovnKubernetesOVNControllerContainerName, ovnKubernetesDaemonsetName))
 	}
 
 	return out, kerrors.NewAggregate(errs)

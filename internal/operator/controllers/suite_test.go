@@ -98,6 +98,9 @@ var _ = BeforeSuite(func() {
 	reconciler = &DPFOperatorConfigReconciler{
 		Client: testClient,
 		Scheme: testManager.GetScheme(),
+		Settings: &DPFOperatorConfigReconcilerSettings{
+			CustomOVNKubernetesImage: "nvidia.com/ovn-kubernetes:dev",
+		},
 	}
 	err = reconciler.SetupWithManager(testManager)
 	Expect(err).ToNot(HaveOccurred())
