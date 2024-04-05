@@ -33,11 +33,11 @@ spec:
         - name: fakefs
           mountPath: /var/dpf
         - name: ovndb
-          mountPath: /var/lib/ovn-ic/etc
+          mountPath: /var/lib/ovn-ic
       volumes:
       - name: fakefs
         hostPath:
           path: /var/dpf
       - name: ovndb
         hostPath:
-          path: /var/lib/ovn-ic/etc
+          path: /var/lib/ovn-ic
