@@ -4,6 +4,43 @@ kind: ClusterRole
 metadata:
   name: manager-role
 rules:
+- resources:
+  - configmaps
+  - nodes
+  - secrets
+  verbs:
+  - get
+  - list
+  - patch
+  - watch
+- resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - daemonsets
+  - deployments
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
 - apiGroups:
   - operator.dpf.nvidia.com
   resources:
@@ -30,3 +67,13 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - rolebindings
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch

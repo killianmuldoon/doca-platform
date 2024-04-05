@@ -57,7 +57,7 @@ spec:
         volumeMounts:
         - mountPath: /var/dpf
           name: fakefs
-        - mountPath: /var/lib/ovn-ic/etc
+        - mountPath: /var/lib/ovn-ic
           name: ovndb
       hostNetwork: true
       serviceAccountName: host-cni-provisioner
@@ -66,5 +66,5 @@ spec:
           path: /var/dpf
         name: fakefs
       - hostPath:
-          path: /var/lib/ovn-ic/etc
+          path: /var/lib/ovn-ic
         name: ovndb

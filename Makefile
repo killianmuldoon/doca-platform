@@ -212,7 +212,7 @@ generate-modules: ## Run go mod tidy to update go modules
 generate-manifests: controller-gen kustomize $(addprefix generate-manifests-,$(GENERATE_TARGETS)) ## Run all generate-manifests-* targets
 
 .PHONY: generate-manifests-operator
-generate-manifests-operator: ## Generate manifests e.g. CRD, RBAC. for the operator controller.
+generate-manifests-operator: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. for the operator controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/operator/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/operator/..." \
@@ -225,7 +225,7 @@ generate-manifests-operator: ## Generate manifests e.g. CRD, RBAC. for the opera
 	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-dpuservice
-generate-manifests-dpuservice: ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
+generate-manifests-dpuservice: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/dpuservice/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/dpuservice/..." \
@@ -238,11 +238,11 @@ generate-manifests-dpuservice: ## Generate manifests e.g. CRD, RBAC. for the dpu
 	cd config/dpuservice/manager && $(KUSTOMIZE) edit set image controller=$(DPUSERVICE_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-dpucniprovisioner
-generate-manifests-dpucniprovisioner: ## Generates DPU CNI provisioner manifests
+generate-manifests-dpucniprovisioner: $(KUSTOMIZE) ## Generates DPU CNI provisioner manifests
 	cd config/dpucniprovisioner/default && $(KUSTOMIZE) edit set image controller=$(DPUCNIPROVISIONER_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-hostcniprovisioner
-generate-manifests-hostcniprovisioner: ## Generates Host CNI provisioner manifests
+generate-manifests-hostcniprovisioner: $(KUSTOMIZE) ## Generates Host CNI provisioner manifests
 	cd config/hostcniprovisioner/default &&	$(KUSTOMIZE) edit set image controller=$(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-embedded
@@ -251,7 +251,7 @@ generate-manifests-embedded: generate-manifests-dpucniprovisioner generate-manif
 	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/operator/controllers/manifests/dpucniprovisioner.yaml
 
 .PHONY: generate-manifests-sfcset
-generate-manifests-sfcset: ## Generate manifests e.g. CRD, RBAC. for the sfcset controller.
+generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. for the sfcset controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/servicechainset/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/servicechainset/..." \
@@ -352,6 +352,7 @@ DPU_ARCH = arm64
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
 BASE_IMAGE = gcr.io/distroless/static:nonroot
+ALPINE_IMAGE = alpine:3.19
 
 .PHONY: binaries
 binaries: $(addprefix binary-,$(BUILD_TARGETS)) ## Build all binaries
@@ -443,9 +444,10 @@ docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker imag
 
 .PHONY: docker-build-hostcniprovisioner
 docker-build-hostcniprovisioner: ## Build docker images for the HOST CNI Provisioner
+	# Base image can't be distroless because of the readiness probe that is using cat which doesn't exist in distroless
 	docker build \
 		--build-arg builder_image=$(BUILD_IMAGE) \
-		--build-arg base_image=$(BASE_IMAGE) \
+		--build-arg base_image=$(ALPINE_IMAGE) \
 		--build-arg target_arch=$(HOST_ARCH) \
 		--build-arg package=./cmd/hostcniprovisioner \
 		. \
