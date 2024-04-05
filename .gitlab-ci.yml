@@ -53,7 +53,13 @@ test:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_PIPELINE_SOURCE == "schedule"
   script:
-    - make test
+    - make test-report
+  artifacts:
+    when: always
+    paths:
+      - junit.xml
+    reports:
+      junit: junit.xml
 
 e2e:
   stage: test

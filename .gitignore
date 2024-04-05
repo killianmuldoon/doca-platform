@@ -14,6 +14,8 @@ hack/repos
 # Test binary, built with `go test -c`
 *.test
 
+# junit files
+*junit.*
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
