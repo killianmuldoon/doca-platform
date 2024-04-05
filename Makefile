@@ -77,6 +77,10 @@ CHARTSDIR?= $(shell pwd)/hack/charts
 $(CHARTSDIR):
 	@mkdir -p $@
 
+REPOSDIR?= $(shell pwd)/hack/repos
+$(REPOSDIR):
+	@mkdir -p $@
+
 ## Tool Binaries
 
 KUBECTL ?= kubectl
@@ -173,10 +177,21 @@ ARGOCD_VER=v2.10.1
 $(ARGOCD_YAML): | $(CHARTSDIR)
 	curl -fSsL "https://raw.githubusercontent.com/argoproj/argo-cd/$(ARGOCD_VER)/manifests/install.yaml" -o $(ARGOCD_YAML)
 
+
+# OVN Kubernetes dependencies to be able to build its docker image
+OVNKUBERNETES_DIR=$(REPOSDIR)/ovn-kubernetes
+OVN_DIR=$(REPOSDIR)/ovn
+$(OVNKUBERNETES_DIR): | $(REPOSDIR)
+	git clone ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn-kubernetes.git $(OVNKUBERNETES_DIR)
+OVN_DIR=$(REPOSDIR)/ovn
+$(OVN_DIR): | $(REPOSDIR)
+	git clone ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR)
+
 .PHONY: clean
 clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
 	@rm -rf $(TOOLSDIR)
 	@rm -rf $(CHARTSDIR)
+	@rm -rf $(REPOSDIR)
 
 ##@ Development
 GENERATE_TARGETS ?= operator dpuservice hostcniprovisioner dpucniprovisioner embedded sfcset
@@ -368,6 +383,9 @@ docker-build-all: ## Build docker images for all BUILD_TARGETS
 OVS_BASE_IMAGE_NAME = base-image-ovs
 OVS_BASE_IMAGE = $(REGISTRY)/$(OVS_BASE_IMAGE_NAME)
 
+OVNKUBERNETES_IMAGE_NAME = ovn-kubernetes
+OVNKUBERNETES_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_IMAGE_NAME)
+
 DPFOPERATOR_IMAGE_NAME ?= operator-controller-manager
 DPFOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOPERATOR_IMAGE_NAME)
 
@@ -442,6 +460,15 @@ docker-build-base-image-ovs: ## Build base docker image with OVS dependencies
 		. \
 		-t $(OVS_BASE_IMAGE):$(TAG)
 
+.PHONY: docker-build-ovnkubernetes
+docker-build-ovnkubernetes: $(OVNKUBERNETES_DIR) $(OVN_DIR) ## Builds the custom OVN Kubernetes image
+	docker buildx build \
+		--load \
+		--platform linux/${HOST_ARCH} \
+		-f Dockerfile.ovn-kubernetes \
+		. \
+		-t $(OVNKUBERNETES_IMAGE):$(TAG)
+
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(BUILD_TARGETS))  ## Push the docker images for all controllers.
 
@@ -464,6 +491,10 @@ docker-push-dpucniprovisioner: ## Push the docker image for DPU CNI Provisioner.
 .PHONY: docker-push-hostcniprovisioner
 docker-push-hostcniprovisioner: ## Push the docker image for Host CNI Provisioner.
 	docker push $(HOSTCNIPROVISIONER_IMAGE):$(TAG)
+
+.PHONY: docker-push-ovnkubernetes
+docker-push-ovnkubernetes: ## Push the custom OVN Kubernetes image
+	docker push $(OVNKUBERNETES_IMAGE):$(TAG)
 
 # dev environment
 MINIKUBE_CLUSTER_NAME ?= dpf-dev
