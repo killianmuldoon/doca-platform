@@ -18,6 +18,7 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
 	"flag"
 	"os"
 
@@ -38,7 +39,9 @@ var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 
-	// defaultOVNKubernetesImage is the default custom OVN Kubernetes image deployed by the operator
+	// defaultOVNKubernetesImage is the default custom OVN Kubernetes image deployed by the operator. This value is
+	// injected via ldflags when building the binary. Be mindful about changing this value below as there is a test
+	// in runtime to catch a potential bad build.
 	defaultCustomOVNKubernetesImage = ""
 )
 
@@ -74,6 +77,16 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	// TODO: Include that in a function with the rest of the flag validations
+	if customOVNKubernetesImage == "" {
+		if defaultCustomOVNKubernetesImage == "" {
+			setupLog.Error(errors.New("wrong build detected, ensure that the defaultCustomOVNKubernetesImage variable is set via ldflags when building the binary"), "")
+			os.Exit(1)
+		}
+		setupLog.Error(errors.New("flag ovn-kubernetes-image can't be empty"), "")
+		os.Exit(1)
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will

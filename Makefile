@@ -338,6 +338,11 @@ verify-copyright:
 
 ##@ Build
 
+GO_GCFLAGS=""
+
+GO_LDFLAGS="-extldflags '-static'"
+DPFOPERATOR_GO_LDFLAGS="$(subst ",,$(GO_LDFLAGS)) -X 'main.defaultCustomOVNKubernetesImage=${OVNKUBERNETES_IMAGE}:${TAG}'"
+
 BUILD_TARGETS ?= operator dpuservice dpucniprovisioner hostcniprovisioner sfcset
 # Note: Registry defaults to non-existing registry intentionally to avoid overriding useful images.
 REGISTRY ?= nvidia.com
@@ -358,23 +363,23 @@ binaries: $(addprefix binary-,$(BUILD_TARGETS)) ## Build all binaries
 
 .PHONY: binary-sfcset
 binary-sfcset: ## Build the sfcset controller binary.
-	go build -trimpath -o $(LOCALBIN)/sfcset-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/servicechainset
+	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/sfcset-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/servicechainset
 
 .PHONY: binary-operator
 binary-operator: ## Build the operator controller binary.
-	go build -trimpath -o $(LOCALBIN)/operator-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/operator
+	go build -ldflags=$(DPFOPERATOR_GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/operator-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/operator
 
 .PHONY: binary-dpuservice
 binary-dpuservice: ## Build the dpuservice controller binary.
-	go build -trimpath -o $(LOCALBIN)/dpuservice-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/dpuservice
+	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/dpuservice-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/dpuservice
 
 .PHONY: binary-dpucniprovisioner
 binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
-	go build -trimpath -o $(LOCALBIN)/dpucniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/dpucniprovisioner
+	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/dpucniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/dpucniprovisioner
 
 .PHONY: binary-hostcniprovisioner
 binary-hostcniprovisioner: ## Build the Host CNI Provisioner binary.
-	go build -trimpath -o $(LOCALBIN)/hostcniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/hostcniprovisioner
+	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/hostcniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/hostcniprovisioner
 
 .PHONY: docker-build-all
 docker-build-all: ## Build docker images for all BUILD_TARGETS
@@ -407,6 +412,8 @@ docker-build-sfcset: ## Build docker images for the sfcset-controller
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
 		--build-arg target_arch=$(ARCH) \
+		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/servicechainset \
 		. \
 		-t $(SFCSET_IMAGE):$(TAG)
@@ -417,6 +424,8 @@ docker-build-operator: ## Build docker images for the operator-controller
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
 		--build-arg target_arch=$(ARCH) \
+		--build-arg ldflags=$(DPFOPERATOR_GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/operator \
 		. \
 		-t $(DPFOPERATOR_IMAGE):$(TAG)
@@ -427,6 +436,8 @@ docker-build-dpuservice: ## Build docker images for the dpuservice-controller
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
 		--build-arg target_arch=$(ARCH) \
+		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/dpuservice \
 		. \
 		-t $(DPUSERVICE_IMAGE):$(TAG)
@@ -437,6 +448,8 @@ docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker imag
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(OVS_BASE_IMAGE):$(TAG) \
 		--build-arg target_arch=$(DPU_ARCH) \
+		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/dpucniprovisioner \
 		. \
 		-t $(DPUCNIPROVISIONER_IMAGE):$(TAG)
@@ -447,6 +460,8 @@ docker-build-hostcniprovisioner: ## Build docker images for the HOST CNI Provisi
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
 		--build-arg target_arch=$(HOST_ARCH) \
+		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/hostcniprovisioner \
 		. \
 		-t $(HOSTCNIPROVISIONER_IMAGE):$(TAG)

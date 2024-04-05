@@ -19,12 +19,14 @@ RUN --mount=type=cache,target=/go/pkg/mod \
 COPY ./ ./
 
 ARG package=.
-ARG GCFLAGS
+ARG gcflags
+ARG ldflags
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=linux GOARCH=${target_arch} \
-    go build -trimpath -ldflags "-extldflags '-static'"  \
-    -gcflags="${GCFLAGS}" \
+    go build -trimpath \
+    -ldflags="${ldflags}"  \
+    -gcflags="${gcflags}" \
     -o manager ${package}
 
 FROM --platform=linux/${target_arch} ${base_image}
