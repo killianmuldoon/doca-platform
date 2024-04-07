@@ -20,16 +20,41 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // ServiceInterfaceSpec defines the desired state of ServiceInterface
 type ServiceInterfaceSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of ServiceInterface. Edit serviceinterface_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Node where this interface exists
+	Node string `json:"node"`
+	// +kubebuilder:validation:Enum={"vlan", "physical", "pf", "vf"}
+	// The interface type ("vlan", "physical", "pf", "vf")
+	InterfaceType string `json:"interfaceType"`
+	// The interface name
+	InterfaceName string `json:"interfaceName"`
+	// The bridge name
+	BridgeName string `json:"bridgeName"`
+	// The VLAN definition
+	Vlan *VLAN `json:"vlan,omitempty"`
+	// The VF definition
+	VF *VF `json:"vf,omitempty"`
+	// The PF definition
+	PF *PF `json:"pf,omitempty"`
+	// Labels to be added on created ServiceInterface CRs
+	Labels map[string]string `json:"labels,omitempty"`
+}
+
+type VLAN struct {
+	VlanID             int    `json:"vlanID"`
+	ParentInterfaceRef string `json:"parentInterfaceRef"`
+}
+
+type VF struct {
+	VFID               int    `json:"vfID"`
+	PFID               int    `json:"pfID"`
+	ParentInterfaceRef string `json:"parentInterfaceRef"`
+}
+
+type PF struct {
+	PFID int `json:"pfId"`
 }
 
 // ServiceInterfaceStatus defines the observed state of ServiceInterface

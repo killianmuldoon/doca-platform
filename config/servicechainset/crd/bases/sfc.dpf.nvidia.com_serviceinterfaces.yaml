@@ -39,10 +39,66 @@ spec:
           spec:
             description: ServiceInterfaceSpec defines the desired state of ServiceInterface
             properties:
-              foo:
-                description: Foo is an example field of ServiceInterface. Edit serviceinterface_types.go
-                  to remove/update
+              bridgeName:
+                description: The bridge name
                 type: string
+              interfaceName:
+                description: The interface name
+                type: string
+              interfaceType:
+                description: The interface type ("vlan", "physical", "pf", "vf")
+                enum:
+                - vlan
+                - physical
+                - pf
+                - vf
+                type: string
+              labels:
+                additionalProperties:
+                  type: string
+                description: Labels to be added on created ServiceInterface CRs
+                type: object
+              node:
+                description: Node where this interface exists
+                type: string
+              pf:
+                description: The PF definition
+                properties:
+                  pfId:
+                    type: integer
+                required:
+                - pfId
+                type: object
+              vf:
+                description: The VF definition
+                properties:
+                  parentInterfaceRef:
+                    type: string
+                  pfID:
+                    type: integer
+                  vfID:
+                    type: integer
+                required:
+                - parentInterfaceRef
+                - pfID
+                - vfID
+                type: object
+              vlan:
+                description: The VLAN definition
+                properties:
+                  parentInterfaceRef:
+                    type: string
+                  vlanID:
+                    type: integer
+                required:
+                - parentInterfaceRef
+                - vlanID
+                type: object
+            required:
+            - bridgeName
+            - interfaceName
+            - interfaceType
+            - node
             type: object
           status:
             description: ServiceInterfaceStatus defines the observed state of ServiceInterface
