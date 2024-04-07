@@ -33,14 +33,6 @@ rules:
 - apiGroups:
   - sfc.dpf.nvidia.com
   resources:
-  - servicechains/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - sfc.dpf.nvidia.com
-  resources:
   - servicechainsets
   verbs:
   - create

@@ -23,7 +23,13 @@ import (
 // ServiceChainSetSpec defines the desired state of ServiceChainSet
 type ServiceChainSetSpec struct {
 	// Select the Nodes with specific labels, ServiceChain CRs will be created only for these Nodes
-	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
+	NodeSelector *metav1.LabelSelector    `json:"nodeSelector,omitempty"`
+	Template     ServiceChainSpecTemplate `json:"template"`
+}
+
+type ServiceChainSpecTemplate struct {
+	Spec              ServiceChainSpec `json:"spec"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
 }
 
 // ServiceChainSetStatus defines the observed state of ServiceChainSet

@@ -81,7 +81,7 @@ func (r *ServiceInterfaceSetReconciler) Reconcile(ctx context.Context, req ctrl.
 func (r *ServiceInterfaceSetReconciler) reconcile(ctx context.Context, sis *sfcv1.ServiceInterfaceSet) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 	// Get node list by nodeSelector
-	nodeList, err := r.getNodeList(ctx, sis.Spec.NodeSelector)
+	nodeList, err := getNodeList(ctx, r.Client, sis.Spec.NodeSelector)
 	if err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to get Node list: %w", err)
 	}
@@ -106,23 +106,6 @@ func (r *ServiceInterfaceSetReconciler) reconcile(ctx context.Context, sis *sfcv
 	}
 
 	return ctrl.Result{}, nil
-}
-
-func (r *ServiceInterfaceSetReconciler) getNodeList(ctx context.Context, selector *metav1.LabelSelector) (*corev1.NodeList, error) {
-	nodeList := &corev1.NodeList{}
-	nodeSelector, err := metav1.LabelSelectorAsSelector(selector)
-	if err != nil {
-		return nil, err
-	}
-	listOptions := client.ListOptions{
-		LabelSelector: nodeSelector,
-	}
-
-	if err := r.List(ctx, nodeList, &listOptions); err != nil {
-		return nil, err
-	}
-
-	return nodeList, nil
 }
 
 func (r *ServiceInterfaceSetReconciler) getServiceInterfaceMap(ctx context.Context, sis *sfcv1.ServiceInterfaceSet) (map[string]*sfcv1.ServiceInterface, error) {
