@@ -20,11 +20,13 @@ import (
 	"bufio"
 	"context"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
+	dpucniprovisionertypes "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/types"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 
@@ -190,7 +192,7 @@ func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOp
 //nolint:unparam
 func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (ctrl.Result, error) {
 	// Ensure Custom OVN Kubernetes Deployment is done
-	if err := r.reconcileCustomOVNKubernetesDeployment(ctx); err != nil {
+	if err := r.reconcileCustomOVNKubernetesDeployment(ctx, dpfOperatorConfig); err != nil {
 		// TODO: In future we should tolerate this error, but only when we have status reporting.
 		return ctrl.Result{}, err
 	}
@@ -199,7 +201,7 @@ func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperator
 }
 
 // reconcileCustomOVNKubernetesDeployment ensures that custom OVN Kubernetes is deployed
-func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx context.Context) error {
+func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	// Phase 1
 	// - ensure cluster version operator is scaled down
 	// - ensure network operator is scaled down
@@ -214,7 +216,7 @@ func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx
 	// - ensure DPU CNI Provisioner is deployed
 	// - ensure Host CNI provisioner is deployed
 	// - ensure both provisioners are ready and have more than 1 pods
-	if err := r.cleanupClusterAndDeployCNIProvisioners(ctx); err != nil {
+	if err := r.cleanupClusterAndDeployCNIProvisioners(ctx, dpfOperatorConfig); err != nil {
 		return fmt.Errorf("error while cleaning cluster and deploying CNI provisioners: %w", err)
 	}
 
@@ -311,7 +313,7 @@ func (r *DPFOperatorConfigReconciler) scaleDownOVNKubernetesComponents(ctx conte
 
 // cleanupClusterAndDeployCNIProvisioners cleans up cluster level OVN Kubernetes leftovers, deploys CNI provisioners
 // that configure the hosts and the DPUs and returns no error when the system has been configured.
-func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx context.Context) error {
+func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	var errs []error
 	// Ensure no original OVN Kubernetes pods runs on worker
 	ovnKubernetesDaemonset := &appsv1.DaemonSet{}
@@ -357,9 +359,9 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	}
 
 	// Ensure DPU CNI Provisioner is deployed
-	dpuCNIProvisionerObjects, err := utils.BytesToUnstructured(dpuCNIProvisionerManifestContent)
+	dpuCNIProvisionerObjects, err := generateDPUCNIProvisionerObjects(dpfOperatorConfig)
 	if err != nil {
-		return fmt.Errorf("error while converting DPU CNI provisioner manifests to objects: %w", err)
+		return fmt.Errorf("error while generating DPU CNI provisioner objects: %w", err)
 	}
 	clusters, err := controlplane.GetDPFClusters(ctx, r.Client)
 	if err != nil {
@@ -768,4 +770,48 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap) (*co
 	out.Data[ovnKubernetesEntrypointConfigMapNameDataKey] = value
 
 	return out, kerrors.NewAggregate(errs)
+}
+
+// generateDPUCNIProvisionerObjects generates the DPU CNI Provisioner objects
+func generateDPUCNIProvisionerObjects(dpfOperatorConfig *operatorv1.DPFOperatorConfig) ([]*unstructured.Unstructured, error) {
+	dpuCNIProvisionerObjects, err := utils.BytesToUnstructured(dpuCNIProvisionerManifestContent)
+	if err != nil {
+		return nil, fmt.Errorf("error while converting manifests to objects: %w", err)
+	}
+
+	var adjustedConfigMap bool
+	for i, o := range dpuCNIProvisionerObjects {
+		if !(o.GetKind() == "ConfigMap" && o.GetName() == "dpu-cni-provisioner") {
+			continue
+		}
+
+		var configMap corev1.ConfigMap
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, &configMap)
+		if err != nil {
+			return nil, err
+		}
+
+		config := dpucniprovisionertypes.DPUCNIProvisionerConfig{
+			VTEPIPs: dpfOperatorConfig.Spec.HostNetworkConfiguration.DPUIPs,
+		}
+
+		data, err := json.Marshal(config)
+		if err != nil {
+			return nil, err
+		}
+
+		configMap.Data["config.yaml"] = string(data)
+		dpuCNIProvisionerObjects[i].Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(&configMap)
+		if err != nil {
+			return nil, err
+		}
+
+		adjustedConfigMap = true
+	}
+
+	if !adjustedConfigMap {
+		return nil, fmt.Errorf("couldn't find dpu-cni-provisioner configmap in objects")
+	}
+
+	return dpuCNIProvisionerObjects, err
 }

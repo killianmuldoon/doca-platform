@@ -24,6 +24,7 @@ import (
 	"time"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
+	dpucniprovisionertypes "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/types"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
@@ -62,12 +63,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 		It("should successfully reconcile the DPFOperatorConfig", func() {
 			By("Reconciling the created resource")
 
-			dpfOperatorConfig := &operatorv1.DPFOperatorConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "config",
-					Namespace: testNS.Name,
-				},
-			}
+			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
 			cleanupObjects = append(cleanupObjects, dpfOperatorConfig)
 
@@ -256,12 +252,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
 		})
 		It("should successfully deploy the custom OVN Kubernetes", func() {
-			dpfOperatorConfig := &operatorv1.DPFOperatorConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "config",
-					Namespace: testNS.Name,
-				},
-			}
+			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
 			cleanupObjects = append(cleanupObjects, dpfOperatorConfig)
 
@@ -385,12 +376,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			got.ManagedFields = nil
 			Expect(testClient.Status().Patch(ctx, got, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
-			dpfOperatorConfig := &operatorv1.DPFOperatorConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "config",
-					Namespace: testNS.Name,
-				},
-			}
+			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
 			cleanupObjects = append(cleanupObjects, dpfOperatorConfig)
 
@@ -418,12 +404,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			nodeWorker2.ManagedFields = nil
 			Expect(testClient.Patch(ctx, nodeWorker2, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
-			dpfOperatorConfig := &operatorv1.DPFOperatorConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "config",
-					Namespace: testNS.Name,
-				},
-			}
+			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
 			cleanupObjects = append(cleanupObjects, dpfOperatorConfig)
 
@@ -627,6 +608,85 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 				Expect(err).To(HaveOccurred())
 			})
 		})
+		Context("When checking generateDPUCNIProvisionerObjects()", func() {
+			It("should pass the DPFOperatorConfig settings to correct configmap", func() {
+				dpfOperatorConfig := getMinimalDPFOperatorConfig("")
+				dpfOperatorConfig.Spec.HostNetworkConfiguration.DPUIPs = map[string]string{
+					"dpu-node-1": "192.168.1.1/24",
+					"dpu-node-2": "192.168.1.2/24",
+				}
+
+				expectedDPUCNIProvisionerConfig := dpucniprovisionertypes.DPUCNIProvisionerConfig{
+					VTEPIPs: map[string]string{
+						"dpu-node-1": "192.168.1.1/24",
+						"dpu-node-2": "192.168.1.2/24",
+					},
+				}
+
+				objects, err := generateDPUCNIProvisionerObjects(dpfOperatorConfig)
+				Expect(err).ToNot(HaveOccurred())
+
+				rawObjects, err := utils.BytesToUnstructured(dpuCNIProvisionerManifestContent)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(objects).To(HaveLen(len(rawObjects)))
+
+				var found bool
+				for _, o := range objects {
+					if !(o.GetKind() == "ConfigMap" && o.GetName() == "dpu-cni-provisioner") {
+						continue
+					}
+					var configMap corev1.ConfigMap
+					err = runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, &configMap)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(configMap.Data).To(HaveKey("config.yaml"))
+
+					var outDPUCNIProvisionerConfig dpucniprovisionertypes.DPUCNIProvisionerConfig
+					Expect(json.Unmarshal([]byte(configMap.Data["config.yaml"]), &outDPUCNIProvisionerConfig)).To(Succeed())
+					Expect(outDPUCNIProvisionerConfig).To(BeComparableTo(expectedDPUCNIProvisionerConfig))
+					found = true
+				}
+				Expect(found).To(BeTrue())
+			})
+			It("should error out when configmap is not found", func() {
+				By("Copying the dpuCNIProvisionerManifestContent global variable")
+				var dpuCNIProvisionerManifestContentCopy []byte
+				copy(dpuCNIProvisionerManifestContentCopy, dpuCNIProvisionerManifestContent)
+
+				dpfOperatorConfig := getMinimalDPFOperatorConfig("")
+
+				dpuCNIProvisionerManifestContent = []byte(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+        `)
+
+				By("Running the test against the mocked environment")
+				_, err := generateDPUCNIProvisionerObjects(dpfOperatorConfig)
+				Expect(err).To(HaveOccurred())
+
+				By("Reverting dpuCNIProvisionerManifestContent global variable to the original value")
+				copy(dpuCNIProvisionerManifestContent, dpuCNIProvisionerManifestContentCopy)
+			})
+		})
 	})
 })
 
@@ -742,4 +802,21 @@ func getFakeKamajiClusterSecretFromEnvtest(cluster controlplane.DPFCluster) *cor
 			"admin.conf": confData,
 		},
 	}
+}
+
+// getMinimalDPFOperatorConfig returns a minimal DPFOperatorConfig
+func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig {
+	return &operatorv1.DPFOperatorConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "config",
+			Namespace: namespace,
+		},
+		Spec: operatorv1.DPFOperatorConfigSpec{
+			HostNetworkConfiguration: operatorv1.HostNetworkConfiguration{
+				DPUIPs:  make(map[string]string),
+				HostIPs: make(map[string]string),
+			},
+		},
+	}
+
 }
