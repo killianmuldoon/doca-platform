@@ -349,10 +349,13 @@ func (in *ServiceInterfaceSetSpec) DeepCopyInto(out *ServiceInterfaceSetSpec) {
 		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.TemplateSpec != nil {
-		in, out := &in.TemplateSpec, &out.TemplateSpec
-		*out = new(ServiceInterfaceSpec)
-		(*in).DeepCopyInto(*out)
+	in.TemplateSpec.DeepCopyInto(&out.TemplateSpec)
+	if in.Labels != nil {
+		in, out := &in.Labels, &out.Labels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
 	}
 }
 
@@ -398,13 +401,6 @@ func (in *ServiceInterfaceSpec) DeepCopyInto(out *ServiceInterfaceSpec) {
 		in, out := &in.PF, &out.PF
 		*out = new(PF)
 		**out = **in
-	}
-	if in.Labels != nil {
-		in, out := &in.Labels, &out.Labels
-		*out = make(map[string]string, len(*in))
-		for key, val := range *in {
-			(*out)[key] = val
-		}
 	}
 }
 

@@ -14,7 +14,17 @@ spec:
     singular: serviceinterfaceset
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.templateSpec.interfaceType
+      name: IfType
+      type: string
+    - jsonPath: .spec.templateSpec.interfaceName
+      name: IfName
+      type: string
+    - jsonPath: .spec.templateSpec.bridgeName
+      name: Bridge
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ServiceInterfaceSet is the Schema for the serviceinterfacesets
@@ -40,6 +50,11 @@ spec:
           spec:
             description: ServiceInterfaceSetSpec defines the desired state of ServiceInterfaceSet
             properties:
+              labels:
+                additionalProperties:
+                  type: string
+                description: Labels to be added on created ServiceInterface CRs
+                type: object
               nodeSelector:
                 description: Select the Nodes with specific labels, ServiceInterface
                   CRs will be created only for these Nodes
@@ -102,21 +117,16 @@ spec:
                     - pf
                     - vf
                     type: string
-                  labels:
-                    additionalProperties:
-                      type: string
-                    description: Labels to be added on created ServiceInterface CRs
-                    type: object
                   node:
                     description: Node where this interface exists
                     type: string
                   pf:
                     description: The PF definition
                     properties:
-                      pfId:
+                      pfID:
                         type: integer
                     required:
-                    - pfId
+                    - pfID
                     type: object
                   vf:
                     description: The VF definition
@@ -147,8 +157,9 @@ spec:
                 - bridgeName
                 - interfaceName
                 - interfaceType
-                - node
                 type: object
+            required:
+            - templateSpec
             type: object
           status:
             description: ServiceInterfaceSetStatus defines the observed state of ServiceInterfaceSet

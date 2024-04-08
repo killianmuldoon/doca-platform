@@ -104,6 +104,13 @@ var _ = BeforeSuite(func() {
 	err = reconciler.SetupWithManager(testManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	sisr := &ServiceInterfaceSetReconciler{
+		Client: testClient,
+		Scheme: testManager.GetScheme(),
+	}
+	err = sisr.SetupWithManager(testManager)
+	Expect(err).ToNot(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = testManager.Start(ctx)
