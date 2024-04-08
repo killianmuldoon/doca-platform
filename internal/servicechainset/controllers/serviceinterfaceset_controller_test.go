@@ -43,7 +43,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 
 		BeforeEach(func() {
 			By("creating the custom resource for the Kind ServiceInterfaceSet")
-			err := k8sClient.Get(ctx, typeNamespacedName, serviceinterfaceset)
+			err := testClient.Get(ctx, typeNamespacedName, serviceinterfaceset)
 			if err != nil && apierrors.IsNotFound(err) {
 				resource := &sfcv1.ServiceInterfaceSet{
 					ObjectMeta: metav1.ObjectMeta{
@@ -52,24 +52,24 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 					},
 					// TODO(user): Specify other spec details if needed.
 				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				Expect(testClient.Create(ctx, resource)).To(Succeed())
 			}
 		})
 
 		AfterEach(func() {
 			// TODO(user): Cleanup logic after each test, like removing the resource instance.
 			resource := &sfcv1.ServiceInterfaceSet{}
-			err := k8sClient.Get(ctx, typeNamespacedName, resource)
+			err := testClient.Get(ctx, typeNamespacedName, resource)
 			Expect(err).NotTo(HaveOccurred())
 
 			By("Cleanup the specific resource instance ServiceInterfaceSet")
-			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
+			Expect(testClient.Delete(ctx, resource)).To(Succeed())
 		})
 		It("should successfully reconcile the resource", func() {
 			By("Reconciling the created resource")
 			controllerReconciler := &ServiceInterfaceSetReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
+				Client: testClient,
+				Scheme: testClient.Scheme(),
 			}
 
 			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{

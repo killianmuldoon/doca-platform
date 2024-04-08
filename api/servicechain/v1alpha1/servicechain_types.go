@@ -20,16 +20,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // ServiceChainSpec defines the desired state of ServiceChain
 type ServiceChainSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
-
-	// Foo is an example field of ServiceChain. Edit servicechain_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Node where this ServiceChain applies to
+	Node string `json:"node"`
 }
 
 // ServiceChainStatus defines the observed state of ServiceChain
