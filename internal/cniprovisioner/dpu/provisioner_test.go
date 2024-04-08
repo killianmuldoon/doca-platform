@@ -62,7 +62,9 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovsClient := ovsclientMock.NewMockOVSClient(testCtrl)
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
 			fakeExec := &kexecTesting.FakeExec{}
-			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec)
+			vtepIPNet, err := netlink.ParseIPNet("192.168.1.1/24")
+			Expect(err).ToNot(HaveOccurred())
+			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, vtepIPNet)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -125,8 +127,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			networkhelper.EXPECT().GetPFRepMACAddress("pf0hpf").Return(mac, nil)
 			ovsClient.EXPECT().SetBridgeMAC("ens2f0np0", mac)
 
-			ipNet, _ := netlink.ParseIPNet("192.168.1.1/24")
-			networkhelper.EXPECT().SetLinkIPAddress("vtep0", ipNet)
+			networkhelper.EXPECT().SetLinkIPAddress("vtep0", vtepIPNet)
 			networkhelper.EXPECT().SetLinkUp("vtep0")
 
 			networkhelper.EXPECT().SetLinkDown("pf0vf0")
@@ -147,7 +148,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovsClient := ovsclientMock.NewMockOVSClient(testCtrl)
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
 			fakeExec := &kexecTesting.FakeExec{}
-			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec)
+			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, nil)
 
 			ovsClient.EXPECT().BridgeExists("br-int").Return(true, nil)
 			ovsClient.EXPECT().BridgeExists("ens2f0np0").Return(true, nil)
