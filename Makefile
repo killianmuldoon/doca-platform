@@ -394,9 +394,10 @@ binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
 binary-hostcniprovisioner: ## Build the Host CNI Provisioner binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/hostcniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/hostcniprovisioner
 
+DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes
+
 .PHONY: docker-build-all
-docker-build-all: ## Build docker images for all BUILD_TARGETS
-	$(MAKE) $(addprefix docker-build-,$(BUILD_TARGETS))
+docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS
 
 OVS_BASE_IMAGE_NAME = base-image-ovs
 OVS_BASE_IMAGE = $(REGISTRY)/$(OVS_BASE_IMAGE_NAME)
@@ -499,7 +500,7 @@ docker-build-ovnkubernetes: $(OVNKUBERNETES_DIR) $(OVN_DIR) ## Builds the custom
 		-t $(OVNKUBERNETES_IMAGE):$(TAG)
 
 .PHONY: docker-push-all
-docker-push-all: $(addprefix docker-push-,$(BUILD_TARGETS))  ## Push the docker images for all controllers.
+docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the docker images for all controllers.
 
 .PHONY: docker-push-sfcset
 docker-push-sfcset: ## Push the docker image for sfcset.
