@@ -357,6 +357,14 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 
 	for i := range nodes.Items {
 		if _, ok := nodes.Items[i].Annotations[ovnKubernetesNodeChassisIDAnnotation]; ok {
+			// First we patch to take ownership of the annotation
+			nodes.Items[i].Annotations[ovnKubernetesNodeChassisIDAnnotation] = "taking-annotation-ownership"
+			nodes.Items[i].SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
+			nodes.Items[i].ObjectMeta.ManagedFields = nil
+			if err := r.Client.Patch(ctx, &nodes.Items[i], client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", nodes.Items[i].GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&nodes.Items[i]).String(), err))
+			}
+			// Then we patch to remove the annotation
 			delete(nodes.Items[i].Annotations, ovnKubernetesNodeChassisIDAnnotation)
 			nodes.Items[i].SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
 			nodes.Items[i].ObjectMeta.ManagedFields = nil
