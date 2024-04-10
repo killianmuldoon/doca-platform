@@ -429,7 +429,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should generate correct object when all expected fields are there", func() {
-				out, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset)
+				out, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "some-image")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(out.Name).To(Equal("ovnkube-node-dpf"))
@@ -466,33 +466,36 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 
 				containers := out.Spec.Template.Spec.Containers
 				Expect(containers).To(ContainElement(HaveField("Name", "ovnkube-controller")))
+				Expect(containers).To(ContainElement(HaveField("Name", "ovn-controller")))
 				for _, c := range containers {
-					if c.Name != "ovnkube-controller" {
-						continue
-					}
-					Expect(c.VolumeMounts).To(ContainElement(corev1.VolumeMount{
-						Name:      "fake-sys",
-						MountPath: "/var/dpf/sys",
-					}))
+					if c.Name == "ovnkube-controller" {
+						Expect(c.VolumeMounts).To(ContainElement(corev1.VolumeMount{
+							Name:      "fake-sys",
+							MountPath: "/var/dpf/sys",
+						}))
 
-					Expect(c.Env).To(ContainElement(corev1.EnvVar{
-						Name:  "OVNKUBE_NODE_MGMT_PORT_NETDEV",
-						Value: "enp23s0f0v0",
-					}))
-					break
+						Expect(c.Env).To(ContainElement(corev1.EnvVar{
+							Name:  "OVNKUBE_NODE_MGMT_PORT_NETDEV",
+							Value: "enp23s0f0v0",
+						}))
+						Expect(c.Image).To(Equal("some-image"))
+					}
+					if c.Name == "ovn-controller" {
+						Expect(c.Image).To(Equal("some-image"))
+					}
 				}
 			})
 			It("should error out when label app in selector is not found", func() {
 				originalDaemonset.Spec.Selector.MatchLabels = nil
-				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset)
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "")
 				Expect(err).To(HaveOccurred())
 			})
 			It("should error out when label app in pod template is not found", func() {
 				originalDaemonset.Spec.Template.Labels = nil
-				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset)
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "")
 				Expect(err).To(HaveOccurred())
 			})
-			It("should error out when relevant container is not found", func() {
+			It("should error out when OVN Kube Controller container is not found", func() {
 				for i, c := range originalDaemonset.Spec.Template.Spec.Containers {
 					if c.Name != "ovnkube-controller" {
 						continue
@@ -500,7 +503,18 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 					originalDaemonset.Spec.Template.Spec.Containers[i].Name = "other-ovnkube-controller"
 					break
 				}
-				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset)
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "")
+				Expect(err).To(HaveOccurred())
+			})
+			It("should error out when OVN Controller container is not found", func() {
+				for i, c := range originalDaemonset.Spec.Template.Spec.Containers {
+					if c.Name != "ovn-controller" {
+						continue
+					}
+					originalDaemonset.Spec.Template.Spec.Containers[i].Name = "other-ovnkube-controller"
+					break
+				}
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "")
 				Expect(err).To(HaveOccurred())
 			})
 			It("should error out when volume related to configmap ovnkube-config is not found", func() {
@@ -511,7 +525,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 					originalDaemonset.Spec.Template.Spec.Volumes[i].Name = "other-ovnkube-config"
 					break
 				}
-				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset)
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "")
 				Expect(err).To(HaveOccurred())
 			})
 			It("should error out when volume related to configmap ovnkube-script-lib is not found", func() {
@@ -522,7 +536,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 					originalDaemonset.Spec.Template.Spec.Volumes[i].Name = "other-ovnkube-script-lib"
 					break
 				}
-				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset)
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "")
 				Expect(err).To(HaveOccurred())
 			})
 		})

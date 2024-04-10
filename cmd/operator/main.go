@@ -18,6 +18,7 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
 	"flag"
 	"os"
 
@@ -37,6 +38,11 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+
+	// defaultOVNKubernetesImage is the default custom OVN Kubernetes image deployed by the operator. This value is
+	// injected via ldflags when building the binary. Be mindful about changing this value below as there is a test
+	// in runtime to catch a potential bad build.
+	defaultCustomOVNKubernetesImage = ""
 )
 
 func init() {
@@ -52,6 +58,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var customOVNKubernetesImage string
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -61,6 +68,8 @@ func main() {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.StringVar(&customOVNKubernetesImage, "ovn-kubernetes-image", defaultCustomOVNKubernetesImage,
+		"The custom OVN Kubernetes image deployed by the operator")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -68,6 +77,16 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+	// TODO: Include that in a function with the rest of the flag validations
+	if customOVNKubernetesImage == "" {
+		if defaultCustomOVNKubernetesImage == "" {
+			setupLog.Error(errors.New("wrong build detected, ensure that the defaultCustomOVNKubernetesImage variable is set via ldflags when building the binary"), "")
+			os.Exit(1)
+		}
+		setupLog.Error(errors.New("flag ovn-kubernetes-image can't be empty"), "")
+		os.Exit(1)
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -117,9 +136,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	settings := &operatorcontroller.DPFOperatorConfigReconcilerSettings{
+		CustomOVNKubernetesImage: customOVNKubernetesImage,
+	}
+
 	if err = (&operatorcontroller.DPFOperatorConfigReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Settings: settings,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPFOperatorConfig")
 		os.Exit(1)
