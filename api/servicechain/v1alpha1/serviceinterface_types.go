@@ -24,7 +24,7 @@ import (
 type ServiceInterfaceSpec struct {
 
 	// Node where this interface exists
-	Node string `json:"node"`
+	Node string `json:"node,omitempty"`
 	// +kubebuilder:validation:Enum={"vlan", "physical", "pf", "vf"}
 	// The interface type ("vlan", "physical", "pf", "vf")
 	InterfaceType string `json:"interfaceType"`
@@ -38,8 +38,6 @@ type ServiceInterfaceSpec struct {
 	VF *VF `json:"vf,omitempty"`
 	// The PF definition
 	PF *PF `json:"pf,omitempty"`
-	// Labels to be added on created ServiceInterface CRs
-	Labels map[string]string `json:"labels,omitempty"`
 }
 
 type VLAN struct {
@@ -54,7 +52,7 @@ type VF struct {
 }
 
 type PF struct {
-	PFID int `json:"pfId"`
+	PFID int `json:"pfID"`
 }
 
 // ServiceInterfaceStatus defines the observed state of ServiceInterface
@@ -65,6 +63,9 @@ type ServiceInterfaceStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="IfType",type=string,JSONPath=`.spec.interfaceType`
+//+kubebuilder:printcolumn:name="IfName",type=string,JSONPath=`.spec.interfaceName`
+//+kubebuilder:printcolumn:name="Bridge",type=string,JSONPath=`.spec.bridgeName`
 
 // ServiceInterface is the Schema for the serviceinterfaces API
 type ServiceInterface struct {

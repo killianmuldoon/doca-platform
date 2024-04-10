@@ -35,6 +35,7 @@ const (
 	defaultNS    = "default"
 )
 
+//nolint:dupl
 var _ = Describe("ServiceChainSet Controller", func() {
 	Context("When reconciling a resource", func() {
 		var cleanupObjects []client.Object

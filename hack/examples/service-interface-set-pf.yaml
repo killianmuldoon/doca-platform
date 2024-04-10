@@ -1,0 +1,17 @@
+apiVersion: "sfc.dpf.nvidia.com/v1alpha1"
+kind: ServiceInterfaceSet
+metadata:
+  name: svc-ifc-set-pf
+  namespace: default
+spec:
+  labels:
+    uplink: "port0"
+  nodeSelector:
+    matchLabels:
+      role: "firewall"
+  templateSpec:
+    interfaceType: pf
+    interfaceName: enp33s0f0np0
+    bridgeName: br-sfc
+    pf:
+      pfID: 0

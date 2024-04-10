@@ -14,7 +14,17 @@ spec:
     singular: serviceinterface
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.interfaceType
+      name: IfType
+      type: string
+    - jsonPath: .spec.interfaceName
+      name: IfName
+      type: string
+    - jsonPath: .spec.bridgeName
+      name: Bridge
+      type: string
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: ServiceInterface is the Schema for the serviceinterfaces API
@@ -53,21 +63,16 @@ spec:
                 - pf
                 - vf
                 type: string
-              labels:
-                additionalProperties:
-                  type: string
-                description: Labels to be added on created ServiceInterface CRs
-                type: object
               node:
                 description: Node where this interface exists
                 type: string
               pf:
                 description: The PF definition
                 properties:
-                  pfId:
+                  pfID:
                     type: integer
                 required:
-                - pfId
+                - pfID
                 type: object
               vf:
                 description: The VF definition
@@ -98,7 +103,6 @@ spec:
             - bridgeName
             - interfaceName
             - interfaceType
-            - node
             type: object
           status:
             description: ServiceInterfaceStatus defines the observed state of ServiceInterface

@@ -24,7 +24,9 @@ import (
 type ServiceInterfaceSetSpec struct {
 	// Select the Nodes with specific labels, ServiceInterface CRs will be created only for these Nodes
 	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
-	TemplateSpec *ServiceInterfaceSpec `json:"templateSpec,omitempty"`
+	TemplateSpec ServiceInterfaceSpec  `json:"templateSpec"`
+	// Labels to be added on created ServiceInterface CRs
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // ServiceInterfaceSetStatus defines the observed state of ServiceInterfaceSet
@@ -35,6 +37,9 @@ type ServiceInterfaceSetStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:printcolumn:name="IfType",type=string,JSONPath=`.spec.templateSpec.interfaceType`
+//+kubebuilder:printcolumn:name="IfName",type=string,JSONPath=`.spec.templateSpec.interfaceName`
+//+kubebuilder:printcolumn:name="Bridge",type=string,JSONPath=`.spec.templateSpec.bridgeName`
 
 // ServiceInterfaceSet is the Schema for the serviceinterfacesets API
 type ServiceInterfaceSet struct {
