@@ -9,7 +9,7 @@ profiles:
       local:
         useBuildkit: true
       artifacts:
-        - image: nvidia/dpuservice-controller
+        - image: nvidia.com/dpuservice-controller-manager
           runtimeType: go
           docker:
             buildArgs:
@@ -37,7 +37,7 @@ profiles:
       local:
         useBuildkit: true
       artifacts:
-        - image: nvidia/operator-controller
+        - image: nvidia.com/operator-controller-manager
           runtimeType: go
           docker:
             buildArgs:
