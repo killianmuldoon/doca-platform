@@ -18,6 +18,7 @@ package dpucniprovisioner
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +26,6 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
 
-	"github.com/vishvananda/netlink"
 	"k8s.io/klog/v2"
 	kexec "k8s.io/utils/exec"
 )
@@ -51,15 +51,19 @@ type DPUCNIProvisioner struct {
 	// FileSystemRoot controls the file system root. It's used for enabling easier testing of the package. Defaults to
 	// empty.
 	FileSystemRoot string
+
+	// vtepIPNet is the IP that should be added to the VTEP interface.
+	vtepIPNet *net.IPNet
 }
 
 // New creates a DPUCNIProvisioner that can configure the system
-func New(ovsClient ovsclient.OVSClient, networkHelper networkhelper.NetworkHelper, exec kexec.Interface) *DPUCNIProvisioner {
+func New(ovsClient ovsclient.OVSClient, networkHelper networkhelper.NetworkHelper, exec kexec.Interface, vtepIPNet *net.IPNet) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
 		ovsClient:      ovsClient,
 		networkHelper:  networkHelper,
 		exec:           exec,
 		FileSystemRoot: "",
+		vtepIPNet:      vtepIPNet,
 	}
 }
 
@@ -213,12 +217,7 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 		return err
 	}
 
-	// TODO: Still undecided on how we get that IP. Adjust as needed after decision is made.
-	ipNet, err := netlink.ParseIPNet("192.168.1.1/24")
-	if err != nil {
-		return err
-	}
-	err = p.networkHelper.SetLinkIPAddress(vtep, ipNet)
+	err = p.networkHelper.SetLinkIPAddress(vtep, p.vtepIPNet)
 	if err != nil {
 		return fmt.Errorf("error while setting VTEP IP: %w", err)
 	}
@@ -227,7 +226,7 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 		return fmt.Errorf("error while setting link %s up: %w", vtep, err)
 	}
 
-	err = p.ovsClient.SetOVNEncapIP(ipNet.IP)
+	err = p.ovsClient.SetOVNEncapIP(p.vtepIPNet.IP)
 	if err != nil {
 		return err
 	}

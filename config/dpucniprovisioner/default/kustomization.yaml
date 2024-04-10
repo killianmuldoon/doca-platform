@@ -3,6 +3,7 @@ kind: Kustomization
 namespace: dpf-operator-system
 resources:
 - daemonset.yaml
+- configmap.yaml
 images:
 - name: controller
   newName: nvidia.com/dpu-cni-provisioner

@@ -36,6 +36,10 @@ spec:
         # restart
         - name: SYSTEMCTL_FORCE_BUS
           value: "1"
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         volumeMounts:
         - name: ovs
           mountPath: /var/run/openvswitch/
@@ -49,6 +53,8 @@ spec:
         # restart
         - name: systemd-dbus
           mountPath: /var/run/dbus/system_bus_socket
+        - name: config
+          mountPath: /etc/dpucniprovisioner
       volumes:
       - name: ovs
         hostPath:
@@ -62,3 +68,6 @@ spec:
       - name: systemd-dbus
         hostPath:
           path: /var/run/dbus/system_bus_socket
+      - name: config
+        configMap:
+          name: dpu-cni-provisioner

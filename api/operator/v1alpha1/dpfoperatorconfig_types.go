@@ -26,16 +26,21 @@ var (
 	DPFOperatorConfigNamespaceLabelKey = "dpf.nvidia.com/dpfoperatorconfig-namespace"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // DPFOperatorConfigSpec defines the desired state of DPFOperatorConfig
 type DPFOperatorConfigSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	HostNetworkConfiguration HostNetworkConfiguration `json:"hostNetworkConfiguration"`
+}
 
-	// Foo is an example field of DPFOperatorConfig. Edit dpfoperatorconfig_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+// HostNetworkConfiguration holds network related configuration required to create a functional host network.
+type HostNetworkConfiguration struct {
+	// HostIPs represents the IPs that will be assigned to the PF Representor on each Host. Key is the Node name on the
+	// Host cluster.
+	// TODO: Add validator in validating webhook to ensure string is actually net.IPNet
+	HostIPs map[string]string `json:"hostIPs"`
+	// DPUIPs represents the IPs that will be assigned to the VTEP interface on each DPU. Key is the Node name of a DPU
+	// in the DPU cluster
+	// TODO: Add validator in validating webhook to ensure string is actually net.IPNet
+	DPUIPs map[string]string `json:"dpuIPs"`
 }
 
 // DPFOperatorConfigStatus defines the observed state of DPFOperatorConfig

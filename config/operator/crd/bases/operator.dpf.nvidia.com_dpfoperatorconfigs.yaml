@@ -39,10 +39,32 @@ spec:
           spec:
             description: DPFOperatorConfigSpec defines the desired state of DPFOperatorConfig
             properties:
-              foo:
-                description: Foo is an example field of DPFOperatorConfig. Edit dpfoperatorconfig_types.go
-                  to remove/update
-                type: string
+              hostNetworkConfiguration:
+                description: HostNetworkConfiguration holds network related configuration
+                  required to create a functional host network.
+                properties:
+                  dpuIPs:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      DPUIPs represents the IPs that will be assigned to the VTEP interface on each DPU. Key is the Node name of a DPU
+                      in the DPU cluster
+                      TODO: Add validator in validating webhook to ensure string is actually net.IPNet
+                    type: object
+                  hostIPs:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      HostIPs represents the IPs that will be assigned to the PF Representor on each Host. Key is the Node name on the
+                      Host cluster.
+                      TODO: Add validator in validating webhook to ensure string is actually net.IPNet
+                    type: object
+                required:
+                - dpuIPs
+                - hostIPs
+                type: object
+            required:
+            - hostNetworkConfiguration
             type: object
           status:
             description: DPFOperatorConfigStatus defines the observed state of DPFOperatorConfig
