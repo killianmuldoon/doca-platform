@@ -1,0 +1,50 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: ""
+    capabilities: Basic Install
+    description: Deploy and manage DOCA Platform Foundations in a Kubernetes cluster
+    operatorframework.io/suggested-namespace: dpf-operator
+    provider: NVIDIA
+    support: NVIDIA
+  name: dpf-operator.v0.0.0
+  namespace: placeholder
+spec:
+  minKubeVersion: v1
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+      - kind: DPFOperatorConfig
+        name: dpfoperatorconfigs.operator.dpf.nvidia.com
+        version: v1alpha1
+        ## TODO: Add more CRDs here as we add items to the operator.
+  description: |
+    ## DPF Operator
+    
+    DPF Operator installs and manages a DOCA Platform Foundation system for provisioning
+  displayName: DPF Operator
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+    - supported: true
+      type: OwnNamespace
+    - supported: true
+      type: SingleNamespace
+    - supported: false
+      type: MultiNamespace
+    - supported: false
+      type: AllNamespaces
+  keywords:
+    - dpf
+    - dpu
+  maintainers:
+    # TODO: Should be updated.
+    - email: nvidia-network-operator-support@nvidia.com
+      name: NVIDIA
+  maturity: alpha
+  provider:
+    name: NVIDIA
+  version: 0.0.0

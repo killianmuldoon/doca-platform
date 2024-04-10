@@ -1,0 +1,17 @@
+# Adds namespace to all resources.
+namespace: dpf-operator
+
+# Value of this field is prepended to the
+# names of all resources, e.g. a deployment named
+# "wordpress" becomes "alices-wordpress".
+# Note that it should also match with the prefix (text before '-') of the namespace
+# field above.
+namePrefix: dpf-operator-
+
+resources:
+  - resources/dpf-operator.clusterserviceversion.yaml
+  - ../operator/crd
+  - ../operator/samples
+## TODO: Add more CRDs here as we add controller deployments.
+  - ../operator/rbac
+  - ../operator/manager
