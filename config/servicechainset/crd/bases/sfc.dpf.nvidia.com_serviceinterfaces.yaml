@@ -69,10 +69,10 @@ spec:
               pf:
                 description: The PF definition
                 properties:
-                  pfID:
+                  ID:
                     type: integer
                 required:
-                - pfID
+                - ID
                 type: object
               vf:
                 description: The VF definition

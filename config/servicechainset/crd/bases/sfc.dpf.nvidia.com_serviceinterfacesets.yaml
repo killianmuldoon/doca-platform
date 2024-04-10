@@ -15,13 +15,13 @@ spec:
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
-    - jsonPath: .spec.templateSpec.interfaceType
+    - jsonPath: .spec.template.spec.interfaceType
       name: IfType
       type: string
-    - jsonPath: .spec.templateSpec.interfaceName
+    - jsonPath: .spec.template.spec.interfaceName
       name: IfName
       type: string
-    - jsonPath: .spec.templateSpec.bridgeName
+    - jsonPath: .spec.template.spec.bridgeName
       name: Bridge
       type: string
     name: v1alpha1
@@ -50,11 +50,6 @@ spec:
           spec:
             description: ServiceInterfaceSetSpec defines the desired state of ServiceInterfaceSet
             properties:
-              labels:
-                additionalProperties:
-                  type: string
-                description: Labels to be added on created ServiceInterface CRs
-                type: object
               nodeSelector:
                 description: Select the Nodes with specific labels, ServiceInterface
                   CRs will be created only for these Nodes
@@ -100,66 +95,92 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-map-type: atomic
-              templateSpec:
-                description: ServiceInterfaceSpec defines the desired state of ServiceInterface
+              template:
                 properties:
-                  bridgeName:
-                    description: The bridge name
-                    type: string
-                  interfaceName:
-                    description: The interface name
-                    type: string
-                  interfaceType:
-                    description: The interface type ("vlan", "physical", "pf", "vf")
-                    enum:
-                    - vlan
-                    - physical
-                    - pf
-                    - vf
-                    type: string
-                  node:
-                    description: Node where this interface exists
-                    type: string
-                  pf:
-                    description: The PF definition
+                  metadata:
                     properties:
-                      pfID:
-                        type: integer
-                    required:
-                    - pfID
-                    type: object
-                  vf:
-                    description: The VF definition
-                    properties:
-                      parentInterfaceRef:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      finalizers:
+                        items:
+                          type: string
+                        type: array
+                      labels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                      name:
                         type: string
-                      pfID:
-                        type: integer
-                      vfID:
-                        type: integer
-                    required:
-                    - parentInterfaceRef
-                    - pfID
-                    - vfID
-                    type: object
-                  vlan:
-                    description: The VLAN definition
-                    properties:
-                      parentInterfaceRef:
+                      namespace:
                         type: string
-                      vlanID:
-                        type: integer
+                    type: object
+                  spec:
+                    description: ServiceInterfaceSpec defines the desired state of
+                      ServiceInterface
+                    properties:
+                      bridgeName:
+                        description: The bridge name
+                        type: string
+                      interfaceName:
+                        description: The interface name
+                        type: string
+                      interfaceType:
+                        description: The interface type ("vlan", "physical", "pf",
+                          "vf")
+                        enum:
+                        - vlan
+                        - physical
+                        - pf
+                        - vf
+                        type: string
+                      node:
+                        description: Node where this interface exists
+                        type: string
+                      pf:
+                        description: The PF definition
+                        properties:
+                          ID:
+                            type: integer
+                        required:
+                        - ID
+                        type: object
+                      vf:
+                        description: The VF definition
+                        properties:
+                          parentInterfaceRef:
+                            type: string
+                          pfID:
+                            type: integer
+                          vfID:
+                            type: integer
+                        required:
+                        - parentInterfaceRef
+                        - pfID
+                        - vfID
+                        type: object
+                      vlan:
+                        description: The VLAN definition
+                        properties:
+                          parentInterfaceRef:
+                            type: string
+                          vlanID:
+                            type: integer
+                        required:
+                        - parentInterfaceRef
+                        - vlanID
+                        type: object
                     required:
-                    - parentInterfaceRef
-                    - vlanID
+                    - bridgeName
+                    - interfaceName
+                    - interfaceType
                     type: object
                 required:
-                - bridgeName
-                - interfaceName
-                - interfaceType
+                - spec
                 type: object
             required:
-            - templateSpec
+            - template
             type: object
           status:
             description: ServiceInterfaceSetStatus defines the observed state of ServiceInterfaceSet

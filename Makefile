@@ -264,7 +264,7 @@ generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. fo
 	paths="./cmd/servicechainset/..." \
 	paths="./internal/servicechainset/..." \
 	paths="./api/servicechain/..." \
-	crd:crdVersions=v1 \
+	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
 	rbac:roleName=manager-role \
 	output:crd:dir=./config/servicechainset/crd/bases \
 	output:rbac:dir=./config/servicechainset/rbac

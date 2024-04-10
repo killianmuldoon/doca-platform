@@ -71,6 +71,10 @@ func (r *ServiceInterfaceSetReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 		return ctrl.Result{}, err
 	}
+	if !sis.ObjectMeta.DeletionTimestamp.IsZero() {
+		// Return early, the object is deleting.
+		return ctrl.Result{}, nil
+	}
 	return r.reconcile(ctx, sis)
 }
 
@@ -142,7 +146,7 @@ func (r *ServiceInterfaceSetReconciler) createOrUpdateServiceInterface(ctx conte
 	log := log.FromContext(ctx)
 	labels := map[string]string{ServiceInterfaceSetNameLabel: serviceInterfaceSet.Name,
 		ServiceInterfaceSetNamespaceLabel: serviceInterfaceSet.Namespace}
-	maps.Copy(labels, serviceInterfaceSet.Spec.Labels)
+	maps.Copy(labels, serviceInterfaceSet.Spec.Template.ObjectMeta.Labels)
 	scName := serviceInterfaceSet.Name + "-" + nodeName
 	owner := metav1.NewControllerRef(serviceInterfaceSet, sfcv1.GroupVersion.WithKind("ServiceInterfaceSet"))
 
@@ -156,27 +160,27 @@ func (r *ServiceInterfaceSetReconciler) createOrUpdateServiceInterface(ctx conte
 		},
 		Spec: sfcv1.ServiceInterfaceSpec{
 			Node:          nodeName,
-			InterfaceType: serviceInterfaceSet.Spec.TemplateSpec.InterfaceType,
-			InterfaceName: serviceInterfaceSet.Spec.TemplateSpec.InterfaceName,
-			BridgeName:    serviceInterfaceSet.Spec.TemplateSpec.BridgeName,
+			InterfaceType: serviceInterfaceSet.Spec.Template.Spec.InterfaceType,
+			InterfaceName: serviceInterfaceSet.Spec.Template.Spec.InterfaceName,
+			BridgeName:    serviceInterfaceSet.Spec.Template.Spec.BridgeName,
 		},
 	}
-	if serviceInterfaceSet.Spec.TemplateSpec.Vlan != nil {
+	if serviceInterfaceSet.Spec.Template.Spec.Vlan != nil {
 		sc.Spec.Vlan = &sfcv1.VLAN{
-			VlanID:             serviceInterfaceSet.Spec.TemplateSpec.Vlan.VlanID,
-			ParentInterfaceRef: serviceInterfaceSet.Spec.TemplateSpec.Vlan.ParentInterfaceRef + "-" + nodeName,
+			VlanID:             serviceInterfaceSet.Spec.Template.Spec.Vlan.VlanID,
+			ParentInterfaceRef: serviceInterfaceSet.Spec.Template.Spec.Vlan.ParentInterfaceRef + "-" + nodeName,
 		}
 	}
-	if serviceInterfaceSet.Spec.TemplateSpec.VF != nil {
+	if serviceInterfaceSet.Spec.Template.Spec.VF != nil {
 		sc.Spec.VF = &sfcv1.VF{
-			VFID:               serviceInterfaceSet.Spec.TemplateSpec.VF.VFID,
-			PFID:               serviceInterfaceSet.Spec.TemplateSpec.VF.PFID,
-			ParentInterfaceRef: serviceInterfaceSet.Spec.TemplateSpec.VF.ParentInterfaceRef + "-" + nodeName,
+			VFID:               serviceInterfaceSet.Spec.Template.Spec.VF.VFID,
+			PFID:               serviceInterfaceSet.Spec.Template.Spec.VF.PFID,
+			ParentInterfaceRef: serviceInterfaceSet.Spec.Template.Spec.VF.ParentInterfaceRef + "-" + nodeName,
 		}
 	}
-	if serviceInterfaceSet.Spec.TemplateSpec.PF != nil {
+	if serviceInterfaceSet.Spec.Template.Spec.PF != nil {
 		sc.Spec.PF = &sfcv1.PF{
-			PFID: serviceInterfaceSet.Spec.TemplateSpec.PF.PFID,
+			ID: serviceInterfaceSet.Spec.Template.Spec.PF.ID,
 		}
 	}
 	sc.ObjectMeta.ManagedFields = nil

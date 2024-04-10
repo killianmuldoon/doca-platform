@@ -143,10 +143,10 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 					ParentInterfaceRef: "p10",
 				},
 				PF: &sfcv1.PF{
-					PFID: 8,
+					ID: 8,
 				},
 			}
-			sis.Spec.TemplateSpec = *updatedSpec
+			sis.Spec.Template.Spec = *updatedSpec
 			Expect(testClient.Update(ctx, sis)).NotTo(HaveOccurred())
 			By("Reconciling the updated resource")
 			Eventually(func(g Gomega) {
@@ -197,10 +197,15 @@ func createServiceInterfaceSet(ctx context.Context, labelSelector *metav1.LabelS
 		},
 		Spec: sfcv1.ServiceInterfaceSetSpec{
 			NodeSelector: labelSelector,
-			TemplateSpec: *getTestServiceInterfaceSpec(),
-			Labels:       getTestLabels(),
+			Template: sfcv1.ServiceInterfaceSpecTemplate{
+				Spec: *getTestServiceInterfaceSpec(),
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: getTestLabels(),
+				},
+			},
 		},
 	}
+
 	Expect(testClient.Create(ctx, sis)).NotTo(HaveOccurred())
 	return sis
 }
@@ -220,7 +225,7 @@ func getTestServiceInterfaceSpec() *sfcv1.ServiceInterfaceSpec {
 			ParentInterfaceRef: "p0",
 		},
 		PF: &sfcv1.PF{
-			PFID: 3,
+			ID: 3,
 		},
 	}
 }
