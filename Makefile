@@ -518,11 +518,11 @@ dev-minikube: $(MINIKUBE) ## Create a minikube cluster for development.
 clean-minikube: $(MINIKUBE)  ## Delete the development minikube cluster.
 	$(MINIKUBE) delete -p $(MINIKUBE_CLUSTER_NAME)
 
-dev-prereqs-dpuservice: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(SKAFFOLD) dev-minikube ## Create a development minikube cluster and deploy the operator in debug mode.
-	# Deploy the dpuservice CRD.
+dev-prereqs-dpuservice: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(SKAFFOLD) $(KUSTOMIZE) dev-minikube ## Create a development minikube cluster and deploy the operator in debug mode.
+	# Deploy the dpuservice CRD
 	$(KUSTOMIZE) build config/dpuservice/crd | $(KUBECTL) apply -f -
 
-    # Deploy cert manager to provide certificates for webhooks.
+    # Deploy cert manager to provide certificates for webhooks
 	$Q kubectl apply -f $(CERT_MANAGER_YAML) \
 	&& echo "Waiting for cert-manager deployment to be ready."\
 	&& kubectl wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
@@ -538,6 +538,10 @@ dev-dpuservice: $(MINIKUBE) $(SKAFFOLD)
 	# Use minikube for docker build and deployment and run skaffold
 	$Q eval $$($(MINIKUBE) -p $(MINIKUBE_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p dpuservice --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
+
+dev-operator:  $(MINIKUBE) $(SKAFFOLD)	# Use minikube for docker build and deployment and run skaffold
+	$Q eval $$($(MINIKUBE) -p $(MINIKUBE_CLUSTER_NAME) docker-env); \
+	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary (ideally with version)

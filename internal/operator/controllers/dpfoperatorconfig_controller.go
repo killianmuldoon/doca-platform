@@ -126,8 +126,8 @@ type DPFOperatorConfigReconciler struct {
 //+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs/finalizers,verbs=update
-//+kubebuilder:rbac:groups=,resources=nodes;configmaps;secrets,verbs=get;list;watch;patch
-//+kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;list;watch;create;patch
+//+kubebuilder:rbac:groups=core,resources=nodes;secrets,verbs=get;list;watch;patch
+//+kubebuilder:rbac:groups=core,resources=serviceaccounts;configmaps,verbs=get;list;watch;create;patch
 //+kubebuilder:rbac:groups=apps,resources=deployments;daemonsets,verbs=get;list;watch;create;patch
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;patch
 //+kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;delete
