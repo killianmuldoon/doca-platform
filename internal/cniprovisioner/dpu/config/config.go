@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package types
+package config
 
 // DPUCNIProvisionerConfig is the format of the config file the DPU CNI Provisioner is expecting. Notice that this is
 // one config for all nodes because this is how the Operator is going to deploy that.

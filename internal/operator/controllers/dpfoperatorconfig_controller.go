@@ -26,7 +26,7 @@ import (
 	"strings"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
-	dpucniprovisionertypes "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/types"
+	dpucniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/config"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 
@@ -791,7 +791,7 @@ func generateDPUCNIProvisionerObjects(dpfOperatorConfig *operatorv1.DPFOperatorC
 			return nil, err
 		}
 
-		config := dpucniprovisionertypes.DPUCNIProvisionerConfig{
+		config := dpucniprovisionerconfig.DPUCNIProvisionerConfig{
 			VTEPIPs: dpfOperatorConfig.Spec.HostNetworkConfiguration.DPUIPs,
 		}
 

@@ -27,7 +27,7 @@ import (
 	"os/signal"
 
 	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
-	dpucniprovisionertypes "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/types"
+	dpucniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/config"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/readyz"
@@ -81,13 +81,13 @@ func main() {
 // parseConfig parses the DPUCNIProvisionerConfig from the filesystem. Notice that the config is cluster scoped and is
 // not dedicated to this particular process. Additional filtering must be done to determine correct configuration for that
 // instance.
-func parseConfig() (*dpucniprovisionertypes.DPUCNIProvisionerConfig, error) {
+func parseConfig() (*dpucniprovisionerconfig.DPUCNIProvisionerConfig, error) {
 	configContent, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, err
 	}
 
-	var config dpucniprovisionertypes.DPUCNIProvisionerConfig
+	var config dpucniprovisionerconfig.DPUCNIProvisionerConfig
 	err = json.Unmarshal(configContent, &config)
 	if err != nil {
 		return nil, err
@@ -97,7 +97,7 @@ func parseConfig() (*dpucniprovisionertypes.DPUCNIProvisionerConfig, error) {
 }
 
 // getVTEPIP figures out the VTEP IP to be configured by the provisioner
-func getVTEPIP(c *dpucniprovisionertypes.DPUCNIProvisionerConfig) (*net.IPNet, error) {
+func getVTEPIP(c *dpucniprovisionerconfig.DPUCNIProvisionerConfig) (*net.IPNet, error) {
 	node := os.Getenv("NODE_NAME")
 	if node == "" {
 		return nil, errors.New("NODE_NAME environment variable is not found. This is supposed to be configured via Kubernetes Downward API in production")

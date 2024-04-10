@@ -24,7 +24,7 @@ import (
 	"time"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
-	dpucniprovisionertypes "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/types"
+	dpucniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/config"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
@@ -616,7 +616,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 					"dpu-node-2": "192.168.1.2/24",
 				}
 
-				expectedDPUCNIProvisionerConfig := dpucniprovisionertypes.DPUCNIProvisionerConfig{
+				expectedDPUCNIProvisionerConfig := dpucniprovisionerconfig.DPUCNIProvisionerConfig{
 					VTEPIPs: map[string]string{
 						"dpu-node-1": "192.168.1.1/24",
 						"dpu-node-2": "192.168.1.2/24",
@@ -641,7 +641,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(configMap.Data).To(HaveKey("config.yaml"))
 
-					var outDPUCNIProvisionerConfig dpucniprovisionertypes.DPUCNIProvisionerConfig
+					var outDPUCNIProvisionerConfig dpucniprovisionerconfig.DPUCNIProvisionerConfig
 					Expect(json.Unmarshal([]byte(configMap.Data["config.yaml"]), &outDPUCNIProvisionerConfig)).To(Succeed())
 					Expect(outDPUCNIProvisionerConfig).To(BeComparableTo(expectedDPUCNIProvisionerConfig))
 					found = true
