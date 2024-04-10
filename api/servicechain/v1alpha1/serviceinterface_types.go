@@ -52,7 +52,7 @@ type VF struct {
 }
 
 type PF struct {
-	PFID int `json:"pfID"`
+	ID int `json:"ID"`
 }
 
 // ServiceInterfaceStatus defines the observed state of ServiceInterface
