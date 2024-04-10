@@ -4,23 +4,6 @@ kind: ClusterRole
 metadata:
   name: manager-role
 rules:
-- resources:
-  - configmaps
-  - nodes
-  - secrets
-  verbs:
-  - get
-  - list
-  - patch
-  - watch
-- resources:
-  - serviceaccounts
-  verbs:
-  - create
-  - get
-  - list
-  - patch
-  - watch
 - apiGroups:
   - admissionregistration.k8s.io
   resources:
@@ -37,6 +20,27 @@ rules:
   - deployments
   verbs:
   - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - serviceaccounts
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - secrets
+  verbs:
   - get
   - list
   - patch

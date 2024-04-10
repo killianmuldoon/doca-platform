@@ -32,3 +32,31 @@ profiles:
         port: 56268
         localPort: 8080
         address: 0.0.0.0
+  - name: operator
+    build:
+      local:
+        useBuildkit: true
+      artifacts:
+        - image: nvidia/operator-controller
+          runtimeType: go
+          docker:
+            buildArgs:
+              ## Used for debugging. Disable inlining and optimizations in the go compiler. Passed to go build using `-gcflags`
+              GCFLAGS: "all=-N -l"
+              target_arch: "arm64"
+              package: ./cmd/operator
+              builder_image: golang:1.22.1
+              base_image: gcr.io/distroless/static:nonroot
+            dockerfile: Dockerfile
+    manifests:
+      ## Deploy the manager.
+      kustomize:
+        paths:
+          - config/operator/default
+    portForward:
+      - resourceType: deployment
+        resourceName: dpf-operator-controller-manager
+        namespace: dpf-operator-system
+        port: 56268
+        localPort: 8081
+        address: 0.0.0.0
