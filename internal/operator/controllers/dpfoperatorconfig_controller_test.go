@@ -302,7 +302,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 				for _, node := range got.Items {
 					if _, ok := node.Labels[workerNodeLabel]; ok {
 						workerCounter++
-						g.Expect(node.Labels).NotTo(HaveKey(ovnKubernetesNodeChassisIDAnnotation))
+						g.Expect(node.Annotations).NotTo(HaveKey(ovnKubernetesNodeChassisIDAnnotation))
 					}
 				}
 				g.Expect(workerCounter).To(Equal(2))
@@ -394,11 +394,11 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 		It("should not cleanup node chassis id annotation if node network preconfiguration is done", func() {
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker2), nodeWorker2)).To(Succeed())
 			nodeWorker2.SetLabels(map[string]string{
-				workerNodeLabel: "",
+				workerNodeLabel:                       "",
+				networkPreconfigurationReadyNodeLabel: "",
 			})
 			nodeWorker2.SetAnnotations(map[string]string{
-				ovnKubernetesNodeChassisIDAnnotation:  "worker-2",
-				networkPreconfigurationReadyNodeLabel: "",
+				ovnKubernetesNodeChassisIDAnnotation: "worker-2",
 			})
 			nodeWorker2.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
 			nodeWorker2.ManagedFields = nil

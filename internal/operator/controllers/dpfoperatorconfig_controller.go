@@ -338,35 +338,9 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	}
 
 	// Remove node annotation k8s.ovn.org/node-chassis-id
-	nodes := &corev1.NodeList{}
-	labelSelector := labels.NewSelector()
-	req, err := labels.NewRequirement(workerNodeLabel, selection.Exists, nil)
+	err = r.cleanupCluster(ctx)
 	if err != nil {
-		return fmt.Errorf("error while creating label selector requirement for label %s: %w", workerNodeLabel, err)
-	}
-	labelSelector = labelSelector.Add(*req)
-	req, err = labels.NewRequirement(networkPreconfigurationReadyNodeLabel, selection.DoesNotExist, nil)
-	if err != nil {
-		return fmt.Errorf("error while creating label selector requirement for label %s: %w", networkPreconfigurationReadyNodeLabel, err)
-	}
-	labelSelector = labelSelector.Add(*req)
-	err = r.Client.List(ctx, nodes, &client.ListOptions{LabelSelector: labelSelector})
-	if err != nil {
-		return fmt.Errorf("error while listting nodes with selector %s: %w", labelSelector.String(), err)
-	}
-
-	for i := range nodes.Items {
-		if _, ok := nodes.Items[i].Annotations[ovnKubernetesNodeChassisIDAnnotation]; ok {
-			delete(nodes.Items[i].Annotations, ovnKubernetesNodeChassisIDAnnotation)
-			nodes.Items[i].SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
-			nodes.Items[i].ObjectMeta.ManagedFields = nil
-			if err := r.Client.Patch(ctx, &nodes.Items[i], client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", nodes.Items[i].GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&nodes.Items[i]).String(), err))
-			}
-		}
-	}
-	if len(errs) > 0 {
-		return kerrors.NewAggregate(errs)
+		return fmt.Errorf("error while cleaning up cluster: %w", err)
 	}
 
 	// Ensure DPU CNI Provisioner is deployed
@@ -444,6 +418,49 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	}
 	if !isCNIProvisionerReady(hostCNIProvisionerDaemonSet) {
 		return errors.New("Host CNI Provisioner is not yet ready")
+	}
+
+	return kerrors.NewAggregate(errs)
+}
+
+// cleanupCluster cleans up the cluster from original OVN Kubernetes leftovers
+func (r *DPFOperatorConfigReconciler) cleanupCluster(ctx context.Context) error {
+	var errs []error
+
+	nodes := &corev1.NodeList{}
+	labelSelector := labels.NewSelector()
+	req, err := labels.NewRequirement(workerNodeLabel, selection.Exists, nil)
+	if err != nil {
+		return fmt.Errorf("error while creating label selector requirement for label %s: %w", workerNodeLabel, err)
+	}
+	labelSelector = labelSelector.Add(*req)
+	req, err = labels.NewRequirement(networkPreconfigurationReadyNodeLabel, selection.DoesNotExist, nil)
+	if err != nil {
+		return fmt.Errorf("error while creating label selector requirement for label %s: %w", networkPreconfigurationReadyNodeLabel, err)
+	}
+	labelSelector = labelSelector.Add(*req)
+	err = r.Client.List(ctx, nodes, &client.ListOptions{LabelSelector: labelSelector})
+	if err != nil {
+		return fmt.Errorf("error while listting nodes with selector %s: %w", labelSelector.String(), err)
+	}
+
+	for i := range nodes.Items {
+		if _, ok := nodes.Items[i].Annotations[ovnKubernetesNodeChassisIDAnnotation]; ok {
+			// First we patch to take ownership of the annotation
+			nodes.Items[i].Annotations[ovnKubernetesNodeChassisIDAnnotation] = "taking-annotation-ownership"
+			nodes.Items[i].SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
+			nodes.Items[i].ObjectMeta.ManagedFields = nil
+			if err := r.Client.Patch(ctx, &nodes.Items[i], client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", nodes.Items[i].GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&nodes.Items[i]).String(), err))
+			}
+			// Then we patch to remove the annotation
+			delete(nodes.Items[i].Annotations, ovnKubernetesNodeChassisIDAnnotation)
+			nodes.Items[i].SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Node"))
+			nodes.Items[i].ObjectMeta.ManagedFields = nil
+			if err := r.Client.Patch(ctx, &nodes.Items[i], client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+				errs = append(errs, fmt.Errorf("error while patching %s %s: %w", nodes.Items[i].GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&nodes.Items[i]).String(), err))
+			}
+		}
 	}
 
 	return kerrors.NewAggregate(errs)
