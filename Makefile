@@ -333,7 +333,7 @@ test-e2e:
 	go test ./test/e2e/ -v -ginkgo.v
 
 .PHONY: clean-test-env
-clean-test-env:
+clean-test-env: $(MINIKUBE)
 	$(MINIKUBE) delete -p $(TEST_CLUSTER_NAME)
 
 ##@ lint and verify

@@ -30,22 +30,16 @@ import (
 )
 
 // Manifests holds kubernetes object manifests to be deployed by the operator.
-type Manifests interface {
-	Parse() error
-	Objects() []client.Object
-}
-
-// Objects contains all the Kubernetes objects to be created by the DPF Operator.
-type Objects struct {
+type Manifests struct {
 	DPUService DPUServiceObjects
 }
 
 //go:embed manifests/dpuservice.yaml
 var dpuServiceData []byte
 
-// New returns a new Objects inventory with data preloaded but parsing not completed.
-func New() *Objects {
-	return &Objects{
+// New returns a new Manifests inventory with data preloaded but parsing not completed.
+func New() *Manifests {
+	return &Manifests{
 		DPUService: DPUServiceObjects{
 			data: dpuServiceData,
 		},
@@ -53,17 +47,17 @@ func New() *Objects {
 }
 
 // Parse creates typed Kubernetes objects for all manifests related to the DPFOperator.
-func (o *Objects) Parse() error {
-	if err := o.DPUService.Parse(); err != nil {
+func (m *Manifests) Parse() error {
+	if err := m.DPUService.Parse(); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Objects returns all Kubernetes objects.
-func (o *Objects) Objects() []client.Object {
+func (m *Manifests) Objects() []client.Object {
 	out := []client.Object{}
-	out = append(out, o.DPUService.Objects()...)
+	out = append(out, m.DPUService.Objects()...)
 	return out
 }
 
@@ -155,11 +149,30 @@ func (d *DPUServiceObjects) validate() error {
 func (d *DPUServiceObjects) Objects() []client.Object {
 	out := []client.Object{}
 	out = append(out,
-		d.Deployment,
-		d.ServiceAccount,
-		d.Role,
-		d.RoleBinding,
-		d.ClusterRole,
-		d.ClusterRoleBinding)
+		d.Deployment.DeepCopy(),
+		d.ServiceAccount.DeepCopy(),
+		d.Role.DeepCopy(),
+		d.RoleBinding.DeepCopy(),
+		d.ClusterRole.DeepCopy(),
+		d.ClusterRoleBinding.DeepCopy(),
+	)
 	return out
+}
+
+// SetNamespace sets all Namespaces in the DPUServiceObjects to the passed string.
+func (d *DPUServiceObjects) SetNamespace(namespace string) {
+	d.Deployment.SetNamespace(namespace)
+	d.ServiceAccount.SetNamespace(namespace)
+	d.Role.SetNamespace(namespace)
+	d.RoleBinding.SetNamespace(namespace)
+	d.ClusterRole.SetNamespace(namespace)
+	d.ClusterRoleBinding.SetNamespace(namespace)
+
+	// Namespace is also defined in the RoleBinding and ClusterRoleBinding subjects.
+	for i := range d.RoleBinding.Subjects {
+		d.RoleBinding.Subjects[i].Namespace = namespace
+	}
+	for i := range d.ClusterRoleBinding.Subjects {
+		d.ClusterRoleBinding.Subjects[i].Namespace = namespace
+	}
 }

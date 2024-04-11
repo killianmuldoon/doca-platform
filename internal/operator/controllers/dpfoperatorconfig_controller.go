@@ -135,12 +135,12 @@ type DPFOperatorConfigReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	Settings  *DPFOperatorConfigReconcilerSettings
-	Inventory inventory.Manifests
+	Inventory *inventory.Manifests
 }
 
 // DPFOperatorConfigReconcilerSettings contains settings related to the DPFOperatorConfig.
 type DPFOperatorConfigReconcilerSettings struct {
-	// CustomOVNKubernetesImage the OVN Kubernetes image deployed by the operator
+	// CustomOVNKubernetesImage the OVN Kubernetes image deployed by the operator.
 	CustomOVNKubernetesImage string
 
 	// ConfigSingletonNamespaceName restricts reconciliation of the operator to a single DPFOperator Config with a specified namespace and name.
@@ -155,10 +155,17 @@ type DPFOperatorConfigReconcilerSettings struct {
 //+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs/finalizers,verbs=update
 //+kubebuilder:rbac:groups=core,resources=nodes;secrets,verbs=get;list;watch;patch
-//+kubebuilder:rbac:groups=core,resources=serviceaccounts;configmaps,verbs=get;list;watch;create;patch
+//+kubebuilder:rbac:groups=core,resources=serviceaccounts;configmaps,verbs=get;list;watch;create;patch;update;delete
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments;daemonsets,verbs=get;list;watch;create;patch
-//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;patch
 //+kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;delete
+//+kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch;update;get;list;delete;watch
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/finalizers,verbs=update
+//+kubebuilder:rbac:groups="core",resources=persistentvolumeclaims;events;serviceaccounts;configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=argoproj.io,resources=appprojects;applications,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=kamaji.clastix.io,resources=tenantcontrolplanes,verbs=get;list;watch
 
 const (
 	dpfOperatorConfigControllerName = "dpfoperatorconfig-controller"
@@ -228,6 +235,12 @@ func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperator
 		return ctrl.Result{}, err
 	}
 
+	// Ensure Custom OVN Kubernetes Deployment is done
+	if err := r.reconcileCustomOVNKubernetesDeployment(ctx, dpfOperatorConfig); err != nil {
+		// TODO: In future we should tolerate this error, but only when we have status reporting.
+		return ctrl.Result{}, err
+	}
+
 	if r.Settings.ReconcileOVNKubernetes {
 		// Ensure Custom OVN Kubernetes Deployment is done.
 		if err := r.reconcileCustomOVNKubernetesDeployment(ctx, dpfOperatorConfig); err != nil {
@@ -239,8 +252,28 @@ func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperator
 	return ctrl.Result{}, nil
 }
 
+// reconcileSystemComponents applies manifests for components which form the DPF system.
+// It deploys the following:
+// 1. DPUService controller
 func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
-	return nil
+	var errs []error
+	// TODO: Handle deletion of objects on version upgrade.
+	r.Inventory.DPUService.SetNamespace(config.Namespace)
+	for _, obj := range r.Inventory.DPUService.Objects() {
+		obj.SetLabels(
+			map[string]string{
+				"nvidia.dpf-operator.component": "dpuservice",
+			})
+		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("error patching %v/%v/%v: %w",
+				obj.GetObjectKind().GroupVersionKind().Kind,
+				obj.GetNamespace(),
+				obj.GetName(),
+				err))
+		}
+	}
+	return kerrors.NewAggregate(errs)
 }
 
 // reconcileCustomOVNKubernetesDeployment ensures that custom OVN Kubernetes is deployed
@@ -250,6 +283,7 @@ func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx
 	// - ensure network operator is scaled down
 	// - ensure webhook is removed
 	// - ensure OVN Kubernetes daemonset has different nodeSelector (i.e. point to control plane only)
+
 	if err := r.scaleDownOVNKubernetesComponents(ctx); err != nil {
 		return fmt.Errorf("error while scaling down OVN Kubernetes components: %w", err)
 	}

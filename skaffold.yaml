@@ -42,7 +42,9 @@ profiles:
           docker:
             buildArgs:
               ## Used for debugging. Disable inlining and optimizations in the go compiler. Passed to go build using `-gcflags`
-              GCFLAGS: "all=-N -l"
+              gcflags: "all=-N -l"
+              ## Used to configure the default Custom OVN Kubernetes image at compile time.
+              ldflags: "-extldflags '-static'-X 'main.defaultCustomOVNKubernetesImage=${OVNKUBERNETES_IMAGE}:${TAG}'"
               target_arch: "arm64"
               package: ./cmd/operator
               builder_image: golang:1.22.1

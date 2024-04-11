@@ -47,7 +47,7 @@ func TestDPUServiceObjects_ParseManifests(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		inventory *Objects
+		inventory *Manifests
 		wantErr   bool
 	}{
 		{
@@ -56,7 +56,7 @@ func TestDPUServiceObjects_ParseManifests(t *testing.T) {
 		},
 		{
 			name: "fail if data is nil",
-			inventory: &Objects{
+			inventory: &Manifests{
 				DPUServiceObjects{
 					data: nil,
 				},
@@ -65,7 +65,7 @@ func TestDPUServiceObjects_ParseManifests(t *testing.T) {
 		},
 		{
 			name: "fail if an unexpected object is present",
-			inventory: &Objects{
+			inventory: &Manifests{
 				DPUServiceObjects{
 					data: dataWithUnexpectedKind,
 				},
@@ -74,7 +74,7 @@ func TestDPUServiceObjects_ParseManifests(t *testing.T) {
 		},
 		{
 			name: "fail if any object is missing",
-			inventory: &Objects{
+			inventory: &Manifests{
 				DPUServiceObjects{
 					data: dataWithMissingKind,
 				},
