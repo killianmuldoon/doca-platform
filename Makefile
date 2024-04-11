@@ -291,6 +291,7 @@ test: envtest ## Run tests.
 test-report: envtest gotestsum ## Run tests and generate a junit style report
 	set +o errexit; KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLSDIR) -p path)" go test -json $$(go list ./... | grep -v /e2e) > junit.stdout; echo $$? > junit.exitcode;
 	$(GOTESTSUM) --junitfile junit.xml --raw-command cat junit.stdout
+	exit $$(cat junit.exitcode)
 
 TEST_CLUSTER_NAME := dpf-test
 test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) ## Setup a Kubernetes environment to run tests.

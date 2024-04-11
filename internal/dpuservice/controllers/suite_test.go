@@ -46,7 +46,7 @@ var testClient client.Client
 var testEnv *envtest.Environment
 var ctx, testManagerCancelFunc = context.WithCancel(ctrl.SetupSignalHandler())
 
-func TestControllers(t *testing.T) {
+func TestDPUService(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecs(t, "Controller Suite")
