@@ -29,6 +29,7 @@ import (
 	dpucniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/config"
 	hostcniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host/config"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/inventory"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -132,8 +133,9 @@ var dpuCNIProvisionerManifestContent []byte
 // TODO: Consider creating a constructor
 type DPFOperatorConfigReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Settings *DPFOperatorConfigReconcilerSettings
+	Scheme    *runtime.Scheme
+	Settings  *DPFOperatorConfigReconcilerSettings
+	Inventory *inventory.Objects
 }
 
 // DPFOperatorConfigReconcilerSettings contains settings related to the DPFOperatorConfig.
