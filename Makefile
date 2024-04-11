@@ -556,7 +556,9 @@ dev-dpuservice: $(MINIKUBE) $(SKAFFOLD)
 	$Q eval $$($(MINIKUBE) -p $(MINIKUBE_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p dpuservice --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
+ENABLE_OVN_KUBERNETES?=true
 dev-operator:  $(MINIKUBE) $(SKAFFOLD)	# Use minikube for docker build and deployment and run skaffold
+	sed "s/reconcileOVNKubernetes=.*/reconcileOVNKubernetes=$(ENABLE_OVN_KUBERNETES)/" config/operator/manager/manager.yaml
 	$Q eval $$($(MINIKUBE) -p $(MINIKUBE_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
