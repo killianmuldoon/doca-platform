@@ -24,6 +24,19 @@ subjects:
   name: host-cni-provisioner
   namespace: dpf-operator-system
 ---
+apiVersion: v1
+data:
+  config.yaml: null
+kind: ConfigMap
+metadata:
+  labels:
+    app.kubernetes.io/created-by: dpf-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: host-cni-provisioner
+    app.kubernetes.io/part-of: dpf-operator
+  name: host-cni-provisioner
+  namespace: dpf-operator-system
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -59,6 +72,8 @@ spec:
           name: fakefs
         - mountPath: /var/lib/ovn-ic
           name: ovndb
+        - mountPath: /etc/hostcniprovisioner
+          name: config
       hostNetwork: true
       serviceAccountName: host-cni-provisioner
       volumes:
@@ -68,3 +83,6 @@ spec:
       - hostPath:
           path: /var/lib/ovn-ic
         name: ovndb
+      - configMap:
+          name: host-cni-provisioner
+        name: config

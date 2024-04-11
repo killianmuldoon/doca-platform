@@ -60,6 +60,8 @@ linters-settings:
         alias: controlplanemeta
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/config
         alias: dpucniprovisionerconfig
+      - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host/config
+        alias: hostcniprovisionerconfig
 
         # Kubernetes
       - pkg: k8s.io/api/core/v1

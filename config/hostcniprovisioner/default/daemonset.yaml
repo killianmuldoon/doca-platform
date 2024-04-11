@@ -34,6 +34,8 @@ spec:
           mountPath: /var/dpf
         - name: ovndb
           mountPath: /var/lib/ovn-ic
+        - name: config
+          mountPath: /etc/hostcniprovisioner
       volumes:
       - name: fakefs
         hostPath:
@@ -41,3 +43,6 @@ spec:
       - name: ovndb
         hostPath:
           path: /var/lib/ovn-ic
+      - name: config
+        configMap:
+          name: host-cni-provisioner

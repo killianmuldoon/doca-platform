@@ -25,6 +25,7 @@ import (
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	dpucniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/config"
+	hostcniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host/config"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
@@ -45,6 +46,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//nolint:dupl
 var _ = Describe("DPFOperatorConfig Controller", func() {
 	Context("When reconciling a resource", func() {
 		var testNS *corev1.Namespace
@@ -699,6 +701,85 @@ spec:
 
 				By("Reverting dpuCNIProvisionerManifestContent global variable to the original value")
 				copy(dpuCNIProvisionerManifestContent, dpuCNIProvisionerManifestContentCopy)
+			})
+		})
+		Context("When checking generateHostCNIProvisionerObjects()", func() {
+			It("should pass the DPFOperatorConfig settings to correct configmap", func() {
+				dpfOperatorConfig := getMinimalDPFOperatorConfig("")
+				dpfOperatorConfig.Spec.HostNetworkConfiguration.HostIPs = map[string]string{
+					"ocp-node-1": "192.168.1.10/24",
+					"ocp-node-2": "192.168.1.20/24",
+				}
+
+				expectedHostCNIProvisionerConfig := hostcniprovisionerconfig.HostCNIProvisionerConfig{
+					PFIPs: map[string]string{
+						"ocp-node-1": "192.168.1.10/24",
+						"ocp-node-2": "192.168.1.20/24",
+					},
+				}
+
+				objects, err := generateHostCNIProvisionerObjects(dpfOperatorConfig)
+				Expect(err).ToNot(HaveOccurred())
+
+				rawObjects, err := utils.BytesToUnstructured(hostCNIProvisionerManifestContent)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(objects).To(HaveLen(len(rawObjects)))
+
+				var found bool
+				for _, o := range objects {
+					if !(o.GetKind() == "ConfigMap" && o.GetName() == "host-cni-provisioner") {
+						continue
+					}
+					var configMap corev1.ConfigMap
+					err = runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, &configMap)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(configMap.Data).To(HaveKey("config.yaml"))
+
+					var outHostCNIProvisionerConfig hostcniprovisionerconfig.HostCNIProvisionerConfig
+					Expect(json.Unmarshal([]byte(configMap.Data["config.yaml"]), &outHostCNIProvisionerConfig)).To(Succeed())
+					Expect(outHostCNIProvisionerConfig).To(BeComparableTo(expectedHostCNIProvisionerConfig))
+					found = true
+				}
+				Expect(found).To(BeTrue())
+			})
+			It("should error out when configmap is not found", func() {
+				By("Copying the hostCNIProvisionerManifestContent global variable")
+				var hostCNIProvisionerManifestContentCopy []byte
+				copy(hostCNIProvisionerManifestContentCopy, hostCNIProvisionerManifestContent)
+
+				dpfOperatorConfig := getMinimalDPFOperatorConfig("")
+
+				hostCNIProvisionerManifestContent = []byte(`
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-deployment
+  labels:
+    app: nginx
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.14.2
+        ports:
+        - containerPort: 80
+        `)
+
+				By("Running the test against the mocked environment")
+				_, err := generateHostCNIProvisionerObjects(dpfOperatorConfig)
+				Expect(err).To(HaveOccurred())
+
+				By("Reverting hostCNIProvisionerManifestContent global variable to the original value")
+				copy(hostCNIProvisionerManifestContent, hostCNIProvisionerManifestContentCopy)
 			})
 		})
 	})
