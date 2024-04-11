@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"maps"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
@@ -36,6 +35,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+var _ serviceSetReconciler = &ServiceChainSetReconciler{}
 
 // ServiceChainSetReconciler reconciles a ServiceChainSet object
 type ServiceChainSetReconciler struct {
@@ -58,7 +59,6 @@ const (
 
 func (r *ServiceChainSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-
 	log.Info("Reconciling")
 	scs := &sfcv1.ServiceChainSet{}
 	if err := r.Client.Get(ctx, req.NamespacedName, scs); err != nil {
@@ -72,45 +72,15 @@ func (r *ServiceChainSetReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		// Return early, the object is deleting.
 		return ctrl.Result{}, nil
 	}
-	return r.reconcile(ctx, scs)
+	return reconcileSet(ctx, scs, r.Client, scs.Spec.NodeSelector, r)
 }
 
-func (r *ServiceChainSetReconciler) reconcile(ctx context.Context, scs *sfcv1.ServiceChainSet) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
-	// Get node list by nodeSelector
-	nodeList, err := getNodeList(ctx, r.Client, scs.Spec.NodeSelector)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get Node list: %w", err)
-	}
-	// Get ServiceChain map which are owned by serviceChainSet
-	serviceChainMap, err := r.getServiceChainMap(ctx, scs)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get ServiceChain list: %w", err)
-	}
-	// create or update ServiceChain for the node
-	for _, node := range nodeList.Items {
-		if err = r.createOrUpdateServiceChain(ctx, scs, node.Name); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create  or update ServiceChain: %w", err)
-		}
-		delete(serviceChainMap, node.Name)
-	}
-	// delete ServiceChain if node does not exist
-	for nodeName, sc := range serviceChainMap {
-		if err := r.Delete(ctx, sc); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to delete ServiceChain: %w", err)
-		}
-		log.Info("ServiceChain is deleted", "nodename", nodeName, "serviceChain", sc)
-	}
-
-	return ctrl.Result{}, nil
-}
-
-func (r *ServiceChainSetReconciler) getServiceChainMap(ctx context.Context, scs *sfcv1.ServiceChainSet) (map[string]*sfcv1.ServiceChain, error) {
-	serviceChainMap := make(map[string]*sfcv1.ServiceChain)
+func (r *ServiceChainSetReconciler) getChildMap(ctx context.Context, set client.Object) (map[string]client.Object, error) {
+	serviceChainMap := make(map[string]client.Object)
 	serviceChainList := &sfcv1.ServiceChainList{}
 	if err := r.List(ctx, serviceChainList, client.MatchingLabels{
-		ServiceChainSetNameLabel:      scs.Name,
-		ServiceChainSetNamespaceLabel: scs.Namespace,
+		ServiceChainSetNameLabel:      set.GetName(),
+		ServiceChainSetNamespaceLabel: set.GetNamespace(),
 	}); err != nil {
 		return serviceChainMap, err
 	}
@@ -121,9 +91,9 @@ func (r *ServiceChainSetReconciler) getServiceChainMap(ctx context.Context, scs 
 	return serviceChainMap, nil
 }
 
-func (r *ServiceChainSetReconciler) createOrUpdateServiceChain(ctx context.Context, serviceChainSet *sfcv1.ServiceChainSet,
-	nodeName string) error {
+func (r *ServiceChainSetReconciler) createOrUpdateChild(ctx context.Context, set client.Object, nodeName string) error {
 	log := log.FromContext(ctx)
+	serviceChainSet := set.(*sfcv1.ServiceChainSet)
 	labels := map[string]string{ServiceChainSetNameLabel: serviceChainSet.Name,
 		ServiceChainSetNamespaceLabel: serviceChainSet.Namespace}
 	maps.Copy(labels, serviceChainSet.Spec.Template.ObjectMeta.Labels)
@@ -142,7 +112,6 @@ func (r *ServiceChainSetReconciler) createOrUpdateServiceChain(ctx context.Conte
 			ports[j].ServiceInterface.Reference = *p.ServiceInterface.Reference.DeepCopy()
 			if p.ServiceInterface.Reference.Name != "" {
 				ports[j].ServiceInterface.Reference.Name = p.ServiceInterface.Reference.Name + "-" + nodeName
-				log.Info(ports[j].ServiceInterface.Reference.Name)
 			}
 		}
 		switches[i].Ports = ports

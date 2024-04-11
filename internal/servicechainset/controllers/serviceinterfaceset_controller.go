@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"maps"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
@@ -43,6 +42,8 @@ const (
 	serviceInterfaceSetControllerName = "service-interface-set-controller"
 )
 
+var _ serviceSetReconciler = &ServiceInterfaceSetReconciler{}
+
 // ServiceInterfaceSetReconciler reconciles a ServiceInterfaceSet object
 type ServiceInterfaceSetReconciler struct {
 	client.Client
@@ -60,9 +61,7 @@ type ServiceInterfaceSetReconciler struct {
 // move the current state of the cluster closer to the desired state.
 func (r *ServiceInterfaceSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-
 	log.Info("Reconciling")
-
 	sis := &sfcv1.ServiceInterfaceSet{}
 	if err := r.Client.Get(ctx, req.NamespacedName, sis); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -75,58 +74,28 @@ func (r *ServiceInterfaceSetReconciler) Reconcile(ctx context.Context, req ctrl.
 		// Return early, the object is deleting.
 		return ctrl.Result{}, nil
 	}
-	return r.reconcile(ctx, sis)
+	return reconcileSet(ctx, sis, r.Client, sis.Spec.NodeSelector, r)
 }
 
-func (r *ServiceInterfaceSetReconciler) reconcile(ctx context.Context, sis *sfcv1.ServiceInterfaceSet) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
-	// Get node list by nodeSelector
-	nodeList, err := getNodeList(ctx, r.Client, sis.Spec.NodeSelector)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get Node list: %w", err)
-	}
-	// Get ServiceInterface map which are owned by serviceInterfaceSet
-	serviceInterfaceMap, err := r.getServiceInterfaceMap(ctx, sis)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get ServiceInterface list: %w", err)
-	}
-	// create or update ServiceInterface for the node
-	for _, node := range nodeList.Items {
-		if err = r.createOrUpdateServiceInterface(ctx, sis, node.Name); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create or update ServiceInterface: %w", err)
-		}
-		delete(serviceInterfaceMap, node.Name)
-	}
-	// delete ServiceInterface if node does not exist
-	for nodeName, sc := range serviceInterfaceMap {
-		if err := r.Delete(ctx, sc); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to delete ServiceInterface: %w", err)
-		}
-		log.Info("ServiceInterface is deleted", "nodename", nodeName, "serviceInterface", sc)
-	}
-
-	return ctrl.Result{}, nil
-}
-
-func (r *ServiceInterfaceSetReconciler) getServiceInterfaceMap(ctx context.Context, sis *sfcv1.ServiceInterfaceSet) (map[string]*sfcv1.ServiceInterface, error) {
-	serviceInterfaceMap := make(map[string]*sfcv1.ServiceInterface)
+func (r *ServiceInterfaceSetReconciler) getChildMap(ctx context.Context, set client.Object) (map[string]client.Object, error) {
+	serviceInterfaceMap := make(map[string]client.Object)
 	serviceInterfaceList := &sfcv1.ServiceInterfaceList{}
 	if err := r.List(ctx, serviceInterfaceList, client.MatchingLabels{
-		ServiceInterfaceSetNameLabel:      sis.Name,
-		ServiceInterfaceSetNamespaceLabel: sis.Namespace,
+		ServiceInterfaceSetNameLabel:      set.GetName(),
+		ServiceInterfaceSetNamespaceLabel: set.GetNamespace(),
 	}); err != nil {
 		return serviceInterfaceMap, err
 	}
 	for i := range serviceInterfaceList.Items {
-		sc := serviceInterfaceList.Items[i]
-		serviceInterfaceMap[sc.Spec.Node] = &sc
+		si := serviceInterfaceList.Items[i]
+		serviceInterfaceMap[si.Spec.Node] = &si
 	}
 	return serviceInterfaceMap, nil
 }
 
-func (r *ServiceInterfaceSetReconciler) createOrUpdateServiceInterface(ctx context.Context, serviceInterfaceSet *sfcv1.ServiceInterfaceSet,
-	nodeName string) error {
+func (r *ServiceInterfaceSetReconciler) createOrUpdateChild(ctx context.Context, set client.Object, nodeName string) error {
 	log := log.FromContext(ctx)
+	serviceInterfaceSet := set.(*sfcv1.ServiceInterfaceSet)
 	labels := map[string]string{ServiceInterfaceSetNameLabel: serviceInterfaceSet.Name,
 		ServiceInterfaceSetNamespaceLabel: serviceInterfaceSet.Namespace}
 	maps.Copy(labels, serviceInterfaceSet.Spec.Template.ObjectMeta.Labels)
