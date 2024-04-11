@@ -57,7 +57,12 @@ spec:
         app.kubernetes.io/name: host-cni-provisioner
     spec:
       containers:
-      - image: nvidia.com/host-cni-provisioner:dev
+      - env:
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        image: nvidia.com/host-cni-provisioner:dev
         imagePullPolicy: Always
         name: host-cni-provisioner
         readinessProbe:

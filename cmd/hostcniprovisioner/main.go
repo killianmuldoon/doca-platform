@@ -20,26 +20,46 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net"
 	"os"
 	"os/signal"
 	"sync"
 
 	hostcniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host"
+	hostcniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host/config"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/readyz"
 
+	"github.com/vishvananda/netlink"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
 )
 
+const (
+	// configPath is the path to the HOST CNI Provisioner configuration file
+	configPath = "/etc/hostcniprovisioner/config.yaml"
+)
+
 func main() {
 	klog.Info("Starting Host CNI Provisioner")
+	config, err := parseConfig()
+	if err != nil {
+		klog.Fatalf("error while parsing config: %s", err.Error())
+	}
+
+	pfIP, err := getPFIP(config)
+	if err != nil {
+		klog.Fatalf("error while parsing PF IP from config: %s", err.Error())
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	c := clock.RealClock{}
-	provisioner := hostcniprovisioner.New(ctx, c, networkhelper.New())
+	provisioner := hostcniprovisioner.New(ctx, c, networkhelper.New(), pfIP)
 
-	err := provisioner.RunOnce()
+	err = provisioner.RunOnce()
 	if err != nil {
 		klog.Fatal(err)
 	}
@@ -64,4 +84,42 @@ func main() {
 	klog.Info("Received termination signal, terminating.")
 	cancel()
 	wg.Wait()
+}
+
+// parseConfig parses the HostCNIProvisionerConfig from the filesystem. Notice that the config is cluster scoped and is
+// not dedicated to this particular process. Additional filtering must be done to determine correct configuration for that
+// instance.
+func parseConfig() (*hostcniprovisionerconfig.HostCNIProvisionerConfig, error) {
+	configContent, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	var config hostcniprovisionerconfig.HostCNIProvisionerConfig
+	err = json.Unmarshal(configContent, &config)
+	if err != nil {
+		return nil, err
+	}
+
+	return &config, nil
+}
+
+// getPFIP figures out the PF IP to be configured by the provisioner
+func getPFIP(c *hostcniprovisionerconfig.HostCNIProvisionerConfig) (*net.IPNet, error) {
+	node := os.Getenv("NODE_NAME")
+	if node == "" {
+		return nil, errors.New("NODE_NAME environment variable is not found. This is supposed to be configured via Kubernetes Downward API in production")
+	}
+
+	pfIPRaw, ok := c.PFIPs[node]
+	if !ok {
+		return nil, fmt.Errorf("PF IP not found in config for node %s", node)
+	}
+
+	pfIP, err := netlink.ParseIPNet(pfIPRaw)
+	if err != nil {
+		return nil, fmt.Errorf("error while parsing PF IP to net.IPNet: %w", err)
+	}
+
+	return pfIP, nil
 }
