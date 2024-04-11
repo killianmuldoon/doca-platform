@@ -135,7 +135,7 @@ type DPFOperatorConfigReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	Settings  *DPFOperatorConfigReconcilerSettings
-	Inventory *inventory.Objects
+	Inventory inventory.Manifests
 }
 
 // DPFOperatorConfigReconcilerSettings contains settings related to the DPFOperatorConfig.

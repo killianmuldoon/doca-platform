@@ -24,6 +24,7 @@ import (
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	operatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/controllers"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/inventory"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -140,10 +141,17 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Parse manifest yamls to ensure Kubernetes objects are available before starting.
+	inventory := inventory.New()
+	if err := inventory.Parse(); err != nil {
+		setupLog.Error(err, "unable to parse inventory")
+		os.Exit(1)
+	}
 	if err = (&operatorcontroller.DPFOperatorConfigReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Settings: getSettings(),
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		Settings:  getSettings(),
+		Inventory: inventory,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPFOperatorConfig")
 		os.Exit(1)
