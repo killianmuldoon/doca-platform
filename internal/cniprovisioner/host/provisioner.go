@@ -78,15 +78,19 @@ type HostCNIProvisioner struct {
 	// FileSystemRoot controls the file system root. It's used for enabling easier testing of the package. Defaults to
 	// empty.
 	FileSystemRoot string
+
+	// pfIPNet is the IP that should be added to the PF interface.
+	pfIPNet *net.IPNet
 }
 
 // New creates a HostCNIProvisioner that can configure the system
-func New(ctx context.Context, clock clock.WithTicker, networkHelper networkhelper.NetworkHelper) *HostCNIProvisioner {
+func New(ctx context.Context, clock clock.WithTicker, networkHelper networkhelper.NetworkHelper, pfIPNet *net.IPNet) *HostCNIProvisioner {
 	return &HostCNIProvisioner{
 		ctx:                       ctx,
 		ensureConfigurationTicker: clock.NewTicker(2 * time.Second),
 		networkHelper:             networkHelper,
 		FileSystemRoot:            "",
+		pfIPNet:                   pfIPNet,
 	}
 }
 
@@ -155,13 +159,7 @@ func (p *HostCNIProvisioner) configure() error {
 // configurePF configures an IP on the PF that is in the same subnet as the VTEP. This is essential for enabling Pod
 // to External connectivity.
 func (p *HostCNIProvisioner) configurePF() error {
-	// TODO: Still undecided on how we get that IP. Adjust as needed after decision is made.
-	ipNet, err := netlink.ParseIPNet("192.168.1.2/24")
-	if err != nil {
-		return fmt.Errorf("error while parsing PF IP: %w", err)
-	}
-
-	err = p.networkHelper.SetLinkIPAddress(pf, ipNet)
+	err := p.networkHelper.SetLinkIPAddress(pf, p.pfIPNet)
 	if err != nil {
 		return fmt.Errorf("error while setting PF IP: %w", err)
 	}

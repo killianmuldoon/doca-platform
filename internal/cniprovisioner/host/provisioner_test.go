@@ -43,7 +43,9 @@ var _ = Describe("Host CNI Provisioner", func() {
 		It("should configure the system fully", func() {
 			testCtrl := gomock.NewController(GinkgoT())
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
-			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper)
+			pfIPNet, err := netlink.ParseIPNet("192.168.1.2/24")
+			Expect(err).ToNot(HaveOccurred())
+			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper, pfIPNet)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "hostcniprovisioner")
@@ -68,8 +70,7 @@ var _ = Describe("Host CNI Provisioner", func() {
 			err = os.WriteFile(sriovNumVfsPath, []byte(strconv.Itoa(2)), 0444)
 			Expect(err).NotTo(HaveOccurred())
 
-			ipNet, _ := netlink.ParseIPNet("192.168.1.2/24")
-			networkhelper.EXPECT().SetLinkIPAddress("ens2f0np0", ipNet)
+			networkhelper.EXPECT().SetLinkIPAddress("ens2f0np0", pfIPNet)
 
 			networkhelper.EXPECT().AddDummyLink("pf0vf0")
 			networkhelper.EXPECT().AddDummyLink("pf0vf1")
@@ -98,7 +99,7 @@ var _ = Describe("Host CNI Provisioner", func() {
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
 			ctx, cancel := context.WithCancel(ctx)
 			c := clock.NewFakeClock(time.Now())
-			provisioner := hostcniprovisioner.New(ctx, c, networkhelper)
+			provisioner := hostcniprovisioner.New(ctx, c, networkhelper, nil)
 
 			networkhelper.EXPECT().DummyLinkExists("pf0vf0").DoAndReturn(func(link string) (bool, error) {
 				c.Step(2 * time.Second)

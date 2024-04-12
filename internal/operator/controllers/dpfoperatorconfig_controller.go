@@ -27,6 +27,7 @@ import (
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	dpucniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/config"
+	hostcniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host/config"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 
@@ -370,9 +371,9 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	}
 
 	// Ensure Host CNI provisioner is deployed
-	hostCNIProvisionerObjects, err := utils.BytesToUnstructured(hostCNIProvisionerManifestContent)
+	hostCNIProvisionerObjects, err := generateHostCNIProvisionerObjects(dpfOperatorConfig)
 	if err != nil {
-		return fmt.Errorf("error while converting Host CNI provisioner manifests to objects: %w", err)
+		return fmt.Errorf("error while generating Host CNI provisioner objects: %w", err)
 	}
 	err = reconcileUnstructuredObjects(ctx, r.Client, hostCNIProvisionerObjects)
 	if err != nil {
@@ -828,40 +829,71 @@ func generateDPUCNIProvisionerObjects(dpfOperatorConfig *operatorv1.DPFOperatorC
 	if err != nil {
 		return nil, fmt.Errorf("error while converting manifests to objects: %w", err)
 	}
+	config := dpucniprovisionerconfig.DPUCNIProvisionerConfig{
+		VTEPIPs: dpfOperatorConfig.Spec.HostNetworkConfiguration.DPUIPs,
+	}
 
+	err = populateCNIProvisionerConfigMap(dpuCNIProvisionerObjects, "dpu-cni-provisioner", config)
+	if err != nil {
+		return nil, fmt.Errorf("error while populating configmap: %w", err)
+	}
+
+	return dpuCNIProvisionerObjects, err
+}
+
+// generateHostCNIProvisionerObjects generates the Host CNI Provisioner objects
+func generateHostCNIProvisionerObjects(dpfOperatorConfig *operatorv1.DPFOperatorConfig) ([]*unstructured.Unstructured, error) {
+	hostCNIProvisionerObjects, err := utils.BytesToUnstructured(hostCNIProvisionerManifestContent)
+	if err != nil {
+		return nil, fmt.Errorf("error while converting manifests to objects: %w", err)
+	}
+
+	config := hostcniprovisionerconfig.HostCNIProvisionerConfig{
+		PFIPs: dpfOperatorConfig.Spec.HostNetworkConfiguration.HostIPs,
+	}
+
+	err = populateCNIProvisionerConfigMap(hostCNIProvisionerObjects, "host-cni-provisioner", config)
+	if err != nil {
+		return nil, fmt.Errorf("error while populating configmap: %w", err)
+	}
+
+	return hostCNIProvisionerObjects, err
+}
+
+// populateCNIProvisionerConfigMap populates a ConfigMap object with the provided name that is found in the provided objects
+// with the config provided. It mutates the input objects in place.
+//
+//nolint:goconst
+func populateCNIProvisionerConfigMap(objects []*unstructured.Unstructured, configMapName string, config interface{}) error {
 	var adjustedConfigMap bool
-	for i, o := range dpuCNIProvisionerObjects {
-		if !(o.GetKind() == "ConfigMap" && o.GetName() == "dpu-cni-provisioner") {
+	for i, o := range objects {
+		if !(o.GetKind() == "ConfigMap" && o.GetName() == configMapName) {
 			continue
 		}
 
 		var configMap corev1.ConfigMap
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, &configMap)
 		if err != nil {
-			return nil, err
-		}
-
-		config := dpucniprovisionerconfig.DPUCNIProvisionerConfig{
-			VTEPIPs: dpfOperatorConfig.Spec.HostNetworkConfiguration.DPUIPs,
+			return err
 		}
 
 		data, err := json.Marshal(config)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		configMap.Data["config.yaml"] = string(data)
-		dpuCNIProvisionerObjects[i].Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(&configMap)
+		objects[i].Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(&configMap)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		adjustedConfigMap = true
 	}
 
 	if !adjustedConfigMap {
-		return nil, fmt.Errorf("couldn't find dpu-cni-provisioner configmap in objects")
+		return fmt.Errorf("couldn't find %s configmap in objects", configMapName)
 	}
 
-	return dpuCNIProvisionerObjects, err
+	return nil
 }

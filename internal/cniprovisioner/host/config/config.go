@@ -16,9 +16,9 @@ limitations under the License.
 
 package config
 
-// DPUCNIProvisionerConfig is the format of the config file the DPU CNI Provisioner is expecting. Notice that this is
+// HostCNIProvisionerConfig is the format of the config file the Host CNI Provisioner is expecting. Notice that this is
 // one config for all nodes because this is how the Operator is going to deploy that.
-type DPUCNIProvisionerConfig struct {
-	// VTEPIPs repesents the IPs that will be assigned to the VTEP interface on each DPU.
-	VTEPIPs map[string]string `json:"vtepIPs"`
+type HostCNIProvisionerConfig struct {
+	// PFIPs repesents the IPs that will be assigned to the PF interface on each Host.
+	PFIPs map[string]string `json:"pfIPs"`
 }

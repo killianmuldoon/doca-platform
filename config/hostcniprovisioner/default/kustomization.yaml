@@ -4,6 +4,7 @@ namespace: dpf-operator-system
 resources:
 - daemonset.yaml
 - rbac.yaml
+- configmap.yaml
 images:
 - name: controller
   newName: nvidia.com/host-cni-provisioner

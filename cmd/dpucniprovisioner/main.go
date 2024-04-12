@@ -51,7 +51,7 @@ func main() {
 
 	vtepIP, err := getVTEPIP(config)
 	if err != nil {
-		klog.Fatalf("error while parsing VTEPIP from config: %s", err.Error())
+		klog.Fatalf("error while parsing VTEP IP from config: %s", err.Error())
 	}
 
 	ovsClient, err := ovsclient.New()
