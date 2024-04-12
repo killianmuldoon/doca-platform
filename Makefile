@@ -185,14 +185,18 @@ ARGOCD_VER=v2.10.1
 $(ARGOCD_YAML): | $(CHARTSDIR)
 	curl -fSsL "https://raw.githubusercontent.com/argoproj/argo-cd/$(ARGOCD_VER)/manifests/install.yaml" -o $(ARGOCD_YAML)
 
+# Token used to pull from internal git registries. Used to enable https authentication in git clones from the internal NVIDIA gitlab.
+GITLAB_TOKEN ?= ""
+
 # OVN Kubernetes dependencies to be able to build its docker image
 OVNKUBERNETES_DIR=$(REPOSDIR)/ovn-kubernetes
 OVN_DIR=$(REPOSDIR)/ovn
 $(OVNKUBERNETES_DIR): | $(REPOSDIR)
-	git clone ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn-kubernetes.git $(OVNKUBERNETES_DIR)
+	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn-kubernetes.git $(OVNKUBERNETES_DIR)
+
 OVN_DIR=$(REPOSDIR)/ovn
 $(OVN_DIR): | $(REPOSDIR)
-	git clone ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR)
+	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR)
 
 .PHONY: clean
 clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
