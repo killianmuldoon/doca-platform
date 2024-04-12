@@ -69,7 +69,7 @@ This guide serves as a blueprint on how to test the custom OVN Kubernetes setup 
     apiVersion: operator.dpf.nvidia.com/v1alpha1
     kind: DPFOperatorConfig
     metadata:
-      name: e2e-qa-cluster
+      name: dpfoperatorconfig
       namespace: dpf-operator-system
     spec:
       hostNetworkConfiguration:

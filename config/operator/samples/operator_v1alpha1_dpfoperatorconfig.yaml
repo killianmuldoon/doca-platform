@@ -7,7 +7,6 @@ metadata:
     app.kubernetes.io/part-of: dpf-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: dpf-operator
-  name: dpfoperatorconfig-sample
 spec:
-  imageOverrides:
-    customOVNKubernetes: "docker.com/my-image"
+  name: dpfoperatorconfig
+  namespace: dpf-operator-system

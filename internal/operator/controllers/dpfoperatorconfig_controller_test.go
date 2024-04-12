@@ -40,6 +40,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -700,6 +702,67 @@ spec:
 				By("Reverting dpuCNIProvisionerManifestContent global variable to the original value")
 				copy(dpuCNIProvisionerManifestContent, dpuCNIProvisionerManifestContentCopy)
 			})
+		})
+	})
+})
+
+var _ = Describe("DPFOperator controller settings", func() {
+	Context("When setting up the controller", func() {
+		It("Should restrict reconciliation to a specific namespace and name when ConfigSingletonNamespaceName is set", func() {
+			s := scheme.Scheme
+			Expect(operatorv1.AddToScheme(scheme.Scheme)).To(Succeed())
+			singletonReconciler := &DPFOperatorConfigReconciler{
+				Client: testClient,
+				Scheme: s,
+				Settings: &DPFOperatorConfigReconcilerSettings{
+					ConfigSingletonNamespaceName: &types.NamespacedName{
+						Namespace: "one-namespace",
+						Name:      "one-name",
+					},
+				},
+			}
+			_, err := singletonReconciler.Reconcile(ctx, ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: "one-namespace",
+					Name:      "one-name",
+				},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = singletonReconciler.Reconcile(ctx, ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: "different-namespace",
+					Name:      "different-name",
+				},
+			})
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("only one object"))
+		})
+		It("Should allow reconciliation in any namespace and name when ConfigSingletonNamespaceName is unset", func() {
+			s := scheme.Scheme
+			Expect(operatorv1.AddToScheme(scheme.Scheme)).To(Succeed())
+			unrestrictedReconciler := &DPFOperatorConfigReconciler{
+				Client: testClient,
+				Scheme: s,
+				Settings: &DPFOperatorConfigReconcilerSettings{
+					ConfigSingletonNamespaceName: nil,
+				},
+			}
+			_, err := unrestrictedReconciler.Reconcile(ctx, ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: "one-namespace",
+					Name:      "one-name",
+				},
+			})
+			Expect(err).ToNot(HaveOccurred())
+
+			_, err = unrestrictedReconciler.Reconcile(ctx, ctrl.Request{
+				NamespacedName: types.NamespacedName{
+					Namespace: "different-namespace",
+					Name:      "different-name",
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 })

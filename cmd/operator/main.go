@@ -26,6 +26,7 @@ import (
 	operatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/controllers"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -52,13 +53,18 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
-func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	var secureMetrics bool
-	var enableHTTP2 bool
-	var customOVNKubernetesImage string
+var (
+	metricsAddr              string
+	enableLeaderElection     bool
+	probeAddr                string
+	secureMetrics            bool
+	enableHTTP2              bool
+	customOVNKubernetesImage string
+	configSingletonNamespace string
+	configSingletonName      string
+)
+
+func initFlags() {
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -70,6 +76,14 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.StringVar(&customOVNKubernetesImage, "ovn-kubernetes-image", defaultCustomOVNKubernetesImage,
 		"The custom OVN Kubernetes image deployed by the operator")
+	flag.StringVar(&configSingletonNamespace, "config-namespace",
+		operatorcontroller.DefaultDPFOperatorConfigSingletonNamespace, "The namespace of the DPFOperatorConfig the operator will reconcile")
+	flag.StringVar(&configSingletonName, "config-name",
+		operatorcontroller.DefaultDPFOperatorConfigSingletonName, "The name of the DPFOperatorConfig the operator will reconcile")
+}
+
+func main() {
+	initFlags()
 	opts := zap.Options{
 		Development: true,
 	}
@@ -77,16 +91,6 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
-
-	// TODO: Include that in a function with the rest of the flag validations
-	if customOVNKubernetesImage == "" {
-		if defaultCustomOVNKubernetesImage == "" {
-			setupLog.Error(errors.New("wrong build detected, ensure that the defaultCustomOVNKubernetesImage variable is set via ldflags when building the binary"), "")
-			os.Exit(1)
-		}
-		setupLog.Error(errors.New("flag ovn-kubernetes-image can't be empty"), "")
-		os.Exit(1)
-	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -136,14 +140,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	settings := &operatorcontroller.DPFOperatorConfigReconcilerSettings{
-		CustomOVNKubernetesImage: customOVNKubernetesImage,
-	}
-
 	if err = (&operatorcontroller.DPFOperatorConfigReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
-		Settings: settings,
+		Settings: getSettings(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPFOperatorConfig")
 		os.Exit(1)
@@ -163,5 +163,29 @@ func main() {
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
+	}
+}
+
+func getSettings() *operatorcontroller.DPFOperatorConfigReconcilerSettings {
+	// TODO: Include that in a function with the rest of the flag validations
+	if customOVNKubernetesImage == "" {
+		if defaultCustomOVNKubernetesImage == "" {
+			setupLog.Error(errors.New("wrong build detected, ensure that the defaultCustomOVNKubernetesImage variable is set via ldflags when building the binary"), "")
+			os.Exit(1)
+		}
+		setupLog.Error(errors.New("flag ovn-kubernetes-image can't be empty"), "")
+		os.Exit(1)
+	}
+
+	configSingletonNamespaceName := &types.NamespacedName{
+		Namespace: configSingletonNamespace,
+		Name:      configSingletonName,
+	}
+	if configSingletonNamespace == "" && configSingletonName == "" {
+		configSingletonNamespaceName = nil
+	}
+	return &operatorcontroller.DPFOperatorConfigReconcilerSettings{
+		CustomOVNKubernetesImage:     customOVNKubernetesImage,
+		ConfigSingletonNamespaceName: configSingletonNamespaceName,
 	}
 }
