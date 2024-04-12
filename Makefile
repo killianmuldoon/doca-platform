@@ -315,7 +315,7 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) ## Setup
 	$Q kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f - && kubectl apply -f $(ARGOCD_YAML)
 
 .PHONY: test-deploy-dpuservice
-test-deploy-dpuservice: $(KUSTOMIZE)
+test-deploy-dpuservice: generate
 	# Build and push the dpuservice controller images to the minikube registry
 	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
 	$(MAKE) docker-build-dpuservice docker-push-dpuservice
@@ -326,6 +326,21 @@ test-deploy-dpuservice: $(KUSTOMIZE)
 	# Deploy the dpuservice controller to the cluster
 	cd config/dpuservice/manager && $(KUSTOMIZE) edit set image controller=$(DPUSERVICE_IMAGE):$(TAG)
 	$(KUSTOMIZE) build config/dpuservice/default | kubectl apply -f -
+
+.PHONY: test-deploy-operator
+test-deploy-operator: generate
+	# Build and push the dpuservice and operator images to the minikube registry
+	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
+	$(MAKE) docker-build-dpuservice docker-push-dpuservice; \
+	$(MAKE) docker-build-operator docker-push-operator
+
+	# Deploy CRDs to the test env
+	$Q kubectl apply -f config/dpuservice/crd/bases
+	$Q kubectl apply -f config/operator/crd/bases
+
+	# Deploy the operator to the cluster
+	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
+	$(KUSTOMIZE) build config/operator/default | kubectl apply -f -
 
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  ## Run the e2e tests against a Kind k8s instance that is spun up.

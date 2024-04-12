@@ -142,7 +142,6 @@ func (d *DPUServiceObjects) validate() error {
 		return fmt.Errorf("error parsing DPUService objects: RoleBinding not found")
 	}
 	return nil
-
 }
 
 // Objects returns all objects as a list.

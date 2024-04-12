@@ -23,6 +23,7 @@ import (
 	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -43,7 +44,7 @@ var (
 	numClusters   = 2
 )
 
-var _ = Describe("Testing DPUService controller", Ordered, func() {
+var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 	dpuserviceName := "dpu-01"
 	dpuServiceNamespace := "default"
 	Context("deploying a DPUService", func() {
@@ -57,16 +58,18 @@ var _ = Describe("Testing DPUService controller", Ordered, func() {
 				}
 			})
 		})
-		It("ensure the DPUService controller is running and ready", func() {
+
+		It("ensure the DPF Operator is running and ready", func() {
 			Eventually(func(g Gomega) {
 				deployment := &appsv1.Deployment{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{
-					Namespace: "dpuservice-controller-system",
-					Name:      "dpuservice-controller-manager"},
+					Namespace: "dpf-operator-system",
+					Name:      "dpf-operator-controller-manager"},
 					deployment)).To(Succeed())
 				g.Expect(deployment.Status.ReadyReplicas).To(Equal(*deployment.Spec.Replicas))
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 		})
+
 		It("create underlying DPU clusters for test", func() {
 			for i := 0; i < numClusters; i++ {
 				clusterNamespace := fmt.Sprintf("dpu-%d-", i)
@@ -114,6 +117,34 @@ var _ = Describe("Testing DPUService controller", Ordered, func() {
 		})
 
 		// TODO: Create hollow nodes to join the cluster and host the applications.
+
+		It("create the DPFOperatorConfig for the system", func() {
+			config := &operatorv1.DPFOperatorConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dpfoperatorconfig",
+					Namespace: "dpf-operator-system",
+				},
+				Spec: operatorv1.DPFOperatorConfigSpec{
+					HostNetworkConfiguration: operatorv1.HostNetworkConfiguration{
+						DPUIPs:  make(map[string]string),
+						HostIPs: make(map[string]string),
+					},
+				},
+			}
+			Expect(testClient.Create(ctx, config)).To(Succeed())
+		})
+
+		It("ensure the DPUService controller is running and ready", func() {
+			Eventually(func(g Gomega) {
+				deployment := &appsv1.Deployment{}
+				g.Expect(testClient.Get(ctx, client.ObjectKey{
+					Namespace: "dpf-operator-system",
+					Name:      "dpuservice-controller-manager"},
+					deployment)).To(Succeed())
+				g.Expect(deployment.Status.ReadyReplicas).To(Equal(*deployment.Spec.Replicas))
+			}).WithTimeout(60 * time.Second).Should(Succeed())
+		})
+
 		It("create a DPUService and check that it is mirrored to each cluster", func() {
 			// Read the DPUService from file and create it.
 			data, err := os.ReadFile(filepath.Join(artifactsPath, "application/dpuservice.yaml"))
