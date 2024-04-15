@@ -1,7 +1,0 @@
-## Append samples of your project ##
-resources:
-- sfc_v1alpha1_serviceinterface.yaml
-- sfc_v1alpha1_serviceinterfaceset.yaml
-- sfc_v1alpha1_servicechain.yaml
-- sfc_v1alpha1_servicechainset.yaml
-#+kubebuilder:scaffold:manifestskustomizesamples
