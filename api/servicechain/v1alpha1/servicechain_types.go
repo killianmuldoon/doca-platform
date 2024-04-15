@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -39,22 +38,27 @@ type Port struct {
 }
 
 type Service struct {
-	InterfaceName string                 `json:"interface"`
-	Reference     corev1.ObjectReference `json:"reference,omitempty"`
-	MatchLabels   map[string]string      `json:"matchLabels,omitempty"`
-	IPAM          IPAM                   `json:"ipam,omitempty"`
+	InterfaceName string            `json:"interface"`
+	Reference     ObjectRef         `json:"reference,omitempty"`
+	MatchLabels   map[string]string `json:"matchLabels,omitempty"`
+	IPAM          IPAM              `json:"ipam,omitempty"`
 }
 
 type ServiceIfc struct {
-	Reference   corev1.ObjectReference `json:"reference,omitempty"`
-	MatchLabels map[string]string      `json:"matchLabels,omitempty"`
+	Reference   ObjectRef         `json:"reference,omitempty"`
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
 }
 
 type IPAM struct {
-	Reference       corev1.ObjectReference `json:"reference,omitempty"`
-	MatchLabels     map[string]string      `json:"matchLabels,omitempty"`
-	DefaultGateway  bool                   `json:"defaultGateway,omitempty"`
-	SetDefaultRoute bool                   `json:"setDefaultRoute,omitempty"`
+	Reference       ObjectRef         `json:"reference,omitempty"`
+	MatchLabels     map[string]string `json:"matchLabels,omitempty"`
+	DefaultGateway  bool              `json:"defaultGateway,omitempty"`
+	SetDefaultRoute bool              `json:"setDefaultRoute,omitempty"`
+}
+
+type ObjectRef struct {
+	Namespace string `json:"namespace,omitempty"`
+	Name      string `json:"name,omitempty"`
 }
 
 // ServiceChainStatus defines the observed state of ServiceChain
