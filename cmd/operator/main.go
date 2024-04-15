@@ -62,6 +62,7 @@ var (
 	customOVNKubernetesImage string
 	configSingletonNamespace string
 	configSingletonName      string
+	reconcileOVNKubernetes   bool
 )
 
 func initFlags() {
@@ -74,6 +75,8 @@ func initFlags() {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.BoolVar(&reconcileOVNKubernetes, "reconcileOVNKubernetes", true,
+		"Enable OVN Kubernetes offload to DPU. OpenShift only.")
 	flag.StringVar(&customOVNKubernetesImage, "ovn-kubernetes-image", defaultCustomOVNKubernetesImage,
 		"The custom OVN Kubernetes image deployed by the operator")
 	flag.StringVar(&configSingletonNamespace, "config-namespace",

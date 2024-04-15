@@ -46,7 +46,7 @@ var testEnv *envtest.Environment
 var ctx, testManagerCancelFunc = context.WithCancel(ctrl.SetupSignalHandler())
 var reconciler *DPFOperatorConfigReconciler
 
-func TestControllers(t *testing.T) {
+func TestOperator(t *testing.T) {
 	RegisterFailHandler(Fail)
 
 	RunSpecs(t, "Controller Suite")
@@ -100,6 +100,7 @@ var _ = BeforeSuite(func() {
 		Scheme: testManager.GetScheme(),
 		Settings: &DPFOperatorConfigReconcilerSettings{
 			CustomOVNKubernetesImage: "nvidia.com/ovn-kubernetes:dev",
+			ReconcileOVNKubernetes:   true,
 		},
 	}
 	err = reconciler.SetupWithManager(testManager)

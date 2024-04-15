@@ -291,6 +291,7 @@ test: envtest ## Run tests.
 test-report: envtest gotestsum ## Run tests and generate a junit style report
 	set +o errexit; KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLSDIR) -p path)" go test -json $$(go list ./... | grep -v /e2e) > junit.stdout; echo $$? > junit.exitcode;
 	$(GOTESTSUM) --junitfile junit.xml --raw-command cat junit.stdout
+	exit $$(cat junit.exitcode)
 
 TEST_CLUSTER_NAME := dpf-test
 test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) ## Setup a Kubernetes environment to run tests.
@@ -555,7 +556,9 @@ dev-dpuservice: $(MINIKUBE) $(SKAFFOLD)
 	$Q eval $$($(MINIKUBE) -p $(MINIKUBE_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p dpuservice --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
+ENABLE_OVN_KUBERNETES?=true
 dev-operator:  $(MINIKUBE) $(SKAFFOLD)	# Use minikube for docker build and deployment and run skaffold
+	sed "s/reconcileOVNKubernetes=.*/reconcileOVNKubernetes=$(ENABLE_OVN_KUBERNETES)/" config/operator/manager/manager.yaml
 	$Q eval $$($(MINIKUBE) -p $(MINIKUBE_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 

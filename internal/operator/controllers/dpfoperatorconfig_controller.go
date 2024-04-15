@@ -143,6 +143,10 @@ type DPFOperatorConfigReconcilerSettings struct {
 
 	// ConfigSingletonNamespaceName restricts reconciliation of the operator to a single DPFOperator Config with a specified namespace and name.
 	ConfigSingletonNamespaceName *types.NamespacedName
+
+	// ReconcileOVNKubernetes describes whether or not special steps should be taken to reconcile OVN-Kubernetes.
+	// This is a requirement for enabling OVN-Kubernetes offloads to the DPU.
+	ReconcileOVNKubernetes bool
 }
 
 //+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -218,13 +222,23 @@ func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOp
 
 //nolint:unparam
 func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (ctrl.Result, error) {
-	// Ensure Custom OVN Kubernetes Deployment is done
-	if err := r.reconcileCustomOVNKubernetesDeployment(ctx, dpfOperatorConfig); err != nil {
-		// TODO: In future we should tolerate this error, but only when we have status reporting.
+	if err := r.reconcileSystemComponents(ctx, dpfOperatorConfig); err != nil {
 		return ctrl.Result{}, err
 	}
 
+	if r.Settings.ReconcileOVNKubernetes {
+		// Ensure Custom OVN Kubernetes Deployment is done.
+		if err := r.reconcileCustomOVNKubernetesDeployment(ctx, dpfOperatorConfig); err != nil {
+			// TODO: In future we should tolerate this error, but only when we have status reporting.
+			return ctrl.Result{}, err
+		}
+	}
+
 	return ctrl.Result{}, nil
+}
+
+func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
+	return nil
 }
 
 // reconcileCustomOVNKubernetesDeployment ensures that custom OVN Kubernetes is deployed
