@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -49,6 +50,10 @@ import (
 )
 
 const (
+	// DefaultDPFOperatorConfigSingletonName is the default single valid name of the DPFOperatorConfig.
+	DefaultDPFOperatorConfigSingletonName = "dpfoperatorconfig"
+	// DefaultDPFOperatorConfigSingletonNamespace is the default single valid name of the DPFOperatorConfig.
+	DefaultDPFOperatorConfigSingletonNamespace = "dpf-operator-system"
 	// ovnKubernetesNamespace is the Namespace where OVN Kubernetes is deployed in OpenShift
 	ovnKubernetesNamespace = "openshift-ovn-kubernetes"
 	// ovnKubernetesDaemonsetName is the name of the OVN Kubernetes DaemonSet in OpenShift
@@ -135,6 +140,9 @@ type DPFOperatorConfigReconciler struct {
 type DPFOperatorConfigReconcilerSettings struct {
 	// CustomOVNKubernetesImage the OVN Kubernetes image deployed by the operator
 	CustomOVNKubernetesImage string
+
+	// ConfigSingletonNamespaceName restricts reconciliation of the operator to a single DPFOperator Config with a specified namespace and name.
+	ConfigSingletonNamespaceName *types.NamespacedName
 }
 
 //+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -154,6 +162,14 @@ const (
 func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling")
+	// TODO: Validate that the DPF Operator Config only exists with the correct name and namespace at creation time.
+	if r.Settings.ConfigSingletonNamespaceName != nil {
+		if req.Namespace != r.Settings.ConfigSingletonNamespaceName.Name && req.Name != r.Settings.ConfigSingletonNamespaceName.Name {
+			return ctrl.Result{}, fmt.Errorf("invalid config: only one object with name %s in namespace %s is allowed",
+				r.Settings.ConfigSingletonNamespaceName.Namespace, r.Settings.ConfigSingletonNamespaceName.Name)
+		}
+	}
+
 	dpfOperatorConfig := &operatorv1.DPFOperatorConfig{}
 	if err := r.Client.Get(ctx, req.NamespacedName, dpfOperatorConfig); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -163,7 +179,6 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, err
 	}
 
-	//original := dpfOperatorConfig.DeepCopy()
 	// Defer a patch call to always patch the object when Reconcile exits.
 	defer func() {
 		log.Info("Calling defer")
