@@ -17,13 +17,44 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // ServiceChainSpec defines the desired state of ServiceChain
 type ServiceChainSpec struct {
 	// Node where this ServiceChain applies to
-	Node string `json:"node"`
+	Node string `json:"node,omitempty"`
+	// The switches of the ServiceChain, order is significant
+	Switches []Switch `json:"switches"`
+}
+
+type Switch struct {
+	Ports []Port `json:"ports"`
+}
+
+type Port struct {
+	Service          Service    `json:"service,omitempty"`
+	ServiceInterface ServiceIfc `json:"serviceInterface,omitempty"`
+}
+
+type Service struct {
+	InterfaceName string                 `json:"interface"`
+	Reference     corev1.ObjectReference `json:"reference,omitempty"`
+	MatchLabels   map[string]string      `json:"matchLabels,omitempty"`
+	IPAM          IPAM                   `json:"ipam,omitempty"`
+}
+
+type ServiceIfc struct {
+	Reference   corev1.ObjectReference `json:"reference,omitempty"`
+	MatchLabels map[string]string      `json:"matchLabels,omitempty"`
+}
+
+type IPAM struct {
+	Reference       corev1.ObjectReference `json:"reference,omitempty"`
+	MatchLabels     map[string]string      `json:"matchLabels,omitempty"`
+	DefaultGateway  bool                   `json:"defaultGateway,omitempty"`
+	SetDefaultRoute bool                   `json:"setDefaultRoute,omitempty"`
 }
 
 // ServiceChainStatus defines the observed state of ServiceChain

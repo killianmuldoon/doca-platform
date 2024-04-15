@@ -18,7 +18,7 @@ package controller
 
 import (
 	"context"
-	"fmt"
+	"maps"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
 
@@ -36,6 +36,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+var _ serviceSetReconciler = &ServiceChainSetReconciler{}
+
 // ServiceChainSetReconciler reconciles a ServiceChainSet object
 type ServiceChainSetReconciler struct {
 	client.Client
@@ -52,13 +54,11 @@ const (
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechainsets/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechainsets/finalizers,verbs=update
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 
 func (r *ServiceChainSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-
 	log.Info("Reconciling")
 	scs := &sfcv1.ServiceChainSet{}
 	if err := r.Client.Get(ctx, req.NamespacedName, scs); err != nil {
@@ -68,70 +68,19 @@ func (r *ServiceChainSetReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 		return ctrl.Result{}, err
 	}
-	return r.reconcile(ctx, scs)
+	if !scs.ObjectMeta.DeletionTimestamp.IsZero() {
+		// Return early, the object is deleting.
+		return ctrl.Result{}, nil
+	}
+	return reconcileSet(ctx, scs, r.Client, scs.Spec.NodeSelector, r)
 }
 
-func (r *ServiceChainSetReconciler) reconcile(ctx context.Context, scs *sfcv1.ServiceChainSet) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
-	// Get node map by nodeSelector
-	nodeMap, err := r.getNodeMap(ctx, scs.Spec.NodeSelector)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get Node list: %w", err)
-	}
-	// Get ServiceChain map which are owned by serviceChainSet
-	serviceChainMap, err := r.getServiceChainMap(ctx, scs)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get ServiceChain list: %w", err)
-	}
-	// create ServiceChain for the node
-	for nodeName := range nodeMap {
-		if _, ok := serviceChainMap[nodeName]; !ok {
-			if err = r.createServiceChain(ctx, scs, nodeName); err != nil {
-				return ctrl.Result{}, fmt.Errorf("failed to create ServiceChain: %w", err)
-			}
-		} else {
-			delete(serviceChainMap, nodeName)
-		}
-	}
-	// delete ServiceChain if node does not exist
-	for nodeName, sc := range serviceChainMap {
-		if err := r.Delete(ctx, sc); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to delete ServiceChain: %w", err)
-		}
-		log.Info("ServiceChain is deleted", "nodename", nodeName, "serviceChain", sc)
-	}
-
-	return ctrl.Result{}, nil
-}
-
-func (r *ServiceChainSetReconciler) getNodeMap(ctx context.Context, selector *metav1.LabelSelector) (map[string]struct{}, error) {
-	nodeMap := make(map[string]struct{})
-	nodeList := &corev1.NodeList{}
-	nodeSelector, err := metav1.LabelSelectorAsSelector(selector)
-	if err != nil {
-		return nodeMap, err
-	}
-	listOptions := client.ListOptions{
-		LabelSelector: nodeSelector,
-	}
-
-	if err := r.List(ctx, nodeList, &listOptions); err != nil {
-		return nodeMap, err
-	}
-
-	for i := range nodeList.Items {
-		node := nodeList.Items[i]
-		nodeMap[node.Name] = struct{}{}
-	}
-	return nodeMap, nil
-}
-
-func (r *ServiceChainSetReconciler) getServiceChainMap(ctx context.Context, scs *sfcv1.ServiceChainSet) (map[string]*sfcv1.ServiceChain, error) {
-	serviceChainMap := make(map[string]*sfcv1.ServiceChain)
+func (r *ServiceChainSetReconciler) getChildMap(ctx context.Context, set client.Object) (map[string]client.Object, error) {
+	serviceChainMap := make(map[string]client.Object)
 	serviceChainList := &sfcv1.ServiceChainList{}
 	if err := r.List(ctx, serviceChainList, client.MatchingLabels{
-		ServiceChainSetNameLabel:      scs.Name,
-		ServiceChainSetNamespaceLabel: scs.Namespace,
+		ServiceChainSetNameLabel:      set.GetName(),
+		ServiceChainSetNamespaceLabel: set.GetNamespace(),
 	}); err != nil {
 		return serviceChainMap, err
 	}
@@ -142,18 +91,31 @@ func (r *ServiceChainSetReconciler) getServiceChainMap(ctx context.Context, scs 
 	return serviceChainMap, nil
 }
 
-func (r *ServiceChainSetReconciler) createServiceChain(ctx context.Context, serviceChainSet *sfcv1.ServiceChainSet,
-	nodeName string) error {
+func (r *ServiceChainSetReconciler) createOrUpdateChild(ctx context.Context, set client.Object, nodeName string) error {
 	log := log.FromContext(ctx)
+	serviceChainSet := set.(*sfcv1.ServiceChainSet)
 	labels := map[string]string{ServiceChainSetNameLabel: serviceChainSet.Name,
 		ServiceChainSetNamespaceLabel: serviceChainSet.Namespace}
-	for k, v := range serviceChainSet.Labels {
-		labels[k] = v
-	}
+	maps.Copy(labels, serviceChainSet.Spec.Template.ObjectMeta.Labels)
 	scName := serviceChainSet.Name + "-" + nodeName
 	owner := metav1.NewControllerRef(serviceChainSet,
 		sfcv1.GroupVersion.WithKind("ServiceChainSet"))
-
+	switches := make([]sfcv1.Switch, len(serviceChainSet.Spec.Template.Spec.Switches))
+	for i, s := range serviceChainSet.Spec.Template.Spec.Switches {
+		switches[i] = sfcv1.Switch{}
+		ports := make([]sfcv1.Port, len(s.Ports))
+		for j, p := range s.Ports {
+			ports[j] = sfcv1.Port{}
+			ports[j].Service = *p.Service.DeepCopy()
+			ports[j].Service.Reference = *p.Service.Reference.DeepCopy()
+			ports[j].ServiceInterface = *p.ServiceInterface.DeepCopy()
+			ports[j].ServiceInterface.Reference = *p.ServiceInterface.Reference.DeepCopy()
+			if p.ServiceInterface.Reference.Name != "" {
+				ports[j].ServiceInterface.Reference.Name = p.ServiceInterface.Reference.Name + "-" + nodeName
+			}
+		}
+		switches[i].Ports = ports
+	}
 	sc := &sfcv1.ServiceChain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            scName,
@@ -163,7 +125,8 @@ func (r *ServiceChainSetReconciler) createServiceChain(ctx context.Context, serv
 			OwnerReferences: []metav1.OwnerReference{*owner},
 		},
 		Spec: sfcv1.ServiceChainSpec{
-			Node: nodeName,
+			Node:     nodeName,
+			Switches: switches,
 		},
 	}
 	sc.ObjectMeta.ManagedFields = nil

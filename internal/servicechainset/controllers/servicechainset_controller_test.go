@@ -65,7 +65,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 
 			By("Reconciling the created resource, 3 nodes")
 			Eventually(func(g Gomega) {
-				assertServiceChainList(ctx, g, 3, &cleanupObjects)
+				assertServiceChainList(ctx, g, 3, &cleanupObjects, getTestServiceChainSpec())
 			}, timeout*30, interval).Should(Succeed())
 
 		})
@@ -82,7 +82,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 
 			By("Reconciling the created resource, 3 nodes, 2 matches")
 			Eventually(func(g Gomega) {
-				assertServiceChainList(ctx, g, 2, &cleanupObjects)
+				assertServiceChainList(ctx, g, 2, &cleanupObjects, getTestServiceChainSpec())
 			}, timeout*30, interval).Should(Succeed())
 		})
 		It("should successfully reconcile the ServiceChainSet with Node Selector and remove Service Chain", func() {
@@ -98,7 +98,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 
 			By("Reconciling the created resource, 3 nodes, 3 matches")
 			Eventually(func(g Gomega) {
-				assertServiceChainList(ctx, g, 3, &cleanupObjects)
+				assertServiceChainList(ctx, g, 3, &cleanupObjects, getTestServiceChainSpec())
 			}, timeout*30, interval).Should(Succeed())
 
 			By("Update Node-3 label to not be selected")
@@ -109,7 +109,51 @@ var _ = Describe("ServiceChainSet Controller", func() {
 
 			By("Reconciling the created resource, 3 nodes, 2 matching")
 			Eventually(func(g Gomega) {
-				assertServiceChainList(ctx, g, 2, &cleanupObjects)
+				assertServiceChainList(ctx, g, 2, &cleanupObjects, getTestServiceChainSpec())
+			}, timeout*30, interval).Should(Succeed())
+		})
+		It("should successfully reconcile the ServiceChainSet after update", func() {
+			By("creating ServiceChainSet, with Node Selector")
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
+				MatchLabels: map[string]string{"role": "firewall"}}))
+
+			By("Create 3 nodes")
+			labels := map[string]string{"role": "firewall"}
+			cleanupObjects = append(cleanupObjects, createNode(ctx, "node1", labels))
+			cleanupObjects = append(cleanupObjects, createNode(ctx, "node2", labels))
+			cleanupObjects = append(cleanupObjects, createNode(ctx, "node3", make(map[string]string)))
+
+			By("Reconciling the created resource, 3 nodes, 2 matches")
+			Eventually(func(g Gomega) {
+				assertServiceChainList(ctx, g, 2, &cleanupObjects, getTestServiceChainSpec())
+			}, timeout*30, interval).Should(Succeed())
+
+			By("Update ServiceChainSet Spec")
+			scs := &sfcv1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: resourceName, Namespace: defaultNS}}
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)).NotTo(HaveOccurred())
+			updatedSpec := &sfcv1.ServiceChainSpec{
+				Switches: []sfcv1.Switch{
+					{
+						Ports: []sfcv1.Port{
+							{
+								Service: sfcv1.Service{
+									InterfaceName: "head-iface",
+								},
+								ServiceInterface: sfcv1.ServiceIfc{
+									Reference: corev1.ObjectReference{
+										Name: "p0",
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			scs.Spec.Template.Spec = *updatedSpec
+			Expect(testClient.Update(ctx, scs)).NotTo(HaveOccurred())
+			By("Reconciling the updated resource")
+			Eventually(func(g Gomega) {
+				assertServiceChainList(ctx, g, 2, &cleanupObjects, updatedSpec)
 			}, timeout*30, interval).Should(Succeed())
 		})
 	})
@@ -123,10 +167,37 @@ func createServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelec
 		},
 		Spec: sfcv1.ServiceChainSetSpec{
 			NodeSelector: labelSelector,
+			Template: sfcv1.ServiceChainSpecTemplate{
+				Spec: *getTestServiceChainSpec(),
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: getTestLabels(),
+				},
+			},
 		},
 	}
 	Expect(testClient.Create(ctx, scs)).NotTo(HaveOccurred())
 	return scs
+}
+
+func getTestServiceChainSpec() *sfcv1.ServiceChainSpec {
+	return &sfcv1.ServiceChainSpec{
+		Switches: []sfcv1.Switch{
+			{
+				Ports: []sfcv1.Port{
+					{
+						Service: sfcv1.Service{
+							InterfaceName: "head-iface",
+						},
+						ServiceInterface: sfcv1.ServiceIfc{
+							Reference: corev1.ObjectReference{
+								Name: "p0",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
 }
 
 func createNode(ctx context.Context, name string, labels map[string]string) *corev1.Node {
@@ -135,7 +206,8 @@ func createNode(ctx context.Context, name string, labels map[string]string) *cor
 	return node
 }
 
-func assertServiceChainList(ctx context.Context, g Gomega, nodeCount int, cleanupObjects *[]client.Object) {
+func assertServiceChainList(ctx context.Context, g Gomega, nodeCount int, cleanupObjects *[]client.Object,
+	testSpec *sfcv1.ServiceChainSpec) {
 	serviceChainList := &sfcv1.ServiceChainList{}
 	g.ExpectWithOffset(1, testClient.List(ctx, serviceChainList)).NotTo(HaveOccurred())
 	g.ExpectWithOffset(1, serviceChainList.Items).To(HaveLen(nodeCount))
@@ -144,17 +216,24 @@ func assertServiceChainList(ctx context.Context, g Gomega, nodeCount int, cleanu
 	for _, sc := range serviceChainList.Items {
 		serviceChain := sc
 		*cleanupObjects = append(*cleanupObjects, &serviceChain)
-		assertServiceChain(g, &sc)
+		assertServiceChain(g, &sc, testSpec)
 		nodeMap[sc.Spec.Node] = true
 	}
 	g.ExpectWithOffset(1, nodeMap).To(HaveLen(nodeCount))
 }
 
-func assertServiceChain(g Gomega, sc *sfcv1.ServiceChain) {
+func assertServiceChain(g Gomega, sc *sfcv1.ServiceChain, testSpec *sfcv1.ServiceChainSpec) {
+	specCopy := testSpec.DeepCopy()
 	node := sc.Spec.Node
+	specCopy.Node = node
+	specCopy.Switches[0].Ports[0].ServiceInterface.Reference.Name = specCopy.Switches[0].Ports[0].ServiceInterface.Reference.Name + "-" + node
+	g.ExpectWithOffset(2, sc.Spec).To(Equal(*specCopy))
 	g.ExpectWithOffset(2, node).NotTo(BeEmpty())
 	g.ExpectWithOffset(2, sc.Name).To(Equal(resourceName + "-" + node))
 	g.ExpectWithOffset(2, sc.Labels[ServiceChainSetNameLabel]).To(Equal(resourceName))
 	g.ExpectWithOffset(2, sc.Labels[ServiceChainSetNamespaceLabel]).To(Equal(defaultNS))
 	g.ExpectWithOffset(2, sc.OwnerReferences).To(HaveLen(1))
+	for k, v := range getTestLabels() {
+		g.ExpectWithOffset(2, sc.Labels[k]).To(Equal(v))
+	}
 }
