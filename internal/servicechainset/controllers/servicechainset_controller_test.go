@@ -140,7 +140,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 									InterfaceName: "head-iface",
 								},
 								ServiceInterface: sfcv1.ServiceIfc{
-									Reference: corev1.ObjectReference{
+									Reference: sfcv1.ObjectRef{
 										Name: "p0",
 									},
 								},
@@ -189,7 +189,7 @@ func getTestServiceChainSpec() *sfcv1.ServiceChainSpec {
 							InterfaceName: "head-iface",
 						},
 						ServiceInterface: sfcv1.ServiceIfc{
-							Reference: corev1.ObjectReference{
+							Reference: sfcv1.ObjectRef{
 								Name: "p0",
 							},
 						},

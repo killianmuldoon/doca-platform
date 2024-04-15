@@ -43,12 +43,12 @@ func reconcileSet(ctx context.Context, set client.Object, k8sClient client.Clien
 	// Get Childs map (node->child) which are owned by Set
 	childMap, err := reconciler.getChildMap(ctx, set)
 	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to get ServiceChain list: %w", err)
+		return ctrl.Result{}, fmt.Errorf("failed to get Child list: %w", err)
 	}
-	// create or update ServiceChain for the node
+	// create or update Child for the node
 	for _, node := range nodeList.Items {
 		if err = reconciler.createOrUpdateChild(ctx, set, node.Name); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to create  or update ServiceChain: %w", err)
+			return ctrl.Result{}, fmt.Errorf("failed to create or update Child: %w", err)
 		}
 		delete(childMap, node.Name)
 	}
