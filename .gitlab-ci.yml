@@ -77,8 +77,8 @@ e2e:
   tags:
     - e2e
   before_script:
-    - make test-env-e2e
+    - make clean-test-env test-env-e2e
   script:
-    - make test-deploy-dpuservice && make test-e2e
+    - make test-deploy-operator && make test-e2e
   after_script:
     -  make clean-test-env

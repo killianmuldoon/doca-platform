@@ -73,7 +73,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 
 			Eventually(func(g Gomega) []string {
 				gotConfig := &operatorv1.DPFOperatorConfig{}
-				Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpfOperatorConfig), gotConfig)).To(Succeed())
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpfOperatorConfig), gotConfig)).To(Succeed())
 				return gotConfig.Finalizers
 			}).WithTimeout(30 * time.Second).Should(ConsistOf([]string{operatorv1.DPFOperatorConfigFinalizer}))
 		})
@@ -978,3 +978,24 @@ func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig
 	}
 
 }
+
+var _ = Describe("DPFOperatorConfig Controller", func() {
+	Context("controller should create DPF System components", func() {
+		var testNS *corev1.Namespace
+		BeforeEach(func() {
+			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+			Expect(testClient.Create(ctx, testNS)).To(Succeed())
+		})
+		It("reconciles DPUService controller", func() {
+			config := getMinimalDPFOperatorConfig(testNS.Name)
+			Expect(testClient.Create(ctx, config)).To(Succeed())
+			Eventually(func(g Gomega) {
+				deployment := &appsv1.Deployment{}
+				g.Expect(testClient.Get(ctx, client.ObjectKey{
+					Namespace: config.Namespace,
+					Name:      "dpuservice-controller-manager"},
+					deployment)).To(Succeed())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+		})
+	})
+})

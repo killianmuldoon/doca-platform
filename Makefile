@@ -327,13 +327,28 @@ test-deploy-dpuservice: $(KUSTOMIZE)
 	cd config/dpuservice/manager && $(KUSTOMIZE) edit set image controller=$(DPUSERVICE_IMAGE):$(TAG)
 	$(KUSTOMIZE) build config/dpuservice/default | kubectl apply -f -
 
+.PHONY: test-deploy-operator
+test-deploy-operator: $(KUSTOMIZE)
+	# Build and push the dpuservice and operator images to the minikube registry
+	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
+	$(MAKE) docker-build-dpuservice docker-push-dpuservice; \
+	$(MAKE) docker-build-operator docker-push-operator
+
+	# Deploy CRDs to the test env
+	$Q kubectl apply -f config/dpuservice/crd/bases
+	$Q kubectl apply -f config/operator/crd/bases
+
+	# Deploy the operator to the cluster
+	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
+	$(KUSTOMIZE) build config/operator/default | kubectl apply -f -
+
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  ## Run the e2e tests against a Kind k8s instance that is spun up.
 test-e2e:
 	go test ./test/e2e/ -v -ginkgo.v
 
 .PHONY: clean-test-env
-clean-test-env:
+clean-test-env: $(MINIKUBE)
 	$(MINIKUBE) delete -p $(TEST_CLUSTER_NAME)
 
 ##@ lint and verify

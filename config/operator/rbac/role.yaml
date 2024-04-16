@@ -25,15 +25,46 @@ rules:
   - patch
   - watch
 - apiGroups:
+  - argoproj.io
+  resources:
+  - applications
+  - appprojects
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - events
+  - persistentvolumeclaims
+  - secrets
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - ""
   resources:
   - configmaps
   - serviceaccounts
   verbs:
   - create
+  - delete
   - get
   - list
   - patch
+  - update
   - watch
 - apiGroups:
   - ""
@@ -44,6 +75,26 @@ rules:
   - get
   - list
   - patch
+  - watch
+- apiGroups:
+  - events.k8s.io
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kamaji.clastix.io
+  resources:
+  - tenantcontrolplanes
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - operator.dpf.nvidia.com
@@ -74,10 +125,41 @@ rules:
 - apiGroups:
   - rbac.authorization.k8s.io
   resources:
+  - clusterrolebindings
+  - clusterroles
   - rolebindings
+  - roles
   verbs:
   - create
+  - delete
   - get
   - list
   - patch
+  - update
   - watch
+- apiGroups:
+  - svc.dpf.nvidia.com
+  resources:
+  - dpuservices
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - svc.dpf.nvidia.com
+  resources:
+  - dpuservices/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - svc.dpf.nvidia.com
+  resources:
+  - dpuservices/status
+  verbs:
+  - get
+  - patch
+  - update

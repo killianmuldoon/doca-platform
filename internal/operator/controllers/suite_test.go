@@ -24,6 +24,7 @@ import (
 	"testing"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/inventory"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -95,6 +96,8 @@ var _ = BeforeSuite(func() {
 			}})
 	Expect(err).ToNot(HaveOccurred())
 
+	inventory := inventory.New()
+	Expect(inventory.Parse()).To(Succeed())
 	reconciler = &DPFOperatorConfigReconciler{
 		Client: testClient,
 		Scheme: testManager.GetScheme(),
@@ -102,6 +105,7 @@ var _ = BeforeSuite(func() {
 			CustomOVNKubernetesImage: "nvidia.com/ovn-kubernetes:dev",
 			ReconcileOVNKubernetes:   true,
 		},
+		Inventory: inventory,
 	}
 	err = reconciler.SetupWithManager(testManager)
 	Expect(err).ToNot(HaveOccurred())
