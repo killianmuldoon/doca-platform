@@ -22,14 +22,15 @@ import (
 	"io"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/util/yaml"
+	apiyaml "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 )
 
 // BytesToUnstructured converts a slice of Bytes to Unstructured objects. This function is useful when you want to read
 // a yaml manifest and covert it to Kubernetes objects.
 func BytesToUnstructured(b []byte) ([]*unstructured.Unstructured, error) {
 	objs := []*unstructured.Unstructured{}
-	decoder := yaml.NewYAMLOrJSONDecoder(bytes.NewReader(b), 4096)
+	decoder := apiyaml.NewYAMLOrJSONDecoder(bytes.NewReader(b), 4096)
 	for {
 		obj := unstructured.Unstructured{}
 		if err := decoder.Decode(&obj); err != nil {
@@ -46,4 +47,36 @@ func BytesToUnstructured(b []byte) ([]*unstructured.Unstructured, error) {
 		objs = append(objs, &obj)
 	}
 	return objs, nil
+}
+
+// UnstructuredToBytes converts a list of Unstructured objects to YAML.
+func UnstructuredToBytes(objs []*unstructured.Unstructured) ([]byte, error) {
+	yamls := [][]byte{}
+
+	for _, o := range objs {
+		content, err := yaml.Marshal(o.UnstructuredContent())
+		if err != nil {
+			return nil, err
+		}
+		yamls = append(yamls, content)
+	}
+
+	yamlData := [][]byte{}
+	lineSeperator := []byte("\n")
+	yamlSeparator := []byte("---")
+	for _, y := range yamls {
+		if !bytes.HasPrefix(y, lineSeperator) {
+			y = append(lineSeperator, y...)
+		}
+		if !bytes.HasSuffix(y, lineSeperator) {
+			y = append(y, lineSeperator...)
+		}
+		yamlData = append(yamlData, y)
+	}
+
+	out := bytes.Join(yamlData, yamlSeparator)
+	out = bytes.TrimPrefix(out, lineSeperator)
+	out = bytes.TrimSuffix(out, lineSeperator)
+
+	return out, nil
 }
