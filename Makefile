@@ -315,7 +315,7 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) ## Setup
 	$Q kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f - && kubectl apply -f $(ARGOCD_YAML)
 
 .PHONY: test-deploy-dpuservice
-test-deploy-dpuservice: generate
+test-deploy-dpuservice: $(KUSTOMIZE)
 	# Build and push the dpuservice controller images to the minikube registry
 	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
 	$(MAKE) docker-build-dpuservice docker-push-dpuservice
@@ -328,7 +328,7 @@ test-deploy-dpuservice: generate
 	$(KUSTOMIZE) build config/dpuservice/default | kubectl apply -f -
 
 .PHONY: test-deploy-operator
-test-deploy-operator: generate
+test-deploy-operator: $(KUSTOMIZE)
 	# Build and push the dpuservice and operator images to the minikube registry
 	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
 	$(MAKE) docker-build-dpuservice docker-push-dpuservice; \

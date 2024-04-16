@@ -163,7 +163,7 @@ type DPFOperatorConfigReconcilerSettings struct {
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/finalizers,verbs=update
-//+kubebuilder:rbac:groups="core",resources=persistentvolumeclaims;events;serviceaccounts;configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims;events;serviceaccounts;configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=argoproj.io,resources=appprojects;applications,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=kamaji.clastix.io,resources=tenantcontrolplanes,verbs=get;list;watch
 
@@ -235,12 +235,6 @@ func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperator
 		return ctrl.Result{}, err
 	}
 
-	// Ensure Custom OVN Kubernetes Deployment is done
-	if err := r.reconcileCustomOVNKubernetesDeployment(ctx, dpfOperatorConfig); err != nil {
-		// TODO: In future we should tolerate this error, but only when we have status reporting.
-		return ctrl.Result{}, err
-	}
-
 	if r.Settings.ReconcileOVNKubernetes {
 		// Ensure Custom OVN Kubernetes Deployment is done.
 		if err := r.reconcileCustomOVNKubernetesDeployment(ctx, dpfOperatorConfig); err != nil {
@@ -260,10 +254,6 @@ func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Cont
 	// TODO: Handle deletion of objects on version upgrade.
 	r.Inventory.DPUService.SetNamespace(config.Namespace)
 	for _, obj := range r.Inventory.DPUService.Objects() {
-		obj.SetLabels(
-			map[string]string{
-				"nvidia.dpf-operator.component": "dpuservice",
-			})
 		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error patching %v/%v/%v: %w",
@@ -283,7 +273,6 @@ func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx
 	// - ensure network operator is scaled down
 	// - ensure webhook is removed
 	// - ensure OVN Kubernetes daemonset has different nodeSelector (i.e. point to control plane only)
-
 	if err := r.scaleDownOVNKubernetesComponents(ctx); err != nil {
 		return fmt.Errorf("error while scaling down OVN Kubernetes components: %w", err)
 	}

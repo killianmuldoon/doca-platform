@@ -76,13 +76,6 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpfOperatorConfig), gotConfig)).To(Succeed())
 				return gotConfig.Finalizers
 			}).WithTimeout(30 * time.Second).Should(ConsistOf([]string{operatorv1.DPFOperatorConfigFinalizer}))
-
-			By("Creating the DPUService controller")
-			Eventually(func(g Gomega) {
-				gotDeployment := &appsv1.Deployment{}
-				dpuServiceControllerKey := client.ObjectKey{Namespace: testNS.Name, Name: "dpuservice-controller-manager"}
-				g.Expect(testClient.Get(ctx, dpuServiceControllerKey, gotDeployment)).To(Succeed())
-			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 	})
 

@@ -77,7 +77,7 @@ e2e:
   tags:
     - e2e
   before_script:
-    - make test-env-e2e
+    - make clean-test-env test-env-e2e
   script:
     - make test-deploy-operator && make test-e2e
   after_script:
