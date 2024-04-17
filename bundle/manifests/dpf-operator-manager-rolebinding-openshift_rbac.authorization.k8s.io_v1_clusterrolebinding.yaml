@@ -1,0 +1,20 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  creationTimestamp: null
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: dpf-operator
+    app.kubernetes.io/instance: manager-rolebinding-openshift
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: clusterrolebinding
+    app.kubernetes.io/part-of: dpf-operator
+  name: dpf-operator-manager-rolebinding-openshift
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:privileged
+subjects:
+- kind: ServiceAccount
+  name: dpf-operator-controller-manager
+  namespace: dpf-operator
