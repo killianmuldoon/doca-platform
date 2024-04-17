@@ -48,6 +48,8 @@ nightly-release:
     - docker login harbor.mellanox.com
   script:
     - make docker-build-all docker-push-all
+  after_script:
+    - ./hack/scripts/slack-notification.sh
 
 test:
   stage: test
@@ -81,4 +83,5 @@ e2e:
   script:
     - make test-deploy-operator && make test-e2e
   after_script:
+    - ./hack/scripts/slack-notification.sh
     -  make clean-test-env
