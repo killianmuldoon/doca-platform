@@ -23,7 +23,6 @@ set -o errexit
 ## Exit if the job succeeded.
 if [ "$CI_JOB_STATUS" == "success" ]; then
   exit 0
-else
+fi
 
-curl -X POST -H "Content-type: application/json" --data "{\"pipeline_name\":\"${CI_PIPELINE_NAME}\", \"pipeline_url\":\"${CI_PIPELINE_URL}\"}" $SLACK_WEBHOOK_URL
-
+curl -X POST -H "Content-type: application/json" --data "{\"pipeline_name\":\"${CI_JOB_NAME}\", \"pipeline_url\":\"${CI_PIPELINE_URL}\"}" $SLACK_WEBHOOK_URL
