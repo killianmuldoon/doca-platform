@@ -81,7 +81,7 @@ e2e:
   before_script:
     - make clean-test-env test-env-e2e
   script:
-    - make test-deploy-operator && make test-e2e
+    - make generate test-deploy-operator test-e2e
   after_script:
     - ./hack/scripts/slack-notification.sh
     -  make clean-test-env
