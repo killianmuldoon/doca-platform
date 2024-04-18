@@ -54,16 +54,36 @@ type DPUCNIProvisioner struct {
 
 	// vtepIPNet is the IP that should be added to the VTEP interface.
 	vtepIPNet *net.IPNet
+	// gateway is the gateway IP that is configured on the routes related to OVN Kubernetes reaching its peer nodes
+	// when traffic needs to go from one Pod running on Node A to another Pod running on Node B.
+	gateway net.IP
+	// vtepCIDR is the CIDR in which all the VTEP IPs of all the DPUs in the DPU cluster belong to. This CIDR is
+	// configured on the routes related to traffic that needs to go from one Pod running on worker Node A to another Pod
+	// running on worker Node B.
+	vtepCIDR *net.IPNet
+	// hostCIDR is the CIDR of the host machines that is configured on the routes related to OVN Kubernetes reaching
+	// its peer nodes when traffic needs to go from one Pod running on worker Node A to another Pod running on control
+	// plane A (and vice versa).
+	hostCIDR *net.IPNet
 }
 
 // New creates a DPUCNIProvisioner that can configure the system
-func New(ovsClient ovsclient.OVSClient, networkHelper networkhelper.NetworkHelper, exec kexec.Interface, vtepIPNet *net.IPNet) *DPUCNIProvisioner {
+func New(ovsClient ovsclient.OVSClient,
+	networkHelper networkhelper.NetworkHelper,
+	exec kexec.Interface,
+	vtepIPNet *net.IPNet,
+	gateway net.IP,
+	vtepCIDR *net.IPNet,
+	hostCIDR *net.IPNet) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
 		ovsClient:      ovsClient,
 		networkHelper:  networkHelper,
 		exec:           exec,
 		FileSystemRoot: "",
 		vtepIPNet:      vtepIPNet,
+		gateway:        gateway,
+		vtepCIDR:       vtepCIDR,
+		hostCIDR:       hostCIDR,
 	}
 }
 
@@ -224,6 +244,20 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 	err = p.networkHelper.SetLinkUp(vtep)
 	if err != nil {
 		return fmt.Errorf("error while setting link %s up: %w", vtep, err)
+	}
+
+	// Route related to traffic that needs to go from one Pod running on worker Node A to another Pod running on worker
+	// Node B.
+	err = p.networkHelper.AddRoute(p.vtepCIDR, p.gateway, vtep)
+	if err != nil {
+		return fmt.Errorf("error while adding route %s %s %s: %w", p.vtepCIDR, p.gateway.String(), vtep, err)
+	}
+
+	// Route related to traffic that needs to go from one Pod running on worker Node A to another Pod running on control
+	// plane A (and vice versa).
+	err = p.networkHelper.AddRoute(p.hostCIDR, p.gateway, vtep)
+	if err != nil {
+		return fmt.Errorf("error while adding route %s %s %s: %w", p.hostCIDR, p.gateway.String(), vtep, err)
 	}
 
 	err = p.ovsClient.SetOVNEncapIP(p.vtepIPNet.IP)

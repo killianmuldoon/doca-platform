@@ -64,7 +64,12 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			fakeExec := &kexecTesting.FakeExec{}
 			vtepIPNet, err := netlink.ParseIPNet("192.168.1.1/24")
 			Expect(err).ToNot(HaveOccurred())
-			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, vtepIPNet)
+			gateway := net.ParseIP("192.168.1.10/24")
+			vtepCIDR, err := netlink.ParseIPNet("192.168.1.0/24")
+			Expect(err).ToNot(HaveOccurred())
+			hostCIDR, err := netlink.ParseIPNet("10.0.100.1/24")
+			Expect(err).ToNot(HaveOccurred())
+			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, vtepIPNet, gateway, vtepCIDR, hostCIDR)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -129,6 +134,8 @@ var _ = Describe("DPU CNI Provisioner", func() {
 
 			networkhelper.EXPECT().SetLinkIPAddress("vtep0", vtepIPNet)
 			networkhelper.EXPECT().SetLinkUp("vtep0")
+			networkhelper.EXPECT().AddRoute(vtepCIDR, gateway, "vtep0")
+			networkhelper.EXPECT().AddRoute(hostCIDR, gateway, "vtep0")
 
 			networkhelper.EXPECT().SetLinkDown("pf0vf0")
 			networkhelper.EXPECT().RenameLink("pf0vf0", "ovn-k8s-mp0_0")
@@ -148,7 +155,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovsClient := ovsclientMock.NewMockOVSClient(testCtrl)
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
 			fakeExec := &kexecTesting.FakeExec{}
-			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, nil)
+			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, nil, nil, nil, nil)
 
 			ovsClient.EXPECT().BridgeExists("br-int").Return(true, nil)
 			ovsClient.EXPECT().BridgeExists("ens2f0np0").Return(true, nil)
