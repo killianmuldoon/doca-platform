@@ -318,17 +318,30 @@ TEST_CLUSTER_NAME := dpf-test
 test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) ## Setup a Kubernetes environment to run tests.
 	# Create a minikube cluster to host the test.
 	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
-
+	# Download images from docker hub and push them in the test registry.
+	# This is done to avoid docker pull limits.
+	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
+	$(MAKE) test-upload-images
 	# Deploy cert manager to provide certificates for webhooks.
 	$Q kubectl apply -f $(CERT_MANAGER_YAML) \
 	&& echo "Waiting for cert-manager deployment to be ready."\
 	&& kubectl wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
 
 	# Deploy Kamaji as the underlying control plane provider. This values file is required due to a bug in a dependency.
-	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml
+	cat ./hack/values/kamaji-values.yaml | envsubst > ./hack/values/kamaji-values.yaml.tmp
+	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml.tmp
 
 	# Deploy argoCD as the underlying application provider.
 	$Q kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f - && kubectl apply -f $(ARGOCD_YAML)
+
+.PHONY: test-upload-images
+test-upload-images:
+	docker pull clastix/kamaji:v0.4.1
+	docker image tag clastix/kamaji:v0.4.1 $(REGISTRY)/clastix/kamaji:v0.4.1
+	docker push $(REGISTRY)/clastix/kamaji:v0.4.1
+	docker pull cfssl/cfssl:v1.6.5
+	docker tag cfssl/cfssl:v1.6.5 $(REGISTRY)/cfssl/cfssl:v1.6.5
+	docker push $(REGISTRY)/cfssl/cfssl:v1.6.5
 
 .PHONY: test-deploy-dpuservice
 test-deploy-dpuservice: $(KUSTOMIZE)
@@ -598,7 +611,9 @@ dev-prereqs-dpuservice: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(SKAFFOLD
 	# Deploy argoCD as the underlying application provider.
 	$Q kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f - && kubectl apply -f $(ARGOCD_YAML)
 
-	# Deploy Kamaji as the underlying control plane provider. This values file is required due to a bug in a dependency.
+	# Deploy Kamaji as the underlying control plane provider.
+	# The values file is currently empty.
+	touch ./hack/values/kamaji-values.yaml.tmp
 	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml
 
 SKAFFOLD_REGISTRY=localhost:5000
