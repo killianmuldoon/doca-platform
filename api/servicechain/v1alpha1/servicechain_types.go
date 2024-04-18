@@ -33,24 +33,25 @@ type Switch struct {
 }
 
 type Port struct {
-	Service          Service    `json:"service,omitempty"`
-	ServiceInterface ServiceIfc `json:"serviceInterface,omitempty"`
+	Service          *Service    `json:"service,omitempty"`
+	ServiceInterface *ServiceIfc `json:"serviceInterface,omitempty"`
 }
 
 type Service struct {
+	// +kubebuilder:validation:Required
 	InterfaceName string            `json:"interface"`
-	Reference     ObjectRef         `json:"reference,omitempty"`
+	Reference     *ObjectRef        `json:"reference,omitempty"`
 	MatchLabels   map[string]string `json:"matchLabels,omitempty"`
-	IPAM          IPAM              `json:"ipam,omitempty"`
+	IPAM          *IPAM             `json:"ipam,omitempty"`
 }
 
 type ServiceIfc struct {
-	Reference   ObjectRef         `json:"reference,omitempty"`
+	Reference   *ObjectRef        `json:"reference,omitempty"`
 	MatchLabels map[string]string `json:"matchLabels,omitempty"`
 }
 
 type IPAM struct {
-	Reference       ObjectRef         `json:"reference,omitempty"`
+	Reference       *ObjectRef        `json:"reference,omitempty"`
 	MatchLabels     map[string]string `json:"matchLabels,omitempty"`
 	DefaultGateway  bool              `json:"defaultGateway,omitempty"`
 	SetDefaultRoute bool              `json:"setDefaultRoute,omitempty"`

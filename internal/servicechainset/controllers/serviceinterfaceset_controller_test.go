@@ -132,7 +132,6 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			updatedSpec := &sfcv1.ServiceInterfaceSpec{
 				InterfaceType: "vlan",
 				InterfaceName: "eth1.100",
-				BridgeName:    "hbn",
 				Vlan: &sfcv1.VLAN{
 					VlanID:             100,
 					ParentInterfaceRef: "p7",
@@ -214,7 +213,6 @@ func getTestServiceInterfaceSpec() *sfcv1.ServiceInterfaceSpec {
 	return &sfcv1.ServiceInterfaceSpec{
 		InterfaceType: "vf",
 		InterfaceName: "enp33s0f0np0v0",
-		BridgeName:    "br-sfc",
 		Vlan: &sfcv1.VLAN{
 			VlanID:             102,
 			ParentInterfaceRef: "p0",

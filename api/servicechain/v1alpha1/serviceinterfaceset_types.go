@@ -42,7 +42,7 @@ type ServiceInterfaceSetStatus struct {
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="IfType",type=string,JSONPath=`.spec.template.spec.interfaceType`
 //+kubebuilder:printcolumn:name="IfName",type=string,JSONPath=`.spec.template.spec.interfaceName`
-//+kubebuilder:printcolumn:name="Bridge",type=string,JSONPath=`.spec.template.spec.bridgeName`
+//+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // ServiceInterfaceSet is the Schema for the serviceinterfacesets API
 type ServiceInterfaceSet struct {

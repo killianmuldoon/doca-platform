@@ -114,7 +114,6 @@ func (r *ServiceInterfaceSetReconciler) createOrUpdateChild(ctx context.Context,
 			Node:          nodeName,
 			InterfaceType: serviceInterfaceSet.Spec.Template.Spec.InterfaceType,
 			InterfaceName: serviceInterfaceSet.Spec.Template.Spec.InterfaceName,
-			BridgeName:    serviceInterfaceSet.Spec.Template.Spec.BridgeName,
 		},
 	}
 	if serviceInterfaceSet.Spec.Template.Spec.Vlan != nil {
