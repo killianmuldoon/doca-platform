@@ -126,8 +126,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				},
 				Spec: operatorv1.DPFOperatorConfigSpec{
 					HostNetworkConfiguration: operatorv1.HostNetworkConfiguration{
-						DPUIPs:  make(map[string]string),
-						HostIPs: make(map[string]string),
+						DPUConfiguration: make(map[string]operatorv1.DPUConfiguration),
+						HostIPs:          make(map[string]string),
 					},
 				},
 			}

@@ -884,7 +884,14 @@ func generateDPUCNIProvisionerObjects(dpfOperatorConfig *operatorv1.DPFOperatorC
 		return nil, fmt.Errorf("error while converting manifests to objects: %w", err)
 	}
 	config := dpucniprovisionerconfig.DPUCNIProvisionerConfig{
-		VTEPIPs: dpfOperatorConfig.Spec.HostNetworkConfiguration.DPUIPs,
+		PerNodeConfig: make(map[string]dpucniprovisionerconfig.PerNodeConfig),
+		VTEPCIDR:      dpfOperatorConfig.Spec.HostNetworkConfiguration.CIDR,
+	}
+	for k, v := range dpfOperatorConfig.Spec.HostNetworkConfiguration.DPUConfiguration {
+		config.PerNodeConfig[k] = dpucniprovisionerconfig.PerNodeConfig{
+			VTEPIP:  v.IP,
+			Gateway: v.Gateway,
+		}
 	}
 
 	err = populateCNIProvisionerConfigMap(dpuCNIProvisionerObjects, "dpu-cni-provisioner", config)
