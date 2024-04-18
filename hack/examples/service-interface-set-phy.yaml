@@ -1,7 +1,7 @@
 apiVersion: "sfc.dpf.nvidia.com/v1alpha1"
 kind: ServiceInterfaceSet
 metadata:
-  name: pf0-vf2
+  name: p0
   namespace: default
 spec:
   nodeSelector:
@@ -12,9 +12,5 @@ spec:
       labels:
         uplink: "port0"
     spec:
-      interfaceType: vf
-      interfaceName: enp33s0f0np0
-      vf:
-        pfID: 0
-        vfID: 2
-        parentInterfaceRef: pf0
+      interfaceType: physical
+      interfaceName: p0

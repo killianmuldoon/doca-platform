@@ -136,11 +136,11 @@ var _ = Describe("ServiceChainSet Controller", func() {
 					{
 						Ports: []sfcv1.Port{
 							{
-								Service: sfcv1.Service{
+								Service: &sfcv1.Service{
 									InterfaceName: "head-iface",
 								},
-								ServiceInterface: sfcv1.ServiceIfc{
-									Reference: sfcv1.ObjectRef{
+								ServiceInterface: &sfcv1.ServiceIfc{
+									Reference: &sfcv1.ObjectRef{
 										Name: "p0",
 									},
 								},
@@ -185,11 +185,11 @@ func getTestServiceChainSpec() *sfcv1.ServiceChainSpec {
 			{
 				Ports: []sfcv1.Port{
 					{
-						Service: sfcv1.Service{
+						Service: &sfcv1.Service{
 							InterfaceName: "head-iface",
 						},
-						ServiceInterface: sfcv1.ServiceIfc{
-							Reference: sfcv1.ObjectRef{
+						ServiceInterface: &sfcv1.ServiceIfc{
+							Reference: &sfcv1.ObjectRef{
 								Name: "p0",
 							},
 						},

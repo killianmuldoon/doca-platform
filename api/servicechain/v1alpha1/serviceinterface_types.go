@@ -25,13 +25,11 @@ type ServiceInterfaceSpec struct {
 
 	// Node where this interface exists
 	Node string `json:"node,omitempty"`
-	// +kubebuilder:validation:Enum={"vlan", "physical", "pf", "vf"}
-	// The interface type ("vlan", "physical", "pf", "vf")
+	// +kubebuilder:validation:Enum={"vlan", "physical", "pf", "vf", "ovn"}
+	// The interface type ("vlan", "physical", "pf", "vf", "ovn")
 	InterfaceType string `json:"interfaceType"`
 	// The interface name
-	InterfaceName string `json:"interfaceName"`
-	// The bridge name
-	BridgeName string `json:"bridgeName"`
+	InterfaceName string `json:"interfaceName,omitempty"`
 	// The VLAN definition
 	Vlan *VLAN `json:"vlan,omitempty"`
 	// The VF definition
@@ -52,7 +50,7 @@ type VF struct {
 }
 
 type PF struct {
-	ID int `json:"ID"`
+	ID int `json:"pfID"`
 }
 
 // ServiceInterfaceStatus defines the observed state of ServiceInterface
@@ -65,7 +63,7 @@ type ServiceInterfaceStatus struct {
 //+kubebuilder:subresource:status
 //+kubebuilder:printcolumn:name="IfType",type=string,JSONPath=`.spec.interfaceType`
 //+kubebuilder:printcolumn:name="IfName",type=string,JSONPath=`.spec.interfaceName`
-//+kubebuilder:printcolumn:name="Bridge",type=string,JSONPath=`.spec.bridgeName`
+//+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // ServiceInterface is the Schema for the serviceinterfaces API
 type ServiceInterface struct {

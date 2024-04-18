@@ -21,9 +21,9 @@ spec:
     - jsonPath: .spec.interfaceName
       name: IfName
       type: string
-    - jsonPath: .spec.bridgeName
-      name: Bridge
-      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
     name: v1alpha1
     schema:
       openAPIV3Schema:
@@ -49,19 +49,17 @@ spec:
           spec:
             description: ServiceInterfaceSpec defines the desired state of ServiceInterface
             properties:
-              bridgeName:
-                description: The bridge name
-                type: string
               interfaceName:
                 description: The interface name
                 type: string
               interfaceType:
-                description: The interface type ("vlan", "physical", "pf", "vf")
+                description: The interface type ("vlan", "physical", "pf", "vf", "ovn")
                 enum:
                 - vlan
                 - physical
                 - pf
                 - vf
+                - ovn
                 type: string
               node:
                 description: Node where this interface exists
@@ -69,10 +67,10 @@ spec:
               pf:
                 description: The PF definition
                 properties:
-                  ID:
+                  pfID:
                     type: integer
                 required:
-                - ID
+                - pfID
                 type: object
               vf:
                 description: The VF definition
@@ -100,8 +98,6 @@ spec:
                 - vlanID
                 type: object
             required:
-            - bridgeName
-            - interfaceName
             - interfaceType
             type: object
           status:

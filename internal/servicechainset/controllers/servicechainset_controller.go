@@ -106,12 +106,17 @@ func (r *ServiceChainSetReconciler) createOrUpdateChild(ctx context.Context, set
 		ports := make([]sfcv1.Port, len(s.Ports))
 		for j, p := range s.Ports {
 			ports[j] = sfcv1.Port{}
-			ports[j].Service = *p.Service.DeepCopy()
-			ports[j].Service.Reference = *p.Service.Reference.DeepCopy()
-			ports[j].ServiceInterface = *p.ServiceInterface.DeepCopy()
-			ports[j].ServiceInterface.Reference = *p.ServiceInterface.Reference.DeepCopy()
-			if p.ServiceInterface.Reference.Name != "" {
-				ports[j].ServiceInterface.Reference.Name = p.ServiceInterface.Reference.Name + "-" + nodeName
+			if p.Service != nil {
+				ports[j].Service = p.Service.DeepCopy()
+			}
+			if p.ServiceInterface != nil {
+				ports[j].ServiceInterface = p.ServiceInterface.DeepCopy()
+				if p.ServiceInterface.Reference != nil {
+					ports[j].ServiceInterface.Reference = p.ServiceInterface.Reference.DeepCopy()
+					if p.ServiceInterface.Reference.Name != "" {
+						ports[j].ServiceInterface.Reference.Name = p.ServiceInterface.Reference.Name + "-" + nodeName
+					}
+				}
 			}
 		}
 		switches[i].Ports = ports

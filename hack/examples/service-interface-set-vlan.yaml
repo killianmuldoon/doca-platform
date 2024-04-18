@@ -1,7 +1,7 @@
 apiVersion: "sfc.dpf.nvidia.com/v1alpha1"
 kind: ServiceInterfaceSet
 metadata:
-  name: pf0-vf2
+  name: pf0-vlan100
   namespace: default
 spec:
   nodeSelector:
@@ -12,9 +12,8 @@ spec:
       labels:
         uplink: "port0"
     spec:
-      interfaceType: vf
+      interfaceType: vlan
       interfaceName: enp33s0f0np0
-      vf:
-        pfID: 0
-        vfID: 2
+      vlan:
+        vlanID: 100
         parentInterfaceRef: pf0
