@@ -36,6 +36,8 @@ type NetworkHelper interface {
 	DeleteLinkIPAddress(link string, ipNet *net.IPNet) error
 	// DeleteNeighbour deletes a neighbour
 	DeleteNeighbour(ip net.IP, device string) error
+	// AddRoute adds a route
+	AddRoute(network *net.IPNet, gateway net.IP, device string) error
 	// DeleteRoute deletes a route
 	DeleteRoute(network *net.IPNet, gateway net.IP, device string) error
 	// AddDummyLink adds a dummy link
