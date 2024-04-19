@@ -629,16 +629,30 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 		Context("When checking generateDPUCNIProvisionerObjects()", func() {
 			It("should pass the DPFOperatorConfig settings to correct configmap", func() {
 				dpfOperatorConfig := getMinimalDPFOperatorConfig("")
-				dpfOperatorConfig.Spec.HostNetworkConfiguration.DPUIPs = map[string]string{
-					"dpu-node-1": "192.168.1.1/24",
-					"dpu-node-2": "192.168.1.2/24",
+				dpfOperatorConfig.Spec.HostNetworkConfiguration.DPUConfiguration = map[string]operatorv1.DPUConfiguration{
+					"dpu-node-1": {
+						IP:      "10.0.96.20/24",
+						Gateway: "10.0.96.254",
+					},
+					"dpu-node-2": {
+						IP:      "10.0.97.20/24",
+						Gateway: "10.0.97.254",
+					},
 				}
+				dpfOperatorConfig.Spec.HostNetworkConfiguration.CIDR = "10.0.96.0/20"
 
 				expectedDPUCNIProvisionerConfig := dpucniprovisionerconfig.DPUCNIProvisionerConfig{
-					VTEPIPs: map[string]string{
-						"dpu-node-1": "192.168.1.1/24",
-						"dpu-node-2": "192.168.1.2/24",
+					PerNodeConfig: map[string]dpucniprovisionerconfig.PerNodeConfig{
+						"dpu-node-1": {
+							VTEPIP:  "10.0.96.20/24",
+							Gateway: "10.0.96.254",
+						},
+						"dpu-node-2": {
+							VTEPIP:  "10.0.97.20/24",
+							Gateway: "10.0.97.254",
+						},
 					},
+					VTEPCIDR: "10.0.96.0/20",
 				}
 
 				objects, err := generateDPUCNIProvisionerObjects(dpfOperatorConfig)
@@ -971,8 +985,8 @@ func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig
 		},
 		Spec: operatorv1.DPFOperatorConfigSpec{
 			HostNetworkConfiguration: operatorv1.HostNetworkConfiguration{
-				DPUIPs:  make(map[string]string),
-				HostIPs: make(map[string]string),
+				DPUConfiguration: make(map[string]operatorv1.DPUConfiguration),
+				HostIPs:          make(map[string]string),
 			},
 		},
 	}

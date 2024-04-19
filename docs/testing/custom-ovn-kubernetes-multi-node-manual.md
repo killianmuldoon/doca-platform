@@ -73,12 +73,17 @@ This guide serves as a blueprint on how to test the custom OVN Kubernetes setup 
       namespace: dpf-operator-system
     spec:
       hostNetworkConfiguration:
+        CIDR: 192.168.1.0/24
         hostIPs:
           dpf-worker-0: 192.168.1.1/24
           dpf-worker-1: 192.168.1.2/24
-        dpuIPs:
-          co-node-34-dpu-oob: 192.168.1.10/24
-          co-node-35-dpu-oob: 192.168.1.11/24
+        dpu:
+          co-node-34-dpu-oob:
+            ip: 192.168.1.10/24
+            gateway: 192.168.1.1
+          co-node-35-dpu-oob:
+            ip: 192.168.1.11/24
+            gateway: 192.168.1.1
     ```
 
 ## Tests

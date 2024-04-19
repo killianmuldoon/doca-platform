@@ -93,21 +93,22 @@ func parseConfig() (*dpucniprovisionerconfig.DPUCNIProvisionerConfig, error) {
 		return nil, err
 	}
 
+	node := os.Getenv("NODE_NAME")
+	if node == "" {
+		return nil, errors.New("NODE_NAME environment variable is not found. This is supposed to be configured via Kubernetes Downward API in production")
+	}
+
+	if _, ok := config.PerNodeConfig[node]; !ok {
+		return nil, errors.New("perNodeConfig for node %s doesn't exist")
+	}
+
 	return &config, nil
 }
 
 // getVTEPIP figures out the VTEP IP to be configured by the provisioner
 func getVTEPIP(c *dpucniprovisionerconfig.DPUCNIProvisionerConfig) (*net.IPNet, error) {
 	node := os.Getenv("NODE_NAME")
-	if node == "" {
-		return nil, errors.New("NODE_NAME environment variable is not found. This is supposed to be configured via Kubernetes Downward API in production")
-	}
-
-	vtepIPRaw, ok := c.VTEPIPs[node]
-	if !ok {
-		return nil, fmt.Errorf("VTEP IP not found in config for node %s", node)
-	}
-
+	vtepIPRaw := c.PerNodeConfig[node].VTEPIP
 	vtepIP, err := netlink.ParseIPNet(vtepIPRaw)
 	if err != nil {
 		return nil, fmt.Errorf("error while parsing VTEP IP to net.IPNet: %w", err)

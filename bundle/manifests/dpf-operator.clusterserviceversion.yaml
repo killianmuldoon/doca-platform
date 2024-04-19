@@ -20,20 +20,27 @@ metadata:
           },
           "spec": {
             "hostNetworkConfiguration": {
-              "dpuIPs": {
-                "co-node-34-dpu-oob": "192.168.1.10/24",
-                "co-node-35-dpu-oob": "192.168.1.11/24"
+              "CIDR": "10.0.96.0/20",
+              "dpu": {
+                "dpu-worker-1": {
+                  "gateway": "10.0.96.254",
+                  "ip": "10.0.96.20/24"
+                },
+                "dpu-worker-2": {
+                  "gateway": "10.0.97.254",
+                  "ip": "10.0.97.20/24"
+                }
               },
               "hostIPs": {
-                "dpf-worker-0": "192.168.1.1/24",
-                "dpf-worker-1": "192.168.1.2/24"
+                "ocp-worker-1": "10.0.96.10/24",
+                "ocp-worker-2": "10.0.97.10/24"
               }
             }
           }
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-17T07:23:44Z"
+    createdAt: "2024-04-18T14:42:13Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: unknown
   name: dpf-operator.v0.0.0

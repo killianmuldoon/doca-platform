@@ -33,14 +33,27 @@ type DPFOperatorConfigSpec struct {
 
 // HostNetworkConfiguration holds network related configuration required to create a functional host network.
 type HostNetworkConfiguration struct {
+	// CIDR is the CIDR that is used by the administrator to calculate the IPs defined in HostIPs and DPUIPs
+	// TODO: Add validator in validating webhook to ensure all the IPs below are part of this CIDR
+	CIDR string `json:"cidr"`
 	// HostIPs represents the IPs that will be assigned to the PF Representor on each Host. Key is the Node name on the
 	// Host cluster.
 	// TODO: Add validator in validating webhook to ensure string is actually net.IPNet
 	HostIPs map[string]string `json:"hostIPs"`
-	// DPUIPs represents the IPs that will be assigned to the VTEP interface on each DPU. Key is the Node name of a DPU
-	// in the DPU cluster
+	// DPUConfiguration holds configuration fields that are needed to properly setup the DPU to enable a functional
+	// host network. Key is the Node name on the DPU cluster.
+	DPUConfiguration map[string]DPUConfiguration `json:"dpu"`
+}
+
+// DPUConfiguration is a struct that holds the DPU network related configuration that is required for the host network
+// to work.
+type DPUConfiguration struct {
+	// IP represents the IP that will be assigned to the VTEP interface of the DPU.
 	// TODO: Add validator in validating webhook to ensure string is actually net.IPNet
-	DPUIPs map[string]string `json:"dpuIPs"`
+	IP string `json:"ip"`
+	// Gateway is the gateway that should be added on the routes related to OVN Kubernetes traffic.
+	// TODO: Add validator in validating webhook to ensure string is actually net.IP
+	Gateway string `json:"gateway"`
 }
 
 // DPFOperatorConfigStatus defines the observed state of DPFOperatorConfig

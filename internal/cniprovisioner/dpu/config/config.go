@@ -16,9 +16,24 @@ limitations under the License.
 
 package config
 
-// DPUCNIProvisionerConfig is the format of the config file the DPU CNI Provisioner is expecting. Notice that this is
-// one config for all nodes because this is how the Operator is going to deploy that.
+// DPUCNIProvisionerConfig is the format of the config file the DPU CNI Provisioner is expecting. Notice that
+// this is one config for all DPU cluster nodes because this is how the Operator is going to deploy that.
 type DPUCNIProvisionerConfig struct {
-	// VTEPIPs repesents the IPs that will be assigned to the VTEP interface on each DPU.
-	VTEPIPs map[string]string `json:"vtepIPs"`
+	// PerNodeConfig represents the configuration settings for each particular DPU cluster node. Key is the name of the
+	// DPU cluster node.
+	PerNodeConfig map[string]PerNodeConfig `json:"perNodeConfig"`
+	// VTEPCIDR is the CIDR in which all the VTEP IPs of all the DPUs in the DPU cluster belong to. The provisioner adds
+	// a routes using that information to enable traffic that needs to go from one Pod running on worker Node A to
+	// another Pod running on worker Node B.
+	VTEPCIDR string `json:"VTEPCIDR"`
+}
+
+// PerNodeConfig is the struct that holds configuration specific to a particular node. This config is extracted out of
+// the DPUCNIProvisionerConfig based on the node the DPU CNI Provisioner is running on.
+type PerNodeConfig struct {
+	// VTEPIP repesents the IPs that will be assigned to the VTEP interface on each DPU.
+	VTEPIP string `json:"vtepIP"`
+	// Gateway is the gateway IP that will be configured on the routes related to OVN Kubernetes reaching its peer nodes
+	// when traffic needs to go from one Pod running on Node A to another Pod running on Node B.
+	Gateway string `json:"gateway"`
 }
