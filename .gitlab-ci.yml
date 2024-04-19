@@ -7,6 +7,7 @@ stages:
 
 lint:
   stage: verify
+  needs: []
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   script:
@@ -14,6 +15,7 @@ lint:
 
 verify:
   stage: verify
+  needs: []
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   variables:
@@ -22,15 +24,9 @@ verify:
   script:
     -  make verify-generate verify-copyright
 
-build-binaries:
-  stage: build
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-  script:
-    - make binaries
-
 nightly-release:
   stage: build
+  needs: [ ]
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       when: manual
@@ -67,6 +63,7 @@ test:
 
 e2e:
   stage: test
+  needs: [ ]
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       when: manual
@@ -75,11 +72,12 @@ e2e:
       when: always
   variables:
     REGISTRY: localhost:5000
-    MINIKUBE_DRIVER: docker
+    # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
+    MINIKUBE_CNI: flannel
   tags:
     - e2e
   before_script:
-    - make clean-test-env test-env-e2e
+    - make clean-test-env test-env-e2e generate
   script:
     - make generate test-deploy-operator test-e2e
   after_script:

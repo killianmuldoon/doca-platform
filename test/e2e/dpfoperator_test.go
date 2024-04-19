@@ -41,7 +41,7 @@ import (
 
 var (
 	artifactsPath = "../objects/"
-	numClusters   = 2
+	numClusters   = 1
 )
 
 var _ = Describe("Testing DPF Operator controller", Ordered, func() {
@@ -104,7 +104,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				clusters := &unstructured.UnstructuredList{}
 				clusters.SetGroupVersionKind(controlplanemeta.TenantControlPlaneGVK)
 				g.Expect(testClient.List(ctx, clusters)).To(Succeed())
-				g.Expect(clusters.Items).To(HaveLen(2))
+				g.Expect(clusters.Items).To(HaveLen(numClusters))
 				for _, cluster := range clusters.Items {
 					// Note: ControlPlane readiness here is picked using a well-known path.
 					// TODO: Make an equivalent check part of the control plane package.

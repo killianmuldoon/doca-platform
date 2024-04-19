@@ -1,6 +1,12 @@
-# This value replaces the cfssl image as the upstream image has a bug in the arm64 build.
-# For more info see: https://github.com/clastix/kamaji/pull/419
-#cfssl:
-#  image:
-#    repository: harbor.mellanox.com/cloud-orchestration-dev/killian/cfssl
-#    tag: 1.6.4
+cfssl:
+  image:
+    repository: ${REGISTRY}/cfssl/cfssl
+    tag: v1.6.5
+
+image:
+  # -- The container image of the Kamaji controller.
+  repository: ${REGISTRY}/clastix/kamaji
+  pullPolicy: Always
+  # -- Overrides the image tag whose default is the chart appVersion.
+  tag:
+

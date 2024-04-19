@@ -31,6 +31,7 @@ NUM_NODES="${NUM_NODES:-"1"}"
 NODE_MEMORY="${NODE_MEMORY:-"8g"}"
 NODE_CPUS="${NODE_CPUS:-"4"}"
 NODE_DISK="${NODE_DISK:-"100g"}"
+MINIKUBE_CNI="${MINIKUBE_CNI:-kindnet}"
 
 ## Detect the OS.
 OS="unknown"
@@ -62,8 +63,8 @@ MINIKUBE_ARGS="${MINIKUBE_ARGS:-"\
   --memory=$NODE_MEMORY \
   --disk-size=$NODE_DISK \
   --nodes=$NUM_NODES \
+  --cni $MINIKUBE_CNI \
   --preload=true \
-  --cni calico \
   --install-addons \
   --addons metallb \
   --addons registry"}"

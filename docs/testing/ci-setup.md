@@ -29,4 +29,13 @@ This project uses three types of gitlab runners:
     - Gitlab shell runner as a systemd service with a non-root user that is a member of the docker group
     - Secrets for any registry the release runner is required to push artifacts to e.g. harbour, nvstaging
     
+The following images are pushed to a defined image registry to avoid docker pull limits
 
+`clastix/kamaji:v0.4.1` -> `$(REGISTRY)/clastix/kamaji:v0.4.1`
+`cfssl/cfssl:v1.6.5` -> `$(REGISTRY)cfssl/cfssl:v1.6.5`
+
+This is done to avoid rate limiting of Docker pulls in the CI.
+TODO:
+- `clastix/kubectl` is still hosted on docker and should be moved - part of kamaji helm chart.
+- `redis:7.0.14-alpine` is still hosted on docker and should be moved - part of argocd yaml.
+- `docker.io/registry:2.8.3` is still hosted on docker and should be moved - part of minikube registry install.
