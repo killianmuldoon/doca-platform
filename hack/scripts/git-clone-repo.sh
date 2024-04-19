@@ -22,35 +22,38 @@ set -o errexit
 # This script is fragile and highly tied to the current setup of the internal gitlab.
 
 GITLAB_TOKEN="${GITLAB_TOKEN:-""}"
+REPO="${1:-""}"
+DIR="${2:-""}"
+REVISION="${3:-""}"
 # This script takes the following args:
-#   $1 - git repo to clone in form ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn-kubernetes.git
-#   $2 - directory to clone the repo to.
-#   $3 - revision of package to clone. If empty this will be the HEAD of the default branch.
+#   $REPO - git repo to clone in form ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn-kubernetes.git
+#   $DIR - directory to clone the repo to.
+#   $REVISION - revision of package to clone. If empty this will be the HEAD of the default branch.
 
 # Exit if required arguments are not set.
-if [[ "$1" == "" || "$2" == "" ]]; then
+if [[ "$REPO" == "" || "$DIR" == "" ]]; then
   echo "git-clone-repo.sh requires 2 arguments:
   1. git repo to clone in form ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn-kubernetes.git
   2. destination for the git repo to be cloned to." >&2
   exit 1
 fi
 
-SERVER=$(echo $1 | cut -d'@' -f 2 | cut -d':' -f 1)
-PROJECT=$(echo $1  | cut -d':' -f 3 | cut -d'/' -f 2-)
+SERVER=$(echo $REPO | cut -d'@' -f 2 | cut -d':' -f 1)
+PROJECT=$(echo $REPO  | cut -d':' -f 3 | cut -d'/' -f 2-)
 
 if [ -z "${GITLAB_TOKEN}" ];
 then
   echo "Cloning repo using ssh authentication"
-  git clone "$1" "$2"
+  git clone "$REPO" "$DIR"
 else
   echo "Cloning repo using authenticated https with GitLab token"
-  git clone "https://user:""$GITLAB_TOKEN"@"$SERVER"/"$PROJECT" "$2"
+  git clone "https://user:""$GITLAB_TOKEN"@"$SERVER"/"$PROJECT" "$DIR"
   exit 0
 fi
 
 ## Check out the passed revision if it is set.
-if [ ! -z "${3}" ];
+if [ ! -z "${REVISION}" ];
 then
-  echo "Checking out revision " $3
-  git reset --hard "$3"
+  echo "Checking out revision " $REVISION
+  cd $DIR && git reset --hard "$REVISION"
 fi
