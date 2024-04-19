@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
@@ -48,6 +49,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -112,6 +114,11 @@ const (
 	// nodeIdentityWebhookConfigurationName is the name of the ValidatingWebhookConfiguration deployed in OpenShift that
 	// controls which entities can update the Node object.
 	nodeIdentityWebhookConfigurationName = "network-node-identity.openshift.io"
+	// clusterConfigConfigMapName is the name of the ConfigMap that contains the cluster configuration in
+	// OpenShift.
+	clusterConfigConfigMapName = "cluster-config-v1"
+	// clusterConfigNamespace is the Namespace where the OpenShift cluster configuration ConfigMap exists.
+	clusterConfigNamespace = "kube-system"
 
 	// controlPlaneNodeLabel is the well known Kubernetes label:
 	// https://kubernetes.io/docs/reference/labels-annotations-taints/#node-role-kubernetes-io-control-plane
@@ -399,7 +406,17 @@ func (r *DPFOperatorConfigReconciler) cleanupClusterAndDeployCNIProvisioners(ctx
 	}
 
 	// Ensure DPU CNI Provisioner is deployed
-	dpuCNIProvisionerObjects, err := generateDPUCNIProvisionerObjects(dpfOperatorConfig)
+	// OpenShift exposes a configmap that is used for the whole installation of the cluster. This configmap contains the
+	// Host CIDR. Openshift Cluster Network Operator is also using that ConfigMap to extract information it needs. See:
+	// * https://github.com/openshift/cluster-network-operator/blob/release-4.14/pkg/controller/proxyconfig/controller.go#L188-L195
+	// * https://github.com/openshift/cluster-network-operator/blob/release-4.14/pkg/util/proxyconfig/no_proxy.go#L70-L78
+	openshiftClusterConfig := &corev1.ConfigMap{}
+	key = client.ObjectKey{Namespace: clusterConfigNamespace, Name: clusterConfigConfigMapName}
+	err = r.Client.Get(ctx, key, openshiftClusterConfig)
+	if err != nil {
+		return fmt.Errorf("error while getting %s %s: %w", openshiftClusterConfig.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+	dpuCNIProvisionerObjects, err := generateDPUCNIProvisionerObjects(dpfOperatorConfig, openshiftClusterConfig)
 	if err != nil {
 		return fmt.Errorf("error while generating DPU CNI provisioner objects: %w", err)
 	}
@@ -496,7 +513,7 @@ func (r *DPFOperatorConfigReconciler) cleanupCluster(ctx context.Context) error 
 	labelSelector = labelSelector.Add(*req)
 	err = r.Client.List(ctx, nodes, &client.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		return fmt.Errorf("error while listting nodes with selector %s: %w", labelSelector.String(), err)
+		return fmt.Errorf("error while listing nodes with selector %s: %w", labelSelector.String(), err)
 	}
 
 	for i := range nodes.Items {
@@ -534,7 +551,7 @@ func (r *DPFOperatorConfigReconciler) markNetworkPreconfigurationReady(ctx conte
 	labelSelector = labelSelector.Add(*req)
 	err = r.Client.List(ctx, nodes, &client.ListOptions{LabelSelector: labelSelector})
 	if err != nil {
-		return fmt.Errorf("error while listting nodes with selector %s: %w", labelSelector.String(), err)
+		return fmt.Errorf("error while listing nodes with selector %s: %w", labelSelector.String(), err)
 	}
 	for i := range nodes.Items {
 		nodes.Items[i].Labels[networkPreconfigurationReadyNodeLabel] = ""
@@ -878,14 +895,21 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap) (*co
 }
 
 // generateDPUCNIProvisionerObjects generates the DPU CNI Provisioner objects
-func generateDPUCNIProvisionerObjects(dpfOperatorConfig *operatorv1.DPFOperatorConfig) ([]*unstructured.Unstructured, error) {
+func generateDPUCNIProvisionerObjects(dpfOperatorConfig *operatorv1.DPFOperatorConfig, openshiftClusterConfig *corev1.ConfigMap) ([]*unstructured.Unstructured, error) {
 	dpuCNIProvisionerObjects, err := utils.BytesToUnstructured(dpuCNIProvisionerManifestContent)
 	if err != nil {
 		return nil, fmt.Errorf("error while converting manifests to objects: %w", err)
 	}
+
+	hostCIDR, err := getHostCIDRFromOpenShiftClusterConfig(openshiftClusterConfig)
+	if err != nil {
+		return nil, fmt.Errorf("error while getting Host CIDR from OpenShift cluster config: %w", err)
+	}
+
 	config := dpucniprovisionerconfig.DPUCNIProvisionerConfig{
 		PerNodeConfig: make(map[string]dpucniprovisionerconfig.PerNodeConfig),
 		VTEPCIDR:      dpfOperatorConfig.Spec.HostNetworkConfiguration.CIDR,
+		HostCIDR:      hostCIDR.String(),
 	}
 	for k, v := range dpfOperatorConfig.Spec.HostNetworkConfiguration.DPUConfiguration {
 		config.PerNodeConfig[k] = dpucniprovisionerconfig.PerNodeConfig{
@@ -900,6 +924,46 @@ func generateDPUCNIProvisionerObjects(dpfOperatorConfig *operatorv1.DPFOperatorC
 	}
 
 	return dpuCNIProvisionerObjects, err
+}
+
+// getHostCIDRFromOpenShiftClusterConfig extracts the Host CIDR from the given OpenShift Cluster Configuration.
+func getHostCIDRFromOpenShiftClusterConfig(openshiftClusterConfig *corev1.ConfigMap) (net.IPNet, error) {
+	// Unfortunately I couldn't find good documentation for what fields are available to add a link here. The best I could
+	// find is this IBM specific (?) documentation:
+	// https://docs.openshift.com/container-platform/4.14/installing/installing_ibm_cloud/install-ibm-cloud-installation-workflow.html#additional-install-config-parameters_install-ibm-cloud-installation-workflow
+	type machineNetworkEntry struct {
+		CIDR string `yaml:"cidr"`
+	}
+	type installConfig struct {
+		Networking struct {
+			MachineNetwork []machineNetworkEntry `yaml:"machineNetwork"`
+		} `yaml:"networking"`
+	}
+
+	var config installConfig
+	data, ok := openshiftClusterConfig.Data["install-config"]
+	if !ok {
+		return net.IPNet{}, errors.New("install-config key is not found in ConfigMap data")
+	}
+
+	if err := yaml.Unmarshal([]byte(data), &config); err != nil {
+		return net.IPNet{}, fmt.Errorf("error while unmarshalling data into struct: %w", err)
+	}
+
+	if len(config.Networking.MachineNetwork) == 0 {
+		return net.IPNet{}, errors.New("host CIDR not found in cluster config")
+	}
+
+	// We use the first CIDR that we find. If there are clusters with multiple CIDRs defined here, we need to adjust the
+	// logic and see how each CIDR is correlated with the primary IP of the node. Ultimately, we want to CIDR that contains
+	// the primary IP of the node or else, the encap IP that is set by the OVN Kubernetes for the node.
+	cidrRaw := config.Networking.MachineNetwork[0].CIDR
+	_, cidr, err := net.ParseCIDR(cidrRaw)
+	if err != nil {
+		return net.IPNet{}, fmt.Errorf("error while parsing CIDR from %s: %w", cidrRaw, err)
+	}
+
+	return *cidr, nil
 }
 
 // generateHostCNIProvisionerObjects generates the Host CNI Provisioner objects
