@@ -140,8 +140,12 @@ type DPFOperatorConfigReconciler struct {
 
 // DPFOperatorConfigReconcilerSettings contains settings related to the DPFOperatorConfig.
 type DPFOperatorConfigReconcilerSettings struct {
-	// CustomOVNKubernetesImage the OVN Kubernetes image deployed by the operator.
-	CustomOVNKubernetesImage string
+	// CustomOVNKubernetesDPUImage the OVN Kubernetes image deployed by the operator to the DPU enabled nodes (workers).
+	CustomOVNKubernetesDPUImage string
+
+	// CustomOVNKubernetesNonDPUImage the OVN Kubernetes image deployed by the operator to the non DPU enabled nodes
+	// (control plane)
+	CustomOVNKubernetesNonDPUImage string
 
 	// ConfigSingletonNamespaceName restricts reconciliation of the operator to a single DPFOperator Config with a specified namespace and name.
 	ConfigSingletonNamespaceName *types.NamespacedName
@@ -591,7 +595,7 @@ func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetes(ctx context.Cont
 	if err := r.Client.Get(ctx, key, ovnKubernetesDaemonset); err != nil {
 		return fmt.Errorf("error while getting %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
-	customOVNKubernetesDaemonset, err := generateCustomOVNKubernetesDaemonSet(ovnKubernetesDaemonset, r.Settings.CustomOVNKubernetesImage)
+	customOVNKubernetesDaemonset, err := generateCustomOVNKubernetesDaemonSet(ovnKubernetesDaemonset, r.Settings.CustomOVNKubernetesDPUImage)
 	if err != nil {
 		return fmt.Errorf("error while generating custom OVN Kubernetes DaemonSet: %w", err)
 	}

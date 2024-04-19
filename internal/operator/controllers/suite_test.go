@@ -102,8 +102,9 @@ var _ = BeforeSuite(func() {
 		Client: testClient,
 		Scheme: testManager.GetScheme(),
 		Settings: &DPFOperatorConfigReconcilerSettings{
-			CustomOVNKubernetesImage: "nvidia.com/ovn-kubernetes:dev",
-			ReconcileOVNKubernetes:   true,
+			CustomOVNKubernetesDPUImage:    "nvidia.com/ovn-kubernetes-dpu:dev",
+			CustomOVNKubernetesNonDPUImage: "nvidia.com/ovn-kubernetes-non-dpu:dev",
+			ReconcileOVNKubernetes:         true,
 		},
 		Inventory: inventory,
 	}

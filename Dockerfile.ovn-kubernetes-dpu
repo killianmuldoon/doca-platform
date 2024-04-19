@@ -1,0 +1,33 @@
+ARG base_image
+
+FROM --platform=${TARGETPLATFORM} docker.io/library/golang:1.19 as ovnkubernetes-builder
+
+WORKDIR /workspace
+RUN apt update && apt install -y make git
+COPY hack/repos/ovn-kubernetes ovn-kubernetes
+ARG ovn_kubernetes_branch
+RUN cd ovn-kubernetes/go-controller && \
+    git checkout origin/${ovn_kubernetes_branch} && \
+    make
+
+FROM --platform=${TARGETPLATFORM} ubuntu:22.04 as ovn-builder
+
+WORKDIR /workspace
+RUN apt update && apt install -y make git autoconf libtool python3
+COPY hack/repos/ovn ovn
+WORKDIR /workspace/ovn
+ARG ovn_branch
+RUN git checkout origin/${ovn_branch} && \
+    git submodule update --init
+RUN cd ovs && \
+    ./boot.sh && \
+    ./configure && \
+    make
+RUN ./boot.sh && \
+    ./configure --prefix="" && \
+    make
+
+FROM --platform=${TARGETPLATFORM} ${base_image}
+
+COPY --from=ovnkubernetes-builder /workspace/ovn-kubernetes/go-controller/_output/go/bin/ovnkube /usr/bin/ovnkube
+COPY --from=ovn-builder /workspace/ovn/controller/ovn-controller /usr/bin/ovn-controller

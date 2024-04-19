@@ -41,10 +41,14 @@ var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 
-	// defaultOVNKubernetesImage is the default custom OVN Kubernetes image deployed by the operator. This value is
-	// injected via ldflags when building the binary. Be mindful about changing this value below as there is a test
-	// in runtime to catch a potential bad build.
-	defaultCustomOVNKubernetesImage = ""
+	// defaultOVNKubernetesDPUImage is the default custom OVN Kubernetes image deployed by the operator to the DPU
+	// enabled workers. This value is injected via ldflags when building the binary. Be mindful about changing this
+	// value below as there is a test in runtime to catch a potential bad build.
+	defaultCustomOVNKubernetesDPUImage = ""
+	// defaultCustomOVNKubernetesNonDPUImage is the default custom OVN Kubernetes image deployed by the operator to the
+	// non DPU nodes. This value is injected via ldflags when building the binary. Be mindful about changing this value
+	// below as there is a test in runtime to catch a potential bad build.
+	defaultCustomOVNKubernetesNonDPUImage = ""
 )
 
 func init() {
@@ -55,15 +59,16 @@ func init() {
 }
 
 var (
-	metricsAddr              string
-	enableLeaderElection     bool
-	probeAddr                string
-	secureMetrics            bool
-	enableHTTP2              bool
-	customOVNKubernetesImage string
-	configSingletonNamespace string
-	configSingletonName      string
-	reconcileOVNKubernetes   bool
+	metricsAddr                    string
+	enableLeaderElection           bool
+	probeAddr                      string
+	secureMetrics                  bool
+	enableHTTP2                    bool
+	customOVNKubernetesDPUImage    string
+	customOVNKubernetesNonDPUImage string
+	configSingletonNamespace       string
+	configSingletonName            string
+	reconcileOVNKubernetes         bool
 )
 
 func initFlags() {
@@ -78,8 +83,10 @@ func initFlags() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.BoolVar(&reconcileOVNKubernetes, "reconcileOVNKubernetes", true,
 		"Enable OVN Kubernetes offload to DPU. OpenShift only.")
-	flag.StringVar(&customOVNKubernetesImage, "ovn-kubernetes-image", defaultCustomOVNKubernetesImage,
-		"The custom OVN Kubernetes image deployed by the operator")
+	flag.StringVar(&customOVNKubernetesDPUImage, "ovn-kubernetes-dpu-image", defaultCustomOVNKubernetesDPUImage,
+		"The custom OVN Kubernetes image deployed by the operator to the DPU enabled nodes (workers)")
+	flag.StringVar(&customOVNKubernetesNonDPUImage, "ovn-kubernetes-non-dpu-image", defaultCustomOVNKubernetesNonDPUImage,
+		"The custom OVN Kubernetes image deployed by the operator to the non DPU enabled nodes (control plane)")
 	flag.StringVar(&configSingletonNamespace, "config-namespace",
 		operatorcontroller.DefaultDPFOperatorConfigSingletonNamespace, "The namespace of the DPFOperatorConfig the operator will reconcile")
 	flag.StringVar(&configSingletonName, "config-name",
@@ -150,10 +157,16 @@ func main() {
 		setupLog.Error(err, "unable to parse inventory")
 		os.Exit(1)
 	}
+
+	settings, err := getSettings()
+	if err != nil {
+		setupLog.Error(err, "unable to get settings")
+	}
+
 	if err = (&operatorcontroller.DPFOperatorConfigReconciler{
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),
-		Settings:  getSettings(),
+		Settings:  settings,
 		Inventory: inventory,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPFOperatorConfig")
@@ -177,15 +190,18 @@ func main() {
 	}
 }
 
-func getSettings() *operatorcontroller.DPFOperatorConfigReconcilerSettings {
-	// TODO: Include that in a function with the rest of the flag validations
-	if customOVNKubernetesImage == "" {
-		if defaultCustomOVNKubernetesImage == "" {
-			setupLog.Error(errors.New("wrong build detected, ensure that the defaultCustomOVNKubernetesImage variable is set via ldflags when building the binary"), "")
-			os.Exit(1)
+func getSettings() (*operatorcontroller.DPFOperatorConfigReconcilerSettings, error) {
+	if customOVNKubernetesDPUImage == "" {
+		if defaultCustomOVNKubernetesDPUImage == "" {
+			return nil, errors.New("wrong build detected, ensure that the defaultCustomOVNKubernetesDPUImage variable is set via ldflags when building the binary")
 		}
-		setupLog.Error(errors.New("flag ovn-kubernetes-image can't be empty"), "")
-		os.Exit(1)
+		return nil, errors.New("flag ovn-kubernetes-dpu-image can't be empty")
+	}
+	if customOVNKubernetesNonDPUImage == "" {
+		if defaultCustomOVNKubernetesNonDPUImage == "" {
+			return nil, errors.New("wrong build detected, ensure that the defaultCustomOVNKubernetesNonDPUImage variable is set via ldflags when building the binary")
+		}
+		return nil, errors.New("flag ovn-kubernetes-dpu-image can't be empty")
 	}
 
 	configSingletonNamespaceName := &types.NamespacedName{
@@ -196,7 +212,8 @@ func getSettings() *operatorcontroller.DPFOperatorConfigReconcilerSettings {
 		configSingletonNamespaceName = nil
 	}
 	return &operatorcontroller.DPFOperatorConfigReconcilerSettings{
-		CustomOVNKubernetesImage:     customOVNKubernetesImage,
-		ConfigSingletonNamespaceName: configSingletonNamespaceName,
-	}
+		CustomOVNKubernetesDPUImage:    customOVNKubernetesDPUImage,
+		CustomOVNKubernetesNonDPUImage: customOVNKubernetesNonDPUImage,
+		ConfigSingletonNamespaceName:   configSingletonNamespaceName,
+	}, nil
 }

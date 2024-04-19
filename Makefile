@@ -392,7 +392,7 @@ verify-copyright:
 GO_GCFLAGS=""
 
 GO_LDFLAGS="-extldflags '-static'"
-DPFOPERATOR_GO_LDFLAGS="$(subst ",,$(GO_LDFLAGS)) -X 'main.defaultCustomOVNKubernetesImage=${OVNKUBERNETES_IMAGE}:${TAG}'"
+DPFOPERATOR_GO_LDFLAGS="$(subst ",,$(GO_LDFLAGS)) -X 'main.defaultCustomOVNKubernetesDPUImage=${OVNKUBERNETES_DPU_IMAGE}:${TAG}' -X 'main.defaultCustomOVNKubernetesNonDPUImage=${OVNKUBERNETES_NON_DPU_IMAGE}:${TAG}'"
 
 BUILD_TARGETS ?= operator dpuservice dpucniprovisioner hostcniprovisioner sfcset
 # Note: Registry defaults to non-existing registry intentionally to avoid overriding useful images.
@@ -434,7 +434,7 @@ binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
 binary-hostcniprovisioner: ## Build the Host CNI Provisioner binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/hostcniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/hostcniprovisioner
 
-DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes
+DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS
@@ -442,8 +442,38 @@ docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build do
 OVS_BASE_IMAGE_NAME = base-image-ovs
 OVS_BASE_IMAGE = $(REGISTRY)/$(OVS_BASE_IMAGE_NAME)
 
-OVNKUBERNETES_IMAGE_NAME = ovn-kubernetes
-OVNKUBERNETES_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_IMAGE_NAME)
+## OVN Kubernetes Images
+# We build 2 images for OVN Kubernetes. One for the DPU enabled nodes and another for the non DPU enabled ones. The
+# reason we have to build 2 images is because the original code modifications that were done to support the DPU workers
+# were not implemented in a way that they are non disruptive for the default flow. We thought we would not need to change
+# the image running on the non DPU nodes but in fact that wasn't the case and we understood that very down the line.
+# Given that this solution is not supposed to go beyond MVP, the solution with the 2 images should be sufficient for now.
+# In case this solution needs to last longer, we should work on refactoring OVN Kubernetes and consolidate everything
+# in one image and improve the maintainability of our fork.
+
+# TODO: Find a way to build the base image via https://github.com/openshift/ovn-kubernetes/blob/release-4.14/Dockerfile
+# You need to follow the commands below to produce the base image:
+# 1. Setup OpenShift cluster 4.14 (this is what the tests were done against)
+# 2. Run these commands to get the relevant images:
+#    * `kubectl get ds -n openshift-ovn-kubernetes -o jsonpath='{.spec.template.spec.containers[?(@.name=="ovnkube-controller")].image}' ovnkube-node`
+#    * `kubectl get ds -n openshift-ovn-kubernetes -o jsonpath='{.spec.template.spec.containers[?(@.name=="ovn-controller")].image}' ovnkube-node`
+#    * In case these two match, we can use a single image. Otherwise, we might need to split this Dockerfile into two so
+#      that each container gets its own image.
+# 3. Login into the OpenShift node and retag the image to `harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:<SHA256_OF_INPUT_IMAGE>`
+#    e.g. podman tag quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e
+# 4. Push the image
+OVNKUBERNETES_BASE_IMAGE=harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e
+OVN_BRANCH=dpf-23.09.0
+OVNKUBERNETES_DPU_BRANCH=dpf-4.14
+OVNKUBERNETES_NON_DPU_BRANCH=dpf-4.14-non-dpu
+
+# Image that is running on the DPU enabled host cluster nodes (workers)
+OVNKUBERNETES_DPU_IMAGE_NAME = ovn-kubernetes-dpu
+OVNKUBERNETES_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_DPU_IMAGE_NAME)
+
+# Image that is running on the non DPU host cluster nodes (control plane)
+OVNKUBERNETES_NON_DPU_IMAGE_NAME = ovn-kubernetes-non-dpu
+OVNKUBERNETES_NON_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_NON_DPU_IMAGE_NAME)
 
 DPFOPERATOR_IMAGE_NAME ?= operator-controller-manager
 DPFOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOPERATOR_IMAGE_NAME)
@@ -533,14 +563,28 @@ docker-build-base-image-ovs: ## Build base docker image with OVS dependencies
 		. \
 		-t $(OVS_BASE_IMAGE):$(TAG)
 
-.PHONY: docker-build-ovnkubernetes
-docker-build-ovnkubernetes: $(OVNKUBERNETES_DIR) $(OVN_DIR) ## Builds the custom OVN Kubernetes image
+.PHONY: docker-build-ovnkubernetes-dpu
+docker-build-ovnkubernetes-dpu: $(OVNKUBERNETES_DIR) $(OVN_DIR) ## Builds the custom OVN Kubernetes image that is used for the DPU (worker) nodes
 	docker buildx build \
 		--load \
 		--platform linux/${HOST_ARCH} \
-		-f Dockerfile.ovn-kubernetes \
+		--build-arg base_image=${OVNKUBERNETES_BASE_IMAGE} \
+		--build-arg ovn_branch=${OVN_BRANCH} \
+		--build-arg ovn_kubernetes_branch=${OVNKUBERNETES_DPU_BRANCH} \
+		-f Dockerfile.ovn-kubernetes-dpu \
 		. \
-		-t $(OVNKUBERNETES_IMAGE):$(TAG)
+		-t $(OVNKUBERNETES_DPU_IMAGE):$(TAG)
+
+.PHONY: docker-build-ovnkubernetes-non-dpu
+docker-build-ovnkubernetes-non-dpu: $(OVNKUBERNETES_DIR) $(OVN_DIR) ## Builds the custom OVN Kubernetes image that is used for the non DPU (control plane) nodes
+	docker buildx build \
+		--load \
+		--platform linux/${HOST_ARCH} \
+		--build-arg base_image=${OVNKUBERNETES_BASE_IMAGE} \
+		--build-arg ovn_kubernetes_branch=${OVNKUBERNETES_NON_DPU_BRANCH} \
+		-f Dockerfile.ovn-kubernetes-non-dpu \
+		. \
+		-t $(OVNKUBERNETES_NON_DPU_IMAGE):$(TAG)
 
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the docker images for all controllers.
@@ -565,9 +609,13 @@ docker-push-dpucniprovisioner: ## Push the docker image for DPU CNI Provisioner.
 docker-push-hostcniprovisioner: ## Push the docker image for Host CNI Provisioner.
 	docker push $(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
-.PHONY: docker-push-ovnkubernetes
-docker-push-ovnkubernetes: ## Push the custom OVN Kubernetes image
-	docker push $(OVNKUBERNETES_IMAGE):$(TAG)
+.PHONY: docker-push-ovnkubernetes-dpu
+docker-push-ovnkubernetes-dpu: ## Push the custom OVN Kubernetes image that is used for the DPU (worker) nodes
+	docker push $(OVNKUBERNETES_DPU_IMAGE):$(TAG)
+
+.PHONY: docker-push-ovnkubernetes-non-dpu
+docker-push-ovnkubernetes-non-dpu: ## Push the custom OVN Kubernetes image that is used for the non DPU (control plane) nodes
+	docker push $(OVNKUBERNETES_NON_DPU_IMAGE):$(TAG)
 
 # TODO: Consider whether this should be part of the docker-build-all- build targets.
 .PHONY: docker-build-operator-bundle # Build the docker image for the Operator bundle. Not included in docker-build-all.
