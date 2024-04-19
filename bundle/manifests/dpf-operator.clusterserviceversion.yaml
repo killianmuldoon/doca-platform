@@ -40,7 +40,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-18T14:42:13Z"
+    createdAt: "2024-04-22T10:59:27Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: unknown
   name: dpf-operator.v0.0.0
@@ -51,6 +51,9 @@ spec:
     owned:
     - kind: DPFOperatorConfig
       name: dpfoperatorconfigs.operator.dpf.nvidia.com
+      version: v1alpha1
+    - kind: DPUService
+      name: dpuservices.svc.dpf.nvidia.com
       version: v1alpha1
   description: Dpf Operator description. TODO.
   displayName: Dpf Operator

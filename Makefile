@@ -289,7 +289,7 @@ generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. fo
 .PHONY: generate-operator-bundle
 generate-operator-bundle: $(OPERATOR_SDK) $(KUSTOMIZE) ## Generate bundle manifests and metadata, then validate generated files.
 	$(KUSTOMIZE) build config/bundle-operatorsdk | $(OPERATOR_SDK) generate bundle \
-	--overwrite --package dpf-operator --version $(BUNDLE_VERSION) --default-channel=$(BUNDLE_VERSION)
+	--overwrite --package dpf-operator --version $(BUNDLE_VERSION) --default-channel=$(BUNDLE_VERSION) --channels=$(BUNDLE_VERSION)
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: clean-generated-yaml
@@ -328,7 +328,7 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) ## Setup
 	&& echo "Waiting for cert-manager deployment to be ready."\
 	&& kubectl wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
 
-	# Deploy Kamaji as the underlying control plane provider. This values file is required due to a bug in a dependency.
+	# Deploy Kamaji as the underlying control plane provider.
 	cat ./hack/values/kamaji-values.yaml | envsubst > ./hack/values/kamaji-values.yaml.tmp
 	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml.tmp
 
@@ -357,20 +357,24 @@ test-deploy-dpuservice: $(KUSTOMIZE)
 	cd config/dpuservice/manager && $(KUSTOMIZE) edit set image controller=$(DPUSERVICE_IMAGE):$(TAG)
 	$(KUSTOMIZE) build config/dpuservice/default | kubectl apply -f -
 
+OLM_VERSION ?= v0.27.0
+OPERATOR_REGISTRY_VERSION ?= v1.39.0
+OPERATOR_NAMESPACE ?= dpf-operator-system
 .PHONY: test-deploy-operator
 test-deploy-operator: $(KUSTOMIZE)
-	# Build and push the dpuservice and operator images to the minikube registry
+	# Build and push the dpuservice, operator and operator-bundle images to the minikube registry
 	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
 	$(MAKE) docker-build-dpuservice docker-push-dpuservice; \
-	$(MAKE) docker-build-operator docker-push-operator
+	$(MAKE) docker-build-operator docker-push-operator ; \
+	$(MAKE) docker-build-operator-bundle docker-push-operator-bundle
 
-	# Deploy CRDs to the test env
-	$Q kubectl apply -f config/dpuservice/crd/bases
-	$Q kubectl apply -f config/operator/crd/bases
+	# Install OLM in the cluster
+	$(OPERATOR_SDK) olm install --version $(OLM_VERSION)
 
-	# Deploy the operator to the cluster
-	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
-	$(KUSTOMIZE) build config/operator/default | kubectl apply -f -
+	# Create the namespace for the operator to be installed.
+	$(KUBECTL) create namespace $(OPERATOR_NAMESPACE)
+	# TODO: This flow does not work on MacOS dues to some issue pulling images. Should be enabled to make local testing equivalent to CI.
+	$(OPERATOR_SDK) run bundle --namespace $(OPERATOR_NAMESPACE) --index-image quay.io/operator-framework/opm:$(OPERATOR_REGISTRY_VERSION) $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
 
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  ## Run the e2e tests against a Kind k8s instance that is spun up.
@@ -479,7 +483,8 @@ HOSTCNIPROVISIONER_IMAGE_NAME ?= host-cni-provisioner
 HOSTCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(HOSTCNIPROVISIONER_IMAGE_NAME)
 
 OPERATOR_BUNDLE_NAME ?= dpf-operator-bundle
-OPERATOR_BUNDLE_IMAGE ?= $(REGISTRY)/$(OPERATOR_BUNDLE_NAME)
+OPERATOR_BUNDLE_REGISTRY ?= $(REGISTRY)
+OPERATOR_BUNDLE_IMAGE ?= $(OPERATOR_BUNDLE_REGISTRY)/$(OPERATOR_BUNDLE_NAME)
 
 .PHONY: docker-build-sfcset
 docker-build-sfcset: ## Build docker images for the sfcset-controller
@@ -589,13 +594,14 @@ docker-push-ovnkubernetes: ## Push the custom OVN Kubernetes image
 
 # TODO: Consider whether this should be part of the docker-build-all- build targets.
 .PHONY: docker-build-operator-bundle # Build the docker image for the Operator bundle. Not included in docker-build-all.
-operator-bundle-build: generate-operator-bundle
+docker-build-operator-bundle: generate-operator-bundle
 	docker build -f bundle.Dockerfile -t $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION) .
 
 # TODO: Consider whether this should be part of the docker-push-all- push targets.
-.PHONY: operator-bundle-push # Push the docker image for the Operator bundle. Not included in docker-build-all.
-operator-bundle-push: ## Push the bundle image.
+.PHONY: docker-push-operator-bundle # Push the docker image for the Operator bundle. Not included in docker-build-all.
+docker-push-operator-bundle: ## Push the bundle image.
 	docker push $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
+
 # dev environment
 MINIKUBE_CLUSTER_NAME ?= dpf-dev
 dev-minikube: $(MINIKUBE) ## Create a minikube cluster for development.

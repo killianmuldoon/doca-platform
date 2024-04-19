@@ -12,6 +12,7 @@ resources:
   - resources/dpf-operator.clusterserviceversion.yaml
   - ../operator/crd
   - ../operator/samples
+  - ../dpuservice/crd
 ## TODO: Add more CRDs here as we add controller deployments.
   - ../operator/rbac
   - ../operator/manager
