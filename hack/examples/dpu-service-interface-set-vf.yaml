@@ -1,0 +1,25 @@
+apiVersion: "sfc.dpf.nvidia.com/v1alpha1"
+kind: DPUServiceInterface
+metadata:
+  name: pf0-vf2
+  namespace: default
+spec:
+  clusterSelector:
+    matchLabels:
+        area: "south"
+  template:
+    spec:
+      nodeSelector:
+        matchLabels:
+          role: "firewall"
+      template:
+        metadata:
+          labels:
+            uplink: "port0"
+        spec:
+          interfaceType: vf
+          interfaceName: enp33s0f0np0
+          vf:
+            pfID: 0
+            vfID: 2
+            parentInterfaceRef: pf0
