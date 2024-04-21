@@ -50,6 +50,8 @@ const (
 	serviceChainSetControllerName = "service-chain-set-controller"
 )
 
+//+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
+//+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechainsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechainsets/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechainsets/finalizers,verbs=update

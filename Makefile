@@ -284,6 +284,7 @@ generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. fo
 	output:crd:dir=./config/servicechainset/crd/bases \
 	output:rbac:dir=./config/servicechainset/rbac
 	cd config/servicechainset/manager && $(KUSTOMIZE) edit set image controller=$(SFCSET_IMAGE):$(TAG)
+	cp config/servicechainset/crd/bases/* deploy/helm/servicechain/crds
 
 .PHONY: generate-operator-bundle
 generate-operator-bundle: $(OPERATOR_SDK) $(KUSTOMIZE) ## Generate bundle manifests and metadata, then validate generated files.
@@ -399,6 +400,10 @@ verify-generate: generate
 .PHONY: verify-copyright
 verify-copyright:
 	$Q $(CURDIR)/hack/scripts/copyright-validation.sh
+
+.PHONY: lint-helm-sfcset
+lint-helm-sfcset: $(HELM) ; $(info  running lint for helm charts...) @ ## Run helm lint
+	$Q $(HELM) lint ./deploy/helm/servicechain
 
 ##@ Build
 
