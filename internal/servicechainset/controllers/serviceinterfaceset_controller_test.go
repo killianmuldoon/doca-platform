@@ -43,7 +43,10 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		})
 		AfterEach(func() {
 			By("Cleaning up the objects")
-			Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
+			err := testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)
+			if err != nil {
+				AbortSuite("cleanup didn't succeed, the rest of tests may fail because of that. Terminating.")
+			}
 		})
 		It("should successfully reconcile the ServiceInterfaceSet without Node Selector", func() {
 			By("Create ServiceInterfaceSet, without Node Selector")

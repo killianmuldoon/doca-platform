@@ -59,7 +59,10 @@ var _ = Describe("DPUService Controller", func() {
 		It("should successfully reconcile the DPUService", func() {
 			cleanupObjs := []client.Object{}
 			defer func() {
-				Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjs...)).To(Succeed())
+				err := testutils.CleanupAndWait(ctx, testClient, cleanupObjs...)
+				if err != nil {
+					AbortSuite("cleanup didn't succeed, the rest of tests may fail because of that. Terminating.")
+				}
 			}()
 
 			clusters := []controlplane.DPFCluster{
@@ -282,7 +285,10 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			for _, s := range secretList.Items {
 				objs = append(objs, s.DeepCopy())
 			}
-			Expect(testutils.CleanupAndWait(ctx, testClient, objs...)).To(Succeed())
+			err := testutils.CleanupAndWait(ctx, testClient, objs...)
+			if err != nil {
+				AbortSuite("cleanup didn't succeed, the rest of tests may fail because of that. Terminating.")
+			}
 		})
 
 		// reconcileSecrets
