@@ -54,12 +54,27 @@ func main() {
 		klog.Fatalf("error while parsing VTEP IP from config: %s", err.Error())
 	}
 
+	gateway, err := getGateway(config)
+	if err != nil {
+		klog.Fatalf("error while parsing Gateway from config: %s", err.Error())
+	}
+
+	vtepCIDR, err := netlink.ParseIPNet(config.VTEPCIDR)
+	if err != nil {
+		klog.Fatalf("error while parsing VTEP CIDR %s as net.IPNet: %s", config.VTEPCIDR, err.Error())
+	}
+
+	hostCIDR, err := netlink.ParseIPNet(config.HostCIDR)
+	if err != nil {
+		klog.Fatalf("error while parsing Host CIDR %s as net.IPNet: %s", config.HostCIDR, err.Error())
+	}
+
 	ovsClient, err := ovsclient.New()
 	if err != nil {
 		klog.Fatal(err)
 	}
 
-	provisioner := dpucniprovisioner.New(ovsClient, networkhelper.New(), kexec.New(), vtepIP)
+	provisioner := dpucniprovisioner.New(ovsClient, networkhelper.New(), kexec.New(), vtepIP, gateway, vtepCIDR, hostCIDR)
 
 	err = provisioner.RunOnce()
 	if err != nil {
@@ -115,4 +130,16 @@ func getVTEPIP(c *dpucniprovisionerconfig.DPUCNIProvisionerConfig) (*net.IPNet, 
 	}
 
 	return vtepIP, nil
+}
+
+// getGateway returns the Gateway IP to be configured by the provisioner
+func getGateway(c *dpucniprovisionerconfig.DPUCNIProvisionerConfig) (net.IP, error) {
+	node := os.Getenv("NODE_NAME")
+	gatewayRaw := c.PerNodeConfig[node].Gateway
+	gateway := net.ParseIP(gatewayRaw)
+	if gateway == nil {
+		return nil, errors.New("error while parsing Gateway IP to net.IP: input is not valid")
+	}
+
+	return gateway, nil
 }

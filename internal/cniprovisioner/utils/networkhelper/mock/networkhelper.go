@@ -69,6 +69,20 @@ func (mr *MockNetworkHelperMockRecorder) AddDummyLink(link any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddDummyLink", reflect.TypeOf((*MockNetworkHelper)(nil).AddDummyLink), link)
 }
 
+// AddRoute mocks base method.
+func (m *MockNetworkHelper) AddRoute(network *net.IPNet, gateway net.IP, device string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AddRoute", network, gateway, device)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AddRoute indicates an expected call of AddRoute.
+func (mr *MockNetworkHelperMockRecorder) AddRoute(network, gateway, device any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRoute", reflect.TypeOf((*MockNetworkHelper)(nil).AddRoute), network, gateway, device)
+}
+
 // DeleteLinkIPAddress mocks base method.
 func (m *MockNetworkHelper) DeleteLinkIPAddress(link string, ipNet *net.IPNet) error {
 	m.ctrl.T.Helper()

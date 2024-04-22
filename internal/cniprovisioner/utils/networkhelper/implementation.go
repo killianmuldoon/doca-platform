@@ -154,6 +154,27 @@ func (n *networkHelper) DeleteRoute(network *net.IPNet, gateway net.IP, device s
 	return nil
 }
 
+// AddRoute adds a route
+func (n *networkHelper) AddRoute(network *net.IPNet, gateway net.IP, device string) error {
+	if network == nil {
+		return errors.New("network is empty, can't add route")
+	}
+	l, err := netlink.LinkByName(device)
+	if err != nil {
+		return fmt.Errorf("netlink.LinkByName() failed: %w", err)
+	}
+	r := &netlink.Route{
+		Dst:       network,
+		Gw:        gateway,
+		LinkIndex: l.Attrs().Index,
+	}
+	err = netlink.RouteAdd(r)
+	if err != nil {
+		return fmt.Errorf("netlink.RouteAdd() failed: %w", err)
+	}
+	return nil
+}
+
 // AddDummyLink adds a dummy link
 func (n *networkHelper) AddDummyLink(link string) error {
 	l := netlink.Dummy{
