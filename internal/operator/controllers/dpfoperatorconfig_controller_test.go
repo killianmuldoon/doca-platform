@@ -155,6 +155,23 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			Expect(testClient.Create(ctx, ovnKubernetesDaemonSet)).To(Succeed())
 			cleanupObjects = append(cleanupObjects, ovnKubernetesDaemonSet)
 
+			ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: clusterConfigNamespace}}
+			Expect(testutils.CreateResourceIfNotExist(ctx, testClient, ns)).To(Succeed())
+			clusterConfigConfigMap := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      clusterConfigConfigMapName,
+					Namespace: clusterConfigNamespace,
+				},
+				Data: map[string]string{
+					"install-config": `
+networking:
+  machineNetwork:
+  - cidr: 192.168.1.0/24`,
+				},
+			}
+			Expect(testClient.Create(ctx, clusterConfigConfigMap)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, clusterConfigConfigMap)
+
 			// Mocked Worker Node
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker1), nodeWorker1)).To(Succeed())
 			nodeWorker1.SetLabels(map[string]string{
@@ -314,16 +331,16 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 
 			Eventually(func(g Gomega) {
 				got := &appsv1.DaemonSet{}
-				key := client.ObjectKey{Namespace: "dpf-operator-system", Name: "host-cni-provisioner"}
-				g.Expect(testClient.Get(ctx, key, got)).To(Succeed())
-			}).WithTimeout(30 * time.Second).Should(Succeed())
-
-			Eventually(func(g Gomega) {
-				got := &appsv1.DaemonSet{}
 				c, err := dpfCluster.NewClient(ctx, testClient)
 				g.Expect(err).ToNot(HaveOccurred())
 				key := client.ObjectKey{Namespace: "dpf-operator-system", Name: "dpu-cni-provisioner"}
 				g.Expect(c.Get(ctx, key, got)).To(Succeed())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				got := &appsv1.DaemonSet{}
+				key := client.ObjectKey{Namespace: "dpf-operator-system", Name: "host-cni-provisioner"}
+				g.Expect(testClient.Get(ctx, key, got)).To(Succeed())
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 
 			By("Turning the CNI Provisioners to ready")
@@ -641,6 +658,15 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 				}
 				dpfOperatorConfig.Spec.HostNetworkConfiguration.CIDR = "10.0.96.0/20"
 
+				clusterConfigContent, err := os.ReadFile("testdata/original/cluster-config-v1-configmap.yaml")
+				Expect(err).ToNot(HaveOccurred())
+				clusterConfigUnstructured, err := utils.BytesToUnstructured(clusterConfigContent)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(clusterConfigUnstructured).To(HaveLen(1))
+				var openshiftClusterConfigMap corev1.ConfigMap
+				err = runtime.DefaultUnstructuredConverter.FromUnstructured(clusterConfigUnstructured[0].Object, &openshiftClusterConfigMap)
+				Expect(err).ToNot(HaveOccurred())
+
 				expectedDPUCNIProvisionerConfig := dpucniprovisionerconfig.DPUCNIProvisionerConfig{
 					PerNodeConfig: map[string]dpucniprovisionerconfig.PerNodeConfig{
 						"dpu-node-1": {
@@ -653,9 +679,10 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 						},
 					},
 					VTEPCIDR: "10.0.96.0/20",
+					HostCIDR: "10.0.110.0/24",
 				}
 
-				objects, err := generateDPUCNIProvisionerObjects(dpfOperatorConfig)
+				objects, err := generateDPUCNIProvisionerObjects(dpfOperatorConfig, &openshiftClusterConfigMap)
 				Expect(err).ToNot(HaveOccurred())
 
 				rawObjects, err := utils.BytesToUnstructured(dpuCNIProvisionerManifestContent)
@@ -680,7 +707,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 				}
 				Expect(found).To(BeTrue())
 			})
-			It("should error out when configmap is not found", func() {
+			It("should error out when provisioner configmap is not found", func() {
 				By("Copying the dpuCNIProvisionerManifestContent global variable")
 				var dpuCNIProvisionerManifestContentCopy []byte
 				copy(dpuCNIProvisionerManifestContentCopy, dpuCNIProvisionerManifestContent)
@@ -711,8 +738,17 @@ spec:
         - containerPort: 80
         `)
 
+				clusterConfigContent, err := os.ReadFile("testdata/original/cluster-config-v1-configmap.yaml")
+				Expect(err).ToNot(HaveOccurred())
+				clusterConfigUnstructured, err := utils.BytesToUnstructured(clusterConfigContent)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(clusterConfigUnstructured).To(HaveLen(1))
+				var openshiftClusterConfigMap corev1.ConfigMap
+				err = runtime.DefaultUnstructuredConverter.FromUnstructured(clusterConfigUnstructured[0].Object, &openshiftClusterConfigMap)
+				Expect(err).ToNot(HaveOccurred())
+
 				By("Running the test against the mocked environment")
-				_, err := generateDPUCNIProvisionerObjects(dpfOperatorConfig)
+				_, err = generateDPUCNIProvisionerObjects(dpfOperatorConfig, &openshiftClusterConfigMap)
 				Expect(err).To(HaveOccurred())
 
 				By("Reverting dpuCNIProvisionerManifestContent global variable to the original value")

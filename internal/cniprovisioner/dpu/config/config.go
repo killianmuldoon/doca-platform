@@ -26,6 +26,9 @@ type DPUCNIProvisionerConfig struct {
 	// a routes using that information to enable traffic that needs to go from one Pod running on worker Node A to
 	// another Pod running on worker Node B.
 	VTEPCIDR string `json:"VTEPCIDR"`
+	// HostCIDR is the CIDR of the host machines. The primary IPs of the hosts are part of this CIDR. The provisioner
+	// will add a route for that CIDR related to traffic between Pods running on control plane and worker nodes.
+	HostCIDR string `json:"hostCIDR"`
 }
 
 // PerNodeConfig is the struct that holds configuration specific to a particular node. This config is extracted out of
