@@ -45,7 +45,7 @@ profiles:
               gcflags: "all=-N -l"
               ## Used to configure the default Custom OVN Kubernetes image at compile time to avoid an error on startup.
               ## This is not a real image for customOVNKubernetes.
-              ldflags: "-extldflags '-static'-X 'main.defaultCustomOVNKubernetesImage=not-a-real-image'"
+              ldflags: "-extldflags '-static' -X 'main.defaultCustomOVNKubernetesDPUImage=not-a-real-image' -X 'main.defaultCustomOVNKubernetesNonDPUImage=not-a-real-image'"
               target_arch: "arm64"
               package: ./cmd/operator
               builder_image: golang:1.22.1
