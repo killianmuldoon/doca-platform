@@ -32,6 +32,7 @@ NODE_MEMORY="${NODE_MEMORY:-"8g"}"
 NODE_CPUS="${NODE_CPUS:-"4"}"
 NODE_DISK="${NODE_DISK:-"100g"}"
 MINIKUBE_CNI="${MINIKUBE_CNI:-kindnet}"
+MINIKUBE_KUBERNETES_VERSION="${MINIKUBE_KUBERNETES_VERSION:-"v1.29.3"}"
 
 ## Detect the OS.
 OS="unknown"
@@ -64,6 +65,7 @@ MINIKUBE_ARGS="${MINIKUBE_ARGS:-"\
   --disk-size=$NODE_DISK \
   --nodes=$NUM_NODES \
   --cni $MINIKUBE_CNI \
+  --kubernetes-version $MINIKUBE_KUBERNETES_VERSION \
   --preload=true \
   --install-addons \
   --addons metallb \
