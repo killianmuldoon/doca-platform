@@ -278,6 +278,8 @@ func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Cont
 }
 
 // reconcileCustomOVNKubernetesDeployment ensures that custom OVN Kubernetes is deployed
+// TODO: Prefetch all the necessary objects and pass them in functions instead of fetching them multiple times as part
+// of the reconcile loop
 func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	// Phase 1
 	// - ensure cluster version operator is scaled down
@@ -571,9 +573,22 @@ func (r *DPFOperatorConfigReconciler) markNetworkPreconfigurationReady(ctx conte
 // deployCustomOVNKubernetes reads the relevant OVN Kubernetes objects from the cluster, creates copies of them, adjusts
 // them according to https://docs.google.com/document/d/1dvFvG9NR4biWuGnTcee9t6DPAbFKKKJxGi30QuQDjqI/edit#heading=h.6kp1qrhfqf61
 // and applies them in the cluster.
+func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetes(ctx context.Context) error {
+	if err := r.deployCustomOVNKubernetesForWorkers(ctx); err != nil {
+		return fmt.Errorf("error while deploying the custom OVN Kubernetes for worker nodes: %w", err)
+	}
+
+	if err := r.deployCustomOVNKubernetesForControlPlane(ctx); err != nil {
+		return fmt.Errorf("error while deploying the custom OVN Kubernetes for control plane nodes: %w", err)
+	}
+
+	return nil
+}
+
+// deployCustomOVNKubernetesForWorkers generates and deploys the custom OVN Kubernetes components for the worker nodes.
 // TODO: Sort out owner references. Currently the DPFOperatorConfig is namespaced, and cross namespace ownership is not
 // allowed by design.
-func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetes(ctx context.Context) error {
+func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetesForWorkers(ctx context.Context) error {
 	// Create custom OVN Kubernetes ConfigMap
 	ovnKubernetesConfigMap := &corev1.ConfigMap{}
 	key := client.ObjectKey{Namespace: ovnKubernetesNamespace, Name: ovnKubernetesConfigMapName}
@@ -620,6 +635,37 @@ func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetes(ctx context.Cont
 	customOVNKubernetesDaemonset.ObjectMeta.ManagedFields = nil
 	if err := r.Client.Patch(ctx, customOVNKubernetesDaemonset, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
 		return fmt.Errorf("error while patching %s %s: %w", customOVNKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+
+	return nil
+}
+
+// deployCustomOVNKubernetesForControlPlane deploys the custom OVN Kubernetes components for the control plane nodes.
+// TODO: Check if it makes sense to pack those changes in the place where we adjust the original DaemonSet to run only
+// on control plane nodes
+func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetesForControlPlane(ctx context.Context) error {
+	ovnKubernetesDaemonset := &appsv1.DaemonSet{}
+	key := client.ObjectKey{Namespace: ovnKubernetesNamespace, Name: ovnKubernetesDaemonsetName}
+	if err := r.Client.Get(ctx, key, ovnKubernetesDaemonset); err != nil {
+		return fmt.Errorf("error while getting %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+
+	var configuredKubeControllerImage bool
+	for i, container := range ovnKubernetesDaemonset.Spec.Template.Spec.Containers {
+		if container.Name == ovnKubernetesKubeControllerContainerName {
+			ovnKubernetesDaemonset.Spec.Template.Spec.Containers[i].Image = r.Settings.CustomOVNKubernetesNonDPUImage
+			configuredKubeControllerImage = true
+		}
+	}
+
+	if !configuredKubeControllerImage {
+		return fmt.Errorf("error while adjusting image for container %s in %s Daemonset: container not found", ovnKubernetesKubeControllerContainerName, ovnKubernetesDaemonsetName)
+	}
+
+	ovnKubernetesDaemonset.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("DaemonSet"))
+	ovnKubernetesDaemonset.ObjectMeta.ManagedFields = nil
+	if err := r.Client.Patch(ctx, ovnKubernetesDaemonset, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+		return fmt.Errorf("error while patching %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
 
 	return nil
