@@ -7,4 +7,4 @@ resources:
 images:
 - name: controller
   newName: nvidia.com/dpu-cni-provisioner
-  newTag: dev
+  newTag: v0.0.0

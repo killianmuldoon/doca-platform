@@ -33,6 +33,7 @@ profiles:
         localPort: 8080
         address: 0.0.0.0
   - name: operator
+    # Note: The operator profile is mutually exclusive with other profiles as the operator will deploy the other components.
     build:
       local:
         useBuildkit: true
@@ -56,10 +57,6 @@ profiles:
       kustomize:
         paths:
           - config/operator/default
-    portForward:
-      - resourceType: deployment
-        resourceName: dpf-operator-controller-manager
-        namespace: dpf-operator-system
-        port: 56268
-        localPort: 8081
-        address: 0.0.0.0
+          # Deploy CRDs for components deployed by the operator.
+          - config/dpuservice/crd
+

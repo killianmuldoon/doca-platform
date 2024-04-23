@@ -62,7 +62,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: nvidia.com/host-cni-provisioner:dev
+        image: nvidia.com/host-cni-provisioner:v0.0.0
         imagePullPolicy: Always
         name: host-cni-provisioner
         readinessProbe:

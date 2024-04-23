@@ -42,7 +42,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-23T10:49:53Z"
+    createdAt: "2024-04-24T08:36:01Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: unknown
   name: dpf-operator.v0.0.0
@@ -254,7 +254,7 @@ spec:
                 - reconcileOVNKubernetes=true
                 command:
                 - /manager
-                image: nvidia.com/operator-controller-manager:dev
+                image: nvidia.com/operator-controller-manager:v0.0.0
                 livenessProbe:
                   httpGet:
                     path: /healthz

@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: nvidia.com/dpuservice-controller-manager
-  newTag: dev
+  newTag: v0.0.0
