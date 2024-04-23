@@ -394,6 +394,14 @@ networking:
 				gotConfigMap = &corev1.ConfigMap{}
 				key = client.ObjectKey{Namespace: "openshift-ovn-kubernetes", Name: "ovnkube-script-lib-dpf"}
 				g.Expect(testClient.Get(ctx, key, gotConfigMap)).To(Succeed())
+				gotDaemonSet = &appsv1.DaemonSet{}
+				key = client.ObjectKey{Namespace: "openshift-ovn-kubernetes", Name: "ovnkube-node"}
+				g.Expect(testClient.Get(ctx, key, gotDaemonSet)).To(Succeed())
+				g.Expect(gotDaemonSet.Spec.Template.Spec.Containers).To(ContainElement(
+					And(
+						HaveField("Name", "ovnkube-controller"),
+						HaveField("Image", reconciler.Settings.CustomOVNKubernetesNonDPUImage)),
+				))
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 
