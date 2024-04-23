@@ -36,7 +36,6 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -622,23 +621,12 @@ func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetesForWorkers(ctx co
 		return fmt.Errorf("error while patching %s %s: %w", customOVNKubernetesEntrypointConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
 
+	// Create custom OVN Kubernetes DaemonSet
 	ovnKubernetesDaemonset := &appsv1.DaemonSet{}
 	key = client.ObjectKey{Namespace: ovnKubernetesNamespace, Name: ovnKubernetesDaemonsetName}
 	if err := r.Client.Get(ctx, key, ovnKubernetesDaemonset); err != nil {
 		return fmt.Errorf("error while getting %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
-
-	// Create RBAC for the custom OVN Kubernetes Pods to be able to read the DPFOperatorConfig object. Required by the
-	// entrypoint script.
-	role, roleBinding := generateCustomOVNKubernetesRBAC(ovnKubernetesDaemonset, dpfOperatorConfig)
-	if err := r.Client.Patch(ctx, role, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-		return fmt.Errorf("error while patching %s %s: %w", role.GetObjectKind().GroupVersionKind().String(), key.String(), err)
-	}
-	if err := r.Client.Patch(ctx, roleBinding, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-		return fmt.Errorf("error while patching %s %s: %w", roleBinding.GetObjectKind().GroupVersionKind().String(), key.String(), err)
-	}
-
-	// Create custom OVN Kubernetes DaemonSet
 	customOVNKubernetesDaemonset, err := generateCustomOVNKubernetesDaemonSet(ovnKubernetesDaemonset, r.Settings.CustomOVNKubernetesDPUImage)
 	if err != nil {
 		return fmt.Errorf("error while generating custom OVN Kubernetes DaemonSet: %w", err)
@@ -960,49 +948,6 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, dpfO
 	out.Data[ovnKubernetesEntrypointConfigMapNameDataKey] = value
 
 	return out, kerrors.NewAggregate(errs)
-}
-
-// generateCustomOVNKubernetesRBAC generates the relevant RBAC needed for the custom OVN Kubernetes to function
-func generateCustomOVNKubernetesRBAC(ovnKubernetesDaemonset *appsv1.DaemonSet, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (*rbacv1.Role, *rbacv1.RoleBinding) {
-	name := fmt.Sprintf("ovn-kubernetes-%s", customOVNKubernetesResourceNameSuffix)
-
-	role := &rbacv1.Role{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: dpfOperatorConfig.Namespace,
-		},
-		Rules: []rbacv1.PolicyRule{
-			{
-				APIGroups: []string{operatorv1.GroupVersion.Group},
-				Resources: []string{operatorv1.DPFOperatorConfigPlural},
-				Verbs:     []string{"get"},
-			},
-		},
-	}
-	role.SetGroupVersionKind(rbacv1.SchemeGroupVersion.WithKind("Role"))
-	role.ObjectMeta.ManagedFields = nil
-
-	roleBinding := &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: dpfOperatorConfig.Namespace,
-		},
-		Subjects: []rbacv1.Subject{
-			{
-				Kind:      "ServiceAccount",
-				Name:      ovnKubernetesDaemonset.Spec.Template.Spec.ServiceAccountName,
-				Namespace: ovnKubernetesDaemonset.Namespace,
-			},
-		},
-		RoleRef: rbacv1.RoleRef{
-			Kind: "Role",
-			Name: role.Name,
-		},
-	}
-	roleBinding.SetGroupVersionKind(rbacv1.SchemeGroupVersion.WithKind("RoleBinding"))
-	roleBinding.ObjectMeta.ManagedFields = nil
-
-	return role, roleBinding
 }
 
 // generateDPUCNIProvisionerObjects generates the DPU CNI Provisioner objects
