@@ -69,7 +69,11 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 
 			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
-			cleanupObjects = append(cleanupObjects, dpfOperatorConfig)
+			DeferCleanup(func() {
+				// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
+				// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
+				Expect(testutils.CleanupAndWait(ctx, testClient, dpfOperatorConfig)).To(Succeed())
+			})
 
 			Eventually(func(g Gomega) []string {
 				gotConfig := &operatorv1.DPFOperatorConfig{}
@@ -275,7 +279,11 @@ networking:
 		It("should successfully deploy the custom OVN Kubernetes", func() {
 			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
-			cleanupObjects = append(cleanupObjects, dpfOperatorConfig)
+			DeferCleanup(func() {
+				// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
+				// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
+				Expect(testutils.CleanupAndWait(ctx, testClient, dpfOperatorConfig)).To(Succeed())
+			})
 
 			Eventually(func(g Gomega) *int32 {
 				got := &appsv1.Deployment{}
@@ -399,7 +407,11 @@ networking:
 
 			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
-			cleanupObjects = append(cleanupObjects, dpfOperatorConfig)
+			DeferCleanup(func() {
+				// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
+				// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
+				Expect(testutils.CleanupAndWait(ctx, testClient, dpfOperatorConfig)).To(Succeed())
+			})
 
 			Consistently(func(g Gomega) {
 				_, _ = reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(dpfOperatorConfig)})
@@ -427,7 +439,11 @@ networking:
 
 			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
-			cleanupObjects = append(cleanupObjects, dpfOperatorConfig)
+			DeferCleanup(func() {
+				// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
+				// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
+				Expect(testutils.CleanupAndWait(ctx, testClient, dpfOperatorConfig)).To(Succeed())
+			})
 
 			Consistently(func(g Gomega) {
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker2), nodeWorker2)).To(Succeed())
