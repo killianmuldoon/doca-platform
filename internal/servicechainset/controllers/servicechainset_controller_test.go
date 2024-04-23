@@ -44,10 +44,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		AfterEach(func() {
 			By("Cleaning up the objects")
-			err := testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)
-			if err != nil {
-				AbortSuite("cleanup didn't succeed, the rest of tests may fail because of that. Terminating.")
-			}
+			Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
 		})
 		It("should successfully reconcile the ServiceChainSet without Node Selector", func() {
 			By("Create ServiceChainSet, without Node Selector")

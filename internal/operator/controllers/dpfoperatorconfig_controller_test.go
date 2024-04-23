@@ -62,10 +62,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the Namespace")
 			Expect(testClient.Delete(ctx, testNS)).To(Succeed())
-			err := testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)
-			if err != nil {
-				AbortSuite("cleanup didn't succeed, the rest of tests may fail because of that. Terminating.")
-			}
+			Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
 		})
 		It("should successfully reconcile the DPFOperatorConfig", func() {
 			By("Reconciling the created resource")
@@ -273,10 +270,7 @@ networking:
 				cleanupObjects = append(cleanupObjects, o)
 			}
 			Expect(testClient.Delete(ctx, testNS)).To(Succeed())
-			err = testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)
-			if err != nil {
-				AbortSuite("cleanup didn't succeed, the rest of tests may fail because of that. Terminating.")
-			}
+			Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
 		})
 		It("should successfully deploy the custom OVN Kubernetes", func() {
 			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
