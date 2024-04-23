@@ -12,13 +12,14 @@ metadata:
 spec:
   hostNetworkConfiguration:
     CIDR: 10.0.96.0/20
-    hostIPs:
-      ocp-worker-1: 10.0.96.10/24
-      ocp-worker-2: 10.0.97.10/24
-    dpu:
-      dpu-worker-1:
-        ip: 10.0.96.20/24
-        gateway: 10.0.96.254
-      dpu-worker-2:
-        ip: 10.0.97.20/24
-        gateway: 10.0.97.254
+    hosts:
+    - hostClusterNodeName: ocp-worker-1
+      dpuClusterNodeName: dpu-worker-1
+      hostIP: 10.0.96.10/24
+      dpuIP: 10.0.96.20/24
+      gateway: 10.0.96.254
+    - hostClusterNodeName: ocp-worker-2
+      dpuClusterNodeName: dpu-worker-2
+      hostIP: 10.0.97.10/24
+      dpuIP: 10.0.97.20/24
+      gateway: 10.0.97.254

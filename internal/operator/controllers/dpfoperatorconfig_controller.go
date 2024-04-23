@@ -961,10 +961,10 @@ func generateDPUCNIProvisionerObjects(dpfOperatorConfig *operatorv1.DPFOperatorC
 		VTEPCIDR:      dpfOperatorConfig.Spec.HostNetworkConfiguration.CIDR,
 		HostCIDR:      hostCIDR.String(),
 	}
-	for k, v := range dpfOperatorConfig.Spec.HostNetworkConfiguration.DPUConfiguration {
-		config.PerNodeConfig[k] = dpucniprovisionerconfig.PerNodeConfig{
-			VTEPIP:  v.IP,
-			Gateway: v.Gateway,
+	for _, host := range dpfOperatorConfig.Spec.HostNetworkConfiguration.Hosts {
+		config.PerNodeConfig[host.DPUClusterNodeName] = dpucniprovisionerconfig.PerNodeConfig{
+			VTEPIP:  host.DPUIP,
+			Gateway: host.Gateway,
 		}
 	}
 
@@ -1024,7 +1024,10 @@ func generateHostCNIProvisionerObjects(dpfOperatorConfig *operatorv1.DPFOperator
 	}
 
 	config := hostcniprovisionerconfig.HostCNIProvisionerConfig{
-		PFIPs: dpfOperatorConfig.Spec.HostNetworkConfiguration.HostIPs,
+		PFIPs: make(map[string]string),
+	}
+	for _, host := range dpfOperatorConfig.Spec.HostNetworkConfiguration.Hosts {
+		config.PFIPs[host.HostClusterNodeName] = host.HostIP
 	}
 
 	err = populateCNIProvisionerConfigMap(hostCNIProvisionerObjects, "host-cni-provisioner", config)

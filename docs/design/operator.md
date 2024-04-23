@@ -54,12 +54,18 @@ spec:
   imageOverrides: # User provided set of images to be used for specific components.
     dpuservice: localhost:5000/my-image
   hostNetworkConfiguration: # User provided. Must be provided to enable ovn-kubernetes setup. Two IPs required per Kubernetes node.
-    hostIPs:
-      dpf-worker-0: 192.168.1.1/24 
-      dpf-worker-1: 192.168.1.2/24
-    dpuIPs:
-      co-node-34-dpu-oob: 192.168.1.10/24
-      co-node-35-dpu-oob: 192.168.1.11/24
+    CIDR: 10.0.96.0/20
+    hosts:
+    - hostClusterNodeName: ocp-worker-1
+      dpuClusterNodeName: dpu-worker-1
+      hostIP: 10.0.96.10/24
+      dpuIP: 10.0.96.20/24
+      gateway: 10.0.96.254
+    - hostClusterNodeName: ocp-worker-2
+      dpuClusterNodeName: dpu-worker-2
+      hostIP: 10.0.97.10/24
+      dpuIP: 10.0.97.20/24
+      gateway: 10.0.97.254
 ```
 
 ### Controller flow

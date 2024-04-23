@@ -670,16 +670,19 @@ networking:
 		Context("When checking generateDPUCNIProvisionerObjects()", func() {
 			It("should pass the DPFOperatorConfig settings to correct configmap", func() {
 				dpfOperatorConfig := getMinimalDPFOperatorConfig("")
-				dpfOperatorConfig.Spec.HostNetworkConfiguration.DPUConfiguration = map[string]operatorv1.DPUConfiguration{
-					"dpu-node-1": {
-						IP:      "10.0.96.20/24",
-						Gateway: "10.0.96.254",
+				dpfOperatorConfig.Spec.HostNetworkConfiguration.Hosts = []operatorv1.Host{
+					{
+						DPUClusterNodeName: "dpu-node-1",
+						DPUIP:              "10.0.96.20/24",
+						Gateway:            "10.0.96.254",
 					},
-					"dpu-node-2": {
-						IP:      "10.0.97.20/24",
-						Gateway: "10.0.97.254",
+					{
+						DPUClusterNodeName: "dpu-node-2",
+						DPUIP:              "10.0.97.20/24",
+						Gateway:            "10.0.97.254",
 					},
 				}
+
 				dpfOperatorConfig.Spec.HostNetworkConfiguration.CIDR = "10.0.96.0/20"
 
 				clusterConfigContent, err := os.ReadFile("testdata/original/cluster-config-v1-configmap.yaml")
@@ -782,9 +785,15 @@ spec:
 		Context("When checking generateHostCNIProvisionerObjects()", func() {
 			It("should pass the DPFOperatorConfig settings to correct configmap", func() {
 				dpfOperatorConfig := getMinimalDPFOperatorConfig("")
-				dpfOperatorConfig.Spec.HostNetworkConfiguration.HostIPs = map[string]string{
-					"ocp-node-1": "192.168.1.10/24",
-					"ocp-node-2": "192.168.1.20/24",
+				dpfOperatorConfig.Spec.HostNetworkConfiguration.Hosts = []operatorv1.Host{
+					{
+						HostClusterNodeName: "ocp-node-1",
+						HostIP:              "192.168.1.10/24",
+					},
+					{
+						HostClusterNodeName: "ocp-node-2",
+						HostIP:              "192.168.1.20/24",
+					},
 				}
 
 				expectedHostCNIProvisionerConfig := hostcniprovisionerconfig.HostCNIProvisionerConfig{
@@ -1045,12 +1054,10 @@ func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig
 		},
 		Spec: operatorv1.DPFOperatorConfigSpec{
 			HostNetworkConfiguration: operatorv1.HostNetworkConfiguration{
-				DPUConfiguration: make(map[string]operatorv1.DPUConfiguration),
-				HostIPs:          make(map[string]string),
+				Hosts: []operatorv1.Host{},
 			},
 		},
 	}
-
 }
 
 var _ = Describe("DPFOperatorConfig Controller", func() {
