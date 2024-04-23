@@ -5,7 +5,7 @@ metadata:
     alm-examples: ""
     capabilities: Basic Install
     description: Deploy and manage DOCA Platform Foundations in a Kubernetes cluster
-    operatorframework.io/suggested-namespace: dpf-operator
+    operatorframework.io/suggested-namespace: dpf-operator-system
     provider: NVIDIA
     support: NVIDIA
   name: dpf-operator.v0.0.0
