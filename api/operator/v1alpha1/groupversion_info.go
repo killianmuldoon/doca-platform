@@ -26,6 +26,7 @@ import (
 
 var (
 	DPFOperatorConfigKind             = "DPFOperatorConfig"
+	DPFOperatorConfigPlural           = "dpfoperatorconfigs"
 	DPFOperatorConfigGroupVersionKind = GroupVersion.WithKind(DPFOperatorConfigKind)
 )
 

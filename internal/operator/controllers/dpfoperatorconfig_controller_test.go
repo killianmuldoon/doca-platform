@@ -37,6 +37,7 @@ import (
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -385,6 +386,7 @@ networking:
 
 			By("Checking the deployment of the custom OVN Kubernetes")
 			Eventually(func(g Gomega) {
+				By("Checking the objects related to the worker nodes")
 				gotDaemonSet := &appsv1.DaemonSet{}
 				key := client.ObjectKey{Namespace: "openshift-ovn-kubernetes", Name: "ovnkube-node-dpf"}
 				g.Expect(testClient.Get(ctx, key, gotDaemonSet)).To(Succeed())
@@ -394,6 +396,14 @@ networking:
 				gotConfigMap = &corev1.ConfigMap{}
 				key = client.ObjectKey{Namespace: "openshift-ovn-kubernetes", Name: "ovnkube-script-lib-dpf"}
 				g.Expect(testClient.Get(ctx, key, gotConfigMap)).To(Succeed())
+				gotRole := &rbacv1.Role{}
+				key = client.ObjectKey{Namespace: testNS.Name, Name: "ovn-kubernetes-dpf"}
+				g.Expect(testClient.Get(ctx, key, gotRole)).To(Succeed())
+				gotRoleBinding := &rbacv1.RoleBinding{}
+				key = client.ObjectKey{Namespace: testNS.Name, Name: "ovn-kubernetes-dpf"}
+				g.Expect(testClient.Get(ctx, key, gotRoleBinding)).To(Succeed())
+
+				By("Checking the objects related to the control plane nodes")
 				gotDaemonSet = &appsv1.DaemonSet{}
 				key = client.ObjectKey{Namespace: "openshift-ovn-kubernetes", Name: "ovnkube-node"}
 				g.Expect(testClient.Get(ctx, key, gotDaemonSet)).To(Succeed())
@@ -667,6 +677,61 @@ networking:
 				delete(originalConfigMap.Data, ovnKubernetesEntrypointConfigMapNameDataKey)
 				_, err := generateCustomOVNKubernetesEntrypointConfigMap(&originalConfigMap, getMinimalDPFOperatorConfig(""))
 				Expect(err).To(HaveOccurred())
+			})
+		})
+		Context("When checking generateCustomOVNKubernetesRBAC()", func() {
+			It("should generate correct RBAC objects", func() {
+				content, err := os.ReadFile("testdata/original/ovnkubernetes-daemonset.yaml")
+				Expect(err).ToNot(HaveOccurred())
+				manifests, err := utils.BytesToUnstructured(content)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(manifests).To(HaveLen(1))
+				originalDaemonset := appsv1.DaemonSet{}
+				err = runtime.DefaultUnstructuredConverter.FromUnstructured(manifests[0].Object, &originalDaemonset)
+				Expect(err).ToNot(HaveOccurred())
+
+				role, roleBinding := generateCustomOVNKubernetesRBAC(&originalDaemonset, getMinimalDPFOperatorConfig("dpf-operator-system"))
+				Expect(role).To(BeComparableTo(
+					&rbacv1.Role{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: "rbac.authorization.k8s.io/v1",
+							Kind:       "Role",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "ovn-kubernetes-dpf",
+							Namespace: "dpf-operator-system",
+						},
+						Rules: []rbacv1.PolicyRule{
+							{
+								APIGroups: []string{operatorv1.GroupVersion.Group},
+								Resources: []string{operatorv1.DPFOperatorConfigPlural},
+								Verbs:     []string{"get"},
+							},
+						},
+					}))
+
+				Expect(roleBinding).To(BeComparableTo(
+					&rbacv1.RoleBinding{
+						TypeMeta: metav1.TypeMeta{
+							APIVersion: "rbac.authorization.k8s.io/v1",
+							Kind:       "RoleBinding",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "ovn-kubernetes-dpf",
+							Namespace: "dpf-operator-system",
+						},
+						Subjects: []rbacv1.Subject{
+							{
+								Kind:      "ServiceAccount",
+								Name:      "ovn-kubernetes-node",
+								Namespace: "openshift-ovn-kubernetes",
+							},
+						},
+						RoleRef: rbacv1.RoleRef{
+							Kind: "Role",
+							Name: "ovn-kubernetes-dpf",
+						},
+					}))
 			})
 		})
 		Context("When checking generateDPUCNIProvisionerObjects()", func() {
