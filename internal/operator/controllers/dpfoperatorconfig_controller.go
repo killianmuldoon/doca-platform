@@ -306,7 +306,7 @@ func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx
 	}
 	// Phase 3
 	// - deploy custom OVN Kubernetes
-	if err := r.deployCustomOVNKubernetes(ctx); err != nil {
+	if err := r.deployCustomOVNKubernetes(ctx, dpfOperatorConfig); err != nil {
 		return fmt.Errorf("error deploying custom OVN Kubernetes: %w", err)
 	}
 	return nil
@@ -573,8 +573,8 @@ func (r *DPFOperatorConfigReconciler) markNetworkPreconfigurationReady(ctx conte
 // deployCustomOVNKubernetes reads the relevant OVN Kubernetes objects from the cluster, creates copies of them, adjusts
 // them according to https://docs.google.com/document/d/1dvFvG9NR4biWuGnTcee9t6DPAbFKKKJxGi30QuQDjqI/edit#heading=h.6kp1qrhfqf61
 // and applies them in the cluster.
-func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetes(ctx context.Context) error {
-	if err := r.deployCustomOVNKubernetesForWorkers(ctx); err != nil {
+func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetes(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
+	if err := r.deployCustomOVNKubernetesForWorkers(ctx, dpfOperatorConfig); err != nil {
 		return fmt.Errorf("error while deploying the custom OVN Kubernetes for worker nodes: %w", err)
 	}
 
@@ -588,7 +588,7 @@ func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetes(ctx context.Cont
 // deployCustomOVNKubernetesForWorkers generates and deploys the custom OVN Kubernetes components for the worker nodes.
 // TODO: Sort out owner references. Currently the DPFOperatorConfig is namespaced, and cross namespace ownership is not
 // allowed by design.
-func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetesForWorkers(ctx context.Context) error {
+func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetesForWorkers(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	// Create custom OVN Kubernetes ConfigMap
 	ovnKubernetesConfigMap := &corev1.ConfigMap{}
 	key := client.ObjectKey{Namespace: ovnKubernetesNamespace, Name: ovnKubernetesConfigMapName}
@@ -611,7 +611,7 @@ func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetesForWorkers(ctx co
 	if err := r.Client.Get(ctx, key, ovnKubernetesEntrypointConfigMap); err != nil {
 		return fmt.Errorf("error while getting %s %s: %w", ovnKubernetesEntrypointConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
-	customOVNKubernetesEntrypointConfigMap, err := generateCustomOVNKubernetesEntrypointConfigMap(ovnKubernetesEntrypointConfigMap)
+	customOVNKubernetesEntrypointConfigMap, err := generateCustomOVNKubernetesEntrypointConfigMap(ovnKubernetesEntrypointConfigMap, dpfOperatorConfig)
 	if err != nil {
 		return fmt.Errorf("error while generating custom OVN Kubernetes Entrypoint ConfigMap: %w", err)
 	}
@@ -862,9 +862,8 @@ func generateCustomOVNKubernetesConfigMap(base *corev1.ConfigMap) (*corev1.Confi
 	// read the content in a generic type like map[string]interface{}. Therefore, we have to do string manipulation instead
 	// which is not as safe.
 	// The following patches are applied:
-	//   1. https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/0e5a2e5d76b1472a853e081693a9c28ae8a16b5e
-	//   2. https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/a8173f89d60949df9b8bd49697ad383db5c47353
-	//   3. https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/4ccaa91d8a242386bab7e13f240054257a904f60
+	//   1. https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/a8173f89d60949df9b8bd49697ad383db5c47353
+	//   2. https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/4ccaa91d8a242386bab7e13f240054257a904f60
 	var customConfig strings.Builder
 	var foundGatewaySection bool
 	var foundDefaultSection bool
@@ -874,11 +873,7 @@ func generateCustomOVNKubernetesConfigMap(base *corev1.ConfigMap) (*corev1.Confi
 		customConfig.WriteString(line + "\n")
 		if strings.Contains(line, "[gateway]") {
 			foundGatewaySection = true
-			_, err := customConfig.WriteString("next-hop=\"10.237.0.1\"\n")
-			if err != nil {
-				errs = append(errs, fmt.Errorf("error while writing next-hope setting to gateway section: %w", err))
-			}
-			_, err = customConfig.WriteString("disable-pkt-mtu-check=true\n")
+			_, err := customConfig.WriteString("disable-pkt-mtu-check=true\n")
 			if err != nil {
 				errs = append(errs, fmt.Errorf("error while writing disable-pkt-mtu-check setting to gateway section: %w", err))
 			}
@@ -911,7 +906,7 @@ func generateCustomOVNKubernetesConfigMap(base *corev1.ConfigMap) (*corev1.Confi
 
 // generateCustomOVNKubernetesEntrypointConfigMap returns a custom OVN Kubernetes Entrypoint ConfigMap based on the
 // given ConfigMap. Returns error if any of configuration is not reflected on the returned object.
-func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap) (*corev1.ConfigMap, error) {
+func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (*corev1.ConfigMap, error) {
 	if base == nil {
 		return nil, fmt.Errorf("input is nil")
 	}
@@ -937,7 +932,18 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap) (*co
 	//   2. (configmap - ovnkube-script-lib) https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/25cc213122e0348ff1f1a275f07066c17f339f81
 	value = strings.ReplaceAll(value, "vswitch_dbsock=\"/var/run/openvswitch/db.sock\"", fmt.Sprintf("vswitch_remote=\"%s\"", dpuOVSRemote))
 	value = strings.ReplaceAll(value, "unix:${vswitch_dbsock}", "${vswitch_remote}")
-	value = strings.ReplaceAll(value, "gateway_mode_flags=\"--gateway-mode shared --gateway-interface br-ex\"", fmt.Sprintf("gateway_mode_flags=\"--gateway-mode shared --gateway-interface %s\"", pfRepresentor))
+	// Gateway needs to be specific per node if we have different subnets for each node (routed HBN use case). To achieve
+	// that we query the DPFOperatorConfig from the OVN Kubernetes init script (requires RBAC) we anyway overwrite and
+	// find the correct gateway based on the host the pod is running on (env variable provided by downward API).
+	// This patch, replaces the original patch on the configmap because the configmap is shared with all the OVN Kubernetes
+	// instances and can't be parameterized
+	// https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/0e5a2e5d76b1472a853e081693a9c28ae8a16b5e
+	value = strings.ReplaceAll(value,
+		"gateway_mode_flags=\"--gateway-mode shared --gateway-interface br-ex\"",
+		fmt.Sprintf("gateway_mode_flags=\"--gateway-mode shared --gateway-interface %s --gateway-nexthop $(kubectl get dpfoperatorconfig -n %s %s | jq -r \".spec.hostNetworkConfiguration.hosts[] | select(.hostClusterNodeName==\\\"${K8S_NODE}\\\").gateway\")\"",
+			pfRepresentor,
+			dpfOperatorConfig.Namespace,
+			dpfOperatorConfig.Name))
 
 	out.Data[ovnKubernetesEntrypointConfigMapNameDataKey] = value
 

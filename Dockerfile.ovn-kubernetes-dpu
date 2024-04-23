@@ -10,6 +10,13 @@ RUN cd ovn-kubernetes/go-controller && \
     git checkout origin/${ovn_kubernetes_branch} && \
     make
 
+ARG TARGETARCH
+# Required by the custom entrypoint script that resolves the gateway IP to be configured by OVN Kubernetes.
+# Can't be added in the last layer because of the following error:
+# Fatal glibc error: CPU does not support x86-64-v2
+RUN wget https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux-${TARGETARCH} -O jq && \
+    chmod +x jq
+
 FROM --platform=${TARGETPLATFORM} ubuntu:22.04 as ovn-builder
 
 WORKDIR /workspace
@@ -30,4 +37,5 @@ RUN ./boot.sh && \
 FROM --platform=${TARGETPLATFORM} ${base_image}
 
 COPY --from=ovnkubernetes-builder /workspace/ovn-kubernetes/go-controller/_output/go/bin/ovnkube /usr/bin/ovnkube
+COPY --from=ovnkubernetes-builder /workspace/jq /usr/bin/jq
 COPY --from=ovn-builder /workspace/ovn/controller/ovn-controller /usr/bin/ovn-controller

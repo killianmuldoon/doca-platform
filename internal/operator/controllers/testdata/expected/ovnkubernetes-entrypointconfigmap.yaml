@@ -480,7 +480,7 @@ data:
       echo "I$(date "+%m%d %H:%M:%S.%N") - starting ovnkube-node"
 
       if [ "shared" == "shared" ]; then
-        gateway_mode_flags="--gateway-mode shared --gateway-interface ens2f0np0"
+        gateway_mode_flags="--gateway-mode shared --gateway-interface ens2f0np0 --gateway-nexthop $(kubectl get dpfoperatorconfig -n dpf-operator-system dpfoperatorconfig | jq -r ".spec.hostNetworkConfiguration.hosts[] | select(.hostClusterNodeName==\"${K8S_NODE}\").gateway")"
       elif [ "shared" == "local" ]; then
         gateway_mode_flags="--gateway-mode local --gateway-interface br-ex"
       else

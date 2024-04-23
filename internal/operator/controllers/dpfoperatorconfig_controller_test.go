@@ -643,7 +643,9 @@ networking:
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should generate correct object", func() {
-				out, err := generateCustomOVNKubernetesEntrypointConfigMap(&originalConfigMap)
+				dpfOperatorConfig := getMinimalDPFOperatorConfig("dpf-operator-system")
+				dpfOperatorConfig.Name = "dpfoperatorconfig"
+				out, err := generateCustomOVNKubernetesEntrypointConfigMap(&originalConfigMap, dpfOperatorConfig)
 				Expect(err).ToNot(HaveOccurred())
 
 				content, err := os.ReadFile("testdata/expected/ovnkubernetes-entrypointconfigmap.yaml")
@@ -663,7 +665,7 @@ networking:
 			})
 			It("should error out when relevant key is not found in configmap", func() {
 				delete(originalConfigMap.Data, ovnKubernetesEntrypointConfigMapNameDataKey)
-				_, err := generateCustomOVNKubernetesEntrypointConfigMap(&originalConfigMap)
+				_, err := generateCustomOVNKubernetesEntrypointConfigMap(&originalConfigMap, getMinimalDPFOperatorConfig(""))
 				Expect(err).To(HaveOccurred())
 			})
 		})
