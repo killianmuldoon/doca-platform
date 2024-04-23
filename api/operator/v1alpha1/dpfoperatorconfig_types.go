@@ -36,23 +36,27 @@ type HostNetworkConfiguration struct {
 	// CIDR is the CIDR that is used by the administrator to calculate the IPs defined in HostIPs and DPUIPs
 	// TODO: Add validator in validating webhook to ensure all the IPs below are part of this CIDR
 	CIDR string `json:"cidr"`
-	// HostIPs represents the IPs that will be assigned to the PF Representor on each Host. Key is the Node name on the
-	// Host cluster.
-	// TODO: Add validator in validating webhook to ensure string is actually net.IPNet
-	HostIPs map[string]string `json:"hostIPs"`
-	// DPUConfiguration holds configuration fields that are needed to properly setup the DPU to enable a functional
-	// host network. Key is the Node name on the DPU cluster.
-	DPUConfiguration map[string]DPUConfiguration `json:"dpu"`
+	// Hosts is a list of items that reflects the configuration for each particular host. By host here we mean a physical
+	// host that contains a DPU. An entry for each host that we want to configure DPF for should be added in that list
+	// together with the relevant configuration needed.
+	Hosts []Host `json:"hosts"`
 }
 
-// DPUConfiguration is a struct that holds the DPU network related configuration that is required for the host network
-// to work.
-type DPUConfiguration struct {
-	// IP represents the IP that will be assigned to the VTEP interface of the DPU.
+// Host represents a host with a DPU where DPF operator is going to be installed to and we expect to have host network
+// working.
+type Host struct {
+	// HostClusterNodeName is the name of the node in the host cluster (OpenShift).
+	HostClusterNodeName string `json:"hostClusterNodeName"`
+	// DPUClusterNodeName is the name of the node in the DPU cluster (Kamaji).
+	DPUClusterNodeName string `json:"dpuClusterNodeName"`
+	// HostIP is the IP that will be assigned to the PF Representor on each Host.
 	// TODO: Add validator in validating webhook to ensure string is actually net.IPNet
-	IP string `json:"ip"`
-	// Gateway is the gateway that should be added on the routes related to OVN Kubernetes traffic.
-	// TODO: Add validator in validating webhook to ensure string is actually net.IP
+	HostIP string `json:"hostIP"`
+	// DPUIP is the IP that will be assigned to the VTEP interface of the DPU.
+	// TODO: Add validator in validating webhook to ensure string is actually net.IPNet
+	DPUIP string `json:"dpuIP"`
+	// Gateway is the gateway that will be added on the routes related to OVN Kubernetes traffic.
+	// TODO: Add validator in validating webhook to ensure string is actually net.IPNet
 	Gateway string `json:"gateway"`
 }
 
