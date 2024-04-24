@@ -69,11 +69,9 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 
 			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
-			DeferCleanup(func() {
-				// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
-				// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
-				Expect(testutils.CleanupAndWait(ctx, testClient, dpfOperatorConfig)).To(Succeed())
-			})
+			// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
+			// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpfOperatorConfig)
 
 			Eventually(func(g Gomega) []string {
 				gotConfig := &operatorv1.DPFOperatorConfig{}
@@ -279,11 +277,9 @@ networking:
 		It("should successfully deploy the custom OVN Kubernetes", func() {
 			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
-			DeferCleanup(func() {
-				// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
-				// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
-				Expect(testutils.CleanupAndWait(ctx, testClient, dpfOperatorConfig)).To(Succeed())
-			})
+			// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
+			// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpfOperatorConfig)
 
 			Eventually(func(g Gomega) *int32 {
 				got := &appsv1.Deployment{}
@@ -415,11 +411,9 @@ networking:
 
 			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
-			DeferCleanup(func() {
-				// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
-				// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
-				Expect(testutils.CleanupAndWait(ctx, testClient, dpfOperatorConfig)).To(Succeed())
-			})
+			// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
+			// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpfOperatorConfig)
 
 			Consistently(func(g Gomega) {
 				_, _ = reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(dpfOperatorConfig)})
@@ -447,11 +441,9 @@ networking:
 
 			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
-			DeferCleanup(func() {
-				// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
-				// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
-				Expect(testutils.CleanupAndWait(ctx, testClient, dpfOperatorConfig)).To(Succeed())
-			})
+			// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
+			// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpfOperatorConfig)
 
 			Consistently(func(g Gomega) {
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker2), nodeWorker2)).To(Succeed())
@@ -1070,6 +1062,8 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 		It("reconciles DPUService controller", func() {
 			config := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, config)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, config)
+
 			Eventually(func(g Gomega) {
 				deployment := &appsv1.Deployment{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{
