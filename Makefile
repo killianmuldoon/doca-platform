@@ -284,7 +284,8 @@ generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. fo
 	output:crd:dir=./config/servicechainset/crd/bases \
 	output:rbac:dir=./config/servicechainset/rbac
 	cd config/servicechainset/manager && $(KUSTOMIZE) edit set image controller=$(SFCSET_IMAGE):$(TAG)
-	cp config/servicechainset/crd/bases/* deploy/helm/servicechain/crds
+	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/servicechain/crds/ \;
+
 
 .PHONY: generate-operator-bundle
 generate-operator-bundle: $(OPERATOR_SDK) $(KUSTOMIZE) ## Generate bundle manifests and metadata, then validate generated files.

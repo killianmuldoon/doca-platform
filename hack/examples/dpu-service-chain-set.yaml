@@ -1,0 +1,70 @@
+apiVersion: sfc.dpf.nvidia.com/v1alpha1
+kind: DPUServiceChain
+metadata:
+  name: svc-chain-set-test
+  namespace: default
+spec:
+  clusterSelector:
+    matchLabels:
+        area: "south"
+  template:
+    spec:
+      nodeSelector:
+        matchLabels:
+          role: "firewall"
+      template:
+        metadata:
+          labels:
+            uplink: "port0"
+        spec:
+          switches:
+            - ports:
+              - serviceInterface:
+                  matchLabels:
+                    uplink: p0
+              - service:
+                  matchLabels:
+                    sfc.nvidia.com/service: hbn
+                  interface: head-iface
+            # bridge: hbn from the ovs CNI NAD, minimal flows will be set on HBN bridge, patch ports created to sfc bridge
+            - ports:
+              - service:
+                  reference:
+                    name: hbn
+                  interface: tail-iface
+                # bridge: hbn from the ovs CNI NAD, minimal flows will be set on HBN bridge, patch ports created to sfc bridge
+              - service:
+                  matchLabels:
+                    sfc.nvidia.com/service: fw1
+                  interface: head-iface
+                # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
+            - ports:
+              - service:
+                  reference:
+                    name: fw1
+                  interface: tail-iface
+                # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
+              - service:
+                  matchLabels:
+                    sfc.nvidia.com/service: dnsfilter1
+                  interface: head-iface
+                # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
+              - service:
+                  matchLabels:
+                    sfc.nvidia.com/service: nginx
+                  interface: head-iface
+                  ipam:
+                    reference:
+                      name: example1
+                    defaultGateway: False
+                # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
+            - ports:
+              - service:
+                  reference:
+                    name: dnsfilter1
+                  interface: tail-iface
+                # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
+              - serviceInterface:
+                  reference:
+                    name: vf0
+                # bridge: int from the ServiceInterface. Will create a patch port and not set flows on the OVS br-int.
