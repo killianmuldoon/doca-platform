@@ -69,7 +69,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			Expect(err).ToNot(HaveOccurred())
 			hostCIDR, err := netlink.ParseIPNet("10.0.100.1/24")
 			Expect(err).ToNot(HaveOccurred())
-			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, vtepIPNet, gateway, vtepCIDR, hostCIDR)
+			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, vtepIPNet, gateway, vtepCIDR, hostCIDR, "ens25f0np0")
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -97,40 +97,40 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovsClient.EXPECT().DeleteBridgeIfExists("ovsbr1")
 			ovsClient.EXPECT().DeleteBridgeIfExists("ovsbr2")
 			ovsClient.EXPECT().DeleteBridgeIfExists("br-int")
-			ovsClient.EXPECT().DeleteBridgeIfExists("ens2f0np0")
+			ovsClient.EXPECT().DeleteBridgeIfExists("ens25f0np0")
 			ovsClient.EXPECT().DeleteBridgeIfExists("br-ovn")
 
 			ovsClient.EXPECT().AddBridge("br-int")
 			ovsClient.EXPECT().SetBridgeDataPathType("br-int", ovsclient.NetDev)
 			ovsClient.EXPECT().SetBridgeController("br-int", "ptcp:8510:10.100.1.1")
-			ovsClient.EXPECT().AddBridge("ens2f0np0")
-			ovsClient.EXPECT().SetBridgeDataPathType("ens2f0np0", ovsclient.NetDev)
-			ovsClient.EXPECT().SetBridgeController("ens2f0np0", "ptcp:8511")
+			ovsClient.EXPECT().AddBridge("ens25f0np0")
+			ovsClient.EXPECT().SetBridgeDataPathType("ens25f0np0", ovsclient.NetDev)
+			ovsClient.EXPECT().SetBridgeController("ens25f0np0", "ptcp:8511")
 			ovsClient.EXPECT().AddBridge("br-ovn")
 			ovsClient.EXPECT().SetBridgeDataPathType("br-ovn", ovsclient.NetDev)
 
-			ovsClient.EXPECT().AddPort("ens2f0np0", "ens2f0np0-to-br-ovn").Return(errors.New("some error related to creating patch ports"))
-			ovsClient.EXPECT().SetPortType("ens2f0np0-to-br-ovn", ovsclient.Patch)
-			ovsClient.EXPECT().SetPatchPortPeer("ens2f0np0-to-br-ovn", "br-ovn-to-ens2f0np0")
-			ovsClient.EXPECT().AddPort("br-ovn", "br-ovn-to-ens2f0np0").Return(errors.New("some error related to creating patch ports"))
-			ovsClient.EXPECT().SetPortType("br-ovn-to-ens2f0np0", ovsclient.Patch)
-			ovsClient.EXPECT().SetPatchPortPeer("br-ovn-to-ens2f0np0", "ens2f0np0-to-br-ovn")
+			ovsClient.EXPECT().AddPort("ens25f0np0", "ens25f0np0-to-br-ovn").Return(errors.New("some error related to creating patch ports"))
+			ovsClient.EXPECT().SetPortType("ens25f0np0-to-br-ovn", ovsclient.Patch)
+			ovsClient.EXPECT().SetPatchPortPeer("ens25f0np0-to-br-ovn", "br-ovn-to-ens25f0np0")
+			ovsClient.EXPECT().AddPort("br-ovn", "br-ovn-to-ens25f0np0").Return(errors.New("some error related to creating patch ports"))
+			ovsClient.EXPECT().SetPortType("br-ovn-to-ens25f0np0", ovsclient.Patch)
+			ovsClient.EXPECT().SetPatchPortPeer("br-ovn-to-ens25f0np0", "ens25f0np0-to-br-ovn")
 
 			ovsClient.EXPECT().AddPort("br-ovn", "p0")
 			ovsClient.EXPECT().SetPortType("p0", ovsclient.DPDK)
 			ovsClient.EXPECT().AddPort("br-ovn", "vtep0")
 			ovsClient.EXPECT().SetPortType("vtep0", ovsclient.Internal)
 
-			ovsClient.EXPECT().AddPort("ens2f0np0", "pf0hpf")
+			ovsClient.EXPECT().AddPort("ens25f0np0", "pf0hpf")
 			ovsClient.EXPECT().SetPortType("pf0hpf", ovsclient.DPDK)
-			ovsClient.EXPECT().SetBridgeHostToServicePort("ens2f0np0", "pf0hpf")
-			ovsClient.EXPECT().SetBridgeUplinkPort("ens2f0np0", "ens2f0np0-to-br-ovn")
+			ovsClient.EXPECT().SetBridgeHostToServicePort("ens25f0np0", "pf0hpf")
+			ovsClient.EXPECT().SetBridgeUplinkPort("ens25f0np0", "ens25f0np0-to-br-ovn")
 
 			ovsClient.EXPECT().SetOVNEncapIP(net.ParseIP("192.168.1.1"))
 
 			mac, _ := net.ParseMAC("00:00:00:00:00:01")
 			networkhelper.EXPECT().GetPFRepMACAddress("pf0hpf").Return(mac, nil)
-			ovsClient.EXPECT().SetBridgeMAC("ens2f0np0", mac)
+			ovsClient.EXPECT().SetBridgeMAC("ens25f0np0", mac)
 
 			networkhelper.EXPECT().SetLinkIPAddress("vtep0", vtepIPNet)
 			networkhelper.EXPECT().SetLinkUp("vtep0")
@@ -155,10 +155,10 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovsClient := ovsclientMock.NewMockOVSClient(testCtrl)
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
 			fakeExec := &kexecTesting.FakeExec{}
-			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, nil, nil, nil, nil)
+			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, nil, nil, nil, nil, "ens25f0np0")
 
 			ovsClient.EXPECT().BridgeExists("br-int").Return(true, nil)
-			ovsClient.EXPECT().BridgeExists("ens2f0np0").Return(true, nil)
+			ovsClient.EXPECT().BridgeExists("ens25f0np0").Return(true, nil)
 			ovsClient.EXPECT().BridgeExists("br-ovn").Return(true, nil)
 
 			err := provisioner.RunOnce()

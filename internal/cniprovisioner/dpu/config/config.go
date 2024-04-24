@@ -29,6 +29,8 @@ type DPUCNIProvisionerConfig struct {
 	// HostCIDR is the CIDR of the host machines. The primary IPs of the hosts are part of this CIDR. The provisioner
 	// will add a route for that CIDR related to traffic between Pods running on control plane and worker nodes.
 	HostCIDR string `json:"hostCIDR"`
+	// HostPF0 is the name of the PF0 on the host. This value is used for configuring the name of the br-ex OVS bridge.
+	HostPF0 string `json:"hostPF0"`
 }
 
 // PerNodeConfig is the struct that holds configuration specific to a particular node. This config is extracted out of

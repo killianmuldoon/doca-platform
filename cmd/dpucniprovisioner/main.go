@@ -74,7 +74,7 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	provisioner := dpucniprovisioner.New(ovsClient, networkhelper.New(), kexec.New(), vtepIP, gateway, vtepCIDR, hostCIDR)
+	provisioner := dpucniprovisioner.New(ovsClient, networkhelper.New(), kexec.New(), vtepIP, gateway, vtepCIDR, hostCIDR, config.HostPF0)
 
 	err = provisioner.RunOnce()
 	if err != nil {
