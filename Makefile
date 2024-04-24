@@ -69,17 +69,19 @@ LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	@mkdir -p $@
 
-TOOLSDIR?= $(shell pwd)/hack/tools/bin
+TOOLSDIR ?= $(shell pwd)/hack/tools/bin
 $(TOOLSDIR):
 	@mkdir -p $@
 
-CHARTSDIR?= $(shell pwd)/hack/charts
+CHARTSDIR ?= $(shell pwd)/hack/charts
 $(CHARTSDIR):
 	@mkdir -p $@
 
-REPOSDIR?= $(shell pwd)/hack/repos
+REPOSDIR ?= $(shell pwd)/hack/repos
 $(REPOSDIR):
 	@mkdir -p $@
+
+HELMDIR ?= $(shell pwd)/deploy/helm
 
 ## Tool Binaries
 KUBECTL ?= kubectl
@@ -215,7 +217,7 @@ clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
 	@rm -rf $(REPOSDIR)
 
 ##@ Development
-GENERATE_TARGETS ?= operator dpuservice hostcniprovisioner dpucniprovisioner embedded sfcset
+GENERATE_TARGETS ?= operator dpuservice hostcniprovisioner dpucniprovisioner sfcset operator-embedded
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -266,8 +268,8 @@ generate-manifests-dpucniprovisioner: $(KUSTOMIZE) ## Generates DPU CNI provisio
 generate-manifests-hostcniprovisioner: $(KUSTOMIZE) ## Generates Host CNI provisioner manifests
 	cd config/hostcniprovisioner/default &&	$(KUSTOMIZE) edit set image controller=$(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
-.PHONY: generate-manifests-embedded
-generate-manifests-embedded: generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner ## Generates manifests that are embedded into binaries
+.PHONY: generate-manifests-operator-embedded
+generate-manifests-operator-embedded: generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice ## Generates manifests that are embedded into the operator binary.
 	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/operator/controllers/manifests/hostcniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/operator/controllers/manifests/dpucniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > ./internal/operator/inventory/manifests/dpuservice.yaml
@@ -320,24 +322,28 @@ TEST_CLUSTER_NAME := dpf-test
 test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) ## Setup a Kubernetes environment to run tests.
 	# Create a minikube cluster to host the test.
 	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
-	# Download images from docker hub and push them in the test registry.
-	# This is done to avoid docker pull limits.
-	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
-	$(MAKE) test-upload-images
-	# Deploy cert manager to provide certificates for webhooks.
-	$Q kubectl apply -f $(CERT_MANAGER_YAML) \
-	&& echo "Waiting for cert-manager deployment to be ready."\
-	&& kubectl wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
 
-	# Deploy Kamaji as the underlying control plane provider.
-	cat ./hack/values/kamaji-values.yaml | envsubst > ./hack/values/kamaji-values.yaml.tmp
-	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml.tmp
+	# Deploy cert manager to provide certificates for webhooks.
+	$Q kubectl apply -f $(CERT_MANAGER_YAML)
 
 	# Deploy argoCD as the underlying application provider.
 	$Q kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f - && kubectl apply -f $(ARGOCD_YAML)
 
-.PHONY: test-upload-images
-test-upload-images:
+	# Mirror images for e2e tests from docker hub and push them in the test registry to avoid docker pull limits.
+	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
+	$(MAKE) test-build-and-push-artifacts test-upload-external-images
+
+	echo "Waiting for cert-manager deployment to be ready."
+	kubectl wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
+
+	# Deploy Kamaji as the underlying control plane provider.
+	# TODO: Disaggregate the kamaji apply and wait for ready to speed up environment creation.
+	cat ./hack/values/kamaji-values.yaml | envsubst > ./hack/values/kamaji-values.yaml.tmp
+	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml.tmp
+
+
+.PHONY: test-upload-external-images
+test-upload-external-images: 	# Mirror images for e2e tests from docker hub and push them in the test registry. - this is done to avoid docker pull limits.
 	docker pull clastix/kamaji:v0.4.1
 	docker image tag clastix/kamaji:v0.4.1 $(REGISTRY)/clastix/kamaji:v0.4.1
 	docker push $(REGISTRY)/clastix/kamaji:v0.4.1
@@ -345,30 +351,23 @@ test-upload-images:
 	docker tag cfssl/cfssl:v1.6.5 $(REGISTRY)/cfssl/cfssl:v1.6.5
 	docker push $(REGISTRY)/cfssl/cfssl:v1.6.5
 
-.PHONY: test-deploy-dpuservice
-test-deploy-dpuservice: $(KUSTOMIZE)
-	# Build and push the dpuservice controller images to the minikube registry
+.PHONY: test-build-and-push-artifacts
+test-build-and-push-artifacts: $(KUSTOMIZE)
+	# Build and push the sfcset, dpuservice, operator and operator-bundle images.
 	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
-	$(MAKE) docker-build-dpuservice docker-push-dpuservice
+	$(MAKE) docker-build-dpuservice docker-push-dpuservice; \
+	$(MAKE) docker-build-operator docker-push-operator ; \
+	$(MAKE) docker-build-operator-bundle docker-push-operator-bundle; \
+	$(MAKE) docker-build-sfcset docker-push-sfcset
 
-	# Deploy the DPUService CRDs to the test env
-	$Q kubectl apply -f config/dpuservice/crd/bases
-
-	# Deploy the dpuservice controller to the cluster
-	cd config/dpuservice/manager && $(KUSTOMIZE) edit set image controller=$(DPUSERVICE_IMAGE):$(TAG)
-	$(KUSTOMIZE) build config/dpuservice/default | kubectl apply -f -
+	# Build and push all the helm charts
+	$(MAKE) helm-package-all helm-push-all
 
 OLM_VERSION ?= v0.27.0
 OPERATOR_REGISTRY_VERSION ?= v1.39.0
 OPERATOR_NAMESPACE ?= dpf-operator-system
 .PHONY: test-deploy-operator
-test-deploy-operator: $(KUSTOMIZE)
-	# Build and push the dpuservice, operator and operator-bundle images to the minikube registry
-	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
-	$(MAKE) docker-build-dpuservice docker-push-dpuservice; \
-	$(MAKE) docker-build-operator docker-push-operator ; \
-	$(MAKE) docker-build-operator-bundle docker-push-operator-bundle
-
+test-deploy-operator: $(KUSTOMIZE) # Deploy the DPF Operator using operator-sdk
 	# Install OLM in the cluster
 	$(OPERATOR_SDK) olm install --version $(OLM_VERSION)
 
@@ -408,7 +407,7 @@ verify-copyright:
 
 .PHONY: lint-helm-sfcset
 lint-helm-sfcset: $(HELM) ; $(info  running lint for helm charts...) @ ## Run helm lint
-	$Q $(HELM) lint ./deploy/helm/servicechain
+	$Q $(HELM) lint $(SERVICECHAIN_CONTROLLER_HELM_CHART)
 
 ##@ Build
 
@@ -421,8 +420,11 @@ BUILD_TARGETS ?= operator dpuservice dpucniprovisioner hostcniprovisioner sfcset
 # Note: Registry defaults to non-existing registry intentionally to avoid overriding useful images.
 REGISTRY ?= nvidia.com
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
-TAG ?= dev
-BUNDLE_VERSION ?= 0.0.0
+
+# The tag must have three digits with a leading v - i.e. v9.9.1
+TAG ?= v0.0.0
+# The BUNDLE_VERSION is the same as the TAG but the first character is stripped. This is used to strip a leading `v` which is invalid for Bundle versions.
+$(eval BUNDLE_VERSION := $$$(TAG))
 
 HOST_ARCH = amd64
 # Note: If you make this variable configurable, ensure that the custom base image that is built in
@@ -442,7 +444,7 @@ binary-sfcset: ## Build the sfcset controller binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/sfcset-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/servicechainset
 
 .PHONY: binary-operator
-binary-operator: ## Build the operator controller binary.
+binary-operator: generate-manifests-operator-embedded ## Build the operator controller binary.
 	go build -ldflags=$(DPFOPERATOR_GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/operator-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/operator
 
 .PHONY: binary-dpuservice
@@ -457,7 +459,7 @@ binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
 binary-hostcniprovisioner: ## Build the Host CNI Provisioner binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/hostcniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/hostcniprovisioner
 
-DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu
+DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS
@@ -530,7 +532,7 @@ docker-build-sfcset: ## Build docker images for the sfcset-controller
 		-t $(SFCSET_IMAGE):$(TAG)
 
 .PHONY: docker-build-operator
-docker-build-operator: ## Build docker images for the operator-controller
+docker-build-operator: generate-manifests-operator-embedded ## Build docker images for the operator-controller
 	docker build \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
@@ -651,6 +653,30 @@ docker-build-operator-bundle: generate-operator-bundle
 docker-push-operator-bundle: ## Push the bundle image.
 	docker push $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
 
+# helm charts
+
+HELM_TARGETS ?= servicechain-controller
+HELM_REGISTRY ?= oci://$(REGISTRY)
+
+## metadata for servicechain controller.
+SERVICECHAIN_CONTROLLER_HELM_CHART_NAME ?= servicechain
+SERVICECHAIN_CONTROLLER_HELM_CHART ?= $(HELMDIR)/$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME)
+SERVICECHAIN_CONTROLLER_HELM_CHART_VER ?= $(TAG)
+
+.PHONY: helm-package-all
+helm-package-all: $(addprefix helm-package-,$(HELM_TARGETS))  ## Package the helm charts for all components.
+
+.PHONY: helm-package-servicechain-controller
+helm-package-servicechain-controller:
+	$(HELM) package $(SERVICECHAIN_CONTROLLER_HELM_CHART) --version $(SERVICECHAIN_CONTROLLER_HELM_CHART_VER) --destination $(CHARTSDIR)
+
+.PHONY: helm-push-all
+helm-push-all: $(addprefix helm-push-,$(HELM_TARGETS))  ## Push the helm charts for all components.
+
+.PHONY: helm-push-servicechain-controller
+helm-push-servicechain-controller:
+	$(HELM) push $(CHARTSDIR)/$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME)-$(SERVICECHAIN_CONTROLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+
 # dev environment
 MINIKUBE_CLUSTER_NAME ?= dpf-dev
 dev-minikube: $(MINIKUBE) ## Create a minikube cluster for development.
@@ -684,7 +710,7 @@ dev-dpuservice: $(MINIKUBE) $(SKAFFOLD)
 
 ENABLE_OVN_KUBERNETES?=true
 dev-operator:  $(MINIKUBE) $(SKAFFOLD)	# Use minikube for docker build and deployment and run skaffold
-	sed "s/reconcileOVNKubernetes=.*/reconcileOVNKubernetes=$(ENABLE_OVN_KUBERNETES)/" config/operator/manager/manager.yaml
+	sed -i '' "s/reconcileOVNKubernetes=.*/reconcileOVNKubernetes=$(ENABLE_OVN_KUBERNETES)/" config/operator/manager/manager.yaml
 	$Q eval $$($(MINIKUBE) -p $(MINIKUBE_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 

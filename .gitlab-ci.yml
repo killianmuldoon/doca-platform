@@ -40,14 +40,14 @@ nightly-release:
   variables:
     ## This is a read-only token used for pulling repositories. Defined in the DPF operator CI/CD settings.
     GITLAB_TOKEN: $CI_TOKEN
-    TAG: nightly
+    TAG: v0.0.0-nightly
     REGISTRY: harbor.mellanox.com/cloud-orchestration-dev/dpf
   tags:
     - release
   before_script:
     - docker login harbor.mellanox.com
   script:
-    - make docker-build-all docker-push-all
+    - make generate docker-build-all docker-push-all
   after_script:
     - ./hack/scripts/slack-notification.sh
 
@@ -75,15 +75,14 @@ e2e:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST == "true"
       when: always
   variables:
-    REGISTRY: localhost:5000
-    # The operator-sdk CLI used in this test can not contact the local minikube registry in the test environment.
-    OPERATOR_BUNDLE_REGISTRY: harbor.mellanox.com/cloud-orchestration-dev/dpf
+    # The helm bundles and operator-sdk require a remote repository in the e2e environment.
+    REGISTRY: harbor.mellanox.com/cloud-orchestration-dev/dpf/e2e
     # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
     MINIKUBE_CNI: flannel
   tags:
     - e2e
   before_script:
-    - make clean-test-env test-env-e2e generate
+    - make clean-test-env generate test-env-e2e
   script:
     - make test-deploy-operator test-e2e
   after_script:
