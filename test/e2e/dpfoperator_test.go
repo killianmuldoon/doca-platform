@@ -24,6 +24,7 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -34,8 +35,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -144,6 +143,33 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 		})
 
+		It("ensure the ServiceFunctionChainSet controller DPUService is created and mirrored to the tenant clusters", func() {
+			Eventually(func(g Gomega) {
+				dpuservice := &dpuservicev1.DPUService{}
+				g.Expect(testClient.Get(ctx, client.ObjectKey{
+					Namespace: "dpf-operator-system",
+					Name:      "servicefunctionchainset-controller"},
+					dpuservice)).To(Succeed())
+			}).WithTimeout(60 * time.Second).Should(Succeed())
+
+			Eventually(func(g Gomega) {
+				dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
+				g.Expect(err).ToNot(HaveOccurred())
+				for i := range dpuControlPlanes {
+					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
+					g.Expect(err).ToNot(HaveOccurred())
+					deploymentList := appsv1.DeploymentList{}
+					g.Expect(dpuClient.List(ctx, &deploymentList, client.MatchingLabels(
+						map[string]string{
+							"app.kubernetes.io/name": "servicechain",
+						},
+					))).To(Succeed())
+					g.Expect(deploymentList.Items).To(HaveLen(1))
+					g.Expect(deploymentList.Items[0].Name).To(ContainSubstring("servicefunctionchainset-controller"))
+				}
+			}).WithTimeout(600 * time.Second).Should(Succeed())
+		})
+
 		It("create a DPUService and check that it is mirrored to each cluster", func() {
 			// Read the DPUService from file and create it.
 			data, err := os.ReadFile(filepath.Join(artifactsPath, "application/dpuservice.yaml"))
@@ -160,13 +186,10 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}
 			cleanupObjs = append(cleanupObjs, dpuService)
 			Eventually(func(g Gomega) {
-				// Get the control plane secrets.
-				controlPlaneSecrets := corev1.SecretList{}
-				g.Expect(testClient.List(ctx, &controlPlaneSecrets, client.MatchingLabels(controlplanemeta.DPFClusterSecretLabels))).To(Succeed())
-				g.Expect(controlPlaneSecrets.Items).To(HaveLen(numClusters))
-
-				for i := range controlPlaneSecrets.Items {
-					dpuClient, err := clientForDPUCluster(&controlPlaneSecrets.Items[i])
+				dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
+				g.Expect(err).ToNot(HaveOccurred())
+				for i := range dpuControlPlanes {
+					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
 					g.Expect(err).ToNot(HaveOccurred())
 					deploymentList := appsv1.DeploymentList{}
 					g.Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
@@ -181,34 +204,15 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: dpuserviceName}, svc)).To(Succeed())
 			Expect(testClient.Delete(ctx, svc)).To(Succeed())
 			// Get the control plane secrets.
-			controlPlaneSecrets := corev1.SecretList{}
-			Expect(testClient.List(ctx, &controlPlaneSecrets, client.MatchingLabels(controlplanemeta.DPFClusterSecretLabels))).To(Succeed())
-			Expect(controlPlaneSecrets.Items).To(HaveLen(numClusters))
-			Eventually(func(g Gomega) {
-				for i := range controlPlaneSecrets.Items {
-					dpuClient, err := clientForDPUCluster(&controlPlaneSecrets.Items[i])
-					g.Expect(err).ToNot(HaveOccurred())
-					deploymentList := appsv1.DeploymentList{}
-					g.Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
-					g.Expect(deploymentList.Items).To(BeEmpty())
-				}
-			}).WithTimeout(120 * time.Second).Should(Succeed())
+			dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
+			Expect(err).ToNot(HaveOccurred())
+			for i := range dpuControlPlanes {
+				dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
+				Expect(err).ToNot(HaveOccurred())
+				deploymentList := appsv1.DeploymentList{}
+				Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
+				Expect(deploymentList.Items).To(BeEmpty())
+			}
 		})
 	})
 })
-
-func clientForDPUCluster(secret *corev1.Secret) (client.Client, error) {
-	adminSecret, ok := secret.Data["admin.conf"]
-	if !ok {
-		return nil, fmt.Errorf("secret %s malformed", secret.GetName())
-	}
-	restCfg, err := clientcmd.RESTConfigFromKubeConfig(adminSecret)
-	if err != nil {
-		return nil, err
-	}
-	dpuClient, err := client.New(restCfg, client.Options{Scheme: scheme.Scheme})
-	if err != nil {
-		return nil, err
-	}
-	return dpuClient, nil
-}

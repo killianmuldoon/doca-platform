@@ -20,7 +20,7 @@ metadata:
           },
           "spec": {
             "hostNetworkConfiguration": {
-              "CIDR": "10.0.96.0/20",
+              "cidr": "10.0.96.0/20",
               "hostPF0": "ens2f0np0",
               "hostPF0VF0": "enp23s0f0v0",
               "hosts": [
@@ -44,7 +44,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-25T15:12:31Z"
+    createdAt: "2024-04-26T09:29:29Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: unknown
   name: dpf-operator.v0.0.0

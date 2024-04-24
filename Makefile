@@ -91,6 +91,7 @@ ENVTEST ?= $(TOOLSDIR)/setup-envtest-$(ENVTEST_VERSION)
 GOLANGCI_LINT ?= $(TOOLSDIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 MOCKGEN ?= $(TOOLSDIR)/mockgen-$(MOCKGEN_VERSION)
 GOTESTSUM ?= $(TOOLSDIR)/gotestsum-$(GOTESTSUM_VERSION)
+ENVSUBST ?= $(TOOLSDIR)/envsubst-$(ENVSUBST_VERSION)
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.3.0
@@ -100,6 +101,7 @@ GOLANGCI_LINT_VERSION ?= v1.54.2
 MOCKGEN_VERSION ?= v0.4.0
 GOTESTSUM_VERSION ?= v1.11.0
 DPF_PROVISIONING_CONTROLLER_REV ?= eeb227e7dbec7a206bcb3ecdb02fc7bf368a9a3c
+ENVSUBST_VERSION ?= v1.4.2
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -132,6 +134,12 @@ $(MOCKGEN): $(TOOLSDIR)
 gotestsum: $(GOTESTSUM) # download gotestsum locally if necessary
 $(GOTESTSUM): $(TOOLSDIR)
 	$(call go-install-tool,$(GOTESTSUM),gotest.tools/gotestsum,${GOTESTSUM_VERSION})
+
+# envsubst is used to template files with environment variables
+.PHONY: envsubst
+envsubst: $(ENVSUBST) # download gotestsum locally if necessary
+$(ENVSUBST): $(TOOLSDIR)
+	$(call go-install-tool,$(ENVSUBST),github.com/a8m/envsubst/cmd/envsubst,${ENVSUBST_VERSION})
 
 
 # helm is used to manage helm deployments and artifacts.
@@ -277,12 +285,17 @@ generate-manifests-hostcniprovisioner: $(KUSTOMIZE) ## Generates Host CNI provis
 generate-manifests-provisioning: $(PROV_DIR)
 	$(MAKE) -C $(PROV_DIR) kustomize-build
 
+TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
+EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 .PHONY: generate-manifests-operator-embedded
-generate-manifests-operator-embedded: generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice generate-manifests-provisioning ## Generates manifests that are embedded into the operator binary.
+generate-manifests-operator-embedded: $(ENVSUBST)  generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice generate-manifests-provisioning ## Generates manifests that are embedded into the operator binary.
 	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/operator/controllers/manifests/hostcniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/operator/controllers/manifests/dpucniprovisioner.yaml
-	$(KUSTOMIZE) build config/dpuservice/default > ./internal/operator/inventory/manifests/dpuservice.yaml
 	cp $(PROV_DIR)/output/deploy.yaml ./internal/operator/inventory/manifests/provisioningctrl.yaml
+	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
+	# Substitute environment variables and generate embedded manifests from templates.
+	REGISTRY=$(REGISTRY) TAG=$(TAG) CHART_NAME=$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME) \
+	$(ENVSUBST) < $(TEMPLATES_DIR)/servicefunctionchainset-controller.yaml.tmpl  > $(EMBEDDED_MANIFESTS_DIR)/servicefunctionchainset-controller.yaml
 
 .PHONY: generate-manifests-sfcset
 generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. for the sfcset controller.
@@ -297,7 +310,6 @@ generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. fo
 	output:rbac:dir=./config/servicechainset/rbac
 	cd config/servicechainset/manager && $(KUSTOMIZE) edit set image controller=$(SFCSET_IMAGE):$(TAG)
 	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/servicechain/crds/ \;
-
 
 .PHONY: generate-operator-bundle
 generate-operator-bundle: $(OPERATOR_SDK) $(KUSTOMIZE) ## Generate bundle manifests and metadata, then validate generated files.
@@ -329,7 +341,7 @@ test-report: envtest gotestsum ## Run tests and generate a junit style report
 	exit $$(cat junit.exitcode)
 
 TEST_CLUSTER_NAME := dpf-test
-test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) ## Setup a Kubernetes environment to run tests.
+test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUBST) ## Setup a Kubernetes environment to run tests.
 	# Create a minikube cluster to host the test.
 	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
 
@@ -348,7 +360,7 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) ## Setup
 
 	# Deploy Kamaji as the underlying control plane provider.
 	# TODO: Disaggregate the kamaji apply and wait for ready to speed up environment creation.
-	cat ./hack/values/kamaji-values.yaml | envsubst > ./hack/values/kamaji-values.yaml.tmp
+	cat ./hack/values/kamaji-values.yaml.tmpl | REGISTRY=$(REGISTRY) $(ENVSUBST)  > ./hack/values/kamaji-values.yaml.tmp
 	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml.tmp
 
 
@@ -688,16 +700,21 @@ helm-push-servicechain-controller:
 	$(HELM) push $(CHARTSDIR)/$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME)-$(SERVICECHAIN_CONTROLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 # dev environment
-MINIKUBE_CLUSTER_NAME ?= dpf-dev
+DEV_CLUSTER_NAME ?= dpf-dev
 dev-minikube: $(MINIKUBE) ## Create a minikube cluster for development.
-	CLUSTER_NAME=$(MINIKUBE_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
+	CLUSTER_NAME=$(DEV_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
 
 clean-minikube: $(MINIKUBE)  ## Delete the development minikube cluster.
-	$(MINIKUBE) delete -p $(MINIKUBE_CLUSTER_NAME)
+	$(MINIKUBE) delete -p $(DEV_CLUSTER_NAME)
 
-dev-prereqs-dpuservice: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(SKAFFOLD) $(KUSTOMIZE) dev-minikube ## Create a development minikube cluster and deploy the operator in debug mode.
+dev-prereqs-dpuservice:
+ # Create a development minikube cluster and deploy the operator in debug mode.
 	# Deploy the dpuservice CRD
 	$(KUSTOMIZE) build config/dpuservice/crd | $(KUBECTL) apply -f -
+
+	# Pull and upload external images to the dev registry. Used to avoid docker pull limits.
+	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \
+	$(MAKE) test-upload-external-images
 
     # Deploy cert manager to provide certificates for webhooks
 	$Q kubectl apply -f $(CERT_MANAGER_YAML) \
@@ -709,19 +726,19 @@ dev-prereqs-dpuservice: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(SKAFFOLD
 
 	# Deploy Kamaji as the underlying control plane provider.
 	# The values file is currently empty.
-	touch ./hack/values/kamaji-values.yaml.tmp
-	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml
+	cat ./hack/values/kamaji-values.yaml.tmpl | $(ENVSUBST) > ./hack/values/kamaji-values.yaml.tmp
+	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml.tmp
 
 SKAFFOLD_REGISTRY=localhost:5000
 dev-dpuservice: $(MINIKUBE) $(SKAFFOLD)
 	# Use minikube for docker build and deployment and run skaffold
-	$Q eval $$($(MINIKUBE) -p $(MINIKUBE_CLUSTER_NAME) docker-env); \
+	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p dpuservice --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
 ENABLE_OVN_KUBERNETES?=true
-dev-operator:  $(MINIKUBE) $(SKAFFOLD)	# Use minikube for docker build and deployment and run skaffold
+dev-operator:  $(MINIKUBE) $(SKAFFOLD) generate-manifests-dpuservice generate-manifests-operator-embedded # Use minikube for docker build and deployment and run skaffold.
 	sed -i '' "s/reconcileOVNKubernetes=.*/reconcileOVNKubernetes=$(ENABLE_OVN_KUBERNETES)/" config/operator/manager/manager.yaml
-	$Q eval $$($(MINIKUBE) -p $(MINIKUBE_CLUSTER_NAME) docker-env); \
+	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist

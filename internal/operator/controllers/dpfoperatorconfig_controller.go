@@ -44,6 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/klog/v2"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -269,10 +270,19 @@ func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Cont
 	for _, obj := range r.Inventory.DPUService.Objects() {
 		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
 		if err != nil {
-			errs = append(errs, fmt.Errorf("error patching %v/%v/%v: %w",
+			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
 				obj.GetObjectKind().GroupVersionKind().Kind,
-				obj.GetNamespace(),
-				obj.GetName(),
+				klog.KObj(obj),
+				err))
+		}
+	}
+	r.Inventory.ServiceFunctionChainSet.SetNamespace(config.Namespace)
+	for _, obj := range r.Inventory.ServiceFunctionChainSet.Objects() {
+		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
+				obj.GetObjectKind().GroupVersionKind().Kind,
+				klog.KObj(obj),
 				err))
 		}
 	}

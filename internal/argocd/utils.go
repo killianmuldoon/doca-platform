@@ -50,11 +50,14 @@ func NewAppProject(name string, clusters []types.NamespacedName) *argov1.AppProj
 			OwnerReferences: nil,
 		},
 		Spec: argov1.AppProjectSpec{
-			SourceRepos:                []string{"*"},
-			Destinations:               nil,
-			Description:                "Installing DPU Services",
-			Roles:                      nil,
-			ClusterResourceWhitelist:   nil,
+			SourceRepos:  []string{"*"},
+			Destinations: nil,
+			Description:  "Installing DPU Services",
+			Roles:        nil,
+			ClusterResourceWhitelist: []metav1.GroupKind{
+				// Required to deploy Cluster-scoped resources to the DPU cluster.
+				{Group: "*", Kind: "*"},
+			},
 			NamespaceResourceBlacklist: nil,
 			OrphanedResources: &argov1.OrphanedResourcesMonitorSettings{
 				Warn:   nil,

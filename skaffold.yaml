@@ -59,4 +59,17 @@ profiles:
           - config/operator/default
           # Deploy CRDs for components deployed by the operator.
           - config/dpuservice/crd
+    portForward:
+      - resourceType: deployment
+        resourceName: dpf-operator-controller-manager
+        namespace: dpf-operator-system
+        port: 56268
+        localPort: 8082
+        address: 0.0.0.0
+      - resourceType: deployment
+        resourceName: dpuservice-controller-manager
+        namespace: dpuservice-controller-system
+        port: 56268
+        localPort: 8081
+        address: 0.0.0.0
 

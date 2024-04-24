@@ -31,26 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-func TestDPUServiceObjects_ParseManifests(t *testing.T) {
+func TestManifests_Parse(t *testing.T) {
 	g := NewGomegaWithT(t)
-
-	// Object which contains a kind that is not expected.
-	objsWithUnexpectedKind, err := utils.BytesToUnstructured(dpuServiceData)
-	g.Expect(err).NotTo(HaveOccurred())
-	objsWithUnexpectedKind[0].SetKind("FakeKind")
-	dataWithUnexpectedKind, err := utils.UnstructuredToBytes(objsWithUnexpectedKind)
-	g.Expect(err).NotTo(HaveOccurred())
-
-	// Object which is missing one of the expected Kinds.
-	objsWithMissingKind, err := utils.BytesToUnstructured(dpuServiceData)
-	g.Expect(err).NotTo(HaveOccurred())
-	for i, obj := range objsWithMissingKind {
-		if obj.GetObjectKind().GroupVersionKind().Kind == "Role" {
-			objsWithMissingKind = append(objsWithMissingKind[:i], objsWithMissingKind[i+1:]...)
-		}
-	}
-	dataWithMissingKind, err := utils.UnstructuredToBytes(objsWithMissingKind)
-	g.Expect(err).NotTo(HaveOccurred())
 
 	tests := []struct {
 		name      string
@@ -61,30 +43,65 @@ func TestDPUServiceObjects_ParseManifests(t *testing.T) {
 			name:      "parse objects from release directory",
 			inventory: New(),
 		},
+		// DPUServiceObjects
 		{
-			name: "fail if data is nil",
+			name: "fail if DPUService controller data is nil",
 			inventory: &Manifests{
 				DPUService: DPUServiceObjects{
 					data: nil,
 				},
+				ServiceFunctionChainSet: ServiceFunctionChainSetObjects{data: serviceChainSetData},
 			},
 			wantErr: true,
 		},
 		{
-			name: "fail if an unexpected object is present",
+			name: "fail if an unexpected DPUService controller object is present",
 			inventory: &Manifests{
 				DPUService: DPUServiceObjects{
-					data: dataWithUnexpectedKind,
+					data: addUnexpectedKindToObjects(g, dpuServiceData),
 				},
+				ServiceFunctionChainSet: ServiceFunctionChainSetObjects{data: serviceChainSetData},
 			},
 			wantErr: true,
 		},
 		{
-			name: "fail if any object is missing",
+			name: "fail if any DPUService controller object is missing",
 			inventory: &Manifests{
 				DPUService: DPUServiceObjects{
-					data: dataWithMissingKind,
+					data: removeKindFromObjects(g, "Deployment", dpuServiceData),
 				},
+				ServiceFunctionChainSet: ServiceFunctionChainSetObjects{data: serviceChainSetData},
+			},
+			wantErr: true,
+		},
+		// ServiceFunctionChainSetObjects
+		{
+			name: "fail if ServiceFunctionChainSet data is nil",
+			inventory: &Manifests{
+				ServiceFunctionChainSet: ServiceFunctionChainSetObjects{
+					data: nil,
+				},
+				DPUService: DPUServiceObjects{data: dpuServiceData},
+			},
+			wantErr: true,
+		},
+		{
+			name: "fail if ServiceFunctionChainSet data has an unexpected object",
+			inventory: &Manifests{
+				ServiceFunctionChainSet: ServiceFunctionChainSetObjects{
+					data: addUnexpectedKindToObjects(g, serviceChainSetData),
+				},
+				DPUService: DPUServiceObjects{data: dpuServiceData},
+			},
+			wantErr: true,
+		},
+		{
+			name: "fail if ServiceFunctionChainSet is missing the DPUService",
+			inventory: &Manifests{
+				ServiceFunctionChainSet: ServiceFunctionChainSetObjects{
+					data: removeKindFromObjects(g, "DPUService", serviceChainSetData),
+				},
+				DPUService: DPUServiceObjects{data: dpuServiceData},
 			},
 			wantErr: true,
 		},
@@ -323,4 +340,27 @@ func TestProvCtrlObjects_GenerateManifests(t *testing.T) {
 			g.Expect(container.Args[i]).To(Equal(ea))
 		}
 	})
+}
+
+func removeKindFromObjects(g Gomega, kindToRemove string, data []byte) []byte {
+	// DPUService objects which is missing one of the expected Kinds.
+	objsWithMissingKind, err := utils.BytesToUnstructured(data)
+	g.Expect(err).NotTo(HaveOccurred())
+	for i, obj := range objsWithMissingKind {
+		if obj.GetObjectKind().GroupVersionKind().Kind == kindToRemove {
+			objsWithMissingKind = append(objsWithMissingKind[:i], objsWithMissingKind[i+1:]...)
+		}
+	}
+	dataWithMissingKind, err := utils.UnstructuredToBytes(objsWithMissingKind)
+	g.Expect(err).NotTo(HaveOccurred())
+	return dataWithMissingKind
+}
+
+func addUnexpectedKindToObjects(g Gomega, data []byte) []byte {
+	objsWithUnexpectedKind, err := utils.BytesToUnstructured(data)
+	g.Expect(err).NotTo(HaveOccurred())
+	objsWithUnexpectedKind[0].SetKind("FakeKind")
+	dataWithUnexpectedKind, err := utils.UnstructuredToBytes(objsWithUnexpectedKind)
+	g.Expect(err).NotTo(HaveOccurred())
+	return dataWithUnexpectedKind
 }
