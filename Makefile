@@ -217,7 +217,7 @@ clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
 	@rm -rf $(REPOSDIR)
 
 ##@ Development
-GENERATE_TARGETS ?= operator dpuservice hostcniprovisioner dpucniprovisioner embedded sfcset
+GENERATE_TARGETS ?= operator dpuservice hostcniprovisioner dpucniprovisioner sfcset operator-embedded
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -268,8 +268,8 @@ generate-manifests-dpucniprovisioner: $(KUSTOMIZE) ## Generates DPU CNI provisio
 generate-manifests-hostcniprovisioner: $(KUSTOMIZE) ## Generates Host CNI provisioner manifests
 	cd config/hostcniprovisioner/default &&	$(KUSTOMIZE) edit set image controller=$(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
-.PHONY: generate-manifests-embedded
-generate-manifests-embedded: generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner ## Generates manifests that are embedded into binaries
+.PHONY: generate-manifests-operator-embedded
+generate-manifests-operator-embedded: generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice ## Generates manifests that are embedded into binaries
 	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/operator/controllers/manifests/hostcniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/operator/controllers/manifests/dpucniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > ./internal/operator/inventory/manifests/dpuservice.yaml
@@ -444,7 +444,7 @@ binary-sfcset: ## Build the sfcset controller binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/sfcset-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/servicechainset
 
 .PHONY: binary-operator
-binary-operator: ## Build the operator controller binary.
+binary-operator: generate-manifests-operator-embedded ## Build the operator controller binary.
 	go build -ldflags=$(DPFOPERATOR_GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/operator-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/operator
 
 .PHONY: binary-dpuservice
@@ -459,7 +459,7 @@ binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
 binary-hostcniprovisioner: ## Build the Host CNI Provisioner binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/hostcniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/hostcniprovisioner
 
-DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu
+DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS
@@ -532,7 +532,7 @@ docker-build-sfcset: ## Build docker images for the sfcset-controller
 		-t $(SFCSET_IMAGE):$(TAG)
 
 .PHONY: docker-build-operator
-docker-build-operator: ## Build docker images for the operator-controller
+docker-build-operator: generate-manifests-operator-embedded ## Build docker images for the operator-controller
 	docker build \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
