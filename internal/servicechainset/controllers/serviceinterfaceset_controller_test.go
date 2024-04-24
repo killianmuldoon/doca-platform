@@ -183,7 +183,7 @@ func assertServiceInterface(g Gomega, sc *sfcv1.ServiceInterface, testSpec *sfcv
 	g.ExpectWithOffset(2, sc.Labels[ServiceInterfaceSetNameLabel]).To(Equal(svcIfcSetName))
 	g.ExpectWithOffset(2, sc.Labels[ServiceInterfaceSetNamespaceLabel]).To(Equal(defaultNS))
 	g.ExpectWithOffset(2, sc.OwnerReferences).To(HaveLen(1))
-	for k, v := range getTestLabels() {
+	for k, v := range testutils.GetTestLabels() {
 		g.ExpectWithOffset(2, sc.Labels[k]).To(Equal(v))
 	}
 }
@@ -199,7 +199,7 @@ func createServiceInterfaceSet(ctx context.Context, labelSelector *metav1.LabelS
 			Template: sfcv1.ServiceInterfaceSpecTemplate{
 				Spec: *getTestServiceInterfaceSpec(),
 				ObjectMeta: sfcv1.ObjectMeta{
-					Labels: getTestLabels(),
+					Labels: testutils.GetTestLabels(),
 				},
 			},
 		},
@@ -226,8 +226,4 @@ func getTestServiceInterfaceSpec() *sfcv1.ServiceInterfaceSpec {
 			ID: 3,
 		},
 	}
-}
-
-func getTestLabels() map[string]string {
-	return map[string]string{"some": "label", "color": "blue", "lab": "santa-clara"}
 }

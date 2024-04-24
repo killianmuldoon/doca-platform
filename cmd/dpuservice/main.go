@@ -22,8 +22,10 @@ import (
 	"os"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
+	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	dpuservicecontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/controllers"
+	dpuservicechaincontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservicechain/controllers"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -45,6 +47,7 @@ func init() {
 
 	utilruntime.Must(dpuservicev1.AddToScheme(scheme))
 	utilruntime.Must(argov1.AddToScheme(scheme))
+	utilruntime.Must(sfcv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -126,6 +129,23 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DPUService")
 		os.Exit(1)
 	}
+
+	if err = (&dpuservicechaincontroller.DPUServiceInterfaceReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DPUServiceInterface")
+		os.Exit(1)
+	}
+
+	if err = (&dpuservicechaincontroller.DPUServiceChainReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DPUServiceChain")
+		os.Exit(1)
+	}
+
 	//+kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {

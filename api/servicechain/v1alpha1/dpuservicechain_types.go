@@ -20,6 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var DPUServiceChainFinalizer = "sfc.dpf.nvidia.com/dpuservicechain"
+
 // DPUServiceChainSpec defines the desired state of DPUServiceChainSpec
 type DPUServiceChainSpec struct {
 	// Select the Clusters with specific labels, ServiceChainSet CRs will be created only for these Clusters

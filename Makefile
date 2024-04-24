@@ -273,6 +273,7 @@ generate-manifests-dpuservice: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manife
 	$(CONTROLLER_GEN) \
 	paths="./cmd/dpuservice/..." \
 	paths="./internal/dpuservice/..." \
+	paths="./internal/dpuservicechain/..." \
 	paths="./api/dpuservice/..." \
 	crd:crdVersions=v1 \
 	rbac:roleName=manager-role \

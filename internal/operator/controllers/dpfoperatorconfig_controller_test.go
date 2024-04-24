@@ -28,8 +28,6 @@ import (
 	dpucniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/config"
 	hostcniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host/config"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/kubeconfig"
-	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils"
 
@@ -240,7 +238,8 @@ networking:
 
 			By("Faking GetDPFClusters to use the envtest cluster instead of a separate one")
 			dpfCluster = controlplane.DPFCluster{Name: "envtest", Namespace: testNS.Name}
-			kamajiSecret := getFakeKamajiClusterSecretFromEnvtest(dpfCluster)
+			kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(dpfCluster, cfg)
+			Expect(err).NotTo(HaveOccurred())
 			Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
 			cleanupObjects = append(cleanupObjects, kamajiSecret)
 		})
@@ -1007,57 +1006,6 @@ func getDefaultDaemonset(name string, namespace string) *appsv1.DaemonSet {
 					},
 				},
 			},
-		},
-	}
-}
-
-// getFakeKamajiClusterSecretFromEnvtest creates a kamaji secret using the envtest information to simulate that we have
-// a kamaji cluster. In reality, this is the same envtest Kubernetes API.
-func getFakeKamajiClusterSecretFromEnvtest(cluster controlplane.DPFCluster) *corev1.Secret {
-	adminConfig := &kubeconfig.Type{
-		Clusters: []*kubeconfig.ClusterWithName{
-			{
-				Name: cluster.Name,
-				Cluster: kubeconfig.Cluster{
-					Server:                   cfg.Host,
-					CertificateAuthorityData: cfg.CAData,
-				},
-			},
-		},
-		Users: []*kubeconfig.UserWithName{
-			{
-				Name: "user",
-				User: kubeconfig.User{
-					ClientKeyData:         cfg.KeyData,
-					ClientCertificateData: cfg.CertData,
-				},
-			},
-		},
-		Contexts: []*kubeconfig.NamedContext{
-			{
-				Name: "default",
-				Context: kubeconfig.Context{
-					Cluster: cluster.Name,
-					User:    "user",
-				},
-			},
-		},
-		CurrentContext: "default",
-	}
-	confData, err := json.Marshal(adminConfig)
-	Expect(err).To(Not(HaveOccurred()))
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%v-admin-kubeconfig", cluster.Name),
-			Namespace: cluster.Namespace,
-			Labels: map[string]string{
-				controlplanemeta.DPFClusterSecretClusterNameLabelKey: cluster.Name,
-				"kamaji.clastix.io/component":                        "admin-kubeconfig",
-				"kamaji.clastix.io/project":                          "kamaji",
-			},
-		},
-		Data: map[string][]byte{
-			"admin.conf": confData,
 		},
 	}
 }
