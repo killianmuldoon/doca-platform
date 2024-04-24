@@ -75,9 +75,9 @@ const (
 	// ovnKubernetesEntrypointConfigMapName is the name of the OVN Kubernetes ConfigMap which contains the init script
 	// used in the `ovnkube-node` DaemonSet in OpenShift.
 	ovnKubernetesEntrypointConfigMapName = "ovnkube-script-lib"
-	// ovnKubernetesEntrypointConfigMapNameDataKey is the key in the OVN Kubernetes Entrypoint ConfigMap where this
-	// controller makes changes
-	ovnKubernetesEntrypointConfigMapNameDataKey = "ovnkube-lib.sh"
+	// ovnKubernetesEntrypointConfigMapScriptKey is the key in the OVN Kubernetes Entrypoint ConfigMap that is populated
+	// by the OpenShift Cluster Network Operator. This is a field the DPF Operator makes changes.
+	ovnKubernetesEntrypointConfigMapScriptKey = "ovnkube-lib.sh"
 	// ovnKubernetesNodeChassisIDAnnotation is an OVN Kubernetes Annotation that we need to cleanup
 	// https://github.com/openshift/ovn-kubernetes/blob/release-4.14/go-controller/pkg/util/node_annotations.go#L65-L66
 	ovnKubernetesNodeChassisIDAnnotation = "k8s.ovn.org/node-chassis-id"
@@ -922,9 +922,19 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, dpfO
 	}
 	out.Data = dirtyOriginal.Data
 
-	value, ok := out.Data[ovnKubernetesEntrypointConfigMapNameDataKey]
+	// Create new field with partial content of the DPFOperatorConfig
+	configMapInventoryField := "dpf-inventory.json"
+	hostNetConfigBytes, err := json.Marshal(dpfOperatorConfig.Spec.HostNetworkConfiguration.Hosts)
+	if err != nil {
+		return nil, fmt.Errorf("error while converting the HostNetworkConfiguration field of the DPFOperatorConfig object into bytes: %w", err)
+	}
+
+	out.Data[configMapInventoryField] = string(hostNetConfigBytes)
+
+	// Modify the script coming from the OpenShift Network Cluster Operator
+	value, ok := out.Data[ovnKubernetesEntrypointConfigMapScriptKey]
 	if !ok {
-		return nil, fmt.Errorf("error while trying to get key %s in %s ConfigMap: key doesn't exist", ovnKubernetesEntrypointConfigMapNameDataKey, ovnKubernetesEntrypointConfigMapName)
+		return nil, fmt.Errorf("error while trying to get key %s in %s ConfigMap: key doesn't exist", ovnKubernetesEntrypointConfigMapScriptKey, ovnKubernetesEntrypointConfigMapName)
 	}
 
 	// Apply the following patches:
@@ -935,17 +945,19 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, dpfO
 	// Gateway needs to be specific per node if we have different subnets for each node (routed HBN use case). To achieve
 	// that we query the DPFOperatorConfig from the OVN Kubernetes init script (requires RBAC) we anyway overwrite and
 	// find the correct gateway based on the host the pod is running on (env variable provided by downward API).
+	//
 	// This patch, replaces the original patch on the configmap because the configmap is shared with all the OVN Kubernetes
-	// instances and can't be parameterized
+	// instances and can't be parameterized.
 	// https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/0e5a2e5d76b1472a853e081693a9c28ae8a16b5e
+	//
+	// Note: the OVN Kubernetes DaemonSet mounts the ovnkube-script-lib configmap under /ovnkube-lib.
 	value = strings.ReplaceAll(value,
 		"gateway_mode_flags=\"--gateway-mode shared --gateway-interface br-ex\"",
-		fmt.Sprintf("gateway_mode_flags=\"--gateway-mode shared --gateway-interface %s --gateway-nexthop $(kubectl get dpfoperatorconfig -n %s %s | jq -r \".spec.hostNetworkConfiguration.hosts[] | select(.hostClusterNodeName==\\\"${K8S_NODE}\\\").gateway\")\"",
+		fmt.Sprintf("gateway_mode_flags=\"--gateway-mode shared --gateway-interface %s --gateway-nexthop $(cat /ovnkube-lib/%s | jq -r \".[] | select(.hostClusterNodeName==\\\"${K8S_NODE}\\\").gateway\")\"",
 			pfRepresentor,
-			dpfOperatorConfig.Namespace,
-			dpfOperatorConfig.Name))
+			configMapInventoryField))
 
-	out.Data[ovnKubernetesEntrypointConfigMapNameDataKey] = value
+	out.Data[ovnKubernetesEntrypointConfigMapScriptKey] = value
 
 	return out, kerrors.NewAggregate(errs)
 }

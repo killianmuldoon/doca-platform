@@ -645,6 +645,23 @@ networking:
 			It("should generate correct object", func() {
 				dpfOperatorConfig := getMinimalDPFOperatorConfig("dpf-operator-system")
 				dpfOperatorConfig.Name = "dpfoperatorconfig"
+				dpfOperatorConfig.Spec.HostNetworkConfiguration.Hosts = []operatorv1.Host{
+					{
+						HostClusterNodeName: "ocp-node-1",
+						DPUClusterNodeName:  "dpu-node-1",
+						HostIP:              "10.0.96.10/24",
+						DPUIP:               "10.0.96.20/24",
+						Gateway:             "10.0.96.254",
+					},
+					{
+						HostClusterNodeName: "ocp-node-2",
+						DPUClusterNodeName:  "dpu-node-2",
+						HostIP:              "10.0.97.10/24",
+						DPUIP:               "10.0.97.20/24",
+						Gateway:             "10.0.97.254",
+					},
+				}
+
 				out, err := generateCustomOVNKubernetesEntrypointConfigMap(&originalConfigMap, dpfOperatorConfig)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -664,7 +681,7 @@ networking:
 				Expect(out.BinaryData).To(BeComparableTo(expectedConfigMap.BinaryData))
 			})
 			It("should error out when relevant key is not found in configmap", func() {
-				delete(originalConfigMap.Data, ovnKubernetesEntrypointConfigMapNameDataKey)
+				delete(originalConfigMap.Data, ovnKubernetesEntrypointConfigMapScriptKey)
 				_, err := generateCustomOVNKubernetesEntrypointConfigMap(&originalConfigMap, getMinimalDPFOperatorConfig(""))
 				Expect(err).To(HaveOccurred())
 			})
