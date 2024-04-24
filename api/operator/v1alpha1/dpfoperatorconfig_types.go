@@ -40,6 +40,11 @@ type HostNetworkConfiguration struct {
 	// host that contains a DPU. An entry for each host that we want to configure DPF for should be added in that list
 	// together with the relevant configuration needed.
 	Hosts []Host `json:"hosts"`
+	// HostPF0 is the name of the PF0 on the host. It needs to be the same across all the worker nodes.
+	HostPF0 string `json:"hostPF0"`
+	// HostPF0VF0 is the name of the first VF of the PF0 on the host. It needs to be the same across all the worker
+	// nodes.
+	HostPF0VF0 string `json:"hostPF0VF0"`
 }
 
 // Host represents a host with a DPU where DPF operator is going to be installed to and we expect to have host network
