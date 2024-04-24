@@ -40,7 +40,7 @@ nightly-release:
   variables:
     ## This is a read-only token used for pulling repositories. Defined in the DPF operator CI/CD settings.
     GITLAB_TOKEN: $CI_TOKEN
-    TAG: v0.0.0
+    TAG: v0.0.0-nightly
     REGISTRY: harbor.mellanox.com/cloud-orchestration-dev/dpf
   tags:
     - release

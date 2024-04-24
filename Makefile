@@ -269,7 +269,7 @@ generate-manifests-hostcniprovisioner: $(KUSTOMIZE) ## Generates Host CNI provis
 	cd config/hostcniprovisioner/default &&	$(KUSTOMIZE) edit set image controller=$(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-operator-embedded
-generate-manifests-operator-embedded: generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice ## Generates manifests that are embedded into binaries
+generate-manifests-operator-embedded: generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice ## Generates manifests that are embedded into the operator binary.
 	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/operator/controllers/manifests/hostcniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/operator/controllers/manifests/dpucniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > ./internal/operator/inventory/manifests/dpuservice.yaml

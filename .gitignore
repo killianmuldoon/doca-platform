@@ -22,9 +22,8 @@ hack/repos
 # Go workspace file
 go.work
 
-# All files with a `.tmp` or .tgz extension
+# All files with a `.tmp` extension
 *.tmp
-*.tgz
 
 # Kubernetes Generated files - skip generated files, except for vendored files
 !vendor/**/zz_generated.*
