@@ -34,10 +34,6 @@ import (
 )
 
 const (
-	// pf is the name of the PF on the host.
-	// TODO: Discover that instead of hardcoding it
-	pf = "ens2f0np0"
-
 	// ovnDBsPath is the path where the OVN Databases are stored
 	ovnDBsPath = "/var/lib/ovn-ic/etc/"
 	//originalBrEx is the name of the original br-ex created by the upstream OVN Kubernetes
@@ -79,17 +75,24 @@ type HostCNIProvisioner struct {
 	// empty.
 	FileSystemRoot string
 
+	// pf0 is the name of the pf0. It could be discovered in that component, but since we use this very same value for
+	// the DPU CNI Provisioner where the name of that PF can't be discovered, it makes sense to make use of the same source of truth
+	// for both components.
+	// Note: In case you want to switch that to pf1 in the future, you need to ensure that the ovnManagementVFRep is
+	// related to a VF part of pf1 and this VF is configured correctly on the OVN Kubernetes DaemonSet.
+	pf0 string
 	// pfIPNet is the IP that should be added to the PF interface.
 	pfIPNet *net.IPNet
 }
 
 // New creates a HostCNIProvisioner that can configure the system
-func New(ctx context.Context, clock clock.WithTicker, networkHelper networkhelper.NetworkHelper, pfIPNet *net.IPNet) *HostCNIProvisioner {
+func New(ctx context.Context, clock clock.WithTicker, networkHelper networkhelper.NetworkHelper, pf0 string, pfIPNet *net.IPNet) *HostCNIProvisioner {
 	return &HostCNIProvisioner{
 		ctx:                       ctx,
 		ensureConfigurationTicker: clock.NewTicker(2 * time.Second),
 		networkHelper:             networkHelper,
 		FileSystemRoot:            "",
+		pf0:                       pf0,
 		pfIPNet:                   pfIPNet,
 	}
 }
@@ -159,7 +162,7 @@ func (p *HostCNIProvisioner) configure() error {
 // configurePF configures an IP on the PF that is in the same subnet as the VTEP. This is essential for enabling Pod
 // to External connectivity.
 func (p *HostCNIProvisioner) configurePF() error {
-	err := p.networkHelper.SetLinkIPAddress(pf, p.pfIPNet)
+	err := p.networkHelper.SetLinkIPAddress(p.pf0, p.pfIPNet)
 	if err != nil {
 		return fmt.Errorf("error while setting PF IP: %w", err)
 	}
@@ -184,7 +187,7 @@ func (p *HostCNIProvisioner) configureFakeEnvironment() error {
 // TODO: Discover VFs from multiple PFs
 func (p *HostCNIProvisioner) discoverVFs() (map[string]int, error) {
 	m := make(map[string]int)
-	sriovNumVfsPath := filepath.Join(p.FileSystemRoot, fmt.Sprintf("/sys/class/net/%s/device/sriov_numvfs", pf))
+	sriovNumVfsPath := filepath.Join(p.FileSystemRoot, fmt.Sprintf("/sys/class/net/%s/device/sriov_numvfs", p.pf0))
 	content, err := os.ReadFile(sriovNumVfsPath)
 	if err != nil {
 		return nil, fmt.Errorf("error while reading number of VFs: %w", err)
@@ -197,7 +200,7 @@ func (p *HostCNIProvisioner) discoverVFs() (map[string]int, error) {
 		return nil, fmt.Errorf("error while converting string to int: %w", err)
 	}
 
-	m[pf] = numVfs
+	m[p.pf0] = numVfs
 	return m, nil
 }
 

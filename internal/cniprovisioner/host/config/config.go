@@ -21,4 +21,6 @@ package config
 type HostCNIProvisionerConfig struct {
 	// PFIPs repesents the IPs that will be assigned to the PF interface on each Host.
 	PFIPs map[string]string `json:"pfIPs"`
+	// HostPF0 is the name of the PF0 on the host.
+	HostPF0 string `json:"hostPF0"`
 }
