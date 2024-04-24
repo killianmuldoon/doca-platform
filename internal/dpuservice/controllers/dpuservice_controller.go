@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -121,9 +122,33 @@ func (r *DPUServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 //nolint:unparam
 func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
+	log.Info("handling DPUService deletion")
+	errs := []error{}
+	applications := &argov1.ApplicationList{}
+	if err := r.Client.List(ctx, applications, client.MatchingLabels{
+		dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
+		dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
+	}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	for _, app := range applications.Items {
+		if err := r.Client.Delete(ctx, &app); err != nil {
+			// Tolerate if the application is not found and already deleted.
+			if !apierrors.IsNotFound(err) {
+				errs = append(errs, err)
+			}
+		}
+	}
+	if len(errs) > 0 {
+		return ctrl.Result{}, kerrors.NewAggregate(errs)
+	}
+	if len(applications.Items) > 0 {
+		return ctrl.Result{Requeue: true}, nil
+	}
+	// If there are no associated applications remove the finalizer
 	log.Info("Removing finalizer")
 	controllerutil.RemoveFinalizer(dpuService, dpuservicev1.DPUServiceFinalizer)
-	// We should have an ownerReference chain in order to delete subordinate objects.
 	return ctrl.Result{}, nil
 }
 
@@ -164,6 +189,8 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 
 // reconcileSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
 func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, clusters []controlplane.DPFCluster) error {
+	log := ctrllog.FromContext(ctx)
+
 	var errs []error
 	for i := range clusters {
 		cluster := clusters[i]
@@ -180,6 +207,7 @@ func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, clusters []
 			continue
 		}
 		// Create or patch
+		log.Info("Patching Secrets for DPF clusters")
 		if err := r.Client.Patch(ctx, argoSecret, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
 			errs = append(errs, err)
 			continue
@@ -274,11 +302,15 @@ func (r *DPUServiceReconciler) reconcileStatus(ctx context.Context, dpuService *
 }
 
 func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters []controlplane.DPFCluster) error {
+	log := ctrllog.FromContext(ctx)
+
 	clusterKeys := []types.NamespacedName{}
 	for i := range clusters {
 		clusterKeys = append(clusterKeys, types.NamespacedName{Namespace: clusters[i].Namespace, Name: clusters[i].Name})
 	}
 	appProject := argocd.NewAppProject(appProjectName, clusterKeys)
+
+	log.Info("Patching AppProject for DPU clusters")
 	if err := r.Client.Patch(ctx, appProject, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
 		return err
 	}
@@ -286,6 +318,8 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters
 }
 
 func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, clusters []controlplane.DPFCluster, dpuService *dpuservicev1.DPUService) error {
+	log := ctrllog.FromContext(ctx)
+
 	var errs []error
 	values, err := argoCDValuesFromDPUService(dpuService)
 	if err != nil {
@@ -294,9 +328,8 @@ func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, cluster
 	for _, cluster := range clusters {
 		clusterKey := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}
 		argoApplication := argocd.NewApplication(appProjectName, clusterKey, dpuService, values)
-		argoApplication.SetOwnerReferences(
-			ensureOwnerRef(argoApplication.GetOwnerReferences(), metav1.NewControllerRef(dpuService, dpuservicev1.DPUServiceGroupVersionKind)),
-		)
+
+		log.Info("Patching Application", "Application", klog.KObj(argoApplication))
 		if err := r.Client.Patch(ctx, argoApplication, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
 			return err
 		}
@@ -347,18 +380,6 @@ func argoCDValuesFromDPUService(dpuService *dpuservicev1.DPUService) (*runtime.R
 		return nil, err
 	}
 	return &runtime.RawExtension{Raw: data}, nil
-}
-
-// ensureOwnerRef makes sure the slice contains the passed OwnerReference.
-func ensureOwnerRef(ownerReferences []metav1.OwnerReference, owner *metav1.OwnerReference) []metav1.OwnerReference {
-	for index, r := range ownerReferences {
-		if r.UID == owner.UID {
-			// Update the ownerReference in place to ensure apiVersion is up-to-date.
-			ownerReferences[index] = *owner
-			return ownerReferences
-		}
-	}
-	return append(ownerReferences, *owner)
 }
 
 // DPUClusterToDPUService ensures all DPUServices are updated each time there is an update to a DPUCluster.
