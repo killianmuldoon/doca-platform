@@ -29,7 +29,6 @@ data:
     enable-multi-network=true
 
     [gateway]
-    next-hop="10.237.0.1"
     disable-pkt-mtu-check=true
     mode=shared
     nodeport=true
