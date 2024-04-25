@@ -466,7 +466,9 @@ networking:
 				Expect(err).ToNot(HaveOccurred())
 			})
 			It("should generate correct object when all expected fields are there", func() {
-				out, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "some-image")
+				dpfOperatorConfig := getMinimalDPFOperatorConfig("")
+				dpfOperatorConfig.Spec.HostNetworkConfiguration.HostPF0VF0 = "enp75s0f0v0"
+				out, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, dpfOperatorConfig, "some-image")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(out.Name).To(Equal("ovnkube-node-dpf"))
@@ -513,7 +515,7 @@ networking:
 
 						Expect(c.Env).To(ContainElement(corev1.EnvVar{
 							Name:  "OVNKUBE_NODE_MGMT_PORT_NETDEV",
-							Value: "enp23s0f0v0",
+							Value: "enp75s0f0v0",
 						}))
 						Expect(c.Image).To(Equal("some-image"))
 					}
@@ -524,12 +526,12 @@ networking:
 			})
 			It("should error out when label app in selector is not found", func() {
 				originalDaemonset.Spec.Selector.MatchLabels = nil
-				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "")
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, getMinimalDPFOperatorConfig(""), "")
 				Expect(err).To(HaveOccurred())
 			})
 			It("should error out when label app in pod template is not found", func() {
 				originalDaemonset.Spec.Template.Labels = nil
-				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "")
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, getMinimalDPFOperatorConfig(""), "")
 				Expect(err).To(HaveOccurred())
 			})
 			It("should error out when OVN Kube Controller container is not found", func() {
@@ -540,7 +542,7 @@ networking:
 					originalDaemonset.Spec.Template.Spec.Containers[i].Name = "other-ovnkube-controller"
 					break
 				}
-				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "")
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, getMinimalDPFOperatorConfig(""), "")
 				Expect(err).To(HaveOccurred())
 			})
 			It("should error out when OVN Controller container is not found", func() {
@@ -551,7 +553,7 @@ networking:
 					originalDaemonset.Spec.Template.Spec.Containers[i].Name = "other-ovnkube-controller"
 					break
 				}
-				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "")
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, getMinimalDPFOperatorConfig(""), "")
 				Expect(err).To(HaveOccurred())
 			})
 			It("should error out when volume related to configmap ovnkube-config is not found", func() {
@@ -562,7 +564,7 @@ networking:
 					originalDaemonset.Spec.Template.Spec.Volumes[i].Name = "other-ovnkube-config"
 					break
 				}
-				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "")
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, getMinimalDPFOperatorConfig(""), "")
 				Expect(err).To(HaveOccurred())
 			})
 			It("should error out when volume related to configmap ovnkube-script-lib is not found", func() {
@@ -573,7 +575,7 @@ networking:
 					originalDaemonset.Spec.Template.Spec.Volumes[i].Name = "other-ovnkube-script-lib"
 					break
 				}
-				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, "")
+				_, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, getMinimalDPFOperatorConfig(""), "")
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -637,6 +639,7 @@ networking:
 			It("should generate correct object", func() {
 				dpfOperatorConfig := getMinimalDPFOperatorConfig("dpf-operator-system")
 				dpfOperatorConfig.Name = "dpfoperatorconfig"
+				dpfOperatorConfig.Spec.HostNetworkConfiguration.HostPF0 = "ens27f0np0"
 				dpfOperatorConfig.Spec.HostNetworkConfiguration.Hosts = []operatorv1.Host{
 					{
 						HostClusterNodeName: "ocp-node-1",

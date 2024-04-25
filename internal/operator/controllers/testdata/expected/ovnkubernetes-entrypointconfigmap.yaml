@@ -481,7 +481,7 @@ data:
       echo "I$(date "+%m%d %H:%M:%S.%N") - starting ovnkube-node"
 
       if [ "shared" == "shared" ]; then
-        gateway_mode_flags="--gateway-mode shared --gateway-interface ens2f0np0 --gateway-nexthop $(cat /ovnkube-lib/dpf-inventory.json | jq -r ".[] | select(.hostClusterNodeName==\"${K8S_NODE}\").gateway")"
+        gateway_mode_flags="--gateway-mode shared --gateway-interface ens27f0np0 --gateway-nexthop $(cat /ovnkube-lib/dpf-inventory.json | jq -r ".[] | select(.hostClusterNodeName==\"${K8S_NODE}\").gateway")"
       elif [ "shared" == "local" ]; then
         gateway_mode_flags="--gateway-mode local --gateway-interface br-ex"
       else

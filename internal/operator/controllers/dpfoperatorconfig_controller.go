@@ -81,17 +81,6 @@ const (
 	// ovnKubernetesNodeChassisIDAnnotation is an OVN Kubernetes Annotation that we need to cleanup
 	// https://github.com/openshift/ovn-kubernetes/blob/release-4.14/go-controller/pkg/util/node_annotations.go#L65-L66
 	ovnKubernetesNodeChassisIDAnnotation = "k8s.ovn.org/node-chassis-id"
-	// ovnManagementVFName is the name of the VF that should be used by the OVN Kubernetes
-	// TODO (decision needed): Either of the following options:
-	// * Replace value with VF name coming from the DPFOperatorConfig
-	// * Keep as is and have the user configure that name for the vf0 of p0 on the host.
-	ovnManagementVFName = "enp23s0f0v0"
-	// pfRepresentor is the name of the PF representor on the host
-	// TODO (decision needed): Either of the following options
-	// * Replace with PF name coming from the DPFOperatorConfig
-	// * Keep as is and have the user configure that name for the vf0 of p0 on the host.
-	// TODO: Consider having common constants across components where needed
-	pfRepresentor = "ens2f0np0"
 	// dpuOVSRemote is the OVS remote that the host side can use to configure the OVS on the DPU side.
 	// The IP below is the static IP that uses the *Host VF<->DPU SF* communication channel
 	// The Port is statically configured by the DPU CNI Provisioner
@@ -627,7 +616,7 @@ func (r *DPFOperatorConfigReconciler) deployCustomOVNKubernetesForWorkers(ctx co
 	if err := r.Client.Get(ctx, key, ovnKubernetesDaemonset); err != nil {
 		return fmt.Errorf("error while getting %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
-	customOVNKubernetesDaemonset, err := generateCustomOVNKubernetesDaemonSet(ovnKubernetesDaemonset, r.Settings.CustomOVNKubernetesDPUImage)
+	customOVNKubernetesDaemonset, err := generateCustomOVNKubernetesDaemonSet(ovnKubernetesDaemonset, dpfOperatorConfig, r.Settings.CustomOVNKubernetesDPUImage)
 	if err != nil {
 		return fmt.Errorf("error while generating custom OVN Kubernetes DaemonSet: %w", err)
 	}
@@ -699,7 +688,7 @@ func isCNIProvisionerReady(d *appsv1.DaemonSet) bool {
 // generateCustomOVNKubernetesDaemonSet returns a custom OVN Kubernetes DaemonSet based on the given DaemonSet. Returns
 // error if any of configuration is not reflected on the returned object.
 // TODO: Set custom image when image is available.
-func generateCustomOVNKubernetesDaemonSet(base *appsv1.DaemonSet, customOVNKubernetesImage string) (*appsv1.DaemonSet, error) {
+func generateCustomOVNKubernetesDaemonSet(base *appsv1.DaemonSet, dpfOperatorConfig *operatorv1.DPFOperatorConfig, customOVNKubernetesImage string) (*appsv1.DaemonSet, error) {
 	if base == nil {
 		return nil, fmt.Errorf("input is nil")
 	}
@@ -778,7 +767,7 @@ func generateCustomOVNKubernetesDaemonSet(base *appsv1.DaemonSet, customOVNKuber
 		// https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/57e552e831fef852ae25c24c8e02698130dd19e7
 		out.Spec.Template.Spec.Containers[i].Env = append(out.Spec.Template.Spec.Containers[i].Env, corev1.EnvVar{
 			Name:  "OVNKUBE_NODE_MGMT_PORT_NETDEV",
-			Value: ovnManagementVFName,
+			Value: dpfOperatorConfig.Spec.HostNetworkConfiguration.HostPF0VF0,
 		})
 		configured = true
 		break
@@ -954,7 +943,7 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, dpfO
 	value = strings.ReplaceAll(value,
 		"gateway_mode_flags=\"--gateway-mode shared --gateway-interface br-ex\"",
 		fmt.Sprintf("gateway_mode_flags=\"--gateway-mode shared --gateway-interface %s --gateway-nexthop $(cat /ovnkube-lib/%s | jq -r \".[] | select(.hostClusterNodeName==\\\"${K8S_NODE}\\\").gateway\")\"",
-			pfRepresentor,
+			dpfOperatorConfig.Spec.HostNetworkConfiguration.HostPF0,
 			configMapInventoryField))
 
 	out.Data[ovnKubernetesEntrypointConfigMapScriptKey] = value
@@ -978,6 +967,7 @@ func generateDPUCNIProvisionerObjects(dpfOperatorConfig *operatorv1.DPFOperatorC
 		PerNodeConfig: make(map[string]dpucniprovisionerconfig.PerNodeConfig),
 		VTEPCIDR:      dpfOperatorConfig.Spec.HostNetworkConfiguration.CIDR,
 		HostCIDR:      hostCIDR.String(),
+		HostPF0:       dpfOperatorConfig.Spec.HostNetworkConfiguration.HostPF0,
 	}
 	for _, host := range dpfOperatorConfig.Spec.HostNetworkConfiguration.Hosts {
 		config.PerNodeConfig[host.DPUClusterNodeName] = dpucniprovisionerconfig.PerNodeConfig{
