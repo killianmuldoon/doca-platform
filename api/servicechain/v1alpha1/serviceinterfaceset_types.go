@@ -28,8 +28,8 @@ type ServiceInterfaceSetSpec struct {
 }
 
 type ServiceInterfaceSpecTemplate struct {
-	Spec              ServiceInterfaceSpec `json:"spec"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec       ServiceInterfaceSpec `json:"spec"`
+	ObjectMeta `json:"metadata,omitempty"`
 }
 
 // ServiceInterfaceSetStatus defines the observed state of ServiceInterfaceSet
