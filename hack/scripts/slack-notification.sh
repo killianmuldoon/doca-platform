@@ -20,6 +20,11 @@ set -o nounset
 set -o pipefail
 set -o errexit
 
+## Ignore if the pipeline is not from a schedule.
+if [ "$CI_PIPELINE_SOURCE" != "schedule" ]; then
+  exit 0
+fi
+
 ## Exit if the job succeeded.
 if [ "$CI_JOB_STATUS" == "success" ]; then
   exit 0
