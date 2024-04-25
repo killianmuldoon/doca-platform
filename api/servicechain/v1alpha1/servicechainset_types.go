@@ -28,8 +28,8 @@ type ServiceChainSetSpec struct {
 }
 
 type ServiceChainSpecTemplate struct {
-	Spec              ServiceChainSpec `json:"spec"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec       ServiceChainSpec `json:"spec"`
+	ObjectMeta `json:"metadata,omitempty"`
 }
 
 // ServiceChainSetStatus defines the observed state of ServiceChainSet

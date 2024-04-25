@@ -28,8 +28,8 @@ type DPUServiceInterfaceSpec struct {
 }
 
 type ServiceInterfaceSetSpecTemplate struct {
-	Spec              ServiceInterfaceSetSpec `json:"spec"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec       ServiceInterfaceSetSpec `json:"spec"`
+	ObjectMeta `json:"metadata,omitempty"`
 }
 
 // DPUServiceInterfaceStatus defines the observed state of DPUServiceInterface

@@ -169,7 +169,7 @@ func createServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelec
 			NodeSelector: labelSelector,
 			Template: sfcv1.ServiceChainSpecTemplate{
 				Spec: *getTestServiceChainSpec(),
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: sfcv1.ObjectMeta{
 					Labels: getTestLabels(),
 				},
 			},

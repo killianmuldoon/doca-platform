@@ -198,7 +198,7 @@ func createServiceInterfaceSet(ctx context.Context, labelSelector *metav1.LabelS
 			NodeSelector: labelSelector,
 			Template: sfcv1.ServiceInterfaceSpecTemplate{
 				Spec: *getTestServiceInterfaceSpec(),
-				ObjectMeta: metav1.ObjectMeta{
+				ObjectMeta: sfcv1.ObjectMeta{
 					Labels: getTestLabels(),
 				},
 			},

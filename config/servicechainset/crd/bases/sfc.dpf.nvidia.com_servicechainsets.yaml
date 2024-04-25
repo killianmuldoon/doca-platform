@@ -92,18 +92,10 @@ spec:
                         additionalProperties:
                           type: string
                         type: object
-                      finalizers:
-                        items:
-                          type: string
-                        type: array
                       labels:
                         additionalProperties:
                           type: string
                         type: object
-                      name:
-                        type: string
-                      namespace:
-                        type: string
                     type: object
                   spec:
                     description: ServiceChainSpec defines the desired state of ServiceChain

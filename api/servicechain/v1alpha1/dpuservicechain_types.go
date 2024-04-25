@@ -28,8 +28,8 @@ type DPUServiceChainSpec struct {
 }
 
 type ServiceChainSetSpecTemplate struct {
-	Spec              ServiceChainSetSpec `json:"spec"`
-	metav1.ObjectMeta `json:"metadata,omitempty"`
+	Spec       ServiceChainSetSpec `json:"spec"`
+	ObjectMeta `json:"metadata,omitempty"`
 }
 
 // DPUServiceChainStatus defines the observed state of DPUServiceChain
