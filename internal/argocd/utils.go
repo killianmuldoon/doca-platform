@@ -113,12 +113,15 @@ func NewApplication(projectName string, cluster types.NamespacedName, dpuService
 					Prune:    true,
 					SelfHeal: true,
 				},
+				SyncOptions: []string{
+					"CreateNamespace=true",
+				},
 			},
 			Destination: argov1.ApplicationDestination{
 				// TODO: We should ensure cluster names are unique.
 				Name: cluster.Name,
 				// TODO: Either all resources have namespace defined or else they're deployed to the default namespace. Reconsider this.
-				Namespace: "default",
+				Namespace: dpuService.Namespace,
 			},
 			Project: projectName,
 		},
