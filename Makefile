@@ -13,6 +13,13 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
+# Export is needed here so that the envsubst used in make targets has access to those variables even when they are not
+# explictily set when calling make.
+# The tag must have three digits with a leading v - i.e. v9.9.1
+export TAG ?= v0.0.0
+# Note: Registry defaults to non-existing registry intentionally to avoid overriding useful images.
+export REGISTRY ?= nvidia.com
+
 # If V is set to 1 the output will be verbose.
 Q = $(if $(filter 1,$V),,@)
 
@@ -289,13 +296,14 @@ TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 .PHONY: generate-manifests-operator-embedded
 generate-manifests-operator-embedded: $(ENVSUBST)  generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice generate-manifests-provisioning ## Generates manifests that are embedded into the operator binary.
+	$(ENVSUBST) < ./internal/operator/release/templates/defaults.yaml.tmpl > ./internal/operator/release/manifests/defaults.yaml
 	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/operator/controllers/manifests/hostcniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/operator/controllers/manifests/dpucniprovisioner.yaml
 	cp $(PROV_DIR)/output/deploy.yaml ./internal/operator/inventory/manifests/provisioningctrl.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
 	# Substitute environment variables and generate embedded manifests from templates.
 	REGISTRY=$(REGISTRY) TAG=$(TAG) CHART_NAME=$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME) \
-	$(ENVSUBST) < $(TEMPLATES_DIR)/servicefunctionchainset-controller.yaml.tmpl  > $(EMBEDDED_MANIFESTS_DIR)/servicefunctionchainset-controller.yaml
+	$(ENVSUBST) < $(TEMPLATES_DIR)/servicefunctionchainset-controller.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/servicefunctionchainset-controller.yaml
 
 .PHONY: generate-manifests-sfcset
 generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. for the sfcset controller.
@@ -436,15 +444,11 @@ lint-helm-sfcset: $(HELM) ; $(info  running lint for helm charts...) @ ## Run he
 GO_GCFLAGS=""
 
 GO_LDFLAGS="-extldflags '-static'"
-DPFOPERATOR_GO_LDFLAGS="$(subst ",,$(GO_LDFLAGS)) -X 'main.defaultCustomOVNKubernetesDPUImage=${OVNKUBERNETES_DPU_IMAGE}:${TAG}' -X 'main.defaultCustomOVNKubernetesNonDPUImage=${OVNKUBERNETES_NON_DPU_IMAGE}:${TAG}'"
 
 BUILD_TARGETS ?= operator dpuservice dpucniprovisioner hostcniprovisioner sfcset
-# Note: Registry defaults to non-existing registry intentionally to avoid overriding useful images.
-REGISTRY ?= nvidia.com
+
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
-# The tag must have three digits with a leading v - i.e. v9.9.1
-TAG ?= v0.0.0
 # The BUNDLE_VERSION is the same as the TAG but the first character is stripped. This is used to strip a leading `v` which is invalid for Bundle versions.
 $(eval BUNDLE_VERSION := $$$(TAG))
 
@@ -467,7 +471,7 @@ binary-sfcset: ## Build the sfcset controller binary.
 
 .PHONY: binary-operator
 binary-operator: generate-manifests-operator-embedded ## Build the operator controller binary.
-	go build -ldflags=$(DPFOPERATOR_GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/operator-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/operator
+	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/operator-manager gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/operator
 
 .PHONY: binary-dpuservice
 binary-dpuservice: ## Build the dpuservice controller binary.
@@ -516,11 +520,11 @@ OVNKUBERNETES_NON_DPU_BRANCH=dpf-4.14-non-dpu
 
 # Image that is running on the DPU enabled host cluster nodes (workers)
 OVNKUBERNETES_DPU_IMAGE_NAME = ovn-kubernetes-dpu
-OVNKUBERNETES_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_DPU_IMAGE_NAME)
+export OVNKUBERNETES_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_DPU_IMAGE_NAME)
 
 # Image that is running on the non DPU host cluster nodes (control plane)
 OVNKUBERNETES_NON_DPU_IMAGE_NAME = ovn-kubernetes-non-dpu
-OVNKUBERNETES_NON_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_NON_DPU_IMAGE_NAME)
+export OVNKUBERNETES_NON_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_NON_DPU_IMAGE_NAME)
 
 DPFOPERATOR_IMAGE_NAME ?= operator-controller-manager
 DPFOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOPERATOR_IMAGE_NAME)
@@ -559,7 +563,7 @@ docker-build-operator: generate-manifests-operator-embedded ## Build docker imag
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
 		--build-arg target_arch=$(ARCH) \
-		--build-arg ldflags=$(DPFOPERATOR_GO_LDFLAGS) \
+		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/operator \
 		. \

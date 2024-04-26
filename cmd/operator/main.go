@@ -26,6 +26,7 @@ import (
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	operatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/controllers"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/inventory"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/release"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,15 +42,6 @@ import (
 var (
 	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
-
-	// defaultOVNKubernetesDPUImage is the default custom OVN Kubernetes image deployed by the operator to the DPU
-	// enabled workers. This value is injected via ldflags when building the binary. Be mindful about changing this
-	// value below as there is a test in runtime to catch a potential bad build.
-	defaultCustomOVNKubernetesDPUImage = ""
-	// defaultCustomOVNKubernetesNonDPUImage is the default custom OVN Kubernetes image deployed by the operator to the
-	// non DPU nodes. This value is injected via ldflags when building the binary. Be mindful about changing this value
-	// below as there is a test in runtime to catch a potential bad build.
-	defaultCustomOVNKubernetesNonDPUImage = ""
 )
 
 func init() {
@@ -75,7 +67,7 @@ var (
 	reconcileOVNKubernetes         bool
 )
 
-func initFlags() {
+func initFlags(defaults *release.Defaults) {
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -87,9 +79,9 @@ func initFlags() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.BoolVar(&reconcileOVNKubernetes, "reconcileOVNKubernetes", true,
 		"Enable OVN Kubernetes offload to DPU. OpenShift only.")
-	flag.StringVar(&customOVNKubernetesDPUImage, "ovn-kubernetes-dpu-image", defaultCustomOVNKubernetesDPUImage,
+	flag.StringVar(&customOVNKubernetesDPUImage, "ovn-kubernetes-dpu-image", defaults.CustomOVNKubernetesDPUImage,
 		"The custom OVN Kubernetes image deployed by the operator to the DPU enabled nodes (workers)")
-	flag.StringVar(&customOVNKubernetesNonDPUImage, "ovn-kubernetes-non-dpu-image", defaultCustomOVNKubernetesNonDPUImage,
+	flag.StringVar(&customOVNKubernetesNonDPUImage, "ovn-kubernetes-non-dpu-image", defaults.CustomOVNKubernetesNonDPUImage,
 		"The custom OVN Kubernetes image deployed by the operator to the non DPU enabled nodes (control plane)")
 	flag.StringVar(&configSingletonNamespace, "config-namespace",
 		operatorcontroller.DefaultDPFOperatorConfigSingletonNamespace, "The namespace of the DPFOperatorConfig the operator will reconcile")
@@ -98,7 +90,14 @@ func initFlags() {
 }
 
 func main() {
-	initFlags()
+	defaults := release.NewDefaults()
+	err := defaults.Parse()
+	if err != nil {
+		setupLog.Error(err, "unable to parse release defaults")
+		os.Exit(1)
+	}
+
+	initFlags(defaults)
 	opts := zap.Options{
 		Development: true,
 	}
@@ -196,15 +195,9 @@ func main() {
 
 func getSettings() (*operatorcontroller.DPFOperatorConfigReconcilerSettings, error) {
 	if customOVNKubernetesDPUImage == "" {
-		if defaultCustomOVNKubernetesDPUImage == "" {
-			return nil, errors.New("wrong build detected, ensure that the defaultCustomOVNKubernetesDPUImage variable is set via ldflags when building the binary")
-		}
 		return nil, errors.New("flag ovn-kubernetes-dpu-image can't be empty")
 	}
 	if customOVNKubernetesNonDPUImage == "" {
-		if defaultCustomOVNKubernetesNonDPUImage == "" {
-			return nil, errors.New("wrong build detected, ensure that the defaultCustomOVNKubernetesNonDPUImage variable is set via ldflags when building the binary")
-		}
 		return nil, errors.New("flag ovn-kubernetes-dpu-image can't be empty")
 	}
 
