@@ -32,6 +32,7 @@ import (
 // Manifests holds kubernetes object manifests to be deployed by the operator.
 type Manifests struct {
 	DPUService DPUServiceObjects
+	ProvCtrl   ProvCtrlObjects
 }
 
 //go:embed manifests/dpuservice.yaml
@@ -43,12 +44,16 @@ func New() *Manifests {
 		DPUService: DPUServiceObjects{
 			data: dpuServiceData,
 		},
+		ProvCtrl: NewProvisionCtrlObjects(),
 	}
 }
 
 // Parse creates typed Kubernetes objects for all manifests related to the DPFOperator.
 func (m *Manifests) Parse() error {
 	if err := m.DPUService.Parse(); err != nil {
+		return err
+	}
+	if err := m.ProvCtrl.Parse(); err != nil {
 		return err
 	}
 	return nil
@@ -83,7 +88,7 @@ func (d *DPUServiceObjects) Parse() error {
 	}
 	for _, obj := range dpuServiceObjects {
 		switch obj.GetObjectKind().GroupVersionKind().Kind {
-		case "Deployment":
+		case utils.Deployment:
 			if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &d.Deployment); err != nil {
 				return fmt.Errorf("error while converting DPUService to objects: %w", err)
 			}

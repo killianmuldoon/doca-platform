@@ -28,7 +28,8 @@ var (
 
 // DPFOperatorConfigSpec defines the desired state of DPFOperatorConfig
 type DPFOperatorConfigSpec struct {
-	HostNetworkConfiguration HostNetworkConfiguration `json:"hostNetworkConfiguration"`
+	HostNetworkConfiguration  HostNetworkConfiguration  `json:"hostNetworkConfiguration"`
+	ProvisioningConfiguration ProvisioningConfiguration `json:"provisioningConfiguration,omitempty"`
 }
 
 // HostNetworkConfiguration holds network related configuration required to create a functional host network.
@@ -63,6 +64,13 @@ type Host struct {
 	// Gateway is the gateway that will be added on the routes related to OVN Kubernetes traffic.
 	// TODO: Add validator in validating webhook to ensure string is actually net.IPNet
 	Gateway string `json:"gateway"`
+}
+
+// ProvisioningConfiguration defines dpf-provisioning-controller related configurations
+type ProvisioningConfiguration struct {
+	// BFBPVCName is the name of the PersistentVolumeClaim used by dpf-provisioning-controller
+	BFBPVCName      string `json:"bfbPVCName"`
+	ImagePullSecret string `json:"imagePullSecret"`
 }
 
 // DPFOperatorConfigStatus defines the observed state of DPFOperatorConfig

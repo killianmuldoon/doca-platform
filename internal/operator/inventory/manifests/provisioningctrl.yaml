@@ -1,0 +1,939 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/component: manager
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: system
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: namespace
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+    control-plane: controller-manager
+  name: dpf-provisioning
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: bfbs.provisioning.dpf.nvidia.com
+spec:
+  group: provisioning.dpf.nvidia.com
+  names:
+    kind: Bfb
+    listKind: BfbList
+    plural: bfbs
+    singular: bfb
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Bfb is the Schema for the bfbs API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: BfbSpec defines the desired state of Bfb
+            properties:
+              bf_cfg:
+                type: string
+              file_name:
+                type: string
+              url:
+                type: string
+            required:
+            - url
+            type: object
+          status:
+            description: BfbStatus defines the observed state of Bfb
+            properties:
+              phase:
+                description: BfbPhase is a label for the condition of a DPU at the
+                  current time.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: dpus.provisioning.dpf.nvidia.com
+spec:
+  group: provisioning.dpf.nvidia.com
+  names:
+    kind: Dpu
+    listKind: DpuList
+    plural: dpus
+    singular: dpu
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Dpu is the Schema for the dpus API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DpuSpec defines the desired state of Dpu
+            properties:
+              bfb:
+                type: string
+              k8s_cluster:
+                properties:
+                  name:
+                    type: string
+                  namespace:
+                    type: string
+                required:
+                - name
+                - namespace
+                type: object
+              nodeEffect:
+                properties:
+                  custom_label:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  no_effect:
+                    type: string
+                  taint:
+                    description: |-
+                      The node this Taint is attached to has the "effect" on
+                      any pod that does not tolerate the Taint.
+                    properties:
+                      effect:
+                        description: |-
+                          Required. The effect of the taint on pods
+                          that do not tolerate the taint.
+                          Valid effects are NoSchedule, PreferNoSchedule and NoExecute.
+                        type: string
+                      key:
+                        description: Required. The taint key to be applied to a node.
+                        type: string
+                      timeAdded:
+                        description: |-
+                          TimeAdded represents the time at which the taint was added.
+                          It is only written for NoExecute taints.
+                        format: date-time
+                        type: string
+                      value:
+                        description: The taint value corresponding to the taint key.
+                        type: string
+                    required:
+                    - effect
+                    - key
+                    type: object
+                type: object
+              nodeName:
+                type: string
+              pci_address:
+                type: string
+            required:
+            - bfb
+            - k8s_cluster
+            - nodeName
+            type: object
+          status:
+            description: DpuStatus defines the observed state of DPU
+            properties:
+              bfb_version:
+                description: bfb version of this DPU
+                type: string
+              firmware:
+                description: the firmware information of DPU
+                properties:
+                  bmc:
+                    type: string
+                  nic:
+                    type: string
+                  uefi:
+                    type: string
+                type: object
+              lastUpdatedTime:
+                description: LastUpdatedTime is the last time the status updated.
+                format: date-time
+                type: string
+              message:
+                description: |-
+                  message is a human readable message indicating details about the transition.
+                  This may be an empty string.
+                maxLength: 32768
+                type: string
+              pci_device:
+                description: pci device information of this DPU
+                type: string
+              phase:
+                description: high-level summary of where the DPU is in its lifecycle
+                type: string
+              required_reset:
+                description: whether require reset of DPU
+                type: boolean
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
+    controller-gen.kubebuilder.io/version: v0.14.0
+  name: dpusets.provisioning.dpf.nvidia.com
+spec:
+  group: provisioning.dpf.nvidia.com
+  names:
+    kind: DpuSet
+    listKind: DpuSetList
+    plural: dpusets
+    singular: dpuset
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: DpuSet is the Schema for the dpusets API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DpuSetSpec defines the desired state of DpuSet
+            properties:
+              dpuSelector:
+                additionalProperties:
+                  type: string
+                description: Select the DPU with specific labels
+                type: object
+              dpuTemplate:
+                description: Object that describes the DPU that will be created if
+                  insufficient replicas are detected
+                properties:
+                  spec:
+                    properties:
+                      BFB:
+                        properties:
+                          bfb:
+                            type: string
+                        type: object
+                      k8s_cluster:
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        required:
+                        - name
+                        - namespace
+                        type: object
+                      nodeEffect:
+                        properties:
+                          custom_label:
+                            additionalProperties:
+                              type: string
+                            type: object
+                          no_effect:
+                            type: string
+                          taint:
+                            description: |-
+                              The node this Taint is attached to has the "effect" on
+                              any pod that does not tolerate the Taint.
+                            properties:
+                              effect:
+                                description: |-
+                                  Required. The effect of the taint on pods
+                                  that do not tolerate the taint.
+                                  Valid effects are NoSchedule, PreferNoSchedule and NoExecute.
+                                type: string
+                              key:
+                                description: Required. The taint key to be applied
+                                  to a node.
+                                type: string
+                              timeAdded:
+                                description: |-
+                                  TimeAdded represents the time at which the taint was added.
+                                  It is only written for NoExecute taints.
+                                format: date-time
+                                type: string
+                              value:
+                                description: The taint value corresponding to the
+                                  taint key.
+                                type: string
+                            required:
+                            - effect
+                            - key
+                            type: object
+                        type: object
+                    required:
+                    - k8s_cluster
+                    type: object
+                type: object
+              nodeSelector:
+                description: Select the Nodes with specific labels
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: |-
+                        A label selector requirement is a selector that contains values, a key, and an operator that
+                        relates the key and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: |-
+                            operator represents a key's relationship to a set of values.
+                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                          type: string
+                        values:
+                          description: |-
+                            values is an array of string values. If the operator is In or NotIn,
+                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                            the values array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                    type: object
+                type: object
+                x-kubernetes-map-type: atomic
+              strategy:
+                description: The rolling update strategy to use to updating existing
+                  Dpus with new ones.
+                properties:
+                  rollingUpdate:
+                    description: Rolling update config params. Present only if StrategyType
+                      = RollingUpdate.
+                    properties:
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        x-kubernetes-int-or-string: true
+                    type: object
+                  type:
+                    description: Can be "Recreate" or "RollingUpdate". Default is
+                      RollingUpdate.
+                    type: string
+                type: object
+            type: object
+          status:
+            description: DpuSetStatus defines the observed state of DpuSet
+            properties:
+              dpuStatistics:
+                additionalProperties:
+                  type: integer
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: controller-manager-sa
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: serviceaccount
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-controller-manager
+  namespace: dpf-provisioning
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: leader-election-role
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: role
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-leader-election-role
+  namespace: dpf-provisioning
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dpf-provisioning-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpus
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpus/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpus/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpusets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpusets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpusets/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: leader-election-rolebinding
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: rolebinding
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-leader-election-rolebinding
+  namespace: dpf-provisioning
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dpf-provisioning-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: dpf-provisioning-controller-manager
+  namespace: dpf-provisioning
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: manager-rolebinding
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: clusterrolebinding
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dpf-provisioning-manager-role
+subjects:
+- kind: ServiceAccount
+  name: dpf-provisioning-controller-manager
+  namespace: dpf-provisioning
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: webhook
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: webhook-service
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: service
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-webhook-service
+  namespace: dpf-provisioning
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: manager
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: controller-manager
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: deployment
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+    control-plane: controller-manager
+  name: dpf-provisioning-controller-manager
+  namespace: dpf-provisioning
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --health-probe-bind-address=:8081
+        - --metrics-bind-address=127.0.0.1:8080
+        - --leader-elect
+        - --zap-log-level=3
+        - --dms-image-name=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server
+        - --dms-image-tag=v2
+        - --dms-image-pull-secret=dpf-provisioning-regcred
+        - --bfb-pvc=bfb-pvc
+        command:
+        - /manager
+        image: gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dpf-provisioning-controller:v0.0.1-36-geeb227e
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 10m
+            memory: 64Mi
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          privileged: true
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+        - mountPath: /bfb
+          name: bfb-volume
+      - args:
+        - --secure-listen-address=0.0.0.0:8443
+        - --upstream=http://127.0.0.1:8080/
+        - --logtostderr=true
+        - --v=0
+        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.14.1
+        name: kube-rbac-proxy
+        ports:
+        - containerPort: 8443
+          name: https
+          protocol: TCP
+        resources:
+          limits:
+            cpu: 500m
+            memory: 128Mi
+          requests:
+            cpu: 5m
+            memory: 64Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+      imagePullSecrets:
+      - name: dpf-provisioning-regcred
+      serviceAccountName: dpf-provisioning-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-server-cert
+      - name: bfb-volume
+        persistentVolumeClaim:
+          claimName: bfb-pvc
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: serving-cert
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: certificate
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-serving-cert
+  namespace: dpf-provisioning
+spec:
+  dnsNames:
+  - dpf-provisioning-webhook-service.dpf-provisioning.svc
+  - dpf-provisioning-webhook-service.dpf-provisioning.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: dpf-provisioning-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: serving-cert
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: certificate
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-selfsigned-issuer
+  namespace: dpf-provisioning
+spec:
+  selfSigned: {}
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
+  name: dpf-provisioning-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /mutate-provisioning-dpf-nvidia-com-v1alpha1-bfb
+  failurePolicy: Fail
+  name: mbfb.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - bfbs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /mutate-provisioning-dpf-nvidia-com-v1alpha1-dpu
+  failurePolicy: Fail
+  name: mdpu.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dpus
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /mutate-provisioning-dpf-nvidia-com-v1alpha1-dpuset
+  failurePolicy: Fail
+  name: mdpuset.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dpusets
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
+  name: dpf-provisioning-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /validate-provisioning-dpf-nvidia-com-v1alpha1-bfb
+  failurePolicy: Fail
+  name: vbfb.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - bfbs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /validate-provisioning-dpf-nvidia-com-v1alpha1-dpu
+  failurePolicy: Fail
+  name: vdpu.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dpus
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /validate-provisioning-dpf-nvidia-com-v1alpha1-dpuset
+  failurePolicy: Fail
+  name: vdpuset.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dpusets
+  sideEffects: None

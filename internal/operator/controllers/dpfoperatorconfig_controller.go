@@ -246,9 +246,22 @@ func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperator
 	return ctrl.Result{}, nil
 }
 
+func (r *DPFOperatorConfigReconciler) reconcileProvisioningCtrl(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
+	objs, err := r.Inventory.ProvCtrl.GenerateManifests(config)
+	if err != nil {
+		return fmt.Errorf("error while generating manifests for provisioning-controller, err: %v", err)
+	}
+	if err := reconcileUnstructuredObjects(ctx, r.Client, objs); err != nil {
+		return fmt.Errorf("failed to apply provisioning-controller manifests, err: %v", err)
+	}
+	ctrllog.FromContext(ctx).Info("applied provisioning-controller manifests")
+	return nil
+}
+
 // reconcileSystemComponents applies manifests for components which form the DPF system.
 // It deploys the following:
 // 1. DPUService controller
+// 2. dpf-provisioning-controller
 func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
 	var errs []error
 	// TODO: Handle deletion of objects on version upgrade.
@@ -263,7 +276,10 @@ func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Cont
 				err))
 		}
 	}
-	return kerrors.NewAggregate(errs)
+	if len(errs) > 0 {
+		return kerrors.NewAggregate(errs)
+	}
+	return r.reconcileProvisioningCtrl(ctx, config)
 }
 
 // reconcileCustomOVNKubernetesDeployment ensures that custom OVN Kubernetes is deployed
