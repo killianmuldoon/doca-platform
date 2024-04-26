@@ -104,6 +104,20 @@ spec:
                 - hostPF0VF0
                 - hosts
                 type: object
+              provisioningConfiguration:
+                description: ProvisioningConfiguration defines dpf-provisioning-controller
+                  related configurations
+                properties:
+                  bfbPVCName:
+                    description: BFBPVCName is the name of the PersistentVolumeClaim
+                      used by dpf-provisioning-controller
+                    type: string
+                  imagePullSecret:
+                    type: string
+                required:
+                - bfbPVCName
+                - imagePullSecret
+                type: object
             required:
             - hostNetworkConfiguration
             type: object

@@ -99,6 +99,7 @@ ENVTEST_VERSION ?= v0.0.0-20240110160329-8f8247fdc1c3
 GOLANGCI_LINT_VERSION ?= v1.54.2
 MOCKGEN_VERSION ?= v0.4.0
 GOTESTSUM_VERSION ?= v1.11.0
+DPF_PROVISIONING_CONTROLLER_REV ?= eeb227e7dbec7a206bcb3ecdb02fc7bf368a9a3c
 
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
@@ -200,6 +201,10 @@ OVN_DIR=$(REPOSDIR)/ovn
 $(OVN_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR)
 
+PROV_DIR=$(REPOSDIR)/dpf-provisioning-controller
+$(PROV_DIR): | $(REPOSDIR)
+	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-provisioning-controller.git $(PROV_DIR) $(DPF_PROVISIONING_CONTROLLER_REV)
+
 # operator-sdk is used to generate operator-sdk bundles
 OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download
 OPERATOR_SDK_BIN = operator-sdk
@@ -268,11 +273,16 @@ generate-manifests-dpucniprovisioner: $(KUSTOMIZE) ## Generates DPU CNI provisio
 generate-manifests-hostcniprovisioner: $(KUSTOMIZE) ## Generates Host CNI provisioner manifests
 	cd config/hostcniprovisioner/default &&	$(KUSTOMIZE) edit set image controller=$(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
+.PHONY: generate-manifests-provisioning
+generate-manifests-provisioning: $(PROV_DIR)
+	$(MAKE) -C $(PROV_DIR) kustomize-build
+
 .PHONY: generate-manifests-operator-embedded
-generate-manifests-operator-embedded: generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice ## Generates manifests that are embedded into the operator binary.
+generate-manifests-operator-embedded: generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice generate-manifests-provisioning ## Generates manifests that are embedded into the operator binary.
 	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/operator/controllers/manifests/hostcniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/operator/controllers/manifests/dpucniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > ./internal/operator/inventory/manifests/dpuservice.yaml
+	cp $(PROV_DIR)/output/deploy.yaml ./internal/operator/inventory/manifests/provisioningctrl.yaml
 
 .PHONY: generate-manifests-sfcset
 generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. for the sfcset controller.

@@ -26,6 +26,10 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+const (
+	Deployment = "Deployment"
+)
+
 // BytesToUnstructured converts a slice of Bytes to Unstructured objects. This function is useful when you want to read
 // a yaml manifest and covert it to Kubernetes objects.
 func BytesToUnstructured(b []byte) ([]*unstructured.Unstructured, error) {
