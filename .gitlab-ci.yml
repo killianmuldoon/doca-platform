@@ -4,6 +4,10 @@ workflow:
   # This variable can be defined where the job is triggered. e.g. the pipeline schedule in the gitlab UI
   name: $CI_PIPELINE_NAME
 
+variables:
+  ## This is a read-only token used for pulling repositories. Defined in the DPF operator CI/CD settings.
+  GITLAB_TOKEN: $CI_TOKEN
+
 stages:
   - verify
   - test
@@ -38,8 +42,6 @@ nightly-release:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_RELEASE == "true"
       when: always
   variables:
-    ## This is a read-only token used for pulling repositories. Defined in the DPF operator CI/CD settings.
-    GITLAB_TOKEN: $CI_TOKEN
     TAG: v0.0.0-nightly
     REGISTRY: harbor.mellanox.com/cloud-orchestration-dev/dpf
   tags:
