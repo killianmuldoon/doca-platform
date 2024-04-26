@@ -1070,8 +1070,23 @@ func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig
 			HostNetworkConfiguration: operatorv1.HostNetworkConfiguration{
 				Hosts: []operatorv1.Host{},
 			},
+			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
+				BFBPVCName:      "foo-pvc",
+				ImagePullSecret: "foo-image-pull-secret",
+			},
 		},
 	}
+}
+
+func waitForDeployment(ns, name string) *appsv1.Deployment {
+	deployment := &appsv1.Deployment{}
+	Eventually(func(g Gomega) {
+		g.Expect(testClient.Get(ctx, client.ObjectKey{
+			Namespace: ns,
+			Name:      name},
+			deployment)).To(Succeed())
+	}).WithTimeout(30 * time.Second).Should(Succeed())
+	return deployment
 }
 
 var _ = Describe("DPFOperatorConfig Controller", func() {
@@ -1093,6 +1108,30 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 					Name:      "dpuservice-controller-manager"},
 					deployment)).To(Succeed())
 			}).WithTimeout(30 * time.Second).Should(Succeed())
+		})
+
+		verifyPVC := func(deployment *appsv1.Deployment, expected string) {
+			var bfbPvc *corev1.PersistentVolumeClaimVolumeSource
+			for _, vol := range deployment.Spec.Template.Spec.Volumes {
+				if vol.Name == "bfb-volume" && vol.PersistentVolumeClaim != nil {
+					bfbPvc = vol.PersistentVolumeClaim
+					break
+				}
+			}
+			if bfbPvc == nil {
+				Fail("no pvc volume found")
+			}
+			Expect(bfbPvc.ClaimName).To(Equal(expected))
+		}
+		It("reconciles dpf-provisioning-controller: set bfb PVC", func() {
+			config := getMinimalDPFOperatorConfig(testNS.Name)
+			config.Spec.ProvisioningConfiguration.BFBPVCName = "foo-pvc"
+			config.Spec.ProvisioningConfiguration.ImagePullSecret = "foo-image-pull-secret"
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, config)
+			Expect(testClient.Create(ctx, config)).To(Succeed())
+
+			deployment := waitForDeployment("dpf-provisioning", "dpf-provisioning-controller-manager")
+			verifyPVC(deployment, "foo-pvc")
 		})
 	})
 })
