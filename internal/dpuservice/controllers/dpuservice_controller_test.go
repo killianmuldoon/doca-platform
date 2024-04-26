@@ -31,10 +31,12 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/utils/ptr"
@@ -132,8 +134,8 @@ var _ = Describe("DPUService Controller", func() {
 				},
 				{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two", Namespace: testNS.Name}},
 			}
+			By("create dpuservices and check the correct secrets, appproject and applications are created")
 			for i := range dpuServices {
-				cleanupObjs = append(cleanupObjs, dpuServices[i])
 				Expect(testClient.Create(ctx, dpuServices[i])).To(Succeed())
 			}
 
@@ -154,6 +156,34 @@ var _ = Describe("DPUService Controller", func() {
 			// Check that the argo Application has been created correctly
 			Eventually(func(g Gomega) {
 				assertApplication(g, testClient, dpuServices, clusters)
+			}).WithTimeout(30 * time.Second).Should(BeNil())
+
+			By("delete the DPUService and ensure the application associated with it are deleted")
+			for i := range dpuServices {
+				Expect(testClient.Delete(ctx, dpuServices[i])).To(Succeed())
+			}
+			// Ensure the applications are deleted.
+			Eventually(func(g Gomega) {
+				applications := &argov1.ApplicationList{}
+				g.Expect(testClient.List(ctx, applications)).To(Succeed())
+				// We're not running the ArgoCD controllers in this test so the finalizers must be removed here.
+				// Do this in each loop as there's a race condition where the Application is patched again
+				// by the DPUService controller.
+				for i := range applications.Items {
+					err := testClient.Patch(ctx, &applications.Items[i], client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`)))
+					if err != nil && !apierrors.IsNotFound(err) {
+						g.Expect(err).To(HaveOccurred())
+					}
+				}
+				g.Expect(applications.Items).To(BeEmpty())
+
+			}).WithTimeout(30 * time.Second).Should(BeNil())
+
+			// Ensure the DPUService finalizer is removed and they are deleted.
+			Eventually(func(g Gomega) {
+				gotDpuServices := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx, gotDpuServices)).To(Succeed())
+				g.Expect(gotDpuServices.Items).To(BeEmpty())
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 		})
 	})
@@ -259,7 +289,6 @@ func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuser
 			}
 		}
 	}
-
 }
 
 var _ = Describe("test DPUService reconciler step-by-step", func() {
