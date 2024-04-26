@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	dpucniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/config"
 	hostcniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host/config"
@@ -1123,6 +1124,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			}
 			Expect(bfbPvc.ClaimName).To(Equal(expected))
 		}
+
 		It("reconciles dpf-provisioning-controller: set bfb PVC", func() {
 			config := getMinimalDPFOperatorConfig(testNS.Name)
 			config.Spec.ProvisioningConfiguration.BFBPVCName = "foo-pvc"
@@ -1132,6 +1134,19 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 
 			deployment := waitForDeployment("dpf-provisioning", "dpf-provisioning-controller-manager")
 			verifyPVC(deployment, "foo-pvc")
+		})
+
+		It("reconciles ServiceFunctionChainSet controllers as DPUServices", func() {
+			config := getMinimalDPFOperatorConfig(testNS.Name)
+			Expect(testClient.Create(ctx, config)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, config)
+			Eventually(func(g Gomega) {
+				dpuservice := &dpuservicev1.DPUService{}
+				g.Expect(testClient.Get(ctx, client.ObjectKey{
+					Namespace: config.Namespace,
+					Name:      "servicefunctionchainset-controller"},
+					dpuservice)).To(Succeed())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 	})
 })

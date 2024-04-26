@@ -1,0 +1,10 @@
+apiVersion: svc.dpf.nvidia.com/v1alpha1
+kind: DPUService
+metadata:
+  name: servicefunctionchainset-controller
+  namespace: dpf-operator-system
+spec:
+  source:
+    repoURL: ${REGISTRY}
+    chart: ${CHART_NAME}
+    version: ${TAG}

@@ -22,6 +22,7 @@ import (
 	"flag"
 	"os"
 
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	operatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/controllers"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/inventory"
@@ -55,6 +56,9 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(operatorv1.AddToScheme(scheme))
+
+	utilruntime.Must(dpuservicev1.AddToScheme(scheme))
+
 	//+kubebuilder:scaffold:scheme
 }
 
