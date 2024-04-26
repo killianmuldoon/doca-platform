@@ -73,6 +73,8 @@ This guide serves as a blueprint on how to test the custom OVN Kubernetes setup 
       namespace: dpf-operator-system
     spec:
       hostNetworkConfiguration:
+        hostPF0: ens2f0np0
+        hostPF0VF0: enp23s0f0v0
         CIDR: 192.168.1.0/24
         hosts:
         - hostClusterNodeName: dpf-worker-0

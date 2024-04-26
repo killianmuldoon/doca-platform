@@ -21,6 +21,8 @@ metadata:
           "spec": {
             "hostNetworkConfiguration": {
               "CIDR": "10.0.96.0/20",
+              "hostPF0": "ens2f0np0",
+              "hostPF0VF0": "enp23s0f0v0",
               "hosts": [
                 {
                   "dpuClusterNodeName": "dpu-worker-1",

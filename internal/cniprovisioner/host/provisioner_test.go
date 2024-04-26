@@ -45,7 +45,7 @@ var _ = Describe("Host CNI Provisioner", func() {
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
 			pfIPNet, err := netlink.ParseIPNet("192.168.1.2/24")
 			Expect(err).ToNot(HaveOccurred())
-			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper, pfIPNet)
+			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper, "ens25f0np0", pfIPNet)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "hostcniprovisioner")
@@ -64,13 +64,13 @@ var _ = Describe("Host CNI Provisioner", func() {
 			_, err = os.Create(filepath.Join(ovnDBsPath, "file2.db"))
 			Expect(err).NotTo(HaveOccurred())
 
-			sriovNumVfsPath := filepath.Join(tmpDir, "/sys/class/net/ens2f0np0/device/sriov_numvfs")
+			sriovNumVfsPath := filepath.Join(tmpDir, "/sys/class/net/ens25f0np0/device/sriov_numvfs")
 			err = os.MkdirAll(filepath.Dir(sriovNumVfsPath), 0755)
 			Expect(err).NotTo(HaveOccurred())
 			err = os.WriteFile(sriovNumVfsPath, []byte(strconv.Itoa(2)), 0444)
 			Expect(err).NotTo(HaveOccurred())
 
-			networkhelper.EXPECT().SetLinkIPAddress("ens2f0np0", pfIPNet)
+			networkhelper.EXPECT().SetLinkIPAddress("ens25f0np0", pfIPNet)
 
 			networkhelper.EXPECT().AddDummyLink("pf0vf0")
 			networkhelper.EXPECT().AddDummyLink("pf0vf1")
@@ -99,7 +99,7 @@ var _ = Describe("Host CNI Provisioner", func() {
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
 			ctx, cancel := context.WithCancel(ctx)
 			c := clock.NewFakeClock(time.Now())
-			provisioner := hostcniprovisioner.New(ctx, c, networkhelper, nil)
+			provisioner := hostcniprovisioner.New(ctx, c, networkhelper, "", nil)
 
 			networkhelper.EXPECT().DummyLinkExists("pf0vf0").DoAndReturn(func(link string) (bool, error) {
 				c.Step(2 * time.Second)
@@ -139,18 +139,18 @@ func assertFakeFilesystem(tmpDir string) {
 		"/var/dpf/sys/class/net": {
 			isDir: true,
 		},
-		"/var/dpf/sys/class/net/ens2f0np0": {
+		"/var/dpf/sys/class/net/ens25f0np0": {
 			isDir: true,
 		},
-		"/var/dpf/sys/class/net/ens2f0np0/subsystem": {
+		"/var/dpf/sys/class/net/ens25f0np0/subsystem": {
 			isSymlink: true,
 			content:   "/var/dpf/sys/class/net",
 		},
-		"/var/dpf/sys/class/net/ens2f0np0/phys_switch_id": {
+		"/var/dpf/sys/class/net/ens25f0np0/phys_switch_id": {
 			isDir:   false,
 			content: "custom_value",
 		},
-		"/var/dpf/sys/class/net/ens2f0np0/phys_port_name": {
+		"/var/dpf/sys/class/net/ens25f0np0/phys_port_name": {
 			isDir:   false,
 			content: "p0",
 		},

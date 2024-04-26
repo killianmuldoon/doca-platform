@@ -57,7 +57,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	c := clock.RealClock{}
-	provisioner := hostcniprovisioner.New(ctx, c, networkhelper.New(), pfIP)
+	provisioner := hostcniprovisioner.New(ctx, c, networkhelper.New(), config.HostPF0, pfIP)
 
 	err = provisioner.RunOnce()
 	if err != nil {

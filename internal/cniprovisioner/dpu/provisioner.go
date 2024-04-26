@@ -33,8 +33,6 @@ import (
 const (
 	// brInt is the name of the OVN integration bridge
 	brInt = "br-int"
-	// brEx is the name of the OVN external bridge and must match the name of the PF on the host
-	brEx = "ens2f0np0"
 	// brOVN is the name of the bridge that is used to communicate with OVN. This is the bridge where the rest of the HBN
 	// will connect.
 	brOVN = "br-ovn"
@@ -65,6 +63,9 @@ type DPUCNIProvisioner struct {
 	// its peer nodes when traffic needs to go from one Pod running on worker Node A to another Pod running on control
 	// plane A (and vice versa).
 	hostCIDR *net.IPNet
+
+	// brEx is the name of the OVN external bridge and must match the name of the PF on the host.
+	brEx string
 }
 
 // New creates a DPUCNIProvisioner that can configure the system
@@ -74,7 +75,8 @@ func New(ovsClient ovsclient.OVSClient,
 	vtepIPNet *net.IPNet,
 	gateway net.IP,
 	vtepCIDR *net.IPNet,
-	hostCIDR *net.IPNet) *DPUCNIProvisioner {
+	hostCIDR *net.IPNet,
+	pf0 string) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
 		ovsClient:      ovsClient,
 		networkHelper:  networkHelper,
@@ -84,6 +86,7 @@ func New(ovsClient ovsclient.OVSClient,
 		gateway:        gateway,
 		vtepCIDR:       vtepCIDR,
 		hostCIDR:       hostCIDR,
+		brEx:           pf0,
 	}
 }
 
@@ -123,9 +126,9 @@ func (p *DPUCNIProvisioner) configure() error {
 	// TODO: Create a better data structure for bridges.
 	// TODO: Parse IP for br-int via the interface which will use DHCP.
 	for bridge, controller := range map[string]string{
-		brInt: "ptcp:8510:10.100.1.1",
-		brEx:  "ptcp:8511",
-		brOVN: "",
+		brInt:  "ptcp:8510:10.100.1.1",
+		p.brEx: "ptcp:8511",
+		brOVN:  "",
 	} {
 		err := p.setupOVSBridge(bridge, controller)
 		if err != nil {
@@ -133,7 +136,7 @@ func (p *DPUCNIProvisioner) configure() error {
 		}
 	}
 
-	brExTobrOVNPatchPort, _, err := p.connectOVSBridges(brEx, brOVN)
+	brExTobrOVNPatchPort, _, err := p.connectOVSBridges(p.brEx, brOVN)
 	if err != nil {
 		return err
 	}
@@ -266,14 +269,14 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 	}
 
 	// This is also needed for pods to access the internet
-	return p.ovsClient.SetBridgeUplinkPort(brEx, uplinkPort)
+	return p.ovsClient.SetBridgeUplinkPort(p.brEx, uplinkPort)
 }
 
 // configureHostToServiceConnectivity configures br-ex so that Service ClusterIP traffic from the host to the DPU finds
 // it's way to the br-int
 func (p *DPUCNIProvisioner) configureHostToServiceConnectivity() error {
 	pfRep := "pf0hpf"
-	err := p.ovsClient.AddPort(brEx, pfRep)
+	err := p.ovsClient.AddPort(p.brEx, pfRep)
 	if err != nil {
 		return err
 	}
@@ -281,7 +284,7 @@ func (p *DPUCNIProvisioner) configureHostToServiceConnectivity() error {
 	if err != nil {
 		return err
 	}
-	err = p.ovsClient.SetBridgeHostToServicePort(brEx, pfRep)
+	err = p.ovsClient.SetBridgeHostToServicePort(p.brEx, pfRep)
 	if err != nil {
 		return err
 	}
@@ -290,7 +293,7 @@ func (p *DPUCNIProvisioner) configureHostToServiceConnectivity() error {
 	if err != nil {
 		return err
 	}
-	return p.ovsClient.SetBridgeMAC(brEx, mac)
+	return p.ovsClient.SetBridgeMAC(p.brEx, mac)
 }
 
 // configureOVNManagementVF configures the VF that is going to be used by OVN Kubernetes for the management
@@ -333,7 +336,7 @@ func (p *DPUCNIProvisioner) isSystemAlreadyConfigured() (bool, error) {
 		return false, nil
 	}
 
-	exists, err = p.ovsClient.BridgeExists(brEx)
+	exists, err = p.ovsClient.BridgeExists(p.brEx)
 	if err != nil {
 		return false, err
 	}
@@ -370,7 +373,7 @@ func (p *DPUCNIProvisioner) cleanUpBridges() error {
 	if err != nil {
 		return err
 	}
-	err = p.ovsClient.DeleteBridgeIfExists(brEx)
+	err = p.ovsClient.DeleteBridgeIfExists(p.brEx)
 	if err != nil {
 		return err
 	}
