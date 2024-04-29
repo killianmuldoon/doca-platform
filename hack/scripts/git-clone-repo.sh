@@ -48,7 +48,6 @@ then
 else
   echo "Cloning repo using authenticated https with GitLab token"
   git clone "https://user:""$GITLAB_TOKEN"@"$SERVER"/"$PROJECT" "$DIR"
-  exit 0
 fi
 
 ## Check out the passed revision if it is set.
@@ -56,4 +55,6 @@ if [ ! -z "${REVISION}" ];
 then
   echo "Checking out revision " $REVISION
   cd $DIR && git reset --hard "$REVISION"
+else
+  cd $DIR && echo "No revision set. Using HEAD@"$(git rev-parse HEAD)
 fi

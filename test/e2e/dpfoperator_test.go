@@ -167,7 +167,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					g.Expect(deploymentList.Items).To(HaveLen(1))
 					g.Expect(deploymentList.Items[0].Name).To(ContainSubstring("servicefunctionchainset-controller"))
 				}
-			}).WithTimeout(600 * time.Second).Should(Succeed())
+			}).WithTimeout(180 * time.Second).Should(Succeed())
 		})
 
 		It("create a DPUService and check that it is mirrored to each cluster", func() {
@@ -196,7 +196,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					g.Expect(deploymentList.Items).To(HaveLen(1))
 					g.Expect(deploymentList.Items[0].Name).To(ContainSubstring("helm-guestbook"))
 				}
-			}).WithTimeout(600 * time.Second).Should(Succeed())
+			}).WithTimeout(180 * time.Second).Should(Succeed())
 		})
 
 		It("delete the DPUService and check that the applications are cleaned up", func() {
@@ -204,15 +204,17 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: "default", Name: dpuserviceName}, svc)).To(Succeed())
 			Expect(testClient.Delete(ctx, svc)).To(Succeed())
 			// Get the control plane secrets.
-			dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
-			Expect(err).ToNot(HaveOccurred())
-			for i := range dpuControlPlanes {
-				dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
+			Eventually(func(g Gomega) {
+				dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
 				Expect(err).ToNot(HaveOccurred())
-				deploymentList := appsv1.DeploymentList{}
-				Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
-				Expect(deploymentList.Items).To(BeEmpty())
-			}
+				for i := range dpuControlPlanes {
+					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
+					Expect(err).ToNot(HaveOccurred())
+					deploymentList := appsv1.DeploymentList{}
+					Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
+					Expect(deploymentList.Items).To(BeEmpty())
+				}
+			}).WithTimeout(180 * time.Second).Should(Succeed())
 		})
 	})
 })

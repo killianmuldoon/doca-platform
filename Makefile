@@ -216,7 +216,7 @@ OVN_DIR=$(REPOSDIR)/ovn
 $(OVN_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR)
 
-PROV_DIR=$(REPOSDIR)/dpf-provisioning-controller
+PROV_DIR=$(REPOSDIR)/dpf-provisioning-controller-$(DPF_PROVISIONING_CONTROLLER_REV)
 $(PROV_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-provisioning-controller.git $(PROV_DIR) $(DPF_PROVISIONING_CONTROLLER_REV)
 

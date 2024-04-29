@@ -31,6 +31,8 @@ verify:
     COMPARISON_REV: $CI_COMMIT_SHA # Used by the verify-copyright target
   script:
     -  make verify-generate verify-copyright
+  after_script:
+    - git diff
 
 nightly-release:
   stage: build
