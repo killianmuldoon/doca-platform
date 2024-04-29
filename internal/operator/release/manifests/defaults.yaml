@@ -1,0 +1,2 @@
+customOVNKubernetesDPUImage: nvidia.com/ovn-kubernetes-dpu:v0.0.0
+customOVNKubernetesNonDPUImage: nvidia.com/ovn-kubernetes-non-dpu:v0.0.0
