@@ -176,15 +176,15 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					daemonsets := appsv1.DaemonSetList{}
 					g.Expect(dpuClient.List(ctx, &daemonsets)).To(Succeed())
 					for i := range daemonsets.Items {
-						found[daemonsets.Items[i].GetLabels()["app"]] = true
+						found[daemonsets.Items[i].GetLabels()["app.kubernetes.io/instance"]] = true
 					}
 
 					// Expect each of the following to have been created by the operator.
 					// These are labels of the appv1 type - e.g. DaemonSet or Deployment on the DPU cluster.
-					g.Expect(found).To(HaveKey("multus"))
-					g.Expect(found).To(HaveKey("sriov-device-plugin"))
-					g.Expect(found).To(HaveKey("flannel"))
-					g.Expect(found).To(HaveKey("servicechain"))
+					g.Expect(found).To(HaveKey(ContainSubstring("multus")))
+					g.Expect(found).To(HaveKey(ContainSubstring("sriov-device-plugin")))
+					g.Expect(found).To(HaveKey(ContainSubstring("flannel")))
+					g.Expect(found).To(HaveKey(ContainSubstring("servicefunctionchainset-controller")))
 				}
 			}).WithTimeout(180 * time.Second).Should(Succeed())
 		})
