@@ -44,7 +44,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-29T16:00:32Z"
+    createdAt: "2024-04-30T13:01:17Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: unknown
   name: dpf-operator.v0.0.0

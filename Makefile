@@ -430,6 +430,8 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 .PHONY: verify-generate
 verify-generate: generate
 	$(info checking for git diff after running 'make generate')
+	# Use intent-to-add to check for untracked files after generation.
+	git add -N .
 	$Q git diff --quiet ':!bundle' ; if [ $$? -eq 1 ] ; then echo "Please, commit manifests after running 'make generate'"; exit 1 ; fi
 	# Files under `bundle` are verified here. The createdAt field is excluded as it is always updated at generation time and is not relevant to the bundle.
 	$Q git diff --quiet -I'^    createdAt: ' bundle ; if [ $$? -eq 1 ] ; then echo "Please, commit manifests after running 'make generate'"; exit 1 ; fi
