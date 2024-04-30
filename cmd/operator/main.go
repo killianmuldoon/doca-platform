@@ -212,5 +212,6 @@ func getSettings() (*operatorcontroller.DPFOperatorConfigReconcilerSettings, err
 		CustomOVNKubernetesDPUImage:    customOVNKubernetesDPUImage,
 		CustomOVNKubernetesNonDPUImage: customOVNKubernetesNonDPUImage,
 		ConfigSingletonNamespaceName:   configSingletonNamespaceName,
+		ReconcileOVNKubernetes:         reconcileOVNKubernetes,
 	}, nil
 }
