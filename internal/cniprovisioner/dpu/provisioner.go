@@ -249,11 +249,18 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 		return fmt.Errorf("error while setting link %s up: %w", vtep, err)
 	}
 
-	// Route related to traffic that needs to go from one Pod running on worker Node A to another Pod running on worker
-	// Node B.
-	err = p.networkHelper.AddRoute(p.vtepCIDR, p.gateway, vtep)
+	_, vtepNetwork, err := net.ParseCIDR(p.vtepIPNet.String())
 	if err != nil {
-		return fmt.Errorf("error while adding route %s %s %s: %w", p.vtepCIDR, p.gateway.String(), vtep, err)
+		return fmt.Errorf("error while parsing network from VTEP IP %s: %w", p.vtepIPNet.String(), err)
+	}
+
+	if vtepNetwork.String() != p.vtepCIDR.String() {
+		// Route related to traffic that needs to go from one Pod running on worker Node A to another Pod running on worker
+		// Node B.
+		err = p.networkHelper.AddRoute(p.vtepCIDR, p.gateway, vtep)
+		if err != nil {
+			return fmt.Errorf("error while adding route %s %s %s: %w", p.vtepCIDR, p.gateway.String(), vtep, err)
+		}
 	}
 
 	// Route related to traffic that needs to go from one Pod running on worker Node A to another Pod running on control

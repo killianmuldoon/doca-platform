@@ -57,7 +57,7 @@ OVS_CTL_OPTS="--ovsdb-server-options=--remote=ptcp:8500"`
 
 var _ = Describe("DPU CNI Provisioner", func() {
 	Context("When it runs once for the first time", func() {
-		It("should configure the system fully", func() {
+		It("should configure the system fully when different subnets per DPU", func() {
 			testCtrl := gomock.NewController(GinkgoT())
 			ovsClient := ovsclientMock.NewMockOVSClient(testCtrl)
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
@@ -65,7 +65,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			vtepIPNet, err := netlink.ParseIPNet("192.168.1.1/24")
 			Expect(err).ToNot(HaveOccurred())
 			gateway := net.ParseIP("192.168.1.10/24")
-			vtepCIDR, err := netlink.ParseIPNet("192.168.1.0/24")
+			vtepCIDR, err := netlink.ParseIPNet("192.168.1.0/23")
 			Expect(err).ToNot(HaveOccurred())
 			hostCIDR, err := netlink.ParseIPNet("10.0.100.1/24")
 			Expect(err).ToNot(HaveOccurred())
@@ -135,6 +135,100 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			networkhelper.EXPECT().SetLinkIPAddress("vtep0", vtepIPNet)
 			networkhelper.EXPECT().SetLinkUp("vtep0")
 			networkhelper.EXPECT().AddRoute(vtepCIDR, gateway, "vtep0")
+			networkhelper.EXPECT().AddRoute(hostCIDR, gateway, "vtep0")
+
+			networkhelper.EXPECT().SetLinkDown("pf0vf0")
+			networkhelper.EXPECT().RenameLink("pf0vf0", "ovn-k8s-mp0_0")
+			networkhelper.EXPECT().SetLinkUp("ovn-k8s-mp0_0")
+
+			err = provisioner.RunOnce()
+			Expect(err).ToNot(HaveOccurred())
+
+			ovsSystemdConfig, err := os.ReadFile(ovsSystemdConfigPath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(ovsSystemdConfig)).To(Equal(ovsSystemdConfigContentPopulated))
+		})
+		It("should configure the system fully when same subnet across DPUs", func() {
+			testCtrl := gomock.NewController(GinkgoT())
+			ovsClient := ovsclientMock.NewMockOVSClient(testCtrl)
+			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			fakeExec := &kexecTesting.FakeExec{}
+			vtepIPNet, err := netlink.ParseIPNet("192.168.1.1/24")
+			Expect(err).ToNot(HaveOccurred())
+			gateway := net.ParseIP("192.168.1.10/24")
+			_, vtepCIDR, err := net.ParseCIDR("192.168.1.0/24")
+			Expect(err).ToNot(HaveOccurred())
+			_, hostCIDR, err := net.ParseCIDR("10.0.100.1/24")
+			Expect(err).ToNot(HaveOccurred())
+			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, vtepIPNet, gateway, vtepCIDR, hostCIDR, "ens25f0np0")
+
+			// Prepare Filesystem
+			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
+			defer func() {
+				err := os.RemoveAll(tmpDir)
+				Expect(err).ToNot(HaveOccurred())
+			}()
+			Expect(err).NotTo(HaveOccurred())
+			provisioner.FileSystemRoot = tmpDir
+			ovsSystemdConfigPath := filepath.Join(tmpDir, "/etc/default/openvswitch-switch")
+			err = os.MkdirAll(filepath.Dir(ovsSystemdConfigPath), 0755)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = os.WriteFile(ovsSystemdConfigPath, []byte(ovsSystemdConfigContentDefault), 0644)
+			Expect(err).NotTo(HaveOccurred())
+			ovsClient.EXPECT().SetDOCAInit(true)
+			fakeExec.CommandScript = append(fakeExec.CommandScript, kexecTesting.FakeCommandAction(func(cmd string, args ...string) kexec.Cmd {
+				Expect(cmd).To(Equal("systemctl"))
+				Expect(args).To(Equal([]string{"restart", "openvswitch-switch.service"}))
+				return kexec.New().Command("echo")
+			}))
+
+			ovsClient.EXPECT().BridgeExists("br-int").Return(false, nil)
+
+			ovsClient.EXPECT().DeleteBridgeIfExists("ovsbr1")
+			ovsClient.EXPECT().DeleteBridgeIfExists("ovsbr2")
+			ovsClient.EXPECT().DeleteBridgeIfExists("br-int")
+			ovsClient.EXPECT().DeleteBridgeIfExists("ens25f0np0")
+			ovsClient.EXPECT().DeleteBridgeIfExists("br-ovn")
+
+			ovsClient.EXPECT().AddBridge("br-int")
+			ovsClient.EXPECT().SetBridgeDataPathType("br-int", ovsclient.NetDev)
+			ovsClient.EXPECT().SetBridgeController("br-int", "ptcp:8510:10.100.1.1")
+			ovsClient.EXPECT().AddBridge("ens25f0np0")
+			ovsClient.EXPECT().SetBridgeDataPathType("ens25f0np0", ovsclient.NetDev)
+			ovsClient.EXPECT().SetBridgeController("ens25f0np0", "ptcp:8511")
+			ovsClient.EXPECT().AddBridge("br-ovn")
+			ovsClient.EXPECT().SetBridgeDataPathType("br-ovn", ovsclient.NetDev)
+
+			ovsClient.EXPECT().AddPort("ens25f0np0", "ens25f0np0-to-br-ovn").Return(errors.New("some error related to creating patch ports"))
+			ovsClient.EXPECT().SetPortType("ens25f0np0-to-br-ovn", ovsclient.Patch)
+			ovsClient.EXPECT().SetPatchPortPeer("ens25f0np0-to-br-ovn", "br-ovn-to-ens25f0np0")
+			ovsClient.EXPECT().AddPort("br-ovn", "br-ovn-to-ens25f0np0").Return(errors.New("some error related to creating patch ports"))
+			ovsClient.EXPECT().SetPortType("br-ovn-to-ens25f0np0", ovsclient.Patch)
+			ovsClient.EXPECT().SetPatchPortPeer("br-ovn-to-ens25f0np0", "ens25f0np0-to-br-ovn")
+
+			ovsClient.EXPECT().AddPort("br-ovn", "p0")
+			ovsClient.EXPECT().SetPortType("p0", ovsclient.DPDK)
+			ovsClient.EXPECT().AddPort("br-ovn", "vtep0")
+			ovsClient.EXPECT().SetPortType("vtep0", ovsclient.Internal)
+
+			ovsClient.EXPECT().AddPort("ens25f0np0", "pf0hpf")
+			ovsClient.EXPECT().SetPortType("pf0hpf", ovsclient.DPDK)
+			ovsClient.EXPECT().SetBridgeHostToServicePort("ens25f0np0", "pf0hpf")
+			ovsClient.EXPECT().SetBridgeUplinkPort("ens25f0np0", "ens25f0np0-to-br-ovn")
+
+			ovsClient.EXPECT().SetOVNEncapIP(net.ParseIP("192.168.1.1"))
+
+			mac, _ := net.ParseMAC("00:00:00:00:00:01")
+			networkhelper.EXPECT().GetPFRepMACAddress("pf0hpf").Return(mac, nil)
+			ovsClient.EXPECT().SetBridgeMAC("ens25f0np0", mac)
+
+			Expect(vtepIPNet.String()).To(Equal("192.168.1.1/24"))
+			_, vtepNetwork, _ := net.ParseCIDR(vtepIPNet.String())
+			Expect(vtepNetwork.String()).To(Equal("192.168.1.0/24"))
+			Expect(vtepCIDR).To(Equal(vtepNetwork))
+			networkhelper.EXPECT().SetLinkIPAddress("vtep0", vtepIPNet)
+			networkhelper.EXPECT().SetLinkUp("vtep0")
 			networkhelper.EXPECT().AddRoute(hostCIDR, gateway, "vtep0")
 
 			networkhelper.EXPECT().SetLinkDown("pf0vf0")

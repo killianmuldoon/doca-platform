@@ -59,12 +59,12 @@ func main() {
 		klog.Fatalf("error while parsing Gateway from config: %s", err.Error())
 	}
 
-	vtepCIDR, err := netlink.ParseIPNet(config.VTEPCIDR)
+	_, vtepCIDR, err := net.ParseCIDR(config.VTEPCIDR)
 	if err != nil {
 		klog.Fatalf("error while parsing VTEP CIDR %s as net.IPNet: %s", config.VTEPCIDR, err.Error())
 	}
 
-	hostCIDR, err := netlink.ParseIPNet(config.HostCIDR)
+	_, hostCIDR, err := net.ParseCIDR(config.HostCIDR)
 	if err != nil {
 		klog.Fatalf("error while parsing Host CIDR %s as net.IPNet: %s", config.HostCIDR, err.Error())
 	}
