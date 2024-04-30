@@ -1,10 +1,10 @@
 apiVersion: svc.dpf.nvidia.com/v1alpha1
 kind: DPUService
 metadata:
-  name: servicefunctionchainset-controller
+  name: sriov-device-plugin
   namespace: dpf-operator-system
 spec:
   source:
     repoURL: ${REGISTRY}
-    chart: ${SERVICECHAIN_CONTROLLER_HELM_CHART_NAME}
+    chart: ${SRIOV_DP_HELM_CHART_NAME}
     version: ${TAG}

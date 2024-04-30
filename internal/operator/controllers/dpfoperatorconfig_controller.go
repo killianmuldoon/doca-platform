@@ -286,10 +286,42 @@ func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Cont
 				err))
 		}
 	}
-	if len(errs) > 0 {
-		return kerrors.NewAggregate(errs)
+	r.Inventory.Multus.SetNamespace(config.Namespace)
+	for _, obj := range r.Inventory.Multus.Objects() {
+		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
+				obj.GetObjectKind().GroupVersionKind().Kind,
+				klog.KObj(obj),
+				err))
+		}
 	}
-	return r.reconcileProvisioningCtrl(ctx, config)
+	r.Inventory.SRIOVDevicePlugin.SetNamespace(config.Namespace)
+	for _, obj := range r.Inventory.SRIOVDevicePlugin.Objects() {
+		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
+				obj.GetObjectKind().GroupVersionKind().Kind,
+				klog.KObj(obj),
+				err))
+		}
+	}
+	r.Inventory.Flannel.SetNamespace(config.Namespace)
+	for _, obj := range r.Inventory.Flannel.Objects() {
+		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
+				obj.GetObjectKind().GroupVersionKind().Kind,
+				klog.KObj(obj),
+				err))
+		}
+	}
+
+	if err := r.reconcileProvisioningCtrl(ctx, config); err != nil {
+		errs = append(errs, err)
+	}
+	return kerrors.NewAggregate(errs)
+
 }
 
 // reconcileCustomOVNKubernetesDeployment ensures that custom OVN Kubernetes is deployed

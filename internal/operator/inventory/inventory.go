@@ -24,9 +24,12 @@ import (
 
 // Manifests holds kubernetes object manifests to be deployed by the operator.
 type Manifests struct {
-	DPUService              DPUServiceObjects
+	DPUService              DPUServiceControllerObjects
 	ProvCtrl                ProvCtrlObjects
-	ServiceFunctionChainSet ServiceFunctionChainSetObjects
+	ServiceFunctionChainSet fromDPUService
+	Multus                  fromDPUService
+	SRIOVDevicePlugin       fromDPUService
+	Flannel                 fromDPUService
 }
 
 // Embed manifests for Kubernetes objects created by the controller.
@@ -36,17 +39,39 @@ var (
 
 	//go:embed manifests/servicefunctionchainset-controller.yaml
 	serviceChainSetData []byte
+
+	//go:embed manifests/sriov-device-plugin.yaml
+	sriovDevicePluginData []byte
+
+	//go:embed manifests/multus.yaml
+	multusData []byte
+
+	//go:embed manifests/flannel.yaml
+	flannelData []byte
 )
 
 // New returns a new Manifests inventory with data preloaded but parsing not completed.
 func New() *Manifests {
 	return &Manifests{
-		DPUService: DPUServiceObjects{
+		DPUService: DPUServiceControllerObjects{
 			data: dpuServiceData,
 		},
 		ProvCtrl: NewProvisionCtrlObjects(),
-		ServiceFunctionChainSet: ServiceFunctionChainSetObjects{
+		ServiceFunctionChainSet: fromDPUService{
+			name: "serviceFunctionChainSet",
 			data: serviceChainSetData,
+		},
+		Multus: fromDPUService{
+			name: "multus",
+			data: multusData,
+		},
+		SRIOVDevicePlugin: fromDPUService{
+			name: "sriovDevicePlugin",
+			data: sriovDevicePluginData,
+		},
+		Flannel: fromDPUService{
+			name: "flannel",
+			data: flannelData,
 		},
 	}
 }
@@ -62,6 +87,16 @@ func (m *Manifests) Parse() error {
 	if err := m.ServiceFunctionChainSet.Parse(); err != nil {
 		return err
 	}
+	if err := m.Multus.Parse(); err != nil {
+		return err
+	}
+	if err := m.SRIOVDevicePlugin.Parse(); err != nil {
+		return err
+	}
+	if err := m.Flannel.Parse(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -70,4 +105,30 @@ func (m *Manifests) Objects() []client.Object {
 	out := []client.Object{}
 	out = append(out, m.DPUService.Objects()...)
 	return out
+}
+
+func (m *Manifests) setDPUService(input DPUServiceControllerObjects) *Manifests {
+	m.DPUService = input
+	return m
+}
+
+func (m *Manifests) setMultus(input fromDPUService) *Manifests {
+	m.Multus = input
+	return m
+
+}
+
+func (m *Manifests) setSRIOVDevicePlugin(input fromDPUService) *Manifests {
+	m.SRIOVDevicePlugin = input
+	return m
+}
+
+func (m *Manifests) setServiceFunctionChainSet(input fromDPUService) *Manifests {
+	m.ServiceFunctionChainSet = input
+	return m
+}
+
+func (m *Manifests) setFlannel(input fromDPUService) *Manifests {
+	m.Flannel = input
+	return m
 }

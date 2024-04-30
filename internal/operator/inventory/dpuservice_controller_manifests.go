@@ -28,8 +28,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// DPUServiceObjects contains Kubernetes objects to be created by the DPUService controller.
-type DPUServiceObjects struct {
+// DPUServiceControllerObjects contains Kubernetes objects to be created by the DPUService controller.
+type DPUServiceControllerObjects struct {
 	data               []byte
 	Deployment         *appsv1.Deployment
 	ServiceAccount     *corev1.ServiceAccount
@@ -40,9 +40,9 @@ type DPUServiceObjects struct {
 }
 
 // Parse returns typed objects for the DPUService controller deployment.
-func (d *DPUServiceObjects) Parse() error {
+func (d *DPUServiceControllerObjects) Parse() error {
 	if d.data == nil {
-		return fmt.Errorf("DPUServiceObjects.data can not be empty")
+		return fmt.Errorf("DPUServiceControllerObjects.data can not be empty")
 	}
 	dpuServiceObjects, err := utils.BytesToUnstructured(d.data)
 	if err != nil {
@@ -87,8 +87,8 @@ func (d *DPUServiceObjects) Parse() error {
 	return d.validate()
 }
 
-// validate asserts the DPUServiceObjects are as expected.
-func (d *DPUServiceObjects) validate() error {
+// validate asserts the DPUServiceControllerObjects are as expected.
+func (d *DPUServiceControllerObjects) validate() error {
 	// Check that each and every field expected is set.
 	if d.Role == nil {
 		return fmt.Errorf("error parsing DPUService objects: Role not found")
@@ -112,7 +112,7 @@ func (d *DPUServiceObjects) validate() error {
 }
 
 // Objects returns all objects as a list.
-func (d *DPUServiceObjects) Objects() []client.Object {
+func (d *DPUServiceControllerObjects) Objects() []client.Object {
 	out := []client.Object{}
 	out = append(out,
 		d.Deployment.DeepCopy(),
@@ -125,8 +125,8 @@ func (d *DPUServiceObjects) Objects() []client.Object {
 	return out
 }
 
-// SetNamespace sets all Namespaces in the DPUServiceObjects to the passed string.
-func (d *DPUServiceObjects) SetNamespace(namespace string) {
+// SetNamespace sets all Namespaces in the DPUServiceControllerObjects to the passed string.
+func (d *DPUServiceControllerObjects) SetNamespace(namespace string) {
 	d.Deployment.SetNamespace(namespace)
 	d.ServiceAccount.SetNamespace(namespace)
 	d.Role.SetNamespace(namespace)
