@@ -1,10 +1,10 @@
 apiVersion: svc.dpf.nvidia.com/v1alpha1
 kind: DPUService
 metadata:
-  name: servicefunctionchainset-controller
+  name: flannel
   namespace: dpf-operator-system
 spec:
   source:
     repoURL: ${REGISTRY}
-    chart: ${SERVICECHAIN_CONTROLLER_HELM_CHART_NAME}
-    version: ${TAG}
+    chart: ${FLANNEL_HELM_CHART_NAME}
+    version: ${FLANNEL_VERSION}

@@ -4,8 +4,10 @@ metadata:
   name: {{ include "servicechain.fullname" . }}
   namespace: {{ .Release.Namespace }}
   labels:
+    app: servicechain
+    name: servicechain
+    tier: node
     {{- include "servicechain.labels" . | nindent 4 }}
-    control-plane: {{ .Release.Name }}-controller
 spec:
   replicas: 1
   selector:

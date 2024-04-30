@@ -43,66 +43,124 @@ func TestManifests_Parse(t *testing.T) {
 			name:      "parse objects from release directory",
 			inventory: New(),
 		},
-		// DPUServiceObjects
+		// DPUServiceControllerObjects
 		{
-			name: "fail if DPUService controller data is nil",
-			inventory: &Manifests{
-				DPUService: DPUServiceObjects{
-					data: nil,
-				},
-				ServiceFunctionChainSet: ServiceFunctionChainSetObjects{data: serviceChainSetData},
-			},
-			wantErr: true,
+			name:      "fail if DPUService controller data is nil",
+			inventory: New().setDPUService(DPUServiceControllerObjects{data: nil}),
+			wantErr:   true,
 		},
 		{
 			name: "fail if an unexpected DPUService controller object is present",
-			inventory: &Manifests{
-				DPUService: DPUServiceObjects{
-					data: addUnexpectedKindToObjects(g, dpuServiceData),
-				},
-				ServiceFunctionChainSet: ServiceFunctionChainSetObjects{data: serviceChainSetData},
-			},
+			inventory: New().setDPUService(DPUServiceControllerObjects{
+				data: addUnexpectedKindToObjects(g, dpuServiceData),
+			}),
 			wantErr: true,
 		},
 		{
 			name: "fail if any DPUService controller object is missing",
-			inventory: &Manifests{
-				DPUService: DPUServiceObjects{
-					data: removeKindFromObjects(g, "Deployment", dpuServiceData),
-				},
-				ServiceFunctionChainSet: ServiceFunctionChainSetObjects{data: serviceChainSetData},
-			},
+			inventory: New().setDPUService(DPUServiceControllerObjects{
+				data: removeKindFromObjects(g, "Deployment", dpuServiceData),
+			}),
 			wantErr: true,
 		},
 		// ServiceFunctionChainSetObjects
 		{
 			name: "fail if ServiceFunctionChainSet data is nil",
-			inventory: &Manifests{
-				ServiceFunctionChainSet: ServiceFunctionChainSetObjects{
-					data: nil,
-				},
-				DPUService: DPUServiceObjects{data: dpuServiceData},
-			},
+			inventory: New().setServiceFunctionChainSet(fromDPUService{
+				name: "serviceFunctionChainSet",
+				data: nil,
+			}),
 			wantErr: true,
 		},
 		{
 			name: "fail if ServiceFunctionChainSet data has an unexpected object",
-			inventory: &Manifests{
-				ServiceFunctionChainSet: ServiceFunctionChainSetObjects{
-					data: addUnexpectedKindToObjects(g, serviceChainSetData),
-				},
-				DPUService: DPUServiceObjects{data: dpuServiceData},
-			},
+			inventory: New().setServiceFunctionChainSet(fromDPUService{
+				name: "serviceFunctionChainSet",
+				data: addUnexpectedKindToObjects(g, serviceChainSetData),
+			}),
 			wantErr: true,
 		},
 		{
 			name: "fail if ServiceFunctionChainSet is missing the DPUService",
-			inventory: &Manifests{
-				ServiceFunctionChainSet: ServiceFunctionChainSetObjects{
-					data: removeKindFromObjects(g, "DPUService", serviceChainSetData),
-				},
-				DPUService: DPUServiceObjects{data: dpuServiceData},
-			},
+			inventory: New().setServiceFunctionChainSet(fromDPUService{
+				name: "serviceFunctionChainSet",
+				data: removeKindFromObjects(g, "DPUService", serviceChainSetData),
+			}),
+			wantErr: true,
+		},
+		// multus
+		{
+			name: "fail if Multus data is nil",
+			inventory: New().setMultus(fromDPUService{
+				name: "multus",
+				data: nil,
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if Multus data has an unexpected object",
+			inventory: New().setMultus(fromDPUService{
+				name: "multus",
+				data: addUnexpectedKindToObjects(g, serviceChainSetData),
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if Multus is missing the DPUService",
+			inventory: New().setMultus(fromDPUService{
+				name: "multus",
+				data: removeKindFromObjects(g, "DPUService", serviceChainSetData),
+			}),
+			wantErr: true,
+		},
+		// sriovDevicePlugin
+		{
+			name: "fail if sriovDevicePlugin data is nil",
+			inventory: New().setSRIOVDevicePlugin(fromDPUService{
+				name: "sriovDevicePlugin",
+				data: nil,
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if SRIOVDevicePlugin data has an unexpected object",
+			inventory: New().setSRIOVDevicePlugin(fromDPUService{
+				name: "sriovDevicePlugin",
+				data: addUnexpectedKindToObjects(g, serviceChainSetData),
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if SRIOVDevicePlugin is missing the DPUService",
+			inventory: New().setSRIOVDevicePlugin(fromDPUService{
+				name: "sriovDevicePlugin",
+				data: removeKindFromObjects(g, "DPUService", serviceChainSetData),
+			}),
+			wantErr: true,
+		},
+		// flannel
+		{
+			name: "fail if flannel data is nil",
+			inventory: New().setFlannel(fromDPUService{
+				name: "flannel",
+				data: nil,
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if flannel data has an unexpected object",
+			inventory: New().setFlannel(fromDPUService{
+				name: "flannel",
+				data: addUnexpectedKindToObjects(g, flannelData),
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if flannel is missing the DPUService",
+			inventory: New().setFlannel(fromDPUService{
+				name: "flannel",
+				data: removeKindFromObjects(g, "DPUService", flannelData),
+			}),
 			wantErr: true,
 		},
 	}

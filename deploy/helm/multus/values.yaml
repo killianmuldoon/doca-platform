@@ -1,0 +1,41 @@
+imagePullSecrets: []
+kubeMultusDs:
+  installMultusBinary:
+    containerSecurityContext:
+      privileged: true
+    image:
+      repository: ghcr.io/k8snetworkplumbingwg/multus-cni
+      tag: v4.0.2
+    resources:
+      requests:
+        cpu: 10m
+        memory: 15Mi
+  kubeMultus:
+    containerSecurityContext:
+      privileged: true
+    image:
+      repository: ghcr.io/k8snetworkplumbingwg/multus-cni
+      tag: v4.0.2
+    resources:
+      limits:
+        cpu: 100m
+        memory: 50Mi
+      requests:
+        cpu: 100m
+        memory: 50Mi
+kubernetesClusterDomain: cluster.local
+multus:
+  serviceAccount:
+    annotations: {}
+multusDaemonConfig:
+  daemonConfigJson: |-
+    {
+        "chrootDir": "/hostroot",
+        "cniVersion": "0.3.1",
+        "logLevel": "verbose",
+        "logToStderr": true,
+        "cniConfigDir": "/host/etc/cni/net.d",
+        "multusAutoconfigDir": "/host/etc/cni/net.d",
+        "multusConfigFile": "auto",
+        "socketDir": "/host/run/multus/"
+    }

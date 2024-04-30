@@ -165,7 +165,7 @@ $(HELM): | $(TOOLSDIR)
 # kamaji is the underlying control plane provider
 KAMAJI_REPO_URL=https://clastix.github.io/charts
 KAMAJI_REPO_NAME=clastix
-KAMAJI_CHART_VERSION=0.15.0
+KAMAJI_CHART_VERSION=0.15.2
 KAMAJI_CHART_NAME=kamaji
 KAMAJI := $(abspath $(CHARTSDIR)/$(KAMAJI_CHART_NAME)-$(KAMAJI_CHART_VERSION).tgz)
 $(KAMAJI): | $(CHARTSDIR) $(HELM)
@@ -255,7 +255,7 @@ generate-modules: ## Run go mod tidy to update go modules
 generate-manifests: controller-gen kustomize $(addprefix generate-manifests-,$(GENERATE_TARGETS)) ## Run all generate-manifests-* targets
 
 .PHONY: generate-manifests-operator
-generate-manifests-operator: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. for the operator controller.
+generate-manifests-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC. for the operator controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/operator/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/operator/..." \
@@ -268,7 +268,7 @@ generate-manifests-operator: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. 
 	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-dpuservice
-generate-manifests-dpuservice: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
+generate-manifests-dpuservice: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/dpuservice/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/dpuservice/..." \
@@ -302,8 +302,11 @@ generate-manifests-operator-embedded: $(ENVSUBST)  generate-manifests-dpucniprov
 	cp $(PROV_DIR)/output/deploy.yaml ./internal/operator/inventory/manifests/provisioningctrl.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
 	# Substitute environment variables and generate embedded manifests from templates.
-	REGISTRY=$(REGISTRY) TAG=$(TAG) CHART_NAME=$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME) \
 	$(ENVSUBST) < $(TEMPLATES_DIR)/servicefunctionchainset-controller.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/servicefunctionchainset-controller.yaml
+	$(ENVSUBST) < $(TEMPLATES_DIR)/multus.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/multus.yaml
+	$(ENVSUBST) < $(TEMPLATES_DIR)/sriov-device-plugin.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/sriov-device-plugin.yaml
+	$(ENVSUBST) < $(TEMPLATES_DIR)/flannel.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/flannel.yaml
+
 
 .PHONY: generate-manifests-sfcset
 generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. for the sfcset controller.
@@ -368,15 +371,15 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 
 	# Deploy Kamaji as the underlying control plane provider.
 	# TODO: Disaggregate the kamaji apply and wait for ready to speed up environment creation.
-	cat ./hack/values/kamaji-values.yaml.tmpl | REGISTRY=$(REGISTRY) $(ENVSUBST)  > ./hack/values/kamaji-values.yaml.tmp
+	cat ./hack/values/kamaji-values.yaml.tmpl | $(ENVSUBST)  > ./hack/values/kamaji-values.yaml.tmp
 	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml.tmp
 
 
 .PHONY: test-upload-external-images
 test-upload-external-images: 	# Mirror images for e2e tests from docker hub and push them in the test registry. - this is done to avoid docker pull limits.
-	docker pull clastix/kamaji:v0.4.1
-	docker image tag clastix/kamaji:v0.4.1 $(REGISTRY)/clastix/kamaji:v0.4.1
-	docker push $(REGISTRY)/clastix/kamaji:v0.4.1
+	docker pull clastix/kamaji:v0.5.0
+	docker image tag clastix/kamaji:v0.5.0 $(REGISTRY)/clastix/kamaji:v0.5.0
+	docker push $(REGISTRY)/clastix/kamaji:v0.5.0
 	docker pull cfssl/cfssl:v1.6.5
 	docker tag cfssl/cfssl:v1.6.5 $(REGISTRY)/cfssl/cfssl:v1.6.5
 	docker push $(REGISTRY)/cfssl/cfssl:v1.6.5
@@ -681,27 +684,66 @@ docker-push-operator-bundle: ## Push the bundle image.
 
 # helm charts
 
-HELM_TARGETS ?= servicechain-controller
+HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel
 HELM_REGISTRY ?= oci://$(REGISTRY)
 
 ## metadata for servicechain controller.
-SERVICECHAIN_CONTROLLER_HELM_CHART_NAME ?= servicechain
+export SERVICECHAIN_CONTROLLER_HELM_CHART_NAME = servicechain
 SERVICECHAIN_CONTROLLER_HELM_CHART ?= $(HELMDIR)/$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME)
 SERVICECHAIN_CONTROLLER_HELM_CHART_VER ?= $(TAG)
+
+## metadata for multus.
+export MULTUS_HELM_CHART_NAME = multus
+MULTUS_HELM_CHART ?= $(HELMDIR)/$(MULTUS_HELM_CHART_NAME)
+MULTUS_HELM_CHART_VER ?= $(TAG)
+
+## metadata for sriov device plugin.
+export SRIOV_DP_HELM_CHART_NAME = sriov-device-plugin
+SRIOV_DP_HELM_CHART ?= $(HELMDIR)/$(SRIOV_DP_HELM_CHART_NAME)
+SRIOV_DP_HELM_CHART_VER ?= $(TAG)
+
+# metadata for flannel - using the chart published with flannel github releases.
+export FLANNEL_HELM_CHART_NAME ?= flannel
+export FLANNEL_VERSION ?= v0.25.1
+FLANNEL_HELM_CHART ?= $(abspath $(CHARTSDIR)/$(FLANNEL_HELM_CHART_NAME)-$(FLANNEL_VERSION).tgz)
 
 .PHONY: helm-package-all
 helm-package-all: $(addprefix helm-package-,$(HELM_TARGETS))  ## Package the helm charts for all components.
 
 .PHONY: helm-package-servicechain-controller
-helm-package-servicechain-controller:
+helm-package-servicechain-controller: $(CHARTSDIR) $(HELM)
 	$(HELM) package $(SERVICECHAIN_CONTROLLER_HELM_CHART) --version $(SERVICECHAIN_CONTROLLER_HELM_CHART_VER) --destination $(CHARTSDIR)
+
+.PHONY: helm-package-multus
+helm-package-multus: $(CHARTSDIR) $(HELM)
+	$(HELM) package $(MULTUS_HELM_CHART) --version $(MULTUS_HELM_CHART_VER) --destination $(CHARTSDIR)
+
+.PHONY: helm-package-sriov-device-plugin
+helm-package-sriov-device-plugin: $(CHARTSDIR) $(HELM)
+	$(HELM) package $(SRIOV_DP_HELM_CHART) --version $(SRIOV_DP_HELM_CHART_VER) --destination $(CHARTSDIR)
+
+.PHONY: helm-package-flannel
+helm-package-flannel: $(CHARTSDIR) $(HELM)
+	$Q curl -v -fSsL https://github.com/flannel-io/flannel/releases/download/$(FLANNEL_VERSION)/flannel.tgz -o $(FLANNEL_HELM_CHART)
 
 .PHONY: helm-push-all
 helm-push-all: $(addprefix helm-push-,$(HELM_TARGETS))  ## Push the helm charts for all components.
 
 .PHONY: helm-push-servicechain-controller
-helm-push-servicechain-controller:
+helm-push-servicechain-controller: $(CHARTSDIR) $(HELM)
 	$(HELM) push $(CHARTSDIR)/$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME)-$(SERVICECHAIN_CONTROLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+
+.PHONY: helm-push-multus
+helm-push-multus: $(CHARTSDIR) $(HELM)
+	$(HELM) push $(CHARTSDIR)/$(MULTUS_HELM_CHART_NAME)-$(MULTUS_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+
+.PHONY: helm-push-sriov-device-plugin
+helm-push-sriov-device-plugin: $(CHARTSDIR) $(HELM)
+	$(HELM) push $(CHARTSDIR)/$(SRIOV_DP_HELM_CHART_NAME)-$(SRIOV_DP_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+
+.PHONEY: helm-push-flannel
+helm-push-flannel: $(CHARTSDIR) $(HELM)
+	$(HELM) push $(CHARTSDIR)/$(FLANNEL_HELM_CHART_NAME)-$(FLANNEL_VERSION).tgz $(HELM_REGISTRY)
 
 # dev environment
 DEV_CLUSTER_NAME ?= dpf-dev

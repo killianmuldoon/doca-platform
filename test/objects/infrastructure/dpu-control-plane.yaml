@@ -23,7 +23,7 @@ spec:
           tenant.clastix.io: dpu-cluster-01
       serviceType: LoadBalancer
   kubernetes:
-    version: v1.28.0
+    version: v1.29.3
     kubelet:
       cgroupfs: systemd
     admissionControllers:

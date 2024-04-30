@@ -1079,6 +1079,49 @@ func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig
 	}
 }
 
+var _ = Describe("DPFOperatorConfig Controller", func() {
+	Context("controller should create DPF System components", func() {
+		var testNS *corev1.Namespace
+		BeforeEach(func() {
+			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+			Expect(testClient.Create(ctx, testNS)).To(Succeed())
+		})
+		It("reconciles the DPFOperatorConfig and deploys the system components", func() {
+			By("creating the DPFOperatorConfig")
+			config := getMinimalDPFOperatorConfig(testNS.Name)
+			config.Spec.ProvisioningConfiguration.BFBPVCName = "foo-pvc"
+			config.Spec.ProvisioningConfiguration.ImagePullSecret = "foo-image-pull-secret"
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, config)
+			Expect(testClient.Create(ctx, config)).To(Succeed())
+
+			By("checking the dpuservice-controller-manager deployment is created")
+			waitForDeployment(config.Namespace, "dpuservice-controller-manager")
+
+			By("checking the dpf-provisioning-controller deployment is created and configured")
+			deployment := waitForDeployment("dpf-provisioning", "dpf-provisioning-controller-manager")
+			verifyPVC(deployment, "foo-pvc")
+
+			// Check the system components deployed as DPUServices are ready.
+			waitForDPUService(config.Namespace, "servicefunctionchainset-controller")
+			waitForDPUService(config.Namespace, "multus")
+			waitForDPUService(config.Namespace, "sriov-device-plugin")
+			waitForDPUService(config.Namespace, "flannel")
+
+		})
+	})
+})
+
+func waitForDPUService(ns, name string) {
+	By(fmt.Sprintf("checking %s dpuservice is created and correctly configured", name))
+	dpuservice := &dpuservicev1.DPUService{}
+	Eventually(func(g Gomega) {
+		g.Expect(testClient.Get(ctx, client.ObjectKey{
+			Namespace: ns,
+			Name:      name},
+			dpuservice)).To(Succeed())
+	}).WithTimeout(30 * time.Second).Should(Succeed())
+}
+
 func waitForDeployment(ns, name string) *appsv1.Deployment {
 	deployment := &appsv1.Deployment{}
 	Eventually(func(g Gomega) {
@@ -1090,63 +1133,16 @@ func waitForDeployment(ns, name string) *appsv1.Deployment {
 	return deployment
 }
 
-var _ = Describe("DPFOperatorConfig Controller", func() {
-	Context("controller should create DPF System components", func() {
-		var testNS *corev1.Namespace
-		BeforeEach(func() {
-			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
-			Expect(testClient.Create(ctx, testNS)).To(Succeed())
-		})
-		It("reconciles DPUService controller", func() {
-			config := getMinimalDPFOperatorConfig(testNS.Name)
-			Expect(testClient.Create(ctx, config)).To(Succeed())
-			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, config)
-
-			Eventually(func(g Gomega) {
-				deployment := &appsv1.Deployment{}
-				g.Expect(testClient.Get(ctx, client.ObjectKey{
-					Namespace: config.Namespace,
-					Name:      "dpuservice-controller-manager"},
-					deployment)).To(Succeed())
-			}).WithTimeout(30 * time.Second).Should(Succeed())
-		})
-
-		verifyPVC := func(deployment *appsv1.Deployment, expected string) {
-			var bfbPvc *corev1.PersistentVolumeClaimVolumeSource
-			for _, vol := range deployment.Spec.Template.Spec.Volumes {
-				if vol.Name == "bfb-volume" && vol.PersistentVolumeClaim != nil {
-					bfbPvc = vol.PersistentVolumeClaim
-					break
-				}
-			}
-			if bfbPvc == nil {
-				Fail("no pvc volume found")
-			}
-			Expect(bfbPvc.ClaimName).To(Equal(expected))
+func verifyPVC(deployment *appsv1.Deployment, expected string) {
+	var bfbPvc *corev1.PersistentVolumeClaimVolumeSource
+	for _, vol := range deployment.Spec.Template.Spec.Volumes {
+		if vol.Name == "bfb-volume" && vol.PersistentVolumeClaim != nil {
+			bfbPvc = vol.PersistentVolumeClaim
+			break
 		}
-
-		It("reconciles dpf-provisioning-controller: set bfb PVC", func() {
-			config := getMinimalDPFOperatorConfig(testNS.Name)
-			config.Spec.ProvisioningConfiguration.BFBPVCName = "foo-pvc"
-			config.Spec.ProvisioningConfiguration.ImagePullSecret = "foo-image-pull-secret"
-			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, config)
-			Expect(testClient.Create(ctx, config)).To(Succeed())
-
-			deployment := waitForDeployment("dpf-provisioning", "dpf-provisioning-controller-manager")
-			verifyPVC(deployment, "foo-pvc")
-		})
-
-		It("reconciles ServiceFunctionChainSet controllers as DPUServices", func() {
-			config := getMinimalDPFOperatorConfig(testNS.Name)
-			Expect(testClient.Create(ctx, config)).To(Succeed())
-			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, config)
-			Eventually(func(g Gomega) {
-				dpuservice := &dpuservicev1.DPUService{}
-				g.Expect(testClient.Get(ctx, client.ObjectKey{
-					Namespace: config.Namespace,
-					Name:      "servicefunctionchainset-controller"},
-					dpuservice)).To(Succeed())
-			}).WithTimeout(30 * time.Second).Should(Succeed())
-		})
-	})
-})
+	}
+	if bfbPvc == nil {
+		Fail("no pvc volume found")
+	}
+	Expect(bfbPvc.ClaimName).To(Equal(expected))
+}

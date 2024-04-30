@@ -143,13 +143,22 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 		})
 
-		It("ensure the ServiceFunctionChainSet controller DPUService is created and mirrored to the tenant clusters", func() {
+		It("ensure the system DPUServices are created and mirrored to the tenant clusters", func() {
 			Eventually(func(g Gomega) {
-				dpuservice := &dpuservicev1.DPUService{}
-				g.Expect(testClient.Get(ctx, client.ObjectKey{
-					Namespace: "dpf-operator-system",
-					Name:      "servicefunctionchainset-controller"},
-					dpuservice)).To(Succeed())
+				dpuServices := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx, dpuServices)).To(Succeed())
+				g.Expect(dpuServices.Items).To(HaveLen(4))
+				found := map[string]bool{}
+				for i := range dpuServices.Items {
+					found[dpuServices.Items[i].Name] = true
+				}
+
+				// Expect each of the following to have been created by the operator.
+				g.Expect(found).To(HaveKey("multus"))
+				g.Expect(found).To(HaveKey("sriov-device-plugin"))
+				g.Expect(found).To(HaveKey("flannel"))
+				g.Expect(found).To(HaveKey("servicefunctionchainset-controller"))
+
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -157,15 +166,25 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				g.Expect(err).ToNot(HaveOccurred())
 				for i := range dpuControlPlanes {
 					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
+					found := map[string]bool{}
 					g.Expect(err).ToNot(HaveOccurred())
-					deploymentList := appsv1.DeploymentList{}
-					g.Expect(dpuClient.List(ctx, &deploymentList, client.MatchingLabels(
-						map[string]string{
-							"app.kubernetes.io/name": "servicechain",
-						},
-					))).To(Succeed())
-					g.Expect(deploymentList.Items).To(HaveLen(1))
-					g.Expect(deploymentList.Items[0].Name).To(ContainSubstring("servicefunctionchainset-controller"))
+					deployments := appsv1.DeploymentList{}
+					g.Expect(dpuClient.List(ctx, &deployments)).To(Succeed())
+					for i := range deployments.Items {
+						found[deployments.Items[i].GetLabels()["app.kubernetes.io/instance"]] = true
+					}
+					daemonsets := appsv1.DaemonSetList{}
+					g.Expect(dpuClient.List(ctx, &daemonsets)).To(Succeed())
+					for i := range daemonsets.Items {
+						found[daemonsets.Items[i].GetLabels()["app"]] = true
+					}
+
+					// Expect each of the following to have been created by the operator.
+					// These are labels of the appv1 type - e.g. DaemonSet or Deployment on the DPU cluster.
+					g.Expect(found).To(HaveKey("multus"))
+					g.Expect(found).To(HaveKey("sriov-device-plugin"))
+					g.Expect(found).To(HaveKey("flannel"))
+					g.Expect(found).To(HaveKey("servicechain"))
 				}
 			}).WithTimeout(180 * time.Second).Should(Succeed())
 		})

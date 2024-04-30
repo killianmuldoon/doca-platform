@@ -1,0 +1,10 @@
+apiVersion: svc.dpf.nvidia.com/v1alpha1
+kind: DPUService
+metadata:
+  name: sriov-device-plugin
+  namespace: dpf-operator-system
+spec:
+  source:
+    repoURL: nvidia.com
+    chart: sriov-device-plugin
+    version: v0.0.0
