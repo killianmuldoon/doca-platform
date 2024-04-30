@@ -1,9 +1,18 @@
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "servicechain.fullname" . }}
+  name: dpf-operator-manager-role
+  labels:
+  {{- include "servicechain.labels" . | nindent 4 }}
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
 - apiGroups:
   - ""
   resources:
@@ -24,14 +33,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - ""
-  resources:
-  - events
-  verbs:
-  - create
-  - patch
-  - update
 - apiGroups:
   - sfc.dpf.nvidia.com
   resources:
@@ -120,3 +121,21 @@ rules:
   - get
   - patch
   - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: dpf-operator-manager-rolebinding
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: dpf-operator
+    app.kubernetes.io/part-of: dpf-operator
+  {{- include "servicechain.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dpf-operator-manager-role
+subjects:
+- kind: ServiceAccount
+  name: dpf-operator-controller-manager
+  namespace: '{{ .Release.Namespace }}'
