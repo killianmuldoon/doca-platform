@@ -810,12 +810,14 @@ spec:
 						HostIP:              "192.168.1.20/24",
 					},
 				}
+				dpfOperatorConfig.Spec.HostNetworkConfiguration.HostPF0 = "ens27f0np0"
 
 				expectedHostCNIProvisionerConfig := hostcniprovisionerconfig.HostCNIProvisionerConfig{
 					PFIPs: map[string]string{
 						"ocp-node-1": "192.168.1.10/24",
 						"ocp-node-2": "192.168.1.20/24",
 					},
+					HostPF0: "ens27f0np0",
 				}
 
 				objects, err := generateHostCNIProvisionerObjects(dpfOperatorConfig)
