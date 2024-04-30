@@ -1090,7 +1090,8 @@ func generateHostCNIProvisionerObjects(dpfOperatorConfig *operatorv1.DPFOperator
 	}
 
 	config := hostcniprovisionerconfig.HostCNIProvisionerConfig{
-		PFIPs: make(map[string]string),
+		PFIPs:   make(map[string]string),
+		HostPF0: dpfOperatorConfig.Spec.HostNetworkConfiguration.HostPF0,
 	}
 	for _, host := range dpfOperatorConfig.Spec.HostNetworkConfiguration.Hosts {
 		config.PFIPs[host.HostClusterNodeName] = host.HostIP
