@@ -440,9 +440,20 @@ verify-generate: generate
 verify-copyright:
 	$Q $(CURDIR)/hack/scripts/copyright-validation.sh
 
+.PHONY: lint-helm
+lint-helm: $(HELM) lint-helm-sfcset lint-helm-multus lint-helm-sriov-dp
+
 .PHONY: lint-helm-sfcset
-lint-helm-sfcset: $(HELM) ; $(info  running lint for helm charts...) @ ## Run helm lint
+lint-helm-sfcset: $(HELM)
 	$Q $(HELM) lint $(SERVICECHAIN_CONTROLLER_HELM_CHART)
+
+.PHONY: lint-helm-multus
+lint-helm-multus: $(HELM)
+	$Q $(HELM) lint $(MULTUS_HELM_CHART)
+
+.PHONY: lint-helm-sriov-dp
+lint-helm-sriov-dp: $(HELM)
+	$Q $(HELM) lint $(SRIOV_DP_HELM_CHART)
 
 ##@ Build
 
