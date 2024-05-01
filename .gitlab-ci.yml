@@ -20,6 +20,7 @@ lint:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   script:
     - make lint
+    - make lint-helm
 
 verify:
   stage: verify
