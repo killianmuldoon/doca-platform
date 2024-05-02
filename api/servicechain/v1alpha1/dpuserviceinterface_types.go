@@ -20,6 +20,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+var DPUServiceInterfaceFinalizer = "sfc.dpf.nvidia.com/dpuserviceinterface"
+
 // DPUServiceInterfaceSpec defines the desired state of DPUServiceInterfaceSpec
 type DPUServiceInterfaceSpec struct {
 	// Select the Clusters with specific labels, ServiceInterfaceSet CRs will be created only for these Clusters

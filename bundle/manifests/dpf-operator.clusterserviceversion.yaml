@@ -44,7 +44,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-04-30T13:01:17Z"
+    createdAt: "2024-05-02T06:57:14Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: unknown
   name: dpf-operator.v0.0.0
@@ -56,8 +56,26 @@ spec:
     - kind: DPFOperatorConfig
       name: dpfoperatorconfigs.operator.dpf.nvidia.com
       version: v1alpha1
+    - kind: DPUServiceChain
+      name: dpuservicechains.sfc.dpf.nvidia.com
+      version: v1alpha1
+    - kind: DPUServiceInterface
+      name: dpuserviceinterfaces.sfc.dpf.nvidia.com
+      version: v1alpha1
     - kind: DPUService
       name: dpuservices.svc.dpf.nvidia.com
+      version: v1alpha1
+    - kind: ServiceChain
+      name: servicechains.sfc.dpf.nvidia.com
+      version: v1alpha1
+    - kind: ServiceChainSet
+      name: servicechainsets.sfc.dpf.nvidia.com
+      version: v1alpha1
+    - kind: ServiceInterface
+      name: serviceinterfaces.sfc.dpf.nvidia.com
+      version: v1alpha1
+    - kind: ServiceInterfaceSet
+      name: serviceinterfacesets.sfc.dpf.nvidia.com
       version: v1alpha1
   description: Dpf Operator description. TODO.
   displayName: Dpf Operator
@@ -201,6 +219,58 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - sfc.dpf.nvidia.com
+          resources:
+          - dpuservicechains
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - sfc.dpf.nvidia.com
+          resources:
+          - dpuservicechains/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - sfc.dpf.nvidia.com
+          resources:
+          - dpuservicechains/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - sfc.dpf.nvidia.com
+          resources:
+          - dpuserviceinterfaces
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - sfc.dpf.nvidia.com
+          resources:
+          - dpuserviceinterfaces/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - sfc.dpf.nvidia.com
+          resources:
+          - dpuserviceinterfaces/status
+          verbs:
+          - get
+          - patch
+          - update
         - apiGroups:
           - svc.dpf.nvidia.com
           resources:

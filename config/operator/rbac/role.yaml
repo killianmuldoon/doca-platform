@@ -138,6 +138,58 @@ rules:
   - update
   - watch
 - apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - dpuservicechains
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - dpuservicechains/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - dpuservicechains/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - dpuserviceinterfaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - dpuserviceinterfaces/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - dpuserviceinterfaces/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - svc.dpf.nvidia.com
   resources:
   - dpuservices

@@ -170,7 +170,7 @@ func createServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelec
 			Template: sfcv1.ServiceChainSpecTemplate{
 				Spec: *getTestServiceChainSpec(),
 				ObjectMeta: sfcv1.ObjectMeta{
-					Labels: getTestLabels(),
+					Labels: testutils.GetTestLabels(),
 				},
 			},
 		},
@@ -233,7 +233,7 @@ func assertServiceChain(g Gomega, sc *sfcv1.ServiceChain, testSpec *sfcv1.Servic
 	g.ExpectWithOffset(2, sc.Labels[ServiceChainSetNameLabel]).To(Equal(resourceName))
 	g.ExpectWithOffset(2, sc.Labels[ServiceChainSetNamespaceLabel]).To(Equal(defaultNS))
 	g.ExpectWithOffset(2, sc.OwnerReferences).To(HaveLen(1))
-	for k, v := range getTestLabels() {
+	for k, v := range testutils.GetTestLabels() {
 		g.ExpectWithOffset(2, sc.Labels[k]).To(Equal(v))
 	}
 }

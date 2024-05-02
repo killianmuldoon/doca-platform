@@ -18,12 +18,20 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/kubeconfig"
+	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
+
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -68,4 +76,61 @@ func CreateResourceIfNotExist(ctx context.Context, c client.Client, obj client.O
 		return err
 	}
 	return nil
+}
+
+// GetFakeKamajiClusterSecretFromEnvtest creates a kamaji secret using the envtest information to simulate that we have
+// a kamaji cluster. In reality, this is the same envtest Kubernetes API.
+func GetFakeKamajiClusterSecretFromEnvtest(cluster controlplane.DPFCluster, cfg *rest.Config) (*corev1.Secret, error) {
+	adminConfig := &kubeconfig.Type{
+		Clusters: []*kubeconfig.ClusterWithName{
+			{
+				Name: cluster.Name,
+				Cluster: kubeconfig.Cluster{
+					Server:                   cfg.Host,
+					CertificateAuthorityData: cfg.CAData,
+				},
+			},
+		},
+		Users: []*kubeconfig.UserWithName{
+			{
+				Name: "user",
+				User: kubeconfig.User{
+					ClientKeyData:         cfg.KeyData,
+					ClientCertificateData: cfg.CertData,
+				},
+			},
+		},
+		Contexts: []*kubeconfig.NamedContext{
+			{
+				Name: "default",
+				Context: kubeconfig.Context{
+					Cluster: cluster.Name,
+					User:    "user",
+				},
+			},
+		},
+		CurrentContext: "default",
+	}
+	confData, err := json.Marshal(adminConfig)
+	if err != nil {
+		return nil, err
+	}
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%v-admin-kubeconfig", cluster.Name),
+			Namespace: cluster.Namespace,
+			Labels: map[string]string{
+				controlplanemeta.DPFClusterSecretClusterNameLabelKey: cluster.Name,
+				"kamaji.clastix.io/component":                        "admin-kubeconfig",
+				"kamaji.clastix.io/project":                          "kamaji",
+			},
+		},
+		Data: map[string][]byte{
+			"admin.conf": confData,
+		},
+	}, nil
+}
+
+func GetTestLabels() map[string]string {
+	return map[string]string{"some": "label", "color": "blue", "lab": "santa-clara"}
 }

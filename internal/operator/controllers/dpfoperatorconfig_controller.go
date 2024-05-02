@@ -167,6 +167,12 @@ type DPFOperatorConfigReconcilerSettings struct {
 //+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims;events;serviceaccounts;configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=argoproj.io,resources=appprojects;applications,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=kamaji.clastix.io,resources=tenantcontrolplanes,verbs=get;list;watch
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuservicechains,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuservicechains/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuservicechains/finalizers,verbs=update
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceinterfaces,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceinterfaces/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceinterfaces/finalizers,verbs=update
 
 const (
 	dpfOperatorConfigControllerName = "dpfoperatorconfig-controller"
