@@ -51,17 +51,14 @@ import (
 var _ = Describe("DPFOperatorConfig Controller", func() {
 	Context("When reconciling a resource", func() {
 		var testNS *corev1.Namespace
-		var cleanupObjects []client.Object
 		BeforeEach(func() {
 			By("Creating the namespaces")
 			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
-			cleanupObjects = []client.Object{}
 		})
 		AfterEach(func() {
 			By("Cleaning up the Namespace")
 			Expect(testClient.Delete(ctx, testNS)).To(Succeed())
-			Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
 		})
 		It("should successfully reconcile the DPFOperatorConfig", func() {
 			By("Reconciling the created resource")
@@ -82,7 +79,6 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 
 	Context("When checking the custom OVN Kubernetes deployment flow", func() {
 		var testNS *corev1.Namespace
-		var cleanupObjects []client.Object
 		var clusterVersionDeployment *appsv1.Deployment
 		var networkOperatorDeployment *appsv1.Deployment
 		var nodeIdentityWebhookConfiguration *admissionregistrationv1.ValidatingWebhookConfiguration
@@ -96,7 +92,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			By("Creating the namespace")
 			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
-			cleanupObjects = []client.Object{}
+			cleanupObjects := []client.Object{}
 
 			// TODO: Remove that one when we decide where the Host CNI Provisioner should be deployed
 			ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpf-operator-system"}}
@@ -242,37 +238,45 @@ networking:
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
 			cleanupObjects = append(cleanupObjects, kamajiSecret)
-		})
-		AfterEach(func() {
-			By("Cleaning up the created resources")
-			hostCNIProvisionerObjects, err := utils.BytesToUnstructured(hostCNIProvisionerManifestContent)
-			Expect(err).ToNot(HaveOccurred())
-			for _, o := range hostCNIProvisionerObjects {
-				key := client.ObjectKeyFromObject(o)
-				err := testClient.Get(ctx, key, o)
-				if err != nil {
-					if !apierrors.IsNotFound(err) {
-						Expect(err).ToNot(HaveOccurred())
+
+			// We explicitly use `DeferCleanup` instead of `AfterEach` to ensure that we can have some order when
+			// cleaning up the objects. In particular, we need to delete DPF Operator Config before all the rest of
+			// the objects to ensure that we don't hit race conditions.
+			// According to upstream, mixing DeferCleanup (which is used in the `It` nodes) and AfterEach can lead to
+			// race conditions that we also faced in the past:
+			// * https://github.com/onsi/ginkgo/issues/1360#issuecomment-1949181004
+			// * https://github.com/onsi/ginkgo/issues/1022#issuecomment-1224732382
+			DeferCleanup(func() {
+				By("Cleaning up the resources created by the DPF Operator")
+				hostCNIProvisionerObjects, err := utils.BytesToUnstructured(hostCNIProvisionerManifestContent)
+				Expect(err).ToNot(HaveOccurred())
+				for _, o := range hostCNIProvisionerObjects {
+					key := client.ObjectKeyFromObject(o)
+					err := testClient.Get(ctx, key, o)
+					if err != nil {
+						if !apierrors.IsNotFound(err) {
+							Expect(err).ToNot(HaveOccurred())
+						}
+						continue
 					}
-					continue
+					cleanupObjects = append(cleanupObjects, o)
 				}
-				cleanupObjects = append(cleanupObjects, o)
-			}
-			dpuCNIProvisionerObjects, err := utils.BytesToUnstructured(dpuCNIProvisionerManifestContent)
-			Expect(err).ToNot(HaveOccurred())
-			for _, o := range dpuCNIProvisionerObjects {
-				key := client.ObjectKeyFromObject(o)
-				err := testClient.Get(ctx, key, o)
-				if err != nil {
-					if !apierrors.IsNotFound(err) {
-						Expect(err).ToNot(HaveOccurred())
+				dpuCNIProvisionerObjects, err := utils.BytesToUnstructured(dpuCNIProvisionerManifestContent)
+				Expect(err).ToNot(HaveOccurred())
+				for _, o := range dpuCNIProvisionerObjects {
+					key := client.ObjectKeyFromObject(o)
+					err := testClient.Get(ctx, key, o)
+					if err != nil {
+						if !apierrors.IsNotFound(err) {
+							Expect(err).ToNot(HaveOccurred())
+						}
+						continue
 					}
-					continue
+					cleanupObjects = append(cleanupObjects, o)
 				}
-				cleanupObjects = append(cleanupObjects, o)
-			}
-			Expect(testClient.Delete(ctx, testNS)).To(Succeed())
-			Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
+				Expect(testClient.Delete(ctx, testNS)).To(Succeed())
+				Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
+			})
 		})
 		It("should successfully deploy the custom OVN Kubernetes", func() {
 			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
