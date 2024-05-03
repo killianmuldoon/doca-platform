@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 
@@ -83,10 +82,6 @@ func (d *DPFCluster) NewClient(ctx context.Context, c client.Client) (client.Cli
 	dpfClusterClient, err := client.New(config, client.Options{})
 	if err != nil {
 		return nil, fmt.Errorf("error while getting client: %w", err)
-	}
-	err = sfcv1.AddToScheme(dpfClusterClient.Scheme())
-	if err != nil {
-		return nil, fmt.Errorf("error while adding to client scheme: %w", err)
 	}
 	return dpfClusterClient, nil
 }
