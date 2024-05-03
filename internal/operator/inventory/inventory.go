@@ -19,17 +19,36 @@ package inventory
 import (
 	_ "embed"
 
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Component describes the responsibilities of an item in the Inventory.
+type Component interface {
+	Name() string
+	Parse() error
+	GenerateManifests(variables Variables) ([]client.Object, error)
+}
+
+// Variables contains information required to generate manifests from the inventory.
+type Variables struct {
+	Namespace                 string
+	DPFProvisioningController DPFProvisioningVariables
+}
+
+type DPFProvisioningVariables struct {
+	BFBPersistentVolumeClaimName string
+	ImagePullSecret              string
+}
+
 // Manifests holds kubernetes object manifests to be deployed by the operator.
 type Manifests struct {
-	DPUService              DPUServiceControllerObjects
-	ProvCtrl                ProvCtrlObjects
-	ServiceFunctionChainSet fromDPUService
-	Multus                  fromDPUService
-	SRIOVDevicePlugin       fromDPUService
-	Flannel                 fromDPUService
+	DPUService              Component
+	DPFProvisioning         Component
+	ServiceFunctionChainSet Component
+	Multus                  Component
+	SRIOVDevicePlugin       Component
+	Flannel                 Component
 }
 
 // Embed manifests for Kubernetes objects created by the controller.
@@ -48,40 +67,45 @@ var (
 
 	//go:embed manifests/flannel.yaml
 	flannelData []byte
+
+	//go:embed manifests/dpf-provisioning-controller.yaml
+	dpfProvisioningControllerData []byte
 )
 
 // New returns a new Manifests inventory with data preloaded but parsing not completed.
 func New() *Manifests {
 	return &Manifests{
-		DPUService: DPUServiceControllerObjects{
+		DPUService: &dpuServiceControllerObjects{
 			data: dpuServiceData,
 		},
-		ProvCtrl: NewProvisionCtrlObjects(),
-		ServiceFunctionChainSet: fromDPUService{
+		DPFProvisioning: &dpfProvisioningControllerObjects{
+			data: dpfProvisioningControllerData,
+		},
+		ServiceFunctionChainSet: &fromDPUService{
 			name: "serviceFunctionChainSet",
 			data: serviceChainSetData,
 		},
-		Multus: fromDPUService{
+		Multus: &fromDPUService{
 			name: "multus",
 			data: multusData,
 		},
-		SRIOVDevicePlugin: fromDPUService{
+		SRIOVDevicePlugin: &fromDPUService{
 			name: "sriovDevicePlugin",
 			data: sriovDevicePluginData,
 		},
-		Flannel: fromDPUService{
+		Flannel: &fromDPUService{
 			name: "flannel",
 			data: flannelData,
 		},
 	}
 }
 
-// Parse creates typed Kubernetes objects for all manifests related to the DPFOperator.
-func (m *Manifests) Parse() error {
+// ParseAll creates Kubernetes objects for all manifests related to the DPFOperator.
+func (m *Manifests) ParseAll() error {
 	if err := m.DPUService.Parse(); err != nil {
 		return err
 	}
-	if err := m.ProvCtrl.Parse(); err != nil {
+	if err := m.DPFProvisioning.Parse(); err != nil {
 		return err
 	}
 	if err := m.ServiceFunctionChainSet.Parse(); err != nil {
@@ -96,39 +120,71 @@ func (m *Manifests) Parse() error {
 	if err := m.Flannel.Parse(); err != nil {
 		return err
 	}
-
 	return nil
 }
 
-// Objects returns all Kubernetes objects.
-func (m *Manifests) Objects() []client.Object {
+// generateAllManifests returns all Kubernetes objects.
+func (m *Manifests) generateAllManifests(variables Variables) ([]client.Object, error) {
 	out := []client.Object{}
-	out = append(out, m.DPUService.Objects()...)
-	return out
+	var errs []error
+	objs, err := m.DPUService.GenerateManifests(variables)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, objs...)
+	objs, err = m.DPFProvisioning.GenerateManifests(variables)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, objs...)
+	objs, err = m.ServiceFunctionChainSet.GenerateManifests(variables)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, objs...)
+	objs, err = m.Multus.GenerateManifests(variables)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, objs...)
+	objs, err = m.SRIOVDevicePlugin.GenerateManifests(variables)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, objs...)
+	objs, err = m.Flannel.GenerateManifests(variables)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, objs...)
+	if len(errs) != 0 {
+		return nil, kerrors.NewAggregate(errs)
+	}
+	return out, nil
 }
 
-func (m *Manifests) setDPUService(input DPUServiceControllerObjects) *Manifests {
-	m.DPUService = input
+func (m *Manifests) setDPUService(input dpuServiceControllerObjects) *Manifests {
+	m.DPUService = &input
 	return m
 }
 
 func (m *Manifests) setMultus(input fromDPUService) *Manifests {
-	m.Multus = input
+	m.Multus = &input
 	return m
 
 }
 
 func (m *Manifests) setSRIOVDevicePlugin(input fromDPUService) *Manifests {
-	m.SRIOVDevicePlugin = input
+	m.SRIOVDevicePlugin = &input
 	return m
 }
 
 func (m *Manifests) setServiceFunctionChainSet(input fromDPUService) *Manifests {
-	m.ServiceFunctionChainSet = input
+	m.ServiceFunctionChainSet = &input
 	return m
 }
 
 func (m *Manifests) setFlannel(input fromDPUService) *Manifests {
-	m.Flannel = input
+	m.Flannel = &input
 	return m
 }

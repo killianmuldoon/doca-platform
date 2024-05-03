@@ -154,9 +154,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Parse manifest yamls to ensure Kubernetes objects are available before starting.
+	// ParseAll manifest yamls to ensure Kubernetes objects are available before starting.
 	inventory := inventory.New()
-	if err := inventory.Parse(); err != nil {
+	if err := inventory.ParseAll(); err != nil {
 		setupLog.Error(err, "unable to parse inventory")
 		os.Exit(1)
 	}

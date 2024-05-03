@@ -216,9 +216,9 @@ OVN_DIR=$(REPOSDIR)/ovn
 $(OVN_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR)
 
-PROV_DIR=$(REPOSDIR)/dpf-provisioning-controller-$(DPF_PROVISIONING_CONTROLLER_REV)
-$(PROV_DIR): | $(REPOSDIR)
-	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-provisioning-controller.git $(PROV_DIR) $(DPF_PROVISIONING_CONTROLLER_REV)
+DPF_PROVISIONING_DIR=$(REPOSDIR)/dpf-provisioning-controller-$(DPF_PROVISIONING_CONTROLLER_REV)
+$(DPF_PROVISIONING_DIR): | $(REPOSDIR)
+	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-provisioning-controller.git $(DPF_PROVISIONING_DIR) $(DPF_PROVISIONING_CONTROLLER_REV)
 
 # operator-sdk is used to generate operator-sdk bundles
 OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download
@@ -289,9 +289,10 @@ generate-manifests-dpucniprovisioner: $(KUSTOMIZE) ## Generates DPU CNI provisio
 generate-manifests-hostcniprovisioner: $(KUSTOMIZE) ## Generates Host CNI provisioner manifests
 	cd config/hostcniprovisioner/default &&	$(KUSTOMIZE) edit set image controller=$(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
+# Namespace is set and passed through to the dpf-provisioning Makefile to overwrite the default namespace.
 .PHONY: generate-manifests-provisioning
-generate-manifests-provisioning: $(PROV_DIR)
-	$(MAKE) -C $(PROV_DIR) kustomize-build
+generate-manifests-provisioning: $(DPF_PROVISIONING_DIR)
+	$(MAKE) -C $(DPF_PROVISIONING_DIR) kustomize-build
 
 TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
@@ -300,7 +301,7 @@ generate-manifests-operator-embedded: $(ENVSUBST)  generate-manifests-dpucniprov
 	$(ENVSUBST) < ./internal/operator/release/templates/defaults.yaml.tmpl > ./internal/operator/release/manifests/defaults.yaml
 	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/operator/controllers/manifests/hostcniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/operator/controllers/manifests/dpucniprovisioner.yaml
-	cp $(PROV_DIR)/output/deploy.yaml ./internal/operator/inventory/manifests/provisioningctrl.yaml
+	cp $(DPF_PROVISIONING_DIR)/output/deploy.yaml ./internal/operator/inventory/manifests/dpf-provisioning-controller.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
 	# Substitute environment variables and generate embedded manifests from templates.
 	$(ENVSUBST) < $(TEMPLATES_DIR)/servicefunctionchainset-controller.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/servicefunctionchainset-controller.yaml
@@ -543,7 +544,7 @@ export OVNKUBERNETES_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_DPU_IMAGE_NAME)
 OVNKUBERNETES_NON_DPU_IMAGE_NAME = ovn-kubernetes-non-dpu
 export OVNKUBERNETES_NON_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_NON_DPU_IMAGE_NAME)
 
-DPFOPERATOR_IMAGE_NAME ?= operator-controller-manager
+DPFOPERATOR_IMAGE_NAME ?= dpf-operator-controller-manager
 DPFOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOPERATOR_IMAGE_NAME)
 
 SFCSET_IMAGE_NAME ?= sfcset-controller-manager
@@ -551,6 +552,9 @@ SFCSET_IMAGE ?= $(REGISTRY)/$(SFCSET_IMAGE_NAME)
 
 DPUSERVICE_IMAGE_NAME ?= dpuservice-controller-manager
 DPUSERVICE_IMAGE ?= $(REGISTRY)/$(DPUSERVICE_IMAGE_NAME)
+
+DPFPROVISIONING_IMAGE_NAME ?= dpf-provisioning-controller-manager
+DPFPROVISIONING_IMAGE ?= $(REGISTRY)/$(DPFPROVISIONING_IMAGE_NAME)
 
 DPUCNIPROVISIONER_IMAGE_NAME ?= dpu-cni-provisioner
 DPUCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(DPUCNIPROVISIONER_IMAGE_NAME)

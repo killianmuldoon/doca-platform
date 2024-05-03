@@ -68,9 +68,9 @@ type Host struct {
 
 // ProvisioningConfiguration defines dpf-provisioning-controller related configurations
 type ProvisioningConfiguration struct {
-	// BFBPVCName is the name of the PersistentVolumeClaim used by dpf-provisioning-controller
-	BFBPVCName      string `json:"bfbPVCName"`
-	ImagePullSecret string `json:"imagePullSecret"`
+	// BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim used by dpf-provisioning-controller
+	BFBPersistentVolumeClaimName string `json:"bfbPVCName"`
+	ImagePullSecret              string `json:"imagePullSecret"`
 }
 
 // DPFOperatorConfigStatus defines the observed state of DPFOperatorConfig
