@@ -26,10 +26,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var _ Component = &fromDPUService{}
+
 type fromDPUService struct {
 	data       []byte
 	name       string
 	dpuService *dpuservicev1.DPUService
+}
+
+func (f *fromDPUService) Name() string {
+	return f.name
 }
 
 func (f *fromDPUService) Parse() error {
@@ -57,12 +63,9 @@ func (f *fromDPUService) Parse() error {
 	return nil
 }
 
-func (f *fromDPUService) Objects() []client.Object {
+func (f *fromDPUService) GenerateManifests(variables Variables) ([]client.Object, error) {
+	f.dpuService.SetNamespace(variables.Namespace)
 	return []client.Object{
 		f.dpuService.DeepCopy(),
-	}
-}
-
-func (f *fromDPUService) SetNamespace(namespace string) {
-	f.dpuService.SetNamespace(namespace)
+	}, nil
 }

@@ -326,7 +326,7 @@ spec:
                 - reconcileOVNKubernetes=true
                 command:
                 - /manager
-                image: nvidia.com/operator-controller-manager:v0.0.0
+                image: nvidia.com/dpf-operator-controller-manager:v0.0.0
                 livenessProbe:
                   httpGet:
                     path: /healthz

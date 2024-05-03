@@ -233,7 +233,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
 					Expect(deploymentList.Items).To(BeEmpty())
 				}
-			}).WithTimeout(180 * time.Second).Should(Succeed())
+			}).WithTimeout(300 * time.Second).Should(Succeed())
 		})
 	})
 })

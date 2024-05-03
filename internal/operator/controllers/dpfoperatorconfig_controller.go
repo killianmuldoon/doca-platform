@@ -253,81 +253,57 @@ func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperator
 	return ctrl.Result{}, nil
 }
 
-func (r *DPFOperatorConfigReconciler) reconcileProvisioningCtrl(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
-	objs, err := r.Inventory.ProvCtrl.GenerateManifests(config)
-	if err != nil {
-		return fmt.Errorf("error while generating manifests for provisioning-controller, err: %v", err)
+func getVariablesFromConfig(config *operatorv1.DPFOperatorConfig) inventory.Variables {
+	return inventory.Variables{
+		Namespace: config.Namespace,
+		DPFProvisioningController: inventory.DPFProvisioningVariables{
+			BFBPersistentVolumeClaimName: config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName,
+			ImagePullSecret:              config.Spec.ProvisioningConfiguration.ImagePullSecret,
+		},
 	}
-	if err := reconcileUnstructuredObjects(ctx, r.Client, objs); err != nil {
-		return fmt.Errorf("failed to apply provisioning-controller manifests, err: %v", err)
-	}
-	ctrllog.FromContext(ctx).Info("applied provisioning-controller manifests")
-	return nil
 }
 
 // reconcileSystemComponents applies manifests for components which form the DPF system.
 // It deploys the following:
 // 1. DPUService controller
-// 2. dpf-provisioning-controller
+// 2. DPU provisioning controller
+// 3. ServiceFunctionChainSet controller DPUService
+// 4. SR-IOV device plugin DPUService
+// 5. Multus DPUService
+// 6. Flannel DPUService
 func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
 	var errs []error
+	vars := getVariablesFromConfig(config)
 	// TODO: Handle deletion of objects on version upgrade.
-	r.Inventory.DPUService.SetNamespace(config.Namespace)
-	for _, obj := range r.Inventory.DPUService.Objects() {
-		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
-		if err != nil {
-			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
-				obj.GetObjectKind().GroupVersionKind().Kind,
-				klog.KObj(obj),
-				err))
-		}
-	}
-	r.Inventory.ServiceFunctionChainSet.SetNamespace(config.Namespace)
-	for _, obj := range r.Inventory.ServiceFunctionChainSet.Objects() {
-		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
-		if err != nil {
-			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
-				obj.GetObjectKind().GroupVersionKind().Kind,
-				klog.KObj(obj),
-				err))
-		}
-	}
-	r.Inventory.Multus.SetNamespace(config.Namespace)
-	for _, obj := range r.Inventory.Multus.Objects() {
-		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
-		if err != nil {
-			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
-				obj.GetObjectKind().GroupVersionKind().Kind,
-				klog.KObj(obj),
-				err))
-		}
-	}
-	r.Inventory.SRIOVDevicePlugin.SetNamespace(config.Namespace)
-	for _, obj := range r.Inventory.SRIOVDevicePlugin.Objects() {
-		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
-		if err != nil {
-			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
-				obj.GetObjectKind().GroupVersionKind().Kind,
-				klog.KObj(obj),
-				err))
-		}
-	}
-	r.Inventory.Flannel.SetNamespace(config.Namespace)
-	for _, obj := range r.Inventory.Flannel.Objects() {
-		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
-		if err != nil {
-			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
-				obj.GetObjectKind().GroupVersionKind().Kind,
-				klog.KObj(obj),
-				err))
-		}
-	}
+	// Create objects for components deployed to the management cluster.
+	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.DPUService, vars))
+	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.DPFProvisioning, vars))
 
-	if err := r.reconcileProvisioningCtrl(ctx, config); err != nil {
-		errs = append(errs, err)
+	// Create DPUServices for system components deployed to the DPU cluster.
+	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.ServiceFunctionChainSet, vars))
+	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.SRIOVDevicePlugin, vars))
+	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.Multus, vars))
+	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.Flannel, vars))
+
+	return kerrors.NewAggregate(errs)
+}
+
+func (r *DPFOperatorConfigReconciler) generateAndPatchObjects(ctx context.Context, manifests inventory.Component, vars inventory.Variables) error {
+	objs, err := manifests.GenerateManifests(vars)
+	if err != nil {
+		return fmt.Errorf("error while generating manifests for flannel, err: %v", err)
+	}
+	var errs []error
+	for _, obj := range objs {
+		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
+		if err != nil {
+			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
+				obj.GetObjectKind().GroupVersionKind().Kind,
+				klog.KObj(obj),
+				err))
+		}
 	}
 	return kerrors.NewAggregate(errs)
-
 }
 
 // reconcileCustomOVNKubernetesDeployment ensures that custom OVN Kubernetes is deployed

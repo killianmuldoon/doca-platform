@@ -28,8 +28,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// DPUServiceControllerObjects contains Kubernetes objects to be created by the DPUService controller.
-type DPUServiceControllerObjects struct {
+var _ Component = &dpuServiceControllerObjects{}
+
+// dpuServiceControllerObjects contains Kubernetes objects to be created by the DPUService controller.
+type dpuServiceControllerObjects struct {
 	data               []byte
 	Deployment         *appsv1.Deployment
 	ServiceAccount     *corev1.ServiceAccount
@@ -39,10 +41,14 @@ type DPUServiceControllerObjects struct {
 	RoleBinding        *rbacv1.RoleBinding
 }
 
+func (d *dpuServiceControllerObjects) Name() string {
+	return "DPUServiceController"
+}
+
 // Parse returns typed objects for the DPUService controller deployment.
-func (d *DPUServiceControllerObjects) Parse() error {
+func (d *dpuServiceControllerObjects) Parse() error {
 	if d.data == nil {
-		return fmt.Errorf("DPUServiceControllerObjects.data can not be empty")
+		return fmt.Errorf("dpuServiceControllerObjects.data can not be empty")
 	}
 	dpuServiceObjects, err := utils.BytesToUnstructured(d.data)
 	if err != nil {
@@ -87,8 +93,8 @@ func (d *DPUServiceControllerObjects) Parse() error {
 	return d.validate()
 }
 
-// validate asserts the DPUServiceControllerObjects are as expected.
-func (d *DPUServiceControllerObjects) validate() error {
+// validate asserts the dpuServiceControllerObjects are as expected.
+func (d *dpuServiceControllerObjects) validate() error {
 	// Check that each and every field expected is set.
 	if d.Role == nil {
 		return fmt.Errorf("error parsing DPUService objects: Role not found")
@@ -111,8 +117,9 @@ func (d *DPUServiceControllerObjects) validate() error {
 	return nil
 }
 
-// Objects returns all objects as a list.
-func (d *DPUServiceControllerObjects) Objects() []client.Object {
+// GenerateManifests returns all objects as a list.
+func (d *dpuServiceControllerObjects) GenerateManifests(variables Variables) ([]client.Object, error) {
+	d.setNamespace(variables.Namespace)
 	out := []client.Object{}
 	out = append(out,
 		d.Deployment.DeepCopy(),
@@ -122,11 +129,11 @@ func (d *DPUServiceControllerObjects) Objects() []client.Object {
 		d.ClusterRole.DeepCopy(),
 		d.ClusterRoleBinding.DeepCopy(),
 	)
-	return out
+	return out, nil
 }
 
-// SetNamespace sets all Namespaces in the DPUServiceControllerObjects to the passed string.
-func (d *DPUServiceControllerObjects) SetNamespace(namespace string) {
+// SetNamespace sets all Namespaces in the dpuServiceControllerObjects to the passed string.
+func (d *dpuServiceControllerObjects) setNamespace(namespace string) {
 	d.Deployment.SetNamespace(namespace)
 	d.ServiceAccount.SetNamespace(namespace)
 	d.Role.SetNamespace(namespace)

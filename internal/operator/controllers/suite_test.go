@@ -105,7 +105,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	inventory := inventory.New()
-	Expect(inventory.Parse()).To(Succeed())
+	Expect(inventory.ParseAll()).To(Succeed())
 	reconciler = &DPFOperatorConfigReconciler{
 		Client: testClient,
 		Scheme: testManager.GetScheme(),

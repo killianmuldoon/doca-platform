@@ -1022,8 +1022,8 @@ func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig
 				Hosts: []operatorv1.Host{},
 			},
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
-				BFBPVCName:      "foo-pvc",
-				ImagePullSecret: "foo-image-pull-secret",
+				BFBPersistentVolumeClaimName: "foo-pvc",
+				ImagePullSecret:              "foo-image-pull-secret",
 			},
 		},
 	}
@@ -1039,7 +1039,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 		It("reconciles the DPFOperatorConfig and deploys the system components", func() {
 			By("creating the DPFOperatorConfig")
 			config := getMinimalDPFOperatorConfig(testNS.Name)
-			config.Spec.ProvisioningConfiguration.BFBPVCName = "foo-pvc"
+			config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName = "foo-pvc"
 			config.Spec.ProvisioningConfiguration.ImagePullSecret = "foo-image-pull-secret"
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, config)
 			Expect(testClient.Create(ctx, config)).To(Succeed())
@@ -1048,7 +1048,8 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			waitForDeployment(config.Namespace, "dpuservice-controller-manager")
 
 			By("checking the dpf-provisioning-controller deployment is created and configured")
-			deployment := waitForDeployment("dpf-provisioning", "dpf-provisioning-controller-manager")
+			// TODO: We should set the namespace for this component in the same way.
+			deployment := waitForDeployment(config.Namespace, "dpf-provisioning-controller-manager")
 			verifyPVC(deployment, "foo-pvc")
 
 			// Check the system components deployed as DPUServices are ready.
@@ -1056,7 +1057,6 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			waitForDPUService(config.Namespace, "multus")
 			waitForDPUService(config.Namespace, "sriov-device-plugin")
 			waitForDPUService(config.Namespace, "flannel")
-
 		})
 	})
 })

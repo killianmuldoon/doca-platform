@@ -109,7 +109,7 @@ spec:
                   related configurations
                 properties:
                   bfbPVCName:
-                    description: BFBPVCName is the name of the PersistentVolumeClaim
+                    description: BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim
                       used by dpf-provisioning-controller
                     type: string
                   imagePullSecret:
