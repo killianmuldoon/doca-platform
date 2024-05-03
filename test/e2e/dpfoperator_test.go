@@ -39,8 +39,8 @@ import (
 )
 
 var (
-	artifactsPath = "../objects/"
-	numClusters   = 1
+	testObjectsPath = "../objects/"
+	numClusters     = 1
 )
 
 var _ = Describe("Testing DPF Operator controller", Ordered, func() {
@@ -49,6 +49,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 	Context("deploying a DPUService", func() {
 		var cleanupObjs []client.Object
 		AfterAll(func() {
+			By("collecting resources and logs for the clusters")
+			Expect(resourceCollector.Run(ctx)).To(Succeed())
 			By("cleaning up objects created during the test", func() {
 				for _, object := range cleanupObjs {
 					if err := testClient.Delete(ctx, object); err != nil && !apierrors.IsNotFound(err) {
@@ -85,7 +87,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				cleanupObjs = append(cleanupObjs, ns)
 				// Read the TenantControlPlane from file and create it.
 				// Note: This process doesn't cover all the places in the file the name should be set.
-				data, err := os.ReadFile(filepath.Join(artifactsPath, "infrastructure/dpu-control-plane.yaml"))
+				data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpu-control-plane.yaml"))
 				Expect(err).ToNot(HaveOccurred())
 				controlPlane := &unstructured.Unstructured{}
 				Expect(yaml.Unmarshal(data, controlPlane)).To(Succeed())
@@ -191,7 +193,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 		It("create a DPUService and check that it is mirrored to each cluster", func() {
 			// Read the DPUService from file and create it.
-			data, err := os.ReadFile(filepath.Join(artifactsPath, "application/dpuservice.yaml"))
+			data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuservice.yaml"))
 			Expect(err).ToNot(HaveOccurred())
 			dpuService := &unstructured.Unstructured{}
 			Expect(yaml.Unmarshal(data, dpuService)).To(Succeed())
