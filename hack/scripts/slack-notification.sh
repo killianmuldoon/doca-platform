@@ -30,4 +30,7 @@ if [ "$CI_JOB_STATUS" == "success" ]; then
   exit 0
 fi
 
-curl -X POST -H "Content-type: application/json" --data "{\"pipeline_name\":\"${CI_JOB_NAME}\", \"pipeline_url\":\"${CI_PIPELINE_URL}\"}" $SLACK_WEBHOOK_URL
+notification_message="Pipeline ${CI_JOB_NAME} has failed.\n\n Details: ${CI_PIPELINE_URL}"
+
+echo ${notification_message}
+curl -X POST -H "Content-type: application/json" --data "{\"notification_message\":\"${notification_message}\"}" $SLACK_WEBHOOK_URL

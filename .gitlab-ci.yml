@@ -7,11 +7,13 @@ workflow:
 variables:
   ## This is a read-only token used for pulling repositories. Defined in the DPF operator CI/CD settings.
   GITLAB_TOKEN: $CI_TOKEN
+  GITLAB_API_TOKEN: $API_READ_TOKEN
 
 stages:
   - verify
   - test
   - build
+  - triage
 
 lint:
   stage: verify
@@ -93,3 +95,18 @@ e2e:
   after_script:
     - ./hack/scripts/slack-notification.sh
     -  make clean-test-env
+
+triage:
+  stage: triage
+  needs: []
+  variables:
+    # This is the name of the pipeline being triaged. Must match the name of the pipeline in Gitlab.
+    TRIAGE_PIPELINE_NAME: "Periodic unit test"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $TRIAGE_E2E == "true"
+      when: always
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+  image: registry.gitlab.com/gitlab-ci-utils/curl-jq:2.0.0
+  script:
+    - ./hack/scripts/periodic_test_triage.sh
