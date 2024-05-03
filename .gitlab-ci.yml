@@ -105,8 +105,6 @@ triage:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $TRIAGE_E2E == "true"
       when: always
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-      when: manual
   image: registry.gitlab.com/gitlab-ci-utils/curl-jq:2.0.0
   script:
     - ./hack/scripts/periodic_test_triage.sh
