@@ -88,10 +88,16 @@ e2e:
     MINIKUBE_CNI: flannel
   tags:
     - e2e
+  artifacts:
+    when: always
+    paths:
+      - artifacts/*
   before_script:
     - make clean-test-env generate test-env-e2e
   script:
-    - make test-deploy-operator test-e2e
+    # If make-deploy-operator fails run the log collector to see the state of the cluster. This is the same log collector that runs during failing tests.
+    - make test-deploy-operator || go run hack/tools/resource-collector/main.go --kubeconfig ~/.kube/config  --artifactsDirectory $CI_PROJECT_DIR/artifacts
+    - make test-e2e
   after_script:
     - ./hack/scripts/slack-notification.sh
     -  make clean-test-env

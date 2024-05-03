@@ -21,11 +21,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils/collector"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -46,8 +48,9 @@ func init() {
 }
 
 var (
-	testClient client.Client
-	ctx        = ctrl.SetupSignalHandler()
+	testClient        client.Client
+	resourceCollector *collector.Cluster
+	ctx               = ctrl.SetupSignalHandler()
 )
 
 // Run e2e tests using the Ginkgo runner.
@@ -64,9 +67,9 @@ func TestE2E(t *testing.T) {
 	s := scheme.Scheme
 
 	// If testKubeconfig is not set default it to $HOME/.kube/config
+	home, exists := os.LookupEnv("HOME")
+	g.Expect(exists).To(BeTrue())
 	if testKubeconfig == "" {
-		home, exists := os.LookupEnv("HOME")
-		g.Expect(exists).To(BeTrue())
 		testKubeconfig = filepath.Join(home, ".kube/config")
 	}
 
@@ -75,5 +78,12 @@ func TestE2E(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	testClient, err = client.New(config, client.Options{Scheme: s})
 	g.Expect(err).NotTo(HaveOccurred())
+
+	// Get the path to place artifacts in
+	_, basePath, _, _ := runtime.Caller(0)
+	path := filepath.Join(filepath.Dir(basePath), "../../artifacts")
+
+	// Create a resourceCollector to dump logs and resources for test debugging.
+	resourceCollector = collector.NewCluster(testClient, path, config)
 	RunSpecs(t, "e2e suite")
 }
