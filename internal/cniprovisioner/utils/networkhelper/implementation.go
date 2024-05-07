@@ -93,6 +93,28 @@ func (n *networkHelper) SetLinkIPAddress(link string, ipNet *net.IPNet) error {
 	return nil
 }
 
+// LinkIPAddressExists checks whether a link has the given IP.
+func (n *networkHelper) LinkIPAddressExists(link string, ipNet *net.IPNet) (bool, error) {
+	l, err := netlink.LinkByName(link)
+	if err != nil {
+		return false, fmt.Errorf("netlink.LinkByName() failed: %w", err)
+	}
+	givenIP, err := netlink.ParseAddr(ipNet.String())
+	if err != nil {
+		return false, fmt.Errorf("netlink.ParseAddr() failed: %w", err)
+	}
+	ips, err := netlink.AddrList(l, netlink.FAMILY_V4)
+	if err != nil {
+		return false, fmt.Errorf("netlink.AddrList() failed: %w", err)
+	}
+	for _, ip := range ips {
+		if givenIP.Equal(ip) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // DeleteLinkIPAddress deletes the given IP of a link
 func (n *networkHelper) DeleteLinkIPAddress(link string, ipNet *net.IPNet) error {
 	if ipNet == nil {
@@ -133,6 +155,27 @@ func (n *networkHelper) DeleteNeighbour(ip net.IP, device string) error {
 	return nil
 }
 
+// NeighbourExists checks whether an neighbour entry exists
+func (n *networkHelper) NeighbourExists(ip net.IP, device string) (bool, error) {
+	if ip == nil {
+		return false, errors.New("ip is empty, can't check whether neighbour exists")
+	}
+	l, err := netlink.LinkByName(device)
+	if err != nil {
+		return false, fmt.Errorf("netlink.LinkByName() failed: %w", err)
+	}
+	neighbours, err := netlink.NeighList(l.Attrs().Index, netlink.FAMILY_V4)
+	if err != nil {
+		return false, fmt.Errorf("netlink.NeighList() failed: %w", err)
+	}
+	for _, neigh := range neighbours {
+		if neigh.IP.String() == ip.String() {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // DeleteRoute deletes a route
 func (n *networkHelper) DeleteRoute(network *net.IPNet, gateway net.IP, device string) error {
 	if network == nil {
@@ -152,6 +195,28 @@ func (n *networkHelper) DeleteRoute(network *net.IPNet, gateway net.IP, device s
 		return fmt.Errorf("netlink.RouteDel() failed: %w", err)
 	}
 	return nil
+}
+
+// RouteExists checks whether a route exists
+func (n *networkHelper) RouteExists(network *net.IPNet, gateway net.IP, device string) (bool, error) {
+	if network == nil {
+		return false, errors.New("network is empty, can't check whether route exists")
+	}
+	l, err := netlink.LinkByName(device)
+	if err != nil {
+		return false, fmt.Errorf("netlink.LinkByName() failed: %w", err)
+	}
+	routes, err := netlink.RouteList(l, netlink.FAMILY_V4)
+	if err != nil {
+		return false, fmt.Errorf("netlink.RouteList() failed: %w", err)
+	}
+
+	for _, r := range routes {
+		if r.Dst.String() == network.String() && r.Gw.String() == gateway.String() {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // AddRoute adds a route
