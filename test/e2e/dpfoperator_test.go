@@ -227,13 +227,13 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			// Get the control plane secrets.
 			Eventually(func(g Gomega) {
 				dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
-				Expect(err).ToNot(HaveOccurred())
+				g.Expect(err).ToNot(HaveOccurred())
 				for i := range dpuControlPlanes {
 					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
-					Expect(err).ToNot(HaveOccurred())
+					g.Expect(err).ToNot(HaveOccurred())
 					deploymentList := appsv1.DeploymentList{}
-					Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
-					Expect(deploymentList.Items).To(BeEmpty())
+					g.Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
+					g.Expect(deploymentList.Items).To(BeEmpty())
 				}
 			}).WithTimeout(300 * time.Second).Should(Succeed())
 		})
