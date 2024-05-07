@@ -155,6 +155,36 @@ func (mr *MockNetworkHelperMockRecorder) GetPFRepMACAddress(device any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPFRepMACAddress", reflect.TypeOf((*MockNetworkHelper)(nil).GetPFRepMACAddress), device)
 }
 
+// LinkIPAddressExists mocks base method.
+func (m *MockNetworkHelper) LinkIPAddressExists(link string, ipNet *net.IPNet) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LinkIPAddressExists", link, ipNet)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LinkIPAddressExists indicates an expected call of LinkIPAddressExists.
+func (mr *MockNetworkHelperMockRecorder) LinkIPAddressExists(link, ipNet any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkIPAddressExists", reflect.TypeOf((*MockNetworkHelper)(nil).LinkIPAddressExists), link, ipNet)
+}
+
+// NeighbourExists mocks base method.
+func (m *MockNetworkHelper) NeighbourExists(ip net.IP, device string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NeighbourExists", ip, device)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NeighbourExists indicates an expected call of NeighbourExists.
+func (mr *MockNetworkHelperMockRecorder) NeighbourExists(ip, device any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NeighbourExists", reflect.TypeOf((*MockNetworkHelper)(nil).NeighbourExists), ip, device)
+}
+
 // RenameLink mocks base method.
 func (m *MockNetworkHelper) RenameLink(link, newName string) error {
 	m.ctrl.T.Helper()
@@ -167,6 +197,21 @@ func (m *MockNetworkHelper) RenameLink(link, newName string) error {
 func (mr *MockNetworkHelperMockRecorder) RenameLink(link, newName any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameLink", reflect.TypeOf((*MockNetworkHelper)(nil).RenameLink), link, newName)
+}
+
+// RouteExists mocks base method.
+func (m *MockNetworkHelper) RouteExists(network *net.IPNet, gateway net.IP, device string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RouteExists", network, gateway, device)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RouteExists indicates an expected call of RouteExists.
+func (mr *MockNetworkHelperMockRecorder) RouteExists(network, gateway, device any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RouteExists", reflect.TypeOf((*MockNetworkHelper)(nil).RouteExists), network, gateway, device)
 }
 
 // SetLinkDown mocks base method.

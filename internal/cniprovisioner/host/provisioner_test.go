@@ -70,18 +70,26 @@ var _ = Describe("Host CNI Provisioner", func() {
 			err = os.WriteFile(sriovNumVfsPath, []byte(strconv.Itoa(2)), 0444)
 			Expect(err).NotTo(HaveOccurred())
 
+			networkhelper.EXPECT().LinkIPAddressExists("ens25f0np0", pfIPNet).Return(false, nil)
 			networkhelper.EXPECT().SetLinkIPAddress("ens25f0np0", pfIPNet)
 
+			networkhelper.EXPECT().DummyLinkExists("pf0vf0").Return(false, nil)
 			networkhelper.EXPECT().AddDummyLink("pf0vf0")
+			networkhelper.EXPECT().DummyLinkExists("pf0vf1").Return(false, nil)
 			networkhelper.EXPECT().AddDummyLink("pf0vf1")
 
+			networkhelper.EXPECT().NeighbourExists(net.ParseIP("169.254.169.1"), "br-ex").Return(true, nil)
 			networkhelper.EXPECT().DeleteNeighbour(net.ParseIP("169.254.169.1"), "br-ex")
+			networkhelper.EXPECT().NeighbourExists(net.ParseIP("169.254.169.4"), "br-ex").Return(true, nil)
 			networkhelper.EXPECT().DeleteNeighbour(net.ParseIP("169.254.169.4"), "br-ex")
 			hostMasqueradeIP, _ := netlink.ParseIPNet("169.254.169.2/29")
+			networkhelper.EXPECT().LinkIPAddressExists("br-ex", hostMasqueradeIP).Return(true, nil)
 			networkhelper.EXPECT().DeleteLinkIPAddress("br-ex", hostMasqueradeIP)
 			kubernetesServiceCIDR, _ := netlink.ParseIPNet("172.30.0.0/16")
+			networkhelper.EXPECT().RouteExists(kubernetesServiceCIDR, net.ParseIP("169.254.169.4"), "br-ex").Return(true, nil)
 			networkhelper.EXPECT().DeleteRoute(kubernetesServiceCIDR, net.ParseIP("169.254.169.4"), "br-ex")
 			ovnMasqueradeIP, _ := netlink.ParseIPNet("169.254.169.1/32")
+			networkhelper.EXPECT().RouteExists(ovnMasqueradeIP, nil, "br-ex").Return(true, nil)
 			networkhelper.EXPECT().DeleteRoute(ovnMasqueradeIP, nil, "br-ex")
 
 			err = provisioner.RunOnce()

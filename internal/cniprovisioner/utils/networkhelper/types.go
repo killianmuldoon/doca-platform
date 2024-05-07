@@ -32,14 +32,20 @@ type NetworkHelper interface {
 	RenameLink(link string, newName string) error
 	// SetLinkIPAddress sets the IP address of a link
 	SetLinkIPAddress(link string, ipNet *net.IPNet) error
+	// LinkIPAddressExists checks whether a link has the given IP.
+	LinkIPAddressExists(link string, ipNet *net.IPNet) (bool, error)
 	// DeleteLinkIPAddress deletes the given IP of a link
 	DeleteLinkIPAddress(link string, ipNet *net.IPNet) error
 	// DeleteNeighbour deletes a neighbour
 	DeleteNeighbour(ip net.IP, device string) error
+	// NeighbourExists checks whether an neighbour entry exists
+	NeighbourExists(ip net.IP, device string) (bool, error)
 	// AddRoute adds a route
 	AddRoute(network *net.IPNet, gateway net.IP, device string) error
 	// DeleteRoute deletes a route
 	DeleteRoute(network *net.IPNet, gateway net.IP, device string) error
+	// RouteExists checks whether a route exists
+	RouteExists(network *net.IPNet, gateway net.IP, device string) (bool, error)
 	// AddDummyLink adds a dummy link
 	AddDummyLink(link string) error
 	// DummyLinkExists checks if a dummy link exists
