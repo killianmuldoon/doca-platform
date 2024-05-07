@@ -108,7 +108,7 @@ func (c *Cluster) dumpPodLogs(ctx context.Context, folderPath string) (reterr er
 			if err != nil {
 				return err
 			}
-			filePath := filepath.Join(folderPath, "logs", "pods", pod.GetNamespace(), pod.GetName(), fmt.Sprintf("%v.yaml", container.Name))
+			filePath := filepath.Join(folderPath, "logs", "pods", pod.GetNamespace(), pod.GetName(), fmt.Sprintf("%v.log", container.Name))
 			err = os.MkdirAll(filepath.Dir(filePath), 0750)
 			if err != nil {
 				return err
