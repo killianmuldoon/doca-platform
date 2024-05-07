@@ -27,7 +27,6 @@ import (
 	dpuservicecontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/controllers"
 	dpuservicechaincontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservicechain/controllers"
 
-	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -38,16 +37,15 @@ import (
 )
 
 var (
-	scheme   = runtime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
 )
 
 func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(clientgoscheme.AddToScheme(clientgoscheme.Scheme))
 
-	utilruntime.Must(dpuservicev1.AddToScheme(scheme))
-	utilruntime.Must(argov1.AddToScheme(scheme))
-	utilruntime.Must(sfcv1.AddToScheme(scheme))
+	utilruntime.Must(dpuservicev1.AddToScheme(clientgoscheme.Scheme))
+	utilruntime.Must(argov1.AddToScheme(clientgoscheme.Scheme))
+	utilruntime.Must(sfcv1.AddToScheme(clientgoscheme.Scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -95,7 +93,7 @@ func main() {
 	})
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
+		Scheme: clientgoscheme.Scheme,
 		Metrics: metricsserver.Options{
 			BindAddress:   metricsAddr,
 			SecureServing: secureMetrics,

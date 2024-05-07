@@ -26,6 +26,7 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
+	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils/collector"
 
@@ -64,6 +65,7 @@ func TestE2E(t *testing.T) {
 	Expect(dpuservicev1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(operatorv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(argov1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(sfcv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	s := scheme.Scheme
 
 	// If testKubeconfig is not set default it to $HOME/.kube/config

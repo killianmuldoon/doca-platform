@@ -90,7 +90,7 @@ func reconcile(ctx context.Context, k8sClient client.Client, dpuServiceObject cl
 		if err != nil {
 			return ctrl.Result{}, err
 		}
-		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: dpuServiceObject.GetNamespace()}}
+		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceObject.GetNamespace()}}
 		if err := cl.Create(ctx, ns); err != nil {
 			// Fail if this returns any error other than alreadyExists.
 			if !apierrors.IsAlreadyExists(err) {
