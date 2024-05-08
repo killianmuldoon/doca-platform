@@ -18,6 +18,7 @@ package hostcniprovisioner
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -36,6 +37,8 @@ import (
 const (
 	// ovnDBsPath is the path where the OVN Databases are stored
 	ovnDBsPath = "/var/lib/ovn-ic/etc/"
+	// ovnCleanUpDoneFile is the name of the file that indicates that OVN Kubernetes cleanup has happened
+	ovnCleanUpDoneFile = "dpf-cleanup-done"
 	//originalBrEx is the name of the original br-ex created by the upstream OVN Kubernetes
 	originalBrEx = "br-ex"
 
@@ -123,7 +126,7 @@ func (p *HostCNIProvisioner) EnsureConfiguration() {
 		case <-p.ensureConfigurationTicker.C():
 			// The VF used for OVN management is getting renamed when OVN Kubernetes starts. On restart, the link is no
 			// longer there and OVN Kubernetes can't start, therefore we need to ensure the link always exists.
-			err := p.AddDummyLinkIfNotExists(ovnManagementVFRep)
+			err := p.addDummyLinkIfNotExists(ovnManagementVFRep)
 			if err != nil {
 				klog.Errorf("failed to ensure dummy link %s: %s", ovnManagementVFRep, err.Error())
 			}
@@ -223,7 +226,7 @@ func (p *HostCNIProvisioner) createFakeFS(pfToNumVFs map[string]int) error {
 	for pf, numVfs := range pfToNumVFs {
 		// /var/dpf/sys/class/net/ens2f0np0
 		pfPath := filepath.Join(fsPath, pf)
-		err = os.Mkdir(pfPath, 0755)
+		err = os.MkdirAll(pfPath, 0755)
 		if err != nil {
 			return fmt.Errorf("error creating fake dir %s: %w", pfPath, err)
 		}
@@ -231,21 +234,21 @@ func (p *HostCNIProvisioner) createFakeFS(pfToNumVFs map[string]int) error {
 		// /var/dpf/sys/class/net/ens2f0np0/phys_port_name
 		path := filepath.Join(pfPath, "phys_port_name")
 		// TODO: Find port number and parameterize static p0 when introducing support for VFs on both PFs
-		err = os.WriteFile(path, []byte("p0"), 0444)
+		err = os.WriteFile(path, []byte("p0"), 0644)
 		if err != nil {
 			return fmt.Errorf("error creating fake phys_port_name file %s: %w", path, err)
 		}
 
 		// /var/dpf/sys/class/net/ens2f0np0/phys_switch_id
 		path = filepath.Join(pfPath, "phys_switch_id")
-		err = os.WriteFile(path, []byte(physSwitchIDValue), 0444)
+		err = os.WriteFile(path, []byte(physSwitchIDValue), 0644)
 		if err != nil {
 			return fmt.Errorf("error creating fake phys_switch_id file %s: %w", path, err)
 		}
 
 		// /var/dpf/sys/class/net/ens2f0np0/subsystem -> /var/dpf/sys/class/net/
 		path = filepath.Join(pfPath, "subsystem")
-		err = os.Symlink(fsPath, path)
+		err := createSymlinkIfNotExists(fsPath, path)
 		if err != nil {
 			return fmt.Errorf("error creating subsystem symlink %s->%s: %w", path, fsPath, err)
 		}
@@ -254,27 +257,43 @@ func (p *HostCNIProvisioner) createFakeFS(pfToNumVFs map[string]int) error {
 			// TODO: Find port number and parameterize static 0 when introducing support for VFs on both PFs
 			// /var/dpf/sys/class/net/pf0vf0
 			vfRepPath := filepath.Join(fsPath, fmt.Sprintf(vfRepresentorPattern, 0, i))
-			err := os.Mkdir(vfRepPath, 0755)
+			err := os.MkdirAll(vfRepPath, 0755)
 			if err != nil {
 				return fmt.Errorf("error creating fake dir %s: %w", vfRepPath, err)
 			}
 
 			// /var/dpf/sys/class/net/pf0vf0/phys_port_name
 			path := filepath.Join(vfRepPath, "phys_port_name")
-			err = os.WriteFile(path, []byte(fmt.Sprintf(vfRepresentorPortPattern, 0, i)), 0444)
+			err = os.WriteFile(path, []byte(fmt.Sprintf(vfRepresentorPortPattern, 0, i)), 0644)
 			if err != nil {
 				return fmt.Errorf("error creating fake phys_port_name file %s: %w", path, err)
 			}
 
 			// /var/dpf/sys/class/net/pf0vf0/phys_switch_id
 			path = filepath.Join(vfRepPath, "phys_switch_id")
-			err = os.WriteFile(path, []byte(physSwitchIDValue), 0444)
+			err = os.WriteFile(path, []byte(physSwitchIDValue), 0644)
 			if err != nil {
 				return fmt.Errorf("error creating fake phys_switch_id file %s: %w", path, err)
 			}
 		}
 	}
 
+	return nil
+}
+
+// createSymlinkIfNotExists creates a symlink if it doesn't exist
+func createSymlinkIfNotExists(path string, symlink string) error {
+	_, err := os.Lstat(symlink)
+	if err == nil {
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("error when calling lstat on %s: %w", symlink, err)
+	}
+
+	err = os.Symlink(path, symlink)
+	if err != nil {
+		return fmt.Errorf("error creating symlink %s->%s: %w", symlink, path, err)
+	}
 	return nil
 }
 
@@ -285,7 +304,7 @@ func (p *HostCNIProvisioner) createDummyLinks(pfToNumVFs map[string]int) error {
 		for i := 0; i < numVfs; i++ {
 			// TODO: Find port number and parameterize static 0 when introducing support for VFs on both PFs
 			vfRep := fmt.Sprintf(vfRepresentorPattern, 0, i)
-			err := p.AddDummyLinkIfNotExists(vfRep)
+			err := p.addDummyLinkIfNotExists(vfRep)
 			if err != nil {
 				return fmt.Errorf("error adding dummy link %s: %w", vfRep, err)
 			}
@@ -303,7 +322,7 @@ func (p *HostCNIProvisioner) removeOVNKubernetesLeftovers() error {
 		return fmt.Errorf("error parsing IPNet %s: %w", hostToServiceHostMasqueradeIP, err)
 	}
 
-	err = p.DeleteNeighbourIfExists(ovnMasqueradeIP.IP, originalBrEx)
+	err = p.deleteNeighbourIfExists(ovnMasqueradeIP.IP, originalBrEx)
 	if err != nil {
 		return fmt.Errorf("error deleting neighbour %s %s: %w", ovnMasqueradeIP.IP.String(), originalBrEx, err)
 	}
@@ -313,7 +332,7 @@ func (p *HostCNIProvisioner) removeOVNKubernetesLeftovers() error {
 		return fmt.Errorf("error parsing IPNet %s: %w", hostToServiceDummyNextHopMasqueradeIP, err)
 	}
 
-	err = p.DeleteNeighbourIfExists(dummyNextHopMasqueradeIP.IP, originalBrEx)
+	err = p.deleteNeighbourIfExists(dummyNextHopMasqueradeIP.IP, originalBrEx)
 	if err != nil {
 		return fmt.Errorf("error deleting neighbour %s %s: %w", dummyNextHopMasqueradeIP.IP.String(), originalBrEx, err)
 	}
@@ -322,7 +341,7 @@ func (p *HostCNIProvisioner) removeOVNKubernetesLeftovers() error {
 	if err != nil {
 		return fmt.Errorf("error parsing IPNet %s: %w", hostToServiceHostMasqueradeIP, err)
 	}
-	err = p.DeleteLinkIPAddressIfExists(originalBrEx, hostMasqueradeIP)
+	err = p.deleteLinkIPAddressIfExists(originalBrEx, hostMasqueradeIP)
 	if err != nil {
 		return fmt.Errorf("error deleting IP address %s from link IPNet %s: %w", hostMasqueradeIP, originalBrEx, err)
 	}
@@ -332,20 +351,40 @@ func (p *HostCNIProvisioner) removeOVNKubernetesLeftovers() error {
 		return fmt.Errorf("error parsing IPNet %s: %w", kubernetesServiceCIDR, err)
 	}
 
-	err = p.DeleteRouteIfExists(svcNet, dummyNextHopMasqueradeIP.IP, originalBrEx)
+	err = p.deleteRouteIfExists(svcNet, dummyNextHopMasqueradeIP.IP, originalBrEx)
 	if err != nil {
 		return fmt.Errorf("error deleting route %s %s %s: %w", svcNet, dummyNextHopMasqueradeIP.IP.String(), originalBrEx, err)
 	}
 
 	ovnMasqueradeIP.Mask = net.CIDRMask(32, 32)
-	err = p.DeleteRouteIfExists(ovnMasqueradeIP, nil, originalBrEx)
+	err = p.deleteRouteIfExists(ovnMasqueradeIP, nil, originalBrEx)
 	if err != nil {
 		return fmt.Errorf("error deleting route %s %s: %w", ovnMasqueradeIP, originalBrEx, err)
 	}
 
 	// We need to drop the OVN databases so that the custom OVN Kubernetes which will be deployed doesn't recreate
 	// OVS flows and patch ports using the naming scheme of the previous run.
+	err = p.cleanupOVNDatabases()
+	if err != nil {
+		return fmt.Errorf("error cleaning up OVN databases: %w", err)
+	}
+
+	return nil
+}
+
+// cleanupOVNDatabases cleans up the OVN Databases if they are not cleaned up before
+func (p *HostCNIProvisioner) cleanupOVNDatabases() error {
 	path := filepath.Join(p.FileSystemRoot, ovnDBsPath)
+
+	cleanUpDonePath := filepath.Join(path, ovnCleanUpDoneFile)
+	_, err := os.Stat(cleanUpDonePath)
+	if err == nil {
+		klog.Info("OVN databases already cleaned up, skipping cleanup")
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("error when calling stat on %s: %w", cleanUpDonePath, err)
+	}
+
 	err = os.RemoveAll(path)
 	if err != nil {
 		return fmt.Errorf("error removing OVN DB path %s: %w", path, err)
@@ -356,11 +395,16 @@ func (p *HostCNIProvisioner) removeOVNKubernetesLeftovers() error {
 		return fmt.Errorf("error creating new OVN DB path %s: %w", path, err)
 	}
 
+	_, err = os.Create(cleanUpDonePath)
+	if err != nil {
+		return fmt.Errorf("error creating %s file: %w", cleanUpDonePath, err)
+	}
+
 	return nil
 }
 
-// AddDummyLinkIfNotExists ensures that a dummy link is in place
-func (p *HostCNIProvisioner) AddDummyLinkIfNotExists(link string) error {
+// addDummyLinkIfNotExists ensures that a dummy link is in place
+func (p *HostCNIProvisioner) addDummyLinkIfNotExists(link string) error {
 	exists, err := p.networkHelper.DummyLinkExists(link)
 	if err != nil {
 		return fmt.Errorf("error checking whether dummy link exists: %w", err)
@@ -376,14 +420,14 @@ func (p *HostCNIProvisioner) AddDummyLinkIfNotExists(link string) error {
 	return nil
 }
 
-// DeleteNeighbourIfExists deletes a neighbor if it exists
-func (p *HostCNIProvisioner) DeleteNeighbourIfExists(ip net.IP, device string) error {
+// deleteNeighbourIfExists deletes a neighbour if it exists
+func (p *HostCNIProvisioner) deleteNeighbourIfExists(ip net.IP, device string) error {
 	hasNeigh, err := p.networkHelper.NeighbourExists(ip, device)
 	if err != nil {
 		return fmt.Errorf("error checking whether neighbour exists: %w", err)
 	}
 	if !hasNeigh {
-		klog.Infof("Neighbor %s %s doesn't exist, skipping deletion", ip.String(), device)
+		klog.Infof("Neighbour %s %s doesn't exist, skipping deletion", ip.String(), device)
 		return nil
 	}
 	err = p.networkHelper.DeleteNeighbour(ip, device)
@@ -393,8 +437,8 @@ func (p *HostCNIProvisioner) DeleteNeighbourIfExists(ip net.IP, device string) e
 	return nil
 }
 
-// DeleteRouteIfExists deletes a neighbor if it exists
-func (p *HostCNIProvisioner) DeleteRouteIfExists(network *net.IPNet, gateway net.IP, device string) error {
+// deleteRouteIfExists deletes a route if it exists
+func (p *HostCNIProvisioner) deleteRouteIfExists(network *net.IPNet, gateway net.IP, device string) error {
 	hasRoute, err := p.networkHelper.RouteExists(network, gateway, device)
 	if err != nil {
 		return fmt.Errorf("error checking whether route exists: %w", err)
@@ -410,8 +454,8 @@ func (p *HostCNIProvisioner) DeleteRouteIfExists(network *net.IPNet, gateway net
 	return nil
 }
 
-// DeleteLinkIPAddresIfExists sdeletes an IP address from a link if it exists
-func (p *HostCNIProvisioner) DeleteLinkIPAddressIfExists(link string, ipNet *net.IPNet) error {
+// deleteLinkIPAddresIfExists deletes an IP address from a link if it exists
+func (p *HostCNIProvisioner) deleteLinkIPAddressIfExists(link string, ipNet *net.IPNet) error {
 	hasRoute, err := p.networkHelper.LinkIPAddressExists(link, ipNet)
 	if err != nil {
 		return fmt.Errorf("error checking whether IP exists: %w", err)
