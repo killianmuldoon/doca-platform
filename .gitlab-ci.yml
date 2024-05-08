@@ -86,6 +86,7 @@ e2e:
     REGISTRY: harbor.mellanox.com/cloud-orchestration-dev/dpf/e2e
     # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
     MINIKUBE_CNI: flannel
+    MINIKUBE_DRIVER: docker
   tags:
     - e2e
   artifacts:

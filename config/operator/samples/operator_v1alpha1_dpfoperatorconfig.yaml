@@ -10,6 +10,9 @@ metadata:
   name: dpfoperatorconfig
   namespace: dpf-operator-system
 spec:
+  provisioningConfiguration:
+    bfbPVCName: "dpf-provisioning-volume"
+    imagePullSecret: "fake-name"
   hostNetworkConfiguration:
     hostPF0: ens2f0np0
     hostPF0VF0: enp23s0f0v0
