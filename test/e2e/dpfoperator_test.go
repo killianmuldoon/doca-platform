@@ -187,7 +187,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Eventually(func(g Gomega) {
 				dpuServices := &dpuservicev1.DPUServiceList{}
 				g.Expect(testClient.List(ctx, dpuServices)).To(Succeed())
-				g.Expect(dpuServices.Items).To(HaveLen(4))
+				g.Expect(dpuServices.Items).To(HaveLen(5))
 				found := map[string]bool{}
 				for i := range dpuServices.Items {
 					found[dpuServices.Items[i].Name] = true
@@ -198,6 +198,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				g.Expect(found).To(HaveKey("sriov-device-plugin"))
 				g.Expect(found).To(HaveKey("flannel"))
 				g.Expect(found).To(HaveKey("servicefunctionchainset-controller"))
+				g.Expect(found).To(HaveKey("nvidia-k8s-ipam"))
 
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 
@@ -225,6 +226,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					g.Expect(found).To(HaveKey(ContainSubstring("sriov-device-plugin")))
 					g.Expect(found).To(HaveKey(ContainSubstring("flannel")))
 					g.Expect(found).To(HaveKey(ContainSubstring("servicefunctionchainset-controller")))
+					g.Expect(found).To(HaveKey(ContainSubstring("nvidia-k8s-ipam")))
 				}
 			}).WithTimeout(180 * time.Second).Should(Succeed())
 		})

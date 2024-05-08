@@ -1,0 +1,10 @@
+apiVersion: svc.dpf.nvidia.com/v1alpha1
+kind: DPUService
+metadata:
+  name: nvidia-k8s-ipam
+  namespace: dpf-operator-system
+spec:
+  source:
+    repoURL: nvidia.com
+    chart: nvidia-k8s-ipam
+    version: v0.0.0
