@@ -48,6 +48,7 @@ type Manifests struct {
 	ServiceFunctionChainSet Component
 	Multus                  Component
 	SRIOVDevicePlugin       Component
+	NvIPAM                  Component
 	Flannel                 Component
 }
 
@@ -67,6 +68,9 @@ var (
 
 	//go:embed manifests/flannel.yaml
 	flannelData []byte
+
+	//go:embed manifests/nv-k8s-ipam.yaml
+	nvK8sIpamData []byte
 
 	//go:embed manifests/dpf-provisioning-controller.yaml
 	dpfProvisioningControllerData []byte
@@ -97,6 +101,10 @@ func New() *Manifests {
 			name: "flannel",
 			data: flannelData,
 		},
+		NvIPAM: &fromDPUService{
+			name: "nvidia-k8s-ipam",
+			data: nvK8sIpamData,
+		},
 	}
 }
 
@@ -118,6 +126,9 @@ func (m *Manifests) ParseAll() error {
 		return err
 	}
 	if err := m.Flannel.Parse(); err != nil {
+		return err
+	}
+	if err := m.NvIPAM.Parse(); err != nil {
 		return err
 	}
 	return nil
@@ -157,6 +168,11 @@ func (m *Manifests) generateAllManifests(variables Variables) ([]client.Object, 
 		errs = append(errs, err)
 	}
 	out = append(out, objs...)
+	objs, err = m.NvIPAM.GenerateManifests(variables)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, objs...)
 	if len(errs) != 0 {
 		return nil, kerrors.NewAggregate(errs)
 	}
@@ -186,5 +202,10 @@ func (m *Manifests) setServiceFunctionChainSet(input fromDPUService) *Manifests 
 
 func (m *Manifests) setFlannel(input fromDPUService) *Manifests {
 	m.Flannel = &input
+	return m
+}
+
+func (m *Manifests) setNvK8sIpam(input fromDPUService) *Manifests {
+	m.NvIPAM = &input
 	return m
 }

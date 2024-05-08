@@ -156,6 +156,31 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 			}),
 			wantErr: true,
 		},
+		// nv-ipam
+		{
+			name: "fail if nv-ipam data is nil",
+			inventory: New().setNvK8sIpam(fromDPUService{
+				name: "nv-ipam",
+				data: nil,
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if nv-ipam data has an unexpected object",
+			inventory: New().setNvK8sIpam(fromDPUService{
+				name: "nv-ipam",
+				data: addUnexpectedKindToObjects(g, nvK8sIpamData),
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if nv-ipam is missing the DPUService",
+			inventory: New().setNvK8sIpam(fromDPUService{
+				name: "nv-ipam",
+				data: removeKindFromObjects(g, "DPUService", nvK8sIpamData),
+			}),
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

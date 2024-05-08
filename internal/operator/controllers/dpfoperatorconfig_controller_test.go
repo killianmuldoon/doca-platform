@@ -1092,6 +1092,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			waitForDPUService(config.Namespace, "multus")
 			waitForDPUService(config.Namespace, "sriov-device-plugin")
 			waitForDPUService(config.Namespace, "flannel")
+			waitForDPUService(config.Namespace, "nvidia-k8s-ipam")
 		})
 	})
 })
