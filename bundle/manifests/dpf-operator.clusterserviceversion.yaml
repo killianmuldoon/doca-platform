@@ -39,12 +39,16 @@ metadata:
                   "hostIP": "10.0.97.10/24"
                 }
               ]
+            },
+            "provisioningConfiguration": {
+              "bfbPVCName": "dpf-provisioning-volume",
+              "imagePullSecret": "fake-name"
             }
           }
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-05-02T06:57:14Z"
+    createdAt: "2024-05-07T15:55:37Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: unknown
   name: dpf-operator.v0.0.0
@@ -53,8 +57,14 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
+    - kind: Bfb
+      name: bfbs.provisioning.dpf.nvidia.com
+      version: v1alpha1
     - kind: DPFOperatorConfig
       name: dpfoperatorconfigs.operator.dpf.nvidia.com
+      version: v1alpha1
+    - kind: Dpu
+      name: dpus.provisioning.dpf.nvidia.com
       version: v1alpha1
     - kind: DPUServiceChain
       name: dpuservicechains.sfc.dpf.nvidia.com
@@ -64,6 +74,9 @@ spec:
       version: v1alpha1
     - kind: DPUService
       name: dpuservices.svc.dpf.nvidia.com
+      version: v1alpha1
+    - kind: DpuSet
+      name: dpusets.provisioning.dpf.nvidia.com
       version: v1alpha1
     - kind: ServiceChain
       name: servicechains.sfc.dpf.nvidia.com
@@ -89,11 +102,15 @@ spec:
         - apiGroups:
           - admissionregistration.k8s.io
           resources:
+          - mutatingwebhookconfigurations
           - validatingwebhookconfigurations
           verbs:
+          - create
           - delete
           - get
           - list
+          - patch
+          - update
           - watch
         - apiGroups:
           - apps
@@ -111,6 +128,19 @@ spec:
           resources:
           - applications
           - appprojects
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - cert-manager.io
+          resources:
+          - certificates
+          - issuers
           verbs:
           - create
           - delete
@@ -152,11 +182,16 @@ spec:
           - ""
           resources:
           - nodes
+          - pods
           - secrets
+          - services
           verbs:
+          - create
+          - delete
           - get
           - list
           - patch
+          - update
           - watch
         - apiGroups:
           - events.k8s.io
@@ -200,6 +235,84 @@ spec:
           - operator.dpf.nvidia.com
           resources:
           - dpfoperatorconfigs/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - provisioning.dpf.nvidia.com
+          resources:
+          - bfbs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - provisioning.dpf.nvidia.com
+          resources:
+          - bfbs/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - provisioning.dpf.nvidia.com
+          resources:
+          - bfbs/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - provisioning.dpf.nvidia.com
+          resources:
+          - dpus
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - provisioning.dpf.nvidia.com
+          resources:
+          - dpus/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - provisioning.dpf.nvidia.com
+          resources:
+          - dpus/status
+          verbs:
+          - get
+          - patch
+          - update
+        - apiGroups:
+          - provisioning.dpf.nvidia.com
+          resources:
+          - dpusets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - provisioning.dpf.nvidia.com
+          resources:
+          - dpusets/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - provisioning.dpf.nvidia.com
+          resources:
+          - dpusets/status
           verbs:
           - get
           - patch

@@ -155,11 +155,10 @@ type DPFOperatorConfigReconcilerSettings struct {
 //+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs/finalizers,verbs=update
-//+kubebuilder:rbac:groups=core,resources=nodes;secrets,verbs=get;list;watch;patch
+//+kubebuilder:rbac:groups=core,resources=nodes;pods;secrets;services,verbs=create;get;list;watch;patch;delete;update
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts;configmaps,verbs=get;list;watch;create;patch;update;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=deployments;daemonsets,verbs=get;list;watch;create;patch
-//+kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations,verbs=get;list;watch;delete
 //+kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch;update;get;list;delete;watch
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/status,verbs=get;update;patch
@@ -173,6 +172,17 @@ type DPFOperatorConfigReconcilerSettings struct {
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceinterfaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceinterfaces/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceinterfaces/finalizers,verbs=update
+//+kubebuilder:rbac:groups=cert-manager.io,resources=issuers;certificates,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations;mutatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets/finalizers,verbs=update
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=bfbs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=bfbs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=bfbs/finalizers,verbs=update
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpus,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpus/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpus/finalizers,verbs=update
 
 const (
 	dpfOperatorConfigControllerName = "dpfoperatorconfig-controller"

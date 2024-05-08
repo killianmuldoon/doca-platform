@@ -40,8 +40,9 @@ import (
 )
 
 var (
-	testObjectsPath = "../objects/"
-	numClusters     = 1
+	testObjectsPath            = "../objects/"
+	numClusters                = 1
+	dpfOperatorSystemNamespace = "dpf-operator-system"
 )
 
 //nolint:dupl
@@ -52,6 +53,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 	dpuserviceinterfaceName := "pf0-vf2"
 	dpuServiceChainNamespace := "test-2"
 	dpuservicechainName := "svc-chain-test"
+	dpfProvisioningControllerPVCName := "dpf-provisioning-volume"
 	Context("deploying a DPUService", func() {
 		var cleanupObjs []client.Object
 		AfterAll(func() {
@@ -70,7 +72,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Eventually(func(g Gomega) {
 				deployment := &appsv1.Deployment{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{
-					Namespace: "dpf-operator-system",
+					Namespace: dpfOperatorSystemNamespace,
 					Name:      "dpf-operator-controller-manager"},
 					deployment)).To(Succeed())
 				g.Expect(deployment.Status.ReadyReplicas).To(Equal(*deployment.Spec.Replicas))
@@ -125,15 +127,34 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 		// TODO: Create hollow nodes to join the cluster and host the applications.
 
+		It("create the PersistentVolumeClaim for the DPF Provisioning controller", func() {
+			data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpf-provisioning-pvc.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+			pvc := &corev1.PersistentVolumeClaim{}
+			Expect(yaml.Unmarshal(data, pvc)).To(Succeed())
+			pvc.SetName(dpfProvisioningControllerPVCName)
+			pvc.SetNamespace(dpfOperatorSystemNamespace)
+			if err := testClient.Create(ctx, pvc); err != nil {
+				// Fail if this returns any error other than alreadyExists.
+				if !apierrors.IsAlreadyExists(err) {
+					Expect(err).NotTo(HaveOccurred())
+				}
+			}
+		})
+
 		It("create the DPFOperatorConfig for the system", func() {
 			config := &operatorv1.DPFOperatorConfig{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "dpfoperatorconfig",
-					Namespace: "dpf-operator-system",
+					Namespace: dpfOperatorSystemNamespace,
 				},
 				Spec: operatorv1.DPFOperatorConfigSpec{
 					HostNetworkConfiguration: operatorv1.HostNetworkConfiguration{
 						Hosts: []operatorv1.Host{},
+					},
+					ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
+						BFBPersistentVolumeClaimName: dpfProvisioningControllerPVCName,
+						ImagePullSecret:              "some-secret",
 					},
 				},
 			}
@@ -144,8 +165,19 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Eventually(func(g Gomega) {
 				deployment := &appsv1.Deployment{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{
-					Namespace: "dpf-operator-system",
+					Namespace: dpfOperatorSystemNamespace,
 					Name:      "dpuservice-controller-manager"},
+					deployment)).To(Succeed())
+				g.Expect(deployment.Status.ReadyReplicas).To(Equal(*deployment.Spec.Replicas))
+			}).WithTimeout(60 * time.Second).Should(Succeed())
+		})
+
+		It("ensure the DPF Provisioning controller is running and ready", func() {
+			Eventually(func(g Gomega) {
+				deployment := &appsv1.Deployment{}
+				g.Expect(testClient.Get(ctx, client.ObjectKey{
+					Namespace: dpfOperatorSystemNamespace,
+					Name:      "dpf-provisioning-controller-manager"},
 					deployment)).To(Succeed())
 				g.Expect(deployment.Status.ReadyReplicas).To(Equal(*deployment.Spec.Replicas))
 			}).WithTimeout(60 * time.Second).Should(Succeed())

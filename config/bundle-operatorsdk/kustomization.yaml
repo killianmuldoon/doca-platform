@@ -14,6 +14,6 @@ resources:
   - ../operator/samples
   - ../dpuservice/crd
   - ../servicechainset/crd
-## TODO: Add more CRDs here as we add controller deployments.
   - ../operator/rbac
   - ../operator/manager
+  - ../dpf-provisioning/crd

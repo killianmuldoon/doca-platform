@@ -291,7 +291,7 @@ generate-manifests-hostcniprovisioner: $(KUSTOMIZE) ## Generates Host CNI provis
 # Namespace is set and passed through to the dpf-provisioning Makefile to overwrite the default namespace.
 .PHONY: generate-manifests-provisioning
 generate-manifests-provisioning: $(DPF_PROVISIONING_DIR) ## Generate DPU Provisioning manifests
-	$(MAKE) -C $(DPF_PROVISIONING_DIR) kustomize-build
+	$(MAKE) IMG=$(DPFPROVISIONING_IMAGE):$(TAG) -C $(DPF_PROVISIONING_DIR) kustomize-build
 
 TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
@@ -322,6 +322,10 @@ generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. fo
 	output:rbac:dir=./config/servicechainset/rbac
 	cd config/servicechainset/manager && $(KUSTOMIZE) edit set image controller=$(SFCSET_IMAGE):$(TAG)
 	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/servicechain/crds/ \;
+
+.PHONY: generate-manifests-dpf-provisioning
+generate-manifests-dpf-provisioning: $(KUSTOMIZE) $(DPF_PROVISIONING_DIR) ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
+	$(KUSTOMIZE) build $(DPF_PROVISIONING_DIR)/config/crd > ./config/dpf-provisioning/crd/bases/crds.yaml
 
 .PHONY: generate-operator-bundle
 generate-operator-bundle: $(OPERATOR_SDK) $(KUSTOMIZE) ## Generate bundle manifests and metadata, then validate generated files.
@@ -395,6 +399,7 @@ test-build-and-push-artifacts: $(KUSTOMIZE) ## Build and push DPF artifacts (ima
 	$(MAKE) docker-build-operator docker-push-operator ; \
 	$(MAKE) docker-build-operator-bundle docker-push-operator-bundle; \
 	$(MAKE) docker-build-sfcset docker-push-sfcset
+	$(MAKE) docker-build-dpf-provisioning docker-push-dpf-provisioning
 
 	# Build and push all the helm charts
 	$(MAKE) helm-package-all helm-push-all
@@ -606,6 +611,10 @@ docker-build-dpuservice: ## Build docker images for the dpuservice-controller
 		. \
 		-t $(DPUSERVICE_IMAGE):$(TAG)
 
+.PHONY: docker-build-dpf-provisioning
+docker-build-dpf-provisioning: $(DPF_PROVISIONING_DIR) ## Build docker images for the dpf-provisioning-controller
+	$(MAKE) IMG=$(DPFPROVISIONING_IMAGE):$(TAG) -C  $(DPF_PROVISIONING_DIR) docker-build
+
 .PHONY: docker-build-dpucniprovisioner
 docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker images for the DPU CNI Provisioner
 	docker build \
@@ -677,6 +686,10 @@ docker-push-operator: ## Push the docker image for operator.
 .PHONY: docker-push-dpuservice
 docker-push-dpuservice: ## Push the docker image for dpuservice.
 	docker push $(DPUSERVICE_IMAGE):$(TAG)
+
+.PHONY: docker-push-dpf-provisioning
+docker-push-dpf-provisioning: ## Push the docker image for dpf provisioning controller.
+	docker push $(DPFPROVISIONING_IMAGE):$(TAG)
 
 .PHONY: docker-push-dpucniprovisioner
 docker-push-dpucniprovisioner: ## Push the docker image for DPU CNI Provisioner.

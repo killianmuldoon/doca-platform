@@ -7,11 +7,15 @@ rules:
 - apiGroups:
   - admissionregistration.k8s.io
   resources:
+  - mutatingwebhookconfigurations
   - validatingwebhookconfigurations
   verbs:
+  - create
   - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - apps
@@ -29,6 +33,19 @@ rules:
   resources:
   - applications
   - appprojects
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - certificates
+  - issuers
   verbs:
   - create
   - delete
@@ -70,11 +87,16 @@ rules:
   - ""
   resources:
   - nodes
+  - pods
   - secrets
+  - services
   verbs:
+  - create
+  - delete
   - get
   - list
   - patch
+  - update
   - watch
 - apiGroups:
   - events.k8s.io
@@ -118,6 +140,84 @@ rules:
   - operator.dpf.nvidia.com
   resources:
   - dpfoperatorconfigs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpus
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpus/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpus/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpusets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpusets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpusets/status
   verbs:
   - get
   - patch
