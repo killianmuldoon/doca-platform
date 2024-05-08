@@ -49,10 +49,7 @@ var _ = Describe("Host CNI Provisioner", func() {
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "hostcniprovisioner")
-			defer func() {
-				err := os.RemoveAll(tmpDir)
-				Expect(err).ToNot(HaveOccurred())
-			}()
+			DeferCleanup(os.RemoveAll, tmpDir)
 			Expect(err).NotTo(HaveOccurred())
 			provisioner.FileSystemRoot = tmpDir
 
@@ -95,9 +92,12 @@ var _ = Describe("Host CNI Provisioner", func() {
 			err = provisioner.RunOnce()
 			Expect(err).ToNot(HaveOccurred())
 
-			files, err := os.ReadDir(ovnDBsPath)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(files).To(BeEmpty())
+			verifyFS(tmpDir, ovnDBsPath, map[string]verifyFSEntry{
+				"/var/lib/ovn-ic/etc": {
+					isDir: true,
+				},
+				"/var/lib/ovn-ic/etc/dpf-cleanup-done": {},
+			})
 
 			By("Asserting fake filesystem")
 			assertFakeFilesystem(tmpDir)
@@ -135,15 +135,84 @@ var _ = Describe("Host CNI Provisioner", func() {
 
 		}, SpecTimeout(5*time.Second))
 	})
+	Context("When checking for idempotency", func() {
+		It("should not error out on subsequent runs when network calls are mocked", func(ctx context.Context) {
+			testCtrl := gomock.NewController(GinkgoT(), gomock.WithOverridableExpectations())
+			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			pfIPNet, err := netlink.ParseIPNet("192.168.1.2/24")
+			Expect(err).ToNot(HaveOccurred())
+			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper, "ens25f0np0", pfIPNet)
+
+			// Prepare Filesystem
+			tmpDir, err := os.MkdirTemp("", "hostcniprovisioner")
+			DeferCleanup(os.RemoveAll, tmpDir)
+			Expect(err).NotTo(HaveOccurred())
+			provisioner.FileSystemRoot = tmpDir
+
+			ovnDBsPath := filepath.Join(tmpDir, "/var/lib/ovn-ic/etc/")
+			err = os.MkdirAll(ovnDBsPath, 0755)
+			Expect(err).NotTo(HaveOccurred())
+
+			sriovNumVfsPath := filepath.Join(tmpDir, "/sys/class/net/ens25f0np0/device/sriov_numvfs")
+			err = os.MkdirAll(filepath.Dir(sriovNumVfsPath), 0755)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(sriovNumVfsPath, []byte(strconv.Itoa(2)), 0444)
+			Expect(err).NotTo(HaveOccurred())
+
+			networkHelperMockAll(networkhelper)
+
+			err = provisioner.RunOnce()
+			Expect(err).ToNot(HaveOccurred())
+
+			err = provisioner.RunOnce()
+			Expect(err).ToNot(HaveOccurred())
+		})
+		It("should not cleanup the OVN databases if original cleanup is already done", func(ctx context.Context) {
+			testCtrl := gomock.NewController(GinkgoT(), gomock.WithOverridableExpectations())
+			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			pfIPNet, err := netlink.ParseIPNet("192.168.1.2/24")
+			Expect(err).ToNot(HaveOccurred())
+			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper, "ens25f0np0", pfIPNet)
+
+			// Prepare Filesystem
+			tmpDir, err := os.MkdirTemp("", "hostcniprovisioner")
+			DeferCleanup(os.RemoveAll, tmpDir)
+			Expect(err).NotTo(HaveOccurred())
+			provisioner.FileSystemRoot = tmpDir
+
+			ovnDBsPath := filepath.Join(tmpDir, "/var/lib/ovn-ic/etc/")
+			err = os.MkdirAll(ovnDBsPath, 0755)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = os.Create(filepath.Join(ovnDBsPath, "file1.db"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = os.Create(filepath.Join(ovnDBsPath, "dpf-cleanup-done"))
+			Expect(err).NotTo(HaveOccurred())
+
+			sriovNumVfsPath := filepath.Join(tmpDir, "/sys/class/net/ens25f0np0/device/sriov_numvfs")
+			err = os.MkdirAll(filepath.Dir(sriovNumVfsPath), 0755)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(sriovNumVfsPath, []byte(strconv.Itoa(2)), 0444)
+			Expect(err).NotTo(HaveOccurred())
+
+			networkHelperMockAll(networkhelper)
+
+			err = provisioner.RunOnce()
+			Expect(err).ToNot(HaveOccurred())
+
+			verifyFS(tmpDir, ovnDBsPath, map[string]verifyFSEntry{
+				"/var/lib/ovn-ic/etc": {
+					isDir: true,
+				},
+				"/var/lib/ovn-ic/etc/dpf-cleanup-done": {},
+				"/var/lib/ovn-ic/etc/file1.db":         {},
+			})
+		})
+	})
 
 })
 
 func assertFakeFilesystem(tmpDir string) {
-	expectedEntries := map[string]struct {
-		isDir     bool
-		isSymlink bool
-		content   string
-	}{
+	expectedEntries := map[string]verifyFSEntry{
 		"/var/dpf/sys/class/net": {
 			isDir: true,
 		},
@@ -186,9 +255,34 @@ func assertFakeFilesystem(tmpDir string) {
 		},
 	}
 
-	path := filepath.Join(tmpDir, "/var/dpf/sys/class/net")
+	pathToVerify := filepath.Join(tmpDir, "/var/dpf/sys/class/net")
+	verifyFS(tmpDir, pathToVerify, expectedEntries)
+}
+
+// networkHelperMockAll mocks all networkhelper functions. Useful for tests where we don't test
+func networkHelperMockAll(networkHelper *networkhelperMock.MockNetworkHelper) {
+	networkHelper.EXPECT().AddDummyLink(gomock.Any()).AnyTimes()
+	networkHelper.EXPECT().DeleteLinkIPAddress(gomock.Any(), gomock.Any()).AnyTimes()
+	networkHelper.EXPECT().DeleteNeighbour(gomock.Any(), gomock.Any()).AnyTimes()
+	networkHelper.EXPECT().DeleteRoute(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	networkHelper.EXPECT().DummyLinkExists(gomock.Any()).AnyTimes()
+	networkHelper.EXPECT().LinkIPAddressExists(gomock.Any(), gomock.Any()).AnyTimes()
+	networkHelper.EXPECT().NeighbourExists(gomock.Any(), gomock.Any()).AnyTimes()
+	networkHelper.EXPECT().RouteExists(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	networkHelper.EXPECT().SetLinkIPAddress(gomock.Any(), gomock.Any()).AnyTimes()
+}
+
+// verifyFSEntry is a struct used in verifyFS that helps define the fs entries that we expect
+type verifyFSEntry struct {
+	isDir     bool
+	isSymlink bool
+	content   string
+}
+
+// verifyFS verifies that the filesystem matches the expectedEntries specified
+func verifyFS(tmpDir string, pathToWalk string, expectedEntries map[string]verifyFSEntry) {
 	foundPaths := []string{}
-	err := filepath.WalkDir(path, func(path string, dirEntry fs.DirEntry, err error) error {
+	err := filepath.WalkDir(pathToWalk, func(path string, dirEntry fs.DirEntry, err error) error {
 		Expect(err).ToNot(HaveOccurred())
 		By(fmt.Sprintf("Checking %s", path))
 
