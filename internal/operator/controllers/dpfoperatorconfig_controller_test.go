@@ -40,6 +40,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
@@ -79,7 +80,7 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 
 	Context("When checking the custom OVN Kubernetes deployment flow", func() {
 		var testNS *corev1.Namespace
-		var clusterVersionDeployment *appsv1.Deployment
+		var clusterVersionCR *unstructured.Unstructured
 		var networkOperatorDeployment *appsv1.Deployment
 		var nodeIdentityWebhookConfiguration *admissionregistrationv1.ValidatingWebhookConfiguration
 		var ovnKubernetesDaemonSet *appsv1.DaemonSet
@@ -110,11 +111,9 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 			cleanupObjects = append(cleanupObjects, nodeControlPlane1)
 
 			By("Creating the prerequisite OpenShift environment")
-			ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: clusterVersionOperatorNamespace}}
-			Expect(testutils.CreateResourceIfNotExist(ctx, testClient, ns)).To(Succeed())
-			clusterVersionDeployment = getDefaultDeployment(clusterVersionOperatorDeploymentName, clusterVersionOperatorNamespace)
-			Expect(testClient.Create(ctx, clusterVersionDeployment)).To(Succeed())
-			cleanupObjects = append(cleanupObjects, clusterVersionDeployment)
+			clusterVersionCR = getDefaultClusterVersion(clusterVersionCRName)
+			Expect(testClient.Create(ctx, clusterVersionCR)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, clusterVersionCR)
 
 			ns = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: networkOperatorNamespace}}
 			Expect(testutils.CreateResourceIfNotExist(ctx, testClient, ns)).To(Succeed())
@@ -285,11 +284,28 @@ networking:
 			// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpfOperatorConfig)
 
-			Eventually(func(g Gomega) *int32 {
-				got := &appsv1.Deployment{}
-				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(clusterVersionDeployment), got)).To(Succeed())
-				return got.Spec.Replicas
-			}).WithTimeout(30 * time.Second).Should(Equal(ptr.To[int32](0)))
+			Eventually(func(g Gomega) []interface{} {
+				got := &unstructured.Unstructured{}
+				got.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "config.openshift.io",
+					Version: "v1",
+					Kind:    "ClusterVersion",
+				})
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(clusterVersionCR), got)).To(Succeed())
+
+				overrides, found, err := unstructured.NestedSlice(got.Object, "spec", "overrides")
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(found).To(BeTrue())
+				return overrides
+			}).WithTimeout(3 * time.Second).Should(BeComparableTo([]interface{}{
+				map[string]interface{}{
+					"kind":      "Deployment",
+					"group":     "apps",
+					"name":      networkOperatorDeploymentName,
+					"namespace": networkOperatorNamespace,
+					"unmanaged": true,
+				},
+			}))
 
 			Eventually(func(g Gomega) *int32 {
 				got := &appsv1.Deployment{}
@@ -978,6 +994,21 @@ func getDefaultDeployment(name string, namespace string) *appsv1.Deployment {
 						},
 					},
 				},
+			},
+		},
+	}
+}
+
+func getDefaultClusterVersion(name string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "config.openshift.io/v1",
+			"kind":       "ClusterVersion",
+			"metadata": map[string]interface{}{
+				"name": name,
+			},
+			"spec": map[string]interface{}{
+				"clusterID": "9a3d8fa9-773a-4d99-a80a-5ddac0956d95",
 			},
 		},
 	}

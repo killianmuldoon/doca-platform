@@ -63,6 +63,7 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "operator", "crd", "bases"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "cert-manager"),
+			filepath.Join("..", "..", "..", "test", "objects", "crd", "openshift"),
 			filepath.Join("..", "..", "..", "config", "dpuservice", "crd", "bases")},
 		ErrorIfCRDPathMissing: true,
 
@@ -81,11 +82,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = operatorv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = dpuservicev1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(operatorv1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(dpuservicev1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	s := scheme.Scheme
 	//+kubebuilder:scaffold:scheme

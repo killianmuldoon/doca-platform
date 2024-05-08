@@ -33,6 +33,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/inventory"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 
+	"github.com/google/go-cmp/cmp"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -41,6 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -96,11 +98,8 @@ const (
 	// networkOperatorDeploymentName is the Deployment name of the cluster-network-operator that is deployed in
 	// OpenShift
 	networkOperatorDeploymentName = "network-operator"
-	// clusterVersionOperatorNamespace is the Namespace where the cluster-version-operator is deployed in OpenShift
-	clusterVersionOperatorNamespace = "openshift-cluster-version"
-	// clusterVersionOperatorDeploymentName is the Deployment name of the cluster-version-operator that is deployed in
-	// OpenShift
-	clusterVersionOperatorDeploymentName = "cluster-version-operator"
+	// clusterVersionCRName is the name of the ClusterVersion CR that is deployed in OpenShift
+	clusterVersionCRName = "version"
 	// nodeIdentityWebhookConfigurationName is the name of the ValidatingWebhookConfiguration deployed in OpenShift that
 	// controls which entities can update the Node object.
 	nodeIdentityWebhookConfigurationName = "network-node-identity.openshift.io"
@@ -183,6 +182,7 @@ type DPFOperatorConfigReconcilerSettings struct {
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpus,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpus/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpus/finalizers,verbs=update
+//+kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;update;patch
 
 const (
 	dpfOperatorConfigControllerName = "dpfoperatorconfig-controller"
@@ -354,23 +354,15 @@ func (r *DPFOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx
 // scaleDownOVNKubernetesComponents scales down pre-existing OVN Kubernetes related components to prepare the cluster
 // for subsequent configuration.
 func (r *DPFOperatorConfigReconciler) scaleDownOVNKubernetesComponents(ctx context.Context) error {
-	// Ensure cluster version operator is scaled down
-	clusterVersionOperatorDeployment := &appsv1.Deployment{}
-	key := client.ObjectKey{Namespace: clusterVersionOperatorNamespace, Name: clusterVersionOperatorDeploymentName}
-	err := r.Client.Get(ctx, key, clusterVersionOperatorDeployment)
+	// Ensure cluster version operator doesn't reconcile objects that we modify
+	err := r.adjustCVO(ctx)
 	if err != nil {
-		return fmt.Errorf("error while getting %s %s: %w", clusterVersionOperatorDeployment.GetObjectKind().GroupVersionKind().String(), key.String(), err)
-	}
-	clusterVersionOperatorDeployment.Spec.Replicas = ptr.To[int32](0)
-	clusterVersionOperatorDeployment.SetGroupVersionKind(appsv1.SchemeGroupVersion.WithKind("Deployment"))
-	clusterVersionOperatorDeployment.ObjectMeta.ManagedFields = nil
-	if err := r.Client.Patch(ctx, clusterVersionOperatorDeployment, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
-		return fmt.Errorf("error while patching %s %s: %w", clusterVersionOperatorDeployment.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+		return fmt.Errorf("error while adjusting Cluster Version Operator: %w", err)
 	}
 
 	// Ensure network operator is scaled down
 	networkOperatorDeployment := &appsv1.Deployment{}
-	key = client.ObjectKey{Namespace: networkOperatorNamespace, Name: networkOperatorDeploymentName}
+	key := client.ObjectKey{Namespace: networkOperatorNamespace, Name: networkOperatorDeploymentName}
 	err = r.Client.Get(ctx, key, networkOperatorDeployment)
 	if err != nil {
 		return fmt.Errorf("error while getting %s %s: %w", networkOperatorDeployment.GetObjectKind().GroupVersionKind().String(), key.String(), err)
@@ -426,6 +418,55 @@ func (r *DPFOperatorConfigReconciler) scaleDownOVNKubernetesComponents(ctx conte
 		return fmt.Errorf("error while patching %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
 
+	return nil
+}
+
+// adjustCVO adjusts the OpenShift Cluster Version Operator to not reconcile the objects we are modifying as part of
+// the DPF installation.
+func (r *DPFOperatorConfigReconciler) adjustCVO(ctx context.Context) error {
+	clusterVersionCR := &unstructured.Unstructured{}
+	clusterVersionCR.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "config.openshift.io",
+		Version: "v1",
+		Kind:    "ClusterVersion",
+	})
+	key := client.ObjectKey{Name: clusterVersionCRName}
+	err := r.Client.Get(ctx, key, clusterVersionCR)
+	if err != nil {
+		return fmt.Errorf("error while getting unstructured %s %s: %w", clusterVersionCR.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+
+	overrides, found, err := unstructured.NestedSlice(clusterVersionCR.Object, "spec", "overrides")
+	if err != nil {
+		return fmt.Errorf("error while parsing overrides from unstructured: %w", err)
+	}
+	if !found {
+		overrides = make([]interface{}, 0, 1)
+	}
+
+	networkOperatorOverride := map[string]interface{}{
+		"kind":      "Deployment",
+		"group":     "apps",
+		"name":      networkOperatorDeploymentName,
+		"namespace": networkOperatorNamespace,
+		"unmanaged": true,
+	}
+
+	for _, override := range overrides {
+		if cmp.Equal(override, networkOperatorOverride) {
+			return nil
+		}
+	}
+
+	overrides = append(overrides, networkOperatorOverride)
+	err = unstructured.SetNestedSlice(clusterVersionCR.Object, overrides, "spec", "overrides")
+	if err != nil {
+		return fmt.Errorf("error while setting overrides to unstructured: %w", err)
+	}
+	clusterVersionCR.SetManagedFields(nil)
+	if err := r.Client.Patch(ctx, clusterVersionCR, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+		return fmt.Errorf("error while patching %s %s: %w", clusterVersionCR.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
 	return nil
 }
 
