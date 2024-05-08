@@ -445,7 +445,7 @@ verify-copyright: ## Verify copyrights for project files
 	$Q $(CURDIR)/hack/scripts/copyright-validation.sh
 
 .PHONY: lint-helm
-lint-helm: $(HELM) lint-helm-sfcset lint-helm-multus lint-helm-sriov-dp  ## Run helm lint on all charts
+lint-helm: $(HELM) lint-helm-sfcset lint-helm-multus lint-helm-sriov-dp lint-helm-nvidia-k8s-ipam  ## Run helm lint on all charts
 
 .PHONY: lint-helm-sfcset
 lint-helm-sfcset: $(HELM) ## Run helm lint for sfcset chart 
@@ -458,6 +458,10 @@ lint-helm-multus: $(HELM) ## Run helm lint for multus chart
 .PHONY: lint-helm-sriov-dp
 lint-helm-sriov-dp: $(HELM) ## Run helm lint for sriov device plugin chart 
 	$Q $(HELM) lint $(SRIOV_DP_HELM_CHART)
+
+.PHONY: lint-helm-nvidia-k8s-ipam
+lint-helm-nvidia-k8s-ipam: $(HELM) ## Run helm lint for nvidia-k8s-ipam chart
+	$Q $(HELM) lint $(NVIDIA_K8S_IPAM_HELM_CHART)
 
 ##@ Build
 
@@ -702,7 +706,7 @@ docker-push-operator-bundle: ## Push the bundle image.
 
 # helm charts
 
-HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel
+HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam
 HELM_REGISTRY ?= oci://$(REGISTRY)
 
 ## metadata for servicechain controller.
@@ -719,6 +723,11 @@ MULTUS_HELM_CHART_VER ?= $(TAG)
 export SRIOV_DP_HELM_CHART_NAME = sriov-device-plugin
 SRIOV_DP_HELM_CHART ?= $(HELMDIR)/$(SRIOV_DP_HELM_CHART_NAME)
 SRIOV_DP_HELM_CHART_VER ?= $(TAG)
+
+## metadata for nvidia-k8s-ipam.
+export NVIDIA_K8S_IPAM_HELM_CHART_NAME = nvidia-k8s-ipam
+NVIDIA_K8S_IPAM_HELM_CHART ?= $(HELMDIR)/$(NVIDIA_K8S_IPAM_HELM_CHART_NAME)
+NVIDIA_K8S_IPAM_HELM_CHART_VER ?= $(TAG)
 
 # metadata for flannel - using the chart published with flannel github releases.
 export FLANNEL_HELM_CHART_NAME ?= flannel
@@ -740,6 +749,11 @@ helm-package-multus: $(CHARTSDIR) $(HELM) ## Package helm chart for multus CNIs
 helm-package-sriov-device-plugin: $(CHARTSDIR) $(HELM) ## Package helm chart for sriov-network-device-plugin
 	$(HELM) package $(SRIOV_DP_HELM_CHART) --version $(SRIOV_DP_HELM_CHART_VER) --destination $(CHARTSDIR)
 
+.PHONY: helm-package-nvidia-k8s-ipam
+helm-package-nvidia-k8s-ipam: $(CHARTSDIR) $(HELM) ## Package helm chart for nvidia-k8s-ipam
+	$(HELM) package $(NVIDIA_K8S_IPAM_HELM_CHART) --version $(NVIDIA_K8S_IPAM_HELM_CHART_VER) --destination $(CHARTSDIR)
+
+
 .PHONY: helm-package-flannel
 helm-package-flannel: $(CHARTSDIR) $(HELM) ## Package helm chart for flannel CNI
 	$Q curl -v -fSsL https://github.com/flannel-io/flannel/releases/download/$(FLANNEL_VERSION)/flannel.tgz -o $(FLANNEL_HELM_CHART)
@@ -758,6 +772,11 @@ helm-push-multus: $(CHARTSDIR) $(HELM) ## Push helm chart for multus CNI
 .PHONY: helm-push-sriov-device-plugin
 helm-push-sriov-device-plugin: $(CHARTSDIR) $(HELM) ## Push helm chart for sriov-network-device-plugin
 	$(HELM) push $(CHARTSDIR)/$(SRIOV_DP_HELM_CHART_NAME)-$(SRIOV_DP_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+
+.PHONY: helm-push-nvidia-k8s-ipam
+helm-push-nvidia-k8s-ipam: $(CHARTSDIR) $(HELM) ## Push helm chart for nvidia-k8s-ipam
+	$(HELM) push $(CHARTSDIR)/$(NVIDIA_K8S_IPAM_HELM_CHART_NAME)-$(NVIDIA_K8S_IPAM_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+
 
 .PHONEY: helm-push-flannel
 helm-push-flannel: $(CHARTSDIR) $(HELM) ## Push helm chart for flannel CNI
