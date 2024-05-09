@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	argoapplication "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
@@ -45,7 +46,9 @@ func NewAppProject(name string, clusters []types.NamespacedName) *argov1.AppProj
 			Name:      name,
 			Namespace: argoCDNamespace,
 			// TODO: Consider a common set of labels for all objects.
-			Labels:          nil,
+			Labels: map[string]string{
+				operatorv1.DPFComponentLabelKey: "dpuservice-manager",
+			},
 			Annotations:     nil,
 			OwnerReferences: nil,
 		},
@@ -95,6 +98,7 @@ func NewApplication(projectName string, cluster types.NamespacedName, dpuService
 				controlplanemeta.DPFClusterLabelKey:      cluster.Name,
 				dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
 				dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
+				operatorv1.DPFComponentLabelKey:          "dpuservice-manager",
 			},
 			// This finalizer is what enables cascading deletion in ArgoCD.
 			Finalizers:  []string{"resources-finalizer.argocd.argoproj.io"},

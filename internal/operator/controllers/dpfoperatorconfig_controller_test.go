@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -148,17 +149,13 @@ func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig
 
 var _ = Describe("DPFOperatorConfig Controller - Reconcile System Components", func() {
 	Context("controller should create DPF System components", func() {
-		var testNS *corev1.Namespace
-		BeforeEach(func() {
-			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
-			Expect(testClient.Create(ctx, testNS)).To(Succeed())
-		})
+		testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
 		It("reconciles the DPFOperatorConfig and deploys the system components", func() {
+			Expect(testClient.Create(ctx, testNS)).To(Succeed())
 			By("creating the DPFOperatorConfig")
 			config := getMinimalDPFOperatorConfig(testNS.Name)
 			config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName = "foo-pvc"
 			config.Spec.ProvisioningConfiguration.ImagePullSecret = "foo-image-pull-secret"
-			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, config)
 			Expect(testClient.Create(ctx, config)).To(Succeed())
 
 			By("checking the dpuservice-controller-manager deployment is created")
@@ -175,6 +172,15 @@ var _ = Describe("DPFOperatorConfig Controller - Reconcile System Components", f
 			waitForDPUService(config.Namespace, "sriov-device-plugin")
 			waitForDPUService(config.Namespace, "flannel")
 			waitForDPUService(config.Namespace, "nvidia-k8s-ipam")
+		})
+		It("delete the DPFOperatorConfig", func() {
+			By("deleting the DPFOperatorConfig")
+			config := getMinimalDPFOperatorConfig(testNS.Name)
+			Expect(testClient.Delete(ctx, config)).To(Succeed())
+			By("checking the DPFOperatorConfig is deleted")
+			Eventually(func(g Gomega) {
+				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(config), config))).To(BeTrue())
+			}).Should(Succeed())
 		})
 	})
 })
@@ -202,15 +208,15 @@ func waitForDeployment(ns, name string) *appsv1.Deployment {
 }
 
 func verifyPVC(deployment *appsv1.Deployment, expected string) {
-	var bfbPvc *corev1.PersistentVolumeClaimVolumeSource
+	var bfbPVC *corev1.PersistentVolumeClaimVolumeSource
 	for _, vol := range deployment.Spec.Template.Spec.Volumes {
 		if vol.Name == "bfb-volume" && vol.PersistentVolumeClaim != nil {
-			bfbPvc = vol.PersistentVolumeClaim
+			bfbPVC = vol.PersistentVolumeClaim
 			break
 		}
 	}
-	if bfbPvc == nil {
+	if bfbPVC == nil {
 		Fail("no pvc volume found")
 	}
-	Expect(bfbPvc.ClaimName).To(Equal(expected))
+	Expect(bfbPVC.ClaimName).To(Equal(expected))
 }

@@ -11,6 +11,9 @@ hack/tools/bin
 hack/charts
 hack/repos
 
+# Artifacts repo created by e2e tests.
+artifacts
+
 # Test binary, built with `go test -c`
 *.test
 

@@ -74,7 +74,7 @@ type DPFOperatorConfigReconcilerSettings struct {
 //+kubebuilder:rbac:groups=core,resources=nodes;pods;secrets;services,verbs=create;get;list;watch;patch;delete;update
 //+kubebuilder:rbac:groups=core,resources=serviceaccounts;configmaps,verbs=get;list;watch;create;patch;update;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=apps,resources=deployments;daemonsets,verbs=get;list;watch;create;patch
+//+kubebuilder:rbac:groups=apps,resources=deployments;daemonsets,verbs=get;list;watch;create;patch;delete
 //+kubebuilder:rbac:groups=events.k8s.io,resources=events,verbs=create;patch;update;get;list;delete;watch
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/status,verbs=get;update;patch
@@ -82,6 +82,12 @@ type DPFOperatorConfigReconcilerSettings struct {
 //+kubebuilder:rbac:groups=core,resources=persistentvolumeclaims;events;serviceaccounts;configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=argoproj.io,resources=appprojects;applications,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=kamaji.clastix.io,resources=tenantcontrolplanes,verbs=get;list;watch
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains/finalizers,verbs=update
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuservicechains,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuservicechains/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuservicechains/finalizers,verbs=update
@@ -141,7 +147,6 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// Handle deletion reconciliation loop.
 	if !dpfOperatorConfig.ObjectMeta.DeletionTimestamp.IsZero() {
-		log.Info("Removing")
 		return r.reconcileDelete(ctx, dpfOperatorConfig)
 	}
 
@@ -152,15 +157,6 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, nil
 	}
 	return r.reconcile(ctx, dpfOperatorConfig)
-}
-
-//nolint:unparam
-func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (ctrl.Result, error) {
-	log := ctrllog.FromContext(ctx)
-	log.Info("Removing finalizer")
-	controllerutil.RemoveFinalizer(dpfOperatorConfig, operatorv1.DPFOperatorConfigFinalizer)
-	// We should have an ownerReference chain in order to delete subordinate objects.
-	return ctrl.Result{}, nil
 }
 
 //nolint:unparam

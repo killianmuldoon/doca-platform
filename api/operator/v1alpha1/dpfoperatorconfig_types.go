@@ -24,6 +24,8 @@ var (
 	DPFOperatorConfigFinalizer         = "dpf.nvidia.com/dpfoperatorconfig"
 	DPFOperatorConfigNameLabelKey      = "dpf.nvidia.com/dpfoperatorconfig-name"
 	DPFOperatorConfigNamespaceLabelKey = "dpf.nvidia.com/dpfoperatorconfig-namespace"
+	// TODO: Ensure this label is added on all objects created by DPF.
+	DPFComponentLabelKey = "dpf.nvidia.com/component"
 )
 
 // DPFOperatorConfigSpec defines the desired state of DPFOperatorConfig

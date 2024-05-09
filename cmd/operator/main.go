@@ -25,6 +25,7 @@ import (
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
+	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	operatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/controllers"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/inventory"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/release"
@@ -51,6 +52,8 @@ func init() {
 	utilruntime.Must(operatorv1.AddToScheme(scheme))
 
 	utilruntime.Must(dpuservicev1.AddToScheme(scheme))
+
+	utilruntime.Must(argov1.AddToScheme(scheme))
 
 	// This is not required by the client the operator has to the host cluster, but rather the clients used to access
 	// the DPU clusters. By default, the schema for each client is parsed from the global context, therefore it's

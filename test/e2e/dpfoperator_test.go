@@ -54,6 +54,24 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 	dpuServiceChainNamespace := "test-2"
 	dpuservicechainName := "svc-chain-test"
 	dpfProvisioningControllerPVCName := "dpf-provisioning-volume"
+
+	// The DPFOperatorConfig for the test.
+	config := &operatorv1.DPFOperatorConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dpfoperatorconfig",
+			Namespace: dpfOperatorSystemNamespace,
+		},
+		Spec: operatorv1.DPFOperatorConfigSpec{
+			HostNetworkConfiguration: operatorv1.HostNetworkConfiguration{
+				Hosts: []operatorv1.Host{},
+			},
+			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
+				BFBPersistentVolumeClaimName: dpfProvisioningControllerPVCName,
+				ImagePullSecret:              "some-secret",
+			},
+		},
+	}
+
 	Context("deploying a DPUService", func() {
 		var cleanupObjs []client.Object
 		AfterAll(func() {
@@ -143,21 +161,6 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		})
 
 		It("create the DPFOperatorConfig for the system", func() {
-			config := &operatorv1.DPFOperatorConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "dpfoperatorconfig",
-					Namespace: dpfOperatorSystemNamespace,
-				},
-				Spec: operatorv1.DPFOperatorConfigSpec{
-					HostNetworkConfiguration: operatorv1.HostNetworkConfiguration{
-						Hosts: []operatorv1.Host{},
-					},
-					ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
-						BFBPersistentVolumeClaimName: dpfProvisioningControllerPVCName,
-						ImagePullSecret:              "some-secret",
-					},
-				},
-			}
 			Expect(testClient.Create(ctx, config)).To(Succeed())
 		})
 
@@ -375,6 +378,14 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					g.Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
 					g.Expect(deploymentList.Items).To(BeEmpty())
 				}
+			}).WithTimeout(300 * time.Second).Should(Succeed())
+		})
+
+		It("delete the DPFOperatorConfig and ensure it is deleted", func() {
+			// Check that all deployments and DPUServices are deleted.
+			Expect(testClient.Delete(ctx, config)).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(config), config))).To(BeTrue())
 			}).WithTimeout(300 * time.Second).Should(Succeed())
 		})
 	})
