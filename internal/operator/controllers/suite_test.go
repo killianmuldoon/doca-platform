@@ -26,6 +26,8 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
+	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
+	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/inventory"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -62,9 +64,13 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "operator", "crd", "bases"),
+			filepath.Join("..", "..", "..", "config", "dpuservice", "crd", "bases"),
+			filepath.Join("..", "..", "..", "config", "servicechainset", "crd", "bases"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "cert-manager"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "openshift"),
-			filepath.Join("..", "..", "..", "config", "dpuservice", "crd", "bases")},
+			filepath.Join("..", "..", "..", "test", "objects", "crd", "argocd"),
+			filepath.Join("..", "..", "..", "test", "objects", "crd", "kamaji"),
+		},
 		ErrorIfCRDPathMissing: true,
 
 		// The BinaryAssetsDirectory is only required if you want to run the tests directly
@@ -84,6 +90,8 @@ var _ = BeforeSuite(func() {
 
 	Expect(operatorv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(dpuservicev1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(sfcv1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(argov1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	s := scheme.Scheme
 	//+kubebuilder:scaffold:scheme

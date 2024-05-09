@@ -19,8 +19,10 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
@@ -144,7 +146,8 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 		return ctrl.Result{}, kerrors.NewAggregate(errs)
 	}
 	if len(applications.Items) > 0 {
-		return ctrl.Result{Requeue: true}, nil
+		log.Info(fmt.Sprintf("Requeueing: %d applications still managed by DPUService", len(applications.Items)))
+		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 	// If there are no associated applications remove the finalizer
 	log.Info("Removing finalizer")
@@ -245,6 +248,7 @@ func createArgoCDSecret(secretConfig []byte, cluster controlplane.DPFCluster, cl
 			Labels: map[string]string{
 				argoCDSecretLabelKey:                argoCDSecretLabelValue,
 				controlplanemeta.DPFClusterLabelKey: cluster.String(),
+				operatorv1.DPFComponentLabelKey:     dpuServiceControllerName,
 			},
 			OwnerReferences: nil,
 			Annotations:     nil,

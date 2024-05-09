@@ -614,7 +614,7 @@ docker-build-dpuservice: ## Build docker images for the dpuservice-controller
 
 .PHONY: docker-build-dpf-provisioning
 docker-build-dpf-provisioning: $(DPF_PROVISIONING_DIR) ## Build docker images for the dpf-provisioning-controller
-	$(MAKE) IMG=$(DPFPROVISIONING_IMAGE):$(TAG) -C  $(DPF_PROVISIONING_DIR) docker-build
+	cd $(DPF_PROVISIONING_DIR) && docker build -t $(DPFPROVISIONING_IMAGE):$(TAG) . -f dockerfile/Dockerfile.controller
 
 .PHONY: docker-build-dpucniprovisioner
 docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker images for the DPU CNI Provisioner
@@ -833,8 +833,10 @@ dev-dpuservice: $(MINIKUBE) $(SKAFFOLD) ## Deploy dpuservice controller to dev c
 	$(SKAFFOLD) debug -p dpuservice --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
 ENABLE_OVN_KUBERNETES?=true
-dev-operator:  $(MINIKUBE) $(SKAFFOLD) generate-manifests-dpuservice generate-manifests-operator-embedded ## Deploy operator controller to dev cluster using skaffold
+dev-operator:  $(MINIKUBE) $(SKAFFOLD) generate-manifests-operator-embedded ## Deploy operator controller to dev cluster using skaffold
 	sed -i '' "s/reconcileOVNKubernetes=.*/reconcileOVNKubernetes=$(ENABLE_OVN_KUBERNETES)/" config/operator/manager/manager.yaml
+	# Ensure the manager's kustomization has the correct image name and has not been changed by generation.
+	git restore config/operator/manager/kustomization.yaml
 	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 

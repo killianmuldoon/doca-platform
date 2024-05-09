@@ -50,7 +50,7 @@ func CleanupAndWait(ctx context.Context, c client.Client, objs ...client.Object)
 			wait.Backoff{
 				Duration: 100 * time.Millisecond,
 				Factor:   1.5,
-				Steps:    10,
+				Steps:    15,
 				Jitter:   0.4,
 			},
 			func() (done bool, err error) {

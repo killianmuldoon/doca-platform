@@ -59,7 +59,8 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "dpuservice", "crd", "bases"),
-			filepath.Join("..", "..", "..", "test", "objects", "crd"),
+			filepath.Join("..", "..", "..", "test", "objects", "crd", "argocd"),
+			filepath.Join("..", "..", "..", "test", "objects", "crd", "kamaji"),
 		},
 		ErrorIfCRDPathMissing: true,
 

@@ -24,6 +24,7 @@ rules:
   - deployments
   verbs:
   - create
+  - delete
   - get
   - list
   - patch
@@ -293,6 +294,58 @@ rules:
   - sfc.dpf.nvidia.com
   resources:
   - dpuserviceinterfaces/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - servicechains
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - servicechains/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - servicechains/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - serviceinterfaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - serviceinterfaces/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - serviceinterfaces/status
   verbs:
   - get
   - patch
