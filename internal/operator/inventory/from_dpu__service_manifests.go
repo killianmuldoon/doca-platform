@@ -64,6 +64,9 @@ func (f *fromDPUService) Parse() error {
 }
 
 func (f *fromDPUService) GenerateManifests(variables Variables) ([]client.Object, error) {
+	if _, ok := variables.DisableSystemComponents[f.Name()]; ok {
+		return []client.Object{}, nil
+	}
 	f.dpuService.SetNamespace(variables.Namespace)
 	return []client.Object{
 		f.dpuService.DeepCopy(),

@@ -227,3 +227,125 @@ func addUnexpectedKindToObjects(g Gomega, data []byte) []byte {
 	g.Expect(err).NotTo(HaveOccurred())
 	return dataWithUnexpectedKind
 }
+
+func TestManifests_generateAllManifests(t *testing.T) {
+	g := NewWithT(t)
+	i := New()
+	g.Expect(i.ParseAll()).NotTo(HaveOccurred())
+	tests := []struct {
+		name            string
+		vars            Variables
+		expectedMissing string
+		wantErr         bool
+	}{
+		{
+			name: "Generate all manifests",
+			vars: Variables{
+				DPFProvisioningController: DPFProvisioningVariables{
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					ImagePullSecret:              "secret",
+				},
+			},
+			wantErr:         false,
+			expectedMissing: "",
+		},
+		{
+			name: "Disable multus manifests",
+			vars: Variables{
+				DPFProvisioningController: DPFProvisioningVariables{
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					ImagePullSecret:              "secret",
+				},
+				DisableSystemComponents: map[string]bool{
+					"multus": true,
+				},
+			},
+			wantErr:         false,
+			expectedMissing: "multus",
+		},
+		{
+			name: "Disable sriovDevicePlugin manifests",
+			vars: Variables{
+				DPFProvisioningController: DPFProvisioningVariables{
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					ImagePullSecret:              "secret",
+				},
+				DisableSystemComponents: map[string]bool{
+					"sriovDevicePlugin": true,
+				},
+			},
+			wantErr:         false,
+			expectedMissing: "sriovDevicePlugin",
+		},
+		{
+			name: "Disable flannel manifests",
+			vars: Variables{
+				DPFProvisioningController: DPFProvisioningVariables{
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					ImagePullSecret:              "secret",
+				},
+				DisableSystemComponents: map[string]bool{
+					"flannel": true,
+				},
+			},
+			wantErr:         false,
+			expectedMissing: "flannel",
+		},
+		{
+			name: "Disable nvidia-k8s-ipam manifests",
+			vars: Variables{
+				DPFProvisioningController: DPFProvisioningVariables{
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					ImagePullSecret:              "secret",
+				},
+				DisableSystemComponents: map[string]bool{
+					"nvidia-k8s-ipam": true,
+				},
+			},
+			wantErr:         false,
+			expectedMissing: "nvidia-k8s-ipam",
+		},
+		{
+			name: "Disable DPFProvisioningController manifests",
+			vars: Variables{
+				DPFProvisioningController: DPFProvisioningVariables{
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					ImagePullSecret:              "secret",
+				},
+				DisableSystemComponents: map[string]bool{
+					"DPFProvisioningController": true,
+				},
+			},
+			wantErr:         false,
+			expectedMissing: "DPFProvisioningController",
+		},
+		{
+			name: "Disable DPUServiceController manifests",
+			vars: Variables{
+				DPFProvisioningController: DPFProvisioningVariables{
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					ImagePullSecret:              "secret",
+				},
+				DisableSystemComponents: map[string]bool{
+					"DPUServiceController": true,
+				},
+			},
+			wantErr:         false,
+			expectedMissing: "DPUServiceController",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := i.generateAllManifests(tt.vars)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("generateAllManifests() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			for _, obj := range got {
+				if tt.expectedMissing != "" {
+					g.Expect(obj.GetName()).ToNot(ContainSubstring(tt.expectedMissing))
+				}
+			}
+		})
+	}
+}

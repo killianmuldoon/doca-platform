@@ -119,6 +119,9 @@ func (d *dpuServiceControllerObjects) validate() error {
 
 // GenerateManifests returns all objects as a list.
 func (d *dpuServiceControllerObjects) GenerateManifests(variables Variables) ([]client.Object, error) {
+	if _, ok := variables.DisableSystemComponents[d.Name()]; ok {
+		return []client.Object{}, nil
+	}
 	d.setNamespace(variables.Namespace)
 	out := []client.Object{}
 	out = append(out,

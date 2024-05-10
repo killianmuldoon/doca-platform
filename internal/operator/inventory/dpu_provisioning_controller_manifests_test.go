@@ -165,6 +165,21 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 	}
 	NewGomegaWithT(t).Expect(provCtrl.Parse()).NotTo(HaveOccurred())
 
+	t.Run("no objects if disable is set", func(t *testing.T) {
+		vars := Variables{
+			DisableSystemComponents: map[string]bool{
+				provCtrl.Name(): true,
+			},
+		}
+		objs, err := provCtrl.GenerateManifests(vars)
+		if err != nil {
+			t.Fatalf("failed to generate manifests: %v", err)
+		}
+		if len(objs) != 0 {
+			t.Fatalf("manifests should not be generated when disabled: %v", objs)
+		}
+	})
+
 	t.Run("fail if empty pvc", func(t *testing.T) {
 		vars := Variables{
 			DPFProvisioningController: DPFProvisioningVariables{

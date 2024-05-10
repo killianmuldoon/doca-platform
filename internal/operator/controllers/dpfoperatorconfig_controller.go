@@ -177,12 +177,19 @@ func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperator
 }
 
 func getVariablesFromConfig(config *operatorv1.DPFOperatorConfig) inventory.Variables {
+	disableComponents := make(map[string]bool)
+	if config.Spec.Overrides != nil {
+		for _, item := range config.Spec.Overrides.DisableSystemComponents {
+			disableComponents[item] = true
+		}
+	}
 	return inventory.Variables{
 		Namespace: config.Namespace,
 		DPFProvisioningController: inventory.DPFProvisioningVariables{
 			BFBPersistentVolumeClaimName: config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName,
 			ImagePullSecret:              config.Spec.ProvisioningConfiguration.ImagePullSecret,
 		},
+		DisableSystemComponents: disableComponents,
 	}
 }
 
