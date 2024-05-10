@@ -83,6 +83,9 @@ func (p *dpfProvisioningControllerObjects) Parse() (err error) {
 }
 
 func (p *dpfProvisioningControllerObjects) GenerateManifests(vars Variables) ([]client.Object, error) {
+	if _, ok := vars.DisableSystemComponents[p.Name()]; ok {
+		return []client.Object{}, nil
+	}
 	if p.deployment == nil {
 		return nil, fmt.Errorf("no Deployment in manifest")
 	}

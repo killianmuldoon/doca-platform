@@ -28,10 +28,18 @@ var (
 	DPFComponentLabelKey = "dpf.nvidia.com/component"
 )
 
+// Overrides exposes a set of fields which impact the recommended behaviour of the DPF Operator
+type Overrides struct {
+	// DisableSystemComponents is a list of system components that will not be deployed.
+	DisableSystemComponents []string `json:"disableSystemComponents"`
+}
+
 // DPFOperatorConfigSpec defines the desired state of DPFOperatorConfig
 type DPFOperatorConfigSpec struct {
 	HostNetworkConfiguration  HostNetworkConfiguration  `json:"hostNetworkConfiguration"`
 	ProvisioningConfiguration ProvisioningConfiguration `json:"provisioningConfiguration,omitempty"`
+	// +optional
+	Overrides *Overrides `json:"overrides,omitempty"`
 }
 
 // HostNetworkConfiguration holds network related configuration required to create a functional host network.

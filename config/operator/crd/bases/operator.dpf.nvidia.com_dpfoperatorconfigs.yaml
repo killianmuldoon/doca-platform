@@ -104,6 +104,19 @@ spec:
                 - hostPF0VF0
                 - hosts
                 type: object
+              overrides:
+                description: Overrides exposes a set of fields which impact the recommended
+                  behaviour of the DPF Operator
+                properties:
+                  disableSystemComponents:
+                    description: DisableSystemComponents is a list of system components
+                      that will not be deployed.
+                    items:
+                      type: string
+                    type: array
+                required:
+                - disableSystemComponents
+                type: object
               provisioningConfiguration:
                 description: ProvisioningConfiguration defines dpf-provisioning-controller
                   related configurations

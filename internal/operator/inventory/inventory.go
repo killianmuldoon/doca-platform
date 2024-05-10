@@ -34,6 +34,7 @@ type Component interface {
 type Variables struct {
 	Namespace                 string
 	DPFProvisioningController DPFProvisioningVariables
+	DisableSystemComponents   map[string]bool
 }
 
 type DPFProvisioningVariables struct {
