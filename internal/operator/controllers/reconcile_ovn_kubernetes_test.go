@@ -244,6 +244,34 @@ networking:
 				Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
 			})
 		})
+		It("should not make any changes if the the DisableOVNKubernetes override is true", func() {
+			config := getMinimalDPFOperatorConfig(testNS.Name)
+			config.Spec.Overrides = &operatorv1.Overrides{DisableOVNKubernetesReconcile: true}
+			Expect(testClient.Create(ctx, config)).To(Succeed())
+			// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
+			// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, config)
+
+			// Expect the ClusterVersionCR to not have its overrides field set.
+			Consistently(func(g Gomega) {
+				got := &unstructured.Unstructured{}
+				got.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "config.openshift.io",
+					Version: "v1",
+					Kind:    "ClusterVersion",
+				})
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(clusterVersionCR), got)).To(Succeed())
+				_, found, err := unstructured.NestedSlice(got.Object, "spec", "overrides")
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(found).To(BeFalse())
+
+				// Expect the network operator to have more than zero replicas.
+				gotDeployment := &appsv1.Deployment{}
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(networkOperatorDeployment), gotDeployment)).To(Succeed())
+				g.Expect(*gotDeployment.Spec.Replicas).To(BeNumerically(">", 0))
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+		})
+
 		It("should successfully deploy the custom OVN Kubernetes", func() {
 			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())

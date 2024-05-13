@@ -39,8 +39,6 @@ spec:
       containers:
       - command:
         - /manager
-        args:
-        - reconcileOVNKubernetes=true
         #args: dropped to allow debugging
         #- --leader-elect
         image: controller:latest
