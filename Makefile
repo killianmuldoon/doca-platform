@@ -832,9 +832,7 @@ dev-dpuservice: $(MINIKUBE) $(SKAFFOLD) ## Deploy dpuservice controller to dev c
 	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p dpuservice --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
-ENABLE_OVN_KUBERNETES?=true
 dev-operator:  $(MINIKUBE) $(SKAFFOLD) generate-manifests-operator-embedded ## Deploy operator controller to dev cluster using skaffold
-	sed -i '' "s/reconcileOVNKubernetes=.*/reconcileOVNKubernetes=$(ENABLE_OVN_KUBERNETES)/" config/operator/manager/manager.yaml
 	# Ensure the manager's kustomization has the correct image name and has not been changed by generation.
 	git restore config/operator/manager/kustomization.yaml
 	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \

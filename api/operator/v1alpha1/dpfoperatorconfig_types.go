@@ -31,7 +31,11 @@ var (
 // Overrides exposes a set of fields which impact the recommended behaviour of the DPF Operator
 type Overrides struct {
 	// DisableSystemComponents is a list of system components that will not be deployed.
-	DisableSystemComponents []string `json:"disableSystemComponents"`
+	// +optional
+	DisableSystemComponents []string `json:"disableSystemComponents,omitempty"`
+	// DisableOVNKubernetesReconcile disables the reconciliation of OVNKubernetes in Openshift.
+	// +optional
+	DisableOVNKubernetesReconcile bool `json:"disableOVNKubernetesReconcile,omitempty"`
 }
 
 // DPFOperatorConfigSpec defines the desired state of DPFOperatorConfig

@@ -118,7 +118,6 @@ var _ = BeforeSuite(func() {
 		Settings: &DPFOperatorConfigReconcilerSettings{
 			CustomOVNKubernetesDPUImage:    "nvidia.com/ovn-kubernetes-dpu:dev",
 			CustomOVNKubernetesNonDPUImage: "nvidia.com/ovn-kubernetes-non-dpu:dev",
-			ReconcileOVNKubernetes:         true,
 		},
 		Inventory: inventory,
 	}

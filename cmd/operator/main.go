@@ -75,7 +75,6 @@ var (
 	customOVNKubernetesNonDPUImage string
 	configSingletonNamespace       string
 	configSingletonName            string
-	reconcileOVNKubernetes         bool
 )
 
 func initFlags(defaults *release.Defaults) {
@@ -88,8 +87,6 @@ func initFlags(defaults *release.Defaults) {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.BoolVar(&reconcileOVNKubernetes, "reconcileOVNKubernetes", true,
-		"Enable OVN Kubernetes offload to DPU. OpenShift only.")
 	flag.StringVar(&customOVNKubernetesDPUImage, "ovn-kubernetes-dpu-image", defaults.CustomOVNKubernetesDPUImage,
 		"The custom OVN Kubernetes image deployed by the operator to the DPU enabled nodes (workers)")
 	flag.StringVar(&customOVNKubernetesNonDPUImage, "ovn-kubernetes-non-dpu-image", defaults.CustomOVNKubernetesNonDPUImage,
@@ -223,6 +220,5 @@ func getSettings() (*operatorcontroller.DPFOperatorConfigReconcilerSettings, err
 		CustomOVNKubernetesDPUImage:    customOVNKubernetesDPUImage,
 		CustomOVNKubernetesNonDPUImage: customOVNKubernetesNonDPUImage,
 		ConfigSingletonNamespaceName:   configSingletonNamespaceName,
-		ReconcileOVNKubernetes:         reconcileOVNKubernetes,
 	}, nil
 }
