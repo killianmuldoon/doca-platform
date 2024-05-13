@@ -39,10 +39,228 @@ spec:
           spec:
             description: DPUServiceIPAMSpec defines the desired state of DPUServiceIPAM
             properties:
-              foo:
-                description: Foo is an example field of DPUServiceIPAM. Edit dpuserviceipam_types.go
-                  to remove/update
-                type: string
+              clusterSelector:
+                description: ClusterSelector determines in which clusters the DPUServiceIPAM
+                  controller should apply the configuration.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: |-
+                        A label selector requirement is a selector that contains values, a key, and an operator that
+                        relates the key and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: |-
+                            operator represents a key's relationship to a set of values.
+                            Valid operators are In, NotIn, Exists and DoesNotExist.
+                          type: string
+                        values:
+                          description: |-
+                            values is an array of string values. If the operator is In or NotIn,
+                            the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                            the values array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: |-
+                      matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                      map is equivalent to an element of matchExpressions, whose key field is "key", the
+                      operator is "In", and the values array contains only "value". The requirements are ANDed.
+                    type: object
+                type: object
+                x-kubernetes-map-type: atomic
+              ipv4CIDRs:
+                description: |-
+                  IPV4CIDRs is the configuration related to splitting a CIDR into subnets per node, each with their own gateway.
+                  TODO: Revisit and validate that slice is needed instead of single object.
+                  TODO: Add validation that only one of ipv4CIDRs and ipv4Subnets are configured.
+                items:
+                  description: |-
+                    IPV4CIDR describes the configuration relevant to splitting a CIDR into subnet per node (i.e. different gateway and
+                    broadcast IP per node).
+                  properties:
+                    allocations:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        Allocations describes the subnets that should be assigned in each DPU node.
+                        TODO: Validate value is part of the CIDR defined above
+                      type: object
+                    blockSize:
+                      description: |-
+                        PrefixSize is the size of the subnet that should be allocated per node.
+                        TODO: Validate that value fits the CIDR
+                      type: integer
+                    cidr:
+                      description: |-
+                        CIDR is the CIDR from which subnets should be created per node.
+                        TODO: Validate that input is a valid subnet
+                      type: string
+                    exclusions:
+                      description: |-
+                        Exclusions is a list of subnets that should be excluded when splitting the CIDR into subnets per node.
+                        TODO: Validate values are part of the CIDR
+                      items:
+                        type: string
+                      type: array
+                    gatewayIndex:
+                      description: GatewayIndex determines which IP in the subnet
+                        extracted from the CIDR should be the gateway IP.
+                      type: integer
+                    name:
+                      description: Name is the name of the subnet. This name is used
+                        to reference the subnet in ServiceChain.
+                      type: string
+                  required:
+                  - blockSize
+                  - cidr
+                  - gatewayIndex
+                  - name
+                  type: object
+                type: array
+              ipv4Subnets:
+                description: |-
+                  IPV4Subnets is the configuration related to splitting a subnet into blocks per node. In this setup, there is a
+                  single gateway.
+                  TODO: Revisit and validate that slice is needed instead of single object.
+                  TODO: Add validation that only one of ipv4CIDRs and ipv4Subnets are configured.
+                items:
+                  description: |-
+                    IPV4Subnet describes the configuration relevant to splitting a subnet to a subnet block per node (i.e. same gateway
+                    and broadcast IP across all nodes).
+                  properties:
+                    allocations:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        Allocations describe the blocks that should be assigned in each DPU node.
+                        TODO: Validate value is part of the subnet defined above
+                      type: object
+                    blockSize:
+                      description: |-
+                        BlockSize is the size of the block that should be allocated per node. The value should be power of 2.
+                        TODO: Validate that  value is power of 2 to enable the CIDR notation in the allocations
+                      type: integer
+                    gateway:
+                      description: |-
+                        Gateway is the IP in the subnet that should be the gateway of the subnet.
+                        TODO: Validate that IP is part of subnet
+                      type: string
+                    name:
+                      description: Name is the name of the subnet. This name is used
+                        to reference the subnet in ServiceChain.
+                      type: string
+                    subnet:
+                      description: |-
+                        Subnet is the subnet that should be allocated.
+                        TODO: Validate that input is a valid subnet
+                      type: string
+                  required:
+                  - blockSize
+                  - gateway
+                  - name
+                  - subnet
+                  type: object
+                type: array
+              nodeSelector:
+                description: NodeSelector determines in which DPU nodes the DPUServiceIPAM
+                  controller should apply the configuration.
+                properties:
+                  nodeSelectorTerms:
+                    description: Required. A list of node selector terms. The terms
+                      are ORed.
+                    items:
+                      description: |-
+                        A null or empty node selector term matches no objects. The requirements of
+                        them are ANDed.
+                        The TopologySelectorTerm type implements a subset of the NodeSelectorTerm.
+                      properties:
+                        matchExpressions:
+                          description: A list of node selector requirements by node's
+                            labels.
+                          items:
+                            description: |-
+                              A node selector requirement is a selector that contains values, a key, and an operator
+                              that relates the key and values.
+                            properties:
+                              key:
+                                description: The label key that the selector applies
+                                  to.
+                                type: string
+                              operator:
+                                description: |-
+                                  Represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                type: string
+                              values:
+                                description: |-
+                                  An array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. If the operator is Gt or Lt, the values
+                                  array must have a single element, which will be interpreted as an integer.
+                                  This array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                        matchFields:
+                          description: A list of node selector requirements by node's
+                            fields.
+                          items:
+                            description: |-
+                              A node selector requirement is a selector that contains values, a key, and an operator
+                              that relates the key and values.
+                            properties:
+                              key:
+                                description: The label key that the selector applies
+                                  to.
+                                type: string
+                              operator:
+                                description: |-
+                                  Represents a key's relationship to a set of values.
+                                  Valid operators are In, NotIn, Exists, DoesNotExist. Gt, and Lt.
+                                type: string
+                              values:
+                                description: |-
+                                  An array of string values. If the operator is In or NotIn,
+                                  the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                  the values array must be empty. If the operator is Gt or Lt, the values
+                                  array must have a single element, which will be interpreted as an integer.
+                                  This array is replaced during a strategic merge patch.
+                                items:
+                                  type: string
+                                type: array
+                            required:
+                            - key
+                            - operator
+                            type: object
+                          type: array
+                      type: object
+                      x-kubernetes-map-type: atomic
+                    type: array
+                required:
+                - nodeSelectorTerms
+                type: object
+                x-kubernetes-map-type: atomic
             type: object
           status:
             description: DPUServiceIPAMStatus defines the observed state of DPUServiceIPAM
