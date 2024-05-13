@@ -104,18 +104,25 @@ var _ = BeforeSuite(func() {
 			}})
 	Expect(err).ToNot(HaveOccurred())
 
-	reconciler := &DPUServiceChainReconciler{
+	dpuServiceChainReconciler := &DPUServiceChainReconciler{
 		Client: testClient,
 		Scheme: testManager.GetScheme(),
 	}
-	err = reconciler.SetupWithManager(testManager)
+	err = dpuServiceChainReconciler.SetupWithManager(testManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	sisr := &DPUServiceInterfaceReconciler{
+	dpuServiceInterfaceReconciler := &DPUServiceInterfaceReconciler{
 		Client: testClient,
 		Scheme: testManager.GetScheme(),
 	}
-	err = sisr.SetupWithManager(testManager)
+	err = dpuServiceInterfaceReconciler.SetupWithManager(testManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	dpuServiceIPAMReconciler := &DPUServiceIPAMReconciler{
+		Client: testClient,
+		Scheme: testManager.GetScheme(),
+	}
+	err = dpuServiceIPAMReconciler.SetupWithManager(testManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {

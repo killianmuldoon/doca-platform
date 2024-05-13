@@ -94,6 +94,9 @@ type DPFOperatorConfigReconcilerSettings struct {
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceinterfaces,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceinterfaces/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceinterfaces/finalizers,verbs=update
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceipams,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceipams/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceipams/finalizers,verbs=update
 //+kubebuilder:rbac:groups=cert-manager.io,resources=issuers;certificates,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations;mutatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets,verbs=get;list;watch;create;update;patch;delete
