@@ -21,9 +21,11 @@ import (
 	_ "embed"
 	"fmt"
 
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/inventory"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -164,6 +166,10 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 //nolint:unparam
 func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (ctrl.Result, error) {
+
+	if err := r.reconcileImagePullSecrets(ctx, dpfOperatorConfig); err != nil {
+		return ctrl.Result{}, err
+	}
 	if err := r.reconcileSystemComponents(ctx, dpfOperatorConfig); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -239,4 +245,25 @@ func (r *DPFOperatorConfigReconciler) generateAndPatchObjects(ctx context.Contex
 		}
 	}
 	return kerrors.NewAggregate(errs)
+}
+
+func (r *DPFOperatorConfigReconciler) reconcileImagePullSecrets(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
+	for _, name := range config.Spec.ImagePullSecrets {
+		secret := &corev1.Secret{}
+		if err := r.Client.Get(ctx, client.ObjectKey{Namespace: config.Namespace, Name: name}, secret); err != nil {
+			return err
+		}
+		labels := secret.GetLabels()
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		secret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
+		secret.SetManagedFields(nil)
+		labels[dpuservicev1.DPFImagePullSecretLabelKey] = ""
+		secret.SetLabels(labels)
+		if err := r.Client.Patch(ctx, secret, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+			return err
+		}
+	}
+	return nil
 }

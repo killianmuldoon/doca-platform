@@ -27,6 +27,8 @@ var (
 	DPUServiceFinalizer         = "dpf.nvidia.com/dpuservice"
 	DPUServiceNameLabelKey      = "dpf.nvidia.com/dpuservice-name"
 	DPUServiceNamespaceLabelKey = "dpf.nvidia.com/dpuservice-namespace"
+	// DPFImagePullSecretLabelKey marks a secret as being an ImagePullSecret used by DPF which should be mirrored to DPUClusters.
+	DPFImagePullSecretLabelKey = "dpf.nvidia.com/image-pull-secret"
 )
 
 //+kubebuilder:object:root=true

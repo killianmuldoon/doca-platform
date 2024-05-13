@@ -314,7 +314,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			Expect(testutils.CleanupAndWait(ctx, testClient, objs...)).To(Succeed())
 		})
 
-		// reconcileSecrets
+		// reconcileArgoSecrets
 		It("should create an Argo secret based on the admin-kubeconfig for each cluster", func() {
 			clusters := []controlplane.DPFCluster{
 				{Namespace: testNS.Name, Name: "cluster-one"},
@@ -331,7 +331,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
-			err := r.reconcileSecrets(ctx, clusters)
+			err := r.reconcileArgoSecrets(ctx, clusters)
 			Expect(err).NotTo(HaveOccurred())
 			secretList := &corev1.SecretList{}
 			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, controlplanemeta.DPFClusterLabelKey})).To(Succeed())
@@ -360,7 +360,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
 
-			err := r.reconcileSecrets(ctx, clusters)
+			err := r.reconcileArgoSecrets(ctx, clusters)
 			// Expect an error to be reported.
 			Expect(err).To(HaveOccurred())
 
@@ -394,7 +394,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
 
-			err := r.reconcileSecrets(ctx, clusters)
+			err := r.reconcileArgoSecrets(ctx, clusters)
 			// Expect an error to be reported.
 			Expect(err).To(HaveOccurred())
 
@@ -406,6 +406,39 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 				Expect(s.Data).To(HaveKey("config"))
 				Expect(s.Data).To(HaveKey("name"))
 				Expect(s.Data).To(HaveKey("server"))
+			}
+		})
+		It("should reconcile image pull secrets created with the correct labels", func() {
+			// Create a fake Kamaji cluster using the envtest cluster
+			dpuCluster := controlplane.DPFCluster{Namespace: testNS.Name, Name: "cluster-seven"}
+			secret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(dpuCluster, cfg)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(testClient.Create(ctx, secret)).To(Succeed())
+
+			// Create some secrets that should be mirrored to the DPUCluster.
+			labels := map[string]string{dpuservicev1.DPFImagePullSecretLabelKey: ""}
+			Expect(testClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "dpf-secret-one", Namespace: testNS.Name, Labels: labels}})).To(Succeed())
+			Expect(testClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "dpf-secret-two", Namespace: testNS.Name, Labels: labels}})).To(Succeed())
+
+			// Create a secret that should not be mirrored as it does not have the correct labels.
+			Expect(testClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "not-a-dpf-secret", Namespace: testNS.Name}})).To(Succeed())
+
+			// Create a secret that should not be mirrored as it does not have the correct namespace.
+			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "anothernamespace"}})).To(Succeed())
+			Expect(testClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "another-not-a-dpf-secret", Namespace: "anothernamespace"}})).To(Succeed())
+
+			// Reconcile a DPUService in a different namespace and check to see that it has been cloned.
+			cloningNamespace := "namespace-to-clone-to"
+			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: cloningNamespace}})).To(Succeed())
+			dpuService := &dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: cloningNamespace}}
+			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
+			Expect(r.reconcileImagePullSecrets(ctx, []controlplane.DPFCluster{dpuCluster}, dpuService)).To(Succeed())
+
+			// Check we have the correct secrets cloned to the intended namespace
+			gotSecrets := &corev1.SecretList{}
+			Expect(testClient.List(ctx, gotSecrets, client.InNamespace(cloningNamespace))).To(Succeed())
+			for _, gotSecret := range gotSecrets.Items {
+				Expect(gotSecret.Name).To(BeElementOf([]string{"dpf-secret-one", "dpf-secret-two"}))
 			}
 		})
 	})
@@ -448,5 +481,4 @@ func testKamajiClusterSecret(cluster controlplane.DPFCluster) *corev1.Secret {
 			"admin.conf": confData,
 		},
 	}
-	// TODO: Test for ownerReferences.
 }

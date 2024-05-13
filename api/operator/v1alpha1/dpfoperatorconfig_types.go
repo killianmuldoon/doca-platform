@@ -40,6 +40,10 @@ type DPFOperatorConfigSpec struct {
 	ProvisioningConfiguration ProvisioningConfiguration `json:"provisioningConfiguration,omitempty"`
 	// +optional
 	Overrides *Overrides `json:"overrides,omitempty"`
+	// List of secret names which are used to pull images for DPF system components and DPUServices.
+	// These secrets must be in the same namespace as the DPF Operator Config and should be created before the config is created.
+	// System reconciliation will not proceed until these secrets are available.
+	ImagePullSecrets []string `json:"imagePullSecrets,omitempty"`
 }
 
 // HostNetworkConfiguration holds network related configuration required to create a functional host network.
