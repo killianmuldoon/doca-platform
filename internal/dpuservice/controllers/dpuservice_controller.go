@@ -166,7 +166,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	}
 
 	// Ensure the Argo secret for each cluster is up-to-date.
-	if err = r.reconcileSecrets(ctx, clusters); err != nil {
+	if err = r.reconcileArgoSecrets(ctx, clusters); err != nil {
 		// TODO: In future we should tolerate this error, but only when we have status reporting.
 		return ctrl.Result{}, err
 	}
@@ -183,6 +183,9 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 		return ctrl.Result{}, err
 	}
 
+	if err = r.reconcileImagePullSecrets(ctx, clusters, dpuService); err != nil {
+		return ctrl.Result{}, err
+	}
 	// Update the status of the DPUService.
 	if res, err = r.reconcileStatus(ctx, dpuService, clusters); err != nil {
 		return ctrl.Result{}, err
@@ -190,8 +193,8 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	return res, nil
 }
 
-// reconcileSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
-func (r *DPUServiceReconciler) reconcileSecrets(ctx context.Context, clusters []controlplane.DPFCluster) error {
+// reconcileArgoSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
+func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, clusters []controlplane.DPFCluster) error {
 	log := ctrllog.FromContext(ctx)
 
 	var errs []error
@@ -398,4 +401,45 @@ func (r *DPUServiceReconciler) DPUClusterToDPUService(ctx context.Context, o cli
 		result = append(result, ctrl.Request{NamespacedName: name})
 	}
 	return result
+}
+
+func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, clusters []controlplane.DPFCluster, service *dpuservicev1.DPUService) error {
+	// First get the secrets with the correct label.
+	secrets := &corev1.SecretList{}
+	err := r.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})
+	if err != nil {
+		return err
+	}
+	secretsToPatch := []*corev1.Secret{}
+	// Copy the spec of the secret to a new secret and set the namespace.
+	for _, secret := range secrets.Items {
+		secretsToPatch = append(secretsToPatch, &corev1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Secret",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secret.Name,
+				Namespace: service.Namespace,
+				Labels:    secret.Labels,
+			},
+			Immutable: secret.Immutable,
+			Data:      secret.Data,
+			Type:      secret.Type,
+		})
+	}
+	// Apply the new secret to every DPUCluster.
+	var errs []error
+	for _, cluster := range clusters {
+		dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		for _, secret := range secretsToPatch {
+			if err := dpuClusterClient.Patch(ctx, secret, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	return kerrors.NewAggregate(errs)
 }

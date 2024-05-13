@@ -89,6 +89,11 @@ e2e:
     MINIKUBE_DRIVER: docker
   tags:
     - e2e
+  cache:
+    untracked: true
+    paths:
+      - hack/tools/bin
+      - hack/repos
   artifacts:
     when: always
     paths:

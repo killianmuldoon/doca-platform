@@ -27,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -67,6 +68,18 @@ func (d *DPFCluster) GetKubeconfig(ctx context.Context, c client.Client) (*kubec
 
 // NewClient returns a client for the given cluster
 func (d *DPFCluster) NewClient(ctx context.Context, c client.Client) (client.Client, error) {
+	config, err := d.GetRestConfig(ctx, c)
+	if err != nil {
+		return nil, err
+	}
+	dpfClusterClient, err := client.New(config, client.Options{})
+	if err != nil {
+		return nil, fmt.Errorf("error while getting client: %w", err)
+	}
+	return dpfClusterClient, nil
+}
+
+func (d *DPFCluster) GetRestConfig(ctx context.Context, c client.Client) (*rest.Config, error) {
 	kubeconfig, err := d.GetKubeconfig(ctx, c)
 	if err != nil {
 		return nil, fmt.Errorf("error while getting kubeconfig: %w", err)
@@ -79,11 +92,7 @@ func (d *DPFCluster) NewClient(ctx context.Context, c client.Client) (client.Cli
 	if err != nil {
 		return nil, fmt.Errorf("error while getting client config: %w", err)
 	}
-	dpfClusterClient, err := client.New(config, client.Options{})
-	if err != nil {
-		return nil, fmt.Errorf("error while getting client: %w", err)
-	}
-	return dpfClusterClient, nil
+	return config, nil
 }
 
 // GetDPFClusters returns a list of DPFCluster available in the given Kubernetes cluster

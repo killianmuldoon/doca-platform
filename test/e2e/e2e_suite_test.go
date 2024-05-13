@@ -50,7 +50,7 @@ func init() {
 
 var (
 	testClient        client.Client
-	resourceCollector *collector.Cluster
+	resourceCollector *collector.Collector
 	ctx               = ctrl.SetupSignalHandler()
 )
 
@@ -86,6 +86,8 @@ func TestE2E(t *testing.T) {
 	path := filepath.Join(filepath.Dir(basePath), "../../artifacts")
 
 	// Create a resourceCollector to dump logs and resources for test debugging.
-	resourceCollector = collector.NewCluster(testClient, path, config)
+	clusters, err := collector.GetClusterCollectors(ctx, testClient, path, config)
+	g.Expect(err).NotTo(HaveOccurred())
+	resourceCollector = collector.New(clusters)
 	RunSpecs(t, "e2e suite")
 }

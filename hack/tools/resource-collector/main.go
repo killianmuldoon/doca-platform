@@ -62,17 +62,18 @@ func main() {
 		// Get the path to place artifacts in
 		_, basePath, _, _ := runtime.Caller(0)
 		artifactsDirectory = filepath.Join(filepath.Dir(basePath), "../../../artifacts")
-
 	}
 
-	mainCluster := collector.NewCluster(clusterClient, artifactsDirectory, config)
-	log.Info(fmt.Sprintf("Running the resource collector. Will save logs to %s", artifactsDirectory))
+	clusters, err := collector.GetClusterCollectors(ctx, clusterClient, artifactsDirectory, config)
 
-	// Run the collector for the main cluster.
-	err = mainCluster.Run(ctx)
 	if err != nil {
+		log.Error(err, "Failed to get cluster collectors")
+	}
+	resourceCollector := collector.New(clusters)
+	log.Info(fmt.Sprintf("Running the resource resourceCollector. Artifacts will be stored in %s", artifactsDirectory))
+	// Run the resourceCollector for the main cluster.
+
+	if err := resourceCollector.Run(ctx); err != nil {
 		panic(err)
 	}
-
-	// TODO: Also collect logs and resources for DPUClusters.
 }

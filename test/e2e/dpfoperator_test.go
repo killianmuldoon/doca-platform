@@ -55,6 +55,12 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 	dpuservicechainName := "svc-chain-test"
 	dpfProvisioningControllerPVCName := "dpf-provisioning-volume"
 
+	imagePullSecret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dpf-image-pull-secret",
+			Namespace: "dpf-operator-system",
+		},
+	}
 	// The DPFOperatorConfig for the test.
 	config := &operatorv1.DPFOperatorConfig{
 		ObjectMeta: metav1.ObjectMeta{
@@ -69,10 +75,13 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				BFBPersistentVolumeClaimName: dpfProvisioningControllerPVCName,
 				ImagePullSecret:              "some-secret",
 			},
+			ImagePullSecrets: []string{
+				imagePullSecret.Name,
+			},
 		},
 	}
 
-	Context("deploying a DPUService", func() {
+	Context("DPF Operator initialization", func() {
 		var cleanupObjs []client.Object
 		AfterAll(func() {
 			By("collecting resources and logs for the clusters")
@@ -158,6 +167,10 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					Expect(err).NotTo(HaveOccurred())
 				}
 			}
+		})
+
+		It("create the imagePullSecret for the DPF OperatorConfig", func() {
+			Expect(testClient.Create(ctx, imagePullSecret)).To(Succeed())
 		})
 
 		It("create the DPFOperatorConfig for the system", func() {
@@ -334,7 +347,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}).WithTimeout(300 * time.Second).Should(Succeed())
 		})
 
-		It("create a DPUService and check that it is mirrored to each cluster", func() {
+		It("create a DPUService and check Objects and ImagePullSecrets are mirrored to each cluster", func() {
 			// Read the DPUService from file and create it.
 			data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuservice.yaml"))
 			Expect(err).ToNot(HaveOccurred())
@@ -355,10 +368,17 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				for i := range dpuControlPlanes {
 					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
 					g.Expect(err).ToNot(HaveOccurred())
+
+					// Check the deployment from the DPUService can be found on the destination cluster.
 					deploymentList := appsv1.DeploymentList{}
 					g.Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
 					g.Expect(deploymentList.Items).To(HaveLen(1))
 					g.Expect(deploymentList.Items[0].Name).To(ContainSubstring("helm-guestbook"))
+
+					// Check an imagePullSecret was created in the same namespace in the destination cluster.
+					g.Expect(dpuClient.Get(ctx, client.ObjectKey{
+						Namespace: dpuService.GetNamespace(),
+						Name:      config.Spec.ImagePullSecrets[0]}, &corev1.Secret{})).To(Succeed())
 				}
 			}).WithTimeout(180 * time.Second).Should(Succeed())
 		})

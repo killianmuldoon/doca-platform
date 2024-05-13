@@ -22,7 +22,6 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
-	testutils "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -48,21 +47,6 @@ var _ = Describe("DPFOperatorConfig Controller", func() {
 		AfterEach(func() {
 			By("Cleaning up the Namespace")
 			Expect(testClient.Delete(ctx, testNS)).To(Succeed())
-		})
-		It("should successfully reconcile the DPFOperatorConfig", func() {
-			By("Reconciling the created resource")
-
-			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
-			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
-			// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
-			// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
-			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpfOperatorConfig)
-
-			Eventually(func(g Gomega) []string {
-				gotConfig := &operatorv1.DPFOperatorConfig{}
-				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpfOperatorConfig), gotConfig)).To(Succeed())
-				return gotConfig.Finalizers
-			}).WithTimeout(30 * time.Second).Should(ConsistOf([]string{operatorv1.DPFOperatorConfigFinalizer}))
 		})
 	})
 })
@@ -151,12 +135,35 @@ var _ = Describe("DPFOperatorConfig Controller - Reconcile System Components", f
 	Context("controller should create DPF System components", func() {
 		testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
 		It("reconciles the DPFOperatorConfig and deploys the system components", func() {
+			// Create the namespace for the test.
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
+
+			// Create the DPF ImagePullSecrets
+			secretOneName := "secret-one"
+			secretTwoName := "secret-two"
+			Expect(testClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretOneName, Namespace: testNS.Name}})).To(Succeed())
+			Expect(testClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretTwoName, Namespace: testNS.Name}})).To(Succeed())
+
 			By("creating the DPFOperatorConfig")
 			config := getMinimalDPFOperatorConfig(testNS.Name)
 			config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName = "foo-pvc"
 			config.Spec.ProvisioningConfiguration.ImagePullSecret = "foo-image-pull-secret"
+			config.Spec.ImagePullSecrets = []string{"secret-one", "secret-two"}
 			Expect(testClient.Create(ctx, config)).To(Succeed())
+
+			By("checking the DPFOperatorConfig finalizer is reconciled")
+			Eventually(func(g Gomega) []string {
+				gotConfig := &operatorv1.DPFOperatorConfig{}
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), gotConfig)).To(Succeed())
+				return gotConfig.Finalizers
+			}).WithTimeout(30 * time.Second).Should(ConsistOf([]string{operatorv1.DPFOperatorConfigFinalizer}))
+
+			By("checking the DPF ImagePullSecrets are reconciled with the correct label")
+			Eventually(func(g Gomega) {
+				secrets := &corev1.SecretList{}
+				g.Expect(testClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})).To(Succeed())
+				g.Expect(secrets.Items).To(HaveLen(2))
+			}).WithTimeout(30 * time.Second).Should(Succeed())
 
 			By("checking the dpuservice-controller-manager deployment is created")
 			waitForDeployment(config.Namespace, "dpuservice-controller-manager")
