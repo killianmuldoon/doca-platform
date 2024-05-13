@@ -106,6 +106,32 @@ rules:
   - patch
   - update
 - apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - dpuserviceipams
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - dpuserviceipams/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - sfc.dpf.nvidia.com
+  resources:
+  - dpuserviceipams/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - svc.dpf.nvidia.com
   resources:
   - dpuservices
