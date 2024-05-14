@@ -22,7 +22,7 @@ import (
 
 // OVSClient is a client that can be used to do specific actions on OVS.
 //
-//go:generate ../../../../hack/tools/bin/mockgen -copyright_file ../../../../hack/boilerplate.go.txt -destination mock/ovsclient.go -source types.go
+//go:generate mockgen -copyright_file ../../../../hack/boilerplate.go.txt -destination mock/ovsclient.go -source types.go
 type OVSClient interface {
 	// BridgeExists checks if a bridge exists
 	BridgeExists(name string) (bool, error)

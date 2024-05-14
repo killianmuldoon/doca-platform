@@ -22,7 +22,7 @@ import (
 
 // NetworkHelper is a helper that can be used to configure networking related settings on the system.
 
-//go:generate ../../../../hack/tools/bin/mockgen -copyright_file ../../../../hack/boilerplate.go.txt -destination mock/networkhelper.go -source types.go
+//go:generate mockgen -copyright_file ../../../../hack/boilerplate.go.txt -destination mock/networkhelper.go -source types.go
 type NetworkHelper interface {
 	// SetLinkUp sets the administrative state of a link to "up"
 	SetLinkUp(link string) error
