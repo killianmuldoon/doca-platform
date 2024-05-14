@@ -31,12 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-var (
-	// TODO: (killianmuldoon) this is duplicated from the dpuService package.
-	argoCDNamespace = "default"
-)
-
-func NewAppProject(name string, clusters []types.NamespacedName) *argov1.AppProject {
+func NewAppProject(namespace, name string, clusters []types.NamespacedName) *argov1.AppProject {
 	project := argov1.AppProject{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       argoapplication.AppProjectKind,
@@ -44,7 +39,7 @@ func NewAppProject(name string, clusters []types.NamespacedName) *argov1.AppProj
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: argoCDNamespace,
+			Namespace: namespace,
 			// TODO: Consider a common set of labels for all objects.
 			Labels: map[string]string{
 				operatorv1.DPFComponentLabelKey: "dpuservice-manager",
@@ -83,7 +78,7 @@ func NewAppProject(name string, clusters []types.NamespacedName) *argov1.AppProj
 	return &project
 }
 
-func NewApplication(projectName string, cluster types.NamespacedName, dpuService *dpuservicev1.DPUService, values *runtime.RawExtension) *argov1.Application {
+func NewApplication(namespace, projectName string, cluster types.NamespacedName, dpuService *dpuservicev1.DPUService, values *runtime.RawExtension) *argov1.Application {
 	return &argov1.Application{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       argoapplication.ApplicationKind,
@@ -92,7 +87,7 @@ func NewApplication(projectName string, cluster types.NamespacedName, dpuService
 		ObjectMeta: metav1.ObjectMeta{
 			// TODO: Revisit this naming.
 			Name:      fmt.Sprintf("%v-%v", cluster.Name, dpuService.Name),
-			Namespace: argoCDNamespace,
+			Namespace: namespace,
 			// TODO: Consider adding labels for the Application.
 			Labels: map[string]string{
 				controlplanemeta.DPFClusterLabelKey:      cluster.Name,

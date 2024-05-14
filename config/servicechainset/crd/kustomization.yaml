@@ -8,6 +8,7 @@ resources:
 - bases/sfc.dpf.nvidia.com_servicechainsets.yaml
 - bases/sfc.dpf.nvidia.com_dpuservicechains.yaml
 - bases/sfc.dpf.nvidia.com_dpuserviceinterfaces.yaml
+- bases/sfc.dpf.nvidia.com_dpuserviceipams.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patches:

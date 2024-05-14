@@ -89,6 +89,9 @@ func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOp
 	if err := r.deleteObjects(ctx, r.Inventory.DPFProvisioning, vars); err != nil {
 		errs = append(errs, err)
 	}
+	if err := r.deleteObjects(ctx, r.Inventory.ArgoCD, vars); err != nil {
+		errs = append(errs, err)
+	}
 
 	if len(errs) > 0 {
 		log.Error(kerrors.NewAggregate(errs), "DPF system components not yet deleted: Requeueing.")

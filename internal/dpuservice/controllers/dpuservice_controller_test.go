@@ -53,6 +53,11 @@ var _ = Describe("DPUService Controller", func() {
 			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one"}})).To(Succeed())
 			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two"}})).To(Succeed())
 			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-three"}})).To(Succeed())
+			Expect(
+				// this namespace can be created multiple times.
+				client.IgnoreAlreadyExists(
+					testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: argoCDNamespace}})),
+			).To(Succeed())
 		})
 		AfterEach(func() {
 			By("Cleanup the Namespace and Secrets")
@@ -150,7 +155,7 @@ var _ = Describe("DPUService Controller", func() {
 
 			// Check that the argo AppProject has been created correctly
 			Eventually(func(g Gomega) {
-				assertAppProject(g, testClient, clusters)
+				assertAppProject(g, testClient, argoCDNamespace, clusters)
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 
 			// Check that the argo Application has been created correctly
@@ -213,7 +218,7 @@ func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []controlp
 	}
 }
 
-func assertAppProject(g Gomega, testClient client.Client, clusters []controlplane.DPFCluster) {
+func assertAppProject(g Gomega, testClient client.Client, argoCDNamespace string, clusters []controlplane.DPFCluster) {
 	// Check that an argo project has been created.
 	appProject := &argov1.AppProject{}
 	g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: argoCDNamespace, Name: appProjectName}, appProject)).To(Succeed())
@@ -232,7 +237,7 @@ func assertAppProject(g Gomega, testClient client.Client, clusters []controlplan
 func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, clusters []controlplane.DPFCluster) {
 	// Check that argoApplications are created for each of the clusters.
 	applications := &argov1.ApplicationList{}
-	g.Expect(testClient.List(ctx, applications)).To(Succeed())
+	g.Expect(testClient.List(ctx, applications, client.InNamespace(argoCDNamespace))).To(Succeed())
 
 	// Check that we have one application for each cluster and dpuService.
 	g.Expect(applications.Items).To(HaveLen(len(clusters) * len(dpuServices)))
@@ -298,6 +303,11 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			By("creating the namespaces")
 			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
+			// Create the DPF System Namespace
+			err := testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: argoCDNamespace}})
+			if !apierrors.IsAlreadyExists(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
 		})
 		AfterEach(func() {
 			By("Cleanup the test Namespace")
