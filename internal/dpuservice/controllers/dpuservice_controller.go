@@ -59,11 +59,13 @@ type DPUServiceReconciler struct {
 
 const (
 	// TODO: These constants don't belong here and should be moved as they're shared with other packages.
-	argoCDNamespace        = "default"
 	argoCDSecretLabelKey   = "argocd.argoproj.io/secret-type"
 	argoCDSecretLabelValue = "cluster"
 	appProjectName         = "doca-platform-project"
 	dpfServiceIDLabelKey   = "dpf.nvidia.com/service-id"
+	// The ArgoCD namespace will always be the same as that where the reconciler is deployed.
+	// TODO:Figure out a way to make this dynamic while preserving the e2e tests.
+	argoCDNamespace = "dpf-operator-system"
 )
 
 const (
@@ -172,13 +174,13 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	}
 
 	//  Ensure the ArgoCD AppProject exists and is up-to-date.
-	if err = r.reconcileAppProject(ctx, clusters); err != nil {
+	if err = r.reconcileAppProject(ctx, argoCDNamespace, clusters); err != nil {
 		// TODO: In future we should tolerate this error, but only when we have status reporting.
 		return ctrl.Result{}, err
 	}
 
 	// Update the ArgoApplication for all target clusters.
-	if err = r.reconcileApplication(ctx, clusters, dpuService); err != nil {
+	if err = r.reconcileApplication(ctx, argoCDNamespace, clusters, dpuService); err != nil {
 		// TODO: In future we should tolerate this error, but only when we have status reporting.
 		return ctrl.Result{}, err
 	}
@@ -207,7 +209,7 @@ func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, cluster
 			continue
 		}
 		// Template an argoSecret using information from the control plane secret.
-		argoSecret, err := createArgoSecretFromKubeconfig(cluster, adminConfig)
+		argoSecret, err := createArgoSecretFromKubeconfig(argoCDNamespace, cluster, adminConfig)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -223,7 +225,7 @@ func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, cluster
 }
 
 // createArgoSecretFromKubeconfig generates an ArgoCD cluster secret from the given kubeconfig.
-func createArgoSecretFromKubeconfig(cluster controlplane.DPFCluster, kubeconfig *kubeconfig.Type) (*corev1.Secret, error) {
+func createArgoSecretFromKubeconfig(argoCDNamespace string, cluster controlplane.DPFCluster, kubeconfig *kubeconfig.Type) (*corev1.Secret, error) {
 	clusterConfigName := kubeconfig.Clusters[0].Name
 	clusterConfigServer := kubeconfig.Clusters[0].Cluster.Server
 	secretConfig, err := json.Marshal(config{TlsClientConfig: tlsClientConfig{
@@ -234,11 +236,11 @@ func createArgoSecretFromKubeconfig(cluster controlplane.DPFCluster, kubeconfig 
 	if err != nil {
 		return nil, err
 	}
-	return createArgoCDSecret(secretConfig, cluster, clusterConfigName, clusterConfigServer), nil
+	return createArgoCDSecret(argoCDNamespace, secretConfig, cluster, clusterConfigName, clusterConfigServer), nil
 }
 
 // createArgoCDSecret templates an ArgoCD cluster Secret with the passed values.
-func createArgoCDSecret(secretConfig []byte, cluster controlplane.DPFCluster, clusterConfigName, clusterConfigServer string) *corev1.Secret {
+func createArgoCDSecret(argoCDNamespace string, secretConfig []byte, cluster controlplane.DPFCluster, clusterConfigName, clusterConfigServer string) *corev1.Secret {
 	return &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -308,14 +310,14 @@ func (r *DPUServiceReconciler) reconcileStatus(ctx context.Context, dpuService *
 	return ctrl.Result{}, nil
 }
 
-func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters []controlplane.DPFCluster) error {
+func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, argoCDNamespace string, clusters []controlplane.DPFCluster) error {
 	log := ctrllog.FromContext(ctx)
 
 	clusterKeys := []types.NamespacedName{}
 	for i := range clusters {
 		clusterKeys = append(clusterKeys, types.NamespacedName{Namespace: clusters[i].Namespace, Name: clusters[i].Name})
 	}
-	appProject := argocd.NewAppProject(appProjectName, clusterKeys)
+	appProject := argocd.NewAppProject(argoCDNamespace, appProjectName, clusterKeys)
 
 	log.Info("Patching AppProject for DPU clusters")
 	if err := r.Client.Patch(ctx, appProject, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
@@ -324,7 +326,7 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, clusters []controlplane.DPFCluster, dpuService *dpuservicev1.DPUService) error {
+func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, argoCDNamespace string, clusters []controlplane.DPFCluster, dpuService *dpuservicev1.DPUService) error {
 	log := ctrllog.FromContext(ctx)
 
 	var errs []error
@@ -334,7 +336,7 @@ func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, cluster
 	}
 	for _, cluster := range clusters {
 		clusterKey := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}
-		argoApplication := argocd.NewApplication(appProjectName, clusterKey, dpuService, values)
+		argoApplication := argocd.NewApplication(argoCDNamespace, appProjectName, clusterKey, dpuService, values)
 
 		log.Info("Patching Application", "Application", klog.KObj(argoApplication))
 		if err := r.Client.Patch(ctx, argoApplication, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {

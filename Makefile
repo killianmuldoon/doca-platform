@@ -369,9 +369,6 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 	# Deploy cert manager to provide certificates for webhooks.
 	$Q kubectl apply -f $(CERT_MANAGER_YAML)
 
-	# Deploy argoCD as the underlying application provider.
-	$Q kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f - && kubectl apply -f $(ARGOCD_YAML)
-
 	# Mirror images for e2e tests from docker hub and push them in the test registry to avoid docker pull limits.
 	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
 	$(MAKE) test-build-and-push-artifacts test-upload-external-images

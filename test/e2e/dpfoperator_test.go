@@ -78,6 +78,11 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			ImagePullSecrets: []string{
 				imagePullSecret.Name,
 			},
+
+			// TODO: This test does not check if the ovnkubernetes related components are reconciled.
+			Overrides: &operatorv1.Overrides{
+				DisableOVNKubernetesReconcile: true,
+			},
 		},
 	}
 
@@ -85,7 +90,11 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		var cleanupObjs []client.Object
 		AfterAll(func() {
 			By("collecting resources and logs for the clusters")
-			Expect(resourceCollector.Run(ctx)).To(Succeed())
+			err := resourceCollector.Run(ctx)
+			if err != nil {
+				// Don't fail the test if the log collector fails - just print the errors.
+				GinkgoLogr.Error(err, "failed to collect resources and logs for the clusters")
+			}
 			By("cleaning up objects created during the test", func() {
 				for _, object := range cleanupObjs {
 					if err := testClient.Delete(ctx, object); err != nil && !apierrors.IsNotFound(err) {
@@ -167,10 +176,12 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					Expect(err).NotTo(HaveOccurred())
 				}
 			}
+			cleanupObjs = append(cleanupObjs, pvc)
 		})
 
 		It("create the imagePullSecret for the DPF OperatorConfig", func() {
 			Expect(testClient.Create(ctx, imagePullSecret)).To(Succeed())
+			cleanupObjs = append(cleanupObjs, imagePullSecret)
 		})
 
 		It("create the DPFOperatorConfig for the system", func() {

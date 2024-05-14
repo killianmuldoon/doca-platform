@@ -23,10 +23,8 @@ import (
 
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -90,13 +88,14 @@ func (p *dpfProvisioningControllerObjects) GenerateManifests(vars Variables) ([]
 		return nil, fmt.Errorf("no Deployment in manifest")
 	}
 
-	err := p.setNamespace(vars.Namespace)
+	objects, err := setNamespace(vars.Namespace, p.otherObjects)
 	if err != nil {
 		return nil, fmt.Errorf("error while setting Namespace for Provisioning Controller: %w", err)
 	}
+	p.deployment.SetNamespace(vars.Namespace)
 
 	ret := []client.Object{}
-	for _, obj := range p.otherObjects {
+	for _, obj := range objects {
 		ret = append(ret, obj.DeepCopy())
 	}
 	deploy := p.deployment.DeepCopy()
@@ -220,49 +219,4 @@ func (p *dpfProvisioningControllerObjects) parseFlagName(arg string) string {
 		}
 	}
 	return name
-}
-
-func (p *dpfProvisioningControllerObjects) setNamespace(namespace string) error {
-	// The deployment is stored in a concrete type.
-	p.deployment.SetNamespace(namespace)
-
-	for i, obj := range p.otherObjects {
-		obj.SetNamespace(namespace)
-		switch obj.GetKind() {
-		case "RoleBinding":
-			roleBinding := &rbacv1.RoleBinding{}
-			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), roleBinding); err != nil {
-				return fmt.Errorf("error while converting object to RoleBinding: %w", err)
-			}
-			for _, subject := range roleBinding.Subjects {
-				subject.Namespace = namespace
-			}
-		case "ClusterRoleBinding":
-			clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
-			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), clusterRoleBinding); err != nil {
-				return fmt.Errorf("error while converting object to ClusterRoleBinding: %w", err)
-			}
-			for _, subject := range clusterRoleBinding.Subjects {
-				subject.Namespace = namespace
-			}
-		case "MutatingWebhookConfiguration":
-			mutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{}
-			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), mutatingWebhookConfiguration); err != nil {
-				return fmt.Errorf("error while converting object to MutatingWebhookConfiguration: %w", err)
-			}
-			for _, webhook := range mutatingWebhookConfiguration.Webhooks {
-				webhook.ClientConfig.Service.Namespace = namespace
-			}
-		case "ValidatingWebhookConfiguration":
-			validatingWebhookConfiguration := &admissionregistrationv1.ValidatingWebhookConfiguration{}
-			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), validatingWebhookConfiguration); err != nil {
-				return fmt.Errorf("error while converting object to ValidatingWebhookConfiguration: %w", err)
-			}
-			for _, webhook := range validatingWebhookConfiguration.Webhooks {
-				webhook.ClientConfig.Service.Namespace = namespace
-			}
-		}
-		p.otherObjects[i] = obj
-	}
-	return nil
 }

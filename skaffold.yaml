@@ -60,6 +60,7 @@ profiles:
           - config/dpuservice/crd
           - config/servicechainset/crd
           - config/dpf-provisioning/crd
+          - config/argocd/crd
     portForward:
       - resourceType: deployment
         resourceName: dpf-operator-controller-manager

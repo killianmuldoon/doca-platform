@@ -165,6 +165,9 @@ var _ = Describe("DPFOperatorConfig Controller - Reconcile System Components", f
 				g.Expect(secrets.Items).To(HaveLen(2))
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 
+			By("checking the argocd application controller statefulSet is created")
+			waitForStatefulSet(config.Namespace, "argocd-application-controller")
+
 			By("checking the dpuservice-controller-manager deployment is created")
 			waitForDeployment(config.Namespace, "dpuservice-controller-manager")
 
@@ -212,6 +215,18 @@ func waitForDeployment(ns, name string) *appsv1.Deployment {
 			deployment)).To(Succeed())
 	}).WithTimeout(30 * time.Second).Should(Succeed())
 	return deployment
+}
+
+func waitForStatefulSet(ns, name string) *appsv1.StatefulSet {
+	statefulSet := &appsv1.StatefulSet{}
+	Eventually(func(g Gomega) {
+		g.Expect(testClient.Get(ctx,
+			client.ObjectKey{
+				Namespace: ns,
+				Name:      name,
+			}, statefulSet)).To(Succeed())
+	}).WithTimeout(30 * time.Second).Should(Succeed())
+	return statefulSet
 }
 
 func verifyPVC(deployment *appsv1.Deployment, expected string) {

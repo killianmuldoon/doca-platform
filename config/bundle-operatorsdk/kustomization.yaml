@@ -17,3 +17,4 @@ resources:
   - ../operator/rbac
   - ../operator/manager
   - ../dpf-provisioning/crd
+  - ../argocd/crd
