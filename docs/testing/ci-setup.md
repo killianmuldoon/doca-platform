@@ -12,10 +12,14 @@ This project uses three types of gitlab runners:
   - runs basic jobs such as unit tests and linters.
   - Dependencies:
     - Docker
+  - home directory `/gitlab-runner` at root of host
+  - user gitlab-runner with docker groups
+  - cache directory at `/mnt/gitlab-runner/cache` which is mounted into the container through the config.toml.
+
 
 The config.toml for the docker runner is located at /srv/gitlab-runner/config/config.toml on the host by default. It is shared between all docker containers which run jobs. It looks like:
 ```toml
-concurrent = 4 
+concurrent = 10
 check_interval = 0
 shutdown_timeout = 0
 
@@ -23,11 +27,11 @@ shutdown_timeout = 0
   session_timeout = 1800
 
 [[runners]]
-  name = "dpf-runner"
+  name = "cloud-dev-20"
   url = "https://gitlab-master.nvidia.com"
-  id = 989533
-  token = "glrt-M7u4j2SHbWJet6GQDEd_"
-  token_obtained_at = 2024-02-28T17:23:03Z
+  id = 1173592
+  token = "token"
+  token_obtained_at = 2024-05-13T13:35:24Z
   token_expires_at = 0001-01-01T00:00:00Z
   executor = "docker"
   [runners.cache]
@@ -39,7 +43,7 @@ shutdown_timeout = 0
     disable_entrypoint_overwrite = false
     oom_kill_disable = false
     disable_cache = false
-    volumes = ["/cache"]
+    volumes = ["/mnt/gitlab-runner/cache:/cache"]
     shm_size = 0
     network_mtu = 0
     cpus = "4"
@@ -48,6 +52,8 @@ shutdown_timeout = 0
 
 2) e2e runner
   - A shell runner that runs end-to-end jobs that require spinning up a Kubernetes cluster.
+  - home directory `/gitlab-runner` at root of host
+  - user gitlab-runner with qemu, kvm and docker groups
   - Dependencies:
     - Docker
     - Kubectl
@@ -73,13 +79,12 @@ shutdown_timeout = 0
   [runners.custom_build_dir]
   [runners.cache]
     MaxUploadedArchiveSize = 0
-    [runners.cache.s3]
-    [runners.cache.gcs]
-    [runners.cache.azure]
 ```
 
 3) release runner
   - A shell runner that runs jobs that build and push artifacts
+  - home directory /gitlab-runner at root of host
+  - user gitlab-runner with qemu, kvm and docker groups
   - Dependencies:
     - Docker 
     - Helm
@@ -108,9 +113,6 @@ shutdown_timeout = 0
   [runners.custom_build_dir]
   [runners.cache]
     MaxUploadedArchiveSize = 0
-    [runners.cache.s3]
-    [runners.cache.gcs]
-    [runners.cache.azure]
 ```
 
 ## Hacks

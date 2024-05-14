@@ -243,8 +243,10 @@ generate: ## Run all generate-* targets: generate-modules generate-manifests-* a
 	$(MAKE) generate-mocks generate-modules generate-manifests generate-go-deepcopy generate-operator-bundle
 
 .PHONY: generate-mocks
-generate-mocks: mockgen ## Generate mocks
-	go generate ./...
+generate-mocks: $(MOCKGEN) ## Generate mocks
+	## Add the TOOLSDIR to the path for this command as `mockgen` is called from the $PATH inline in the code.
+	## See go:generate comments for examples.
+	export PATH=$(PATH):$(TOOLSDIR); go generate ./...
 
 .PHONY: generate-modules
 generate-modules: ## Run go mod tidy to update go modules

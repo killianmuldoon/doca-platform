@@ -20,6 +20,12 @@ lint:
   needs: []
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  cache:
+    key: lint
+    untracked: true
+    when: always
+    paths:
+      - hack/tools/bin
   script:
     - make lint
     - make lint-helm
@@ -32,6 +38,13 @@ verify:
   variables:
     BASE_REV: $CI_MERGE_REQUEST_DIFF_BASE_SHA # Used by the verify-copyright target
     COMPARISON_REV: $CI_COMMIT_SHA # Used by the verify-copyright target
+  cache:
+    key: verify
+    untracked: true
+    when: always
+    paths:
+      - hack/tools/bin
+      - hack/repos
   script:
     -  make verify-generate verify-copyright
   after_script:
@@ -65,6 +78,12 @@ test:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $UNIT_TEST == "true"
   script:
     - make test-report
+  cache:
+    key: test
+    untracked: true
+    when: always
+    paths:
+      - hack/tools/bin
   artifacts:
     when: always
     paths:
