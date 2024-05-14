@@ -20,12 +20,19 @@ lint:
   needs: []
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  variables:
+    GOLANGCI_LINT_CACHE: $CI_PROJECT_DIR/.golangci-cache
   cache:
     key: lint
     untracked: true
     when: always
     paths:
       - hack/tools/bin
+      - .golangci-cache
+  before_script:
+    # Create the directory which is used to cache golangci-lint results.
+    # Added to .gitignore.
+    - mkdir -p .golangci-cache
   script:
     - make lint
     - make lint-helm
@@ -38,6 +45,7 @@ verify:
   variables:
     BASE_REV: $CI_MERGE_REQUEST_DIFF_BASE_SHA # Used by the verify-copyright target
     COMPARISON_REV: $CI_COMMIT_SHA # Used by the verify-copyright target
+    GOPATH: $CI_PROJECT_DIR/.gocache
   cache:
     key: verify
     untracked: true
@@ -45,10 +53,73 @@ verify:
     paths:
       - hack/tools/bin
       - hack/repos
+      - .gocache
+  before_script:
+    # Create the directory which will be used as the gocache.
+    # Added to .gitignore.
+    - mkdir -p .gocache
   script:
     -  make verify-generate verify-copyright
   after_script:
     - git diff
+
+test:
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $UNIT_TEST == "true"
+  variables:
+    GOPATH: $CI_PROJECT_DIR/.gocache
+  cache:
+    key: test
+    untracked: true
+    when: always
+    paths:
+      - hack/tools/bin
+      - .gocache
+  artifacts:
+    when: always
+    paths:
+      - junit.xml
+    reports:
+      junit: junit.xml
+  before_script:
+    # Create the directory which will be used as the gocache.
+    # Added to .gitignore.
+    - mkdir -p .gocache
+  script:
+    - make test-report
+
+e2e:
+  stage: test
+  needs: [ ]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST == "true"
+      when: always
+  variables:
+    # The helm bundles and operator-sdk require a remote repository in the e2e environment.
+    REGISTRY: harbor.mellanox.com/cloud-orchestration-dev/dpf/e2e
+    # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
+    MINIKUBE_CNI: flannel
+    MINIKUBE_DRIVER: docker
+  tags:
+    - e2e
+  artifacts:
+    when: always
+    paths:
+      - artifacts/*
+  before_script:
+    - make clean-test-env generate test-env-e2e
+  script:
+    # If make-deploy-operator fails run the log collector to see the state of the cluster. This is the same log collector that runs during failing tests.
+    - make test-deploy-operator || go run hack/tools/resource-collector/main.go --kubeconfig ~/.kube/config  --artifactsDirectory $CI_PROJECT_DIR/artifacts
+    - make test-e2e
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+    -  make clean-test-env
 
 nightly-release:
   stage: build
@@ -70,62 +141,6 @@ nightly-release:
     - make generate docker-build-all docker-push-all
   after_script:
     - ./hack/scripts/slack-notification.sh
-
-test:
-  stage: test
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-    - if: $CI_PIPELINE_SOURCE == "schedule" && $UNIT_TEST == "true"
-  script:
-    - make test-report
-  cache:
-    key: test
-    untracked: true
-    when: always
-    paths:
-      - hack/tools/bin
-  artifacts:
-    when: always
-    paths:
-      - junit.xml
-    reports:
-      junit: junit.xml
-
-e2e:
-  stage: test
-  needs: [ ]
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-      when: manual
-      allow_failure: true
-    - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST == "true"
-      when: always
-  variables:
-    # The helm bundles and operator-sdk require a remote repository in the e2e environment.
-    REGISTRY: harbor.mellanox.com/cloud-orchestration-dev/dpf/e2e
-    # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
-    MINIKUBE_CNI: flannel
-    MINIKUBE_DRIVER: docker
-  tags:
-    - e2e
-  cache:
-    untracked: true
-    paths:
-      - hack/tools/bin
-      - hack/repos
-  artifacts:
-    when: always
-    paths:
-      - artifacts/*
-  before_script:
-    - make clean-test-env generate test-env-e2e
-  script:
-    # If make-deploy-operator fails run the log collector to see the state of the cluster. This is the same log collector that runs during failing tests.
-    - make test-deploy-operator || go run hack/tools/resource-collector/main.go --kubeconfig ~/.kube/config  --artifactsDirectory $CI_PROJECT_DIR/artifacts
-    - make test-e2e
-  after_script:
-    - ./hack/scripts/slack-notification.sh
-    -  make clean-test-env
 
 triage:
   stage: triage
