@@ -145,6 +145,7 @@ nightly-release:
     - docker login harbor.mellanox.com
   script:
     - make generate docker-build-all docker-push-all
+    - make helm-package-all helm-push-all
   after_script:
     - ./hack/scripts/slack-notification.sh
 
