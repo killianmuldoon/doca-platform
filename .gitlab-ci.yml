@@ -22,17 +22,23 @@ lint:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   variables:
     GOLANGCI_LINT_CACHE: $CI_PROJECT_DIR/.golangci-cache
+    GOPATH: $CI_PROJECT_DIR/.gocache
   cache:
     key: lint
     untracked: true
     when: always
     paths:
       - hack/tools/bin
+      - .gocache
       - .golangci-cache
   before_script:
     # Create the directory which is used to cache golangci-lint results.
     # Added to .gitignore.
     - mkdir -p .golangci-cache
+    # Create the directory which will be used as the gocache.
+    # Added to .gitignore.
+    # Required by golangci-lint to cache go mods
+    - mkdir -p .gocache
   script:
     - make lint
     - make lint-helm
