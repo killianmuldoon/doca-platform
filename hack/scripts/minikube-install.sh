@@ -67,7 +67,7 @@ MINIKUBE_ARGS="${MINIKUBE_ARGS:-"\
   --cni $MINIKUBE_CNI \
   --kubernetes-version $MINIKUBE_KUBERNETES_VERSION \
   --preload=true \
-  --install-addons \
+  --cache-images=true \
   --addons metallb \
   --addons registry"}"
 
