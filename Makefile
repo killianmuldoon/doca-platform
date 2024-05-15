@@ -68,7 +68,6 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 
-
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
 	@mkdir -p $@
@@ -361,6 +360,7 @@ test-report: envtest gotestsum ## Run tests and generate a junit style report
 	$(GOTESTSUM) --junitfile junit.xml --raw-command cat junit.stdout
 	exit $$(cat junit.exitcode)
 
+OPENSHIFT_CRD_DIR ?= $(shell pwd)/test/objects/openshift
 TEST_CLUSTER_NAME := dpf-test
 test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUBST) ## Setup a Kubernetes environment to run tests.
 	# Create a minikube cluster to host the test.
@@ -369,27 +369,19 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 	# Deploy cert manager to provide certificates for webhooks.
 	$Q kubectl apply -f $(CERT_MANAGER_YAML)
 
+	# Deploy openshift CRDs needed for end-to-end tests
+	$Q kubectl apply -f $(OPENSHIFT_CRD_DIR)
+
 	# Mirror images for e2e tests from docker hub and push them in the test registry to avoid docker pull limits.
 	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
-	$(MAKE) test-build-and-push-artifacts test-upload-external-images
+	$(MAKE) test-build-and-push-artifacts
 
 	echo "Waiting for cert-manager deployment to be ready."
 	kubectl wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
 
 	# Deploy Kamaji as the underlying control plane provider.
-	# TODO: Disaggregate the kamaji apply and wait for ready to speed up environment creation.
-	cat ./hack/values/kamaji-values.yaml.tmpl | $(ENVSUBST)  > ./hack/values/kamaji-values.yaml.tmp
-	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml.tmp
+	$Q $(HELM) upgrade --install kamaji $(KAMAJI)
 
-
-.PHONY: test-upload-external-images
-test-upload-external-images: 	## Mirror images for e2e tests from docker hub and push them in the test registry. - this is done to avoid docker pull limits.
-	docker pull clastix/kamaji:v0.5.0
-	docker image tag clastix/kamaji:v0.5.0 $(REGISTRY)/clastix/kamaji:v0.5.0
-	docker push $(REGISTRY)/clastix/kamaji:v0.5.0
-	docker pull cfssl/cfssl:v1.6.5
-	docker tag cfssl/cfssl:v1.6.5 $(REGISTRY)/cfssl/cfssl:v1.6.5
-	docker push $(REGISTRY)/cfssl/cfssl:v1.6.5
 
 .PHONY: test-build-and-push-artifacts
 test-build-and-push-artifacts: $(KUSTOMIZE) ## Build and push DPF artifacts (images, charts, bundle) for e2e tests.
@@ -417,6 +409,12 @@ test-deploy-operator: $(KUSTOMIZE) ## Deploy the DPF Operator using operator-sdk
 	$(KUBECTL) create namespace $(OPERATOR_NAMESPACE)
 	# TODO: This flow does not work on MacOS dues to some issue pulling images. Should be enabled to make local testing equivalent to CI.
 	$(OPERATOR_SDK) run bundle --namespace $(OPERATOR_NAMESPACE) --index-image quay.io/operator-framework/opm:$(OPERATOR_REGISTRY_VERSION) $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
+
+ARTIFACTS_DIR ?= $(shell pwd)/artifacts
+.PHONY: test-cache-images
+test-cache-images: $(MINIKUBE) ## Add images to the minikube cache based on the artifacts directory created in e2e.
+	# Run a script which will cache images which were pulled in the test run to the minikube cache.
+	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) ARTIFACTS_DIR=${ARTIFACTS_DIR} $(CURDIR)/hack/scripts/add-images-to-minikube-cache.sh
 
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  ## Run the e2e tests against a Kind k8s instance that is spun up.
@@ -808,10 +806,6 @@ dev-prereqs-dpuservice: ## Install pre-requisites for dpuservice controller on m
 	# Deploy the dpuservice CRD
 	$(KUSTOMIZE) build config/dpuservice/crd | $(KUBECTL) apply -f -
 
-	# Pull and upload external images to the dev registry. Used to avoid docker pull limits.
-	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \
-	$(MAKE) test-upload-external-images
-
     # Deploy cert manager to provide certificates for webhooks
 	$Q kubectl apply -f $(CERT_MANAGER_YAML) \
 	&& echo "Waiting for cert-manager deployment to be ready."\
@@ -820,10 +814,7 @@ dev-prereqs-dpuservice: ## Install pre-requisites for dpuservice controller on m
 	# Deploy argoCD as the underlying application provider.
 	$Q kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f - && kubectl apply -f $(ARGOCD_YAML)
 
-	# Deploy Kamaji as the underlying control plane provider.
-	# The values file is currently empty.
-	cat ./hack/values/kamaji-values.yaml.tmpl | $(ENVSUBST) > ./hack/values/kamaji-values.yaml.tmp
-	$Q $(HELM) upgrade --install kamaji $(KAMAJI) -f ./hack/values/kamaji-values.yaml.tmp
+	$Q $(HELM) upgrade --install kamaji $(KAMAJI)
 
 SKAFFOLD_REGISTRY=localhost:5000
 dev-dpuservice: $(MINIKUBE) $(SKAFFOLD) ## Deploy dpuservice controller to dev cluster using skaffold

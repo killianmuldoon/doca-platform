@@ -96,37 +96,6 @@ test:
   script:
     - make test-report
 
-e2e:
-  stage: test
-  needs: [ ]
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-      when: manual
-      allow_failure: true
-    - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST == "true"
-      when: always
-  variables:
-    # The helm bundles and operator-sdk require a remote repository in the e2e environment.
-    REGISTRY: harbor.mellanox.com/cloud-orchestration-dev/dpf/e2e
-    # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
-    MINIKUBE_CNI: flannel
-    MINIKUBE_DRIVER: docker
-  tags:
-    - e2e
-  artifacts:
-    when: always
-    paths:
-      - artifacts/*
-  before_script:
-    - make clean-test-env generate test-env-e2e
-  script:
-    # If make-deploy-operator fails run the log collector to see the state of the cluster. This is the same log collector that runs during failing tests.
-    - make test-deploy-operator || go run hack/tools/resource-collector/main.go --kubeconfig ~/.kube/config  --artifactsDirectory $CI_PROJECT_DIR/artifacts
-    - make test-e2e
-  after_script:
-    - ./hack/scripts/slack-notification.sh
-    -  make clean-test-env
-
 nightly-release:
   stage: build
   needs: [ ]
@@ -148,6 +117,46 @@ nightly-release:
     - make helm-package-all helm-push-all
   after_script:
     - ./hack/scripts/slack-notification.sh
+
+e2e:
+  stage: test
+  needs: [ ]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST == "true"
+      when: always
+  variables:
+    # The helm bundles and operator-sdk require a remote repository in the e2e environment.
+    REGISTRY: harbor.mellanox.com/cloud-orchestration-dev/dpf/e2e
+    # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
+    MINIKUBE_CNI: flannel
+    MINIKUBE_DRIVER: docker
+    ARTIFACTS: $CI_PROJECT_DIR/artifacts
+  tags:
+    - e2e
+  cache:
+    key: e2e
+    untracked: true
+    when: always
+    paths:
+      - hack/tools/bin
+      - hack/repos
+  artifacts:
+    when: always
+    paths:
+      - artifacts/*
+  before_script:
+    - make clean-test-env generate test-env-e2e
+  script:
+    # If make-deploy-operator fails run the log collector to see the state of the cluster. This is the same log collector that runs during failing tests.
+    - make test-deploy-operator || go run hack/tools/resource-collector/main.go --kubeconfig ~/.kube/config  --artifactsDirectory $ARTIFACTS
+    - make test-e2e
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+    - make test-cache-images
+    - make clean-test-env
 
 triage:
   stage: triage
