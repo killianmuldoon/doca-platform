@@ -360,7 +360,6 @@ test-report: envtest gotestsum ## Run tests and generate a junit style report
 	$(GOTESTSUM) --junitfile junit.xml --raw-command cat junit.stdout
 	exit $$(cat junit.exitcode)
 
-OPENSHIFT_CRD_DIR ?= $(shell pwd)/test/objects/openshift
 TEST_CLUSTER_NAME := dpf-test
 test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUBST) ## Setup a Kubernetes environment to run tests.
 	# Create a minikube cluster to host the test.
@@ -368,9 +367,6 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 
 	# Deploy cert manager to provide certificates for webhooks.
 	$Q kubectl apply -f $(CERT_MANAGER_YAML)
-
-	# Deploy openshift CRDs needed for end-to-end tests
-	$Q kubectl apply -f $(OPENSHIFT_CRD_DIR)
 
 	# Mirror images for e2e tests from docker hub and push them in the test registry to avoid docker pull limits.
 	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
@@ -400,8 +396,15 @@ OLM_VERSION ?= v0.27.0
 OPERATOR_REGISTRY_VERSION ?= v1.39.0
 OPERATOR_NAMESPACE ?= dpf-operator-system
 
-.PHONY: test-deploy-operator
-test-deploy-operator: $(KUSTOMIZE) ## Deploy the DPF Operator using operator-sdk
+.PHONY: test-deploy-operator-kustomize
+test-deploy-operator-kustomize: $(KUSTOMIZE) ## Deploy the DPF Operator using operator-sdk
+	#$(KUBECTL) create namespace $(OPERATOR_NAMESPACE)
+	cd config/e2e-test/ && $(KUSTOMIZE) edit set namespace $(OPERATOR_NAMESPACE)
+	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
+	$(KUSTOMIZE) build config/e2e-test/| $(KUBECTL) apply -f -
+
+.PHONY: test-deploy-operator-operator-sdk
+test-deploy-operator-operator-sdk: $(KUSTOMIZE) ## Deploy the DPF Operator using operator-sdk
 	# Install OLM in the cluster
 	$(OPERATOR_SDK) olm install --version $(OLM_VERSION)
 
@@ -509,7 +512,7 @@ binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
 binary-hostcniprovisioner: ## Build the Host CNI Provisioner binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/hostcniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/hostcniprovisioner
 
-DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle
+DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS
