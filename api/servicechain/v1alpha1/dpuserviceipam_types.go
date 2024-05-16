@@ -23,15 +23,13 @@ import (
 
 // DPUServiceIPAMSpec defines the desired state of DPUServiceIPAM
 type DPUServiceIPAMSpec struct {
-	// IPV4CIDRs is the configuration related to splitting a CIDR into subnets per node, each with their own gateway.
-	// TODO: Revisit and validate that slice is needed instead of single object.
-	// TODO: Add validation that only one of ipv4CIDRs and ipv4Subnets are configured.
-	IPV4CIDRs []IPV4CIDR `json:"ipv4CIDRs,omitempty"`
-	// IPV4Subnets is the configuration related to splitting a subnet into blocks per node. In this setup, there is a
+	// IPV4Network is the configuration related to splitting a network into subnets per node, each with their own gateway.
+	// TODO: Add validation that only one of ipv4Network and ipv4Subnet is configured.
+	IPV4Network *IPV4Network `json:"ipv4Network,omitempty"`
+	// IPV4Subnet is the configuration related to splitting a subnet into blocks per node. In this setup, there is a
 	// single gateway.
-	// TODO: Revisit and validate that slice is needed instead of single object.
-	// TODO: Add validation that only one of ipv4CIDRs and ipv4Subnets are configured.
-	IPV4Subnets []IPV4Subnet `json:"ipv4Subnets,omitempty"`
+	// TODO: Add validation that only one of ipv4Network and ipv4Subnet is configured.
+	IPV4Subnet *IPV4Subnet `json:"ipv4Subnet,omitempty"`
 
 	// ClusterSelector determines in which clusters the DPUServiceIPAM controller should apply the configuration.
 	ClusterSelector *metav1.LabelSelector `json:"clusterSelector,omitempty"`
@@ -39,20 +37,18 @@ type DPUServiceIPAMSpec struct {
 	NodeSelector *corev1.NodeSelector `json:"nodeSelector,omitempty"`
 }
 
-// IPV4CIDR describes the configuration relevant to splitting a CIDR into subnet per node (i.e. different gateway and
+// IPV4Network describes the configuration relevant to splitting a network into subnet per node (i.e. different gateway and
 // broadcast IP per node).
-type IPV4CIDR struct {
-	// Name is the name of the subnet. This name is used to reference the subnet in ServiceChain.
-	Name string `json:"name"`
-	// CIDR is the CIDR from which subnets should be created per node.
+type IPV4Network struct {
+	// Network is the CIDR from which subnets should be allocated per node.
 	// TODO: Validate that input is a valid subnet
-	CIDR string `json:"cidr"`
+	Network string `json:"network"`
 	// GatewayIndex determines which IP in the subnet extracted from the CIDR should be the gateway IP.
 	GatewayIndex int `json:"gatewayIndex"`
 	// PrefixSize is the size of the subnet that should be allocated per node.
 	// TODO: Validate that value fits the CIDR
-	PrefixSize int `json:"blockSize"`
-	// Exclusions is a list of subnets that should be excluded when splitting the CIDR into subnets per node.
+	PrefixSize int `json:"prefixSize"`
+	// Exclusions is a list of IPs that should be excluded when splitting the CIDR into subnets per node.
 	// TODO: Validate values are part of the CIDR
 	Exclusions []string `json:"exclusions,omitempty"`
 	// Allocations describes the subnets that should be assigned in each DPU node.
@@ -63,20 +59,14 @@ type IPV4CIDR struct {
 // IPV4Subnet describes the configuration relevant to splitting a subnet to a subnet block per node (i.e. same gateway
 // and broadcast IP across all nodes).
 type IPV4Subnet struct {
-	// Name is the name of the subnet. This name is used to reference the subnet in ServiceChain.
-	Name string `json:"name"`
-	// Subnet is the subnet that should be allocated.
+	// Subnet is the CIDR from which blocks should be allocated per node
 	// TODO: Validate that input is a valid subnet
 	Subnet string `json:"subnet"`
 	// Gateway is the IP in the subnet that should be the gateway of the subnet.
 	// TODO: Validate that IP is part of subnet
 	Gateway string `json:"gateway"`
-	// BlockSize is the size of the block that should be allocated per node. The value should be power of 2.
-	// TODO: Validate that  value is power of 2 to enable the CIDR notation in the allocations
-	BlockSize int `json:"blockSize"`
-	// Allocations describe the blocks that should be assigned in each DPU node.
-	// TODO: Validate value is part of the subnet defined above
-	Allocations map[string]string `json:"allocations,omitempty"`
+	// PrefixSize is the size of the block that should be allocated per node as CIDR notation
+	PrefixSize int `json:"prefixSize"`
 }
 
 // DPUServiceIPAMStatus defines the observed state of DPUServiceIPAM
