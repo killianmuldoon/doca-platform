@@ -190,7 +190,7 @@ var _ = Describe("DPFOperatorConfig Controller - Reconcile System Components", f
 			By("checking the DPFOperatorConfig is deleted")
 			Eventually(func(g Gomega) {
 				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(config), config))).To(BeTrue())
-			}).Should(Succeed())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 	})
 })

@@ -148,10 +148,12 @@ e2e:
     paths:
       - artifacts/*
   before_script:
+    # artifacts are not correctly delete when gitlab restarts jobs.
+    - rm -rf artifacts
     - make clean-test-env generate test-env-e2e
   script:
     # If make-deploy-operator fails run the log collector to see the state of the cluster. This is the same log collector that runs during failing tests.
-    - make test-deploy-operator || go run hack/tools/resource-collector/main.go --kubeconfig ~/.kube/config  --artifactsDirectory $ARTIFACTS
+    - make test-deploy-operator-kustomize || go run hack/tools/resource-collector/main.go --kubeconfig ~/.kube/config  --artifactsDirectory $ARTIFACTS
     - make test-e2e
   after_script:
     - ./hack/scripts/slack-notification.sh
