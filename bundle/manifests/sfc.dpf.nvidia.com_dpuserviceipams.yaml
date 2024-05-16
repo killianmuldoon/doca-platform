@@ -84,99 +84,69 @@ spec:
                     type: object
                 type: object
                 x-kubernetes-map-type: atomic
-              ipv4CIDRs:
+              ipv4Network:
                 description: |-
-                  IPV4CIDRs is the configuration related to splitting a CIDR into subnets per node, each with their own gateway.
-                  TODO: Revisit and validate that slice is needed instead of single object.
-                  TODO: Add validation that only one of ipv4CIDRs and ipv4Subnets are configured.
-                items:
-                  description: |-
-                    IPV4CIDR describes the configuration relevant to splitting a CIDR into subnet per node (i.e. different gateway and
-                    broadcast IP per node).
-                  properties:
-                    allocations:
-                      additionalProperties:
-                        type: string
-                      description: |-
-                        Allocations describes the subnets that should be assigned in each DPU node.
-                        TODO: Validate value is part of the CIDR defined above
-                      type: object
-                    blockSize:
-                      description: |-
-                        PrefixSize is the size of the subnet that should be allocated per node.
-                        TODO: Validate that value fits the CIDR
-                      type: integer
-                    cidr:
-                      description: |-
-                        CIDR is the CIDR from which subnets should be created per node.
-                        TODO: Validate that input is a valid subnet
+                  IPV4Network is the configuration related to splitting a network into subnets per node, each with their own gateway.
+                  TODO: Add validation that only one of ipv4Network and ipv4Subnet is configured.
+                properties:
+                  allocations:
+                    additionalProperties:
                       type: string
-                    exclusions:
-                      description: |-
-                        Exclusions is a list of subnets that should be excluded when splitting the CIDR into subnets per node.
-                        TODO: Validate values are part of the CIDR
-                      items:
-                        type: string
-                      type: array
-                    gatewayIndex:
-                      description: GatewayIndex determines which IP in the subnet
-                        extracted from the CIDR should be the gateway IP.
-                      type: integer
-                    name:
-                      description: Name is the name of the subnet. This name is used
-                        to reference the subnet in ServiceChain.
+                    description: |-
+                      Allocations describes the subnets that should be assigned in each DPU node.
+                      TODO: Validate value is part of the CIDR defined above
+                    type: object
+                  exclusions:
+                    description: |-
+                      Exclusions is a list of IPs that should be excluded when splitting the CIDR into subnets per node.
+                      TODO: Validate values are part of the CIDR
+                    items:
                       type: string
-                  required:
-                  - blockSize
-                  - cidr
-                  - gatewayIndex
-                  - name
-                  type: object
-                type: array
-              ipv4Subnets:
+                    type: array
+                  gatewayIndex:
+                    description: GatewayIndex determines which IP in the subnet extracted
+                      from the CIDR should be the gateway IP.
+                    type: integer
+                  network:
+                    description: |-
+                      Network is the CIDR from which subnets should be allocated per node.
+                      TODO: Validate that input is a valid subnet
+                    type: string
+                  prefixSize:
+                    description: |-
+                      PrefixSize is the size of the subnet that should be allocated per node.
+                      TODO: Validate that value fits the CIDR
+                    type: integer
+                required:
+                - gatewayIndex
+                - network
+                - prefixSize
+                type: object
+              ipv4Subnet:
                 description: |-
-                  IPV4Subnets is the configuration related to splitting a subnet into blocks per node. In this setup, there is a
+                  IPV4Subnet is the configuration related to splitting a subnet into blocks per node. In this setup, there is a
                   single gateway.
-                  TODO: Revisit and validate that slice is needed instead of single object.
-                  TODO: Add validation that only one of ipv4CIDRs and ipv4Subnets are configured.
-                items:
-                  description: |-
-                    IPV4Subnet describes the configuration relevant to splitting a subnet to a subnet block per node (i.e. same gateway
-                    and broadcast IP across all nodes).
-                  properties:
-                    allocations:
-                      additionalProperties:
-                        type: string
-                      description: |-
-                        Allocations describe the blocks that should be assigned in each DPU node.
-                        TODO: Validate value is part of the subnet defined above
-                      type: object
-                    blockSize:
-                      description: |-
-                        BlockSize is the size of the block that should be allocated per node. The value should be power of 2.
-                        TODO: Validate that  value is power of 2 to enable the CIDR notation in the allocations
-                      type: integer
-                    gateway:
-                      description: |-
-                        Gateway is the IP in the subnet that should be the gateway of the subnet.
-                        TODO: Validate that IP is part of subnet
-                      type: string
-                    name:
-                      description: Name is the name of the subnet. This name is used
-                        to reference the subnet in ServiceChain.
-                      type: string
-                    subnet:
-                      description: |-
-                        Subnet is the subnet that should be allocated.
-                        TODO: Validate that input is a valid subnet
-                      type: string
-                  required:
-                  - blockSize
-                  - gateway
-                  - name
-                  - subnet
-                  type: object
-                type: array
+                  TODO: Add validation that only one of ipv4Network and ipv4Subnet is configured.
+                properties:
+                  gateway:
+                    description: |-
+                      Gateway is the IP in the subnet that should be the gateway of the subnet.
+                      TODO: Validate that IP is part of subnet
+                    type: string
+                  prefixSize:
+                    description: PrefixSize is the size of the block that should be
+                      allocated per node as CIDR notation
+                    type: integer
+                  subnet:
+                    description: |-
+                      Subnet is the CIDR from which blocks should be allocated per node
+                      TODO: Validate that input is a valid subnet
+                    type: string
+                required:
+                - gateway
+                - prefixSize
+                - subnet
+                type: object
               nodeSelector:
                 description: NodeSelector determines in which DPU nodes the DPUServiceIPAM
                   controller should apply the configuration.

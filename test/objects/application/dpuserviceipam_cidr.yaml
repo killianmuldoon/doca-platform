@@ -1,0 +1,25 @@
+apiVersion: sfc.dpf.nvidia.com/v1alpha1
+kind: DPUServiceIPAM
+metadata:
+  name: pool1
+spec:
+  ipv4CIDR:
+    cidr: "192.168.0.0/20"
+    gatewayIndex: 1
+    prefixSize: 24
+    exclusions:
+    - 192.168.0.10
+    - 192.168.2.30
+    allocations:
+      dpu-node-1: 192.168.1.0/24
+      dpu-node-2: 192.168.2.0/24
+  clusterSelector:
+    matchLabels:
+      dpu-cluster-label: "one"
+  nodeSelector:
+    nodeSelectorTerms:
+    - matchExpressions:
+      - key: "dpu-node-label"
+        operator: In
+        values:
+        - "some"
