@@ -255,14 +255,18 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			"--metrics-bind-address=127.0.0.1:8080",
 			"--leader-elect",
 			"--zap-log-level=3",
-			"--dms-image-name=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server",
-			"--dms-image-tag=v2",
-			fmt.Sprintf("--dms-image-pull-secret=%s", expectedImagePullSecret),
+			"--dms-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server:v2.7",
+			"--hostnetwork-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/hostnetworksetup:v0.1",
+			"--dhcrelay-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dhcrelay:v0.1",
+			"--parprouterd-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/parprouterd:v0.1",
+			fmt.Sprintf("--image-pull-secret=%s", expectedImagePullSecret),
 			fmt.Sprintf("--bfb-pvc=%s", expectedPVC),
+			"--dhcp=10.211.0.124",
 		}
 		g.Expect(gotDeployment.Spec.Template.Spec.Containers).To(HaveLen(2))
 		for i, ea := range expectedArgs {
 			g.Expect(container.Args[i]).To(Equal(ea))
 		}
 	})
+
 }
