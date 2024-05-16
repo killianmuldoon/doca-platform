@@ -171,7 +171,7 @@ func (p *dpfProvisioningControllerObjects) setImagePullSecret(deploy *appsv1.Dep
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
 	}
-	return p.setFlags(c, fmt.Sprintf("--dms-image-pull-secret=%s", vars.DPFProvisioningController.ImagePullSecret))
+	return p.setFlags(c, fmt.Sprintf("--image-pull-secret=%s", vars.DPFProvisioningController.ImagePullSecret))
 }
 
 func (p *dpfProvisioningControllerObjects) setFlags(c *corev1.Container, newFlags ...string) error {

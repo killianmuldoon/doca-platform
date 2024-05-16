@@ -478,6 +478,7 @@ rules:
   - ""
   resources:
   - pods
+  - pods/exec
   verbs:
   - create
   - delete
@@ -593,6 +594,12 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - nmstate.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -686,10 +693,13 @@ spec:
         - --metrics-bind-address=127.0.0.1:8080
         - --leader-elect
         - --zap-log-level=3
-        - --dms-image-name=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server
-        - --dms-image-tag=v2
-        - --dms-image-pull-secret=dpf-provisioning-regcred
+        - --dms-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server:v2.7
+        - --hostnetwork-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/hostnetworksetup:v0.1
+        - --dhcrelay-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dhcrelay:v0.1
+        - --parprouterd-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/parprouterd:v0.1
+        - --image-pull-secret=dpf-provisioning-regcred
         - --bfb-pvc=bfb-pvc
+        - --dhcp=10.211.0.124
         command:
         - /manager
         image: nvidia.com/dpf-provisioning-controller-manager:v0.0.0
