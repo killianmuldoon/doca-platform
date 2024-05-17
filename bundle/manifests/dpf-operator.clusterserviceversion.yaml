@@ -48,7 +48,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2024-05-16T07:08:47Z"
+    createdAt: "2024-05-17T11:36:35Z"
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: unknown
   name: dpf-operator.v0.0.0
@@ -117,7 +117,7 @@ spec:
           - '*'
           verbs:
           - '*'
-        serviceAccountName: dpf-operator-controller-manager
+        serviceAccountName: dpf-operator-dpf-operator-controller-manager
       deployments:
       - label:
           app.kubernetes.io/component: manager
@@ -127,12 +127,14 @@ spec:
           app.kubernetes.io/name: deployment
           app.kubernetes.io/part-of: dpf-operator
           control-plane: controller-manager
-        name: dpf-operator-controller-manager
+          dpf.nvidia.com/component: dpf-operator-controller-manager
+        name: dpf-operator-dpf-operator-controller-manager
         spec:
           replicas: 1
           selector:
             matchLabels:
               control-plane: controller-manager
+              dpf.nvidia.com/component: dpf-operator-controller-manager
           strategy: {}
           template:
             metadata:
@@ -140,6 +142,7 @@ spec:
                 kubectl.kubernetes.io/default-container: manager
               labels:
                 control-plane: controller-manager
+                dpf.nvidia.com/component: dpf-operator-controller-manager
             spec:
               containers:
               - command:
@@ -164,7 +167,7 @@ spec:
                   capabilities:
                     drop:
                     - ALL
-              serviceAccountName: dpf-operator-controller-manager
+              serviceAccountName: dpf-operator-dpf-operator-controller-manager
               terminationGracePeriodSeconds: 10
       permissions:
       - rules:
@@ -199,7 +202,7 @@ spec:
           verbs:
           - create
           - patch
-        serviceAccountName: dpf-operator-controller-manager
+        serviceAccountName: dpf-operator-dpf-operator-controller-manager
     strategy: deployment
   installModes:
   - supported: false

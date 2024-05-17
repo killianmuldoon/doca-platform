@@ -8,11 +8,11 @@ namespace: dpf-operator-system
 # field above.
 namePrefix: dpf-operator-
 
-# Labels to add to all resources and selectors.
-#labels:
-#- includeSelectors: true
-#  pairs:
-#    someName: someValue
+labels:
+  - includeTemplates: true
+    includeSelectors: true
+    pairs:
+      dpf.nvidia.com/component: servicefunctionchainset-controller-manager
 
 resources:
 - ../crd

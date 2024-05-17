@@ -669,6 +669,7 @@ func adjustDefaultOVNKubernetesImage(ctx context.Context, c client.Client, custo
 }
 
 // SetupWithManager sets up the controller with the Manager.
+// TODO: conside watching other objects this controller interacts with e.g. pods, secrets with a label selector to speed up reconciliation.
 func (r *DPFOperatorConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1.DPFOperatorConfig{}).
