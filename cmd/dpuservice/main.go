@@ -26,6 +26,7 @@ import (
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	dpuservicecontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/controllers"
 	dpuservicechaincontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservicechain/controllers"
+	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/nvipam/api/v1alpha1"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -46,6 +47,7 @@ func init() {
 	utilruntime.Must(dpuservicev1.AddToScheme(clientgoscheme.Scheme))
 	utilruntime.Must(argov1.AddToScheme(clientgoscheme.Scheme))
 	utilruntime.Must(sfcv1.AddToScheme(clientgoscheme.Scheme))
+	utilruntime.Must(nvipamv1.AddToScheme(clientgoscheme.Scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

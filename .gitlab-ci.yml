@@ -22,7 +22,10 @@ lint:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   variables:
     GOLANGCI_LINT_CACHE: $CI_PROJECT_DIR/.golangci-cache
-    GOPATH: $CI_PROJECT_DIR/.gocache
+    GOPATH: $CI_PROJECT_DIR/.gocache # avoid refetching all the packages golangci-lint requires
+    # TODO: Remove this one when bug upstream is fixed. golangci-lint should not rely on GOCACHE and instead use
+    # GOLANGCI_LINT_CACHE for all of its caching.
+    GOCACHE: $CI_PROJECT_DIR/.gocache/go-build # avoid rebuilding all the artifacts golangci-lint requires
   cache:
     key: lint
     untracked: true

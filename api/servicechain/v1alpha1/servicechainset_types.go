@@ -20,6 +20,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const ServiceChainSetKind = "ServiceChainSet"
+
+var (
+	ServiceChainSetGroupVersionKind = GroupVersion.WithKind(ServiceChainSetKind)
+)
+
 // ServiceChainSetSpec defines the desired state of ServiceChainSet
 type ServiceChainSetSpec struct {
 	// Select the Nodes with specific labels, ServiceChain CRs will be created only for these Nodes

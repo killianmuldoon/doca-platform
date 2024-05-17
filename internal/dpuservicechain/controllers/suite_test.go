@@ -25,6 +25,7 @@ import (
 	"time"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
+	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/nvipam/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -63,7 +64,8 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "servicechainset", "crd", "bases"),
-			filepath.Join("..", "..", "..", "test", "objects", "crd", "kamaji")},
+			filepath.Join("..", "..", "..", "test", "objects", "crd", "kamaji"),
+			filepath.Join("..", "..", "..", "test", "objects", "crd", "nvipam")},
 		ErrorIfCRDPathMissing: true,
 
 		// The BinaryAssetsDirectory is only required if you want to run the tests directly
@@ -81,8 +83,8 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = sfcv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(sfcv1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(nvipamv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	s := scheme.Scheme
 	//+kubebuilder:scaffold:scheme

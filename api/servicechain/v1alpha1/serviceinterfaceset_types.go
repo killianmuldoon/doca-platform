@@ -20,6 +20,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const ServiceInterfaceSetKind = "ServiceInterfaceSet"
+
+var (
+	ServiceInterfaceSetGroupVersionKind = GroupVersion.WithKind(ServiceInterfaceSetKind)
+)
+
 // ServiceInterfaceSetSpec defines the desired state of ServiceInterfaceSet
 type ServiceInterfaceSetSpec struct {
 	// Select the Nodes with specific labels, ServiceInterface CRs will be created only for these Nodes

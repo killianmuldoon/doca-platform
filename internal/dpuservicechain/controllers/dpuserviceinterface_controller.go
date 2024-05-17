@@ -19,12 +19,16 @@ package controllers
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"time"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -34,7 +38,7 @@ import (
 )
 
 //nolint:dupl
-var _ dpuDuplicateReconciler = &DPUServiceInterfaceReconciler{}
+var _ objectsInDPUClustersReconciler = &DPUServiceInterfaceReconciler{}
 
 // DPUServiceInterfaceReconciler reconciles a DPUServiceInterface object
 type DPUServiceInterfaceReconciler struct {
@@ -66,15 +70,9 @@ func (r *DPUServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 	// Handle deletion reconciliation loop.
 	if !dpuServiceInterface.ObjectMeta.DeletionTimestamp.IsZero() {
-		sis := &sfcv1.ServiceInterfaceSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      dpuServiceInterface.Name,
-				Namespace: dpuServiceInterface.Namespace,
-			},
-		}
-		err := reconcileDelete(ctx, r.Client, sis, dpuServiceInterface, sfcv1.DPUServiceInterfaceFinalizer)
-		return ctrl.Result{}, err
+		return r.reconcileDelete(ctx, dpuServiceInterface)
 	}
+
 	// Add finalizer if not set.
 	if !controllerutil.ContainsFinalizer(dpuServiceInterface, sfcv1.DPUServiceInterfaceFinalizer) {
 		controllerutil.AddFinalizer(dpuServiceInterface, sfcv1.DPUServiceInterfaceFinalizer)
@@ -82,10 +80,26 @@ func (r *DPUServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.
 			return ctrl.Result{}, err
 		}
 	}
-	return reconcile(ctx, r.Client, dpuServiceInterface, r)
+
+	if err := reconcileObjectsInDPUClusters(ctx, r, r.Client, dpuServiceInterface); err != nil {
+		return ctrl.Result{}, err
+	}
+	return ctrl.Result{}, nil
 }
 
-func (r *DPUServiceInterfaceReconciler) createOrUpdateChild(ctx context.Context, k8sClient client.Client, dpuObject client.Object) error {
+func (r *DPUServiceInterfaceReconciler) getObjectsInDPUCluster(ctx context.Context, k8sClient client.Client, dpuObject client.Object) ([]unstructured.Unstructured, error) {
+	sis := &unstructured.Unstructured{}
+	sis.SetGroupVersionKind(sfcv1.ServiceInterfaceSetGroupVersionKind)
+	key := client.ObjectKey{Namespace: dpuObject.GetNamespace(), Name: dpuObject.GetName()}
+	err := k8sClient.Get(ctx, key, sis)
+	if err != nil {
+		return nil, fmt.Errorf("error while getting %s %s: %w", sis.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+
+	return []unstructured.Unstructured{*sis}, nil
+}
+
+func (r *DPUServiceInterfaceReconciler) createOrUpdateObjectsInDPUCluster(ctx context.Context, k8sClient client.Client, dpuObject client.Object) error {
 	dpuServiceInterface := dpuObject.(*sfcv1.DPUServiceInterface)
 	sis := &sfcv1.ServiceInterfaceSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -99,6 +113,37 @@ func (r *DPUServiceInterfaceReconciler) createOrUpdateChild(ctx context.Context,
 	sis.ObjectMeta.ManagedFields = nil
 	sis.SetGroupVersionKind(sfcv1.GroupVersion.WithKind("ServiceInterfaceSet"))
 	return k8sClient.Patch(ctx, sis, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceInterfaceControllerName))
+}
+
+func (r *DPUServiceInterfaceReconciler) reconcileDelete(ctx context.Context, dpuServiceInterface *sfcv1.DPUServiceInterface) (ctrl.Result, error) {
+	log := ctrllog.FromContext(ctx)
+	log.Info("Reconciling delete")
+	if err := reconcileObjectDeletionInDPUClusters(ctx, r, r.Client, dpuServiceInterface); err != nil {
+		if errors.Is(err, &shouldRequeueError{}) {
+			log.Info(fmt.Sprintf("Requeueing because %s", err.Error()))
+			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		}
+		return ctrl.Result{}, err
+	}
+
+	log.Info("Removing finalizer")
+	controllerutil.RemoveFinalizer(dpuServiceInterface, sfcv1.DPUServiceInterfaceFinalizer)
+	if err := r.Client.Update(ctx, dpuServiceInterface); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *DPUServiceInterfaceReconciler) deleteObjectsInDPUCluster(ctx context.Context, k8sClient client.Client, dpuObject client.Object) error {
+	dpuServiceInterface := dpuObject.(*sfcv1.DPUServiceInterface)
+	sis := &sfcv1.ServiceInterfaceSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dpuServiceInterface.Name,
+			Namespace: dpuServiceInterface.Namespace,
+		},
+	}
+	return k8sClient.Delete(ctx, sis)
 }
 
 // SetupWithManager sets up the controller with the Manager.
