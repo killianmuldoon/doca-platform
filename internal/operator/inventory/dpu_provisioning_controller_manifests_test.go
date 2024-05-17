@@ -263,7 +263,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			fmt.Sprintf("--bfb-pvc=%s", expectedPVC),
 			"--dhcp=10.211.0.124",
 		}
-		g.Expect(gotDeployment.Spec.Template.Spec.Containers).To(HaveLen(2))
+		g.Expect(gotDeployment.Spec.Template.Spec.Containers).To(HaveLen(1))
 		for i, ea := range expectedArgs {
 			g.Expect(container.Args[i]).To(Equal(ea))
 		}
