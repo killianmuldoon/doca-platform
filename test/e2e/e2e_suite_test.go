@@ -83,10 +83,11 @@ func TestE2E(t *testing.T) {
 
 	// Get the path to place artifacts in
 	_, basePath, _, _ := runtime.Caller(0)
-	path := filepath.Join(filepath.Dir(basePath), "../../artifacts")
+	artifactsPath := filepath.Join(filepath.Dir(basePath), "../../artifacts")
+	inventoryManifestsPath := filepath.Join(filepath.Dir(basePath), "../../internal/operator/inventory/manifests")
 
 	// Create a resourceCollector to dump logs and resources for test debugging.
-	clusters, err := collector.GetClusterCollectors(ctx, testClient, path, config)
+	clusters, err := collector.GetClusterCollectors(ctx, testClient, artifactsPath, inventoryManifestsPath, config)
 	g.Expect(err).NotTo(HaveOccurred())
 	resourceCollector = collector.New(clusters)
 	RunSpecs(t, "e2e suite")

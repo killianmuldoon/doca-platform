@@ -21,12 +21,14 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 
-	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,16 +55,17 @@ func New(clusters []*Cluster) *Collector {
 }
 
 type Cluster struct {
-	clusterName  string
-	client       client.Client
-	artifactsDir string
-	clientset    *kubernetes.Clientset
+	clusterName           string
+	client                client.Client
+	artifactsDir          string
+	inventoryManifestsDir string
+	clientset             *kubernetes.Clientset
 }
 
-func GetClusterCollectors(ctx context.Context, client client.Client, artifactsDirectory string, config *rest.Config) ([]*Cluster, error) {
+func GetClusterCollectors(ctx context.Context, client client.Client, artifactsDirectory string, inventoryManifestsDirectory string, config *rest.Config) ([]*Cluster, error) {
 	log := ctrllog.FromContext(ctx)
 	directory := filepath.Join(artifactsDirectory, "main")
-	mainCluster, err := NewCluster(client, directory, config, "main")
+	mainCluster, err := NewCluster(client, directory, inventoryManifestsDirectory, config, "main")
 	if err != nil {
 		// If the main cluster client isn't created return early.
 		return nil, err
@@ -87,7 +90,7 @@ func GetClusterCollectors(ctx context.Context, client client.Client, artifactsDi
 			errs = append(errs, err)
 		}
 		directory = filepath.Join(artifactsDirectory, cluster.Name)
-		c, err := NewCluster(dpuClusterClient, directory, dpuClusterRestConfig, cluster.Name)
+		c, err := NewCluster(dpuClusterClient, directory, inventoryManifestsDirectory, dpuClusterRestConfig, cluster.Name)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -99,17 +102,18 @@ func GetClusterCollectors(ctx context.Context, client client.Client, artifactsDi
 	return collectors, nil
 }
 
-func NewCluster(client client.Client, artifactsDirectory string, config *rest.Config, name string) (*Cluster, error) {
+func NewCluster(client client.Client, artifactsDirectory string, inventoryManifestsDirectory string, config *rest.Config, name string) (*Cluster, error) {
 	// creates the clientset
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return nil, err
 	}
 	return &Cluster{
-		clusterName:  name,
-		client:       client,
-		artifactsDir: artifactsDirectory,
-		clientset:    clientset,
+		clusterName:           name,
+		client:                client,
+		artifactsDir:          artifactsDirectory,
+		inventoryManifestsDir: inventoryManifestsDirectory,
+		clientset:             clientset,
 	}, nil
 }
 
@@ -130,18 +134,26 @@ func (c *Collector) Run(ctx context.Context) error {
 }
 
 func (c *Cluster) run(ctx context.Context) error {
+	// You can add entries here for resources that are not part of the inventory. Inventory resources are collected
+	// automatically.
 	resourcesToCollect := []schema.GroupVersionKind{
-		{Group: "", Version: "v1", Kind: "Pod"},                   // Pods
-		{Group: "", Version: "v1", Kind: "Node"},                  // Nodes
-		{Group: "", Version: "v1", Kind: "Secret"},                // Secrets
-		{Group: "", Version: "v1", Kind: "PersistentVolumeClaim"}, // PersistentVolumeClaim
-		dpuservicev1.DPUServiceGroupVersionKind,                   // DPUServices
-		argov1.ApplicationSchemaGroupVersionKind,                  // ArgoCD Applications
+		{Group: "", Version: "v1", Kind: "Pod"},    // Pods
+		{Group: "", Version: "v1", Kind: "Node"},   // Nodes
+		{Group: "", Version: "v1", Kind: "Secret"}, // Secrets
+		argov1.ApplicationSchemaGroupVersionKind,   // ArgoCD Applications
 	}
 	namespacesToCollectEvents := []string{
 		"dpf-operator-system",
 	}
 	errs := make([]error, 0)
+
+	gvks, err := c.getDPFOperatorInventoryGVKs()
+	if err != nil {
+		errs = append(errs, fmt.Errorf("error collecting GVKs that the DPF Operator inventory contains: %w", err))
+	}
+	// best effort to include as many GVKs as possible
+	resourcesToCollect = append(resourcesToCollect, gvks...)
+	resourcesToCollect = slices.Compact(resourcesToCollect)
 
 	for _, resource := range resourcesToCollect {
 		err := c.dumpResource(ctx, resource)
@@ -151,7 +163,7 @@ func (c *Cluster) run(ctx context.Context) error {
 	}
 
 	// Dump the logs from all the pods on the cluster.+
-	err := c.dumpPodLogsAndEvents(ctx)
+	err = c.dumpPodLogsAndEvents(ctx)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("error dumping pod logs %w", err))
 	}
@@ -162,6 +174,33 @@ func (c *Cluster) run(ctx context.Context) error {
 		}
 	}
 	return kerrors.NewAggregate(errs)
+}
+
+// getDPFOperatorInventoryGVKs returns the GVKs that are part of the inventory which DPF Operator is using to deploy
+// resources.
+func (c *Cluster) getDPFOperatorInventoryGVKs() ([]schema.GroupVersionKind, error) {
+	output := []schema.GroupVersionKind{}
+	err := filepath.WalkDir(c.inventoryManifestsDir, func(path string, dirEntry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if dirEntry.IsDir() {
+			return nil
+		}
+		content, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		objs, err := utils.BytesToUnstructured(content)
+		if err != nil {
+			return fmt.Errorf("error while converting bytes to unstructured for path %s: %w", path, err)
+		}
+		for _, obj := range objs {
+			output = append(output, obj.GetObjectKind().GroupVersionKind())
+		}
+		return nil
+	})
+	return output, err
 }
 
 func (c *Cluster) dumpPodLogsAndEvents(ctx context.Context) error {
