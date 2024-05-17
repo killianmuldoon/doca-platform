@@ -138,6 +138,9 @@ func (c *Cluster) run(ctx context.Context) error {
 		dpuservicev1.DPUServiceGroupVersionKind,                   // DPUServices
 		argov1.ApplicationSchemaGroupVersionKind,                  // ArgoCD Applications
 	}
+	namespacesToCollectEvents := []string{
+		"dpf-operator-system",
+	}
 	errs := make([]error, 0)
 
 	for _, resource := range resourcesToCollect {
@@ -148,30 +151,36 @@ func (c *Cluster) run(ctx context.Context) error {
 	}
 
 	// Dump the logs from all the pods on the cluster.+
-	err := c.dumpPodLogsAndEvents(ctx, c.artifactsDir)
+	err := c.dumpPodLogsAndEvents(ctx)
 	if err != nil {
 		errs = append(errs, fmt.Errorf("error dumping pod logs %w", err))
+	}
+
+	for _, ns := range namespacesToCollectEvents {
+		if err := c.dumpEventsForNamespace(ctx, ns); err != nil {
+			errs = append(errs, fmt.Errorf("error dumping events for namespace %s: %w", ns, err))
+		}
 	}
 	return kerrors.NewAggregate(errs)
 }
 
-func (c *Cluster) dumpPodLogsAndEvents(ctx context.Context, folderPath string) error {
+func (c *Cluster) dumpPodLogsAndEvents(ctx context.Context) error {
 	podList := &corev1.PodList{}
 	err := c.client.List(ctx, podList)
 	if err != nil {
 		return err
 	}
 	for _, pod := range podList.Items {
-		if err = c.dumpLogsForPod(ctx, &pod, folderPath); err != nil {
+		if err = c.dumpLogsForPod(ctx, &pod); err != nil {
 			return err
 		}
-		if err = c.dumpEventsForResource(ctx, "Pod", types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}, folderPath); err != nil {
+		if err = c.dumpEventsForNamespacedResource(ctx, "Pod", types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}); err != nil {
 			return err
 		}
 	}
 	return nil
 }
-func (c *Cluster) dumpLogsForPod(ctx context.Context, pod *corev1.Pod, folderPath string) (reterr error) {
+func (c *Cluster) dumpLogsForPod(ctx context.Context, pod *corev1.Pod) (reterr error) {
 	for _, container := range pod.Spec.Containers {
 		podLogOpts := corev1.PodLogOptions{Container: container.Name}
 		req := c.clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
@@ -191,7 +200,7 @@ func (c *Cluster) dumpLogsForPod(ctx context.Context, pod *corev1.Pod, folderPat
 		if err != nil {
 			return err
 		}
-		filePath := filepath.Join(folderPath, "logs", "pods", pod.GetNamespace(), pod.GetName(), fmt.Sprintf("%v.log", container.Name))
+		filePath := filepath.Join(c.artifactsDir, "Logs", pod.GetNamespace(), pod.GetName(), fmt.Sprintf("%v.log", container.Name))
 		if err := c.writeToFile(logs.Bytes(), filePath); err != nil {
 			return err
 		}
@@ -215,10 +224,22 @@ func (c *Cluster) writeToFile(data []byte, filePath string) error {
 	return nil
 }
 
-func (c *Cluster) dumpEventsForResource(ctx context.Context, kind string, ref types.NamespacedName, folderPath string) error {
-	fieldSelector := fmt.Sprintf("involvedObject.name=%s", ref.Name)
-	events, _ := c.clientset.CoreV1().Events(ref.Namespace).List(ctx, metav1.ListOptions{FieldSelector: fieldSelector, TypeMeta: metav1.TypeMeta{Kind: kind}})
-	filePath := filepath.Join(folderPath, "logs", "pods", ref.Namespace, ref.Name, fmt.Sprintf("%v.events", ref.Name))
+func (c *Cluster) dumpEventsForNamespacedResource(ctx context.Context, kind string, ref types.NamespacedName) error {
+	fieldSelector := fmt.Sprintf("regarding.name=%s", ref.Name)
+	events, _ := c.clientset.EventsV1().Events(ref.Namespace).List(ctx, metav1.ListOptions{FieldSelector: fieldSelector, TypeMeta: metav1.TypeMeta{Kind: kind}})
+	filePath := filepath.Join(c.artifactsDir, "Events", kind, ref.Namespace, fmt.Sprintf("%v.events", ref.Name))
+	if err := c.writeResourceToFile(events, filePath); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *Cluster) dumpEventsForNamespace(ctx context.Context, namespace string) error {
+	events, err := c.clientset.EventsV1().Events(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("error while listing events: %w", err)
+	}
+	filePath := filepath.Join(c.artifactsDir, "Events", "Namespace", fmt.Sprintf("%v.events", namespace))
 	if err := c.writeResourceToFile(events, filePath); err != nil {
 		return err
 	}
@@ -233,7 +254,7 @@ func (c *Cluster) dumpResource(ctx context.Context, kind schema.GroupVersionKind
 		return err
 	}
 	for _, resource := range resourceList.Items {
-		filePath := filepath.Join(c.artifactsDir, resource.GetObjectKind().GroupVersionKind().Kind, resource.GetNamespace(), fmt.Sprintf("%v.yaml", resource.GetName()))
+		filePath := filepath.Join(c.artifactsDir, "Resources", resource.GetObjectKind().GroupVersionKind().Kind, resource.GetNamespace(), fmt.Sprintf("%v.yaml", resource.GetName()))
 		err := c.writeResourceToFile(&resource, filePath)
 		if err != nil {
 			return err
