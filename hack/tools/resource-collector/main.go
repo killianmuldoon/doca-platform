@@ -36,9 +36,8 @@ var (
 )
 
 func init() {
-	flag.StringVar(&kubeconfig, "kubeconfig", "~/.kube/config", "absolute path to the kubeconfig file")
-	flag.StringVar(&artifactsDirectory, "artifactsDirectory", "", "absolute path to the directory where artifacts are stored")
-
+	flag.StringVar(&kubeconfig, "kubeconfig", "~/.kube/config", "path to the kubeconfig file")
+	flag.StringVar(&artifactsDirectory, "artifactsDirectory", "", "path to the directory where artifacts are stored")
 }
 func main() {
 	flag.Parse()
@@ -57,14 +56,17 @@ func main() {
 		panic(err)
 	}
 
+	// Get the path where the binary is located
+	_, basePath, _, _ := runtime.Caller(0)
+
 	// If the artifacts directory is not set default to the project root.
 	if artifactsDirectory == "" {
-		// Get the path to place artifacts in
-		_, basePath, _, _ := runtime.Caller(0)
 		artifactsDirectory = filepath.Join(filepath.Dir(basePath), "../../../artifacts")
 	}
 
-	clusters, err := collector.GetClusterCollectors(ctx, clusterClient, artifactsDirectory, config)
+	inventoryManifestsDirectory := filepath.Join(filepath.Dir(basePath), "../../../internal/operator/inventory/manifests")
+
+	clusters, err := collector.GetClusterCollectors(ctx, clusterClient, artifactsDirectory, inventoryManifestsDirectory, config)
 
 	if err != nil {
 		log.Error(err, "Failed to get cluster collectors")
