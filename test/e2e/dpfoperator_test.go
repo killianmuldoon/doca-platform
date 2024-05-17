@@ -179,6 +179,15 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			cleanupObjs = append(cleanupObjs, pvc)
 		})
 
+		It("wait for the created PersistentVolumeClaim related to the DPF Provisioning controller to be bound", func() {
+			Eventually(func(g Gomega) bool {
+				key := client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: dpfProvisioningControllerPVCName}
+				pvc := &corev1.PersistentVolumeClaim{}
+				Expect(client.IgnoreAlreadyExists(testClient.Get(ctx, key, pvc))).To(Succeed())
+				return pvc.Status.Phase == corev1.ClaimBound
+			}).WithTimeout(30 * time.Second).Should(BeTrue())
+		})
+
 		It("create the imagePullSecret for the DPF OperatorConfig", func() {
 			Expect(testClient.Create(ctx, imagePullSecret)).To(Succeed())
 			cleanupObjs = append(cleanupObjs, imagePullSecret)
