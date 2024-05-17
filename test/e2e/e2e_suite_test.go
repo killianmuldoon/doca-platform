@@ -28,6 +28,7 @@ import (
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
+	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/nvipam/api/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils/collector"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -66,6 +67,7 @@ func TestE2E(t *testing.T) {
 	Expect(operatorv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(argov1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(sfcv1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(nvipamv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	s := scheme.Scheme
 
 	// If testKubeconfig is not set default it to $HOME/.kube/config
