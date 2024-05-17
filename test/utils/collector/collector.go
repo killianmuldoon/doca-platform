@@ -25,6 +25,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
@@ -209,40 +210,59 @@ func (c *Cluster) dumpPodLogsAndEvents(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	errs := []error{}
 	for _, pod := range podList.Items {
 		if err = c.dumpLogsForPod(ctx, &pod); err != nil {
-			return err
+			errs = append(errs, err)
 		}
 		if err = c.dumpEventsForNamespacedResource(ctx, "Pod", types.NamespacedName{Namespace: pod.Namespace, Name: pod.Name}); err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return kerrors.NewAggregate(errs)
 }
+
 func (c *Cluster) dumpLogsForPod(ctx context.Context, pod *corev1.Pod) (reterr error) {
+	errs := []error{}
 	for _, container := range pod.Spec.Containers {
 		podLogOpts := corev1.PodLogOptions{Container: container.Name}
-		req := c.clientset.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &podLogOpts)
-		podLogs, err := req.Stream(ctx)
-		if err != nil {
-			return err
+		if err := c.dumpLogsForContainer(ctx, pod.Namespace, pod.Name, "", podLogOpts); err != nil {
+			errs = append(errs, err)
 		}
-		defer func() {
-			err := podLogs.Close()
-			if err != nil {
-				reterr = err
-			}
-		}()
 
-		logs := new(bytes.Buffer)
-		_, err = io.Copy(logs, podLogs)
+		// Also collect the logs from a previous container if one existed.
+		previousContainerOpts := corev1.PodLogOptions{Container: container.Name, Previous: true}
+		if err := c.dumpLogsForContainer(ctx, pod.Namespace, pod.Name, ".previous", previousContainerOpts); err != nil {
+			if !strings.Contains(err.Error(), "not found") {
+				errs = append(errs, err)
+			}
+		}
+
+	}
+	return kerrors.NewAggregate(errs)
+}
+
+func (c *Cluster) dumpLogsForContainer(ctx context.Context, podNamespace, podName, fileSuffix string, options corev1.PodLogOptions) (reterr error) {
+	req := c.clientset.CoreV1().Pods(podNamespace).GetLogs(podName, &options)
+	podLogs, err := req.Stream(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err := podLogs.Close()
 		if err != nil {
-			return err
+			reterr = err
 		}
-		filePath := filepath.Join(c.artifactsDir, "Logs", pod.GetNamespace(), pod.GetName(), fmt.Sprintf("%v.log", container.Name))
-		if err := c.writeToFile(logs.Bytes(), filePath); err != nil {
-			return err
-		}
+	}()
+
+	logs := new(bytes.Buffer)
+	_, err = io.Copy(logs, podLogs)
+	if err != nil {
+		return err
+	}
+	filePath := filepath.Join(c.artifactsDir, "Logs", podNamespace, podName, fmt.Sprintf("%v.log%s", options.Container, fileSuffix))
+	if err := c.writeToFile(logs.Bytes(), filePath); err != nil {
+		return err
 	}
 	return nil
 }
