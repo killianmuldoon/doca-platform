@@ -21,6 +21,15 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	DPUServiceIPAMFinalizer = "sfc.dpf.nvidia.com/dpuserviceipam"
+	DPUServiceIPAMKind      = "DPUServiceIPAM"
+)
+
+var (
+	DPUServiceIPAMGroupVersionKind = GroupVersion.WithKind(DPUServiceIPAMKind)
+)
+
 // DPUServiceIPAMSpec defines the desired state of DPUServiceIPAM
 type DPUServiceIPAMSpec struct {
 	// IPV4Network is the configuration related to splitting a network into subnets per node, each with their own gateway.
