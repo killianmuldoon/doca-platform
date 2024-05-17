@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -34,6 +35,7 @@ const (
 	dpfProvisioningControllerName          = "dpf-provisioning-controller-manager"
 	dpfProvisioningControllerContainerName = "manager"
 	bfbVolumeName                          = "bfb-volume"
+	webhookServiceName                     = "dpf-provisioning-webhook-service"
 )
 
 var _ Component = &dpfProvisioningControllerObjects{}
@@ -63,11 +65,11 @@ func (p *dpfProvisioningControllerObjects) Parse() (err error) {
 	}
 	for _, obj := range objs {
 		// Exclude Namespace and CustomResourceDefinition as the operator should not deploy these resources.
-		if obj.GetKind() == "Namespace" || obj.GetKind() == "CustomResourceDefinition" {
+		if obj.GetKind() == namespaceKind || obj.GetKind() == customResourceDefinitionKind {
 			continue
 		}
 		// If the object is the dpf-provisioning-controller-manager Deployment store it as it's concrete type.
-		if obj.GetKind() == utils.Deployment && obj.GetName() == dpfProvisioningControllerName {
+		if obj.GetKind() == deploymentKind && obj.GetName() == dpfProvisioningControllerName {
 			deployment := &appsv1.Deployment{}
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), deployment); err != nil {
 				return fmt.Errorf("error while parsing Deployment for Provisioning Controller: %w", err)
@@ -94,14 +96,25 @@ func (p *dpfProvisioningControllerObjects) GenerateManifests(vars Variables) ([]
 	}
 	p.deployment.SetNamespace(vars.Namespace)
 
+	// Fixup webhook service selector.
+
 	ret := []client.Object{}
 	for _, obj := range objects {
+		if obj.GetKind() == "Service" && obj.GetName() == webhookServiceName {
+			fixedService, err := fixupWebhookService(&obj)
+			if err != nil {
+				return nil, fmt.Errorf("error patching webhook service for Provisioning Controller: %w", err)
+			}
+			ret = append(ret, fixedService.DeepCopy())
+			continue
+		}
 		ret = append(ret, obj.DeepCopy())
 	}
 	deploy := p.deployment.DeepCopy()
 	mods := []func(*appsv1.Deployment, Variables) error{
 		p.setBFBPersistentVolumeClaim,
 		p.setImagePullSecret,
+		p.setComponentLabel,
 	}
 	for _, mod := range mods {
 		if err := mod(deploy, vars); err != nil {
@@ -111,6 +124,39 @@ func (p *dpfProvisioningControllerObjects) GenerateManifests(vars Variables) ([]
 	// Add the deployment to the set of objects.
 	ret = append(ret, deploy)
 	return ret, nil
+}
+
+// Set the component label for the deployment.
+func (p *dpfProvisioningControllerObjects) setComponentLabel(deployment *appsv1.Deployment, _ Variables) error {
+	labels := deployment.Spec.Template.ObjectMeta.Labels
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	labels[operatorv1.DPFComponentLabelKey] = dpfProvisioningControllerName
+	deployment.Spec.Template.ObjectMeta.Labels = labels
+	return nil
+}
+
+// Add a component label selector to the webhook service.
+func fixupWebhookService(obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+	// do the conversion to ensure we're dealing with the correct type, but deal with unstructured for the patch.
+	err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &corev1.Service{})
+	if err != nil {
+		return nil, fmt.Errorf("error while converting DPU Provisioning Controller Service to objects: %w", err)
+	}
+	selector, found, err := unstructured.NestedMap(obj.UnstructuredContent(), "spec", "selector")
+	if err != nil {
+		return nil, fmt.Errorf("error while converting DPU Provisioning Controller Service to objects: %w", err)
+	}
+	if !found {
+		return nil, fmt.Errorf("DPU Provisioning Controller webhook secret does not have a selector")
+	}
+	selector[operatorv1.DPFComponentLabelKey] = dpfProvisioningControllerName
+	err = unstructured.SetNestedMap(obj.UnstructuredContent(), selector, "spec", "selector")
+	if err != nil {
+		return nil, fmt.Errorf("error while converting DPU Provisioning Controller Service to objects: %w", err)
+	}
+	return obj, nil
 }
 
 func (p *dpfProvisioningControllerObjects) validateDeployment() error {

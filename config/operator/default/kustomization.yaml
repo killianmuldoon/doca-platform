@@ -7,14 +7,12 @@ namespace: dpf-operator-system
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
 namePrefix: dpf-operator-
-
-# Labels to add to all resources and selectors.
-#labels:
-#- includeSelectors: true
-#  pairs:
-#    someName: someValue
-
 resources:
 - ../crd
 - ../rbac
 - ../manager
+labels:
+  - includeSelectors: true
+    includeTemplates: true
+    pairs:
+      dpf.nvidia.com/component: dpf-operator-controller-manager

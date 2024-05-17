@@ -10,11 +10,9 @@ namePrefix: dpf-operator-
 
 resources:
   - resources/dpf-operator.clusterserviceversion.yaml
-  - ../operator/crd
+  - ../operator/default
   - ../operator/samples
   - ../dpuservice/crd
   - ../servicechainset/crd
-  - ../operator/rbac
-  - ../operator/manager
   - ../dpf-provisioning/crd
   - ../argocd/crd

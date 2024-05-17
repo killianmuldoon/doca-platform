@@ -18,13 +18,17 @@ package inventory
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 
 	. "github.com/onsi/gomega"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -50,16 +54,16 @@ func TestDPFProvisioningControllerObjects_Parse(t *testing.T) {
 
 	correct := iterate(func(u *unstructured.Unstructured) bool { return true })
 	missingDeployment := iterate(func(u *unstructured.Unstructured) bool {
-		return u.GetKind() != utils.Deployment
+		return u.GetKind() != deploymentKind
 	})
 	wrongName := iterate(func(u *unstructured.Unstructured) bool {
-		if u.GetKind() == utils.Deployment {
+		if u.GetKind() == deploymentKind {
 			u.SetName("wrong-name")
 		}
 		return true
 	})
 	volumeMissing := iterate(func(u *unstructured.Unstructured) bool {
-		if u.GetKind() == utils.Deployment {
+		if u.GetKind() == deploymentKind {
 			deploy := &appsv1.Deployment{}
 			err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.UnstructuredContent(), deploy)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -81,7 +85,7 @@ func TestDPFProvisioningControllerObjects_Parse(t *testing.T) {
 	})
 
 	volumeWrongName := iterate(func(u *unstructured.Unstructured) bool {
-		if u.GetKind() == utils.Deployment {
+		if u.GetKind() == deploymentKind {
 			deploy := &appsv1.Deployment{}
 			err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.UnstructuredContent(), deploy)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -202,6 +206,85 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		NewGomegaWithT(t).Expect(err).To(HaveOccurred())
 	})
 
+	t.Run("test setting namespaces", func(t *testing.T) {
+		g := NewWithT(t)
+		testNS := "foop"
+		vars := Variables{
+			Namespace: testNS,
+			DPFProvisioningController: DPFProvisioningVariables{
+				BFBPersistentVolumeClaimName: "pvc",
+				ImagePullSecret:              "some-secret",
+			},
+		}
+		objs, err := provCtrl.GenerateManifests(vars)
+		g.Expect(err).NotTo(HaveOccurred())
+		for _, obj := range objs {
+			// Check the cert manager annotation is updated
+			annotations := obj.GetAnnotations()
+			if value, ok := annotations["cert-manager.io/inject-ca-from"]; ok {
+				parts := strings.Split(value, "/")
+				g.Expect(parts[0]).To(Equal(testNS))
+			}
+			switch obj.GetObjectKind().GroupVersionKind().Kind {
+			// Skip unnamespaced objects that don't have nested namespaces.
+			case namespaceKind, clusterRoleKind, customResourceDefinitionKind:
+				continue
+			case clusterRoleBindingKind:
+				crb := &v1.ClusterRoleBinding{}
+				uns, ok := obj.(*unstructured.Unstructured)
+				g.Expect(ok).To(BeTrue())
+				g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(uns.UnstructuredContent(), crb)).To(Succeed())
+				for _, subject := range crb.Subjects {
+					g.Expect(subject.Namespace).To(Equal(testNS))
+				}
+			case roleBindingKind:
+				g.Expect(obj.GetNamespace()).To(Equal(testNS))
+				rb := &v1.RoleBinding{}
+				uns, ok := obj.(*unstructured.Unstructured)
+				g.Expect(ok).To(BeTrue())
+				g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(uns.UnstructuredContent(), rb)).To(Succeed())
+				for _, subject := range rb.Subjects {
+					g.Expect(subject.Namespace).To(Equal(testNS))
+				}
+			case validatingWebhookConfigurationKind:
+				vwc := &admissionregistrationv1.ValidatingWebhookConfiguration{}
+				uns, ok := obj.(*unstructured.Unstructured)
+				g.Expect(ok).To(BeTrue())
+				g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(uns.UnstructuredContent(), vwc)).To(Succeed())
+				g.Expect(ok).To(BeTrue())
+				for _, webhook := range vwc.Webhooks {
+					g.Expect(webhook.ClientConfig.Service.Namespace).To(Equal(testNS))
+				}
+			case mutatingWebhookConfigurationKind:
+				typedObject := &admissionregistrationv1.MutatingWebhookConfiguration{}
+				uns, ok := obj.(*unstructured.Unstructured)
+				g.Expect(ok).To(BeTrue())
+				g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(uns.UnstructuredContent(), typedObject)).To(Succeed())
+				g.Expect(ok).To(BeTrue())
+				for _, webhook := range typedObject.Webhooks {
+					g.Expect(webhook.ClientConfig.Service.Namespace).To(Equal(testNS))
+				}
+			case certificateKind:
+				g.Expect(obj.GetNamespace()).To(Equal(testNS))
+				uns, ok := obj.(*unstructured.Unstructured)
+				g.Expect(ok).To(BeTrue())
+				certs, ok, _ := unstructured.NestedSlice(uns.UnstructuredContent(), "spec", "dnsNames")
+				g.Expect(ok).To(BeTrue())
+				for i := range certs {
+					s, ok := certs[i].(string)
+					g.Expect(ok).To(BeTrue())
+					// services take the form ${SERVICE_NAME}.${SERVICE_NAMESPACE}.${SERVICE_DOMAIN}.svc
+					parts := strings.Split(s, ".")
+					// Set the second part as the namespace and reset the string and field.
+					g.Expect(parts[1]).To(Equal(testNS))
+				}
+			default:
+				g.Expect(obj.GetNamespace()).To(Equal(testNS))
+			}
+
+		}
+	})
+
 	// This test is customized for the current Provisioning manifest, internal/operator/inventory/manifests/provisioningctrl.yaml.
 	// These tests should be reviewed every time the manifest is updated
 	t.Run("test field modification", func(t *testing.T) {
@@ -221,18 +304,28 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		// Expect the CRD and Namespace to have been removed. There are 3 CRDs and 1 Namespace in the manifest file.
 		g.Expect(generatedObjs).To(HaveLen(len(originalObjs) - 4))
 
+		// Expect the namespaces for all of the objects to equal the namespace in variables.
 		for _, obj := range generatedObjs {
 			g.Expect(obj.GetNamespace()).To(Equal("foo"))
 		}
 		var gotDeployment *appsv1.Deployment
 		for i, obj := range generatedObjs {
-			if obj.GetObjectKind().GroupVersionKind().Kind == utils.Deployment {
+			if obj.GetObjectKind().GroupVersionKind().Kind == deploymentKind {
 				deployment, ok := generatedObjs[i].(*appsv1.Deployment)
 				g.Expect(ok).To(BeTrue())
 				gotDeployment = deployment
 				continue
 			}
+			if obj.GetObjectKind().GroupVersionKind().Kind == "Service" && obj.GetName() == webhookServiceName {
+				uns := obj.(*unstructured.Unstructured)
+				selector, found, err := unstructured.NestedMap(uns.UnstructuredContent(), "spec", "selector")
+				g.Expect(found).To(BeTrue())
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(selector[operatorv1.DPFComponentLabelKey]).To(Equal(dpfProvisioningControllerName))
+			}
 		}
+		// * ensure the component label is set
+		g.Expect(gotDeployment.Spec.Template.Labels[operatorv1.DPFComponentLabelKey]).To(Equal(dpfProvisioningControllerName))
 		// * ensure that the expected modifications have been made to the deployment.
 		g.Expect(gotDeployment).NotTo(BeNil())
 		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets).To(HaveLen(1))

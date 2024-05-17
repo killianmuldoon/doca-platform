@@ -95,6 +95,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				// Don't fail the test if the log collector fails - just print the errors.
 				GinkgoLogr.Error(err, "failed to collect resources and logs for the clusters")
 			}
+			// TODO: This cleanup isn't good enough to clean the system correctly. Need to ensure the DPFOperatorConfig is cleaned up first.
 			By("cleaning up objects created during the test", func() {
 				for _, object := range cleanupObjs {
 					if err := testClient.Delete(ctx, object); err != nil && !apierrors.IsNotFound(err) {
@@ -195,6 +196,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 		It("create the DPFOperatorConfig for the system", func() {
 			Expect(testClient.Create(ctx, config)).To(Succeed())
+			cleanupObjs = append(cleanupObjs, config)
 		})
 
 		It("ensure the DPUService controller is running and ready", func() {
@@ -216,6 +218,22 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					Name:      "dpf-provisioning-controller-manager"},
 					deployment)).To(Succeed())
 				g.Expect(deployment.Status.ReadyReplicas).To(Equal(*deployment.Spec.Replicas))
+			}).WithTimeout(60 * time.Second).Should(Succeed())
+		})
+
+		It("ensure the DPF Provisioning objects can be created", func() {
+			Eventually(func(g Gomega) {
+				// This is a smoke test to ensure the webhook of the DPF Provisioning controller is running.
+				// Attempt to create each of BFB, DPU and DPUSet.
+				for _, kind := range []string{"bfb", "dpu", "dpuset"} {
+					obj := &unstructured.Unstructured{}
+					obj.SetKind(kind)
+					obj.SetAPIVersion("provisioning.dpf.nvidia.com/v1alpha1")
+					obj.SetName("provisioning-object")
+					obj.SetNamespace(dpfOperatorSystemNamespace)
+					g.Expect(testClient.Create(ctx, obj)).To(Succeed())
+					cleanupObjs = append(cleanupObjs, obj)
+				}
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 		})
 

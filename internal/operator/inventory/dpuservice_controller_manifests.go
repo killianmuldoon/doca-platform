@@ -56,34 +56,34 @@ func (d *dpuServiceControllerObjects) Parse() error {
 	}
 	for _, obj := range dpuServiceObjects {
 		switch obj.GetObjectKind().GroupVersionKind().Kind {
-		case "Deployment":
+		case deploymentKind:
 			if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &d.Deployment); err != nil {
 				return fmt.Errorf("error while converting DPUService to objects: %w", err)
 			}
-		case "ServiceAccount":
+		case serviceAccountKind:
 			if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &d.ServiceAccount); err != nil {
 				return fmt.Errorf("error while converting DPUService to objects: %w", err)
 			}
-		case "Role":
+		case roleKind:
 			if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &d.Role); err != nil {
 				return fmt.Errorf("error while converting DPUService to objects: %w", err)
 			}
-		case "RoleBinding":
+		case roleBindingKind:
 			if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &d.RoleBinding); err != nil {
 				return fmt.Errorf("error while converting DPUService to objects: %w", err)
 			}
-		case "ClusterRole":
+		case clusterRoleKind:
 			if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &d.ClusterRole); err != nil {
 				return fmt.Errorf("error while converting DPUService to objects: %w", err)
 			}
-		case "ClusterRoleBinding":
+		case clusterRoleBindingKind:
 			if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &d.ClusterRoleBinding); err != nil {
 				return fmt.Errorf("error while converting DPUService to objects: %w", err)
 			}
 			// Namespace and CustomResourceDefinition are dropped as they are handled elsewhere.
-		case "Namespace":
+		case namespaceKind:
 			// Drop namespace
-		case "CustomResourceDefinition":
+		case customResourceDefinitionKind:
 			// Drop CustomResourceDefinition
 		default:
 			// Error is any unexpected type is found in the manifest.
