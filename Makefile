@@ -183,16 +183,16 @@ SKAFFOLD_BIN := skaffold
 SKAFFOLD := $(abspath $(TOOLSDIR)/$(SKAFFOLD_BIN)-$(SKAFFOLD_VER))
 $(SKAFFOLD): | $(TOOLSDIR)
 	$Q echo "Installing skaffold-$(SKAFFOLD_VER) to $(TOOLSDIR)"
-	$Q curl -fsSL https://storage.googleapis.com/skaffold/releases/latest/skaffold-$(OS)-$(ARCH) -o $(SKAFFOLD)
+	$Q curl -fsSL https://storage.googleapis.com/skaffold/releases/$(SKAFFOLD_VER)/skaffold-$(OS)-$(ARCH) -o $(SKAFFOLD)
 	$Q chmod +x $(SKAFFOLD)
 
 # minikube is used to set-up a local kubernetes cluster for dev work.
-MINIKUBE_VER := v0.0.0-20231012212722-e25aeebc7846
+MINIKUBE_VER := v1.33.1
 MINIKUBE_BIN := minikube
 MINIKUBE := $(abspath $(TOOLSDIR)/$(MINIKUBE_BIN)-$(MINIKUBE_VER))
 $(MINIKUBE): | $(TOOLSDIR)
 	$Q echo "Installing minikube-$(MINIKUBE_VER) to $(TOOLSDIR)"
-	$Q curl -fsSL https://storage.googleapis.com/minikube/releases/latest/minikube-$(OS)-$(ARCH) -o $(MINIKUBE)
+	$Q curl -fsSL https://storage.googleapis.com/minikube/releases/$(MINIKUBE_VER)/minikube-$(OS)-$(ARCH) -o $(MINIKUBE)
 	$Q chmod +x $(MINIKUBE)
 
 # cert-manager is used for webhook certs in the dev setup.
