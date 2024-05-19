@@ -1,0 +1,9 @@
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: macvlan-conf-1
+  labels:
+    {{- include "multus.labels" . | nindent 4 }}
+spec:
+  config: {{ .Values.networkAttachmentDefinitionJson | toYaml | indent
+    1 }}
