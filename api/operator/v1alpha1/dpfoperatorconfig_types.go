@@ -36,6 +36,9 @@ type Overrides struct {
 	// DisableOVNKubernetesReconcile disables the reconciliation of OVNKubernetes in Openshift.
 	// +optional
 	DisableOVNKubernetesReconcile bool `json:"disableOVNKubernetesReconcile,omitempty"`
+	// Paused disables all reconciliation of the DPFOperatorConfig when set to true.
+	// +optional
+	Paused bool `json:"paused,omitempty"`
 }
 
 // DPFOperatorConfigSpec defines the desired state of DPFOperatorConfig

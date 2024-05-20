@@ -45,7 +45,6 @@ import (
 	"k8s.io/apimachinery/pkg/selection"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/utils/ptr"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 )
@@ -666,14 +665,6 @@ func adjustDefaultOVNKubernetesImage(ctx context.Context, c client.Client, custo
 	}
 
 	return nil
-}
-
-// SetupWithManager sets up the controller with the Manager.
-// TODO: conside watching other objects this controller interacts with e.g. pods, secrets with a label selector to speed up reconciliation.
-func (r *DPFOperatorConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&operatorv1.DPFOperatorConfig{}).
-		Complete(r)
 }
 
 // reconcileUnstructuredObjects reconciles unstructured objects using the given client.

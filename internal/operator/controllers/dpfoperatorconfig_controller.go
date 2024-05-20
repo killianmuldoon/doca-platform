@@ -74,6 +74,14 @@ const (
 	dpfOperatorConfigControllerName = "dpfoperatorconfig-controller"
 )
 
+// SetupWithManager sets up the controller with the Manager.
+// TODO: consider watching other objects this controller interacts with e.g. pods, secrets with a label selector to speed up reconciliation.
+func (r *DPFOperatorConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	return ctrl.NewControllerManagedBy(mgr).
+		For(&operatorv1.DPFOperatorConfig{}).
+		Complete(r)
+}
+
 // Reconcile reconciles changes in a DPFOperatorConfig.
 func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrllog.FromContext(ctx)
@@ -93,6 +101,12 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
+	}
+
+	// If the DPFOperatorConfig is paused take no further action.
+	if isPaused(dpfOperatorConfig) {
+		log.Info("Reconciling Paused")
+		return ctrl.Result{}, nil
 	}
 
 	// Defer a patch call to always patch the object when Reconcile exits.
@@ -120,6 +134,13 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, nil
 	}
 	return r.reconcile(ctx, dpfOperatorConfig)
+}
+
+func isPaused(config *operatorv1.DPFOperatorConfig) bool {
+	if config.Spec.Overrides == nil {
+		return false
+	}
+	return config.Spec.Overrides.Paused
 }
 
 //nolint:unparam
