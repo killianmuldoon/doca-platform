@@ -188,26 +188,24 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			cleanupObjs = append(cleanupObjs, config)
 		})
 
-		It("ensure the DPUService controller is running and ready", func() {
+		It("ensure the DPF controllers are running and ready", func() {
 			Eventually(func(g Gomega) {
-				deployment := &appsv1.Deployment{}
+				// Check the DPUService controller manager is up and ready.
+				dpuServiceDeployment := &appsv1.Deployment{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{
 					Namespace: dpfOperatorSystemNamespace,
 					Name:      "dpuservice-controller-manager"},
-					deployment)).To(Succeed())
-				g.Expect(deployment.Status.ReadyReplicas).To(Equal(*deployment.Spec.Replicas))
-			}).WithTimeout(60 * time.Second).Should(Succeed())
-		})
+					dpuServiceDeployment)).To(Succeed())
+				g.Expect(dpuServiceDeployment.Status.ReadyReplicas).To(Equal(*dpuServiceDeployment.Spec.Replicas))
 
-		It("ensure the DPF Provisioning controller is running and ready", func() {
-			Eventually(func(g Gomega) {
-				deployment := &appsv1.Deployment{}
+				// Check the DPF provisioning controller manager is up and ready.
+				dpfProvisioningDeployment := &appsv1.Deployment{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{
 					Namespace: dpfOperatorSystemNamespace,
 					Name:      "dpf-provisioning-controller-manager"},
-					deployment)).To(Succeed())
-				g.Expect(deployment.Status.ReadyReplicas).To(Equal(*deployment.Spec.Replicas))
-			}).WithTimeout(60 * time.Second).Should(Succeed())
+					dpfProvisioningDeployment)).To(Succeed())
+				g.Expect(dpfProvisioningDeployment.Status.ReadyReplicas).To(Equal(*dpfProvisioningDeployment.Spec.Replicas))
+			}).WithTimeout(180 * time.Second).Should(Succeed())
 		})
 
 		It("ensure the DPF Provisioning objects can be created", func() {
