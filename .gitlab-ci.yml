@@ -109,15 +109,14 @@ nightly-release:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_RELEASE == "true"
       when: always
   variables:
+    # Note: This job is generic to allow it to use both harbor and nvcr.io registries. Variables defined under https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/-/pipeline_schedules define the specific behaviour.
     TAG: v0.0.0-nightly
-    REGISTRY: harbor.mellanox.com/cloud-orchestration-dev/dpf
   tags:
     - release
   before_script:
-    - docker login harbor.mellanox.com
+    - docker login $REGISTRY_SHORT_NAME
   script:
-    - make generate docker-build-all docker-push-all
-    - make helm-package-all helm-push-all
+    - make release
   after_script:
     - ./hack/scripts/slack-notification.sh
 
