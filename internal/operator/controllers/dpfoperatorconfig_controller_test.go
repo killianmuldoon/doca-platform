@@ -35,22 +35,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-//nolint:dupl
-var _ = Describe("DPFOperatorConfig Controller", func() {
-	Context("When reconciling a resource", func() {
-		var testNS *corev1.Namespace
-		BeforeEach(func() {
-			By("Creating the namespaces")
-			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
-			Expect(testClient.Create(ctx, testNS)).To(Succeed())
-		})
-		AfterEach(func() {
-			By("Cleaning up the Namespace")
-			Expect(testClient.Delete(ctx, testNS)).To(Succeed())
-		})
-	})
-})
-
 var _ = Describe("DPFOperator controller settings", func() {
 	Context("When setting up the controller", func() {
 		It("Should restrict reconciliation to a specific namespace and name when ConfigSingletonNamespaceName is set", func() {
@@ -134,7 +118,7 @@ func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig
 var _ = Describe("DPFOperatorConfig Controller - Reconcile System Components", func() {
 	Context("controller should create DPF System components", func() {
 		testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
-		It("reconciles the DPFOperatorConfig and deploys the system components", func() {
+		It("checks the DPFOperatorConfig takes no action when paused", func() {
 			// Create the namespace for the test.
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
 
@@ -149,7 +133,34 @@ var _ = Describe("DPFOperatorConfig Controller - Reconcile System Components", f
 			config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName = "foo-pvc"
 			config.Spec.ProvisioningConfiguration.ImagePullSecret = "foo-image-pull-secret"
 			config.Spec.ImagePullSecrets = []string{"secret-one", "secret-two"}
+			config.Spec.Overrides = &operatorv1.Overrides{}
+			config.Spec.Overrides.Paused = true
 			Expect(testClient.Create(ctx, config)).To(Succeed())
+			Consistently(func(g Gomega) {
+				gotConfig := &operatorv1.DPFOperatorConfig{}
+				// Expect the config finalizers to not have been reconciled.
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), gotConfig)).To(Succeed())
+				g.Expect(gotConfig.Finalizers).To(BeEmpty())
+
+				// Expect secrets to not have been labelled.
+				secrets := &corev1.SecretList{}
+				g.Expect(testClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})).To(Succeed())
+				g.Expect(secrets.Items).To(BeEmpty())
+
+				// Expect no DPUServices to have been created.
+				dpuServices := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx, dpuServices)).To(Succeed())
+				g.Expect(dpuServices.Items).To(BeEmpty())
+			}).WithTimeout(4 * time.Second).Should(Succeed())
+		})
+		It("reconciles the DPFOperatorConfig and deploys the system components when unpaused", func() {
+			By("unpausing the DPFOperatorConfig")
+			config := getMinimalDPFOperatorConfig(testNS.Name)
+
+			// Patch the DPFOperatorConfig to remove `spec.paused`
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
+			patch := client.RawPatch(types.MergePatchType, []byte(fmt.Sprintf("{\"spec\": {\"overrides\": {\"paused\":%t}}}", false)))
+			Expect(testClient.Patch(ctx, config, patch)).To(Succeed())
 
 			By("checking the DPFOperatorConfig finalizer is reconciled")
 			Eventually(func(g Gomega) []string {
