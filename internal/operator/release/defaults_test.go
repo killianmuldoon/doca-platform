@@ -20,11 +20,20 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/yaml"
 )
 
 func TestDefaults_Parse(t *testing.T) {
 	g := NewGomegaWithT(t)
 
+	defaultValues := map[string]string{
+		"customOVNKubernetesDPUImage":    "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/ovn-kubernetes-dpu:v0.0.0",
+		"customOVNKubernetesNonDPUImage": "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/ovn-kubernetes-non-dpu:v0.0.0",
+		"dmsImage":                       "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/dms-server:v2.7",
+		"parprouterdImage":               "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/parprouterd:v0.1",
+		"dhcrelayImage":                  "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/dhcrelay:v0.1",
+		"hostnetworksetupImage":          "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/hostnetworksetup:v0.1",
+	}
 	tests := []struct {
 		name    string
 		content []byte
@@ -36,17 +45,33 @@ func TestDefaults_Parse(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "fail when customOVNKubernetesDPUImage empty/missing",
-			content: []byte(`
-customOVNKubernetesNonDPUImage: some-image:tag
-`),
+			name:    "fail when customOVNKubernetesDPUImage empty/missing",
+			content: withoutValue(g, defaultValues, "customOVNKubernetesDPUImage"),
 			wantErr: true,
 		},
 		{
-			name: "fail when customOVNKubernetesNonDPUImage empty/missing",
-			content: []byte(`
-customOVNKubernetesDPUImage: some-image:tag
-`),
+			name:    "fail when customOVNKubernetesNonDPUImage empty/missing",
+			content: withoutValue(g, defaultValues, "customOVNKubernetesNonDPUImage"),
+			wantErr: true,
+		},
+		{
+			name:    "fail when dmsImage empty/missing",
+			content: withoutValue(g, defaultValues, "dmsImage"),
+			wantErr: true,
+		},
+		{
+			name:    "fail when parprouterdImage empty/missing",
+			content: withoutValue(g, defaultValues, "parprouterdImage"),
+			wantErr: true,
+		},
+		{
+			name:    "fail when dhcrelayImage empty/missing",
+			content: withoutValue(g, defaultValues, "dhcrelayImage"),
+			wantErr: true,
+		},
+		{
+			name:    "fail when hostnetworksetupImage empty/missing",
+			content: withoutValue(g, defaultValues, "hostnetworksetupImage"),
 			wantErr: true,
 		},
 	}
@@ -61,4 +86,15 @@ customOVNKubernetesDPUImage: some-image:tag
 			g.Expect(err).ToNot(HaveOccurred())
 		})
 	}
+}
+
+func withoutValue(g Gomega, defaults map[string]string, valueToRemove string) []byte {
+	copied := map[string]string{}
+	for k, v := range defaults {
+		copied[k] = v
+	}
+	copied[valueToRemove] = ""
+	output, err := yaml.Marshal(copied)
+	g.Expect(err).ShouldNot(HaveOccurred())
+	return output
 }

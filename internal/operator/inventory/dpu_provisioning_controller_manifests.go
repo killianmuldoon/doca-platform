@@ -22,6 +22,7 @@ import (
 	"strings"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/release"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -115,6 +116,7 @@ func (p *dpfProvisioningControllerObjects) GenerateManifests(vars Variables) ([]
 		p.setBFBPersistentVolumeClaim,
 		p.setImagePullSecret,
 		p.setComponentLabel,
+		p.setDefaultImageNames,
 	}
 	for _, mod := range mods {
 		if err := mod(deploy, vars); err != nil {
@@ -174,6 +176,7 @@ func (p *dpfProvisioningControllerObjects) validateDeployment() error {
 	return nil
 }
 
+//nolint:unparam
 func (p *dpfProvisioningControllerObjects) getContainer(deploy *appsv1.Deployment, name string) *corev1.Container {
 	for i, c := range deploy.Spec.Template.Spec.Containers {
 		if c.Name == name {
@@ -265,4 +268,33 @@ func (p *dpfProvisioningControllerObjects) parseFlagName(arg string) string {
 		}
 	}
 	return name
+}
+
+func (p *dpfProvisioningControllerObjects) setDefaultImageNames(deployment *appsv1.Deployment, _ Variables) error {
+	c := p.getContainer(deployment, dpfProvisioningControllerContainerName)
+	if c == nil {
+		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
+	}
+	release := release.NewDefaults()
+	err := release.Parse()
+	if err != nil {
+		return err
+	}
+	err = p.setFlags(c, fmt.Sprintf("--dms-image=%s", release.DMSImage))
+	if err != nil {
+		return err
+	}
+	err = p.setFlags(c, fmt.Sprintf("--hostnetwork-image=%s", release.HostNetworkSetupImage))
+	if err != nil {
+		return err
+	}
+	err = p.setFlags(c, fmt.Sprintf("--dhcrelay-image=%s", release.DHCRelayImage))
+	if err != nil {
+		return err
+	}
+	err = p.setFlags(c, fmt.Sprintf("--parprouterd-image=%s", release.ParprouterdImage))
+	if err != nil {
+		return err
+	}
+	return nil
 }

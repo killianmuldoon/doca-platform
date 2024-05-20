@@ -519,7 +519,7 @@ binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
 binary-hostcniprovisioner: ## Build the Host CNI Provisioner binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/hostcniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/hostcniprovisioner
 
-DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning
+DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouterd dms dhcrelay
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS
@@ -570,7 +570,20 @@ DPUSERVICE_IMAGE_NAME ?= dpuservice-controller-manager
 DPUSERVICE_IMAGE ?= $(REGISTRY)/$(DPUSERVICE_IMAGE_NAME)
 
 DPFPROVISIONING_IMAGE_NAME ?= dpf-provisioning-controller-manager
-DPFPROVISIONING_IMAGE ?= $(REGISTRY)/$(DPFPROVISIONING_IMAGE_NAME)
+export DPFPROVISIONING_IMAGE ?= $(REGISTRY)/$(DPFPROVISIONING_IMAGE_NAME)
+
+## TODO: Cleanup image building and versioning for dhcrelay, parprouterd and hostnetwork.
+DHCRELAY_VERSION ?= 0.1
+export DHCRELAY_IMAGE ?= $(REGISTRY)/dhcrelay:v$(DHCRELAY_VERSION)
+
+PARPROUTERD_VERSION ?= 0.1
+export PARPROUTERD_IMAGE ?= $(REGISTRY)/parprouterd:v$(PARPROUTERD_VERSION)
+
+export HOSTNETWORK_IMAGE ?= $(REGISTRY)/hostnetworksetup:v$(HOSTNETWORK_VERSION)
+HOSTNETWORK_VERSION ?= 0.1
+
+export DMS_IMAGE ?= $(REGISTRY)/dms-server:v$(DMS_VERSION)
+DMS_VERSION ?= 2.7
 
 HOSTCNIPROVISIONER_IMAGE_NAME ?= host-cni-provisioner
 HOSTCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(HOSTCNIPROVISIONER_IMAGE_NAME)
@@ -698,6 +711,38 @@ docker-push-dpuservice: ## Push the docker image for dpuservice.
 .PHONY: docker-push-dpf-provisioning
 docker-push-dpf-provisioning: ## Push the docker image for dpf provisioning controller.
 	docker push $(DPFPROVISIONING_IMAGE):$(TAG)
+
+.PHONY: docker-build-dhcrelay
+docker-build-dhcrelay: ## Build docker image with the dhcrelay.
+	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t ${DHCRELAY_IMAGE} . -f dockerfile/Dockerfile.dhcrelay
+
+.PHONY: docker-build-parprouterd
+docker-build-parprouterd: ## Build docker image with the parprouterd.
+	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t ${PARPROUTERD_IMAGE} . -f dockerfile/Dockerfile.parprouterd
+
+.PHONY: docker-build-hostnetwork
+docker-build-hostnetwork: ## Build docker image with the hostnetwork.
+	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t ${HOSTNETWORK_IMAGE} . -f dockerfile/Dockerfile.hostnetwork
+
+.PHONY: docker-build-dms
+docker-build-dms: ## Build docker image with the hostnetwork.
+	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t ${DMS_IMAGE} . -f dockerfile/Dockerfile.dms
+
+.PHONY: docker-push-dhcrelay
+docker-push-dhcrelay: ## Push the docker image for dhcrelate.
+	cd $(DPF_PROVISIONING_DIR) && docker push ${DHCRELAY_IMAGE}
+
+.PHONY: docker-push-parprouterd
+docker-push-parprouterd: ## Push the docker image for paprouted.
+	cd $(DPF_PROVISIONING_DIR) && docker push ${PARPROUTERD_IMAGE}
+
+.PHONY: docker-push-hostnetwork
+docker-push-hostnetwork: ## Push the docker image for the hostnetwork.
+	cd $(DPF_PROVISIONING_DIR) && docker push ${HOSTNETWORK_IMAGE}
+
+.PHONY: docker-push-dms
+docker-push-dms: ## Push the docker image for DMS.
+	cd $(DPF_PROVISIONING_DIR) && docker push ${DMS_IMAGE}
 
 .PHONY: docker-push-dpucniprovisioner
 docker-push-dpucniprovisioner: ## Push the docker image for DPU CNI Provisioner.
