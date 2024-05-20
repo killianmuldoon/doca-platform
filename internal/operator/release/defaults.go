@@ -34,6 +34,11 @@ type Defaults struct {
 	// CustomOVNKubernetesNonDPUImage is the default custom OVN Kubernetes image deployed by the operator to the
 	// non DPU nodes.
 	CustomOVNKubernetesNonDPUImage string `yaml:"customOVNKubernetesNonDPUImage"`
+	// dmsImagemage is the DMS image
+	DMSImage              string `yaml:"dmsImage"`
+	ParprouterdImage      string `yaml:"parprouterdImage"`
+	DHCRelayImage         string `yaml:"dhcRelayImage"`
+	HostNetworkSetupImage string `yaml:"hostNetworkSetupImage"`
 }
 
 // Parse parses the defaults from the embedded generated YAML file
@@ -48,6 +53,18 @@ func (d *Defaults) Parse() error {
 	}
 	if len(d.CustomOVNKubernetesNonDPUImage) == 0 {
 		return errors.New("customOVNKubernetesNonDPUImage can't be empty")
+	}
+	if len(d.DMSImage) == 0 {
+		return errors.New("dmsImage can't be empty")
+	}
+	if len(d.ParprouterdImage) == 0 {
+		return errors.New("parprouterdImage can't be empty")
+	}
+	if len(d.HostNetworkSetupImage) == 0 {
+		return errors.New("hostNetworkSetupImage can't be empty")
+	}
+	if len(d.DHCRelayImage) == 0 {
+		return errors.New("dhcRelayImage can't be empty")
 	}
 	return nil
 }
