@@ -333,6 +333,9 @@ generate-manifests-dpf-provisioning: $(KUSTOMIZE) $(DPF_PROVISIONING_DIR) ## Gen
 generate-operator-bundle: $(OPERATOR_SDK) $(KUSTOMIZE) ## Generate bundle manifests and metadata, then validate generated files.
 	$(KUSTOMIZE) build config/bundle-operatorsdk | $(OPERATOR_SDK) generate bundle \
 	--overwrite --package dpf-operator --version $(BUNDLE_VERSION) --default-channel=$(BUNDLE_VERSION) --channels=$(BUNDLE_VERSION)
+	# Remove the createdAt field to prevent rebasing issues.
+	# TODO: Currently the clusterserviceversion is not being correctly generated e.g. metadata is missing.
+	$Q sed -i '/  createdAt:/d'  bundle/manifests/dpf-operator.clusterserviceversion.yaml
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: clean-generated-yaml
