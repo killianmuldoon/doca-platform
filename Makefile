@@ -869,7 +869,7 @@ helm-push-flannel: $(CHARTSDIR) helm-cm-push ## Push helm chart for flannel CNI
 
 .PHONY: helm-push-ovs-cni
 helm-push-ovs-cni: $(CHARTSDIR) helm-cm-push
-	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(OVS_CNI__HELM_CHART_NAME)-$(OVS_CNI_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(OVS_CNI_HELM_CHART_NAME)-$(OVS_CNI_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 ##@ Development Environment
 
