@@ -205,6 +205,14 @@ networking:
 			Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
 			cleanupObjects = append(cleanupObjects, kamajiSecret)
 
+			By("Creating image pull secrets")
+			secretOne := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "secret-1", Namespace: testNS.Name}}
+			secretTwo := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "secret-2", Namespace: testNS.Name}}
+			Expect(testClient.Create(ctx, secretOne)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, secretOne)
+			Expect(testClient.Create(ctx, secretTwo)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, secretTwo)
+
 			// We explicitly use `DeferCleanup` instead of `AfterEach` to ensure that we can have some order when
 			// cleaning up the objects. In particular, we need to delete DPF Operator Config before all the rest of
 			// the objects to ensure that we don't hit race conditions.
@@ -274,6 +282,7 @@ networking:
 
 		It("should successfully deploy the custom OVN Kubernetes", func() {
 			dpfOperatorConfig := getMinimalDPFOperatorConfig(testNS.Name)
+			dpfOperatorConfig.Spec.ImagePullSecrets = []string{"secret-1", "secret-2"}
 			Expect(testClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
 			// DPF Operator creates objects when reconciling the DPFOperatorConfig and we need to ensure that on
 			// deletion of these objects there is no DPFOperatorConfig in the cluster to trigger recreation of those.
@@ -413,6 +422,10 @@ networking:
 						HaveField("Name", "ovnkube-controller"),
 						HaveField("Image", reconciler.Settings.CustomOVNKubernetesNonDPUImage)),
 				))
+				g.Expect(gotDaemonSet.Spec.Template.Spec.ImagePullSecrets).To(ConsistOf([]corev1.LocalObjectReference{
+					{Name: "secret-1"},
+					{Name: "secret-2"},
+				}))
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 
@@ -483,6 +496,7 @@ networking:
 			It("should generate correct object when all expected fields are there", func() {
 				dpfOperatorConfig := getMinimalDPFOperatorConfig("")
 				dpfOperatorConfig.Spec.HostNetworkConfiguration.HostPF0VF0 = "enp75s0f0v0"
+				dpfOperatorConfig.Spec.ImagePullSecrets = []string{"secret-1", "secret-2"}
 				out, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, dpfOperatorConfig, "some-image")
 				Expect(err).ToNot(HaveOccurred())
 
@@ -538,6 +552,10 @@ networking:
 						Expect(c.Image).To(Equal("some-image"))
 					}
 				}
+				Expect(out.Spec.Template.Spec.ImagePullSecrets).To(ConsistOf([]corev1.LocalObjectReference{
+					{Name: "secret-1"},
+					{Name: "secret-2"},
+				}))
 			})
 			It("should error out when label app in selector is not found", func() {
 				originalDaemonset.Spec.Selector.MatchLabels = nil
@@ -765,7 +783,8 @@ networking:
 			})
 			It("should error out when provisioner configmap is not found", func() {
 				By("Copying the dpuCNIProvisionerManifestContent global variable")
-				var dpuCNIProvisionerManifestContentCopy []byte
+				dpuCNIProvisionerManifestContentLength := len(dpuCNIProvisionerManifestContent)
+				dpuCNIProvisionerManifestContentCopy := make([]byte, dpuCNIProvisionerManifestContentLength)
 				copy(dpuCNIProvisionerManifestContentCopy, dpuCNIProvisionerManifestContent)
 
 				dpfOperatorConfig := getMinimalDPFOperatorConfig("")
@@ -808,7 +827,46 @@ spec:
 				Expect(err).To(HaveOccurred())
 
 				By("Reverting dpuCNIProvisionerManifestContent global variable to the original value")
+				dpuCNIProvisionerManifestContent = make([]byte, dpuCNIProvisionerManifestContentLength)
 				copy(dpuCNIProvisionerManifestContent, dpuCNIProvisionerManifestContentCopy)
+			})
+			It("should pass imagePullSecrets specified in DPFOperatorConfig to the DaemonSet", func() {
+				dpfOperatorConfig := getMinimalDPFOperatorConfig("")
+				dpfOperatorConfig.Spec.ImagePullSecrets = []string{"secret-1", "secret-2"}
+
+				clusterConfigContent, err := os.ReadFile("testdata/original/cluster-config-v1-configmap.yaml")
+				Expect(err).ToNot(HaveOccurred())
+				clusterConfigUnstructured, err := utils.BytesToUnstructured(clusterConfigContent)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(clusterConfigUnstructured).To(HaveLen(1))
+				var openshiftClusterConfigMap corev1.ConfigMap
+				err = runtime.DefaultUnstructuredConverter.FromUnstructured(clusterConfigUnstructured[0].Object, &openshiftClusterConfigMap)
+				Expect(err).ToNot(HaveOccurred())
+
+				objects, err := generateDPUCNIProvisionerObjects(dpfOperatorConfig, &openshiftClusterConfigMap)
+				Expect(err).ToNot(HaveOccurred())
+
+				rawObjects, err := utils.BytesToUnstructured(dpuCNIProvisionerManifestContent)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(objects).To(HaveLen(len(rawObjects)))
+
+				var found bool
+				for _, o := range objects {
+					if !(o.GetKind() == "DaemonSet" && o.GetName() == "dpu-cni-provisioner") {
+						continue
+					}
+					var daemonset appsv1.DaemonSet
+					err = runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, &daemonset)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(daemonset.Spec.Template.Spec.ImagePullSecrets).To(ConsistOf([]corev1.LocalObjectReference{
+						{Name: "secret-1"},
+						{Name: "secret-2"},
+					}))
+
+					found = true
+				}
+				Expect(found).To(BeTrue())
 			})
 		})
 		Context("When checking generateHostCNIProvisionerObjects()", func() {
@@ -861,7 +919,8 @@ spec:
 			})
 			It("should error out when configmap is not found", func() {
 				By("Copying the hostCNIProvisionerManifestContent global variable")
-				var hostCNIProvisionerManifestContentCopy []byte
+				hostCNIProvisionerManifestContentLength := len(hostCNIProvisionerManifestContent)
+				hostCNIProvisionerManifestContentCopy := make([]byte, hostCNIProvisionerManifestContentLength)
 				copy(hostCNIProvisionerManifestContentCopy, hostCNIProvisionerManifestContent)
 
 				dpfOperatorConfig := getMinimalDPFOperatorConfig("")
@@ -895,7 +954,33 @@ spec:
 				Expect(err).To(HaveOccurred())
 
 				By("Reverting hostCNIProvisionerManifestContent global variable to the original value")
+				hostCNIProvisionerManifestContent = make([]byte, hostCNIProvisionerManifestContentLength)
 				copy(hostCNIProvisionerManifestContent, hostCNIProvisionerManifestContentCopy)
+			})
+			It("should pass imagePullSecrets specified in DPFOperatorConfig to the DaemonSet", func() {
+				dpfOperatorConfig := getMinimalDPFOperatorConfig("")
+				dpfOperatorConfig.Spec.ImagePullSecrets = []string{"secret-1", "secret-2"}
+
+				objects, err := generateHostCNIProvisionerObjects(dpfOperatorConfig)
+				Expect(err).ToNot(HaveOccurred())
+
+				rawObjects, err := utils.BytesToUnstructured(hostCNIProvisionerManifestContent)
+				Expect(err).ToNot(HaveOccurred())
+
+				Expect(objects).To(HaveLen(len(rawObjects)))
+
+				var found bool
+				for _, o := range objects {
+					if !(o.GetKind() == "DaemonSet" && o.GetName() == "host-cni-provisioner") {
+						continue
+					}
+					var daemonset appsv1.DaemonSet
+					err = runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, &daemonset)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(daemonset.Spec.Template.Spec.ImagePullSecrets).To(ConsistOf([]corev1.LocalObjectReference{{Name: "secret-1"}, {Name: "secret-2"}}))
+					found = true
+				}
+				Expect(found).To(BeTrue())
 			})
 		})
 	})
