@@ -326,6 +326,11 @@ generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. fo
 	cd config/servicechainset/manager && $(KUSTOMIZE) edit set image controller=$(SFCSET_IMAGE):$(TAG)
 	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/servicechain/crds/ \;
 
+.PHONY: generate-manifests-sfc-controller
+generate-manifests-sfc-controller: generate-manifests-sfcset
+	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_servicechains.yaml deploy/helm/sfc-controller/crds/
+	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/sfc-controller/crds/
+
 .PHONY: generate-manifests-dpf-provisioning
 generate-manifests-dpf-provisioning: $(KUSTOMIZE) $(DPF_PROVISIONING_DIR) ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
 	$(KUSTOMIZE) build $(DPF_PROVISIONING_DIR)/config/crd > ./config/dpf-provisioning/crd/bases/crds.yaml
@@ -392,6 +397,7 @@ test-build-and-push-artifacts: $(KUSTOMIZE) ## Build and push DPF artifacts (ima
 	$(MAKE) docker-build-operator-bundle docker-push-operator-bundle; \
 	$(MAKE) docker-build-sfcset docker-push-sfcset
 	$(MAKE) docker-build-dpf-provisioning docker-push-dpf-provisioning
+	$(MAKE) docker-build-sfc-controller docker-push-sfc-controller
 
 	# Build and push all the helm charts
 	$(MAKE) helm-package-all helm-push-all
@@ -455,7 +461,7 @@ verify-copyright: ## Verify copyrights for project files
 	$Q $(CURDIR)/hack/scripts/copyright-validation.sh
 
 .PHONY: lint-helm
-lint-helm: $(HELM) lint-helm-sfcset lint-helm-multus lint-helm-sriov-dp lint-helm-nvidia-k8s-ipam lint-helm-ovs-cni
+lint-helm: $(HELM) lint-helm-sfcset lint-helm-multus lint-helm-sriov-dp lint-helm-nvidia-k8s-ipam lint-helm-ovs-cni lint-helm-sfc-controller
 
 .PHONY: lint-helm-sfcset
 lint-helm-sfcset: $(HELM) ## Run helm lint for sfcset chart 
@@ -476,6 +482,10 @@ lint-helm-nvidia-k8s-ipam: $(HELM) ## Run helm lint for nvidia-k8s-ipam chart
 .PHONY: lint-helm-ovs-cni
 lint-helm-ovs-cni: $(HELM) ## Run helm lint for ovs-cni chart
 	$Q $(HELM) lint $(OVS_CNI_HELM_CHART)
+
+.PHONY: lint-helm-sfc-controller
+lint-helm-sfc-controller: $(HELM)
+	$Q $(HELM) lint $(SFC_CONTOLLER_HELM_CHART)
 
 ##@ Release
 
@@ -526,6 +536,10 @@ binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
 .PHONY: binary-hostcniprovisioner
 binary-hostcniprovisioner: ## Build the Host CNI Provisioner binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/hostcniprovisioner gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/hostcniprovisioner
+
+.PHONY: binary-sfc-controller
+binary-sfc-controller: ## Build the Host CNI Provisioner binary.
+	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/sfc-controller gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/sfc-controller
 
 DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouterd dms dhcrelay
 
@@ -580,6 +594,9 @@ DPUSERVICE_IMAGE ?= $(REGISTRY)/$(DPUSERVICE_IMAGE_NAME)
 DPFPROVISIONING_IMAGE_NAME ?= dpf-provisioning-controller-manager
 export DPFPROVISIONING_IMAGE ?= $(REGISTRY)/$(DPFPROVISIONING_IMAGE_NAME)
 
+SFC_CONTROLLER_IMAGE_NAME ?= sfc-controller-manager
+SFC_CONTROLLER_IMAGE ?= $(REGISTRY)/$(SFC_CONTROLLER_IMAGE_NAME)
+
 ## TODO: Cleanup image building and versioning for dhcrelay, parprouterd and hostnetwork.
 DHCRELAY_VERSION ?= 0.1
 export DHCRELAY_IMAGE ?= $(REGISTRY)/dhcrelay:v$(DHCRELAY_VERSION)
@@ -615,6 +632,18 @@ docker-build-sfcset: ## Build docker images for the sfcset-controller
 		--build-arg package=./cmd/servicechainset \
 		. \
 		-t $(SFCSET_IMAGE):$(TAG)
+
+.PHONY: docker-build-sfc-controller
+docker-build-sfc-controller: ## Build docker images for the sfc-controller
+	docker build \
+		--build-arg builder_image=$(BUILD_IMAGE) \
+		--build-arg base_image=$(BASE_IMAGE) \
+		--build-arg target_arch=$(ARCH) \
+		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
+		--build-arg package=./cmd/sfc-controller \
+		. \
+		-t $(SFC_CONTROLLER_IMAGE):$(TAG)
 
 .PHONY: docker-build-operator
 docker-build-operator: generate-manifests-operator-embedded ## Build docker images for the operator-controller
@@ -707,6 +736,10 @@ docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the 
 .PHONY: docker-push-sfcset
 docker-push-sfcset: ## Push the docker image for sfcset.
 	docker push $(SFCSET_IMAGE):$(TAG)
+
+.PHONY: docker-push-sfc-controller
+docker-push-sfc-controller:
+	docker push $(SFC_CONTROLLER_IMAGE):$(TAG)
 
 .PHONY: docker-push-operator
 docker-push-operator: ## Push the docker image for operator.
@@ -813,6 +846,11 @@ export FLANNEL_HELM_CHART_NAME ?= flannel
 export FLANNEL_VERSION ?= v0.25.1
 FLANNEL_HELM_CHART ?= $(abspath $(CHARTSDIR)/$(FLANNEL_HELM_CHART_NAME)-$(FLANNEL_VERSION).tgz)
 
+## metadata for sfc-controller.
+export SFC_CONTOLLER_HELM_CHART_NAME = sfc-controller
+SFC_CONTOLLER_HELM_CHART ?= $(HELMDIR)/$(SFC_CONTOLLER_HELM_CHART_NAME)
+SFC_CONTOLLER_HELM_CHART_VER ?= $(TAG)
+
 .PHONY: helm-package-all
 helm-package-all: $(addprefix helm-package-,$(HELM_TARGETS))  ## Package the helm charts for all components.
 
@@ -839,6 +877,10 @@ helm-package-flannel: $(CHARTSDIR) $(HELM) ## Package helm chart for flannel CNI
 .PHONY: helm-package-ovs-cni 
 helm-package-ovs-cni: $(CHARTSDIR) $(HELM) ## Package helm chart for OVS CNI
 	$(HELM) package $(OVS_CNI_HELM_CHART) --version $(OVS_CNI_HELM_CHART_VER) --destination $(CHARTSDIR)
+
+.PHONY: helm-package-sfc-controller
+helm-package-sfc-controller: $(CHARTSDIR) $(HELM)
+	$(HELM) package $(SFC_CONTOLLER_HELM_CHART) --version $(SFC_CONTOLLER_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 helm-cm-push: $(HELM)
 	# installs the helm chartmuseum push plugin which is used to push to NGC.
@@ -872,6 +914,10 @@ helm-push-flannel: $(CHARTSDIR) helm-cm-push ## Push helm chart for flannel CNI
 helm-push-ovs-cni: $(CHARTSDIR) helm-cm-push ## Push helm chart for OVS CNI
 	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(OVS_CNI_HELM_CHART_NAME)-$(OVS_CNI_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
+.PHONY: helm-push-sfc-controller
+helm-push-sfc-controller: $(CHARTSDIR) helm-cm-push ## Push helm chart for nvidia-k8s-ipam
+	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS) $(CHARTSDIR)/$(SFC_CONTOLLER_HELM_CHART)-$(SFC_CONTOLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+
 ##@ Development Environment
 
 DEV_CLUSTER_NAME ?= dpf-dev
@@ -881,7 +927,7 @@ dev-minikube: $(MINIKUBE) ## Create a minikube cluster for development.
 clean-minikube: $(MINIKUBE)  ## Delete the development minikube cluster.
 	$(MINIKUBE) delete -p $(DEV_CLUSTER_NAME)
 
-dev-prereqs-dpuservice: ## Install pre-requisites for dpuservice controller on minikube dev cluster
+dev-prereqs-dpuservice: $(KUSTOMIZE) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(HELM) $(KAMAJI) ## Install pre-requisites for dpuservice controller on minikube dev cluster
 	# Deploy the dpuservice CRD
 	$(KUSTOMIZE) build config/dpuservice/crd | $(KUBECTL) apply -f -
 
