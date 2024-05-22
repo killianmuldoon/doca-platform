@@ -1,0 +1,12 @@
+apiVersion: "sfc.dpf.nvidia.com/v1alpha1"
+kind: ServiceInterface
+metadata:
+  name: ovn
+  namespace: default
+spec:
+  metadata:
+    labels:
+      uplink: "port0"
+  spec:
+    interfaceType: ovn
+
