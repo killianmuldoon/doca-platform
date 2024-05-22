@@ -177,6 +177,7 @@ func getVariablesFromConfig(config *operatorv1.DPFOperatorConfig) inventory.Vari
 		DPFProvisioningController: inventory.DPFProvisioningVariables{
 			BFBPersistentVolumeClaimName: config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName,
 			ImagePullSecret:              config.Spec.ProvisioningConfiguration.ImagePullSecret,
+			DHCP:                         config.Spec.ProvisioningConfiguration.DHCPServerAddress,
 		},
 		DisableSystemComponents: disableComponents,
 	}

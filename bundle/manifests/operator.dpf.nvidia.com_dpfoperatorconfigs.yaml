@@ -141,10 +141,15 @@ spec:
                     description: BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim
                       used by dpf-provisioning-controller
                     type: string
+                  dhcpServerAddress:
+                    description: DHCPServerAddress is the address of the DHCP server
+                      that allocates IP for DPU
+                    type: string
                   imagePullSecret:
                     type: string
                 required:
                 - bfbPVCName
+                - dhcpServerAddress
                 - imagePullSecret
                 type: object
             required:

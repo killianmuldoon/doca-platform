@@ -92,6 +92,8 @@ type ProvisioningConfiguration struct {
 	// BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim used by dpf-provisioning-controller
 	BFBPersistentVolumeClaimName string `json:"bfbPVCName"`
 	ImagePullSecret              string `json:"imagePullSecret"`
+	// DHCPServerAddress is the address of the DHCP server that allocates IP for DPU
+	DHCPServerAddress string `json:"dhcpServerAddress"`
 }
 
 // DPFOperatorConfigStatus defines the observed state of DPFOperatorConfig

@@ -19,6 +19,7 @@ package inventory
 import (
 	_ "embed"
 	"fmt"
+	"net"
 	"strings"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
@@ -117,6 +118,7 @@ func (p *dpfProvisioningControllerObjects) GenerateManifests(vars Variables) ([]
 		p.setImagePullSecret,
 		p.setComponentLabel,
 		p.setDefaultImageNames,
+		p.setDHCP,
 	}
 	for _, mod := range mods {
 		if err := mod(deploy, vars); err != nil {
@@ -169,17 +171,16 @@ func (p *dpfProvisioningControllerObjects) validateDeployment() error {
 	if vol == nil {
 		return fmt.Errorf("invalid Provisioning Controller deployment, no bfb volume found")
 	}
-	c := p.getContainer(p.deployment, dpfProvisioningControllerContainerName)
+	c := p.getContainer(p.deployment)
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
 	}
 	return nil
 }
 
-//nolint:unparam
-func (p *dpfProvisioningControllerObjects) getContainer(deploy *appsv1.Deployment, name string) *corev1.Container {
+func (p *dpfProvisioningControllerObjects) getContainer(deploy *appsv1.Deployment) *corev1.Container {
 	for i, c := range deploy.Spec.Template.Spec.Containers {
-		if c.Name == name {
+		if c.Name == dpfProvisioningControllerContainerName {
 			return &deploy.Spec.Template.Spec.Containers[i]
 		}
 	}
@@ -204,7 +205,7 @@ func (p *dpfProvisioningControllerObjects) setBFBPersistentVolumeClaim(deploy *a
 		return fmt.Errorf("error while generating Deployment for Provisioning Controller: no bfb volume found")
 	}
 	vol.PersistentVolumeClaim.ClaimName = vars.DPFProvisioningController.BFBPersistentVolumeClaimName
-	c := p.getContainer(deploy, dpfProvisioningControllerContainerName)
+	c := p.getContainer(deploy)
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
 	}
@@ -216,11 +217,22 @@ func (p *dpfProvisioningControllerObjects) setImagePullSecret(deploy *appsv1.Dep
 		return fmt.Errorf("empty imagePullSecret")
 	}
 	deploy.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: vars.DPFProvisioningController.ImagePullSecret}}
-	c := p.getContainer(deploy, dpfProvisioningControllerContainerName)
+	c := p.getContainer(deploy)
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
 	}
 	return p.setFlags(c, fmt.Sprintf("--image-pull-secret=%s", vars.DPFProvisioningController.ImagePullSecret))
+}
+
+func (p *dpfProvisioningControllerObjects) setDHCP(deploy *appsv1.Deployment, vars Variables) error {
+	if ip := net.ParseIP(vars.DPFProvisioningController.DHCP); ip == nil {
+		return fmt.Errorf("invalid dhcp")
+	}
+	c := p.getContainer(deploy)
+	if c == nil {
+		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
+	}
+	return p.setFlags(c, fmt.Sprintf("--dhcp=%s", vars.DPFProvisioningController.DHCP))
 }
 
 func (p *dpfProvisioningControllerObjects) setFlags(c *corev1.Container, newFlags ...string) error {
@@ -271,7 +283,7 @@ func (p *dpfProvisioningControllerObjects) parseFlagName(arg string) string {
 }
 
 func (p *dpfProvisioningControllerObjects) setDefaultImageNames(deployment *appsv1.Deployment, _ Variables) error {
-	c := p.getContainer(deployment, dpfProvisioningControllerContainerName)
+	c := p.getContainer(deployment)
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
 	}

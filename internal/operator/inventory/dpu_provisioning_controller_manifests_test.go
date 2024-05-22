@@ -189,6 +189,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			DPFProvisioningController: DPFProvisioningVariables{
 				BFBPersistentVolumeClaimName: " ",
 				ImagePullSecret:              "secret",
+				DHCP:                         "192.168.1.1",
 			},
 		}
 		_, err := provCtrl.GenerateManifests(vars)
@@ -200,6 +201,30 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			DPFProvisioningController: DPFProvisioningVariables{
 				BFBPersistentVolumeClaimName: "pvc",
 				ImagePullSecret:              " ",
+				DHCP:                         "192.168.1.1",
+			},
+		}
+		_, err := provCtrl.GenerateManifests(vars)
+		NewGomegaWithT(t).Expect(err).To(HaveOccurred())
+	})
+
+	t.Run("fail if empty dhcp", func(t *testing.T) {
+		vars := Variables{
+			DPFProvisioningController: DPFProvisioningVariables{
+				BFBPersistentVolumeClaimName: "pvc",
+				ImagePullSecret:              "secret",
+			},
+		}
+		_, err := provCtrl.GenerateManifests(vars)
+		NewGomegaWithT(t).Expect(err).To(HaveOccurred())
+	})
+
+	t.Run("fail if invalid dhcp", func(t *testing.T) {
+		vars := Variables{
+			DPFProvisioningController: DPFProvisioningVariables{
+				BFBPersistentVolumeClaimName: "pvc",
+				ImagePullSecret:              "secret",
+				DHCP:                         "invalid ip",
 			},
 		}
 		_, err := provCtrl.GenerateManifests(vars)
@@ -214,6 +239,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			DPFProvisioningController: DPFProvisioningVariables{
 				BFBPersistentVolumeClaimName: "pvc",
 				ImagePullSecret:              "some-secret",
+				DHCP:                         "192.168.1.1",
 			},
 		}
 		objs, err := provCtrl.GenerateManifests(vars)
@@ -291,11 +317,13 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		g := NewGomegaWithT(t)
 		expectedPVC := "foo-test-pvc"
 		expectedImagePullSecret := "foo-test-image-pull-secret"
+		expectedDHCP := "192.169.1.1"
 		vars := Variables{
 			Namespace: "foo",
 			DPFProvisioningController: DPFProvisioningVariables{
 				BFBPersistentVolumeClaimName: expectedPVC,
 				ImagePullSecret:              expectedImagePullSecret,
+				DHCP:                         expectedDHCP,
 			},
 		}
 		generatedObjs, err := provCtrl.GenerateManifests(vars)
@@ -354,7 +382,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			"--parprouterd-image=nvidia.com/parprouterd:v0.1",
 			fmt.Sprintf("--image-pull-secret=%s", expectedImagePullSecret),
 			fmt.Sprintf("--bfb-pvc=%s", expectedPVC),
-			"--dhcp=10.211.0.124",
+			fmt.Sprintf("--dhcp=%s", expectedDHCP),
 		}
 		g.Expect(gotDeployment.Spec.Template.Spec.Containers).To(HaveLen(1))
 		for i, ea := range expectedArgs {

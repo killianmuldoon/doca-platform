@@ -110,6 +110,7 @@ func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
 				BFBPersistentVolumeClaimName: "foo-pvc",
 				ImagePullSecret:              "foo-image-pull-secret",
+				DHCPServerAddress:            "192.168.1.1",
 			},
 		},
 	}
