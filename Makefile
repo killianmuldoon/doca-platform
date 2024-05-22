@@ -309,6 +309,7 @@ generate-manifests-operator-embedded: $(ENVSUBST)  generate-manifests-dpucniprov
 	$(ENVSUBST) < $(TEMPLATES_DIR)/sriov-device-plugin.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/sriov-device-plugin.yaml
 	$(ENVSUBST) < $(TEMPLATES_DIR)/flannel.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/flannel.yaml
 	$(ENVSUBST) < $(TEMPLATES_DIR)/nv-k8s-ipam.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/nv-k8s-ipam.yaml
+	$(ENVSUBST) < $(TEMPLATES_DIR)/ovs-cni.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/ovs-cni.yaml
 
 
 .PHONY: generate-manifests-sfcset
@@ -473,7 +474,7 @@ lint-helm-nvidia-k8s-ipam: $(HELM) ## Run helm lint for nvidia-k8s-ipam chart
 	$Q $(HELM) lint $(NVIDIA_K8S_IPAM_HELM_CHART)
 
 .PHONY: lint-helm-ovs-cni
-lint-helm-ovs-cni: $(HELM)
+lint-helm-ovs-cni: $(HELM) ## Run helm lint for ovs-cni chart
 	$Q $(HELM) lint $(OVS_CNI_HELM_CHART)
 
 ##@ Release
@@ -835,8 +836,8 @@ helm-package-nvidia-k8s-ipam: $(CHARTSDIR) $(HELM) ## Package helm chart for nvi
 helm-package-flannel: $(CHARTSDIR) $(HELM) ## Package helm chart for flannel CNI
 	$Q curl -v -fSsL https://github.com/flannel-io/flannel/releases/download/$(FLANNEL_VERSION)/flannel.tgz -o $(FLANNEL_HELM_CHART)
 
-.PHONY: helm-package-ovs-cni
-helm-package-ovs-cni: $(CHARTSDIR) $(HELM)
+.PHONY: helm-package-ovs-cni 
+helm-package-ovs-cni: $(CHARTSDIR) $(HELM) ## Package helm chart for OVS CNI
 	$(HELM) package $(OVS_CNI_HELM_CHART) --version $(OVS_CNI_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 helm-cm-push: $(HELM)
@@ -868,7 +869,7 @@ helm-push-flannel: $(CHARTSDIR) helm-cm-push ## Push helm chart for flannel CNI
 	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(FLANNEL_HELM_CHART_NAME)-$(FLANNEL_VERSION).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-ovs-cni
-helm-push-ovs-cni: $(CHARTSDIR) helm-cm-push
+helm-push-ovs-cni: $(CHARTSDIR) helm-cm-push ## Push helm chart for OVS CNI
 	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(OVS_CNI_HELM_CHART_NAME)-$(OVS_CNI_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 ##@ Development Environment
