@@ -385,7 +385,7 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 	kubectl wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
 
 	# Deploy Kamaji as the underlying control plane provider.
-	$Q $(HELM) upgrade --install kamaji $(KAMAJI)
+	$Q $(HELM) upgrade --set image.pullPolicy=IfNotPresent --set cfssl.image.tag=v1.6.5 --install kamaji $(KAMAJI)
 
 
 .PHONY: test-build-and-push-artifacts
@@ -939,7 +939,7 @@ dev-prereqs-dpuservice: $(KUSTOMIZE) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(HELM)
 	# Deploy argoCD as the underlying application provider.
 	$Q kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f - && kubectl apply -f $(ARGOCD_YAML)
 
-	$Q $(HELM) upgrade --install kamaji $(KAMAJI)
+	$Q $(HELM) upgrade --set image.pullPolicy=IfNotPresent --set cfssl.image.tag=v1.6.5 --install kamaji $(KAMAJI)
 
 SKAFFOLD_REGISTRY=localhost:5000
 dev-dpuservice: $(MINIKUBE) $(SKAFFOLD) ## Deploy dpuservice controller to dev cluster using skaffold
