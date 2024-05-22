@@ -207,6 +207,7 @@ func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Cont
 	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.Multus, vars))
 	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.Flannel, vars))
 	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.NvIPAM, vars))
+	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.OvsCni, vars))
 
 	return kerrors.NewAggregate(errs)
 }

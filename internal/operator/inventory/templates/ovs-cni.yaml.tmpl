@@ -1,0 +1,10 @@
+apiVersion: svc.dpf.nvidia.com/v1alpha1
+kind: DPUService
+metadata:
+  name: ovs-cni
+  namespace: dpf-operator-system
+spec:
+  source:
+    repoURL: ${REGISTRY}
+    chart: ${OVS_CNI_HELM_CHART_NAME}
+    version: ${TAG}

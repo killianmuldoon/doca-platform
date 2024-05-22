@@ -181,6 +181,31 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 			}),
 			wantErr: true,
 		},
+		// ovs-cni
+		{
+			name: "fail if ovs-cni data is nil",
+			inventory: New().setOvsCni(fromDPUService{
+				name: "ovs-cni",
+				data: nil,
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if ovs-cni data has an unexpected object",
+			inventory: New().setOvsCni(fromDPUService{
+				name: "ovs-cni",
+				data: addUnexpectedKindToObjects(g, ovsCniData),
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if ovs-cni is missing the DPUService",
+			inventory: New().setOvsCni(fromDPUService{
+				name: "ovs-cni",
+				data: removeKindFromObjects(g, "DPUService", ovsCniData),
+			}),
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
