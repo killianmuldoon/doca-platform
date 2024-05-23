@@ -1,0 +1,2 @@
+resources:
+- ovn_v1alpha1_dpfovnkubernetesoperatorconfig.yaml

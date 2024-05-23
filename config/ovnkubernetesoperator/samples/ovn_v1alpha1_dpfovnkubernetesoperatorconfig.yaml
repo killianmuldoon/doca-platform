@@ -1,0 +1,12 @@
+apiVersion: ovn.dpf.nvidia.com/v1alpha1
+kind: DPFOVNKubernetesOperatorConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: dpfovnkubernetesoperatorconfig
+    app.kubernetes.io/instance: dpfovnkubernetesoperatorconfig-sample
+    app.kubernetes.io/part-of: dpf-operator
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: dpf-operator
+  name: dpfovnkubernetesoperatorconfig-sample
+spec:
+  # TODO(user): Add fields here

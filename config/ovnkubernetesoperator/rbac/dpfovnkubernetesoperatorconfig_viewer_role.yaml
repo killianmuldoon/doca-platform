@@ -1,0 +1,27 @@
+# permissions for end users to view dpfovnkubernetesoperatorconfigs.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: dpfovnkubernetesoperatorconfig-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: dpf-operator
+    app.kubernetes.io/part-of: dpf-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: dpfovnkubernetesoperatorconfig-viewer-role
+rules:
+- apiGroups:
+  - ovn.dpf.nvidia.com
+  resources:
+  - dpfovnkubernetesoperatorconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ovn.dpf.nvidia.com
+  resources:
+  - dpfovnkubernetesoperatorconfigs/status
+  verbs:
+  - get
