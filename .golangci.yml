@@ -46,10 +46,14 @@ linters-settings:
         alias: sfcv1
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/controlplane/v1alpha1
         alias: controlplanev1
-      - pkg:  gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1
+      - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1
         alias: dpuservicev1
+      - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/ovnkubernetesoperator/v1alpha1
+        alias: ovnkubernetesoperatorv1
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/controllers
         alias: operatorcontroller
+      - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/ovnkubernetesoperator/controllers
+        alias: ovnkubernetesoperatorcontroller
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/servicechainset/controllers
         alias: sfcsetcontroller        
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/controllers

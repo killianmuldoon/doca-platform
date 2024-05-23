@@ -235,7 +235,7 @@ $(OPERATOR_SDK): | $(TOOLSDIR)
 	$Q chmod +x $(OPERATOR_SDK)
 
 ##@ Development
-GENERATE_TARGETS ?= operator dpuservice hostcniprovisioner dpucniprovisioner sfcset operator-embedded
+GENERATE_TARGETS ?= operator dpuservice hostcniprovisioner dpucniprovisioner sfcset operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded sfc-controller
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -266,6 +266,19 @@ generate-manifests-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manifest
 	output:crd:dir=./config/operator/crd/bases \
 	output:rbac:dir=./config/operator/rbac
 	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
+
+.PHONY: generate-manifests-ovnkubernetes-operator
+generate-manifests-ovnkubernetes-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes operator controller.
+	$(MAKE) clean-generated-yaml SRC_DIRS="./config/ovnkubernetesoperator/crd/bases"
+	$(CONTROLLER_GEN) \
+	paths="./cmd/ovnkubernetesoperator/..." \
+	paths="./internal/ovnkubernetesoperator/..." \
+	paths="./api/ovnkubernetesoperator/..." \
+	crd:crdVersions=v1 \
+	rbac:roleName=manager-role \
+	output:crd:dir=./config/ovnkubernetesoperator/crd/bases \
+	output:rbac:dir=./config/ovnkubernetesoperator/rbac
+	cd config/ovnkubernetesoperator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-dpuservice
 generate-manifests-dpuservice: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
@@ -311,6 +324,10 @@ generate-manifests-operator-embedded: $(ENVSUBST)  generate-manifests-dpucniprov
 	$(ENVSUBST) < $(TEMPLATES_DIR)/nv-k8s-ipam.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/nv-k8s-ipam.yaml
 	$(ENVSUBST) < $(TEMPLATES_DIR)/ovs-cni.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/ovs-cni.yaml
 
+.PHONY: generate-manifests-ovnkubernetes-operator-embedded
+generate-manifests-ovnkubernetes-operator-embedded: generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner ## Generates manifests that are embedded into the OVN Kubernetes Operator binary.
+	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/ovnkubernetesoperator/controllers/manifests/hostcniprovisioner.yaml
+	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/ovnkubernetesoperator/controllers/manifests/dpucniprovisioner.yaml
 
 .PHONY: generate-manifests-sfcset
 generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. for the sfcset controller.
@@ -464,15 +481,15 @@ verify-copyright: ## Verify copyrights for project files
 lint-helm: $(HELM) lint-helm-sfcset lint-helm-multus lint-helm-sriov-dp lint-helm-nvidia-k8s-ipam lint-helm-ovs-cni lint-helm-sfc-controller
 
 .PHONY: lint-helm-sfcset
-lint-helm-sfcset: $(HELM) ## Run helm lint for sfcset chart 
+lint-helm-sfcset: $(HELM) ## Run helm lint for sfcset chart
 	$Q $(HELM) lint $(SERVICECHAIN_CONTROLLER_HELM_CHART)
 
 .PHONY: lint-helm-multus
-lint-helm-multus: $(HELM) ## Run helm lint for multus chart 
+lint-helm-multus: $(HELM) ## Run helm lint for multus chart
 	$Q $(HELM) lint $(MULTUS_HELM_CHART)
 
 .PHONY: lint-helm-sriov-dp
-lint-helm-sriov-dp: $(HELM) ## Run helm lint for sriov device plugin chart 
+lint-helm-sriov-dp: $(HELM) ## Run helm lint for sriov device plugin chart
 	$Q $(HELM) lint $(SRIOV_DP_HELM_CHART)
 
 .PHONY: lint-helm-nvidia-k8s-ipam
@@ -498,7 +515,7 @@ release: generate
 
 GO_GCFLAGS=""
 GO_LDFLAGS="-extldflags '-static'"
-BUILD_TARGETS ?= operator dpuservice dpucniprovisioner hostcniprovisioner sfcset
+BUILD_TARGETS ?= operator dpuservice dpucniprovisioner hostcniprovisioner sfcset ovnkubernetes-operator
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
 # The BUNDLE_VERSION is the same as the TAG but the first character is stripped. This is used to strip a leading `v` which is invalid for Bundle versions.
@@ -541,7 +558,11 @@ binary-hostcniprovisioner: ## Build the Host CNI Provisioner binary.
 binary-sfc-controller: ## Build the Host CNI Provisioner binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/sfc-controller gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/sfc-controller
 
-DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouterd dms dhcrelay
+.PHONY: binary-ovnkubernetes-operator
+binary-binary-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-embedded ## Build the OVN Kubernetes operator.
+	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ovnkubernetesoperator gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/ovnkubernetesoperator
+
+DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouterd dms dhcrelay ovnkubernetes-operator sfc-controller
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS
@@ -620,6 +641,9 @@ OPERATOR_BUNDLE_IMAGE ?= $(OPERATOR_BUNDLE_REGISTRY)/$(OPERATOR_BUNDLE_NAME)
 # Images that are running on DPU worker nodes (arm64)
 DPUCNIPROVISIONER_IMAGE_NAME ?= dpu-cni-provisioner
 DPUCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(DPUCNIPROVISIONER_IMAGE_NAME)
+
+DPFOVNKUBERNETESOPERATOR_IMAGE_NAME ?= dpf-ovn-kubernetes-operator-controller-manager
+DPFOVNKUBERNETESOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOVNKUBERNETESOPERATOR_IMAGE_NAME)
 
 .PHONY: docker-build-sfcset
 docker-build-sfcset: ## Build docker images for the sfcset-controller
@@ -730,6 +754,18 @@ docker-build-ovnkubernetes-non-dpu: $(OVNKUBERNETES_DIR) $(OVN_DIR) ## Builds th
 		. \
 		-t $(OVNKUBERNETES_NON_DPU_IMAGE):$(TAG)
 
+.PHONY: docker-build-ovnkubernetes-operator
+docker-build-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-embedded ## Build docker images for the operator-controller
+	docker build \
+		--build-arg builder_image=$(BUILD_IMAGE) \
+		--build-arg base_image=$(BASE_IMAGE) \
+		--build-arg target_arch=$(ARCH) \
+		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
+		--build-arg package=./cmd/ovnkubernetesoperator \
+		. \
+		-t $(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
+
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the docker images for all DOCKER_BUILD_TARGETS.
 
@@ -810,6 +846,10 @@ docker-build-operator-bundle: generate-operator-bundle
 .PHONY: docker-push-operator-bundle # Push the docker image for the Operator bundle. Not included in docker-build-all.
 docker-push-operator-bundle: ## Push the bundle image.
 	docker push $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
+
+.PHONY: docker-push-ovnkubernetes-operator
+docker-push-ovnkubernetes-operator: ## Push the docker image for the OVN Kubernetes operator.
+	docker push $(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
 
 # helm charts
 
