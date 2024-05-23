@@ -28,7 +28,7 @@ import (
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	operatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/controllers"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/inventory"
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/release"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/release"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"

@@ -26,13 +26,13 @@ import (
 //go:embed manifests/defaults.yaml
 var defaultsContent []byte
 
-// Defaults structure contains the default artifacts that the operator is using
+// Defaults structure contains the default artifacts that the operators should deploy
 type Defaults struct {
-	// CustomOVNKubernetesDPUImage is the default custom OVN Kubernetes image deployed by the operator to the DPU
+	// CustomOVNKubernetesDPUImage is the default custom OVN Kubernetes image that should be deployed to the DPU
 	// enabled workers.
 	CustomOVNKubernetesDPUImage string `yaml:"customOVNKubernetesDPUImage"`
-	// CustomOVNKubernetesNonDPUImage is the default custom OVN Kubernetes image deployed by the operator to the
-	// non DPU nodes.
+	// CustomOVNKubernetesNonDPUImage is the default custom OVN Kubernetes image that should be deployed to the non DPU
+	// nodes.
 	CustomOVNKubernetesNonDPUImage string `yaml:"customOVNKubernetesNonDPUImage"`
 	// dmsImagemage is the DMS image
 	DMSImage              string `yaml:"dmsImage"`

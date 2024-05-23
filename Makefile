@@ -235,7 +235,7 @@ $(OPERATOR_SDK): | $(TOOLSDIR)
 	$Q chmod +x $(OPERATOR_SDK)
 
 ##@ Development
-GENERATE_TARGETS ?= operator dpuservice hostcniprovisioner dpucniprovisioner sfcset operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded sfc-controller
+GENERATE_TARGETS ?= operator dpuservice hostcniprovisioner dpucniprovisioner sfcset operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded sfc-controller release-defaults
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -307,11 +307,14 @@ generate-manifests-hostcniprovisioner: $(KUSTOMIZE) ## Generates Host CNI provis
 generate-manifests-provisioning: $(DPF_PROVISIONING_DIR) ## Generate DPU Provisioning manifests
 	$(MAKE) IMG=$(DPFPROVISIONING_IMAGE):$(TAG) -C $(DPF_PROVISIONING_DIR) kustomize-build
 
+.PHONY: generate-manifests-release-defaults
+generate-manifests-release-defaults: $(ENVSUBST) ## Generates manifests that contain the default values that should be used by the operators
+	$(ENVSUBST) < ./internal/release/templates/defaults.yaml.tmpl > ./internal/release/manifests/defaults.yaml
+
 TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 .PHONY: generate-manifests-operator-embedded
-generate-manifests-operator-embedded: $(ENVSUBST)  generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice generate-manifests-provisioning ## Generates manifests that are embedded into the operator binary.
-	$(ENVSUBST) < ./internal/operator/release/templates/defaults.yaml.tmpl > ./internal/operator/release/manifests/defaults.yaml
+generate-manifests-operator-embedded: $(ENVSUBST)  generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults ## Generates manifests that are embedded into the operator binary.
 	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/operator/controllers/manifests/hostcniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/operator/controllers/manifests/dpucniprovisioner.yaml
 	cp $(DPF_PROVISIONING_DIR)/output/deploy.yaml ./internal/operator/inventory/manifests/dpf-provisioning-controller.yaml
