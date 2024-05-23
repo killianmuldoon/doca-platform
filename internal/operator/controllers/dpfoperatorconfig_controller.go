@@ -180,7 +180,6 @@ func getVariablesFromConfig(config *operatorv1.DPFOperatorConfig) inventory.Vari
 			DHCP:                         config.Spec.ProvisioningConfiguration.DHCPServerAddress,
 		},
 		DisableSystemComponents: disableComponents,
-		ImagePullSecrets:        config.Spec.ImagePullSecrets,
 	}
 }
 

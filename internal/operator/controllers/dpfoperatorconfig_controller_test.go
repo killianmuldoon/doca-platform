@@ -17,7 +17,6 @@ limitations under the License.
 package controller
 
 import (
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -158,7 +157,6 @@ var _ = Describe("DPFOperatorConfig Controller - Reconcile System Components", f
 		It("reconciles the DPFOperatorConfig and deploys the system components when unpaused", func() {
 			By("unpausing the DPFOperatorConfig")
 			config := getMinimalDPFOperatorConfig(testNS.Name)
-			config.Spec.ImagePullSecrets = []string{"pull-secret-1", "pull-secret-1"}
 
 			// Patch the DPFOperatorConfig to remove `spec.paused`
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
@@ -218,11 +216,6 @@ func waitForDPUService(ns, name string) {
 			Namespace: ns,
 			Name:      name},
 			dpuservice)).To(Succeed())
-		var result map[string][]string
-		err := json.Unmarshal(dpuservice.Spec.Values.Raw, &result)
-		g.Expect(err).ShouldNot(HaveOccurred())
-		values := map[string][]string{"imagePullSecrets": {"secret-one", "secret-two"}}
-		g.Expect(result).To(BeEquivalentTo(values))
 	}).WithTimeout(30 * time.Second).Should(Succeed())
 }
 
