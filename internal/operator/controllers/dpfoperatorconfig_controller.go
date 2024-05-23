@@ -192,6 +192,7 @@ func getVariablesFromConfig(config *operatorv1.DPFOperatorConfig) inventory.Vari
 // 5. Multus DPUService
 // 6. Flannel DPUService
 // 7. NVIDIA Kubernetes IPAM
+// 8. OVS CNI
 func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
 	var errs []error
 	vars := getVariablesFromConfig(config)

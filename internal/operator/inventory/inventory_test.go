@@ -366,6 +366,21 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			wantErr:         false,
 			expectedMissing: "DPUServiceController",
 		},
+		{
+			name: "Disable ovs-cni manifests",
+			vars: Variables{
+				DPFProvisioningController: DPFProvisioningVariables{
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					ImagePullSecret:              "secret",
+					DHCP:                         "192.168.1.1",
+				},
+				DisableSystemComponents: map[string]bool{
+					"ovs-cni": true,
+				},
+			},
+			wantErr:         false,
+			expectedMissing: "ovs-cni",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
