@@ -1,4 +1,4 @@
-image: golang:1.22.1
+image: golang:1.22
 
 workflow:
   # This variable can be defined where the job is triggered. e.g. the pipeline schedule in the gitlab UI

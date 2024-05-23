@@ -37,7 +37,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-GO_VERSION ?= 1.22.1
+GO_VERSION ?= 1.22
 
 # CONTAINER_TOOL defines the container tool to be used for building images.
 # Be aware that the target commands are only tested with Docker which is
