@@ -17,7 +17,7 @@ profiles:
               GCFLAGS: "all=-N -l"
               target_arch: "arm64"
               package: ./cmd/dpuservice
-              builder_image: golang:1.22.1
+              builder_image: golang:1.22
               base_image: gcr.io/distroless/static:nonroot
             dockerfile: Dockerfile
     manifests:
@@ -47,7 +47,7 @@ profiles:
               ldflags: "-extldflags '-static'"
               target_arch: "arm64"
               package: ./cmd/operator
-              builder_image: golang:1.22.1
+              builder_image: golang:1.22
               base_image: gcr.io/distroless/static:nonroot
             dockerfile: Dockerfile
     manifests:
