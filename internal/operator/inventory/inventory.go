@@ -35,7 +35,6 @@ type Variables struct {
 	Namespace                 string
 	DPFProvisioningController DPFProvisioningVariables
 	DisableSystemComponents   map[string]bool
-	ImagePullSecrets          []string
 }
 
 type DPFProvisioningVariables struct {
