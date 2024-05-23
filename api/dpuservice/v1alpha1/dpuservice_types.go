@@ -29,6 +29,8 @@ var (
 	DPUServiceNamespaceLabelKey = "dpf.nvidia.com/dpuservice-namespace"
 	// DPFImagePullSecretLabelKey marks a secret as being an ImagePullSecret used by DPF which should be mirrored to DPUClusters.
 	DPFImagePullSecretLabelKey = "dpf.nvidia.com/image-pull-secret"
+	// HostDPUServiceAnnotationKey marks a DPUService to target the cluster the ArgoCD controller is running in.
+	HostDPUServiceAnnotationKey = "dpf.nvidia.com/host-dpu-service"
 )
 
 //+kubebuilder:object:root=true

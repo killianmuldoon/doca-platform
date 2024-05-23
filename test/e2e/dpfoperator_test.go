@@ -36,6 +36,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -50,6 +51,7 @@ var (
 var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 	// TODO: Consolidate all the DPUService* objects in one namespace to illustrate user behavior
 	dpuServiceName := "dpu-01"
+	hostDPUServiceName := "host-dpu-service"
 	dpuServiceNamespace := "default"
 	dpuServiceInterfaceName := "pf0-vf2"
 	dpuServiceInterfaceNamespace := "test"
@@ -102,6 +104,18 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}
 			// TODO: This cleanup isn't good enough to clean the system correctly. Need to ensure the DPFOperatorConfig is cleaned up first.
 			By("cleaning up objects created during the test", func() {
+
+				// Explicitly remove finalizers from provisioning objects as deletion is not implemented.
+				for _, kind := range []string{"bfb", "dpu", "dpuset"} {
+					obj := &unstructured.Unstructured{}
+					obj.SetKind(kind)
+					obj.SetAPIVersion("provisioning.dpf.nvidia.com/v1alpha1")
+					obj.SetName("provisioning-object")
+					obj.SetNamespace(dpfOperatorSystemNamespace)
+					Expect(testClient.Patch(ctx, obj, client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`)))).To(Succeed())
+					cleanupObjs = append(cleanupObjs, obj)
+				}
+
 				for _, object := range cleanupObjs {
 					if err := testClient.Delete(ctx, object); err != nil && !apierrors.IsNotFound(err) {
 						Expect(err).ToNot(HaveOccurred())
@@ -355,16 +369,21 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}).WithTimeout(300 * time.Second).Should(Succeed())
 		})
 
-		It("create a DPUService and check Objects and ImagePullSecrets are mirrored to each cluster", func() {
-			// Read the DPUService from file and create it.
-			data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuservice.yaml"))
-			Expect(err).ToNot(HaveOccurred())
-			dpuService := &unstructured.Unstructured{}
-			Expect(yaml.Unmarshal(data, dpuService)).To(Succeed())
-			dpuService.SetName(dpuServiceName)
-			dpuService.SetNamespace(dpuServiceNamespace)
+		It("create a DPUService and check Objects and ImagePullSecrets are mirrored correctly", func() {
+			By("create a DPUService to be deployed on the DPUCluster")
+			// Create DPUCluster DPUService and check it's correctly reconciled.
+			dpuService := getDPUService(dpuServiceNamespace, dpuServiceName, false)
 			Expect(testClient.Create(ctx, dpuService)).To(Succeed())
 			cleanupObjs = append(cleanupObjs, dpuService)
+
+			By("create a DPUService to be deployed on the host cluster")
+			// Create a host DPUService and check it's correctly reconciled
+			// Read the DPUService from file and create it.
+			hostDPUService := getDPUService(dpuServiceNamespace, hostDPUServiceName, true)
+			Expect(testClient.Create(ctx, hostDPUService)).To(Succeed())
+			cleanupObjs = append(cleanupObjs, hostDPUService)
+
+			By("verify DPUServices and deployments are created")
 			Eventually(func(g Gomega) {
 				dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
 				g.Expect(err).ToNot(HaveOccurred())
@@ -384,13 +403,29 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 						Name:      config.Spec.ImagePullSecrets[0]}, &corev1.Secret{})).To(Succeed())
 				}
 			}).WithTimeout(180 * time.Second).Should(Succeed())
+
+			By("verify DPUService is created in the host cluster")
+			Eventually(func(g Gomega) {
+				// Check the deployment from the DPUService can be found on the host cluster.
+				deploymentList := appsv1.DeploymentList{}
+				g.Expect(testClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
+				g.Expect(deploymentList.Items).To(HaveLen(1))
+				g.Expect(deploymentList.Items[0].Name).To(ContainSubstring("helm-guestbook"))
+			}).WithTimeout(180 * time.Second).Should(Succeed())
 		})
 
-		It("delete the DPUService and check that the applications are cleaned up", func() {
+		It("delete the DPUServices and check that the applications are cleaned up", func() {
+			By("delete the DPUServices")
 			svc := &dpuservicev1.DPUService{}
+			// Delete the DPUCluster DPUService.
 			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: dpuServiceName}, svc)).To(Succeed())
 			Expect(testClient.Delete(ctx, svc)).To(Succeed())
-			// Get the control plane secrets.
+
+			// Delete the host cluster DPUService.
+			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: hostDPUServiceName}, svc)).To(Succeed())
+			Expect(testClient.Delete(ctx, svc)).To(Succeed())
+
+			// Check the DPUCluster DPUService is correctly deleted.
 			Eventually(func(g Gomega) {
 				dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
 				g.Expect(err).ToNot(HaveOccurred())
@@ -401,6 +436,13 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					g.Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
 					g.Expect(deploymentList.Items).To(BeEmpty())
 				}
+			}).WithTimeout(300 * time.Second).Should(Succeed())
+
+			// Ensure the hostDPUService deployment is deleted from the host cluster.
+			Eventually(func(g Gomega) {
+				deploymentList := appsv1.DeploymentList{}
+				g.Expect(testClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
+				g.Expect(deploymentList.Items).To(BeEmpty())
 			}).WithTimeout(300 * time.Second).Should(Succeed())
 		})
 
@@ -473,3 +515,23 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		})
 	})
 })
+
+func getDPUService(namespace, name string, host bool) *unstructured.Unstructured {
+	// Create a host DPUService and check it's correctly reconciled
+	// Read the DPUService from file and create it.
+	data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuservice.yaml"))
+	Expect(err).ToNot(HaveOccurred())
+	svc := &unstructured.Unstructured{}
+	// Create DPUCluster DPUService and check it's correctly reconciled.
+	Expect(yaml.Unmarshal(data, svc)).To(Succeed())
+	svc.SetName(name)
+	svc.SetNamespace(namespace)
+
+	// This annotation is what defines a host DPUService.
+	if host {
+		svc.SetAnnotations(map[string]string{
+			dpuservicev1.HostDPUServiceAnnotationKey: "",
+		})
+	}
+	return svc
+}

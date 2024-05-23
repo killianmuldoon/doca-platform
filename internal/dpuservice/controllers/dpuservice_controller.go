@@ -61,8 +61,10 @@ const (
 	// TODO: These constants don't belong here and should be moved as they're shared with other packages.
 	argoCDSecretLabelKey   = "argocd.argoproj.io/secret-type"
 	argoCDSecretLabelValue = "cluster"
-	appProjectName         = "doca-platform-project"
-	dpfServiceIDLabelKey   = "dpf.nvidia.com/service-id"
+	dpuAppProjectName      = "doca-platform-project-dpu"
+	hostAppProjectName     = "doca-platform-project-host"
+
+	dpfServiceIDLabelKey = "dpf.nvidia.com/service-id"
 	// The ArgoCD namespace will always be the same as that where the reconciler is deployed.
 	// TODO:Figure out a way to make this dynamic while preserving the e2e tests.
 	argoCDNamespace = "dpf-operator-system"
@@ -317,27 +319,45 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, argoCDNa
 	for i := range clusters {
 		clusterKeys = append(clusterKeys, types.NamespacedName{Namespace: clusters[i].Namespace, Name: clusters[i].Name})
 	}
-	appProject := argocd.NewAppProject(argoCDNamespace, appProjectName, clusterKeys)
+	dpuAppProject := argocd.NewAppProject(argoCDNamespace, dpuAppProjectName, clusterKeys)
 
 	log.Info("Patching AppProject for DPU clusters")
-	if err := r.Client.Patch(ctx, appProject, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
+	if err := r.Client.Patch(ctx, dpuAppProject, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
 		return err
 	}
+
+	inClusterKey := []types.NamespacedName{{Namespace: "*", Name: "in-cluster"}}
+	hostAppProject := argocd.NewAppProject(argoCDNamespace, hostAppProjectName, inClusterKey)
+
+	log.Info("Patching AppProject for Host cluster")
+	if err := r.Client.Patch(ctx, hostAppProject, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, argoCDNamespace string, clusters []controlplane.DPFCluster, dpuService *dpuservicev1.DPUService) error {
 	log := ctrllog.FromContext(ctx)
 
+	project := getProjectName(dpuService)
 	var errs []error
 	values, err := argoCDValuesFromDPUService(dpuService)
 	if err != nil {
 		return err
 	}
-	for _, cluster := range clusters {
-		clusterKey := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}
-		argoApplication := argocd.NewApplication(argoCDNamespace, appProjectName, clusterKey, dpuService, values)
+	if project == dpuAppProjectName {
+		for _, cluster := range clusters {
+			clusterKey := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}
+			argoApplication := argocd.NewApplication(argoCDNamespace, project, clusterKey, dpuService, values)
 
+			log.Info("Patching Application", "Application", klog.KObj(argoApplication))
+			if err := r.Client.Patch(ctx, argoApplication, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
+				return err
+			}
+		}
+	} else {
+		argoApplication := argocd.NewApplication(argoCDNamespace, project, types.NamespacedName{Namespace: "*", Name: "in-cluster"}, dpuService, values)
 		log.Info("Patching Application", "Application", klog.KObj(argoApplication))
 		if err := r.Client.Patch(ctx, argoApplication, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
 			return err
@@ -345,6 +365,16 @@ func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, argoCDN
 	}
 	return kerrors.NewAggregate(errs)
 
+}
+
+// getProjectName returns the correct project name for the DPUService depending on the cluster it's destined for.
+func getProjectName(dpuService *dpuservicev1.DPUService) string {
+	if dpuService.GetAnnotations() != nil {
+		if _, ok := dpuService.GetAnnotations()[dpuservicev1.HostDPUServiceAnnotationKey]; ok {
+			return hostAppProjectName
+		}
+	}
+	return dpuAppProjectName
 }
 
 func argoCDValuesFromDPUService(dpuService *dpuservicev1.DPUService) (*runtime.RawExtension, error) {

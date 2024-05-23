@@ -139,10 +139,24 @@ var _ = Describe("DPUService Controller", func() {
 				},
 				{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two", Namespace: testNS.Name}},
 			}
+			// A DPUService that should be deployed to the same cluster the DPF system is deployed in.
+			hostDPUService := &dpuservicev1.DPUService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "host-dpu-service",
+					Namespace: testNS.Name,
+					Annotations: map[string]string{
+						dpuservicev1.HostDPUServiceAnnotationKey: "",
+					}},
+			}
+
 			By("create dpuservices and check the correct secrets, appproject and applications are created")
+			// Create DPUServices which are reconciled to the DPU clusters.
 			for i := range dpuServices {
 				Expect(testClient.Create(ctx, dpuServices[i])).To(Succeed())
 			}
+
+			// Expect a hostDPUService to be reconciled to the host cluster.
+			Expect(testClient.Create(ctx, hostDPUService)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				assertDPUService(g, testClient, dpuServices)
@@ -167,6 +181,7 @@ var _ = Describe("DPUService Controller", func() {
 			for i := range dpuServices {
 				Expect(testClient.Delete(ctx, dpuServices[i])).To(Succeed())
 			}
+			Expect(testClient.Delete(ctx, hostDPUService)).To(Succeed())
 			// Ensure the applications are deleted.
 			Eventually(func(g Gomega) {
 				applications := &argov1.ApplicationList{}
@@ -190,6 +205,7 @@ var _ = Describe("DPUService Controller", func() {
 				g.Expect(testClient.List(ctx, gotDpuServices)).To(Succeed())
 				g.Expect(gotDpuServices.Items).To(BeEmpty())
 			}).WithTimeout(30 * time.Second).Should(BeNil())
+
 		})
 	})
 })
@@ -219,9 +235,9 @@ func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []controlp
 }
 
 func assertAppProject(g Gomega, testClient client.Client, argoCDNamespace string, clusters []controlplane.DPFCluster) {
-	// Check that an argo project has been created.
+	// Check that the DPU cluster argo project has been created.
 	appProject := &argov1.AppProject{}
-	g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: argoCDNamespace, Name: appProjectName}, appProject)).To(Succeed())
+	g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: argoCDNamespace, Name: dpuAppProjectName}, appProject)).To(Succeed())
 	gotDestinations := appProject.Spec.Destinations
 	g.Expect(gotDestinations).To(HaveLen(len(clusters)))
 	expectedDestinations := []argov1.ApplicationDestination{}
@@ -232,15 +248,25 @@ func assertAppProject(g Gomega, testClient client.Client, argoCDNamespace string
 		})
 	}
 	g.Expect(gotDestinations).To(ConsistOf(expectedDestinations))
+
+	// Check that the host argo project has been created.
+	g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: argoCDNamespace, Name: hostAppProjectName}, appProject)).To(Succeed())
+	gotDestinations = appProject.Spec.Destinations
+	expectedDestinations = []argov1.ApplicationDestination{
+		{
+			Name:      "in-cluster",
+			Namespace: "*",
+		}}
+	g.Expect(gotDestinations).To(ConsistOf(expectedDestinations))
 }
 
 func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, clusters []controlplane.DPFCluster) {
 	// Check that argoApplications are created for each of the clusters.
 	applications := &argov1.ApplicationList{}
-	g.Expect(testClient.List(ctx, applications, client.InNamespace(argoCDNamespace))).To(Succeed())
+	g.Expect(testClient.List(ctx, applications)).To(Succeed())
 
-	// Check that we have one application for each cluster and dpuService.
-	g.Expect(applications.Items).To(HaveLen(len(clusters) * len(dpuServices)))
+	// Check that we have one application for each cluster and dpuService and an additional application for the hostDPUService.
+	g.Expect(applications.Items).To(HaveLen(len(clusters)*len(dpuServices) + 1))
 	for _, app := range applications.Items {
 		g.Expect(app.Labels).To(HaveKey(dpuservicev1.DPUServiceNameLabelKey))
 		g.Expect(app.Labels).To(HaveKey(dpuservicev1.DPUServiceNamespaceLabelKey))
