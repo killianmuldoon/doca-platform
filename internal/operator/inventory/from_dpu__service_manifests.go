@@ -22,6 +22,7 @@ import (
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -68,7 +69,17 @@ func (f *fromDPUService) GenerateManifests(variables Variables) ([]client.Object
 		return []client.Object{}, nil
 	}
 	f.dpuService.SetNamespace(variables.Namespace)
-	return []client.Object{
-		f.dpuService.DeepCopy(),
-	}, nil
+	copy := f.dpuService.DeepCopy()
+	if variables.ImagePullSecrets != nil {
+		copy.Spec.Values = &runtime.RawExtension{
+			Object: &unstructured.Unstructured{
+				Object: map[string]interface{}{
+					"imagePullSecrets": variables.ImagePullSecrets,
+				},
+			},
+		}
+	} else {
+		copy.Spec.Values = nil
+	}
+	return []client.Object{copy}, nil
 }
