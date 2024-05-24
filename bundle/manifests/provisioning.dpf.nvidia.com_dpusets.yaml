@@ -55,12 +55,18 @@ spec:
                           bfb:
                             type: string
                         type: object
+                      dpuFlavor:
+                        type: string
                       k8s_cluster:
                         properties:
                           name:
                             type: string
                           namespace:
                             type: string
+                          node_labels:
+                            additionalProperties:
+                              type: string
+                            type: object
                         required:
                         - name
                         - namespace
@@ -104,6 +110,7 @@ spec:
                             type: object
                         type: object
                     required:
+                    - dpuFlavor
                     - k8s_cluster
                     type: object
                 type: object

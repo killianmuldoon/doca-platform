@@ -103,7 +103,7 @@ ENVTEST_VERSION ?= v0.0.0-20240110160329-8f8247fdc1c3
 GOLANGCI_LINT_VERSION ?= v1.58.1
 MOCKGEN_VERSION ?= v0.4.0
 GOTESTSUM_VERSION ?= v1.11.0
-DPF_PROVISIONING_CONTROLLER_REV ?= 4fbd08a14e01f91ee828ffcef885c728b11f0600
+DPF_PROVISIONING_CONTROLLER_REV ?= 4073ff25510087c622982ccc3bfc882599c3ffb6
 ENVSUBST_VERSION ?= v1.4.2
 
 .PHONY: clean
@@ -249,7 +249,7 @@ $(OPERATOR_SDK): | $(TOOLSDIR)
 	$Q chmod +x $(OPERATOR_SDK)
 
 ##@ Development
-GENERATE_TARGETS ?= operator dpuservice hostcniprovisioner dpucniprovisioner sfcset operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded sfc-controller release-defaults
+GENERATE_TARGETS ?= operator dpuservice dpf-provisioning hostcniprovisioner dpucniprovisioner sfcset operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded sfc-controller release-defaults
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -316,10 +316,6 @@ generate-manifests-dpucniprovisioner: $(KUSTOMIZE) ## Generates DPU CNI provisio
 generate-manifests-hostcniprovisioner: $(KUSTOMIZE) ## Generates Host CNI provisioner manifests
 	cd config/hostcniprovisioner/default &&	$(KUSTOMIZE) edit set image controller=$(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
-# Namespace is set and passed through to the dpf-provisioning Makefile to overwrite the default namespace.
-.PHONY: generate-manifests-provisioning
-generate-manifests-provisioning: $(DPF_PROVISIONING_DIR) ## Generate DPU Provisioning manifests
-	$(MAKE) IMG=$(DPFPROVISIONING_IMAGE):$(TAG) -C $(DPF_PROVISIONING_DIR) kustomize-build
 
 .PHONY: generate-manifests-release-defaults
 generate-manifests-release-defaults: $(ENVSUBST) ## Generates manifests that contain the default values that should be used by the operators
@@ -328,7 +324,7 @@ generate-manifests-release-defaults: $(ENVSUBST) ## Generates manifests that con
 TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 .PHONY: generate-manifests-operator-embedded
-generate-manifests-operator-embedded: $(ENVSUBST)  generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults ## Generates manifests that are embedded into the operator binary.
+generate-manifests-operator-embedded: $(ENVSUBST)  generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice generate-manifests-dpf-provisioning generate-manifests-release-defaults ## Generates manifests that are embedded into the operator binary.
 	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/operator/controllers/manifests/hostcniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/operator/controllers/manifests/dpucniprovisioner.yaml
 	cp $(DPF_PROVISIONING_DIR)/output/deploy.yaml ./internal/operator/inventory/manifests/dpf-provisioning-controller.yaml
@@ -367,6 +363,7 @@ generate-manifests-sfc-controller: generate-manifests-sfcset
 
 .PHONY: generate-manifests-dpf-provisioning
 generate-manifests-dpf-provisioning: $(KUSTOMIZE) $(DPF_PROVISIONING_DIR) ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
+	$(MAKE) IMG=$(DPFPROVISIONING_IMAGE):$(TAG) -C $(DPF_PROVISIONING_DIR) kustomize-build
 	$(KUSTOMIZE) build $(DPF_PROVISIONING_DIR)/config/crd > ./config/dpf-provisioning/crd/bases/crds.yaml
 
 OPERATOR_HELM_CHART_NAME ?= dpf-operator
