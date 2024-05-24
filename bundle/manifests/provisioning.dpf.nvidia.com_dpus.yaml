@@ -41,12 +41,20 @@ spec:
             properties:
               bfb:
                 type: string
+              dpuFlavor:
+                description: DPUFlavor is the name of the DPUFlavor that will be used
+                  to deploy the DPU.
+                type: string
               k8s_cluster:
                 properties:
                   name:
                     type: string
                   namespace:
                     type: string
+                  node_labels:
+                    additionalProperties:
+                      type: string
+                    type: object
                 required:
                 - name
                 - namespace
@@ -93,6 +101,7 @@ spec:
                 type: string
             required:
             - bfb
+            - dpuFlavor
             - k8s_cluster
             - nodeName
             type: object

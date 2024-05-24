@@ -72,6 +72,9 @@ spec:
     - kind: DPFOperatorConfig
       name: dpfoperatorconfigs.operator.dpf.nvidia.com
       version: v1alpha1
+    - kind: DPUFlavor
+      name: dpuflavors.provisioning.dpf.nvidia.com
+      version: v1alpha1
     - kind: Dpu
       name: dpus.provisioning.dpf.nvidia.com
       version: v1alpha1
