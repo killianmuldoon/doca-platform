@@ -448,7 +448,7 @@ test-deploy-operator-kustomize: $(KUSTOMIZE) ## Deploy the DPF Operator using op
 	#$(KUBECTL) create namespace $(OPERATOR_NAMESPACE)
 	cd config/operator-and-crds/ && $(KUSTOMIZE) edit set namespace $(OPERATOR_NAMESPACE)
 	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
-	$(KUSTOMIZE) build config/e2e-test/| $(KUBECTL) apply -f -
+	$(KUSTOMIZE) build config/operator-and-crds/ | $(KUBECTL) apply -f -
 
 .PHONY: test-deploy-operator-operator-sdk
 test-deploy-operator-operator-sdk: $(KUSTOMIZE) ## Deploy the DPF Operator using operator-sdk
