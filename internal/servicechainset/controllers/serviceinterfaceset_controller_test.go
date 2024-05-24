@@ -66,6 +66,8 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			Eventually(func(g Gomega) {
 				assertServiceInterfaceList(ctx, g, 3, &cleanupObjects, getTestServiceInterfaceSpec())
 			}, timeout*3, interval).Should(Succeed())
+			By("Delete ServiceInterfaceSet Spec")
+			Expect(testClient.Delete(ctx, &sfcv1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
 		})
 		It("should successfully reconcile the ServiceInterfaceSet with Node Selector", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
@@ -82,6 +84,8 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			Eventually(func(g Gomega) {
 				assertServiceInterfaceList(ctx, g, 2, &cleanupObjects, getTestServiceInterfaceSpec())
 			}, timeout*30, interval).Should(Succeed())
+			By("Delete ServiceInterfaceSet Spec")
+			Expect(testClient.Delete(ctx, &sfcv1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
 		})
 		It("should successfully reconcile the ServiceInterfaceSet with Node Selector and remove Service Interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
@@ -109,6 +113,8 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			Eventually(func(g Gomega) {
 				assertServiceInterfaceList(ctx, g, 2, &cleanupObjects, getTestServiceInterfaceSpec())
 			}, timeout*30, interval).Should(Succeed())
+			By("Delete ServiceInterfaceSet Spec")
+			Expect(testClient.Delete(ctx, &sfcv1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
 		})
 		It("should successfully reconcile the ServiceInterfaceSet after update", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
@@ -151,6 +157,8 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			Eventually(func(g Gomega) {
 				assertServiceInterfaceList(ctx, g, 2, &cleanupObjects, updatedSpec)
 			}, timeout*30, interval).Should(Succeed())
+			By("Delete ServiceInterfaceSet Spec")
+			Expect(testClient.Delete(ctx, &sfcv1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
 		})
 	})
 })
