@@ -166,6 +166,20 @@ $(HELM): | $(TOOLSDIR)
 	$Q mv $(TOOLSDIR)/$(HELM_BIN) $(TOOLSDIR)/$(HELM_BIN)-$(HELM_VER)
 	$Q rm -f $(GET_HELM)
 
+
+# helmify is used to generate helm charts.
+HELMIFY_VER = v0.4.13
+HELMIFY_BIN = helmify
+HELMIFY = $(abspath $(TOOLSDIR)/$(HELMIFY_BIN)-$(HELMIFY_VER))
+HELMIFY_ARCH = $(shell echo $(ARCH) | sed s/amd64/x86_64/) # The helmify URL uses the format x86_64 for its architecture.
+$(HELMIFY): | $(TOOLSDIR)
+	$Q echo "Installing helmify-$(HELMIFY_VER) to $(TOOLSDIR)"
+	echo $(strip https://github.com/arttor/helmify/releases/download/$(HELMIFY_VER)/helmify_$(OS)_$(HELMIFY_ARCH).tar.gz)
+	curl -fL -o $(TOOLSDIR)/helmify.tar.gz https://github.com/arttor/helmify/releases/download/$(HELMIFY_VER)/helmify_$(OS)_$(strip $(HELMIFY_ARCH)).tar.gz
+	tar -xvf $(TOOLSDIR)/helmify.tar.gz -C $(TOOLSDIR) && rm $(TOOLSDIR)/helmify.tar.gz
+	mv $(TOOLSDIR)/$(HELMIFY_BIN) $(HELMIFY)
+	chmod +x $(HELMIFY)
+
 # kamaji is the underlying control plane provider
 KAMAJI_REPO_URL=https://clastix.github.io/charts
 KAMAJI_REPO_NAME=clastix
@@ -239,7 +253,7 @@ GENERATE_TARGETS ?= operator dpuservice hostcniprovisioner dpucniprovisioner sfc
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
-	$(MAKE) generate-mocks generate-modules generate-manifests generate-go-deepcopy generate-operator-bundle
+	$(MAKE) generate-mocks generate-modules generate-manifests generate-go-deepcopy generate-operator-bundle generate-helm-chart-operator
 
 .PHONY: generate-mocks
 generate-mocks: $(MOCKGEN) ## Generate mocks
@@ -355,9 +369,15 @@ generate-manifests-sfc-controller: generate-manifests-sfcset
 generate-manifests-dpf-provisioning: $(KUSTOMIZE) $(DPF_PROVISIONING_DIR) ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
 	$(KUSTOMIZE) build $(DPF_PROVISIONING_DIR)/config/crd > ./config/dpf-provisioning/crd/bases/crds.yaml
 
+OPERATOR_HELM_CHART_NAME ?= dpf-operator
+OPERATOR_HELM_CHART ?= $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)
+.PHONY: generate-helm-chart-operator
+generate-helm-chart-operator: $(KUSTOMIZE) $(HELMIFY) generate-manifests-operator generate-manifests-operator-embedded ## Create a helm chart for the DPF Operator.
+	$(KUSTOMIZE) build  config/operator-and-crds | $(HELMIFY) -image-pull-secrets -crd-dir -generate-defaults $(OPERATOR_HELM_CHART)
+
 .PHONY: generate-operator-bundle
 generate-operator-bundle: $(OPERATOR_SDK) $(KUSTOMIZE) ## Generate bundle manifests and metadata, then validate generated files.
-	$(KUSTOMIZE) build config/bundle-operatorsdk | $(OPERATOR_SDK) generate bundle \
+	$(KUSTOMIZE) build config/operator-operatorsdk-bundle | $(OPERATOR_SDK) generate bundle \
 	--overwrite --package dpf-operator --version $(BUNDLE_VERSION) --default-channel=$(BUNDLE_VERSION) --channels=$(BUNDLE_VERSION)
 	# Remove the createdAt field to prevent rebasing issues.
 	# TODO: Currently the clusterserviceversion is not being correctly generated e.g. metadata is missing.
@@ -429,7 +449,7 @@ OPERATOR_NAMESPACE ?= dpf-operator-system
 .PHONY: test-deploy-operator-kustomize
 test-deploy-operator-kustomize: $(KUSTOMIZE) ## Deploy the DPF Operator using operator-sdk
 	#$(KUBECTL) create namespace $(OPERATOR_NAMESPACE)
-	cd config/e2e-test/ && $(KUSTOMIZE) edit set namespace $(OPERATOR_NAMESPACE)
+	cd config/operator-and-crds/ && $(KUSTOMIZE) edit set namespace $(OPERATOR_NAMESPACE)
 	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
 	$(KUSTOMIZE) build config/e2e-test/| $(KUBECTL) apply -f -
 
@@ -856,7 +876,7 @@ docker-push-ovnkubernetes-operator: ## Push the docker image for the OVN Kuberne
 
 # helm charts
 
-HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam ovs-cni
+HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam ovs-cni operator
 HELM_REGISTRY ?= oci://$(REGISTRY)
 
 ## metadata for servicechain controller.
@@ -922,8 +942,12 @@ helm-package-ovs-cni: $(CHARTSDIR) $(HELM) ## Package helm chart for OVS CNI
 	$(HELM) package $(OVS_CNI_HELM_CHART) --version $(OVS_CNI_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-sfc-controller
-helm-package-sfc-controller: $(CHARTSDIR) $(HELM)
+helm-package-sfc-controller: $(CHARTSDIR) $(HELM) ## Package helm chart for SFC controller
 	$(HELM) package $(SFC_CONTOLLER_HELM_CHART) --version $(SFC_CONTOLLER_HELM_CHART_VER) --destination $(CHARTSDIR)
+
+.PHONY: helm-package-operator
+helm-package-operator: $(CHARTSDIR) $(HELM) ## Package helm chart for DPF Operator
+	$(HELM) package $(OPERATOR_HELM_CHART) --version $(TAG) --destination $(CHARTSDIR)
 
 helm-cm-push: $(HELM)
 	# installs the helm chartmuseum push plugin which is used to push to NGC.
@@ -958,8 +982,12 @@ helm-push-ovs-cni: $(CHARTSDIR) helm-cm-push ## Push helm chart for OVS CNI
 	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(OVS_CNI_HELM_CHART_NAME)-$(OVS_CNI_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-sfc-controller
-helm-push-sfc-controller: $(CHARTSDIR) helm-cm-push ## Push helm chart for nvidia-k8s-ipam
+helm-push-sfc-controller: $(CHARTSDIR) helm-cm-push ## Push helm chart for sfc controller.
 	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS) $(CHARTSDIR)/$(SFC_CONTOLLER_HELM_CHART)-$(SFC_CONTOLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+
+.PHONY: helm-push-operator
+helm-push-operator: $(CHARTSDIR) helm-cm-push ## Push helm chart for nvidia-k8s-ipam
+	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
 
 ##@ Development Environment
 
