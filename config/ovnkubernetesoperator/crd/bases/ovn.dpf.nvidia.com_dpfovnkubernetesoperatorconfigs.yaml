@@ -41,10 +41,72 @@ spec:
             description: DPFOVNKubernetesOperatorConfigSpec defines the desired state
               of DPFOVNKubernetesOperatorConfig
             properties:
-              foo:
-                description: Foo is an example field of DPFOVNKubernetesOperatorConfig.
-                  Edit dpfovnkubernetesoperatorconfig_types.go to remove/update
+              cidr:
+                description: |-
+                  CIDR is the CIDR that is used by the administrator to calculate the IPs defined in HostIPs and DPUIPs
+                  TODO: Add validator in validating webhook to ensure all the IPs below are part of this CIDR
                 type: string
+              hostPF0:
+                description: HostPF0 is the name of the PF0 on the host. It needs
+                  to be the same across all the worker nodes.
+                type: string
+              hostPF0VF0:
+                description: |-
+                  HostPF0VF0 is the name of the first VF of the PF0 on the host. It needs to be the same across all the worker
+                  nodes.
+                type: string
+              hosts:
+                description: |-
+                  Hosts is a list of items that reflects the configuration for each particular host. By host here we mean a physical
+                  host that contains a DPU. An entry for each host that we want to configure DPF for should be added in that list
+                  together with the relevant configuration needed.
+                items:
+                  description: |-
+                    Host represents a host with a DPU where DPF operator is going to be installed to and we expect to have host network
+                    working.
+                  properties:
+                    dpuClusterNodeName:
+                      description: DPUClusterNodeName is the name of the node in the
+                        DPU cluster (Kamaji).
+                      type: string
+                    dpuIP:
+                      description: |-
+                        DPUIP is the IP that will be assigned to the VTEP interface of the DPU.
+                        TODO: Add validator in validating webhook to ensure string is actually net.IPNet
+                      type: string
+                    gateway:
+                      description: |-
+                        Gateway is the gateway that will be added on the routes related to OVN Kubernetes traffic.
+                        TODO: Add validator in validating webhook to ensure string is actually net.IPNet
+                      type: string
+                    hostClusterNodeName:
+                      description: HostClusterNodeName is the name of the node in
+                        the host cluster (OpenShift).
+                      type: string
+                    hostIP:
+                      description: |-
+                        HostIP is the IP that will be assigned to the PF Representor on each Host.
+                        TODO: Add validator in validating webhook to ensure string is actually net.IPNet
+                      type: string
+                  required:
+                  - dpuClusterNodeName
+                  - dpuIP
+                  - gateway
+                  - hostClusterNodeName
+                  - hostIP
+                  type: object
+                type: array
+              imagePullSecrets:
+                description: List of secret names which are used to pull images for
+                  OVN Kubernetes components.
+                items:
+                  type: string
+                type: array
+            required:
+            - cidr
+            - hostPF0
+            - hostPF0VF0
+            - hosts
             type: object
           status:
             description: DPFOVNKubernetesOperatorConfigStatus defines the observed

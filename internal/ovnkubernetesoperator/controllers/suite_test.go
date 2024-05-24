@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -28,18 +29,22 @@ import (
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var cfg *rest.Config
-var k8sClient client.Client
+var testClient client.Client
 var testEnv *envtest.Environment
+var ctx, testManagerCancelFunc = context.WithCancel(ctrl.SetupSignalHandler())
+var reconciler *DPFOVNKubernetesOperatorConfigReconciler
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -52,7 +57,10 @@ var _ = BeforeSuite(func() {
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "..", "config", "ovnkubernetesoperator", "crd", "bases")},
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "..", "config", "ovnkubernetesoperator", "crd", "bases"),
+			filepath.Join("..", "..", "..", "test", "objects", "crd", "openshift"),
+		},
 		ErrorIfCRDPathMissing: true,
 
 		// The BinaryAssetsDirectory is only required if you want to run the tests directly
@@ -60,7 +68,7 @@ var _ = BeforeSuite(func() {
 		// default path defined in controller-runtime which is /usr/local/kubebuilder/.
 		// Note that you must have the required binaries setup under the bin directory to perform
 		// the tests directly. When we run make test it will be setup and used automatically.
-		BinaryAssetsDirectory: filepath.Join("..", "..", "bin", "k8s",
+		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "hack", "tools", "bin", "k8s",
 			fmt.Sprintf("1.29.0-%s-%s", runtime.GOOS, runtime.GOARCH)),
 	}
 
@@ -70,19 +78,46 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = ovnkubernetesoperatorv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
+	Expect(ovnkubernetesoperatorv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
-	//+kubebuilder:scaffold:scheme
-
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	testClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
-	Expect(k8sClient).NotTo(BeNil())
+	Expect(testClient).NotTo(BeNil())
+
+	By("setting up and running the test reconciler")
+	testManager, err := ctrl.NewManager(cfg,
+		ctrl.Options{
+			Scheme: scheme.Scheme,
+			// Set metrics server bind address to 0 to disable it.
+			Metrics: server.Options{
+				BindAddress: "0",
+			}})
+	Expect(err).ToNot(HaveOccurred())
+
+	reconciler = &DPFOVNKubernetesOperatorConfigReconciler{
+		Client: testClient,
+		Scheme: testManager.GetScheme(),
+		Settings: &DPFOVNKubernetesOperatorConfigReconcilerSettings{
+			CustomOVNKubernetesDPUImage:    "nvidia.com/ovn-kubernetes-dpu:dev",
+			CustomOVNKubernetesNonDPUImage: "nvidia.com/ovn-kubernetes-non-dpu:dev",
+		},
+	}
+	err = reconciler.SetupWithManager(testManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	go func() {
+		defer GinkgoRecover()
+		err = testManager.Start(ctx)
+		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+	}()
 
 })
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
+	if testManagerCancelFunc != nil {
+		testManagerCancelFunc()
+	}
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())
 })

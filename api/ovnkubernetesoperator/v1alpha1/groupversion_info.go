@@ -25,6 +25,11 @@ import (
 )
 
 var (
+	DPFOVNKubernetesOperatorConfigKind             = "DPFOVNKubernetesOperatorConfig"
+	DPFOVNKubernetesOperatorConfigGroupVersionKind = GroupVersion.WithKind(DPFOVNKubernetesOperatorConfigKind)
+)
+
+var (
 	// GroupVersion is group version used to register these objects
 	GroupVersion = schema.GroupVersion{Group: "ovn.dpf.nvidia.com", Version: "v1alpha1"}
 
