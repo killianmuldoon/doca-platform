@@ -1,9 +1,19 @@
 apiVersion: "k8s.cni.cncf.io/v1"
 kind: NetworkAttachmentDefinition
 metadata:
-  name: macvlan-conf-1
+  name: mybrsfc
   labels:
     {{- include "multus.labels" . | nindent 4 }}
 spec:
-  config: {{ .Values.networkAttachmentDefinitionJson | toYaml | indent
+  config: {{ .Values.networkAttachmentBrSFCJson | toYaml | indent
+    1 }}
+---
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: mybrhbn
+  labels:
+    {{- include "multus.labels" . | nindent 4 }}
+spec:
+  config: {{ .Values.networkAttachmentBrHBNJson | toYaml | indent
     1 }}

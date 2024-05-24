@@ -39,21 +39,23 @@ multusDaemonConfig:
         "multusConfigFile": "auto",
         "socketDir": "/host/run/multus/"
     }
-networkAttachmentDefinitionJson: |-
+networkAttachmentBrSFCJson: |-
     {
-        "cniVersion": "0.3.0",
-        "type": "macvlan",
-        "master": "eth1",
-        "mode": "bridge",
-        "ipam": {
-            "type": "host-local",
-            "ranges": [
-                [ {
-                     "subnet": "10.10.0.0/16",
-                     "rangeStart": "10.10.1.20",
-                     "rangeEnd": "10.10.3.50",
-                     "gateway": "10.10.0.254"
-                } ]
-            ]
-        }
+      "cniVersion": "0.4.0",
+      "type": "ovs",
+      "bridge": "br-sfc",
+      "mtu": 1500,
+      "ipam": {
+        "type": "static"
+      }
+    }
+networkAttachmentBrHBNJson: |-
+    {
+      "cniVersion": "0.4.0",
+      "type": "ovs",
+      "mtu": 1500,
+      "bridge": "br-hbn",
+      "ipam": {
+        "type": "static"
+      }
     }
