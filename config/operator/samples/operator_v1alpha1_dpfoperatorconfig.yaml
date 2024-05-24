@@ -13,6 +13,7 @@ spec:
   provisioningConfiguration:
     bfbPVCName: "dpf-provisioning-volume"
     imagePullSecret: "fake-name"
+    dhcpServerAddress: "8.8.8.8"
   hostNetworkConfiguration:
     hostPF0: ens2f0np0
     hostPF0VF0: enp23s0f0v0

@@ -9,12 +9,10 @@ namespace: dpf-operator-system
 namePrefix: dpf-operator-
 
 resources:
-- ../operator/crd
+- ../operator/default
 - ../dpuservice/crd
 - ../servicechainset/crd
-- ../operator/rbac
 - ../dpf-provisioning/crd
 - ../argocd/crd
-- ../operator/manager
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
