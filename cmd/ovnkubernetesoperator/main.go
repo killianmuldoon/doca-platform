@@ -18,11 +18,13 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
 	"flag"
 	"os"
 
 	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/ovnkubernetesoperator/v1alpha1"
 	ovnkubernetesoperatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/ovnkubernetesoperator/controllers"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/release"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -46,7 +48,21 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
+var (
+	customOVNKubernetesDPUImage    string
+	customOVNKubernetesNonDPUImage string
+)
+
 func main() {
+	defaults := release.NewDefaults()
+	err := defaults.Parse()
+	if err != nil {
+		setupLog.Error(err, "unable to parse release defaults")
+		os.Exit(1)
+	}
+	customOVNKubernetesDPUImage = defaults.CustomOVNKubernetesDPUImage
+	customOVNKubernetesNonDPUImage = defaults.CustomOVNKubernetesDPUImage
+
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
@@ -117,9 +133,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	settings, err := getSettings()
+	if err != nil {
+		setupLog.Error(err, "unable to get settings")
+	}
+
 	if err = (&ovnkubernetesoperatorcontroller.DPFOVNKubernetesOperatorConfigReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Settings: settings,
+		Scheme:   mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPFOVNKubernetesOperatorConfig")
 		os.Exit(1)
@@ -140,4 +162,18 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func getSettings() (*ovnkubernetesoperatorcontroller.DPFOVNKubernetesOperatorConfigReconcilerSettings, error) {
+	if customOVNKubernetesDPUImage == "" {
+		return nil, errors.New("flag ovn-kubernetes-dpu-image can't be empty")
+	}
+	if customOVNKubernetesNonDPUImage == "" {
+		return nil, errors.New("flag ovn-kubernetes-dpu-image can't be empty")
+	}
+
+	return &ovnkubernetesoperatorcontroller.DPFOVNKubernetesOperatorConfigReconcilerSettings{
+		CustomOVNKubernetesDPUImage:    customOVNKubernetesDPUImage,
+		CustomOVNKubernetesNonDPUImage: customOVNKubernetesNonDPUImage,
+	}, nil
 }

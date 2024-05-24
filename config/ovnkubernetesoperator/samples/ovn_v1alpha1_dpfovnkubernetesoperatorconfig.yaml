@@ -7,6 +7,22 @@ metadata:
     app.kubernetes.io/part-of: dpf-operator
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/created-by: dpf-operator
-  name: dpfovnkubernetesoperatorconfig-sample
+  name: default
+  namespace: dpf-operator-system
 spec:
-  # TODO(user): Add fields here
+  hostPF0: ens2f0np0
+  hostPF0VF0: enp23s0f0v0
+  cidr: 10.0.96.0/20
+  hosts:
+  - hostClusterNodeName: ocp-worker-1
+    dpuClusterNodeName: dpu-worker-1
+    hostIP: 10.0.96.10/24
+    dpuIP: 10.0.96.20/24
+    gateway: 10.0.96.254
+  - hostClusterNodeName: ocp-worker-2
+    dpuClusterNodeName: dpu-worker-2
+    hostIP: 10.0.97.10/24
+    dpuIP: 10.0.97.20/24
+    gateway: 10.0.97.254
+  imagePullSecret:
+  - some-secret
