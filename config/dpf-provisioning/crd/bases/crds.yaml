@@ -145,7 +145,6 @@ spec:
                         type: string
                       type: array
                   required:
-                  - device
                   - parameters
                   type: object
                 type: array
@@ -177,6 +176,16 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.14.0
   name: dpus.provisioning.dpf.nvidia.com
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: webhook-service
+          namespace: system
+          path: /convert
+      conversionReviewVersions:
+      - v1
   group: provisioning.dpf.nvidia.com
   names:
     kind: Dpu

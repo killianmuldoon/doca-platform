@@ -65,6 +65,7 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "operator", "crd", "bases"),
 			filepath.Join("..", "..", "..", "config", "dpuservice", "crd", "bases"),
+			filepath.Join("..", "..", "..", "config", "dpf-provisioning", "crd", "bases"),
 			filepath.Join("..", "..", "..", "config", "servicechainset", "crd", "bases"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "cert-manager"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "openshift"),
@@ -118,6 +119,7 @@ var _ = BeforeSuite(func() {
 		Settings: &DPFOperatorConfigReconcilerSettings{
 			CustomOVNKubernetesDPUImage:    "nvidia.com/ovn-kubernetes-dpu:dev",
 			CustomOVNKubernetesNonDPUImage: "nvidia.com/ovn-kubernetes-non-dpu:dev",
+			SkipWebhook:                    true,
 		},
 		Inventory: inventory,
 	}

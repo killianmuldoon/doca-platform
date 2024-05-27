@@ -83,7 +83,6 @@ spec:
                         type: string
                       type: array
                   required:
-                  - device
                   - parameters
                   type: object
                 type: array
