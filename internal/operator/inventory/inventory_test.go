@@ -206,6 +206,31 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 			}),
 			wantErr: true,
 		},
+		// sfc-controller
+		{
+			name: "fail if sfc-controller data is nil",
+			inventory: New().setSfcController(fromDPUService{
+				name: "sfc-controller",
+				data: nil,
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if sfc-controller data has an unexpected object",
+			inventory: New().setSfcController(fromDPUService{
+				name: "sfc-controller",
+				data: addUnexpectedKindToObjects(g, sfcControllerData),
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if sfc-controller is missing the DPUService",
+			inventory: New().setSfcController(fromDPUService{
+				name: "sfc-controller",
+				data: removeKindFromObjects(g, "DPUService", sfcControllerData),
+			}),
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -380,6 +405,21 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			},
 			wantErr:         false,
 			expectedMissing: "ovs-cni",
+		},
+		{
+			name: "Disable sfc-controller manifests",
+			vars: Variables{
+				DPFProvisioningController: DPFProvisioningVariables{
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					ImagePullSecret:              "secret",
+					DHCP:                         "192.168.1.1",
+				},
+				DisableSystemComponents: map[string]bool{
+					"sfc-controller": true,
+				},
+			},
+			wantErr:         false,
+			expectedMissing: "sfc-controller",
 		},
 	}
 	for _, tt := range tests {

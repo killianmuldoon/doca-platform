@@ -198,6 +198,7 @@ func getVariablesFromConfig(config *operatorv1.DPFOperatorConfig) inventory.Vari
 // 6. Flannel DPUService
 // 7. NVIDIA Kubernetes IPAM
 // 8. OVS CNI
+// 8. SFC Controller
 func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
 	var errs []error
 	vars := getVariablesFromConfig(config)
@@ -214,6 +215,7 @@ func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Cont
 	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.Flannel, vars))
 	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.NvIPAM, vars))
 	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.OvsCni, vars))
+	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.SfcController, vars))
 
 	return kerrors.NewAggregate(errs)
 }
