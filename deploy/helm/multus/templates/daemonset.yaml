@@ -22,7 +22,11 @@ spec:
     spec:
       containers:
       - command:
-        - /usr/src/multus-cni/bin/multus-daemon
+        - /thin_entrypoint
+        args:
+        - "--multus-conf-file=auto"
+        - "--multus-autoconfig-dir=/host/etc/cni/net.d"
+        - "--cni-conf-dir=/host/etc/cni/net.d"
         env:
         - name: MULTUS_NODE_NAME
           valueFrom:
@@ -38,35 +42,21 @@ spec:
           | nindent 10 }}
         terminationMessagePolicy: FallbackToLogsOnError
         volumeMounts:
-        - mountPath: /host/etc/cni/net.d
-          name: cni
-        - mountPath: /opt/cni/bin
-          name: cnibin
-        - mountPath: /host/run
-          name: host-run
-        - mountPath: /var/lib/cni/multus
-          name: host-var-lib-cni-multus
-        - mountPath: /var/lib/kubelet
-          name: host-var-lib-kubelet
-        - mountPath: /run/k8s.cni.cncf.io
-          name: host-run-k8s-cni-cncf-io
-        - mountPath: /run/netns
-          mountPropagation: HostToContainer
-          name: host-run-netns
-        - mountPath: /etc/cni/net.d/multus.d
-          name: multus-daemon-config
-          readOnly: true
-        - mountPath: /hostroot
-          mountPropagation: HostToContainer
-          name: hostroot
+        - name: cni
+          mountPath: /host/etc/cni/net.d
+        - name: cnibin
+          mountPath: /host/opt/cni/bin
+        - name: multus-cfg
+          mountPath: /tmp/multus-conf
       hostNetwork: true
       hostPID: true
       imagePullSecrets: {{ .Values.imagePullSecrets | default list | toJson }}
       initContainers:
       - command:
-        - cp
-        - /usr/src/multus-cni/bin/multus-shim
-        - /host/opt/cni/bin/multus-shim
+        - /install_multus
+        args:
+        - "--type"
+        - "thin"
         env:
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
@@ -90,33 +80,15 @@ spec:
       - effect: NoExecute
         operator: Exists
       volumes:
-      - hostPath:
+      - name: cni
+        hostPath:
           path: /etc/cni/net.d
-        name: cni
-      - hostPath:
+      - name: cnibin
+        hostPath:
           path: /opt/cni/bin
-        name: cnibin
-      - hostPath:
-          path: /
-        name: hostroot
-      - configMap:
+      - name: multus-cfg
+        configMap:
+          name: multus-daemon-config
           items:
           - key: daemon-config.json
-            path: daemon-config.json
-          name: multus-daemon-config
-        name: multus-daemon-config
-      - hostPath:
-          path: /run
-        name: host-run
-      - hostPath:
-          path: /var/lib/cni/multus
-        name: host-var-lib-cni-multus
-      - hostPath:
-          path: /var/lib/kubelet
-        name: host-var-lib-kubelet
-      - hostPath:
-          path: /run/k8s.cni.cncf.io
-        name: host-run-k8s-cni-cncf-io
-      - hostPath:
-          path: /run/netns/
-        name: host-run-netns
+            path: 70-multus.conf
