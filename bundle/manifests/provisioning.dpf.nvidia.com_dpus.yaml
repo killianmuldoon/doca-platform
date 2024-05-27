@@ -6,6 +6,16 @@ metadata:
   creationTimestamp: null
   name: dpus.provisioning.dpf.nvidia.com
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: webhook-service
+          namespace: dpf-operator
+          path: /convert
+      conversionReviewVersions:
+      - v1
   group: provisioning.dpf.nvidia.com
   names:
     kind: Dpu

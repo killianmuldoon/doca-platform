@@ -160,7 +160,6 @@ spec:
                         type: string
                       type: array
                   required:
-                  - device
                   - parameters
                   type: object
                 type: array
@@ -193,6 +192,16 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.14.0
   name: dpus.provisioning.dpf.nvidia.com
 spec:
+  conversion:
+    strategy: Webhook
+    webhook:
+      clientConfig:
+        service:
+          name: dpf-provisioning-webhook-service
+          namespace: dpf-provisioning
+          path: /convert
+      conversionReviewVersions:
+      - v1
   group: provisioning.dpf.nvidia.com
   names:
     kind: Dpu
@@ -642,6 +651,7 @@ rules:
   - list
   - watch
   - create
+  - delete
 - apiGroups:
   - provisioning.dpf.nvidia.com
   resources:
@@ -922,6 +932,69 @@ metadata:
 spec:
   selfSigned: {}
 ---
+apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+kind: DPUFlavor
+metadata:
+  name: dpf-provisioning-default
+  namespace: dpf-provisioning
+---
+apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+kind: DPUFlavor
+metadata:
+  name: dpf-provisioning-hbn
+  namespace: dpf-provisioning
+spec:
+  bfcfgParameters:
+  - WITH_NIC_FW_UPDATE=yes
+  configFiles:
+  - operation: override
+    path: /etc/mellanox/mlnx-bf.conf
+    permissions: "0644"
+    raw: |
+      ALLOW_SHARED_RQ="no"
+
+      # Please note, IPsec full offload requires FW steering,
+      # Please note that setting IPSEC_FULL_OFFLOAD="yes" will automatically move to FW steering.
+
+      IPSEC_FULL_OFFLOAD="no"
+      ENABLE_ESWITCH_MULTIPORT="yes"
+  grub:
+    kernelParameters:
+    - console=hvc0
+    - console=ttyAMA0
+    - earlycon=pl011,0x13010000
+    - fixrttc
+    - net.ifnames=0
+    - biosdevname=0
+    - iommu.passthrough=1
+    - cgroup_no_v1=net_prio,net_cls
+    - hugepagesz=2048kB
+    - hugepages=3072
+  nvconfig:
+  - device: '*'
+    parameters:
+    - PF_BAR2_ENABLE=0
+    - PER_PF_NUM_SF=1
+    - PF_TOTAL_SF=40
+    - PF_SF_BAR_SIZE=10
+    - NUM_PF_MSIX_VALID=0
+    - PF_NUM_PF_MSIX_VALID=1
+    - PF_NUM_PF_MSIX=228
+    - INTERNAL_CPU_MODEL=1
+    - SRIOV_EN=1
+    - NUM_OF_VFS=30
+    - LAG_RESOURCE_ALLOCATION=1
+  ovs:
+    rawConfigScript: |
+      ovs-vsctl set Open_vSwitch . other_config:doca-init=true
+      ovs-vsctl set Open_vSwitch . other_config:dpdk-extra="-a 0000:00:00.0"
+      ovs-vsctl set Open_vSwitch . other_config:hw-offload-ct-size=64000
+      ovs-vsctl set Open_vSwitch . other_config:dpdk-max-memzones="50000"
+      ovs-vsctl set Open_vSwitch . other_config:hw-offload="true"
+      ovs-vsctl set Open_vSwitch . other_config:pmd-quiet-idle=true
+      ovs-vsctl set Open_vSwitch . other_config:max-idle=20000
+      ovs-vsctl set Open_vSwitch . other_config:max-revalidator=5000
+---
 apiVersion: admissionregistration.k8s.io/v1
 kind: MutatingWebhookConfiguration
 metadata:
@@ -1037,6 +1110,27 @@ webhooks:
     - UPDATE
     resources:
     - dpus
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /validate-provisioning-dpf-nvidia-com-v1alpha1-dpuflavor
+  failurePolicy: Fail
+  name: vdpuflavor.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - dpuflavors
   sideEffects: None
 - admissionReviewVersions:
   - v1

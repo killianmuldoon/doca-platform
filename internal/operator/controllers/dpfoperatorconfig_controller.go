@@ -64,6 +64,10 @@ type DPFOperatorConfigReconcilerSettings struct {
 
 	// ConfigSingletonNamespaceName restricts reconciliation of the operator to a single DPFOperator Config with a specified namespace and name.
 	ConfigSingletonNamespaceName *types.NamespacedName
+
+	// SkipWebhook skips ValidatingWebhookConfiguration/MutatingWebhookConfiguration installing.
+	// SkipWebhook is true iff we are running tests in an environment that doesn't have functioning webhook server.
+	SkipWebhook bool
 }
 
 // This Operator deploys ArgoCD and needs RBAC for all groups, resources and verbs.
@@ -221,6 +225,10 @@ func (r *DPFOperatorConfigReconciler) generateAndPatchObjects(ctx context.Contex
 	}
 	var errs []error
 	for _, obj := range objs {
+		if kind := obj.GetObjectKind().GroupVersionKind().Kind; r.Settings.SkipWebhook &&
+			(kind == "ValidatingWebhookConfiguration" || kind == "MutatingWebhookConfiguration") {
+			continue
+		}
 		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
