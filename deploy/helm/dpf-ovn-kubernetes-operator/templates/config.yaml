@@ -1,0 +1,12 @@
+# If we ever add finalizer to that object, we should expect flaky behavior when deleting the helm release.
+apiVersion: ovn.dpf.nvidia.com/v1alpha1
+kind: DPFOVNKubernetesOperatorConfig
+metadata:
+  name: {{ include "dpf-ovn-kubernetes-operator.fullname" . }}-default
+  namespace: {{ .Release.Namespace }}
+spec:
+  hostPF0: {{ .Values.config.hostPF0 }}
+  hostPF0VF0: {{ .Values.config.hostPF0VF0 }}
+  cidr: {{ .Values.config.cidr }}
+  hosts: {{ .Values.config.hosts | default list | toJson }}
+  imagePullSecrets: {{ .Values.imagePullSecrets | default list | toJson }}
