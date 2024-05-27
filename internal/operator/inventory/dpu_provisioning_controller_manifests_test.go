@@ -317,6 +317,8 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		g := NewGomegaWithT(t)
 		expectedPVC := "foo-test-pvc"
 		expectedImagePullSecret := "foo-test-image-pull-secret"
+		expectedImagePullSecret2 := "foo-test-image-pull-secret-2"
+		expectedImagePullSecret3 := "foo-test-image-pull-secret-3"
 		expectedDHCP := "192.169.1.1"
 		vars := Variables{
 			Namespace: "foo",
@@ -325,6 +327,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 				ImagePullSecret:              expectedImagePullSecret,
 				DHCP:                         expectedDHCP,
 			},
+			ImagePullSecrets: []string{expectedImagePullSecret2, expectedImagePullSecret3},
 		}
 		generatedObjs, err := provCtrl.GenerateManifests(vars)
 		g.Expect(err).NotTo(HaveOccurred())
@@ -356,8 +359,10 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		g.Expect(gotDeployment.Spec.Template.Labels[operatorv1.DPFComponentLabelKey]).To(Equal(dpfProvisioningControllerName))
 		// * ensure that the expected modifications have been made to the deployment.
 		g.Expect(gotDeployment).NotTo(BeNil())
-		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets).To(HaveLen(1))
+		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets).To(HaveLen(3))
 		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets[0].Name).To(Equal(expectedImagePullSecret))
+		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets[1].Name).To(Equal(expectedImagePullSecret2))
+		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets[2].Name).To(Equal(expectedImagePullSecret3))
 		// * check bfb pvc
 		g.Expect(gotDeployment.Spec.Template.Spec.Volumes).To(HaveLen(2))
 		g.Expect(gotDeployment.Spec.Template.Spec.Volumes[1].PersistentVolumeClaim).NotTo(BeNil())
