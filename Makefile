@@ -282,7 +282,7 @@ generate-manifests-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manifest
 	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-ovnkubernetes-operator
-generate-manifests-ovnkubernetes-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes operator controller.
+generate-manifests-ovnkubernetes-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVSUBST) ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes operator controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/ovnkubernetesoperator/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/ovnkubernetesoperator/..." \
@@ -294,6 +294,7 @@ generate-manifests-ovnkubernetes-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Gen
 	output:rbac:dir=./config/ovnkubernetesoperator/rbac
 	cd config/ovnkubernetesoperator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
 	rm -rf deploy/helm/dpf-ovn-kubernetes-operator/crds/* && find config/ovnkubernetesoperator/crd/bases/ -type f -exec cp {} deploy/helm/dpf-ovn-kubernetes-operator/crds/ \;
+	$(ENVSUBST) < deploy/helm/dpf-ovn-kubernetes-operator/values.yaml.tmpl > deploy/helm/dpf-ovn-kubernetes-operator/values.yaml
 
 .PHONY: generate-manifests-dpuservice
 generate-manifests-dpuservice: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
@@ -668,7 +669,7 @@ DPUCNIPROVISIONER_IMAGE_NAME ?= dpu-cni-provisioner
 DPUCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(DPUCNIPROVISIONER_IMAGE_NAME)
 
 DPFOVNKUBERNETESOPERATOR_IMAGE_NAME ?= dpf-ovn-kubernetes-operator-controller-manager
-DPFOVNKUBERNETESOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOVNKUBERNETESOPERATOR_IMAGE_NAME)
+export DPFOVNKUBERNETESOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOVNKUBERNETESOPERATOR_IMAGE_NAME)
 
 .PHONY: docker-build-sfcset
 docker-build-sfcset: ## Build docker images for the sfcset-controller
