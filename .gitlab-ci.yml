@@ -110,7 +110,7 @@ nightly-release:
       when: always
   variables:
     # Note: This job is generic to allow it to use both harbor and nvcr.io registries. Variables defined under https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/-/pipeline_schedules define the specific behaviour.
-    TAG: v0.0.0-nightly
+    TAG: v0.0.0-$CI_COMMIT_SHORT_SHA
   tags:
     - release
   before_script:
@@ -125,6 +125,7 @@ e2e:
   needs: [ ]
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
       allow_failure: true
     - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST == "true"
       when: always
