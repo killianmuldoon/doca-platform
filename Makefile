@@ -293,6 +293,7 @@ generate-manifests-ovnkubernetes-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Gen
 	output:crd:dir=./config/ovnkubernetesoperator/crd/bases \
 	output:rbac:dir=./config/ovnkubernetesoperator/rbac
 	cd config/ovnkubernetesoperator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
+	rm -rf deploy/helm/dpf-ovn-kubernetes-operator/crds/* && find config/ovnkubernetesoperator/crd/bases/ -type f -exec cp {} deploy/helm/dpf-ovn-kubernetes-operator/crds/ \;
 
 .PHONY: generate-manifests-dpuservice
 generate-manifests-dpuservice: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
@@ -498,7 +499,7 @@ verify-copyright: ## Verify copyrights for project files
 	$Q $(CURDIR)/hack/scripts/copyright-validation.sh
 
 .PHONY: lint-helm
-lint-helm: $(HELM) lint-helm-sfcset lint-helm-multus lint-helm-sriov-dp lint-helm-nvidia-k8s-ipam lint-helm-ovs-cni lint-helm-sfc-controller
+lint-helm: $(HELM) lint-helm-sfcset lint-helm-multus lint-helm-sriov-dp lint-helm-nvidia-k8s-ipam lint-helm-ovs-cni lint-helm-sfc-controller lint-helm-ovnkubernetes-operator
 
 .PHONY: lint-helm-sfcset
 lint-helm-sfcset: $(HELM) ## Run helm lint for sfcset chart
@@ -521,8 +522,12 @@ lint-helm-ovs-cni: $(HELM) ## Run helm lint for ovs-cni chart
 	$Q $(HELM) lint $(OVS_CNI_HELM_CHART)
 
 .PHONY: lint-helm-sfc-controller
-lint-helm-sfc-controller: $(HELM)
+lint-helm-sfc-controller: $(HELM) ## Run helm lint for sfc controller chart
 	$Q $(HELM) lint $(SFC_CONTOLLER_HELM_CHART)
+
+.PHONY: lint-helm-ovnkubernetes-operator
+lint-helm-ovnkubernetes-operator: $(HELM) ## Run helm lint for OVN Kubernetes Operator chart
+	$Q $(HELM) lint $(DPFOVNKUBERNETESOPERATOR_HELM_CHART)
 
 ##@ Release
 
@@ -873,7 +878,7 @@ docker-push-ovnkubernetes-operator: ## Push the docker image for the OVN Kuberne
 
 # helm charts
 
-HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam ovs-cni operator
+HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam ovs-cni sfc-controller ovnkubernetes-operator operator
 HELM_REGISTRY ?= oci://$(REGISTRY)
 
 ## metadata for servicechain controller.
@@ -911,6 +916,11 @@ export SFC_CONTOLLER_HELM_CHART_NAME = sfc-controller
 SFC_CONTOLLER_HELM_CHART ?= $(HELMDIR)/$(SFC_CONTOLLER_HELM_CHART_NAME)
 SFC_CONTOLLER_HELM_CHART_VER ?= $(TAG)
 
+## metadata for dpf-ovn-kubernetes-operator.
+export DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME = dpf-ovn-kubernetes-operator
+DPFOVNKUBERNETESOPERATOR_HELM_CHART ?= $(HELMDIR)/$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME)
+DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER ?= $(TAG)
+
 .PHONY: helm-package-all
 helm-package-all: $(addprefix helm-package-,$(HELM_TARGETS))  ## Package the helm charts for all components.
 
@@ -934,7 +944,7 @@ helm-package-nvidia-k8s-ipam: $(CHARTSDIR) $(HELM) ## Package helm chart for nvi
 helm-package-flannel: $(CHARTSDIR) $(HELM) ## Package helm chart for flannel CNI
 	$Q curl -v -fSsL https://github.com/flannel-io/flannel/releases/download/$(FLANNEL_VERSION)/flannel.tgz -o $(FLANNEL_HELM_CHART)
 
-.PHONY: helm-package-ovs-cni 
+.PHONY: helm-package-ovs-cni
 helm-package-ovs-cni: $(CHARTSDIR) $(HELM) ## Package helm chart for OVS CNI
 	$(HELM) package $(OVS_CNI_HELM_CHART) --version $(OVS_CNI_HELM_CHART_VER) --destination $(CHARTSDIR)
 
@@ -945,6 +955,10 @@ helm-package-sfc-controller: $(CHARTSDIR) $(HELM) ## Package helm chart for SFC 
 .PHONY: helm-package-operator
 helm-package-operator: $(CHARTSDIR) $(HELM) ## Package helm chart for DPF Operator
 	$(HELM) package $(OPERATOR_HELM_CHART) --version $(TAG) --destination $(CHARTSDIR)
+
+.PHONY: helm-package-ovnkubernetes-operator
+helm-package-ovnkubernetes-operator: $(CHARTSDIR) $(HELM) ## Package helm chart for OVN Kubernetes Operator
+	$(HELM) package $(DPFOVNKUBERNETESOPERATOR_HELM_CHART) --version $(DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 helm-cm-push: $(HELM)
 	# installs the helm chartmuseum push plugin which is used to push to NGC.
@@ -979,8 +993,12 @@ helm-push-ovs-cni: $(CHARTSDIR) helm-cm-push ## Push helm chart for OVS CNI
 	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(OVS_CNI_HELM_CHART_NAME)-$(OVS_CNI_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-sfc-controller
-helm-push-sfc-controller: $(CHARTSDIR) helm-cm-push ## Push helm chart for sfc controller.
-	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS) $(CHARTSDIR)/$(SFC_CONTOLLER_HELM_CHART)-$(SFC_CONTOLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+helm-push-sfc-controller: $(CHARTSDIR) helm-cm-push ## Push helm chart for sfc-controller
+	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS) $(CHARTSDIR)/$(SFC_CONTOLLER_HELM_CHART_NAME)-$(SFC_CONTOLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+
+.PHONY: helm-push-ovnkubernetes-operator
+helm-push-ovnkubernetes-operator: $(CHARTSDIR) helm-cm-push ## Push helm chart for DPF OVN Kubernetes Operator
+	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS) $(CHARTSDIR)/$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME)-$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-operator
 helm-push-operator: $(CHARTSDIR) helm-cm-push ## Push helm chart for nvidia-k8s-ipam
