@@ -123,6 +123,7 @@ func (d *dpuServiceControllerObjects) GenerateManifests(variables Variables) ([]
 		return []client.Object{}, nil
 	}
 	d.setNamespace(variables.Namespace)
+	d.setImagePullSecrets(variables.ImagePullSecrets)
 	out := []client.Object{}
 	out = append(out,
 		d.Deployment.DeepCopy(),
@@ -148,5 +149,16 @@ func (d *dpuServiceControllerObjects) setNamespace(namespace string) {
 	}
 	for i := range d.ClusterRoleBinding.Subjects {
 		d.ClusterRoleBinding.Subjects[i].Namespace = namespace
+	}
+}
+
+// setImagePullSecrets sets all ImagePullSecrets in the dpuServiceControllerObjects to the passed strings.
+func (d *dpuServiceControllerObjects) setImagePullSecrets(pullSecrets []string) {
+	if pullSecrets != nil {
+		var localObjectRefs []corev1.LocalObjectReference
+		for _, secret := range pullSecrets {
+			localObjectRefs = append(localObjectRefs, corev1.LocalObjectReference{Name: secret})
+		}
+		d.Deployment.Spec.Template.Spec.ImagePullSecrets = localObjectRefs
 	}
 }

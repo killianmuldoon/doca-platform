@@ -217,6 +217,13 @@ func (p *dpfProvisioningControllerObjects) setImagePullSecret(deploy *appsv1.Dep
 		return fmt.Errorf("empty imagePullSecret")
 	}
 	deploy.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: vars.DPFProvisioningController.ImagePullSecret}}
+	if vars.ImagePullSecrets != nil {
+		var localObjectRefs []corev1.LocalObjectReference
+		for _, secret := range vars.ImagePullSecrets {
+			localObjectRefs = append(localObjectRefs, corev1.LocalObjectReference{Name: secret})
+		}
+		deploy.Spec.Template.Spec.ImagePullSecrets = append(deploy.Spec.Template.Spec.ImagePullSecrets, localObjectRefs...)
+	}
 	c := p.getContainer(deploy)
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
