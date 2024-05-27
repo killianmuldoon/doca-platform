@@ -68,6 +68,12 @@ func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOp
 	if err := r.deleteObjects(ctx, r.Inventory.NvIPAM, vars); err != nil {
 		errs = append(errs, err)
 	}
+	if err := r.deleteObjects(ctx, r.Inventory.OvsCni, vars); err != nil {
+		errs = append(errs, err)
+	}
+	if err := r.deleteObjects(ctx, r.Inventory.SfcController, vars); err != nil {
+		errs = append(errs, err)
+	}
 
 	if len(errs) > 0 {
 		log.Error(kerrors.NewAggregate(errs), "DPF System DPUServices not yet deleted: Requeueing.")

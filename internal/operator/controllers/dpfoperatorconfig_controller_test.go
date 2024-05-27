@@ -197,6 +197,7 @@ var _ = Describe("DPFOperatorConfig Controller - Reconcile System Components", f
 			waitForDPUService(config.Namespace, "flannel")
 			waitForDPUService(config.Namespace, "nvidia-k8s-ipam")
 			waitForDPUService(config.Namespace, "ovs-cni")
+			waitForDPUService(config.Namespace, "sfc-controller")
 		})
 		It("delete the DPFOperatorConfig", func() {
 			By("deleting the DPFOperatorConfig")

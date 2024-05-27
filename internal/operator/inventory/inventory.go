@@ -55,6 +55,7 @@ type Manifests struct {
 	NvIPAM                  Component
 	OvsCni                  Component
 	Flannel                 Component
+	SfcController           Component
 }
 
 // Embed manifests for Kubernetes objects created by the controller.
@@ -82,6 +83,9 @@ var (
 
 	//go:embed manifests/dpf-provisioning-controller.yaml
 	dpfProvisioningControllerData []byte
+
+	//go:embed manifests/sfc-controller.yaml
+	sfcControllerData []byte
 
 	//go:embed manifests/argocd.yaml
 	argoCDData []byte
@@ -126,6 +130,10 @@ func New() *Manifests {
 			name: "nvidia-k8s-ipam",
 			data: nvK8sIpamData,
 		},
+		SfcController: &fromDPUService{
+			name: "sfc-controller",
+			data: sfcControllerData,
+		},
 	}
 }
 
@@ -156,6 +164,9 @@ func (m *Manifests) ParseAll() error {
 		return err
 	}
 	if err := m.OvsCni.Parse(); err != nil {
+		return err
+	}
+	if err := m.SfcController.Parse(); err != nil {
 		return err
 	}
 	return nil
@@ -210,6 +221,11 @@ func (m *Manifests) generateAllManifests(variables Variables) ([]client.Object, 
 		errs = append(errs, err)
 	}
 	out = append(out, objs...)
+	objs, err = m.SfcController.GenerateManifests(variables)
+	if err != nil {
+		errs = append(errs, err)
+	}
+	out = append(out, objs...)
 	if len(errs) != 0 {
 		return nil, kerrors.NewAggregate(errs)
 	}
@@ -249,5 +265,10 @@ func (m *Manifests) setNvK8sIpam(input fromDPUService) *Manifests {
 
 func (m *Manifests) setOvsCni(input fromDPUService) *Manifests {
 	m.OvsCni = &input
+	return m
+}
+
+func (m *Manifests) setSfcController(input fromDPUService) *Manifests {
+	m.SfcController = &input
 	return m
 }

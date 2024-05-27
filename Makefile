@@ -338,6 +338,7 @@ generate-manifests-operator-embedded: $(ENVSUBST)  generate-manifests-dpucniprov
 	$(ENVSUBST) < $(TEMPLATES_DIR)/flannel.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/flannel.yaml
 	$(ENVSUBST) < $(TEMPLATES_DIR)/nv-k8s-ipam.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/nv-k8s-ipam.yaml
 	$(ENVSUBST) < $(TEMPLATES_DIR)/ovs-cni.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/ovs-cni.yaml
+	$(ENVSUBST) < $(TEMPLATES_DIR)/sfc-controller.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/sfc-controller.yaml
 
 .PHONY: generate-manifests-ovnkubernetes-operator-embedded
 generate-manifests-ovnkubernetes-operator-embedded: generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner ## Generates manifests that are embedded into the OVN Kubernetes Operator binary.
