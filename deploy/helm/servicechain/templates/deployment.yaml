@@ -51,5 +51,5 @@ spec:
       imagePullSecrets: {{ .Values.imagePullSecrets | default list | toJson }}
       securityContext:
         runAsNonRoot: true
-      serviceAccountName: dpf-operator-controller-manager
+      serviceAccountName: dpf-servicechain-controller-manager
       terminationGracePeriodSeconds: 10

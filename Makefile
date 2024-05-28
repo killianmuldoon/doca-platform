@@ -361,11 +361,17 @@ generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. fo
 	output:rbac:dir=./config/servicechainset/rbac
 	cd config/servicechainset/manager && $(KUSTOMIZE) edit set image controller=$(SFCSET_IMAGE):$(TAG)
 	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/servicechain/crds/ \;
+	# Template the image name and tag used in the helm templates.
+	$(ENVSUBST) < deploy/helm/servicechain/values.yaml.tmpl > deploy/helm/servicechain/values.yaml
+
 
 .PHONY: generate-manifests-sfc-controller
 generate-manifests-sfc-controller: generate-manifests-sfcset
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_servicechains.yaml deploy/helm/sfc-controller/crds/
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/sfc-controller/crds/
+	# Template the image name and tag used in the helm templates.
+	$(ENVSUBST) < deploy/helm/sfc-controller/values.yaml.tmpl > deploy/helm/sfc-controller/values.yaml
+
 
 .PHONY: generate-manifests-dpf-provisioning
 generate-manifests-dpf-provisioning: $(KUSTOMIZE) $(DPF_PROVISIONING_DIR) ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
@@ -637,7 +643,7 @@ DPFOPERATOR_IMAGE_NAME ?= dpf-operator-controller-manager
 DPFOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOPERATOR_IMAGE_NAME)
 
 SFCSET_IMAGE_NAME ?= sfcset-controller-manager
-SFCSET_IMAGE ?= $(REGISTRY)/$(SFCSET_IMAGE_NAME)
+export SFCSET_IMAGE ?= $(REGISTRY)/$(SFCSET_IMAGE_NAME)
 
 DPUSERVICE_IMAGE_NAME ?= dpuservice-controller-manager
 DPUSERVICE_IMAGE ?= $(REGISTRY)/$(DPUSERVICE_IMAGE_NAME)
@@ -646,7 +652,7 @@ DPFPROVISIONING_IMAGE_NAME ?= dpf-provisioning-controller-manager
 export DPFPROVISIONING_IMAGE ?= $(REGISTRY)/$(DPFPROVISIONING_IMAGE_NAME)
 
 SFC_CONTROLLER_IMAGE_NAME ?= sfc-controller-manager
-SFC_CONTROLLER_IMAGE ?= $(REGISTRY)/$(SFC_CONTROLLER_IMAGE_NAME)
+export SFC_CONTROLLER_IMAGE ?= $(REGISTRY)/$(SFC_CONTROLLER_IMAGE_NAME)
 
 ## TODO: Cleanup image building and versioning for dhcrelay, parprouterd and hostnetwork.
 DHCRELAY_VERSION ?= 0.1

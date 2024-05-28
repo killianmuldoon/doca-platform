@@ -8,5 +8,4 @@ nvIpam:
   image: nvidia-k8s-ipam
   repository: ghcr.io/mellanox
   pullPolicy: IfNotPresent
-  # tag, if defined will use the given image tag, else Chart.AppVersion will be used
-  # tag
+  tag: v0.1.2

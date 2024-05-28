@@ -1,7 +1,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: dpf-operator-manager-role
+  name: dpf-servicechain-controller-manager
   labels:
   {{- include "servicechain.labels" . | nindent 4 }}
 rules:
@@ -125,17 +125,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: dpf-operator-manager-rolebinding
+  name: dpf-servicechain-controller-manager-rolebinding
   labels:
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: dpf-operator
-    app.kubernetes.io/part-of: dpf-operator
   {{- include "servicechain.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: dpf-operator-manager-role
+  name: dpf-servicechain-controller-manager
 subjects:
 - kind: ServiceAccount
-  name: dpf-operator-controller-manager
+  name: dpf-servicechain-controller-manager
   namespace: '{{ .Release.Namespace }}'
