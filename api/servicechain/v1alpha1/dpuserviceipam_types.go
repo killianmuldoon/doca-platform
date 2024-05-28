@@ -74,8 +74,8 @@ type IPV4Subnet struct {
 	// Gateway is the IP in the subnet that should be the gateway of the subnet.
 	// TODO: Validate that IP is part of subnet
 	Gateway string `json:"gateway"`
-	// PrefixSize is the size of the block that should be allocated per node as CIDR notation
-	PrefixSize int `json:"prefixSize"`
+	// PerNodeIPCount is the number of IPs that should be allocated per node.
+	PerNodeIPCount int `json:"perNodeIPCount"`
 }
 
 // DPUServiceIPAMStatus defines the observed state of DPUServiceIPAM

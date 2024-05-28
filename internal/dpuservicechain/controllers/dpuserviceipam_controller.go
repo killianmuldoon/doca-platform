@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
@@ -195,7 +194,6 @@ func reconcileIPPools(ctx context.Context, c client.Client, dpuServiceIPAM *sfcv
 
 // generateIPPool generates an IPPool object for the given dpuServiceIPAM
 func generateIPPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.IPPool {
-	perNodeBlockSize := math.Pow(2, 32-float64(dpuServiceIPAM.Spec.IPV4Subnet.PrefixSize))
 	pool := &nvipamv1.IPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpuServiceIPAM.Name,
@@ -207,7 +205,7 @@ func generateIPPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.IPPool {
 		},
 		Spec: nvipamv1.IPPoolSpec{
 			Subnet:           dpuServiceIPAM.Spec.IPV4Subnet.Subnet,
-			PerNodeBlockSize: int(perNodeBlockSize),
+			PerNodeBlockSize: dpuServiceIPAM.Spec.IPV4Subnet.PerNodeIPCount,
 			Gateway:          dpuServiceIPAM.Spec.IPV4Subnet.Gateway,
 			NodeSelector:     dpuServiceIPAM.Spec.NodeSelector,
 		},

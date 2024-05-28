@@ -133,9 +133,9 @@ spec:
                       Gateway is the IP in the subnet that should be the gateway of the subnet.
                       TODO: Validate that IP is part of subnet
                     type: string
-                  prefixSize:
-                    description: PrefixSize is the size of the block that should be
-                      allocated per node as CIDR notation
+                  perNodeIPCount:
+                    description: PerNodeIPCount is the number of IPs that should be
+                      allocated per node.
                     type: integer
                   subnet:
                     description: |-
@@ -144,7 +144,7 @@ spec:
                     type: string
                 required:
                 - gateway
-                - prefixSize
+                - perNodeIPCount
                 - subnet
                 type: object
               nodeSelector:
