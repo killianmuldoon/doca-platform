@@ -77,9 +77,9 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			dpuServiceIPAM := getMinimalDPUServiceIPAM(testNS.Name)
 			dpuServiceIPAM.Name = "pool-1"
 			dpuServiceIPAM.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
-				Subnet:     "192.168.0.0/20",
-				Gateway:    "192.168.0.1",
-				PrefixSize: 24,
+				Subnet:         "192.168.0.0/20",
+				Gateway:        "192.168.0.1",
+				PerNodeIPCount: 256,
 			}
 			dpuServiceIPAM.Spec.NodeSelector = &corev1.NodeSelector{
 				NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -131,9 +131,9 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			dpuServiceIPAMOne := getMinimalDPUServiceIPAM(testNS.Name)
 			dpuServiceIPAMOne.Name = "resource-1"
 			dpuServiceIPAMOne.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
-				Subnet:     "192.168.0.0/20",
-				Gateway:    "192.168.0.1",
-				PrefixSize: 24,
+				Subnet:         "192.168.0.0/20",
+				Gateway:        "192.168.0.1",
+				PerNodeIPCount: 256,
 			}
 			Expect(testClient.Create(ctx, dpuServiceIPAMOne)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceIPAMOne)
@@ -141,9 +141,9 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			dpuServiceIPAMTwo := getMinimalDPUServiceIPAM(testNS.Name)
 			dpuServiceIPAMTwo.Name = "resource-2"
 			dpuServiceIPAMTwo.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
-				Subnet:     "192.168.32.0/20",
-				Gateway:    "192.168.32.1",
-				PrefixSize: 24,
+				Subnet:         "192.168.32.0/20",
+				Gateway:        "192.168.32.1",
+				PerNodeIPCount: 256,
 			}
 			Expect(testClient.Create(ctx, dpuServiceIPAMTwo)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceIPAMTwo)
@@ -159,22 +159,6 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 				))
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 		})
-	})
-})
-
-var _ = Describe("DPUServiceIPAM Controller - Unit Tests", func() {
-	Context("when testing the generateIPPool function", func() {
-		DescribeTable("when testing the produced perNodeBlockSize",
-			func(prefixSize int, perNodeBlockSize int) {
-				dpuServiceIPAM := getMinimalDPUServiceIPAM("")
-				dpuServiceIPAM.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{PrefixSize: prefixSize}
-				ipPool := generateIPPool(dpuServiceIPAM)
-				Expect(ipPool.Spec.PerNodeBlockSize).To(Equal(perNodeBlockSize))
-			},
-			Entry("when prefix is 32 it should return perNodeBlockSize 1", 32, 1),
-			Entry("when prefix is 24 it should return perNodeBlockSize 256", 24, 256),
-			Entry("when prefix is 0 it should return perNodeBlockSize 4,294,967,296", 0, 4294967296),
-		)
 	})
 })
 
