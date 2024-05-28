@@ -17,6 +17,7 @@ limitations under the License.
 package inventory
 
 import (
+	"encoding/json"
 	"fmt"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
@@ -69,23 +70,39 @@ func (f *fromDPUService) GenerateManifests(variables Variables) ([]client.Object
 	if _, ok := variables.DisableSystemComponents[f.Name()]; ok {
 		return []client.Object{}, nil
 	}
-	f.dpuService.SetNamespace(variables.Namespace)
-	copy := f.dpuService.DeepCopy()
+	dpuServiceCopy := f.dpuService.DeepCopy()
+	dpuServiceCopy.SetNamespace(variables.Namespace)
 	if variables.ImagePullSecrets != nil {
 		var localObjectRefs []corev1.LocalObjectReference
-
 		for _, secret := range variables.ImagePullSecrets {
 			localObjectRefs = append(localObjectRefs, corev1.LocalObjectReference{Name: secret})
 		}
-		copy.Spec.Values = &runtime.RawExtension{
-			Object: &unstructured.Unstructured{
-				Object: map[string]interface{}{
-					"imagePullSecrets": localObjectRefs,
-				},
+		err := addValue(dpuServiceCopy, "imagePullSecrets", localObjectRefs)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return []client.Object{dpuServiceCopy}, nil
+}
+
+func addValue(dpuService *dpuservicev1.DPUService, key string, value interface{}) error {
+	if dpuService.Spec.Values == nil {
+		dpuService.Spec.Values = &runtime.RawExtension{
+			Object: &unstructured.Unstructured{Object: map[string]interface{}{
+				key: value,
+			},
 			},
 		}
-	} else {
-		copy.Spec.Values = nil
+		return nil
 	}
-	return []client.Object{copy}, nil
+
+	currentValues := map[string]interface{}{}
+	err := json.Unmarshal(dpuService.Spec.Values.Raw, &currentValues)
+	if err != nil {
+		return fmt.Errorf("error merging values in DPUService manifests")
+	}
+	currentValues[key] = value
+	dpuService.Spec.Values.Object = &unstructured.Unstructured{Object: currentValues}
+	dpuService.Spec.Values.Raw = nil
+	return nil
 }
