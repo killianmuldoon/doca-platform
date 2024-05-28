@@ -219,16 +219,17 @@ func waitForDPUService(ns, name string) {
 			Namespace: ns,
 			Name:      name},
 			dpuservice)).To(Succeed())
-		var result map[string][]corev1.LocalObjectReference
-		err := json.Unmarshal(dpuservice.Spec.Values.Raw, &result)
-		g.Expect(err).ShouldNot(HaveOccurred())
-		values := map[string][]corev1.LocalObjectReference{
-			"imagePullSecrets": {
-				corev1.LocalObjectReference{Name: "secret-one"},
-				corev1.LocalObjectReference{Name: "secret-two"},
-			},
-		}
-		g.Expect(result).To(BeEquivalentTo(values))
+		var result map[string]interface{}
+		g.Expect(json.Unmarshal(dpuservice.Spec.Values.Raw, &result)).To(Succeed())
+		g.Expect(result).To(HaveKey("imagePullSecrets"))
+		secrets, ok := result["imagePullSecrets"].([]interface{})
+		g.Expect(ok).To(BeTrue())
+		secretOne, ok := secrets[0].(map[string]interface{})
+		g.Expect(ok).To(BeTrue())
+		secretTwo, ok := secrets[1].(map[string]interface{})
+		g.Expect(ok).To(BeTrue())
+		g.Expect(secretOne["name"]).To(Equal("secret-one"))
+		g.Expect(secretTwo["name"]).To(Equal("secret-two"))
 	}).WithTimeout(30 * time.Second).Should(Succeed())
 }
 

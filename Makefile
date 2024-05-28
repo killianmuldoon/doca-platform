@@ -1039,7 +1039,7 @@ dev-operator:  $(MINIKUBE) $(SKAFFOLD) generate-manifests-operator-embedded ## D
 	# Ensure the manager's kustomization has the correct image name and has not been changed by generation.
 	git restore config/operator/manager/kustomization.yaml
 	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \
-	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
+	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false --cleanup=false
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary (ideally with version)
