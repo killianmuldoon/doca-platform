@@ -1,0 +1,175 @@
+/*
+Copyright 2024 NVIDIA
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+	http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package webhooks
+
+import (
+	"context"
+	"testing"
+
+	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/ovnkubernetesoperator/v1alpha1"
+
+	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+)
+
+func TestNetworkInjector_Default(t *testing.T) {
+	g := NewWithT(t)
+	controlPlaneNodeName := "control-plane-node"
+	workerNodeName := "worker-node"
+
+	objects := []client.Object{
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: controlPlaneNodeName,
+				Labels: map[string]string{
+					"node-role.kubernetes.io/master": "",
+				},
+			},
+		},
+		&corev1.Node{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   workerNodeName,
+				Labels: map[string]string{},
+			},
+		},
+		&ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig{
+			Spec: ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfigSpec{},
+		},
+	}
+
+	basePod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-pod",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "nginx",
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{},
+						Limits:   corev1.ResourceList{},
+					},
+				},
+			},
+		},
+	}
+	hostNetworkPod := basePod.DeepCopy()
+	hostNetworkPod.Spec.HostNetwork = true
+
+	podWithControlPlaneSelector := basePod.DeepCopy()
+	podWithControlPlaneSelector.Spec.NodeSelector = map[string]string{"node-role.kubernetes.io/master": ""}
+
+	podWithControlPlaneNodeSelectorTerms := basePod.DeepCopy()
+	setSelectorTermsToNode(podWithControlPlaneNodeSelectorTerms, controlPlaneNodeName)
+
+	podWithWorkerNodeSelectorTerms := basePod.DeepCopy()
+	setSelectorTermsToNode(podWithWorkerNodeSelectorTerms, workerNodeName)
+
+	podWithExistingVFResources := basePod.DeepCopy()
+
+	podWithExistingVFResources.Spec.Containers[0].Resources.Requests = corev1.ResourceList{
+		resourceName: resource.MustParse("1"),
+	}
+	podWithExistingVFResources.Spec.Containers[0].Resources.Limits = corev1.ResourceList{
+		resourceName: resource.MustParse("1"),
+	}
+
+	tests := []struct {
+		name                  string
+		pod                   *corev1.Pod
+		expectedResourceCount string
+		expectAnnotation      bool
+	}{
+		{
+			name:                  "don't inject resource into pod that has hostNetwork == true",
+			pod:                   hostNetworkPod,
+			expectedResourceCount: "0",
+		},
+		{
+			name:                  "don't inject resource into pod that has a node selector for a control plane machine",
+			pod:                   podWithControlPlaneSelector,
+			expectedResourceCount: "0",
+		},
+		{
+			name:                  "don't inject resource into pod that explicitly targets a control plane node with NodeSelectorTerms",
+			pod:                   podWithControlPlaneNodeSelectorTerms,
+			expectedResourceCount: "0",
+		},
+		{
+			name:                  "inject resource into pod that explicitly targets a worker node with NodeSelectorTerms",
+			pod:                   podWithWorkerNodeSelectorTerms,
+			expectedResourceCount: "1",
+			expectAnnotation:      true,
+		},
+		{
+			name:                  "inject resource into pod that has no clear scheduling target",
+			pod:                   basePod,
+			expectedResourceCount: "1",
+			expectAnnotation:      true,
+		},
+		{
+			name:                  "inject resources into pod with existing resource claims",
+			pod:                   podWithExistingVFResources,
+			expectedResourceCount: "2",
+			expectAnnotation:      true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := scheme.Scheme
+			g.Expect(ovnkubernetesoperatorv1.AddToScheme(s)).To(Succeed())
+			fakeclient := fake.NewClientBuilder().WithObjects(objects...).WithScheme(s).Build()
+			webhook := &NetworkInjector{
+				Client: fakeclient,
+			}
+			err := webhook.Default(context.Background(), tt.pod)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(tt.pod.Spec.Containers[0].Resources.Limits[resourceName].Equal(resource.MustParse(tt.expectedResourceCount))).To(BeTrue())
+			g.Expect(tt.pod.Spec.Containers[0].Resources.Requests[resourceName].Equal(resource.MustParse(tt.expectedResourceCount))).To(BeTrue())
+			g.Expect(tt.pod.Annotations[annotationKeyName] == annotationValue).To(Equal(tt.expectAnnotation))
+		})
+	}
+}
+
+func setSelectorTermsToNode(pod *corev1.Pod, nodeName string) {
+	if pod.Spec.Affinity == nil {
+		pod.Spec.Affinity = &corev1.Affinity{}
+	}
+	if pod.Spec.Affinity.NodeAffinity == nil {
+		pod.Spec.Affinity.NodeAffinity = &corev1.NodeAffinity{}
+	}
+	if pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
+	}
+	pod.Spec.Affinity.NodeAffinity.
+		RequiredDuringSchedulingIgnoredDuringExecution.
+		NodeSelectorTerms = []corev1.NodeSelectorTerm{
+		{
+			MatchFields: []corev1.NodeSelectorRequirement{
+				{
+					Key:    "metadata.name",
+					Values: []string{nodeName},
+				},
+			},
+		},
+	}
+}
