@@ -17,9 +17,11 @@ limitations under the License.
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
@@ -28,6 +30,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/nvipam/api/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils/collector"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -97,7 +100,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		var cleanupObjs []client.Object
 		AfterAll(func() {
 			By("collecting resources and logs for the clusters")
-			err := resourceCollector.Run(ctx)
+			err := collectResourcesAndLogs(ctx)
 			if err != nil {
 				// Don't fail the test if the log collector fails - just print the errors.
 				GinkgoLogr.Error(err, "failed to collect resources and logs for the clusters")
@@ -536,4 +539,16 @@ func getDPUService(namespace, name string, host bool) *unstructured.Unstructured
 		})
 	}
 	return svc
+}
+
+func collectResourcesAndLogs(ctx context.Context) error {
+	// Get the path to place artifacts in
+	_, basePath, _, _ := runtime.Caller(0)
+	artifactsPath := filepath.Join(filepath.Dir(basePath), "../../artifacts")
+	inventoryManifestsPath := filepath.Join(filepath.Dir(basePath), "../../internal/operator/inventory/manifests")
+
+	// Create a resourceCollector to dump logs and resources for test debugging.
+	clusters, err := collector.GetClusterCollectors(ctx, testClient, artifactsPath, inventoryManifestsPath, restConfig)
+	Expect(err).NotTo(HaveOccurred())
+	return collector.New(clusters).Run(ctx)
 }

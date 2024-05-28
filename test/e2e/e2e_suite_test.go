@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
@@ -29,11 +28,11 @@ import (
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/nvipam/api/v1alpha1"
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils/collector"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,9 +49,9 @@ func init() {
 }
 
 var (
-	testClient        client.Client
-	resourceCollector *collector.Collector
-	ctx               = ctrl.SetupSignalHandler()
+	testClient client.Client
+	restConfig *rest.Config
+	ctx        = ctrl.SetupSignalHandler()
 )
 
 // Run e2e tests using the Ginkgo runner.
@@ -60,6 +59,7 @@ func TestE2E(t *testing.T) {
 	RegisterFailHandler(Fail)
 	g := NewWithT(t)
 	defer GinkgoRecover()
+	var err error
 	fmt.Fprintf(GinkgoWriter, "Starting dpf-operator suite\n")
 	ctrl.SetLogger(klog.Background())
 
@@ -78,19 +78,10 @@ func TestE2E(t *testing.T) {
 	}
 
 	// Create a client to use throughout the test.
-	config, err := clientcmd.BuildConfigFromFlags("", testKubeconfig)
+	restConfig, err = clientcmd.BuildConfigFromFlags("", testKubeconfig)
 	g.Expect(err).NotTo(HaveOccurred())
-	testClient, err = client.New(config, client.Options{Scheme: s})
+	testClient, err = client.New(restConfig, client.Options{Scheme: s})
 	g.Expect(err).NotTo(HaveOccurred())
 
-	// Get the path to place artifacts in
-	_, basePath, _, _ := runtime.Caller(0)
-	artifactsPath := filepath.Join(filepath.Dir(basePath), "../../artifacts")
-	inventoryManifestsPath := filepath.Join(filepath.Dir(basePath), "../../internal/operator/inventory/manifests")
-
-	// Create a resourceCollector to dump logs and resources for test debugging.
-	clusters, err := collector.GetClusterCollectors(ctx, testClient, artifactsPath, inventoryManifestsPath, config)
-	g.Expect(err).NotTo(HaveOccurred())
-	resourceCollector = collector.New(clusters)
 	RunSpecs(t, "e2e suite")
 }
