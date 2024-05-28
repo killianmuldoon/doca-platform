@@ -349,7 +349,7 @@ generate-manifests-ovnkubernetes-operator-embedded: generate-manifests-dpucnipro
 	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/ovnkubernetesoperator/controllers/manifests/dpucniprovisioner.yaml
 
 .PHONY: generate-manifests-sfcset
-generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. for the sfcset controller.
+generate-manifests-sfcset: $(KUSTOMIZE) $(ENVSUBST) ## Generate manifests e.g. CRD, RBAC. for the sfcset controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/servicechainset/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/servicechainset/..." \
@@ -366,7 +366,7 @@ generate-manifests-sfcset: $(KUSTOMIZE) ## Generate manifests e.g. CRD, RBAC. fo
 
 
 .PHONY: generate-manifests-sfc-controller
-generate-manifests-sfc-controller: generate-manifests-sfcset
+generate-manifests-sfc-controller: generate-manifests-sfcset $(ENVSUBST)
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_servicechains.yaml deploy/helm/sfc-controller/crds/
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/sfc-controller/crds/
 	# Template the image name and tag used in the helm templates.
@@ -543,15 +543,24 @@ lint-helm-ovnkubernetes-operator: $(HELM) ## Run helm lint for OVN Kubernetes Op
 ##@ Release
 
 .PHONY: release
-release: generate
-	$(MAKE) docker-build-all docker-push-all
+release: generate # Build and push helm and container images for release.
+	# Build arm64 images which will run on DPUs.
+	$(MAKE) ARCH=$(DPU_ARCH) $(addprefix docker-build-,$(DPU_ARCH_DOCKER_BUILD_TARGETS))
+	# Build amd64 images which will run on x86 hosts.
+	$(MAKE) ARCH=$(HOST_ARCH) $(addprefix docker-build-,$(HOST_ARCH_DOCKER_BUILD_TARGETS))
+	# Push all of the images
+	$(MAKE) docker-push-all
+
+	# Package and push the helm charts.
 	$(MAKE) helm-package-all helm-push-all
 
 ##@ Build
 
 GO_GCFLAGS=""
 GO_LDFLAGS="-extldflags '-static'"
-BUILD_TARGETS ?= operator dpuservice dpucniprovisioner hostcniprovisioner sfcset ovnkubernetes-operator
+BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS) $(HOST_ARCH_BUILD_TARGETS)
+DPU_ARCH_BUILD_TARGETS ?= dpucniprovisioner sfcset
+HOST_ARCH_BUILD_TARGETS ?= operator dpuservice hostcniprovisioner ovnkubernetes-operator
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
 # The BUNDLE_VERSION is the same as the TAG but the first character is stripped. This is used to strip a leading `v` which is invalid for Bundle versions.
@@ -598,10 +607,12 @@ binary-sfc-controller: ## Build the Host CNI Provisioner binary.
 binary-binary-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-embedded ## Build the OVN Kubernetes operator.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ovnkubernetesoperator gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/ovnkubernetesoperator
 
-DOCKER_BUILD_TARGETS=$(BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouterd dms dhcrelay ovnkubernetes-operator sfc-controller
+DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS)
+HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouterd dms dhcrelay ovnkubernetes-operator
+DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller
 
 .PHONY: docker-build-all
-docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS
+docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
 
 OVS_BASE_IMAGE_NAME = base-image-ovs
 OVS_BASE_IMAGE = $(REGISTRY)/$(OVS_BASE_IMAGE_NAME)
