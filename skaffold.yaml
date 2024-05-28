@@ -61,6 +61,30 @@ profiles:
           - config/servicechainset/crd
           - config/dpf-provisioning/crd
           - config/argocd/crd
+  - name: ovnkubernetes-operator
+    # Note: The operator profile is mutually exclusive with other profiles as the operator will deploy the other components.
+    build:
+      local:
+        useBuildkit: true
+      artifacts:
+        - image: nvidia.com/dpf-ovn-kubernetes-operator-controller-manager
+          runtimeType: go
+          docker:
+            buildArgs:
+              ## Used for debugging. Disable inlining and optimizations in the go compiler. Passed to go build using `-gcflags`
+              gcflags: "all=-N -l"
+              ldflags: "-extldflags '-static'"
+              target_arch: "arm64"
+              package: ./cmd/ovnkubernetesoperator
+              builder_image: golang:1.22
+              base_image: gcr.io/distroless/static:nonroot
+            dockerfile: Dockerfile
+    manifests:
+      ## Deploy the manager.
+      kustomize:
+        paths:
+          - config/ovnkubernetesoperator/default
+
     portForward:
       - resourceType: deployment
         resourceName: dpf-operator-controller-manager

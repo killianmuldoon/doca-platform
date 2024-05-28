@@ -24,6 +24,7 @@ import (
 
 	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/ovnkubernetesoperator/v1alpha1"
 	ovnkubernetesoperatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/ovnkubernetesoperator/controllers"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/ovnkubernetesoperator/webhooks"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/release"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -147,6 +148,13 @@ func main() {
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
+
+	if err = (&webhooks.NetworkInjector{
+		Client: mgr.GetClient(),
+	}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DPFOperatorConfig")
+		os.Exit(1)
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

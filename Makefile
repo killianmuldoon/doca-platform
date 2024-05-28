@@ -287,11 +287,14 @@ generate-manifests-ovnkubernetes-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVS
 	$(CONTROLLER_GEN) \
 	paths="./cmd/ovnkubernetesoperator/..." \
 	paths="./internal/ovnkubernetesoperator/..." \
+	paths="./internal/ovnkubernetesoperator/webhooks" \
 	paths="./api/ovnkubernetesoperator/..." \
 	crd:crdVersions=v1 \
 	rbac:roleName=manager-role \
 	output:crd:dir=./config/ovnkubernetesoperator/crd/bases \
-	output:rbac:dir=./config/ovnkubernetesoperator/rbac
+	output:rbac:dir=./config/ovnkubernetesoperator/rbac \
+	output:webhook:dir=./config/ovnkubernetesoperator/webhook \
+    webhook
 	cd config/ovnkubernetesoperator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
 	rm -rf deploy/helm/dpf-ovn-kubernetes-operator/crds/* && find config/ovnkubernetesoperator/crd/bases/ -type f -exec cp {} deploy/helm/dpf-ovn-kubernetes-operator/crds/ \;
 	$(ENVSUBST) < deploy/helm/dpf-ovn-kubernetes-operator/values.yaml.tmpl > deploy/helm/dpf-ovn-kubernetes-operator/values.yaml
@@ -1040,6 +1043,12 @@ dev-operator:  $(MINIKUBE) $(SKAFFOLD) generate-manifests-operator-embedded ## D
 	git restore config/operator/manager/kustomization.yaml
 	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false --cleanup=false
+
+dev-ovnkubernetes-operator:  $(MINIKUBE) $(SKAFFOLD) generate-manifests-ovnkubernetes-operator-embedded ## Deploy operator controller to dev cluster using skaffold
+	# Ensure the manager's kustomization has the correct image name and has not been changed by generation.
+	git restore config/ovnkubernetesoperator/manager/kustomization.yaml
+	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \
+	$(SKAFFOLD) debug -p ovnkubernetes-operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary (ideally with version)
