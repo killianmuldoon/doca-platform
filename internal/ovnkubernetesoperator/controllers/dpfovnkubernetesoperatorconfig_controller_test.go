@@ -249,7 +249,22 @@ networking:
 					cleanupObjects = append(cleanupObjects, o)
 				}
 				Expect(testClient.Delete(ctx, testNS)).To(Succeed())
-				Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
+				// We don't use the CleanupAndWait function here because of a race condition related to the missing
+				// finalizer. In particular, there is a race condition with a reconciliation that is in progress and the
+				// config CR is removed. In that case, the CleanupAndWait that is called at the end of each ginkgo spec
+				// that creates a config CR exits very fast and this DeferCleanup we are in proceeds with the deletion
+				// of the rest of the objects. In the meantime, the controller installs those objects again. If we had
+				// a finalizer, that CleanupAndWait would exit after the CR has been removed which means that there is
+				// no ongoing reconciliation that modifies objects (i.e. calls reconcileCustomOVNKubernetesDeployment())
+				// happening on removal of the object.
+				Eventually(func(g Gomega) {
+					Consistently(func(g Gomega) {
+						for _, o := range cleanupObjects {
+							g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, o))).To(Succeed())
+							g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(o), o))).To(BeTrue())
+						}
+					}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(180 * time.Second).Should(Succeed())
 			})
 		})
 
