@@ -37,14 +37,13 @@ import (
 
 // CleanupAndWait deletes an object and waits for it to be removed before exiting.
 func CleanupAndWait(ctx context.Context, c client.Client, objs ...client.Object) error {
+	// Ensure each object is deleted by checking that each object returns an IsNotFound error in the api server.
+	errs := []error{}
 	for _, o := range objs {
 		if err := c.Delete(ctx, o); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
-	}
-	// Ensure each object is deleted by checking that each object returns an IsNotFound error in the api server.
-	errs := []error{}
-	for _, o := range objs {
+
 		key := client.ObjectKeyFromObject(o)
 		err := wait.ExponentialBackoff(
 			wait.Backoff{

@@ -115,7 +115,7 @@ func (p *dpfProvisioningControllerObjects) GenerateManifests(vars Variables) ([]
 	deploy := p.deployment.DeepCopy()
 	mods := []func(*appsv1.Deployment, Variables) error{
 		p.setBFBPersistentVolumeClaim,
-		p.setImagePullSecret,
+		p.setImagePullSecrets,
 		p.setComponentLabel,
 		p.setDefaultImageNames,
 		p.setDHCP,
@@ -212,23 +212,22 @@ func (p *dpfProvisioningControllerObjects) setBFBPersistentVolumeClaim(deploy *a
 	return p.setFlags(c, fmt.Sprintf("--bfb-pvc=%s", vol.PersistentVolumeClaim.ClaimName))
 }
 
-func (p *dpfProvisioningControllerObjects) setImagePullSecret(deploy *appsv1.Deployment, vars Variables) error {
-	if strings.TrimSpace(vars.DPFProvisioningController.ImagePullSecret) == "" {
-		return fmt.Errorf("empty imagePullSecret")
-	}
-	deploy.Spec.Template.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: vars.DPFProvisioningController.ImagePullSecret}}
+func (p *dpfProvisioningControllerObjects) setImagePullSecrets(deploy *appsv1.Deployment, vars Variables) error {
 	if vars.ImagePullSecrets != nil {
 		var localObjectRefs []corev1.LocalObjectReference
 		for _, secret := range vars.ImagePullSecrets {
 			localObjectRefs = append(localObjectRefs, corev1.LocalObjectReference{Name: secret})
 		}
-		deploy.Spec.Template.Spec.ImagePullSecrets = append(deploy.Spec.Template.Spec.ImagePullSecrets, localObjectRefs...)
+		deploy.Spec.Template.Spec.ImagePullSecrets = localObjectRefs
+	}
+	if strings.TrimSpace(vars.DPFProvisioningController.ImagePullSecretForDMSAndHostNetwork) == "" {
+		return fmt.Errorf("ImagePullSecretForDMSAndHostNetwork can not be empty")
 	}
 	c := p.getContainer(deploy)
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
 	}
-	return p.setFlags(c, fmt.Sprintf("--image-pull-secret=%s", vars.DPFProvisioningController.ImagePullSecret))
+	return p.setFlags(c, fmt.Sprintf("--image-pull-secret=%s", vars.DPFProvisioningController.ImagePullSecretForDMSAndHostNetwork))
 }
 
 func (p *dpfProvisioningControllerObjects) setDHCP(deploy *appsv1.Deployment, vars Variables) error {

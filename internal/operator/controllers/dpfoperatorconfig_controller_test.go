@@ -109,9 +109,9 @@ func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig
 				Hosts: []operatorv1.Host{},
 			},
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
-				BFBPersistentVolumeClaimName: "foo-pvc",
-				ImagePullSecret:              "foo-image-pull-secret",
-				DHCPServerAddress:            "192.168.1.1",
+				BFBPersistentVolumeClaimName:        "foo-pvc",
+				ImagePullSecretForDMSAndHostNetwork: "foo-image-pull-secret",
+				DHCPServerAddress:                   "192.168.1.1",
 			},
 		},
 	}
@@ -133,7 +133,7 @@ var _ = Describe("DPFOperatorConfig Controller - Reconcile System Components", f
 			By("creating the DPFOperatorConfig")
 			config := getMinimalDPFOperatorConfig(testNS.Name)
 			config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName = "foo-pvc"
-			config.Spec.ProvisioningConfiguration.ImagePullSecret = "foo-image-pull-secret"
+			config.Spec.ProvisioningConfiguration.ImagePullSecretForDMSAndHostNetwork = "foo-image-pull-secret"
 			config.Spec.ImagePullSecrets = []string{"secret-one", "secret-two"}
 			config.Spec.Overrides = &operatorv1.Overrides{}
 			config.Spec.Overrides.Paused = true

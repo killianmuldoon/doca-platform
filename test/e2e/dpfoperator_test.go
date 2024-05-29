@@ -82,8 +82,9 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			},
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
 				BFBPersistentVolumeClaimName: dpfProvisioningControllerPVCName,
-				ImagePullSecret:              "some-secret",
-				DHCPServerAddress:            "8.8.8.8",
+				// Note: This is the same imagePullSecret as exists in the top-level config.
+				ImagePullSecretForDMSAndHostNetwork: imagePullSecret.Name,
+				DHCPServerAddress:                   "8.8.8.8",
 			},
 			ImagePullSecrets: []string{
 				imagePullSecret.Name,
@@ -107,7 +108,6 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}
 			// TODO: This cleanup isn't good enough to clean the system correctly. Need to ensure the DPFOperatorConfig is cleaned up first.
 			By("cleaning up objects created during the test", func() {
-
 				// Explicitly remove finalizers from provisioning objects as deletion is not implemented.
 				for _, kind := range []string{"bfb", "dpu", "dpuset"} {
 					obj := &unstructured.Unstructured{}
@@ -115,7 +115,9 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					obj.SetAPIVersion("provisioning.dpf.nvidia.com/v1alpha1")
 					obj.SetName("provisioning-object")
 					obj.SetNamespace(dpfOperatorSystemNamespace)
-					Expect(testClient.Patch(ctx, obj, client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`)))).To(Succeed())
+					if err := testClient.Patch(ctx, obj, client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`))); err != nil {
+						GinkgoLogr.Error(err, "failed to patch finalizers for the ")
+					}
 					cleanupObjs = append(cleanupObjs, obj)
 				}
 

@@ -128,7 +128,7 @@ docker run --privileged --rm tonistiigi/binfmt --install all
 
 
 ## Set the inotify limits for the host.
-## This fixes a common "too many files" error on ubuntu
+## This fixes a common "too many open files" error on some systems.
 sudo sysctl fs.inotify.max_user_watches=1048576
 sudo sysctl fs.inotify.max_user_instances=8192
 

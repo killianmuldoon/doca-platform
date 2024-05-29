@@ -39,9 +39,9 @@ type Variables struct {
 }
 
 type DPFProvisioningVariables struct {
-	BFBPersistentVolumeClaimName string
-	ImagePullSecret              string
-	DHCP                         string
+	BFBPersistentVolumeClaimName        string
+	ImagePullSecretForDMSAndHostNetwork string
+	DHCP                                string
 }
 
 // Manifests holds kubernetes object manifests to be deployed by the operator.
