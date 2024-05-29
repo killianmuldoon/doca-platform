@@ -179,9 +179,9 @@ func getVariablesFromConfig(config *operatorv1.DPFOperatorConfig) inventory.Vari
 	return inventory.Variables{
 		Namespace: config.Namespace,
 		DPFProvisioningController: inventory.DPFProvisioningVariables{
-			BFBPersistentVolumeClaimName: config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName,
-			ImagePullSecret:              config.Spec.ProvisioningConfiguration.ImagePullSecret,
-			DHCP:                         config.Spec.ProvisioningConfiguration.DHCPServerAddress,
+			BFBPersistentVolumeClaimName:        config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName,
+			ImagePullSecretForDMSAndHostNetwork: config.Spec.ProvisioningConfiguration.ImagePullSecretForDMSAndHostNetwork,
+			DHCP:                                config.Spec.ProvisioningConfiguration.DHCPServerAddress,
 		},
 		DisableSystemComponents: disableComponents,
 		ImagePullSecrets:        config.Spec.ImagePullSecrets,

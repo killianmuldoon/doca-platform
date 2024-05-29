@@ -145,12 +145,14 @@ spec:
                     description: DHCPServerAddress is the address of the DHCP server
                       that allocates IP for DPU
                     type: string
-                  imagePullSecret:
+                  imagePullSecretForDMSAndHostNetwork:
+                    description: ImagePullSecretForDMSAndHostNetwork is the imagePullSecret
+                      which is passed to pods created by the DPF Provisioning controller.
                     type: string
                 required:
                 - bfbPVCName
                 - dhcpServerAddress
-                - imagePullSecret
+                - imagePullSecretForDMSAndHostNetwork
                 type: object
             required:
             - hostNetworkConfiguration

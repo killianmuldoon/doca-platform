@@ -91,7 +91,8 @@ type Host struct {
 type ProvisioningConfiguration struct {
 	// BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim used by dpf-provisioning-controller
 	BFBPersistentVolumeClaimName string `json:"bfbPVCName"`
-	ImagePullSecret              string `json:"imagePullSecret"`
+	// ImagePullSecretForDMSAndHostNetwork is the imagePullSecret which is passed to pods created by the DPF Provisioning controller.
+	ImagePullSecretForDMSAndHostNetwork string `json:"imagePullSecretForDMSAndHostNetwork"`
 	// DHCPServerAddress is the address of the DHCP server that allocates IP for DPU
 	DHCPServerAddress string `json:"dhcpServerAddress"`
 }

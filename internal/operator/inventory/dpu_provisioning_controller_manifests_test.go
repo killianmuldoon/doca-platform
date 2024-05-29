@@ -187,9 +187,9 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 	t.Run("fail if empty pvc", func(t *testing.T) {
 		vars := Variables{
 			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName: " ",
-				ImagePullSecret:              "secret",
-				DHCP:                         "192.168.1.1",
+				BFBPersistentVolumeClaimName:        " ",
+				ImagePullSecretForDMSAndHostNetwork: "secret",
+				DHCP:                                "192.168.1.1",
 			},
 		}
 		_, err := provCtrl.GenerateManifests(vars)
@@ -199,9 +199,9 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 	t.Run("fail if empty imagePullSecret", func(t *testing.T) {
 		vars := Variables{
 			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName: "pvc",
-				ImagePullSecret:              " ",
-				DHCP:                         "192.168.1.1",
+				BFBPersistentVolumeClaimName:        "pvc",
+				ImagePullSecretForDMSAndHostNetwork: " ",
+				DHCP:                                "192.168.1.1",
 			},
 		}
 		_, err := provCtrl.GenerateManifests(vars)
@@ -211,8 +211,8 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 	t.Run("fail if empty dhcp", func(t *testing.T) {
 		vars := Variables{
 			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName: "pvc",
-				ImagePullSecret:              "secret",
+				BFBPersistentVolumeClaimName:        "pvc",
+				ImagePullSecretForDMSAndHostNetwork: "secret",
 			},
 		}
 		_, err := provCtrl.GenerateManifests(vars)
@@ -222,9 +222,9 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 	t.Run("fail if invalid dhcp", func(t *testing.T) {
 		vars := Variables{
 			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName: "pvc",
-				ImagePullSecret:              "secret",
-				DHCP:                         "invalid ip",
+				BFBPersistentVolumeClaimName:        "pvc",
+				ImagePullSecretForDMSAndHostNetwork: "secret",
+				DHCP:                                "invalid ip",
 			},
 		}
 		_, err := provCtrl.GenerateManifests(vars)
@@ -237,9 +237,9 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		vars := Variables{
 			Namespace: testNS,
 			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName: "pvc",
-				ImagePullSecret:              "some-secret",
-				DHCP:                         "192.168.1.1",
+				BFBPersistentVolumeClaimName:        "pvc",
+				ImagePullSecretForDMSAndHostNetwork: "some-secret",
+				DHCP:                                "192.168.1.1",
 			},
 		}
 		objs, err := provCtrl.GenerateManifests(vars)
@@ -323,9 +323,9 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		vars := Variables{
 			Namespace: "foo",
 			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName: expectedPVC,
-				ImagePullSecret:              expectedImagePullSecret,
-				DHCP:                         expectedDHCP,
+				BFBPersistentVolumeClaimName:        expectedPVC,
+				ImagePullSecretForDMSAndHostNetwork: expectedImagePullSecret,
+				DHCP:                                expectedDHCP,
 			},
 			ImagePullSecrets: []string{expectedImagePullSecret2, expectedImagePullSecret3},
 		}
@@ -359,10 +359,9 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		g.Expect(gotDeployment.Spec.Template.Labels[operatorv1.DPFComponentLabelKey]).To(Equal(dpfProvisioningControllerName))
 		// * ensure that the expected modifications have been made to the deployment.
 		g.Expect(gotDeployment).NotTo(BeNil())
-		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets).To(HaveLen(3))
-		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets[0].Name).To(Equal(expectedImagePullSecret))
-		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets[1].Name).To(Equal(expectedImagePullSecret2))
-		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets[2].Name).To(Equal(expectedImagePullSecret3))
+		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets).To(HaveLen(2))
+		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets[0].Name).To(Equal(expectedImagePullSecret2))
+		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets[1].Name).To(Equal(expectedImagePullSecret3))
 		// * check bfb pvc
 		g.Expect(gotDeployment.Spec.Template.Spec.Volumes).To(HaveLen(2))
 		g.Expect(gotDeployment.Spec.Template.Spec.Volumes[1].PersistentVolumeClaim).NotTo(BeNil())
