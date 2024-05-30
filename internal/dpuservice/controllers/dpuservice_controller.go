@@ -64,7 +64,7 @@ const (
 	dpuAppProjectName      = "doca-platform-project-dpu"
 	hostAppProjectName     = "doca-platform-project-host"
 
-	dpfServiceIDLabelKey = "dpf.nvidia.com/service-id"
+	dpfServiceIDLabelKey = "sfc.nvidia.com/service"
 	// The ArgoCD namespace will always be the same as that where the reconciler is deployed.
 	// TODO:Figure out a way to make this dynamic while preserving the e2e tests.
 	argoCDNamespace = "dpf-operator-system"

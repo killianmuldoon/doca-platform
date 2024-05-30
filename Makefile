@@ -80,6 +80,10 @@ CHARTSDIR ?= $(shell pwd)/hack/charts
 $(CHARTSDIR):
 	@mkdir -p $@
 
+DPUSERVICESDIR ?= $(shell pwd)/deploy/dpuservices
+$(DPUSERVICESDIR):
+	@mkdir -p $@
+
 REPOSDIR ?= $(shell pwd)/hack/repos
 $(REPOSDIR):
 	@mkdir -p $@
@@ -378,6 +382,10 @@ generate-manifests-dpf-provisioning: $(KUSTOMIZE) $(DPF_PROVISIONING_DIR) ## Gen
 	$(MAKE) IMG=$(DPFPROVISIONING_IMAGE):$(TAG) -C $(DPF_PROVISIONING_DIR) kustomize-build
 	$(KUSTOMIZE) build $(DPF_PROVISIONING_DIR)/config/crd > ./config/dpf-provisioning/crd/bases/crds.yaml
 
+.PHONY: generate-manifests-hbn-dpuservice
+generate-manifests-hbn-dpuservice: $(ENVSUBST)
+	$(ENVSUBST) < deploy/dpuservices/hbn/chart/values.yaml.tmpl > deploy/dpuservices/hbn/chart/values.yaml
+
 OPERATOR_HELM_CHART_NAME ?= dpf-operator
 OPERATOR_HELM_CHART ?= $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)
 .PHONY: generate-helm-chart-operator
@@ -608,7 +616,7 @@ binary-binary-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ovnkubernetesoperator gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/ovnkubernetesoperator
 
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS)
-HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouterd dms dhcrelay ovnkubernetes-operator
+HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouterd dms dhcrelay ovnkubernetes-operator hbn
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller
 
 .PHONY: docker-build-all
@@ -691,6 +699,11 @@ DPUCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(DPUCNIPROVISIONER_IMAGE_NAME)
 
 DPFOVNKUBERNETESOPERATOR_IMAGE_NAME ?= dpf-ovn-kubernetes-operator-controller-manager
 export DPFOVNKUBERNETESOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOVNKUBERNETESOPERATOR_IMAGE_NAME)
+
+HBN_DPUSERVICE_DIR ?= deploy/dpuservices/hbn
+HBN_IMAGE_NAME ?= hbn
+export HBN_IMAGE ?= $(REGISTRY)/$(HBN_IMAGE_NAME)
+export HBN_TAG ?= 2.1.0.6-dpf
 
 .PHONY: docker-build-sfcset
 docker-build-sfcset: ## Build docker images for the sfcset-controller
@@ -852,6 +865,11 @@ docker-build-hostnetwork: ## Build docker image with the hostnetwork.
 docker-build-dms: ## Build docker image with the hostnetwork.
 	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t ${DMS_IMAGE} . -f dockerfile/Dockerfile.dms
 
+.PHONY: docker-build-hbn
+docker-build-hbn: ## Build docker image for HBN.
+	## Note this image only ever builds for arm64.
+	cd $(HBN_DPUSERVICE_DIR) && docker build -t ${HBN_IMAGE}:${HBN_TAG} . -f Dockerfile
+
 .PHONY: docker-push-dhcrelay
 docker-push-dhcrelay: ## Push the docker image for dhcrelate.
 	cd $(DPF_PROVISIONING_DIR) && docker push ${DHCRELAY_IMAGE}
@@ -898,9 +916,13 @@ docker-push-operator-bundle: ## Push the bundle image.
 docker-push-ovnkubernetes-operator: ## Push the docker image for the OVN Kubernetes operator.
 	docker push $(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
 
+.PHONY: docker-push-hbn
+docker-push-hbn: ## Push the docker image for hbn
+	docker push $(HBN_IMAGE):$(HBN_TAG)
+
 # helm charts
 
-HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam ovs-cni sfc-controller ovnkubernetes-operator operator
+HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam ovs-cni sfc-controller ovnkubernetes-operator operator hbn-dpuservice
 HELM_REGISTRY ?= oci://$(REGISTRY)
 
 ## metadata for servicechain controller.
@@ -943,6 +965,11 @@ export DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME = dpf-ovn-kubernetes-operator
 DPFOVNKUBERNETESOPERATOR_HELM_CHART ?= $(HELMDIR)/$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME)
 DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER ?= $(TAG)
 
+## metadata for hbn dpuservice.
+export HBN_HELM_CHART_NAME = hbn
+HBN_HELM_CHART ?= $(DPUSERVICESDIR)/$(HBN_HELM_CHART_NAME)/chart
+HBN_HELM_CHART_VER ?= $(TAG)
+
 .PHONY: helm-package-all
 helm-package-all: $(addprefix helm-package-,$(HELM_TARGETS))  ## Package the helm charts for all components.
 
@@ -981,6 +1008,10 @@ helm-package-operator: $(CHARTSDIR) $(HELM) ## Package helm chart for DPF Operat
 .PHONY: helm-package-ovnkubernetes-operator
 helm-package-ovnkubernetes-operator: $(CHARTSDIR) $(HELM) ## Package helm chart for OVN Kubernetes Operator
 	$(HELM) package $(DPFOVNKUBERNETESOPERATOR_HELM_CHART) --version $(DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER) --destination $(CHARTSDIR)
+
+.PHONY: helm-package-hbn-dpuservice
+helm-package-hbn-dpuservice: $(DPUSERVICESDIR) $(HELM) generate-manifests-hbn-dpuservice ## Package helm chart for OVN Kubernetes Operator
+	$(HELM) package $(HBN_HELM_CHART) --version $(HBN_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 helm-cm-push: $(HELM)
 	# installs the helm chartmuseum push plugin which is used to push to NGC.
@@ -1025,6 +1056,10 @@ helm-push-ovnkubernetes-operator: $(CHARTSDIR) helm-cm-push ## Push helm chart f
 .PHONY: helm-push-operator
 helm-push-operator: $(CHARTSDIR) helm-cm-push ## Push helm chart for nvidia-k8s-ipam
 	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
+
+.PHONY: helm-push-hbn-dpuservice
+helm-push-hbn-dpuservice: $(CHARTSDIR) helm-cm-push ## Push helm chart for nvidia-k8s-ipam
+	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(HBN_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
 
 ##@ Development Environment
 

@@ -43,7 +43,7 @@ metadata:
             "provisioningConfiguration": {
               "bfbPVCName": "dpf-provisioning-volume",
               "dhcpServerAddress": "8.8.8.8",
-              "imagePullSecret": "fake-name"
+              "imagePullSecretForDMSAndHostNetwork": "fake-name"
             }
           }
         }

@@ -1,0 +1,157 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "hbn.fullname" . }}-doca-hbn-ds
+  labels:
+    {{- include "hbn.labels" . | nindent 4 }}
+    {{- range $labelName, $labelValue := $.Values.serviceDaemonSet.labels }}
+    {{ $labelName }}: {{ $labelValue }}
+    {{- end }}
+  annotations:
+    app: hbn
+    {{- range $annotationName, $annotationValue := $.Values.serviceDaemonSet.annotations }}
+    {{ $annotationName }}: {{ $annotationValue }}
+    {{- end }}
+spec:
+  {{- with .Values.serviceDaemonSet.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  selector:
+    matchLabels:
+    {{- include "hbn.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        sfc.nvidia.com/service: {{.Values.serviceID}}
+        {{- include "hbn.selectorLabels" . | nindent 8 }}
+        {{- range $labelName, $labelValue := $.Values.serviceDaemonSet.labels }}
+        {{ $labelName }}: {{ $labelValue }}
+        {{- end }}
+      annotations:
+        app: hbn
+        {{- range $annotationName, $annotationValue := $.Values.serviceDaemonSet.annotations }}
+        {{ $annotationName  }}: {{ $annotationValue  }}
+        {{- end }}
+    spec:
+      {{- with toYaml .Values.serviceDaemonSet.nodeSelector }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+              {{- . | nindent 12 }}
+      {{- end }}
+      containers:
+      - name: doca-hbn
+        env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.docaHbn.image.repository }}:{{ .Values.docaHbn.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.docaHbn.imagePullPolicy }}
+        {{- with toYaml .Values.serviceDaemonSet.resources }}
+        resources:
+          limits:
+            {{- . | nindent 12 }}
+          requests:
+            {{- . | nindent 12 }}
+        {{- end }}
+        securityContext: {{- toYaml .Values.docaHbn.containerSecurityContext
+          | nindent 10 }}
+        volumeMounts:
+        - mountPath: /etc/network
+          name: eni
+        - mountPath: /etc/frr
+          name: frr
+        - mountPath: /var/lib/nvue
+          name: nvue
+        - mountPath: /etc/supervisor/conf.d/
+          name: supervisor
+        - mountPath: /etc/nvue.d
+          name: nvuestartup
+        - mountPath: /var/log/hbn
+          name: hbnlogs
+        - mountPath: /var/support
+          name: support
+        - mountPath: /etc/cumulus
+          name: etccumulus
+        - mountPath: /var/run/openvswitch
+          name: openvswitch
+          readOnly: true
+      initContainers:
+      - command:
+        - /initbootstrap.sh
+        env:
+        - name: HOSTNAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.hbnInit.image.repository }}:{{ .Values.hbnInit.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.hbnInit.imagePullPolicy }}
+        name: hbn-init
+        resources: {}
+        securityContext: {{- toYaml .Values.hbnInit.containerSecurityContext
+          | nindent 10 }}
+        volumeMounts:
+        - mountPath: /host
+          name: host
+        - mountPath: /tmp/config-data
+          name: config-volume
+        - mountPath: /tmp/j2-startup-template
+          name: j2-template-volume
+      tolerations:
+      - effect: NoSchedule
+        key: node-role.kubernetes.io/control-plane
+        operator: Exists
+      volumes:
+      - hostPath:
+          path: /var/lib/hbn/etc/network
+          type: DirectoryOrCreate
+        name: eni
+      - hostPath:
+          path: /var/lib/hbn/etc/frr
+          type: DirectoryOrCreate
+        name: frr
+      - hostPath:
+          path: /var/lib/hbn/var/lib/nvue
+          type: DirectoryOrCreate
+        name: nvue
+      - hostPath:
+          path: /var/lib/hbn/etc/supervisor/conf.d
+          type: DirectoryOrCreate
+        name: supervisor
+      - hostPath:
+          path: /var/lib/hbn/etc/nvue.d
+          type: DirectoryOrCreate
+        name: nvuestartup
+      - hostPath:
+          path: /var/log/doca/hbn
+          type: DirectoryOrCreate
+        name: hbnlogs
+      - hostPath:
+          path: /var/lib/hbn/var/support/
+          type: DirectoryOrCreate
+        name: support
+      - hostPath:
+          path: /var/lib/hbn/etc/cumulus
+          type: DirectoryOrCreate
+        name: etccumulus
+      - hostPath:
+          path: /var/lib/hbn
+          type: DirectoryOrCreate
+        name: var-lib-hbn
+      - hostPath:
+          path: /var/run/openvswitch
+          type: Directory
+        name: openvswitch
+      - hostPath:
+          path: /
+        name: host
+      - configMap:
+          name: {{ include "hbn.fullname" . }}-hbn-nodes-conf
+        name: config-volume
+      - configMap:
+          name: {{ include "hbn.fullname" . }}-j2-startup-template
+        name: j2-template-volume
