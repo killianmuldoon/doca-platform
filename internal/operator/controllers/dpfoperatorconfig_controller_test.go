@@ -39,11 +39,9 @@ import (
 var _ = Describe("DPFOperator controller settings", func() {
 	Context("When setting up the controller", func() {
 		It("Should restrict reconciliation to a specific namespace and name when ConfigSingletonNamespaceName is set", func() {
-			s := scheme.Scheme
-			Expect(operatorv1.AddToScheme(scheme.Scheme)).To(Succeed())
 			singletonReconciler := &DPFOperatorConfigReconciler{
 				Client: testClient,
-				Scheme: s,
+				Scheme: scheme.Scheme,
 				Settings: &DPFOperatorConfigReconcilerSettings{
 					ConfigSingletonNamespaceName: &types.NamespacedName{
 						Namespace: "one-namespace",
@@ -69,11 +67,9 @@ var _ = Describe("DPFOperator controller settings", func() {
 			Expect(err.Error()).To(ContainSubstring("only one object"))
 		})
 		It("Should allow reconciliation in any namespace and name when ConfigSingletonNamespaceName is unset", func() {
-			s := scheme.Scheme
-			Expect(operatorv1.AddToScheme(scheme.Scheme)).To(Succeed())
 			unrestrictedReconciler := &DPFOperatorConfigReconciler{
 				Client: testClient,
-				Scheme: s,
+				Scheme: scheme.Scheme,
 				Settings: &DPFOperatorConfigReconcilerSettings{
 					ConfigSingletonNamespaceName: nil,
 				},
