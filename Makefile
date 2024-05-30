@@ -718,11 +718,11 @@ docker-build-sfcset: ## Build docker images for the sfcset-controller
 		-t $(SFCSET_IMAGE):$(TAG)
 
 .PHONY: docker-build-sfc-controller
-docker-build-sfc-controller: ## Build docker images for the sfc-controller
+docker-build-sfc-controller: docker-build-base-image-ovs ## Build docker images for the sfc-controller
 	docker build \
 		--build-arg builder_image=$(BUILD_IMAGE) \
-		--build-arg base_image=$(BASE_IMAGE) \
-		--build-arg target_arch=$(ARCH) \
+		--build-arg base_image=$(OVS_BASE_IMAGE):$(TAG) \
+		--build-arg target_arch=$(DPU_ARCH) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/sfc-controller \

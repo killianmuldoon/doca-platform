@@ -1,0 +1,10 @@
+apiVersion: sfc.dpf.nvidia.com/v1alpha1
+kind: ServiceInterface
+metadata:
+  name: node1-dpu1-p0
+  labels:
+    uplink: port0
+spec:
+  interfaceType: physical
+  interfaceName: p3
+  node: k8smaster

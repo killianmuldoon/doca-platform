@@ -29,6 +29,8 @@ spec:
           operator: Exists
           effect: NoSchedule
       serviceAccountName: {{ include "sfc-controller.fullname" . }}-node
+      securityContext:
+        runAsUser: 0
       containers:
       - args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
         command:
@@ -36,8 +38,28 @@ spec:
         env:
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        - name: SFC_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: SYSTEMCTL_FORCE_BUS
+          value: "1"
+        volumeMounts:
+        - name: ovs
+          mountPath: /var/run/openvswitch/
+        - name: ovs-systemd-config
+          mountPath: /etc/default/openvswitch-switch
+        - name: var-run-systemd
+          mountPath: /var/run/systemd
+        - name: systemd-dbus
+          mountPath: /var/run/dbus/system_bus_socket
+        volumeMounts:
+        - name: ovs
+          mountPath: /var/run/openvswitch/
         image: {{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag
           | default .Chart.AppVersion }}
+        securityContext:
+          privileged: true
         livenessProbe:
           httpGet:
             path: /healthz
@@ -56,6 +78,17 @@ spec:
         securityContext: {{- toYaml .Values.controllerManager.manager.containerSecurityContext
           | nindent 10 }}
       imagePullSecrets: {{ .Values.imagePullSecrets | default list | toJson }}
-      securityContext:
-        runAsNonRoot: true
       terminationGracePeriodSeconds: 10
+      volumes:
+      - name: ovs
+        hostPath:
+          path: /var/run/openvswitch
+      - name: ovs-systemd-config
+        hostPath:
+          path: /etc/default/openvswitch-switch
+      - name: var-run-systemd
+        hostPath:
+          path: /var/run/systemd
+      - name: systemd-dbus
+        hostPath:
+          path: /var/run/dbus/system_bus_socket
