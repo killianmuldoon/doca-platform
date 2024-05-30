@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"sync"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
@@ -46,6 +47,7 @@ var _ Component = &dpfProvisioningControllerObjects{}
 // dpfProvisioningControllerObjects objects should be immutable after Parse()
 type dpfProvisioningControllerObjects struct {
 	data         []byte
+	mux          sync.Mutex
 	otherObjects []unstructured.Unstructured
 	deployment   *appsv1.Deployment
 }
@@ -85,6 +87,8 @@ func (p *dpfProvisioningControllerObjects) Parse() (err error) {
 }
 
 func (p *dpfProvisioningControllerObjects) GenerateManifests(vars Variables) ([]client.Object, error) {
+	p.mux.Lock()
+	defer p.mux.Unlock()
 	if _, ok := vars.DisableSystemComponents[p.Name()]; ok {
 		return []client.Object{}, nil
 	}
