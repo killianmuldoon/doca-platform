@@ -69,6 +69,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var enableWebhook bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -78,6 +79,8 @@ func main() {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.BoolVar(&enableWebhook, "enable-webhook", true,
+		"Enable the webhook that is handling the network annotation injection for workload pods")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -149,11 +152,13 @@ func main() {
 	}
 	//+kubebuilder:scaffold:builder
 
-	if err = (&webhooks.NetworkInjector{
-		Client: mgr.GetClient(),
-	}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DPFOperatorConfig")
-		os.Exit(1)
+	if enableWebhook {
+		if err = (&webhooks.NetworkInjector{
+			Client: mgr.GetClient(),
+		}).SetupWebhookWithManager(mgr); err != nil {
+			setupLog.Error(err, "unable to create controller", "controller", "DPFOperatorConfig")
+			os.Exit(1)
+		}
 	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
