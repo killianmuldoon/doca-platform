@@ -170,6 +170,8 @@ spec:
                   capabilities:
                     drop:
                     - ALL
+              imagePullSecrets:
+              - name: ngc-secret
               serviceAccountName: dpf-operator-dpf-operator-controller-manager
               terminationGracePeriodSeconds: 10
       permissions:
