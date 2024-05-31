@@ -9,10 +9,13 @@ namespace: dpf-operator
 namePrefix: dpf-operator-
 
 resources:
-  - resources/dpf-operator.clusterserviceversion.yaml
-  - ../operator/default
-  - ../operator/samples
-  - ../dpuservice/crd
-  - ../servicechainset/crd
-  - ../dpf-provisioning/crd
-  - ../argocd/crd
+- resources/dpf-operator.clusterserviceversion.yaml
+- ../operator/default
+- ../operator/samples
+- ../dpuservice/crd
+- ../servicechainset/crd
+- ../dpf-provisioning/crd
+- ../argocd/crd
+
+patchesStrategicMerge:
+- operator_imagepullsecrets_patch.yaml
