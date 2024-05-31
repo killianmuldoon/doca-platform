@@ -20,6 +20,12 @@ controllerManager:
   replicas: 1
   serviceAccount:
     annotations: {}
+  nodeSelector:
+    node-role.kubernetes.io/control-plane: ""
+  tolerations:
+  - key: node-role.kubernetes.io/master
+    operator: "Exists"
+    effect: NoSchedule
 imagePullSecrets: []
 config:
   hostPF0: "" # ens2f0np0
