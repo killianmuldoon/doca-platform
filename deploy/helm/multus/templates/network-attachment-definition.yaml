@@ -2,6 +2,8 @@ apiVersion: "k8s.cni.cncf.io/v1"
 kind: NetworkAttachmentDefinition
 metadata:
   name: mybrsfc
+  annotations:
+    k8s.v1.cni.cncf.io/resourceName: nvidia.com/bf_sf
   labels:
     {{- include "multus.labels" . | nindent 4 }}
 spec:
@@ -12,6 +14,8 @@ apiVersion: "k8s.cni.cncf.io/v1"
 kind: NetworkAttachmentDefinition
 metadata:
   name: mybrhbn
+  annotations:
+    k8s.v1.cni.cncf.io/resourceName: nvidia.com/bf_sf
   labels:
     {{- include "multus.labels" . | nindent 4 }}
 spec:
