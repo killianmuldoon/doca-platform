@@ -258,7 +258,7 @@ networking:
 				// no ongoing reconciliation that modifies objects (i.e. calls reconcileCustomOVNKubernetesDeployment())
 				// happening on removal of the object.
 				Eventually(func(g Gomega) {
-					Consistently(func(g Gomega) {
+					g.Consistently(func(g Gomega) {
 						for _, o := range cleanupObjects {
 							g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, o))).To(Succeed())
 							g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(o), o))).To(BeTrue())

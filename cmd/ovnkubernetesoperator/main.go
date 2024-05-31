@@ -62,7 +62,7 @@ func main() {
 		os.Exit(1)
 	}
 	customOVNKubernetesDPUImage = defaults.CustomOVNKubernetesDPUImage
-	customOVNKubernetesNonDPUImage = defaults.CustomOVNKubernetesDPUImage
+	customOVNKubernetesNonDPUImage = defaults.CustomOVNKubernetesNonDPUImage
 
 	var metricsAddr string
 	var enableLeaderElection bool
