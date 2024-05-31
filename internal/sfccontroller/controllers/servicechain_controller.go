@@ -17,7 +17,15 @@ limitations under the License.
 package controller
 
 import (
+	"bytes"
 	"context"
+	"errors"
+	"fmt"
+	"hash/fnv"
+	"os"
+	"os/exec"
+	"strings"
+	"time"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
 
@@ -41,16 +49,152 @@ const (
 	ServiceChainControllerName = "service-chain-controller"
 )
 
+// Hashing function, will be used when adding and removing OpenFlow flows
+// This hash will take in the service chain name and return the coresponding hash
+func hash(s string) uint64 {
+	h := fnv.New64a()
+	h.Write([]byte(s))
+	return h.Sum64()
+}
+
+// Utility function to find an OVS interface based on the condition that the
+// external_id:dpf-id=condition which is sent as an input
+func findInterface(condition string) (string, error) {
+	ovsVsctlPath, err := exec.LookPath("ovs-vsctl")
+	if err != nil {
+		return "", err
+	}
+	args := []string{"-t", "5", "--oneline", "--no-heading", "--format=csv", "--data=bare",
+		"--columns=ofport", "find", "interface", "external_ids:dpf-id=" + condition}
+	cmd := exec.Command(ovsVsctlPath, args...)
+	var stderr bytes.Buffer
+	var output bytes.Buffer
+	cmd.Stderr = &stderr
+	cmd.Stdout = &output
+	err = cmd.Run()
+	if err != nil {
+		return "", fmt.Errorf("error running ovs-vsctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
+	}
+	return strings.TrimSuffix(output.String(), "\n"), nil
+}
+
+// Utility function to delete all flows which have a corresponding cookie
+func delFlows(flows string) error {
+	ovsOfctlPath, err := exec.LookPath("ovs-ofctl")
+	if err != nil {
+		return err
+	}
+	args := []string{"-t", "5", "--bundle", "del-flows", "br-sfc", flows}
+	cmd := exec.Command(ovsOfctlPath, args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error running ovs-ofctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
+	}
+	return nil
+}
+
+// Utility function which takes in a multiline string called flows
+// Creates a temporary file on the system and writes the aforementioned
+// string. This will file will be consumed by ovs-ofctl command with the
+// bundle argument to ensure the fact that all flows are added in a atomic operation
+func addFlows(flows string) (err error) {
+	var fileP *os.File
+	fileP, err = os.Create("/tmp/of-output.txt")
+	if err != nil {
+		return err
+	}
+	defer func() {
+		e := fileP.Close()
+		if e != nil {
+			err = errors.Join(e, err)
+		}
+	}()
+	// do the actual work
+	_, err = fileP.WriteString(flows)
+	if err != nil {
+		return err
+	}
+	ovsOfctlPath, err := exec.LookPath("ovs-ofctl")
+	if err != nil {
+		return err
+	}
+	args := []string{"-t", "5", "--bundle", "add-flows", "br-sfc", "/tmp/of-output.txt"}
+	cmd := exec.Command(ovsOfctlPath, args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error running ovs-ofctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
+	}
+	fmt.Println("Added flows:")
+	fmt.Println(flows)
+	return err
+}
+
 // Retrieve pod list base on matching labels
-func getPodList(ctx context.Context, k8sClient client.Client, matchingLabels map[string]string) (*corev1.PodList, error) {
+func getPort(ctx context.Context, k8sClient client.Client, matchingLabels map[string]string, containerIntfName string) (string, error) {
 	podList := &corev1.PodList{}
 	listOptions := client.MatchingLabels(matchingLabels)
-
-	if err := k8sClient.List(ctx, podList, &listOptions); err != nil {
-		return nil, err
+	var condition string
+	var err error
+	if err = k8sClient.List(ctx, podList, &listOptions); err != nil {
+		return "", err
+	}
+	var port string
+	for _, pod := range podList.Items {
+		if pod.Spec.NodeName != os.Getenv("SFC_NODE_NAME") {
+			err = errors.New("Skipped different name. Pod not found")
+			continue
+		}
+		condition = pod.Namespace + "/" + pod.GetName() + "/" + containerIntfName
+		port, err = findInterface(condition)
+		if err != nil {
+			return "", err
+		}
+		// Consider only first element
+		// TODO add checks for multiple elements and disallow such a configuration
+		if port != "" {
+			return port, nil
+		} else {
+			err = fmt.Errorf("Port with condition %s not found", condition)
+		}
 	}
 
-	return podList, nil
+	return "", err
+}
+
+// Retrieve port list base on matching labels
+func getInterface(ctx context.Context, k8sClient client.Client, matchingLabels map[string]string) (string, error) {
+	interfaceList := &sfcv1.ServiceInterfaceList{}
+	listOptions := client.MatchingLabels(matchingLabels)
+	var condition string
+	var err error
+	if err = k8sClient.List(ctx, interfaceList, &listOptions); err != nil {
+		return "", err
+	}
+	var port string
+	for _, intf := range interfaceList.Items {
+		if intf.Spec.Node != os.Getenv("SFC_NODE_NAME") {
+			err = errors.New("Skipped different name. Interface not found")
+			continue
+		}
+		condition = intf.Namespace + "/" + intf.GetName()
+		port, err = findInterface(condition)
+		if err != nil {
+			return "", err
+		}
+		// Consider only first element
+		// TODO add checks for multiple elements and disallow such a configuration
+		if port != "" {
+			return port, nil
+		} else {
+			err = fmt.Errorf("Interface with condition %s not found", condition)
+		}
+	}
+
+	return "", err
 }
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
@@ -69,25 +213,123 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if err := r.Client.Get(ctx, req.NamespacedName, sc); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
-			// TODO add ovs-ofctl del-flows
+			// Always ensure delete operation in case of errors
+			flowErrors := delFlows(fmt.Sprintf("cookie=%d/-1", hash(req.NamespacedName.String())))
+			if flowErrors != nil {
+				return ctrl.Result{}, err
+			}
+
+			// Always requeue after 5 seconds in order to do another sweep over the rules
+			// This ensures the flow addition / removal in case ovs-vswitchd stops / crashes
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
 	}
-	if !sc.ObjectMeta.DeletionTimestamp.IsZero() {
-		// Return early, the object is deleting.
-		// TODO add ovs-ofctl del-flows
+
+	node := os.Getenv("SFC_NODE_NAME")
+	if sc.Spec.Node != node {
+		// this object was not intended for this nodes
+		// skip
+		log.Info("sc.Spec.Node: %s != node: %s", sc.Spec.Node, node)
+		// Requeue after 5 seconds in order to do another sweep over the rules
+		// This ensures the flow addition / removal in case ovs-vswitchd stops / crashes
 		return ctrl.Result{}, nil
 	}
 
-	// TODO remove this once we have backing logic. This was added in order to pass the linter
-	_, err := getPodList(ctx, r.Client, sc.Spec.Switches[0].Ports[0].Service.MatchLabels)
+	// Construct an array of arrays of ports in order to traverse it
+	// and construct the flows
+	var err error
+	var ports [][]string
+	for sw_pos, sw := range sc.Spec.Switches {
+		ports = append(ports, [][]string{{}}...)
+		for _, port := range sw.Ports {
+			if port.Service != nil {
+				servicePort, err := getPort(ctx, r.Client, port.Service.MatchLabels, port.Service.InterfaceName)
+				if servicePort != "" {
+					ports[sw_pos] = append(ports[sw_pos], servicePort)
+				}
+				if err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+			if port.ServiceInterface != nil {
+				intfName, err := getInterface(ctx, r.Client, port.ServiceInterface.MatchLabels)
+				if intfName != "" {
+					ports[sw_pos] = append(ports[sw_pos], intfName)
+				}
+				if err != nil {
+					return ctrl.Result{}, err
+				}
+			}
+		}
+	}
 
-	// TODO add ovs-ofctl add-flows
+	// Go through the array of arrays `ports`
+	// Sample of generated flows inside an array
+	// ovs-ofctl add-flow br-sfc "in_port=$a,actions=learn(idle_timeout=10,priority=1,in_port=$b,dl_dst=dl_src,output:NXM_OF_IN_PORT[]),learn(idle_timeout=10,priority=1,
+	//													   in_port=$c,dl_dst=dl_src,output:NXM_OF_IN_PORT[]),output:$b,output:$c"
+	// ovs-ofctl add-flow br-sfc "in_port=$b,actions=learn(idle_timeout=10,priority=1,in_port=$a,dl_dst=dl_src,output:NXM_OF_IN_PORT[]),learn(idle_timeout=10,priority=1,
+	//													   in_port=$c,dl_dst=dl_src,output:NXM_OF_IN_PORT[]),output:$a,output:$c"
+	// ovs-ofctl add-flow br-sfc "in_port=$c,actions=learn(idle_timeout=10,priority=1,in_port=$a,dl_dst=dl_src,output:NXM_OF_IN_PORT[]),learn(idle_timeout=10,priority=1,
+	//													   in_port=$b,dl_dst=dl_src,output:NXM_OF_IN_PORT[]),output:$a,output:$b"
+	for arrayPos := range ports {
+		// Reset flows string
+		flowsPerArray := ""
+		for i, arrayPort := range ports[arrayPos] {
+			if len(ports[arrayPos]) < 2 {
+				// We need at least two elements to construct flows
+				continue
+			}
 
-	// Requeue after xx seconds
+			if flowsPerArray != "" {
+				// Add new line for each position
+				flowsPerArray += "\n"
+			}
 
-	return ctrl.Result{}, err
+			// Add cookie, in_port, actions wait for learn actions and outputs
+			flowsPerArray += fmt.Sprintf("cookie=%d, in_port=%s actions=", hash(req.NamespacedName.String()), arrayPort)
+
+			// Reset output string
+			outputFlowPart := ""
+			// Reset learn string
+			learnAction := ""
+
+			for j, iter := range ports[arrayPos] {
+				if i == j {
+					// Skip self
+					continue
+				}
+
+				if learnAction != "" {
+					// If it's not the first learn action add comma
+					learnAction += ","
+				}
+
+				// Add learn action
+				learnAction += fmt.Sprintf("learn(idle_timeout=10,priority=1,in_port=%s,dl_dst=dl_src,output:NXM_OF_IN_PORT[])", iter)
+
+				if outputFlowPart != "" {
+					// If it's not the first output action add comma
+					outputFlowPart += ","
+				}
+				// Add output action
+				outputFlowPart += fmt.Sprintf("output:%s", iter)
+			}
+			if learnAction != "" && outputFlowPart != "" {
+				flowsPerArray += learnAction + "," + outputFlowPart
+			}
+		}
+
+		// Try adding flows to vswitchd
+		err = addFlows(flowsPerArray)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
+	// Always requeue after 5 seconds in order to do another sweep over the rules
+	// This ensures the flow addition / removal in case ovs-vswitchd stops / crashes
+	return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
