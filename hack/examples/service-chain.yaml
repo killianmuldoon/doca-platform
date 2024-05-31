@@ -4,25 +4,25 @@ metadata:
   name: svc-chain-test
   namespace: default
 spec:
-  spec:
-    switches:
-      - ports:
-        - serviceInterface:
-            matchLabels:
-              uplink: p0
-        - service:
-            matchLabels:
-              # labels on pod
-              # TODO do we need to match, isn't pf0vf0_sf enough
-              sfc.nvidia.com/service: hbn
-            interface: pf0vf0_sf
-      - ports:
-        - service:
-            # TODO what does reference mean? How do we match on it?
-            reference:
-              name: hbn
-            interface: tail-iface
-        - service:
-            matchLabels:
-              sfc.nvidia.com/service: fw1
-            interface: pf1vf0_sf
+  switches:
+    - ports:
+      - service:
+          matchLabels:
+            sfc.nvidia.com/service: hbn
+          interface: net1
+      - serviceInterface:
+          matchLabels:
+            uplink: port0
+      - service:
+          matchLabels:
+            sfc.nvidia.com/service: hbn
+          interface: net2
+    - ports:
+      - serviceInterface:
+          matchLabels:
+            uplink: p0
+      - service:
+          matchLabels:
+            sfc.nvidia.com/service: hbn
+          interface: net2
+  node: k8smaster
