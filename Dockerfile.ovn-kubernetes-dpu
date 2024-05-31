@@ -4,10 +4,9 @@ FROM --platform=${TARGETPLATFORM} docker.io/library/golang:1.19 as ovnkubernetes
 
 WORKDIR /workspace
 RUN apt update && apt install -y make git
-COPY hack/repos/ovn-kubernetes ovn-kubernetes
-ARG ovn_kubernetes_branch
+ARG ovn_kubernetes_dir
+COPY ${ovn_kubernetes_dir} ovn-kubernetes
 RUN cd ovn-kubernetes/go-controller && \
-    git checkout origin/${ovn_kubernetes_branch} && \
     make
 
 ARG TARGETARCH
@@ -21,11 +20,11 @@ FROM --platform=${TARGETPLATFORM} ubuntu:22.04 as ovn-builder
 
 WORKDIR /workspace
 RUN apt update && apt install -y make git autoconf libtool python3
-COPY hack/repos/ovn ovn
+ARG ovn_dir
+COPY ${ovn_dir} ovn
 WORKDIR /workspace/ovn
-ARG ovn_branch
-RUN git checkout origin/${ovn_branch} && \
-    git submodule update --init
+
+RUN git submodule update --init
 RUN cd ovs && \
     ./boot.sh && \
     ./configure && \
