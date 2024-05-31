@@ -68,11 +68,12 @@ func runOVSVsctl(args ...string) error {
 // +kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 func DelPort(portName string) error {
-	return runOVSVsctl("--if-exist", "del-port", portName)
+	return runOVSVsctl("-t", "5", "--if-exist", "del-port", portName)
 }
 
-func AddPort(portName string) error {
-	return runOVSVsctl("--may-exist", "add-port", "br-sfc", portName, "--", "set", "int", portName, "type=dpdk")
+func AddPort(portName string, metadata string) error {
+	return runOVSVsctl("-t", "5", "--may-exist", "add-port", "br-sfc", portName, "--", "set", "int", portName, "type=dpdk",
+		"--", "set", "int", portName, "external_ids:dpf-id="+metadata)
 }
 
 func AddPatchPort(portName string, brA string, brB string) error {
@@ -81,12 +82,12 @@ func AddPatchPort(portName string, brA string, brB string) error {
 	// match on ovs-cni naming
 	portBrA := "puplinkbrovn"
 	portBrB := "puplinkbrsfc"
-	err := runOVSVsctl("--may-exist", "add-port", brA, portBrA, "--", "set", "int", portBrA, "type=patch",
+	err := runOVSVsctl("-t", "5", "--may-exist", "add-port", brA, portBrA, "--", "set", "int", portBrA, "type=patch",
 		"--", "set", "int", portBrA, fmt.Sprintf("options:peer=%s", portBrB))
 	if err != nil {
 		return err
 	}
-	err = runOVSVsctl("--may-exist", "add-port", brB, portBrB, "--", "set", "int", portBrB, "type=patch",
+	err = runOVSVsctl("-t", "5", "--may-exist", "add-port", brB, portBrB, "--", "set", "int", portBrB, "type=patch",
 		"--", "set", "int", portBrB, fmt.Sprintf("options:peer=%s", portBrA))
 
 	return err
@@ -116,7 +117,7 @@ func FigureOutName(ctx context.Context, serviceInterface *sfcv1.ServiceInterface
 	return portName
 }
 
-func AddInterfacesToOvs(ctx context.Context, serviceInterface *sfcv1.ServiceInterface) error {
+func AddInterfacesToOvs(ctx context.Context, serviceInterface *sfcv1.ServiceInterface, metadata string) error {
 	log := log.FromContext(ctx)
 
 	if serviceInterface.Spec.InterfaceType == "ovn" {
@@ -132,7 +133,7 @@ func AddInterfacesToOvs(ctx context.Context, serviceInterface *sfcv1.ServiceInte
 	portName := FigureOutName(ctx, serviceInterface)
 
 	if portName != "" {
-		err := AddPort(portName)
+		err := AddPort(portName, metadata)
 		if err != nil {
 			log.Info(fmt.Sprintf("failed to add port %s", err.Error()))
 			return err
@@ -219,7 +220,7 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, nil
 	}
 
-	err := AddInterfacesToOvs(ctx, serviceInterface)
+	err := AddInterfacesToOvs(ctx, serviceInterface, req.NamespacedName.String())
 	if err != nil {
 		log.Info("Failed to delete AddInterfacesToOvs")
 		return ctrl.Result{}, err
