@@ -4,10 +4,9 @@ FROM --platform=${TARGETPLATFORM} docker.io/library/golang:1.19 as ovnkubernetes
 
 WORKDIR /workspace
 RUN apt update && apt install -y make git
-COPY hack/repos/ovn-kubernetes ovn-kubernetes
-ARG ovn_kubernetes_branch
+ARG ovn_kubernetes_dir
+COPY ${ovn_kubernetes_dir} ovn-kubernetes
 RUN cd ovn-kubernetes/go-controller && \
-    git checkout origin/${ovn_kubernetes_branch} && \
     make
 
 FROM --platform=${TARGETPLATFORM} ${base_image}

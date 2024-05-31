@@ -110,6 +110,34 @@ GOTESTSUM_VERSION ?= v1.11.0
 DPF_PROVISIONING_CONTROLLER_REV ?= e69627ed14b168adc8dfac2e6908300d381691b0
 ENVSUBST_VERSION ?= v1.4.2
 
+## OVN Kubernetes Images
+# We build 2 images for OVN Kubernetes. One for the DPU enabled nodes and another for the non DPU enabled ones. The
+# reason we have to build 2 images is because the original code modifications that were done to support the DPU workers
+# were not implemented in a way that they are non disruptive for the default flow. We thought we would not need to change
+# the image running on the non DPU nodes but in fact that wasn't the case and we understood that very down the line.
+# Given that this solution is not supposed to go beyond MVP, the solution with the 2 images should be sufficient for now.
+# In case this solution needs to last longer, we should work on refactoring OVN Kubernetes and consolidate everything
+# in one image and improve the maintainability of our fork.
+
+# TODO: Find a way to build the base image via https://github.com/openshift/ovn-kubernetes/blob/release-4.14/Dockerfile
+# You need to follow the commands below to produce the base image:
+# 1. Setup OpenShift cluster 4.14 (this is what the tests were done against)
+# 2. Run these commands to get the relevant images:
+#    * `kubectl get ds -n openshift-ovn-kubernetes -o jsonpath='{.spec.template.spec.containers[?(@.name=="ovnkube-controller")].image}' ovnkube-node`
+#    * `kubectl get ds -n openshift-ovn-kubernetes -o jsonpath='{.spec.template.spec.containers[?(@.name=="ovn-controller")].image}' ovnkube-node`
+#    * In case these two match, we can use a single image. Otherwise, we might need to split this Dockerfile into two so
+#      that each container gets its own image.
+# 3. Login into the OpenShift node and retag the image to `harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:<SHA256_OF_INPUT_IMAGE>`
+#    e.g. podman tag quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e
+# 4. Push the image
+OVNKUBERNETES_BASE_IMAGE=harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e
+# Points to branch dpf-23.09.0
+OVN_REVISION=89fb67b6222d1e6a48fed3ae6d6ac486326c6ab2
+# Points to branch dpf-4.14
+OVNKUBERNETES_DPU_REVISION=c29a19eb21eab90c6064d4d7d43e4a6704cc6925
+# Points to branch dpf-4.14-non-dpu
+OVNKUBERNETES_NON_DPU_REVISION=cb13d1127603a438b9db98c290fdf187c77efc9c
+
 .PHONY: clean
 clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
 	@rm -rf $(TOOLSDIR)
@@ -229,14 +257,17 @@ $(ARGOCD_YAML): | $(CHARTSDIR)
 GITLAB_TOKEN ?= ""
 
 # OVN Kubernetes dependencies to be able to build its docker image
-OVNKUBERNETES_DIR=$(REPOSDIR)/ovn-kubernetes
-OVN_DIR=$(REPOSDIR)/ovn
-$(OVNKUBERNETES_DIR): | $(REPOSDIR)
-	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn-kubernetes.git $(OVNKUBERNETES_DIR)
+OVNKUBERNETES_DPU_DIR=$(REPOSDIR)/ovn-kubernetes-dpu-$(OVNKUBERNETES_DPU_REVISION)
+$(OVNKUBERNETES_DPU_DIR): | $(REPOSDIR)
+	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn-kubernetes.git $(OVNKUBERNETES_DPU_DIR) $(OVNKUBERNETES_DPU_REVISION)
 
-OVN_DIR=$(REPOSDIR)/ovn
+OVNKUBERNETES_NON_DPU_DIR=$(REPOSDIR)/ovn-kubernetes-non-dpu-$(OVNKUBERNETES_NON_DPU_REVISION)
+$(OVNKUBERNETES_NON_DPU_DIR): | $(REPOSDIR)
+	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn-kubernetes.git $(OVNKUBERNETES_NON_DPU_DIR) $(OVNKUBERNETES_NON_DPU_REVISION)
+
+OVN_DIR=$(REPOSDIR)/ovn-$(OVN_REVISION)
 $(OVN_DIR): | $(REPOSDIR)
-	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR)
+	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR) $(OVN_REVISION)
 
 DPF_PROVISIONING_DIR=$(REPOSDIR)/dpf-provisioning-controller-$(DPF_PROVISIONING_CONTROLLER_REV)
 $(DPF_PROVISIONING_DIR): | $(REPOSDIR)
@@ -625,31 +656,6 @@ docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build do
 OVS_BASE_IMAGE_NAME = base-image-ovs
 OVS_BASE_IMAGE = $(REGISTRY)/$(OVS_BASE_IMAGE_NAME)
 
-## OVN Kubernetes Images
-# We build 2 images for OVN Kubernetes. One for the DPU enabled nodes and another for the non DPU enabled ones. The
-# reason we have to build 2 images is because the original code modifications that were done to support the DPU workers
-# were not implemented in a way that they are non disruptive for the default flow. We thought we would not need to change
-# the image running on the non DPU nodes but in fact that wasn't the case and we understood that very down the line.
-# Given that this solution is not supposed to go beyond MVP, the solution with the 2 images should be sufficient for now.
-# In case this solution needs to last longer, we should work on refactoring OVN Kubernetes and consolidate everything
-# in one image and improve the maintainability of our fork.
-
-# TODO: Find a way to build the base image via https://github.com/openshift/ovn-kubernetes/blob/release-4.14/Dockerfile
-# You need to follow the commands below to produce the base image:
-# 1. Setup OpenShift cluster 4.14 (this is what the tests were done against)
-# 2. Run these commands to get the relevant images:
-#    * `kubectl get ds -n openshift-ovn-kubernetes -o jsonpath='{.spec.template.spec.containers[?(@.name=="ovnkube-controller")].image}' ovnkube-node`
-#    * `kubectl get ds -n openshift-ovn-kubernetes -o jsonpath='{.spec.template.spec.containers[?(@.name=="ovn-controller")].image}' ovnkube-node`
-#    * In case these two match, we can use a single image. Otherwise, we might need to split this Dockerfile into two so
-#      that each container gets its own image.
-# 3. Login into the OpenShift node and retag the image to `harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:<SHA256_OF_INPUT_IMAGE>`
-#    e.g. podman tag quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e
-# 4. Push the image
-OVNKUBERNETES_BASE_IMAGE=harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e
-OVN_BRANCH=dpf-23.09.0
-OVNKUBERNETES_DPU_BRANCH=dpf-4.14
-OVNKUBERNETES_NON_DPU_BRANCH=dpf-4.14-non-dpu
-
 # Images that are running on the DPU enabled host cluster nodes (workers)
 OVNKUBERNETES_DPU_IMAGE_NAME = ovn-kubernetes-dpu
 export OVNKUBERNETES_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_DPU_IMAGE_NAME)
@@ -792,24 +798,24 @@ docker-build-base-image-ovs: ## Build base docker image with OVS dependencies
 		-t $(OVS_BASE_IMAGE):$(TAG)
 
 .PHONY: docker-build-ovnkubernetes-dpu
-docker-build-ovnkubernetes-dpu: $(OVNKUBERNETES_DIR) $(OVN_DIR) ## Builds the custom OVN Kubernetes image that is used for the DPU (worker) nodes
+docker-build-ovnkubernetes-dpu: $(OVNKUBERNETES_DPU_DIR) $(OVN_DIR) ## Builds the custom OVN Kubernetes image that is used for the DPU (worker) nodes
 	docker buildx build \
 		--load \
 		--platform linux/${HOST_ARCH} \
 		--build-arg base_image=${OVNKUBERNETES_BASE_IMAGE} \
-		--build-arg ovn_branch=${OVN_BRANCH} \
-		--build-arg ovn_kubernetes_branch=${OVNKUBERNETES_DPU_BRANCH} \
+		--build-arg ovn_dir=$(shell realpath --relative-to $(CURDIR) $(OVN_DIR)) \
+		--build-arg ovn_kubernetes_dir=$(shell realpath --relative-to $(CURDIR) $(OVNKUBERNETES_DPU_DIR)) \
 		-f Dockerfile.ovn-kubernetes-dpu \
 		. \
 		-t $(OVNKUBERNETES_DPU_IMAGE):$(TAG)
 
 .PHONY: docker-build-ovnkubernetes-non-dpu
-docker-build-ovnkubernetes-non-dpu: $(OVNKUBERNETES_DIR) $(OVN_DIR) ## Builds the custom OVN Kubernetes image that is used for the non DPU (control plane) nodes
+docker-build-ovnkubernetes-non-dpu: $(OVNKUBERNETES_NON_DPU_DIR) ## Builds the custom OVN Kubernetes image that is used for the non DPU (control plane) nodes
 	docker buildx build \
 		--load \
 		--platform linux/${HOST_ARCH} \
 		--build-arg base_image=${OVNKUBERNETES_BASE_IMAGE} \
-		--build-arg ovn_kubernetes_branch=${OVNKUBERNETES_NON_DPU_BRANCH} \
+		--build-arg ovn_kubernetes_dir=$(shell realpath --relative-to $(CURDIR) $(OVNKUBERNETES_NON_DPU_DIR)) \
 		-f Dockerfile.ovn-kubernetes-non-dpu \
 		. \
 		-t $(OVNKUBERNETES_NON_DPU_IMAGE):$(TAG)
