@@ -77,6 +77,19 @@ spec:
         - mountPath: /var/run/openvswitch
           name: openvswitch
           readOnly: true
+      - name: hbn-sidecar
+        env:
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.hbnSidecar.image.repository }}:{{ .Values.hbnSidecar.image.tag
+          | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.hbnSidecar.imagePullPolicy }}
+        securityContext: {{- toYaml .Values.hbnSidecar.containerSecurityContext
+          | nindent 10 }}
+        volumeMounts:
+        - mountPath: /var/run/openvswitch
+          name: openvswitch
+          readOnly: true
       initContainers:
       - command:
         - /initbootstrap.sh

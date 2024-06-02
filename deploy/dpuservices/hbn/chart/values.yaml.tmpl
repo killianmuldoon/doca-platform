@@ -13,6 +13,13 @@ hbnInit:
     tag: ${TAG}
   imagePullPolicy: IfNotPresent
 
+# Sets image details for docaInit container.
+hbnSidecar:
+  image:
+    repository: ${HBN_SIDECAR_IMAGE}
+    tag: ${TAG}
+  imagePullPolicy: IfNotPresent
+
 # The following config should be set by the user in the DPUService.
 #
 ## 1) Sets sfc.nvidia.com/service label on the DaemonSet and pod template. Can be set in DPUService `.spec.serviceID`

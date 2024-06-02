@@ -256,6 +256,11 @@ $(ARGOCD_YAML): | $(CHARTSDIR)
 # Token used to pull from internal git registries. Used to enable https authentication in git clones from the internal NVIDIA gitlab.
 GITLAB_TOKEN ?= ""
 
+# HBN side car
+HBN_SIDECAR_DIR=$(REPOSDIR)/hbn-sidecar
+$(HBN_SIDECAR_DIR): | $(REPOSDIR)
+	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/aserdean/hbn-sidecar.git $(HBN_SIDECAR_DIR)
+
 # OVN Kubernetes dependencies to be able to build its docker image
 OVNKUBERNETES_DPU_DIR=$(REPOSDIR)/ovn-kubernetes-dpu-$(OVNKUBERNETES_DPU_REVISION)
 $(OVNKUBERNETES_DPU_DIR): | $(REPOSDIR)
@@ -648,13 +653,16 @@ binary-binary-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-
 
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouterd dms dhcrelay ovnkubernetes-operator hbn
-DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller
+DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn-sidecar
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
 
 OVS_BASE_IMAGE_NAME = base-image-ovs
 OVS_BASE_IMAGE = $(REGISTRY)/$(OVS_BASE_IMAGE_NAME)
+
+HBN_SIDECAR_IMAGE_NAME = hbn-sidecar
+HBN_SIDECAR_IMAGE = $(REGISTRY)/$(HBN_SIDECAR_IMAGE_NAME)
 
 # Images that are running on the DPU enabled host cluster nodes (workers)
 OVNKUBERNETES_DPU_IMAGE_NAME = ovn-kubernetes-dpu
@@ -710,6 +718,9 @@ HBN_DPUSERVICE_DIR ?= deploy/dpuservices/hbn
 HBN_IMAGE_NAME ?= hbn
 export HBN_IMAGE ?= $(REGISTRY)/$(HBN_IMAGE_NAME)
 export HBN_TAG ?= 2.1.0.6-dpf
+
+HBN_SIDECAR_IMAGE_NAME ?= hbn-sidecar
+export HBN_SIDECAR_IMAGE ?= $(REGISTRY)/$(HBN_SIDECAR_IMAGE_NAME)
 
 .PHONY: docker-build-sfcset
 docker-build-sfcset: ## Build docker images for the sfcset-controller
@@ -797,6 +808,16 @@ docker-build-base-image-ovs: ## Build base docker image with OVS dependencies
 		. \
 		-t $(OVS_BASE_IMAGE):$(TAG)
 
+.PHONY: docker-build-hbn-sidecar
+docker-build-hbn-sidecar: $(HBN_SIDECAR_DIR) ## Build HBN sidecar DPU service image
+	docker buildx build \
+		--load \
+		--platform linux/${DPU_ARCH} \
+		--build-arg hbn_sidecar_dir=$(shell realpath --relative-to $(CURDIR) $(HBN_SIDECAR_DIR)) \
+		-f $(HBN_SIDECAR_DIR)/Dockerfile \
+		. \
+		-t $(HBN_SIDECAR_IMAGE):$(TAG)
+
 .PHONY: docker-build-ovnkubernetes-dpu
 docker-build-ovnkubernetes-dpu: $(OVNKUBERNETES_DPU_DIR) $(OVN_DIR) ## Builds the custom OVN Kubernetes image that is used for the DPU (worker) nodes
 	docker buildx build \
@@ -854,6 +875,10 @@ docker-push-dpuservice: ## Push the docker image for dpuservice.
 .PHONY: docker-push-dpf-provisioning
 docker-push-dpf-provisioning: ## Push the docker image for dpf provisioning controller.
 	docker push $(DPFPROVISIONING_IMAGE):$(TAG)
+
+.PHONY: docker-push-hbn-sidecar
+docker-push-hbn-sidecar: ## Push the docker image for HBN sidecar.
+	docker push $(HBN_SIDECAR_IMAGE):$(TAG)
 
 .PHONY: docker-build-dhcrelay
 docker-build-dhcrelay: ## Build docker image with the dhcrelay.
