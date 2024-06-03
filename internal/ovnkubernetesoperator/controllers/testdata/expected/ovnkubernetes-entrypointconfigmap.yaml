@@ -16,7 +16,7 @@ data:
     northd_pidfile="/var/run/ovn/ovn-northd.pid"
     controller_pidfile="/var/run/ovn/ovn-controller.pid"
     controller_logfile="/var/log/ovn/acl-audit-log.log"
-    vswitch_remote="tcp:10.100.1.1:8500"
+    vswitch_remote="tcp:169.254.55.1:8500"
     nbdb_pidfile="/var/run/ovn/ovnnb_db.pid"
     nbdb_sock="/var/run/ovn/ovnnb_db.sock"
     nbdb_ctl="/var/run/ovn/ovnnb_db.ctl"
