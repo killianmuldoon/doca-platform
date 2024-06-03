@@ -89,7 +89,7 @@ const (
 	// The IP below is the static IP that uses the *Host VF<->DPU SF* communication channel
 	// The Port is statically configured by the DPU CNI Provisioner
 	// TODO: Consider having common constants across components where needed
-	dpuOVSRemote = "tcp:10.100.1.1:8500"
+	dpuOVSRemote = "tcp:169.254.55.1:8500"
 
 	// customOVNKubernetesResourceNameSuffix is the suffix used in the custom OVN Kubernetes resources this controller is
 	// creating.

@@ -102,7 +102,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 
 			ovsClient.EXPECT().AddBridge("br-int")
 			ovsClient.EXPECT().SetBridgeDataPathType("br-int", ovsclient.NetDev)
-			ovsClient.EXPECT().SetBridgeController("br-int", "ptcp:8510:10.100.1.1")
+			ovsClient.EXPECT().SetBridgeController("br-int", "ptcp:8510:169.254.55.1")
 			ovsClient.EXPECT().AddBridge("ens25f0np0")
 			ovsClient.EXPECT().SetBridgeDataPathType("ens25f0np0", ovsclient.NetDev)
 			ovsClient.EXPECT().SetBridgeController("ens25f0np0", "ptcp:8511")
@@ -193,7 +193,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 
 			ovsClient.EXPECT().AddBridge("br-int")
 			ovsClient.EXPECT().SetBridgeDataPathType("br-int", ovsclient.NetDev)
-			ovsClient.EXPECT().SetBridgeController("br-int", "ptcp:8510:10.100.1.1")
+			ovsClient.EXPECT().SetBridgeController("br-int", "ptcp:8510:169.254.55.1")
 			ovsClient.EXPECT().AddBridge("ens25f0np0")
 			ovsClient.EXPECT().SetBridgeDataPathType("ens25f0np0", ovsclient.NetDev)
 			ovsClient.EXPECT().SetBridgeController("ens25f0np0", "ptcp:8511")

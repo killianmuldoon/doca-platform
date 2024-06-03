@@ -126,7 +126,7 @@ func (p *DPUCNIProvisioner) configure() error {
 	// TODO: Create a better data structure for bridges.
 	// TODO: Parse IP for br-int via the interface which will use DHCP.
 	for bridge, controller := range map[string]string{
-		brInt:  "ptcp:8510:10.100.1.1",
+		brInt:  "ptcp:8510:169.254.55.1",
 		p.brEx: "ptcp:8511",
 		brOVN:  "",
 	} {
