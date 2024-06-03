@@ -956,6 +956,10 @@ docker-push-hbn: ## Push the docker image for hbn
 HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam ovs-cni sfc-controller ovnkubernetes-operator operator hbn-dpuservice
 HELM_REGISTRY ?= oci://$(REGISTRY)
 
+## used in templating the DPUService
+HELM_REPO := $(shell if echo $(HELM_REGISTRY) | grep -q '^http'; then echo $(HELM_REGISTRY); else echo $(REGISTRY); fi)
+export HELM_REPO
+
 ## metadata for servicechain controller.
 export SERVICECHAIN_CONTROLLER_HELM_CHART_NAME = servicechain
 SERVICECHAIN_CONTROLLER_HELM_CHART ?= $(HELMDIR)/$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME)

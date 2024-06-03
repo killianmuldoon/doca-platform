@@ -5,7 +5,7 @@ metadata:
   namespace: dpf-operator-system
 spec:
   source:
-    repoURL: ${REGISTRY}
+    repoURL: ${HELM_REPO}
     chart: ${FLANNEL_HELM_CHART_NAME}
     version: ${FLANNEL_VERSION}
   values:
