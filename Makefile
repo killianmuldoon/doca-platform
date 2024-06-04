@@ -134,7 +134,7 @@ OVNKUBERNETES_BASE_IMAGE=harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kub
 # Points to branch dpf-23.09.0
 OVN_REVISION=89fb67b6222d1e6a48fed3ae6d6ac486326c6ab2
 # Points to branch dpf-4.14
-OVNKUBERNETES_DPU_REVISION=c29a19eb21eab90c6064d4d7d43e4a6704cc6925
+OVNKUBERNETES_DPU_REVISION=890f4c946b300ff2fd0fc17871c490e191a2002a
 # Points to branch dpf-4.14-non-dpu
 OVNKUBERNETES_NON_DPU_REVISION=cb13d1127603a438b9db98c290fdf187c77efc9c
 
