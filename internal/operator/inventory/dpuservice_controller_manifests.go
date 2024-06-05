@@ -77,6 +77,7 @@ func (d *dpuServiceControllerObjects) GenerateManifests(vars Variables) ([]clien
 	if err := NewEdits().
 		AddForAll(NamespaceEdit(vars.Namespace)).
 		AddForKindS(DeploymentKind, ImagePullSecretsEditForDeploymentEdit(vars.ImagePullSecrets...)).
+		AddForKindS(DeploymentKind, NodeAffinityForDeploymentEdit(&controlPlaneNodeAffinity)).
 		Apply(objsCopy); err != nil {
 		return nil, err
 	}

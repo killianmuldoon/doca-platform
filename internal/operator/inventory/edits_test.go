@@ -102,4 +102,80 @@ var _ = Describe("Test Edits", func() {
 			Expect(err.Error()).To(ContainSubstring("missing conversion"))
 		})
 	})
+
+	Context("common edits", func() {
+		Context("NodeAffinityForDeploymentEdit", func() {
+			var deployment *appsv1.Deployment
+			nodeAffinity := &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{
+									Key:      "foo",
+									Operator: corev1.NodeSelectorOpExists,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			BeforeEach(func() {
+				deployment = &appsv1.Deployment{TypeMeta: metav1.TypeMeta{Kind: "Deployment"}}
+			})
+
+			It("Adds NodeAffinity when not present", func() {
+				// convert to unstructured
+				var err error
+				deploymentUnstructured := &unstructured.Unstructured{}
+				deploymentUnstructured.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(deployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				// edit deployment
+				Expect(NewEdits().AddForKindS(DeploymentKind, NodeAffinityForDeploymentEdit(nodeAffinity)).
+					Apply([]*unstructured.Unstructured{deploymentUnstructured})).ToNot(HaveOccurred())
+
+				// check result
+				Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(deploymentUnstructured.UnstructuredContent(), deployment)).ToNot(HaveOccurred())
+				Expect(deployment.Spec.Template.Spec.Affinity.NodeAffinity).To(Equal(nodeAffinity))
+			})
+
+			It("Replaces NodeAffinity when present", func() {
+				// set some nodeAffinity for deployment
+				var err error
+				otherNodeAffinity := &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{
+							{
+								MatchExpressions: []corev1.NodeSelectorRequirement{
+									{
+										Key:      "bar",
+										Operator: corev1.NodeSelectorOpExists,
+									},
+								},
+							},
+						},
+					},
+				}
+				deployment.Spec.Template.Spec.Affinity = &corev1.Affinity{
+					NodeAffinity: otherNodeAffinity,
+				}
+
+				// convert to unstructured
+				deploymentUnstructured := &unstructured.Unstructured{}
+				deploymentUnstructured.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(deployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				// edit deployment
+				Expect(NewEdits().AddForKindS(DeploymentKind, NodeAffinityForDeploymentEdit(nodeAffinity)).
+					Apply([]*unstructured.Unstructured{deploymentUnstructured})).ToNot(HaveOccurred())
+				d := &appsv1.Deployment{}
+
+				// check result
+				Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(deploymentUnstructured.UnstructuredContent(), d)).ToNot(HaveOccurred())
+				Expect(d.Spec.Template.Spec.Affinity.NodeAffinity).To(Equal(nodeAffinity))
+			})
+		})
+	})
 })

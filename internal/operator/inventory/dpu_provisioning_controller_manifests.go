@@ -117,6 +117,7 @@ func (p *dpfProvisioningControllerObjects) GenerateManifests(vars Variables) ([]
 		AddForAll(NamespaceEdit(vars.Namespace)).
 		AddForKindS(DeploymentKind, ImagePullSecretsEditForDeploymentEdit(vars.ImagePullSecrets...)).
 		AddForKindS(DeploymentKind, p.dpfProvisioningDeploymentEdit(vars)).
+		AddForKindS(DeploymentKind, NodeAffinityForDeploymentEdit(&controlPlaneNodeAffinity)).
 		AddForKind(ServiceKind, fixupWebhookServiceEdit).
 		Apply(objsCopy); err != nil {
 		return nil, err

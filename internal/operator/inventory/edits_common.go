@@ -22,6 +22,7 @@ import (
 
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -149,6 +150,22 @@ func ImagePullSecretsEditForDeploymentEdit(pullSecrets ...string) StructuredEdit
 
 		// replace pull secrets with provided input
 		deployment.Spec.Template.Spec.ImagePullSecrets = localObjRefsFromStrings(pullSecrets...)
+		return nil
+	}
+}
+
+// NodeAffinityForDeploymentEdit sets NodeAffinity for Deployment objs
+func NodeAffinityForDeploymentEdit(nodeAffinity *corev1.NodeAffinity) StructuredEdit {
+	return func(obj client.Object) error {
+		deployment, ok := obj.(*appsv1.Deployment)
+		if !ok {
+			return fmt.Errorf("unexpected object %s. expected Deployment", obj.GetObjectKind().GroupVersionKind())
+		}
+
+		if deployment.Spec.Template.Spec.Affinity == nil {
+			deployment.Spec.Template.Spec.Affinity = &corev1.Affinity{}
+		}
+		deployment.Spec.Template.Spec.Affinity.NodeAffinity = nodeAffinity
 		return nil
 	}
 }
