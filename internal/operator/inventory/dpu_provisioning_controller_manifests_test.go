@@ -355,6 +355,8 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 				g.Expect(selector[operatorv1.DPFComponentLabelKey]).To(Equal(dpfProvisioningControllerName))
 			}
 		}
+		// * ensure deployment contains NodeAffinity
+		g.Expect(*gotDeployment.Spec.Template.Spec.Affinity.NodeAffinity).To(Equal(controlPlaneNodeAffinity))
 
 		// * ensure the component label is set
 		g.Expect(gotDeployment.Spec.Template.Labels[operatorv1.DPFComponentLabelKey]).To(Equal(dpfProvisioningControllerName))
