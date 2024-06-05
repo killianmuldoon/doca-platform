@@ -25,7 +25,7 @@ import (
 
 type argoCDObjects struct {
 	data    []byte
-	objects []unstructured.Unstructured
+	objects []*unstructured.Unstructured
 }
 
 func (a *argoCDObjects) Name() string {
@@ -33,12 +33,11 @@ func (a *argoCDObjects) Name() string {
 }
 
 func (a *argoCDObjects) Parse() error {
-	argoObjects, err := utils.BytesToUnstructured(a.data)
+	var err error
+
+	a.objects, err = utils.BytesToUnstructured(a.data)
 	if err != nil {
 		return err
-	}
-	for _, obj := range argoObjects {
-		a.objects = append(a.objects, *obj)
 	}
 	return nil
 }
@@ -47,13 +46,23 @@ func (a *argoCDObjects) GenerateManifests(vars Variables) ([]client.Object, erro
 	if _, ok := vars.DisableSystemComponents[a.Name()]; ok {
 		return []client.Object{}, nil
 	}
-	ret := []client.Object{}
-	objects, err := setNamespace(vars.Namespace, a.objects)
-	if err != nil {
+
+	// make a copy of the objects
+	objsCopy := make([]*unstructured.Unstructured, 0, len(a.objects))
+	for i := range a.objects {
+		objsCopy = append(objsCopy, a.objects[i].DeepCopy())
+	}
+
+	// apply edits
+	if err := NewEdits().AddForAll(NamespaceEdit(vars.Namespace)).Apply(objsCopy); err != nil {
 		return nil, err
 	}
-	for i := range objects {
-		ret = append(ret, objects[i].DeepCopy())
+
+	// return as Objects
+	ret := make([]client.Object, 0, len(objsCopy))
+	for i := range objsCopy {
+		ret = append(ret, objsCopy[i])
 	}
+
 	return ret, nil
 }

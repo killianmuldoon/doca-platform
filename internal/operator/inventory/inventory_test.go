@@ -42,20 +42,6 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 			inventory: New().setDPUService(dpuServiceControllerObjects{data: nil}),
 			wantErr:   true,
 		},
-		{
-			name: "fail if an unexpected DPUService controller object is present",
-			inventory: New().setDPUService(dpuServiceControllerObjects{
-				data: addUnexpectedKindToObjects(g, dpuServiceData),
-			}),
-			wantErr: true,
-		},
-		{
-			name: "fail if any DPUService controller object is missing",
-			inventory: New().setDPUService(dpuServiceControllerObjects{
-				data: removeKindFromObjects(g, "Deployment", dpuServiceData),
-			}),
-			wantErr: true,
-		},
 		// ServiceFunctionChainSetObjects
 		{
 			name: "fail if ServiceFunctionChainSet data is nil",
@@ -256,6 +242,8 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		})
 	}
 }
+
+//nolint:unparam
 func removeKindFromObjects(g Gomega, kindToRemove string, data []byte) []byte {
 	// DPUService objects which is missing one of the expected Kinds.
 	objsWithMissingKind, err := utils.BytesToUnstructured(data)

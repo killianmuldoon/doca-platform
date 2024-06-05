@@ -54,16 +54,16 @@ func TestDPFProvisioningControllerObjects_Parse(t *testing.T) {
 
 	correct := iterate(func(u *unstructured.Unstructured) bool { return true })
 	missingDeployment := iterate(func(u *unstructured.Unstructured) bool {
-		return u.GetKind() != deploymentKind
+		return u.GetKind() != string(DeploymentKind)
 	})
 	wrongName := iterate(func(u *unstructured.Unstructured) bool {
-		if u.GetKind() == deploymentKind {
+		if u.GetKind() == string(DeploymentKind) {
 			u.SetName("wrong-name")
 		}
 		return true
 	})
 	volumeMissing := iterate(func(u *unstructured.Unstructured) bool {
-		if u.GetKind() == deploymentKind {
+		if u.GetKind() == string(DeploymentKind) {
 			deploy := &appsv1.Deployment{}
 			err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.UnstructuredContent(), deploy)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -85,7 +85,7 @@ func TestDPFProvisioningControllerObjects_Parse(t *testing.T) {
 	})
 
 	volumeWrongName := iterate(func(u *unstructured.Unstructured) bool {
-		if u.GetKind() == deploymentKind {
+		if u.GetKind() == string(DeploymentKind) {
 			deploy := &appsv1.Deployment{}
 			err := runtime.DefaultUnstructuredConverter.FromUnstructured(u.UnstructuredContent(), deploy)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -251,11 +251,11 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 				parts := strings.Split(value, "/")
 				g.Expect(parts[0]).To(Equal(testNS))
 			}
-			switch obj.GetObjectKind().GroupVersionKind().Kind {
+			switch ObjectKind(obj.GetObjectKind().GroupVersionKind().Kind) {
 			// Skip unnamespaced objects that don't have nested namespaces.
-			case namespaceKind, clusterRoleKind, customResourceDefinitionKind:
+			case NamespaceKind, ClusterRoleKind, CustomResourceDefinitionKind:
 				continue
-			case clusterRoleBindingKind:
+			case ClusterRoleBindingKind:
 				crb := &v1.ClusterRoleBinding{}
 				uns, ok := obj.(*unstructured.Unstructured)
 				g.Expect(ok).To(BeTrue())
@@ -263,7 +263,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 				for _, subject := range crb.Subjects {
 					g.Expect(subject.Namespace).To(Equal(testNS))
 				}
-			case roleBindingKind:
+			case RoleBindingKind:
 				g.Expect(obj.GetNamespace()).To(Equal(testNS))
 				rb := &v1.RoleBinding{}
 				uns, ok := obj.(*unstructured.Unstructured)
@@ -272,7 +272,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 				for _, subject := range rb.Subjects {
 					g.Expect(subject.Namespace).To(Equal(testNS))
 				}
-			case validatingWebhookConfigurationKind:
+			case ValidatingWebhookConfigurationKind:
 				vwc := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 				uns, ok := obj.(*unstructured.Unstructured)
 				g.Expect(ok).To(BeTrue())
@@ -281,7 +281,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 				for _, webhook := range vwc.Webhooks {
 					g.Expect(webhook.ClientConfig.Service.Namespace).To(Equal(testNS))
 				}
-			case mutatingWebhookConfigurationKind:
+			case MutatingWebhookConfigurationKind:
 				typedObject := &admissionregistrationv1.MutatingWebhookConfiguration{}
 				uns, ok := obj.(*unstructured.Unstructured)
 				g.Expect(ok).To(BeTrue())
@@ -290,7 +290,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 				for _, webhook := range typedObject.Webhooks {
 					g.Expect(webhook.ClientConfig.Service.Namespace).To(Equal(testNS))
 				}
-			case certificateKind:
+			case CertificateKind:
 				g.Expect(obj.GetNamespace()).To(Equal(testNS))
 				uns, ok := obj.(*unstructured.Unstructured)
 				g.Expect(ok).To(BeTrue())
@@ -339,12 +339,12 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		for _, obj := range generatedObjs {
 			g.Expect(obj.GetNamespace()).To(Equal("foo"))
 		}
-		var gotDeployment *appsv1.Deployment
+		gotDeployment := &appsv1.Deployment{}
 		for i, obj := range generatedObjs {
-			if obj.GetObjectKind().GroupVersionKind().Kind == deploymentKind {
-				deployment, ok := generatedObjs[i].(*appsv1.Deployment)
+			if obj.GetObjectKind().GroupVersionKind().Kind == string(DeploymentKind) {
+				deployment, ok := generatedObjs[i].(*unstructured.Unstructured)
 				g.Expect(ok).To(BeTrue())
-				gotDeployment = deployment
+				g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(deployment.UnstructuredContent(), gotDeployment)).ToNot(HaveOccurred())
 				continue
 			}
 			if obj.GetObjectKind().GroupVersionKind().Kind == "Service" && obj.GetName() == webhookServiceName {
@@ -355,6 +355,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 				g.Expect(selector[operatorv1.DPFComponentLabelKey]).To(Equal(dpfProvisioningControllerName))
 			}
 		}
+
 		// * ensure the component label is set
 		g.Expect(gotDeployment.Spec.Template.Labels[operatorv1.DPFComponentLabelKey]).To(Equal(dpfProvisioningControllerName))
 		// * ensure that the expected modifications have been made to the deployment.

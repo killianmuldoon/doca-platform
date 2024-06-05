@@ -21,10 +21,7 @@ import (
 
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
 
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -32,13 +29,8 @@ var _ Component = &dpuServiceControllerObjects{}
 
 // dpuServiceControllerObjects contains Kubernetes objects to be created by the DPUService controller.
 type dpuServiceControllerObjects struct {
-	data               []byte
-	Deployment         *appsv1.Deployment
-	ServiceAccount     *corev1.ServiceAccount
-	Role               *rbacv1.Role
-	ClusterRole        *rbacv1.ClusterRole
-	ClusterRoleBinding *rbacv1.ClusterRoleBinding
-	RoleBinding        *rbacv1.RoleBinding
+	data    []byte
+	objects []*unstructured.Unstructured
 }
 
 func (d *dpuServiceControllerObjects) Name() string {
@@ -50,115 +42,50 @@ func (d *dpuServiceControllerObjects) Parse() error {
 	if d.data == nil {
 		return fmt.Errorf("dpuServiceControllerObjects.data can not be empty")
 	}
-	dpuServiceObjects, err := utils.BytesToUnstructured(d.data)
+	var err error
+	objects, err := utils.BytesToUnstructured(d.data)
 	if err != nil {
-		return fmt.Errorf("error while converting DPUService  manifests to objects: %w", err)
+		return fmt.Errorf("error while converting DPUService controller manifests to objects: %w", err)
 	}
-	for _, obj := range dpuServiceObjects {
-		switch obj.GetObjectKind().GroupVersionKind().Kind {
-		case deploymentKind:
-			if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &d.Deployment); err != nil {
-				return fmt.Errorf("error while converting DPUService to objects: %w", err)
-			}
-		case serviceAccountKind:
-			if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &d.ServiceAccount); err != nil {
-				return fmt.Errorf("error while converting DPUService to objects: %w", err)
-			}
-		case roleKind:
-			if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &d.Role); err != nil {
-				return fmt.Errorf("error while converting DPUService to objects: %w", err)
-			}
-		case roleBindingKind:
-			if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &d.RoleBinding); err != nil {
-				return fmt.Errorf("error while converting DPUService to objects: %w", err)
-			}
-		case clusterRoleKind:
-			if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &d.ClusterRole); err != nil {
-				return fmt.Errorf("error while converting DPUService to objects: %w", err)
-			}
-		case clusterRoleBindingKind:
-			if err = runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &d.ClusterRoleBinding); err != nil {
-				return fmt.Errorf("error while converting DPUService to objects: %w", err)
-			}
-			// Namespace and CustomResourceDefinition are dropped as they are handled elsewhere.
-		case namespaceKind:
-			// Drop namespace
-		case customResourceDefinitionKind:
-			// Drop CustomResourceDefinition
-		default:
-			// Error is any unexpected type is found in the manifest.
-			return fmt.Errorf("unrecognized kind in DPUService objects: %s", obj.GetObjectKind().GroupVersionKind().Kind)
-		}
-	}
-	return d.validate()
-}
 
-// validate asserts the dpuServiceControllerObjects are as expected.
-func (d *dpuServiceControllerObjects) validate() error {
-	// Check that each and every field expected is set.
-	if d.Role == nil {
-		return fmt.Errorf("error parsing DPUService objects: Role not found")
-	}
-	if d.ClusterRole == nil {
-		return fmt.Errorf("error parsing DPUService objects: ClusterRole not found")
-	}
-	if d.ClusterRoleBinding == nil {
-		return fmt.Errorf("error parsing DPUService objects: ClusterRoleBinding not found")
-	}
-	if d.Deployment == nil {
-		return fmt.Errorf("error parsing DPUService objects: Deployment not found")
-	}
-	if d.ServiceAccount == nil {
-		return fmt.Errorf("error parsing DPUService objects:  ServiceAccount not found")
-	}
-	if d.RoleBinding == nil {
-		return fmt.Errorf("error parsing DPUService objects: RoleBinding not found")
+	for i, obj := range objects {
+		switch ObjectKind(obj.GetKind()) {
+		// Namespace and CustomResourceDefinition are dropped as they are handled elsewhere.
+		case NamespaceKind:
+			continue
+		case CustomResourceDefinitionKind:
+			continue
+		}
+		d.objects = append(d.objects, objects[i])
 	}
 	return nil
 }
 
 // GenerateManifests returns all objects as a list.
-func (d *dpuServiceControllerObjects) GenerateManifests(variables Variables) ([]client.Object, error) {
-	if _, ok := variables.DisableSystemComponents[d.Name()]; ok {
+func (d *dpuServiceControllerObjects) GenerateManifests(vars Variables) ([]client.Object, error) {
+	if _, ok := vars.DisableSystemComponents[d.Name()]; ok {
 		return []client.Object{}, nil
 	}
-	d.setNamespace(variables.Namespace)
-	d.setImagePullSecrets(variables.ImagePullSecrets)
-	out := []client.Object{}
-	out = append(out,
-		d.Deployment.DeepCopy(),
-		d.ServiceAccount.DeepCopy(),
-		d.Role.DeepCopy(),
-		d.RoleBinding.DeepCopy(),
-		d.ClusterRole.DeepCopy(),
-		d.ClusterRoleBinding.DeepCopy(),
-	)
-	return out, nil
-}
 
-// SetNamespace sets all Namespaces in the dpuServiceControllerObjects to the passed string.
-func (d *dpuServiceControllerObjects) setNamespace(namespace string) {
-	d.Deployment.SetNamespace(namespace)
-	d.ServiceAccount.SetNamespace(namespace)
-	d.Role.SetNamespace(namespace)
-	d.RoleBinding.SetNamespace(namespace)
+	// make a copy of the objects
+	objsCopy := make([]*unstructured.Unstructured, 0, len(d.objects))
+	for i := range d.objects {
+		objsCopy = append(objsCopy, d.objects[i].DeepCopy())
+	}
 
-	// Namespace is also defined in the RoleBinding and ClusterRoleBinding subjects.
-	for i := range d.RoleBinding.Subjects {
-		d.RoleBinding.Subjects[i].Namespace = namespace
+	// apply edits
+	if err := NewEdits().
+		AddForAll(NamespaceEdit(vars.Namespace)).
+		AddForKindS(DeploymentKind, ImagePullSecretsEditForDeploymentEdit(vars.ImagePullSecrets...)).
+		Apply(objsCopy); err != nil {
+		return nil, err
 	}
-	for i := range d.ClusterRoleBinding.Subjects {
-		d.ClusterRoleBinding.Subjects[i].Namespace = namespace
-	}
-}
 
-// setImagePullSecrets sets all ImagePullSecrets in the dpuServiceControllerObjects to the passed strings.
-func (d *dpuServiceControllerObjects) setImagePullSecrets(pullSecrets []string) {
-	if pullSecrets != nil {
-		var localObjectRefs []corev1.LocalObjectReference
-		for _, secret := range pullSecrets {
-			localObjectRefs = append(localObjectRefs, corev1.LocalObjectReference{Name: secret})
-		}
-		d.Deployment.Spec.Template.Spec.ImagePullSecrets = localObjectRefs
+	// return as Objects
+	ret := make([]client.Object, 0, len(objsCopy))
+	for i := range objsCopy {
+		ret = append(ret, objsCopy[i])
 	}
+
+	return ret, nil
 }

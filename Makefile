@@ -500,7 +500,7 @@ OPERATOR_REGISTRY_VERSION ?= v1.39.0
 OPERATOR_NAMESPACE ?= dpf-operator-system
 
 .PHONY: test-deploy-operator-kustomize
-test-deploy-operator-kustomize: $(KUSTOMIZE) ## Deploy the DPF Operator using operator-sdk
+test-deploy-operator-kustomize: $(KUSTOMIZE) ## Deploy the DPF Operator using kustomize
 	#$(KUBECTL) create namespace $(OPERATOR_NAMESPACE)
 	cd config/operator-and-crds/ && $(KUSTOMIZE) edit set namespace $(OPERATOR_NAMESPACE)
 	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
@@ -515,6 +515,10 @@ test-deploy-operator-operator-sdk: $(KUSTOMIZE) ## Deploy the DPF Operator using
 	$(KUBECTL) create namespace $(OPERATOR_NAMESPACE)
 	# TODO: This flow does not work on MacOS dues to some issue pulling images. Should be enabled to make local testing equivalent to CI.
 	$(OPERATOR_SDK) run bundle --namespace $(OPERATOR_NAMESPACE) --index-image quay.io/operator-framework/opm:$(OPERATOR_REGISTRY_VERSION) $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
+
+.PHONY: test-undeploy-operator-kustomize
+test-undeploy-operator-kustomize: $(KUSTOMIZE) ## Undeploy the DPF Operator using kustomize
+	$(KUSTOMIZE) build config/operator-and-crds/ | $(KUBECTL) delete -f -
 
 ARTIFACTS_DIR ?= $(shell pwd)/artifacts
 .PHONY: test-cache-images

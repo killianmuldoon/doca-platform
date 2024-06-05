@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
@@ -46,10 +45,8 @@ var _ Component = &dpfProvisioningControllerObjects{}
 // dpfProvisioningControllerObjects contains objects that are used to generate Provisioning Controller manifests.
 // dpfProvisioningControllerObjects objects should be immutable after Parse()
 type dpfProvisioningControllerObjects struct {
-	data         []byte
-	mux          sync.Mutex
-	otherObjects []unstructured.Unstructured
-	deployment   *appsv1.Deployment
+	data    []byte
+	objects []*unstructured.Unstructured
 }
 
 func (p *dpfProvisioningControllerObjects) Name() string {
@@ -67,71 +64,94 @@ func (p *dpfProvisioningControllerObjects) Parse() (err error) {
 	} else if len(objs) == 0 {
 		return fmt.Errorf("no objects found in DPU Provisioning Controller manifests")
 	}
+
+	deploymentFound := false
 	for _, obj := range objs {
 		// Exclude Namespace and CustomResourceDefinition as the operator should not deploy these resources.
-		if obj.GetKind() == namespaceKind || obj.GetKind() == customResourceDefinitionKind {
+		if obj.GetKind() == string(NamespaceKind) || obj.GetKind() == string(CustomResourceDefinitionKind) {
 			continue
 		}
-		// If the object is the dpf-provisioning-controller-manager Deployment store it as it's concrete type.
-		if obj.GetKind() == deploymentKind && obj.GetName() == dpfProvisioningControllerName {
-			deployment := &appsv1.Deployment{}
-			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), deployment); err != nil {
-				return fmt.Errorf("error while parsing Deployment for Provisioning Controller: %w", err)
+		// If the object is the dpf-provisioning-controller-manager Deployment validate it
+		if obj.GetKind() == string(DeploymentKind) && obj.GetName() == dpfProvisioningControllerName {
+			deploymentFound = true
+			err = p.validateDeployment(obj)
+			if err != nil {
+				return err
 			}
-			p.deployment = deployment
-			continue
 		}
-		p.otherObjects = append(p.otherObjects, *obj)
+		p.objects = append(p.objects, obj)
 	}
-	return p.validateDeployment()
+
+	if !deploymentFound {
+		return fmt.Errorf("error while converting Provisioning Controller manifests to objects: Deployment not found")
+	}
+
+	return nil
 }
 
+// GenerateManifests applies edits and returns objects
 func (p *dpfProvisioningControllerObjects) GenerateManifests(vars Variables) ([]client.Object, error) {
-	p.mux.Lock()
-	defer p.mux.Unlock()
 	if _, ok := vars.DisableSystemComponents[p.Name()]; ok {
 		return []client.Object{}, nil
 	}
-	if p.deployment == nil {
-		return nil, fmt.Errorf("no Deployment in manifest")
+
+	// check vars
+	if strings.TrimSpace(vars.DPFProvisioningController.ImagePullSecretForDMSAndHostNetwork) == "" {
+		return nil, fmt.Errorf("DPFProvisioningController ImagePullSecretForDMSAndHostNetwork can not be empty")
+	}
+	if strings.TrimSpace(vars.DPFProvisioningController.BFBPersistentVolumeClaimName) == "" {
+		return nil, fmt.Errorf("DPFProvisioningController empty BFBPersistentVolumeClaimName")
+	}
+	if ip := net.ParseIP(vars.DPFProvisioningController.DHCP); ip == nil {
+		return nil, fmt.Errorf("DPFProvisioningController invalid DHCP")
 	}
 
-	objects, err := setNamespace(vars.Namespace, p.otherObjects)
-	if err != nil {
-		return nil, fmt.Errorf("error while setting Namespace for Provisioning Controller: %w", err)
+	// make a copy of the objects
+	objsCopy := make([]*unstructured.Unstructured, 0, len(p.objects))
+	for i := range p.objects {
+		objsCopy = append(objsCopy, p.objects[i].DeepCopy())
 	}
-	p.deployment.SetNamespace(vars.Namespace)
 
-	// Fixup webhook service selector.
+	// apply edits
+	if err := NewEdits().
+		AddForAll(NamespaceEdit(vars.Namespace)).
+		AddForKindS(DeploymentKind, ImagePullSecretsEditForDeploymentEdit(vars.ImagePullSecrets...)).
+		AddForKindS(DeploymentKind, p.dpfProvisioningDeploymentEdit(vars)).
+		AddForKind(ServiceKind, fixupWebhookServiceEdit).
+		Apply(objsCopy); err != nil {
+		return nil, err
+	}
 
-	ret := []client.Object{}
-	for _, obj := range objects {
-		if obj.GetKind() == "Service" && obj.GetName() == webhookServiceName {
-			fixedService, err := fixupWebhookService(&obj)
-			if err != nil {
-				return nil, fmt.Errorf("error patching webhook service for Provisioning Controller: %w", err)
-			}
-			ret = append(ret, fixedService.DeepCopy())
-			continue
-		}
-		ret = append(ret, obj.DeepCopy())
+	// return as Objects
+	ret := make([]client.Object, 0, len(objsCopy))
+	for i := range objsCopy {
+		ret = append(ret, objsCopy[i])
 	}
-	deploy := p.deployment.DeepCopy()
-	mods := []func(*appsv1.Deployment, Variables) error{
-		p.setBFBPersistentVolumeClaim,
-		p.setImagePullSecrets,
-		p.setComponentLabel,
-		p.setDefaultImageNames,
-		p.setDHCP,
-	}
-	for _, mod := range mods {
-		if err := mod(deploy, vars); err != nil {
-			return nil, fmt.Errorf("error while generating Deployment for Provisioning Controller: %w", err)
-		}
-	}
-	// Add the deployment to the set of objects.
-	ret = append(ret, deploy)
+
 	return ret, nil
+}
+
+func (p *dpfProvisioningControllerObjects) dpfProvisioningDeploymentEdit(vars Variables) StructuredEdit {
+	return func(obj client.Object) error {
+		deployment, ok := obj.(*appsv1.Deployment)
+		if !ok {
+			return fmt.Errorf("unexpected object %s. expected Deployment", obj.GetObjectKind().GroupVersionKind())
+		}
+
+		mods := []func(*appsv1.Deployment, Variables) error{
+			p.setBFBPersistentVolumeClaim,
+			p.setImagePullSecrets,
+			p.setComponentLabel,
+			p.setDefaultImageNames,
+			p.setDHCP,
+		}
+		for _, mod := range mods {
+			if err := mod(deployment, vars); err != nil {
+				return fmt.Errorf("error while updating Deployment for Provisioning Controller: %w", err)
+			}
+		}
+		return nil
+	}
 }
 
 // Set the component label for the deployment.
@@ -146,36 +166,41 @@ func (p *dpfProvisioningControllerObjects) setComponentLabel(deployment *appsv1.
 }
 
 // Add a component label selector to the webhook service.
-func fixupWebhookService(obj *unstructured.Unstructured) (*unstructured.Unstructured, error) {
+func fixupWebhookServiceEdit(obj *unstructured.Unstructured) error {
+	if obj.GetName() != webhookServiceName {
+		return nil
+	}
 	// do the conversion to ensure we're dealing with the correct type, but deal with unstructured for the patch.
 	err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), &corev1.Service{})
 	if err != nil {
-		return nil, fmt.Errorf("error while converting DPU Provisioning Controller Service to objects: %w", err)
+		return fmt.Errorf("error while converting DPU Provisioning Controller Service to objects: %w", err)
 	}
 	selector, found, err := unstructured.NestedMap(obj.UnstructuredContent(), "spec", "selector")
 	if err != nil {
-		return nil, fmt.Errorf("error while converting DPU Provisioning Controller Service to objects: %w", err)
+		return fmt.Errorf("error while converting DPU Provisioning Controller Service to objects: %w", err)
 	}
 	if !found {
-		return nil, fmt.Errorf("DPU Provisioning Controller webhook secret does not have a selector")
+		return fmt.Errorf("DPU Provisioning Controller webhook secret does not have a selector")
 	}
 	selector[operatorv1.DPFComponentLabelKey] = dpfProvisioningControllerName
 	err = unstructured.SetNestedMap(obj.UnstructuredContent(), selector, "spec", "selector")
 	if err != nil {
-		return nil, fmt.Errorf("error while converting DPU Provisioning Controller Service to objects: %w", err)
+		return fmt.Errorf("error while converting DPU Provisioning Controller Service to objects: %w", err)
 	}
-	return obj, nil
+	return nil
 }
 
-func (p *dpfProvisioningControllerObjects) validateDeployment() error {
-	if p.deployment == nil {
-		return fmt.Errorf("error while converting Provisioning Controller manifests to objects: Deployment not found")
+func (p *dpfProvisioningControllerObjects) validateDeployment(obj *unstructured.Unstructured) error {
+	deployment := &appsv1.Deployment{}
+	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), deployment); err != nil {
+		return fmt.Errorf("error while parsing Deployment for Provisioning Controller: %w", err)
 	}
-	vol := p.getVolume(p.deployment, "bfb-volume")
+
+	vol := p.getVolume(deployment, "bfb-volume")
 	if vol == nil {
 		return fmt.Errorf("invalid Provisioning Controller deployment, no bfb volume found")
 	}
-	c := p.getContainer(p.deployment)
+	c := p.getContainer(deployment)
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
 	}
@@ -201,9 +226,6 @@ func (p *dpfProvisioningControllerObjects) getVolume(deploy *appsv1.Deployment, 
 }
 
 func (p *dpfProvisioningControllerObjects) setBFBPersistentVolumeClaim(deploy *appsv1.Deployment, vars Variables) error {
-	if strings.TrimSpace(vars.DPFProvisioningController.BFBPersistentVolumeClaimName) == "" {
-		return fmt.Errorf("empty bfbPVCName")
-	}
 	vol := p.getVolume(deploy, bfbVolumeName)
 	if vol == nil {
 		return fmt.Errorf("error while generating Deployment for Provisioning Controller: no bfb volume found")
@@ -217,16 +239,6 @@ func (p *dpfProvisioningControllerObjects) setBFBPersistentVolumeClaim(deploy *a
 }
 
 func (p *dpfProvisioningControllerObjects) setImagePullSecrets(deploy *appsv1.Deployment, vars Variables) error {
-	if vars.ImagePullSecrets != nil {
-		var localObjectRefs []corev1.LocalObjectReference
-		for _, secret := range vars.ImagePullSecrets {
-			localObjectRefs = append(localObjectRefs, corev1.LocalObjectReference{Name: secret})
-		}
-		deploy.Spec.Template.Spec.ImagePullSecrets = localObjectRefs
-	}
-	if strings.TrimSpace(vars.DPFProvisioningController.ImagePullSecretForDMSAndHostNetwork) == "" {
-		return fmt.Errorf("ImagePullSecretForDMSAndHostNetwork can not be empty")
-	}
 	c := p.getContainer(deploy)
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
@@ -235,9 +247,6 @@ func (p *dpfProvisioningControllerObjects) setImagePullSecrets(deploy *appsv1.De
 }
 
 func (p *dpfProvisioningControllerObjects) setDHCP(deploy *appsv1.Deployment, vars Variables) error {
-	if ip := net.ParseIP(vars.DPFProvisioningController.DHCP); ip == nil {
-		return fmt.Errorf("invalid dhcp")
-	}
 	c := p.getContainer(deploy)
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)

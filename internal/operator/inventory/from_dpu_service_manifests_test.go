@@ -24,6 +24,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -42,6 +43,8 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 		{Name: "secret-one"},
 		{Name: "secret-two"},
 	}
+	initialValuesDataAfterMerge, err := json.Marshal(initialValuesObjectAfterMerge)
+	g.Expect(err).NotTo(HaveOccurred())
 
 	imagePullSecretsVars := Variables{ImagePullSecrets: []string{"secret-one", "secret-two"}}
 
@@ -55,6 +58,7 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 		{
 			name: "Preserve values from the template",
 			in: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
 				Spec: dpuservicev1.DPUServiceSpec{
 					Values: &runtime.RawExtension{
 						Raw: initialValuesData,
@@ -63,6 +67,7 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			},
 			vars: Variables{},
 			want: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
 				Spec: dpuservicev1.DPUServiceSpec{
 					Values: &runtime.RawExtension{
 						Raw: initialValuesData,
@@ -74,6 +79,7 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 		{
 			name: "Merge imagepullsecrets into the the template",
 			in: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
 				Spec: dpuservicev1.DPUServiceSpec{
 					Values: &runtime.RawExtension{
 						Raw: initialValuesData,
@@ -82,9 +88,10 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			},
 			vars: imagePullSecretsVars,
 			want: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
 				Spec: dpuservicev1.DPUServiceSpec{
 					Values: &runtime.RawExtension{
-						Object: initialValuesObjectAfterMerge,
+						Raw: initialValuesDataAfterMerge,
 					},
 				},
 			},
@@ -93,9 +100,12 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			un, err := runtime.DefaultUnstructuredConverter.ToUnstructured(tt.in)
+			g.Expect(err).ToNot(HaveOccurred())
+
 			f := &fromDPUService{
 				name:       "testService",
-				dpuService: tt.in,
+				dpuService: &unstructured.Unstructured{Object: un},
 			}
 			got, err := f.GenerateManifests(tt.vars)
 			if tt.wantErr {
@@ -104,7 +114,15 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			if !tt.wantErr {
 				g.Expect(err).NotTo(HaveOccurred())
 			}
-			g.Expect(got[0]).To(Equal(tt.want))
+
+			// convert to concere type so we can compare to tt.want
+			gotUnstructured, ok := got[0].(*unstructured.Unstructured)
+			g.Expect(ok).To(BeTrue())
+			gott := &dpuservicev1.DPUService{}
+			err = runtime.DefaultUnstructuredConverter.FromUnstructured(gotUnstructured.UnstructuredContent(), gott)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			g.Expect(gott).To(Equal(tt.want))
 		})
 	}
 }
