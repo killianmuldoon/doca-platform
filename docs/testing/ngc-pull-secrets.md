@@ -20,6 +20,31 @@ export NGC_API_KEY=<YOUR_KEY>
 kubectl -n dpf-operator-system create secret docker-registry ngc-secret --docker-server=nvcr.io --docker-username="\$oauthtoken" --docker-password=$NGC_API_KEY
 ```
 
+### Create Argo CD secret for NGC nvstaging Helm charts
+
+Some DPF components are deployed by the DPF Operator as DPU Services, that are based on Helm charts that are hosted on NGC nvstaging.
+
+The following secret is required for Argo CD to be able to deploy the charts.
+
+
+```bash
+echo "
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nvstaging-helm
+  namespace: dpf-operator-system
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  name: nvstaging
+  url: https://helm.ngc.nvidia.com/nvstaging/mellanox
+  type: helm
+  username: \$oauthtoken
+  password: $NGC_API_KEY
+" | kubectl apply -f -
+```
+
 ### Install DPF Operator with Operator-SDK from NGC nvstaging
 
 1. Create Secret as described above.
