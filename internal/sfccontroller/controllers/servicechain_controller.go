@@ -99,7 +99,8 @@ func delFlows(flows string) error {
 // Creates a temporary file on the system and writes the aforementioned
 // string. This will file will be consumed by ovs-ofctl command with the
 // bundle argument to ensure the fact that all flows are added in a atomic operation
-func addFlows(flows string) (err error) {
+func addFlows(ctx context.Context, flows string) (err error) {
+	log := log.FromContext(ctx)
 	var fileP *os.File
 	fileP, err = os.Create("/tmp/of-output.txt")
 	if err != nil {
@@ -128,8 +129,8 @@ func addFlows(flows string) (err error) {
 	if err != nil {
 		return fmt.Errorf("error running ovs-ofctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
 	}
-	fmt.Println("Added flows:")
-	fmt.Println(flows)
+	log.Info("Added flows:")
+	log.Info(flows)
 	return err
 }
 
@@ -216,11 +217,10 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			// Always ensure delete operation in case of errors
 			flowErrors := delFlows(fmt.Sprintf("cookie=%d/-1", hash(req.NamespacedName.String())))
 			if flowErrors != nil {
-				return ctrl.Result{}, err
+				log.Error(flowErrors, "failed to delete flows")
+				return ctrl.Result{}, flowErrors
 			}
 
-			// Always requeue after 5 seconds in order to do another sweep over the rules
-			// This ensures the flow addition / removal in case ovs-vswitchd stops / crashes
 			return ctrl.Result{}, nil
 		}
 		return ctrl.Result{}, err
@@ -231,8 +231,6 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		// this object was not intended for this nodes
 		// skip
 		log.Info("sc.Spec.Node: %s != node: %s", sc.Spec.Node, node)
-		// Requeue after 5 seconds in order to do another sweep over the rules
-		// This ensures the flow addition / removal in case ovs-vswitchd stops / crashes
 		return ctrl.Result{}, nil
 	}
 
@@ -249,6 +247,7 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 					ports[sw_pos] = append(ports[sw_pos], servicePort)
 				}
 				if err != nil {
+					log.Error(err, "failed to get port")
 					return ctrl.Result{}, err
 				}
 			}
@@ -258,6 +257,7 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 					ports[sw_pos] = append(ports[sw_pos], intfName)
 				}
 				if err != nil {
+					log.Error(err, "failed to get interface")
 					return ctrl.Result{}, err
 				}
 			}
@@ -321,8 +321,9 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 
 		// Try adding flows to vswitchd
-		err = addFlows(flowsPerArray)
+		err = addFlows(ctx, flowsPerArray)
 		if err != nil {
+			log.Error(err, "failed to add flows")
 			return ctrl.Result{}, err
 		}
 	}
