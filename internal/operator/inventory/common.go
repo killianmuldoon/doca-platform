@@ -33,6 +33,7 @@ const (
 	MutatingWebhookConfigurationKind   ObjectKind = "MutatingWebhookConfiguration"
 	ValidatingWebhookConfigurationKind ObjectKind = "ValidatingWebhookConfiguration"
 	DeploymentKind                     ObjectKind = "Deployment"
+	StatefulSetKind                    ObjectKind = "StatefulSet"
 	CertificateKind                    ObjectKind = "Certificate"
 	RoleKind                           ObjectKind = "Role"
 	ServiceAccountKind                 ObjectKind = "ServiceAccount"

@@ -56,6 +56,7 @@ func (a *argoCDObjects) GenerateManifests(vars Variables) ([]client.Object, erro
 	// apply edits
 	if err := NewEdits().AddForAll(NamespaceEdit(vars.Namespace)).
 		AddForKindS(DeploymentKind, NodeAffinityForDeploymentEdit(&controlPlaneNodeAffinity)).
+		AddForKindS(StatefulSetKind, NodeAffinityForStatefulSetEdit(&controlPlaneNodeAffinity)).
 		Apply(objsCopy); err != nil {
 		return nil, err
 	}

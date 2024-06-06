@@ -169,3 +169,19 @@ func NodeAffinityForDeploymentEdit(nodeAffinity *corev1.NodeAffinity) Structured
 		return nil
 	}
 }
+
+// NodeAffinityForStatefulSetEdit sets NodeAffinity for Deployment objs
+func NodeAffinityForStatefulSetEdit(nodeAffinity *corev1.NodeAffinity) StructuredEdit {
+	return func(obj client.Object) error {
+		sts, ok := obj.(*appsv1.StatefulSet)
+		if !ok {
+			return fmt.Errorf("unexpected object %s. expected Deployment", obj.GetObjectKind().GroupVersionKind())
+		}
+
+		if sts.Spec.Template.Spec.Affinity == nil {
+			sts.Spec.Template.Spec.Affinity = &corev1.Affinity{}
+		}
+		sts.Spec.Template.Spec.Affinity.NodeAffinity = nodeAffinity
+		return nil
+	}
+}
