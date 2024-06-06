@@ -104,22 +104,38 @@ var _ = Describe("Test Edits", func() {
 	})
 
 	Context("common edits", func() {
-		Context("NodeAffinityForDeploymentEdit", func() {
-			var deployment *appsv1.Deployment
-			nodeAffinity := &corev1.NodeAffinity{
-				RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-					NodeSelectorTerms: []corev1.NodeSelectorTerm{
-						{
-							MatchExpressions: []corev1.NodeSelectorRequirement{
-								{
-									Key:      "foo",
-									Operator: corev1.NodeSelectorOpExists,
-								},
+		nodeAffinity := &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{
+					{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      "foo",
+								Operator: corev1.NodeSelectorOpExists,
 							},
 						},
 					},
 				},
-			}
+			},
+		}
+
+		otherNodeAffinity := &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{
+					{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      "bar",
+								Operator: corev1.NodeSelectorOpExists,
+							},
+						},
+					},
+				},
+			},
+		}
+
+		Context("NodeAffinityForDeploymentEdit", func() {
+			var deployment *appsv1.Deployment
 
 			BeforeEach(func() {
 				deployment = &appsv1.Deployment{TypeMeta: metav1.TypeMeta{Kind: "Deployment"}}
@@ -144,20 +160,6 @@ var _ = Describe("Test Edits", func() {
 			It("Replaces NodeAffinity when present", func() {
 				// set some nodeAffinity for deployment
 				var err error
-				otherNodeAffinity := &corev1.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-						NodeSelectorTerms: []corev1.NodeSelectorTerm{
-							{
-								MatchExpressions: []corev1.NodeSelectorRequirement{
-									{
-										Key:      "bar",
-										Operator: corev1.NodeSelectorOpExists,
-									},
-								},
-							},
-						},
-					},
-				}
 				deployment.Spec.Template.Spec.Affinity = &corev1.Affinity{
 					NodeAffinity: otherNodeAffinity,
 				}
@@ -174,6 +176,53 @@ var _ = Describe("Test Edits", func() {
 
 				// check result
 				Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(deploymentUnstructured.UnstructuredContent(), d)).ToNot(HaveOccurred())
+				Expect(d.Spec.Template.Spec.Affinity.NodeAffinity).To(Equal(nodeAffinity))
+			})
+		})
+
+		Context("NodeAffinityForStatefulSetEdit", func() {
+			var sts *appsv1.StatefulSet
+
+			BeforeEach(func() {
+				sts = &appsv1.StatefulSet{TypeMeta: metav1.TypeMeta{Kind: "StatefulSet"}}
+			})
+
+			It("Adds NodeAffinity when not present", func() {
+				// convert to unstructured
+				var err error
+				stsUnstructured := &unstructured.Unstructured{}
+				stsUnstructured.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
+				Expect(err).ToNot(HaveOccurred())
+
+				// edit StatefulSet
+				Expect(NewEdits().AddForKindS(StatefulSetKind, NodeAffinityForStatefulSetEdit(nodeAffinity)).
+					Apply([]*unstructured.Unstructured{stsUnstructured})).ToNot(HaveOccurred())
+
+				// check result
+				Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(stsUnstructured.UnstructuredContent(), sts)).ToNot(HaveOccurred())
+				Expect(sts.Spec.Template.Spec.Affinity.NodeAffinity).To(Equal(nodeAffinity))
+			})
+
+			It("Replaces NodeAffinity when present", func() {
+				// set some nodeAffinity for StatefulSet
+				var err error
+
+				sts.Spec.Template.Spec.Affinity = &corev1.Affinity{
+					NodeAffinity: otherNodeAffinity,
+				}
+
+				// convert to unstructured
+				stsUnstructured := &unstructured.Unstructured{}
+				stsUnstructured.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
+				Expect(err).ToNot(HaveOccurred())
+
+				// edit StatefulSet
+				Expect(NewEdits().AddForKindS(StatefulSetKind, NodeAffinityForStatefulSetEdit(nodeAffinity)).
+					Apply([]*unstructured.Unstructured{stsUnstructured})).ToNot(HaveOccurred())
+				d := &appsv1.StatefulSet{}
+
+				// check result
+				Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(stsUnstructured.UnstructuredContent(), d)).ToNot(HaveOccurred())
 				Expect(d.Spec.Template.Spec.Affinity.NodeAffinity).To(Equal(nodeAffinity))
 			})
 		})

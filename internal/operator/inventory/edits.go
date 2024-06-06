@@ -157,6 +157,13 @@ func (e *Edits) toConcreteType(obj *unstructured.Unstructured) (client.Object, e
 			return nil, fmt.Errorf("error while converting data to objects: %w", err)
 		}
 		return concrete, nil
+	case StatefulSetKind:
+		concrete := &appsv1.StatefulSet{}
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), concrete)
+		if err != nil {
+			return nil, fmt.Errorf("error while converting data to objects: %w", err)
+		}
+		return concrete, nil
 	case DPUServiceKind:
 		concrete := &dpuservicev1.DPUService{}
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), concrete)
