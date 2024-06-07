@@ -147,6 +147,16 @@ spec:
                 control-plane: controller-manager
                 dpf.nvidia.com/component: dpf-operator-controller-manager
             spec:
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: node-role.kubernetes.io/master
+                        operator: Exists
+                    - matchExpressions:
+                      - key: node-role.kubernetes.io/control-plane
+                        operator: Exists
               containers:
               - command:
                 - /manager

@@ -6,3 +6,5 @@ images:
 - name: controller
   newName: nvidia.com/dpf-operator-controller-manager
   newTag: v0.0.0
+patchesStrategicMerge:
+- control-plane-affinity-patch.yaml
