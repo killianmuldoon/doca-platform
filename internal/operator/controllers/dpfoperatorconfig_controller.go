@@ -55,13 +55,6 @@ type DPFOperatorConfigReconciler struct {
 
 // DPFOperatorConfigReconcilerSettings contains settings related to the DPFOperatorConfig.
 type DPFOperatorConfigReconcilerSettings struct {
-	// CustomOVNKubernetesDPUImage the OVN Kubernetes image deployed by the operator to the DPU enabled nodes (workers).
-	CustomOVNKubernetesDPUImage string
-
-	// CustomOVNKubernetesNonDPUImage the OVN Kubernetes image deployed by the operator to the non DPU enabled nodes
-	// (control plane)
-	CustomOVNKubernetesNonDPUImage string
-
 	// ConfigSingletonNamespaceName restricts reconciliation of the operator to a single DPFOperator Config with a specified namespace and name.
 	ConfigSingletonNamespaceName *types.NamespacedName
 
@@ -155,15 +148,6 @@ func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperator
 	}
 	if err := r.reconcileSystemComponents(ctx, dpfOperatorConfig); err != nil {
 		return ctrl.Result{}, err
-	}
-
-	// Check if the OVNKubernetesDeployment is disabled.
-	if dpfOperatorConfig.Spec.Overrides == nil || !dpfOperatorConfig.Spec.Overrides.DisableOVNKubernetesReconcile {
-		// Ensure Custom OVN Kubernetes Deployment is done.
-		if err := r.reconcileCustomOVNKubernetesDeployment(ctx, dpfOperatorConfig); err != nil {
-			// TODO: In future we should tolerate this error, but only when we have status reporting.
-			return ctrl.Result{}, err
-		}
 	}
 
 	return ctrl.Result{}, nil

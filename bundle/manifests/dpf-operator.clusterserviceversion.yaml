@@ -19,27 +19,6 @@ metadata:
             "namespace": "dpf-operator"
           },
           "spec": {
-            "hostNetworkConfiguration": {
-              "cidr": "10.0.96.0/20",
-              "hostPF0": "ens2f0np0",
-              "hostPF0VF0": "enp23s0f0v0",
-              "hosts": [
-                {
-                  "dpuClusterNodeName": "dpu-worker-1",
-                  "dpuIP": "10.0.96.20/24",
-                  "gateway": "10.0.96.254",
-                  "hostClusterNodeName": "ocp-worker-1",
-                  "hostIP": "10.0.96.10/24"
-                },
-                {
-                  "dpuClusterNodeName": "dpu-worker-2",
-                  "dpuIP": "10.0.97.20/24",
-                  "gateway": "10.0.97.254",
-                  "hostClusterNodeName": "ocp-worker-2",
-                  "hostIP": "10.0.97.10/24"
-                }
-              ]
-            },
             "provisioningConfiguration": {
               "bfbPVCName": "dpf-provisioning-volume",
               "dhcpServerAddress": "8.8.8.8",

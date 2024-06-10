@@ -77,9 +77,6 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Namespace: dpfOperatorSystemNamespace,
 		},
 		Spec: operatorv1.DPFOperatorConfigSpec{
-			HostNetworkConfiguration: operatorv1.HostNetworkConfiguration{
-				Hosts: []operatorv1.Host{},
-			},
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
 				BFBPersistentVolumeClaimName: dpfProvisioningControllerPVCName,
 				// Note: This is the same imagePullSecret as exists in the top-level config.
@@ -88,11 +85,6 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			},
 			ImagePullSecrets: []string{
 				imagePullSecret.Name,
-			},
-
-			// TODO: This test does not check if the ovnkubernetes related components are reconciled.
-			Overrides: &operatorv1.Overrides{
-				DisableOVNKubernetesReconcile: true,
 			},
 		},
 	}
