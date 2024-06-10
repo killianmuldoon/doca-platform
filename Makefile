@@ -369,9 +369,7 @@ generate-manifests-release-defaults: $(ENVSUBST) ## Generates manifests that con
 TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 .PHONY: generate-manifests-operator-embedded
-generate-manifests-operator-embedded: $(ENVSUBST)  generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner generate-manifests-dpuservice generate-manifests-dpf-provisioning generate-manifests-release-defaults ## Generates manifests that are embedded into the operator binary.
-	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/operator/controllers/manifests/hostcniprovisioner.yaml
-	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/operator/controllers/manifests/dpucniprovisioner.yaml
+generate-manifests-operator-embedded: $(ENVSUBST) generate-manifests-dpuservice generate-manifests-dpf-provisioning generate-manifests-release-defaults ## Generates manifests that are embedded into the operator binary.
 	cp $(DPF_PROVISIONING_DIR)/output/deploy.yaml ./internal/operator/inventory/manifests/dpf-provisioning-controller.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
 	# Substitute environment variables and generate embedded manifests from templates.

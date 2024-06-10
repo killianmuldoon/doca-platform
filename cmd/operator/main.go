@@ -18,7 +18,6 @@ package main
 
 import (
 	"crypto/tls"
-	"errors"
 	"flag"
 	"os"
 
@@ -28,7 +27,6 @@ import (
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	operatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/controllers"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/inventory"
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/release"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -66,18 +64,16 @@ func init() {
 }
 
 var (
-	metricsAddr                    string
-	enableLeaderElection           bool
-	probeAddr                      string
-	secureMetrics                  bool
-	enableHTTP2                    bool
-	customOVNKubernetesDPUImage    string
-	customOVNKubernetesNonDPUImage string
-	configSingletonNamespace       string
-	configSingletonName            string
+	metricsAddr              string
+	enableLeaderElection     bool
+	probeAddr                string
+	secureMetrics            bool
+	enableHTTP2              bool
+	configSingletonNamespace string
+	configSingletonName      string
 )
 
-func initFlags(defaults *release.Defaults) {
+func initFlags() {
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -87,10 +83,6 @@ func initFlags(defaults *release.Defaults) {
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.StringVar(&customOVNKubernetesDPUImage, "ovn-kubernetes-dpu-image", defaults.CustomOVNKubernetesDPUImage,
-		"The custom OVN Kubernetes image deployed by the operator to the DPU enabled nodes (workers)")
-	flag.StringVar(&customOVNKubernetesNonDPUImage, "ovn-kubernetes-non-dpu-image", defaults.CustomOVNKubernetesNonDPUImage,
-		"The custom OVN Kubernetes image deployed by the operator to the non DPU enabled nodes (control plane)")
 	flag.StringVar(&configSingletonNamespace, "config-namespace",
 		operatorcontroller.DefaultDPFOperatorConfigSingletonNamespace, "The namespace of the DPFOperatorConfig the operator will reconcile")
 	flag.StringVar(&configSingletonName, "config-name",
@@ -98,14 +90,7 @@ func initFlags(defaults *release.Defaults) {
 }
 
 func main() {
-	defaults := release.NewDefaults()
-	err := defaults.Parse()
-	if err != nil {
-		setupLog.Error(err, "unable to parse release defaults")
-		os.Exit(1)
-	}
-
-	initFlags(defaults)
+	initFlags()
 	opts := zap.Options{
 		Development: true,
 	}
@@ -169,15 +154,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	settings, err := getSettings()
-	if err != nil {
-		setupLog.Error(err, "unable to get settings")
-	}
-
 	if err = (&operatorcontroller.DPFOperatorConfigReconciler{
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),
-		Settings:  settings,
+		Settings:  getSettings(),
 		Inventory: inventory,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPFOperatorConfig")
@@ -201,14 +181,7 @@ func main() {
 	}
 }
 
-func getSettings() (*operatorcontroller.DPFOperatorConfigReconcilerSettings, error) {
-	if customOVNKubernetesDPUImage == "" {
-		return nil, errors.New("flag ovn-kubernetes-dpu-image can't be empty")
-	}
-	if customOVNKubernetesNonDPUImage == "" {
-		return nil, errors.New("flag ovn-kubernetes-dpu-image can't be empty")
-	}
-
+func getSettings() *operatorcontroller.DPFOperatorConfigReconcilerSettings {
 	configSingletonNamespaceName := &types.NamespacedName{
 		Namespace: configSingletonNamespace,
 		Name:      configSingletonName,
@@ -217,8 +190,6 @@ func getSettings() (*operatorcontroller.DPFOperatorConfigReconcilerSettings, err
 		configSingletonNamespaceName = nil
 	}
 	return &operatorcontroller.DPFOperatorConfigReconcilerSettings{
-		CustomOVNKubernetesDPUImage:    customOVNKubernetesDPUImage,
-		CustomOVNKubernetesNonDPUImage: customOVNKubernetesNonDPUImage,
-		ConfigSingletonNamespaceName:   configSingletonNamespaceName,
-	}, nil
+		ConfigSingletonNamespaceName: configSingletonNamespaceName,
+	}
 }

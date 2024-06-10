@@ -101,9 +101,6 @@ func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig
 			Namespace: namespace,
 		},
 		Spec: operatorv1.DPFOperatorConfigSpec{
-			HostNetworkConfiguration: operatorv1.HostNetworkConfiguration{
-				Hosts: []operatorv1.Host{},
-			},
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
 				BFBPersistentVolumeClaimName:        "foo-pvc",
 				ImagePullSecretForDMSAndHostNetwork: "foo-image-pull-secret",
