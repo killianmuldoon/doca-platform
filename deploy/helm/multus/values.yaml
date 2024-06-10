@@ -56,8 +56,5 @@ networkAttachmentBrHBNJson: |-
       "type": "ovs",
       "mtu": 1500,
       "bridge": "br-hbn",
-      "interface_type": "dpdk",
-      "ipam": {
-        "type": "static"
-      }
+      "interface_type": "dpdk"
     }

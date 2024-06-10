@@ -663,9 +663,6 @@ docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build do
 OVS_BASE_IMAGE_NAME = base-image-ovs
 OVS_BASE_IMAGE = $(REGISTRY)/$(OVS_BASE_IMAGE_NAME)
 
-HBN_SIDECAR_IMAGE_NAME = hbn-sidecar
-HBN_SIDECAR_IMAGE = $(REGISTRY)/$(HBN_SIDECAR_IMAGE_NAME)
-
 # Images that are running on the DPU enabled host cluster nodes (workers)
 OVNKUBERNETES_DPU_IMAGE_NAME = ovn-kubernetes-dpu
 export OVNKUBERNETES_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_DPU_IMAGE_NAME)
@@ -719,7 +716,8 @@ export DPFOVNKUBERNETESOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOVNKUBERNETESOPERATOR_
 HBN_DPUSERVICE_DIR ?= deploy/dpuservices/hbn
 HBN_IMAGE_NAME ?= hbn
 export HBN_IMAGE ?= $(REGISTRY)/$(HBN_IMAGE_NAME)
-export HBN_TAG ?= 2.1.0.6-dpf
+export HBN_NVCR_TAG ?= 2.2.0-doca2.7.0
+export HBN_TAG ?= $(HBN_NVCR_TAG)-dpf
 
 HBN_SIDECAR_IMAGE_NAME ?= hbn-sidecar
 export HBN_SIDECAR_IMAGE ?= $(REGISTRY)/$(HBN_SIDECAR_IMAGE_NAME)
@@ -901,7 +899,7 @@ docker-build-dms: ## Build docker image with the hostnetwork.
 .PHONY: docker-build-hbn
 docker-build-hbn: ## Build docker image for HBN.
 	## Note this image only ever builds for arm64.
-	cd $(HBN_DPUSERVICE_DIR) && docker build -t ${HBN_IMAGE}:${HBN_TAG} . -f Dockerfile
+	cd $(HBN_DPUSERVICE_DIR) && docker build --build-arg hbn_nvcr_tag=$(HBN_NVCR_TAG) -t ${HBN_IMAGE}:${HBN_TAG} . -f Dockerfile
 
 .PHONY: docker-push-dhcrelay
 docker-push-dhcrelay: ## Push the docker image for dhcrelate.
@@ -950,7 +948,7 @@ docker-push-ovnkubernetes-operator: ## Push the docker image for the OVN Kuberne
 	docker push $(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
 
 .PHONY: docker-push-hbn
-docker-push-hbn: ## Push the docker image for hbn
+docker-push-hbn: ## Push the docker image for HBN
 	docker push $(HBN_IMAGE):$(HBN_TAG)
 
 # helm charts
@@ -1047,7 +1045,7 @@ helm-package-ovnkubernetes-operator: $(CHARTSDIR) $(HELM) ## Package helm chart 
 	$(HELM) package $(DPFOVNKUBERNETESOPERATOR_HELM_CHART) --version $(DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-hbn-dpuservice
-helm-package-hbn-dpuservice: $(DPUSERVICESDIR) $(HELM) generate-manifests-hbn-dpuservice ## Package helm chart for OVN Kubernetes Operator
+helm-package-hbn-dpuservice: $(DPUSERVICESDIR) $(HELM) generate-manifests-hbn-dpuservice ## Package helm chart for HBN
 	$(HELM) package $(HBN_HELM_CHART) --version $(HBN_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 helm-cm-push: $(HELM)
@@ -1091,11 +1089,11 @@ helm-push-ovnkubernetes-operator: $(CHARTSDIR) helm-cm-push ## Push helm chart f
 	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS) $(CHARTSDIR)/$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME)-$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-operator
-helm-push-operator: $(CHARTSDIR) helm-cm-push ## Push helm chart for nvidia-k8s-ipam
+helm-push-operator: $(CHARTSDIR) helm-cm-push ## Push helm chart for dpf-operator
 	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-hbn-dpuservice
-helm-push-hbn-dpuservice: $(CHARTSDIR) helm-cm-push ## Push helm chart for nvidia-k8s-ipam
+helm-push-hbn-dpuservice: $(CHARTSDIR) helm-cm-push ## Push helm chart for HBN
 	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(HBN_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
 
 ##@ Development Environment
