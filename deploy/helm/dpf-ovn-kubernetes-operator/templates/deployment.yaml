@@ -1,3 +1,4 @@
+{{- $isWebhookEnabled := include "dpf-ovn-kubernetes-operator.isWebhookEnabled" . -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -49,6 +50,16 @@ spec:
           }}
         securityContext: {{- toYaml .Values.controllerManager.manager.containerSecurityContext
           | nindent 10 }}
+        {{- if eq $isWebhookEnabled "true" }}
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+        {{- end }}
       imagePullSecrets: {{ .Values.imagePullSecrets | default list | toJson }}
       securityContext:
         runAsNonRoot: true
@@ -61,4 +72,11 @@ spec:
       {{- with .Values.controllerManager.tolerations }}
       tolerations:
       {{- toYaml . | nindent 6 }}
+      {{- end }}
+      {{- if eq $isWebhookEnabled "true" }}
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: {{ include "dpf-ovn-kubernetes-operator.webhook.secretName" . }}
       {{- end }}

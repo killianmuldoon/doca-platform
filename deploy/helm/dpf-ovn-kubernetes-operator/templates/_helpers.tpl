@@ -51,12 +51,33 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
-Create the name of the service account to use
+Function that returns if the operator webhook is enabled. The result can be compared using string comparison.
 */}}
-{{- define "dpf-ovn-kubernetes-operator.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "dpf-ovn-kubernetes-operator.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
+{{- define "dpf-ovn-kubernetes-operator.isWebhookEnabled" -}}
+{{- if has "--enable-webhook=false" .Values.controllerManager.manager.args -}}
+false
+{{- else -}}
+true
 {{- end }}
+{{- end }}
+
+{{/*
+The name of the webhook certificate
+*/}}
+{{- define "dpf-ovn-kubernetes-operator.webhook.certificateName" -}}
+{{ include "dpf-ovn-kubernetes-operator.fullname" . }}-webhook
+{{- end }}
+
+{{/*
+The name of the webhook secret that contains the certificate
+*/}}
+{{- define "dpf-ovn-kubernetes-operator.webhook.secretName" -}}
+{{ include "dpf-ovn-kubernetes-operator.fullname" . }}-webhook-cert
+{{- end }}
+
+{{/*
+The name of the webhook service
+*/}}
+{{- define "dpf-ovn-kubernetes-operator.webhook.serviceName" -}}
+{{ include "dpf-ovn-kubernetes-operator.fullname" . }}-webhook
 {{- end }}
