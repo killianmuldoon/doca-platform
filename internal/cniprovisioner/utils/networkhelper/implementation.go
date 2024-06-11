@@ -25,6 +25,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"github.com/vishvananda/netlink/nl"
+	"k8s.io/utils/ptr"
 )
 
 type networkHelper struct{}
@@ -220,7 +221,7 @@ func (n *networkHelper) RouteExists(network *net.IPNet, gateway net.IP, device s
 }
 
 // AddRoute adds a route
-func (n *networkHelper) AddRoute(network *net.IPNet, gateway net.IP, device string) error {
+func (n *networkHelper) AddRoute(network *net.IPNet, gateway net.IP, device string, metric *int) error {
 	if network == nil {
 		return errors.New("network is empty, can't add route")
 	}
@@ -232,6 +233,7 @@ func (n *networkHelper) AddRoute(network *net.IPNet, gateway net.IP, device stri
 		Dst:       network,
 		Gw:        gateway,
 		LinkIndex: l.Attrs().Index,
+		Priority:  ptr.Deref[int](metric, 0),
 	}
 	err = netlink.RouteAdd(r)
 	if err != nil {
