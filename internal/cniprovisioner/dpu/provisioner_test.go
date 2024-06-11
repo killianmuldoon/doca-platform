@@ -33,6 +33,7 @@ import (
 	"go.uber.org/mock/gomock"
 	kexec "k8s.io/utils/exec"
 	kexecTesting "k8s.io/utils/exec/testing"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -116,8 +117,6 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovsClient.EXPECT().SetPortType("br-ovn-to-ens25f0np0", ovsclient.Patch)
 			ovsClient.EXPECT().SetPatchPortPeer("br-ovn-to-ens25f0np0", "ens25f0np0-to-br-ovn")
 
-			ovsClient.EXPECT().AddPort("br-ovn", "p0")
-			ovsClient.EXPECT().SetPortType("p0", ovsclient.DPDK)
 			ovsClient.EXPECT().AddPort("br-ovn", "vtep0")
 			ovsClient.EXPECT().SetPortType("vtep0", ovsclient.Internal)
 
@@ -134,8 +133,8 @@ var _ = Describe("DPU CNI Provisioner", func() {
 
 			networkhelper.EXPECT().SetLinkIPAddress("vtep0", vtepIPNet)
 			networkhelper.EXPECT().SetLinkUp("vtep0")
-			networkhelper.EXPECT().AddRoute(vtepCIDR, gateway, "vtep0")
-			networkhelper.EXPECT().AddRoute(hostCIDR, gateway, "vtep0")
+			networkhelper.EXPECT().AddRoute(vtepCIDR, gateway, "vtep0", nil)
+			networkhelper.EXPECT().AddRoute(hostCIDR, gateway, "vtep0", ptr.To[int](10000))
 
 			networkhelper.EXPECT().SetLinkDown("pf0vf0")
 			networkhelper.EXPECT().RenameLink("pf0vf0", "ovn-k8s-mp0_0")
@@ -207,8 +206,6 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovsClient.EXPECT().SetPortType("br-ovn-to-ens25f0np0", ovsclient.Patch)
 			ovsClient.EXPECT().SetPatchPortPeer("br-ovn-to-ens25f0np0", "ens25f0np0-to-br-ovn")
 
-			ovsClient.EXPECT().AddPort("br-ovn", "p0")
-			ovsClient.EXPECT().SetPortType("p0", ovsclient.DPDK)
 			ovsClient.EXPECT().AddPort("br-ovn", "vtep0")
 			ovsClient.EXPECT().SetPortType("vtep0", ovsclient.Internal)
 
@@ -229,7 +226,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			Expect(vtepCIDR).To(Equal(vtepNetwork))
 			networkhelper.EXPECT().SetLinkIPAddress("vtep0", vtepIPNet)
 			networkhelper.EXPECT().SetLinkUp("vtep0")
-			networkhelper.EXPECT().AddRoute(hostCIDR, gateway, "vtep0")
+			networkhelper.EXPECT().AddRoute(hostCIDR, gateway, "vtep0", ptr.To[int](10000))
 
 			networkhelper.EXPECT().SetLinkDown("pf0vf0")
 			networkhelper.EXPECT().RenameLink("pf0vf0", "ovn-k8s-mp0_0")

@@ -28,6 +28,7 @@ import (
 
 	"k8s.io/klog/v2"
 	kexec "k8s.io/utils/exec"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -141,11 +142,6 @@ func (p *DPUCNIProvisioner) configure() error {
 		return err
 	}
 
-	err = p.plugOVSUplink()
-	if err != nil {
-		return err
-	}
-
 	klog.Info("Configuring system to enable pod to pod on different node connectivity")
 	err = p.configurePodToPodOnDifferentNodeConnectivity(brExTobrOVNPatchPort)
 	if err != nil {
@@ -215,17 +211,6 @@ func (p *DPUCNIProvisioner) addOVSPatchPortWithPeer(bridge string, port string, 
 	return p.ovsClient.SetPatchPortPeer(port, peer)
 }
 
-// plugOVSUplink plugs the uplink for the bridge setup this component is creating.
-// TODO: Replace p0 with patch port on br-sfc
-func (p *DPUCNIProvisioner) plugOVSUplink() error {
-	uplink := "p0"
-	err := p.ovsClient.AddPort(brOVN, uplink)
-	if err != nil {
-		return err
-	}
-	return p.ovsClient.SetPortType(uplink, ovsclient.DPDK)
-}
-
 // configurePodToPodOnDifferentNodeConnectivity configures a VTEP interface and the ovn-encap-ip external ID so that
 // traffic going through the geneve tunnels can function as expected.
 func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkPort string) error {
@@ -255,17 +240,22 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 	}
 
 	if vtepNetwork.String() != p.vtepCIDR.String() {
-		// Route related to traffic that needs to go from one Pod running on worker Node A to another Pod running on worker
-		// Node B.
-		err = p.networkHelper.AddRoute(p.vtepCIDR, p.gateway, vtep)
+		// Add route related to traffic that needs to go from one Pod running on worker Node A to another Pod running
+		// on worker Node B.
+		err = p.networkHelper.AddRoute(p.vtepCIDR, p.gateway, vtep, nil)
 		if err != nil {
 			return fmt.Errorf("error while adding route %s %s %s: %w", p.vtepCIDR, p.gateway.String(), vtep, err)
 		}
 	}
 
-	// Route related to traffic that needs to go from one Pod running on worker Node A to another Pod running on control
-	// plane A (and vice versa).
-	err = p.networkHelper.AddRoute(p.hostCIDR, p.gateway, vtep)
+	// Add route related to traffic that needs to go from one Pod running on worker Node A to another Pod running on
+	// control plane A (and vice versa).
+	//
+	// In our setup, we will already have a route pointing to the same CIDR via the SF designated for kubelet traffic
+	// which gets a DHCP IP in that CIDR. Given that, we need to set the metric of this route to something very high
+	// so that it's the last preferred route in the route table for that CIDR. The reason for that is this OVS bug that
+	// selects the route with the highest prio as preferred https://redmine.mellanox.com/issues/3871067.
+	err = p.networkHelper.AddRoute(p.hostCIDR, p.gateway, vtep, ptr.To[int](10000))
 	if err != nil {
 		return fmt.Errorf("error while adding route %s %s %s: %w", p.hostCIDR, p.gateway.String(), vtep, err)
 	}

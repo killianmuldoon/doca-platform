@@ -41,7 +41,7 @@ type NetworkHelper interface {
 	// NeighbourExists checks whether an neighbour entry exists
 	NeighbourExists(ip net.IP, device string) (bool, error)
 	// AddRoute adds a route
-	AddRoute(network *net.IPNet, gateway net.IP, device string) error
+	AddRoute(network *net.IPNet, gateway net.IP, device string, metric *int) error
 	// DeleteRoute deletes a route
 	DeleteRoute(network *net.IPNet, gateway net.IP, device string) error
 	// RouteExists checks whether a route exists
