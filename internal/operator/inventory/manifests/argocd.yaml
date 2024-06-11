@@ -1312,7 +1312,6 @@ spec:
             readOnlyRootFilesystem: true
       securityContext:
         runAsNonRoot: true
-        runAsUser: 999
         seccompProfile:
           type: RuntimeDefault
       serviceAccountName: argocd-redis
