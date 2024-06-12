@@ -5,7 +5,7 @@ kubeMultusDs:
       privileged: true
     image:
       repository: ghcr.io/k8snetworkplumbingwg/multus-cni
-      tag: v4.0.2
+      tag: v3.9.3
     resources:
       requests:
         cpu: 10m
@@ -15,7 +15,7 @@ kubeMultusDs:
       privileged: true
     image:
       repository: ghcr.io/k8snetworkplumbingwg/multus-cni
-      tag: v4.0.2
+      tag: v3.9.3
     resources:
       limits:
         cpu: 100m
@@ -30,14 +30,34 @@ multus:
 multusDaemonConfig:
   daemonConfigJson: |-
     {
-        "chrootDir": "/hostroot",
-        "cniVersion": "0.3.1",
-        "logLevel": "verbose",
-        "logToStderr": true,
-        "cniConfigDir": "/host/etc/cni/net.d",
-        "multusAutoconfigDir": "/host/etc/cni/net.d",
-        "multusConfigFile": "auto",
-        "socketDir": "/host/run/multus/"
+      "name": "multus-cni-network",
+      "type": "multus",
+      "capabilities": {
+        "portMappings": true
+      },
+      "delegates": [
+        {
+          "cniVersion": "0.3.1",
+          "name": "default-cni-network",
+          "plugins": [
+            {
+              "type": "flannel",
+              "name": "flannel.1",
+                "delegate": {
+                  "isDefaultGateway": true,
+                  "hairpinMode": true
+                }
+              },
+              {
+                "type": "portmap",
+                "capabilities": {
+                  "portMappings": true
+                }
+              }
+          ]
+        }
+      ],
+      "kubeconfig": "/etc/cni/net.d/multus.d/multus.kubeconfig"
     }
 networkAttachmentBrSFCJson: |-
     {

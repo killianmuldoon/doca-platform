@@ -21,12 +21,10 @@ spec:
       {{- include "multus.selectorLabels" . | nindent 8 }}
     spec:
       containers:
-      - command:
-        - /thin_entrypoint
+      - command: ["/entrypoint.sh"]
         args:
-        - "--multus-conf-file=auto"
-        - "--multus-autoconfig-dir=/host/etc/cni/net.d"
-        - "--cni-conf-dir=/host/etc/cni/net.d"
+        - "--multus-conf-file=/tmp/multus-conf/00-multus.conf"
+        - "--cni-version=0.3.1"
         env:
         - name: MULTUS_NODE_NAME
           valueFrom:
@@ -53,10 +51,9 @@ spec:
       imagePullSecrets: {{ .Values.imagePullSecrets | default list | toJson }}
       initContainers:
       - command:
-        - /install_multus
-        args:
-        - "--type"
-        - "thin"
+        - "cp"
+        - "/usr/src/multus-cni/bin/multus"
+        - "/host/opt/cni/bin/multus"
         env:
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
@@ -86,4 +83,4 @@ spec:
           name: multus-daemon-config
           items:
           - key: daemon-config.json
-            path: 70-multus.conf
+            path: 00-multus.conf
