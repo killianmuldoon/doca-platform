@@ -361,7 +361,6 @@ generate-manifests-dpucniprovisioner: $(KUSTOMIZE) ## Generates DPU CNI provisio
 generate-manifests-hostcniprovisioner: $(KUSTOMIZE) ## Generates Host CNI provisioner manifests
 	cd config/hostcniprovisioner/default &&	$(KUSTOMIZE) edit set image controller=$(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
-
 .PHONY: generate-manifests-release-defaults
 generate-manifests-release-defaults: $(ENVSUBST) ## Generates manifests that contain the default values that should be used by the operators
 	$(ENVSUBST) < ./internal/release/templates/defaults.yaml.tmpl > ./internal/release/manifests/defaults.yaml
@@ -402,14 +401,12 @@ generate-manifests-sfcset: $(KUSTOMIZE) $(ENVSUBST) ## Generate manifests e.g. C
 	# Template the image name and tag used in the helm templates.
 	$(ENVSUBST) < deploy/helm/servicechain/values.yaml.tmpl > deploy/helm/servicechain/values.yaml
 
-
 .PHONY: generate-manifests-sfc-controller
 generate-manifests-sfc-controller: generate-manifests-sfcset $(ENVSUBST)
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_servicechains.yaml deploy/helm/sfc-controller/crds/
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/sfc-controller/crds/
 	# Template the image name and tag used in the helm templates.
 	$(ENVSUBST) < deploy/helm/sfc-controller/values.yaml.tmpl > deploy/helm/sfc-controller/values.yaml
-
 
 .PHONY: generate-manifests-dpf-provisioning
 generate-manifests-dpf-provisioning: $(KUSTOMIZE) $(DPF_PROVISIONING_DIR) ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.

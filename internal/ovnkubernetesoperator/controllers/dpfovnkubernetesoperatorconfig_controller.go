@@ -32,6 +32,7 @@ import (
 	hostcniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/host/config"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/ovnkubernetesoperator/consts"
 
 	"github.com/google/go-cmp/cmp"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -144,6 +145,9 @@ type DPFOVNKubernetesOperatorConfigReconcilerSettings struct {
 	// CustomOVNKubernetesNonDPUImage the OVN Kubernetes image deployed by the operator to the non DPU enabled nodes
 	// (control plane)
 	CustomOVNKubernetesNonDPUImage string
+
+	// WebhookEnabled indicates whether the webhook is enabled
+	WebhookEnabled bool
 }
 
 const (
@@ -181,11 +185,26 @@ func (r *DPFOVNKubernetesOperatorConfigReconciler) Reconcile(ctx context.Context
 		return r.reconcileDelete(ctx, operatorConfig)
 	}
 
-	if err := r.reconcileCustomOVNKubernetesDeployment(ctx, operatorConfig); err != nil {
+	if err := r.reconcile(ctx, operatorConfig); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// reconcile runs the main reconciliation loop
+func (r *DPFOVNKubernetesOperatorConfigReconciler) reconcile(ctx context.Context, operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig) error {
+	if r.Settings.WebhookEnabled {
+		if err := r.reconcileNetworkInjectorPrerequisites(ctx, operatorConfig); err != nil {
+			return fmt.Errorf("error while reconciling the Network Injector prerequisites: %w", err)
+		}
+	}
+
+	if err := r.reconcileCustomOVNKubernetesDeployment(ctx, operatorConfig); err != nil {
+		return fmt.Errorf("error while reconciling the custom OVN Kubernetes deployment: %w", err)
+	}
+
+	return nil
 }
 
 func (r *DPFOVNKubernetesOperatorConfigReconciler) reconcileDelete(ctx context.Context, operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig) (_ ctrl.Result, reterr error) {
@@ -202,6 +221,62 @@ func (r *DPFOVNKubernetesOperatorConfigReconciler) SetupWithManager(mgr ctrl.Man
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig{}).
 		Complete(r)
+}
+
+// reconcileNetworkInjectorPrerequisites reconciles the prerequisites needed by the Network Injector
+func (r *DPFOVNKubernetesOperatorConfigReconciler) reconcileNetworkInjectorPrerequisites(ctx context.Context, operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig) error {
+	if err := validateConfigForNetworkInjector(operatorConfig); err != nil {
+		return fmt.Errorf("error while validating the config for Network Injector: %w", err)
+	}
+
+	if err := createNetworkInjectorNetAttachDef(ctx, r.Client, operatorConfig); err != nil {
+		return fmt.Errorf("error while creating NetworkAttachmentDefinition: %w", err)
+	}
+
+	return nil
+}
+
+// validateConfigForNetworkInjector validates the DPFOVNKubernetesOperatorConfig for user provided settings required
+// by the Network Injector
+func validateConfigForNetworkInjector(operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig) error {
+	if operatorConfig.Spec.VFResourceName == "" {
+		return fmt.Errorf("vfResourceName should have a non empty value")
+	}
+	return nil
+}
+
+// createNetworkInjectorNetAttachDef creates the NetworkAttachmentDefinition needed by the Network Injector webhook
+func createNetworkInjectorNetAttachDef(ctx context.Context, c client.Client, operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig) error {
+	netAttachDef, err := generateNetworkInjectorNetAttachDef(operatorConfig)
+	if err != nil {
+		return fmt.Errorf("error while generating the object: %w", err)
+	}
+
+	if err := reconcileUnstructuredObjects(ctx, c, []*unstructured.Unstructured{netAttachDef}); err != nil {
+		return fmt.Errorf("error while reconciling the object: %w", err)
+	}
+	return nil
+}
+
+// generateNetworkInjectorNetAttachDef creates the NetworkAttachmentDefinition needed by the Network Injector webhook
+func generateNetworkInjectorNetAttachDef(operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig) (*unstructured.Unstructured, error) {
+	netAttachDef := &unstructured.Unstructured{}
+	netAttachDef.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "k8s.cni.cncf.io",
+		Version: "v1",
+		Kind:    "NetworkAttachmentDefinition",
+	})
+	netAttachDef.SetName(consts.NetworkInjectorNetAttachDefName)
+	netAttachDef.SetNamespace(operatorConfig.Namespace)
+	netAttachDef.SetAnnotations(map[string]string{consts.NetAttachDefResourceNameAnnotation: operatorConfig.Spec.VFResourceName})
+	if err := unstructured.SetNestedStringMap(netAttachDef.Object,
+		// This value is derived out of the default OVN kubernetes CNI config
+		map[string]string{"config": `{"cniVersion":"0.3.1","name":"ovn-kubernetes","type":"ovn-k8s-cni-overlay","ipam":{},"dns":{}}`},
+		"spec"); err != nil {
+		return nil, fmt.Errorf("error while setting spec: %w", err)
+	}
+
+	return netAttachDef, nil
 }
 
 // reconcileCustomOVNKubernetesDeployment ensures that custom OVN Kubernetes is deployed

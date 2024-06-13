@@ -37,6 +37,9 @@ type DPFOVNKubernetesOperatorConfigSpec struct {
 
 	// List of secret names which are used to pull images for OVN Kubernetes components.
 	ImagePullSecrets []string `json:"imagePullSecrets,omitempty"`
+
+	// NetworkInjectorConfig is the configuration related to the Network Injector Webhook.
+	NetworkInjectorConfig `json:",inline"`
 }
 
 // Host represents a host with a DPU where DPF operator is going to be installed to and we expect to have host network
@@ -55,6 +58,13 @@ type Host struct {
 	// Gateway is the gateway that will be added on the routes related to OVN Kubernetes traffic.
 	// TODO: Add validator in validating webhook to ensure string is actually net.IPNet
 	Gateway string `json:"gateway"`
+}
+
+// NetworkInjectorConfig is the configuration related to the Network Injector Webhook.
+type NetworkInjectorConfig struct {
+	// VFResourceName is the name of the Kubernetes resource associated with the VFs that will be injected into
+	// workloads.
+	VFResourceName string `json:"vfResourceName,omitempty"`
 }
 
 // DPFOVNKubernetesOperatorConfigStatus defines the observed state of DPFOVNKubernetesOperatorConfig

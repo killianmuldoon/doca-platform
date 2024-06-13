@@ -60,6 +60,7 @@ var _ = BeforeSuite(func() {
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "ovnkubernetesoperator", "crd", "bases"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "openshift"),
+			filepath.Join("..", "..", "..", "test", "objects", "crd", "multus"),
 		},
 		ErrorIfCRDPathMissing: true,
 

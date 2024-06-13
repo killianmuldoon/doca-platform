@@ -102,6 +102,11 @@ spec:
                 items:
                   type: string
                 type: array
+              vfResourceName:
+                description: |-
+                  VFResourceName is the name of the Kubernetes resource associated with the VFs that will be injected into
+                  workloads.
+                type: string
             required:
             - cidr
             - hostPF0
