@@ -10,3 +10,6 @@ spec:
   cidr: {{ .Values.config.cidr }}
   hosts: {{ .Values.config.hosts | default list | toJson }}
   imagePullSecrets: {{ .Values.imagePullSecrets | default list | toJson }}
+  {{- if .Values.config.vfResourceName }}
+  vfResourceName: {{ .Values.config.vfResourceName }}
+  {{- end }}

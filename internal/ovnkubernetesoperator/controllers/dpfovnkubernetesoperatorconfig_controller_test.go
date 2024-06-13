@@ -45,6 +45,95 @@ import (
 )
 
 var _ = Describe("DPFOVNKubernetesOperatorConfig Controller", func() {
+	Context("When checking the reconciliation of the Network Injector prerequisites", func() {
+		Context("With webhook enabled", func() {
+			var currentWebhookEnabled bool
+			var testNS *corev1.Namespace
+			BeforeEach(func() {
+				currentWebhookEnabled = reconciler.Settings.WebhookEnabled
+				reconciler.Settings.WebhookEnabled = true
+				testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+				Expect(testClient.Create(ctx, testNS)).To(Succeed())
+			})
+			AfterEach(func() {
+				reconciler.Settings.WebhookEnabled = currentWebhookEnabled
+			})
+			It("creates a NetworkAttachmentDefinition", func() {
+				config := getMinimalDPFOVNKubernetesOperatorConfig(testNS.Name)
+				config.Spec.VFResourceName = "some-resource"
+				Expect(testClient.Create(ctx, config)).To(Succeed())
+				// DPF Operator creates objects when reconciling the DPFOVNKubernetesOperatorConfig and we need to ensure that on
+				// deletion of these objects there is no DPFOVNKubernetesOperatorConfig in the cluster to trigger recreation of those.
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, config)
+
+				Eventually(func(g Gomega) {
+					netAttachDef := &unstructured.Unstructured{}
+					netAttachDef.SetGroupVersionKind(schema.GroupVersionKind{
+						Group:   "k8s.cni.cncf.io",
+						Version: "v1",
+						Kind:    "NetworkAttachmentDefinition",
+					})
+					key := client.ObjectKey{Namespace: config.Namespace, Name: "dpf-ovn-kubernetes"}
+					g.Expect(testClient.Get(ctx, key, netAttachDef)).To(Succeed())
+					g.Expect(netAttachDef.GetAnnotations()).To(HaveKeyWithValue("k8s.v1.cni.cncf.io/resourceName", "some-resource"))
+					spec, found, err := unstructured.NestedStringMap(netAttachDef.Object, "spec")
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(found).To(BeTrue())
+					g.Expect(spec).To(BeComparableTo(
+						map[string]string{"config": `{"cniVersion":"0.3.1","name":"ovn-kubernetes","type":"ovn-k8s-cni-overlay","ipam":{},"dns":{}}`},
+					))
+					DeferCleanup(testutils.CleanupAndWait, ctx, testClient, netAttachDef)
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+			})
+			It("doesn't create a NetworkAttachmentDefinition if VFResourceName is missing from the DPFOVNKubernetesOperatorConfig", func() {
+				config := getMinimalDPFOVNKubernetesOperatorConfig(testNS.Name)
+				Expect(testClient.Create(ctx, config)).To(Succeed())
+				// DPF Operator creates objects when reconciling the DPFOVNKubernetesOperatorConfig and we need to ensure that on
+				// deletion of these objects there is no DPFOVNKubernetesOperatorConfig in the cluster to trigger recreation of those.
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, config)
+				Consistently(func(g Gomega) {
+					netAttachDef := &unstructured.Unstructured{}
+					netAttachDef.SetGroupVersionKind(schema.GroupVersionKind{
+						Group:   "k8s.cni.cncf.io",
+						Version: "v1",
+						Kind:    "NetworkAttachmentDefinition",
+					})
+					key := client.ObjectKey{Namespace: config.Namespace, Name: "dpf-ovn-kubernetes"}
+					g.Expect(apierrors.IsNotFound(testClient.Get(ctx, key, netAttachDef))).To(BeTrue())
+				}).WithTimeout(5 * time.Second).Should(Succeed())
+			})
+		})
+		Context("With webhook disabled", func() {
+			var currentWebhookEnabled bool
+			var testNS *corev1.Namespace
+			BeforeEach(func() {
+				currentWebhookEnabled = reconciler.Settings.WebhookEnabled
+				reconciler.Settings.WebhookEnabled = false
+				testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+				Expect(testClient.Create(ctx, testNS)).To(Succeed())
+			})
+			AfterEach(func() {
+				reconciler.Settings.WebhookEnabled = currentWebhookEnabled
+			})
+			It("doesn't create a NetworkAttachmentDefinition", func() {
+				config := getMinimalDPFOVNKubernetesOperatorConfig(testNS.Name)
+				Expect(testClient.Create(ctx, config)).To(Succeed())
+				// DPF Operator creates objects when reconciling the DPFOVNKubernetesOperatorConfig and we need to ensure that on
+				// deletion of these objects there is no DPFOVNKubernetesOperatorConfig in the cluster to trigger recreation of those.
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, config)
+				Consistently(func(g Gomega) {
+					netAttachDef := &unstructured.Unstructured{}
+					netAttachDef.SetGroupVersionKind(schema.GroupVersionKind{
+						Group:   "k8s.cni.cncf.io",
+						Version: "v1",
+						Kind:    "NetworkAttachmentDefinition",
+					})
+					key := client.ObjectKey{Namespace: config.Namespace, Name: "dpf-ovn-kubernetes"}
+					g.Expect(apierrors.IsNotFound(testClient.Get(ctx, key, netAttachDef))).To(BeTrue())
+				}).WithTimeout(5 * time.Second).Should(Succeed())
+			})
+		})
+	})
 	Context("When checking the custom OVN Kubernetes deployment flow", func() {
 		var testNS *corev1.Namespace
 		var clusterVersionCR *unstructured.Unstructured

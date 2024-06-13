@@ -21,11 +21,14 @@ import (
 	"fmt"
 
 	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/ovnkubernetesoperator/v1alpha1"
+	consts "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/ovnkubernetesoperator/consts"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,13 +39,16 @@ type NetworkInjector struct {
 	Client client.Reader
 }
 
-const controlPlaneNodeLabel = "node-role.kubernetes.io/master"
-
 var (
-	annotationKeyName = "v1.multus-cni.io/default-network"
-	annotationValue   = "openshift-sriov-network-operator/net-attach-def"
-	resourceName      = corev1.ResourceName("openshift.io/mlnx_bf2")
+	// annotationKeyToBeInjected is the multus annotation we inject to the pods so that multus can inject the VFs
+	annotationKeyToBeInjected = "v1.multus-cni.io/default-network"
+
+	controlPlaneNodeLabels = []string{
+		"node-role.kubernetes.io/master",
+		"node-role.kubernetes.io/control-plane",
+	}
 )
+
 var _ webhook.CustomDefaulter = &NetworkInjector{}
 
 // +kubebuilder:webhook:path=/mutate--v1-pod,mutating=true,failurePolicy=fail,sideEffects=None,groups="",resources=pods,verbs=create,versions=v1,name=network-injector.dpf.nvidia.com,admissionReviewVersions=v1
@@ -57,11 +63,18 @@ func (webhook *NetworkInjector) SetupWebhookWithManager(mgr ctrl.Manager) error 
 // Default implements webhook.Defaulter so a webhook will be registered for the type.
 func (webhook *NetworkInjector) Default(ctx context.Context, obj runtime.Object) error {
 	log := ctrl.LoggerFrom(ctx)
-	// If the webhook is not enabled return nil.
-	if !webhook.isEnabled(ctx) {
-		log.Info("network resource injection webhook is disabled")
+
+	configs := &ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfigList{}
+	if err := webhook.Client.List(ctx, configs); err != nil {
+		return fmt.Errorf("error while listing DPFOVNKubernetesOperatorConfigs: %w", err)
+	}
+
+	config, err := getConfig(configs)
+	if err != nil {
+		log.Error(err, "bad configuration, skipping mutation")
 		return nil
 	}
+
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		return apierrors.NewBadRequest(fmt.Sprintf("expected a Pod but got a %T", obj))
@@ -82,15 +95,42 @@ func (webhook *NetworkInjector) Default(ctx context.Context, obj runtime.Object)
 		return nil
 	}
 
-	return injectNetworkResources(ctx, pod)
+	vfResourceName, err := getVFResourceName(ctx, webhook.Client, config.Namespace)
+	if err != nil {
+		return fmt.Errorf("error while getting VF resource name: %w", err)
+	}
+
+	return injectNetworkResources(ctx, pod, config.Namespace, vfResourceName)
+}
+
+// getVFResourceName gets the resource name that relates to the VFs that should be injected.
+func getVFResourceName(ctx context.Context, c client.Reader, netAttachDefNamespace string) (corev1.ResourceName, error) {
+	netAttachDef := &unstructured.Unstructured{}
+	netAttachDef.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "k8s.cni.cncf.io",
+		Version: "v1",
+		Kind:    "NetworkAttachmentDefinition",
+	})
+	key := client.ObjectKey{Namespace: netAttachDefNamespace, Name: consts.NetworkInjectorNetAttachDefName}
+	if err := c.Get(ctx, key, netAttachDef); err != nil {
+		return "", fmt.Errorf("error while getting %s %s: %w", netAttachDef.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+
+	if v, ok := netAttachDef.GetAnnotations()[consts.NetAttachDefResourceNameAnnotation]; ok {
+		return corev1.ResourceName(v), nil
+	}
+
+	return "", fmt.Errorf("resource can't be found in network attachment definition because annotation %s doesn't exist", consts.NetAttachDefResourceNameAnnotation)
 }
 
 // If the pod has nodeAffinity set to a specific name check if the node it's scheduled to is a control plane node.
 // This is the case for pods created by DaemonSets which set node affinity matching to a node name on creation.
 func (webhook *NetworkInjector) isScheduledToControlPlane(ctx context.Context, pod *corev1.Pod) (bool, error) {
 	// If the pod has a control plane node selector no-op.
-	if _, ok := pod.Spec.NodeSelector[controlPlaneNodeLabel]; ok {
-		return true, nil
+	for _, label := range controlPlaneNodeLabels {
+		if _, ok := pod.Spec.NodeSelector[label]; ok {
+			return true, nil
+		}
 	}
 
 	var nodeName string
@@ -120,40 +160,31 @@ func (webhook *NetworkInjector) isScheduledToControlPlane(ctx context.Context, p
 		return false, nil
 	}
 
-	_, ok := node.Labels[controlPlaneNodeLabel]
-	return ok, nil
+	for _, label := range controlPlaneNodeLabels {
+		if _, ok := node.Labels[label]; ok {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
-func (webhook *NetworkInjector) isEnabled(ctx context.Context) bool {
-	log := ctrl.LoggerFrom(ctx)
-	_, err := webhook.getConfig(ctx)
-	if err != nil {
-		log.Info("failed to get OVNKubernetesOperatorConfig")
-		return false
-	}
-	// If the config for the networkResourceInjector exists the webhook is enabled.
-	return true
-}
-
-func (webhook *NetworkInjector) getConfig(ctx context.Context) (*ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig, error) {
-	ovnKubernetesConfigs := &ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfigList{}
-	if err := webhook.Client.List(ctx, ovnKubernetesConfigs); err != nil {
-		return nil, err
-	}
-
+// getConfig returns the correct DPFOVNKubernetesOperatorConfig from the given list. Returns error if bad configuration
+// is found.
+func getConfig(configs *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfigList) (*ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig, error) {
 	// If no config exists the webhook is disabled.
-	if len(ovnKubernetesConfigs.Items) == 0 {
-		return nil, fmt.Errorf("webhook is not enabled: no DPFOVNKubernetesOperatorConfig found")
+	if len(configs.Items) == 0 {
+		return nil, fmt.Errorf("no DPFOVNKubernetesOperatorConfig found")
 	}
 
 	// If more than one config exists the webhook is disabled as we are in an invalid state.
-	if len(ovnKubernetesConfigs.Items) > 1 {
-		return nil, fmt.Errorf("webhook is not enabled: multiple DPFOVNKubernetesOperatorConfigs found")
+	if len(configs.Items) > 1 {
+		return nil, fmt.Errorf("multiple DPFOVNKubernetesOperatorConfigs found")
 	}
-	return &ovnKubernetesConfigs.Items[0], nil
 
+	return &configs.Items[0], nil
 }
-func injectNetworkResources(ctx context.Context, pod *corev1.Pod) error {
+
+func injectNetworkResources(ctx context.Context, pod *corev1.Pod, netAttachDefNamespace string, vfResourceName corev1.ResourceName) error {
 	log := ctrl.LoggerFrom(ctx)
 	// Inject device requests. One additional VF.
 	if pod.Spec.Containers[0].Resources.Requests == nil {
@@ -163,25 +194,25 @@ func injectNetworkResources(ctx context.Context, pod *corev1.Pod) error {
 		pod.Spec.Containers[0].Resources.Limits = corev1.ResourceList{}
 
 	}
-	if _, ok := pod.Spec.Containers[0].Resources.Requests[resourceName]; ok {
-		res := pod.Spec.Containers[0].Resources.Requests[resourceName]
+	if _, ok := pod.Spec.Containers[0].Resources.Requests[vfResourceName]; ok {
+		res := pod.Spec.Containers[0].Resources.Requests[vfResourceName]
 		res.Add(resource.MustParse("1"))
-		pod.Spec.Containers[0].Resources.Requests[resourceName] = res
+		pod.Spec.Containers[0].Resources.Requests[vfResourceName] = res
 	} else {
-		pod.Spec.Containers[0].Resources.Requests[resourceName] = resource.MustParse("1")
+		pod.Spec.Containers[0].Resources.Requests[vfResourceName] = resource.MustParse("1")
 	}
 
-	if _, ok := pod.Spec.Containers[0].Resources.Limits[resourceName]; ok {
-		res := pod.Spec.Containers[0].Resources.Limits[resourceName]
+	if _, ok := pod.Spec.Containers[0].Resources.Limits[vfResourceName]; ok {
+		res := pod.Spec.Containers[0].Resources.Limits[vfResourceName]
 		res.Add(resource.MustParse("1"))
-		pod.Spec.Containers[0].Resources.Limits[resourceName] = res
+		pod.Spec.Containers[0].Resources.Limits[vfResourceName] = res
 	} else {
-		pod.Spec.Containers[0].Resources.Limits[resourceName] = resource.MustParse("1")
+		pod.Spec.Containers[0].Resources.Limits[vfResourceName] = resource.MustParse("1")
 	}
 	if pod.Annotations == nil {
 		pod.Annotations = map[string]string{}
 	}
-	pod.Annotations[annotationKeyName] = annotationValue
-	log.Info(fmt.Sprintf("injected resource %v into pod", resourceName))
+	pod.Annotations[annotationKeyToBeInjected] = fmt.Sprintf("%s/%s", netAttachDefNamespace, consts.NetworkInjectorNetAttachDefName)
+	log.Info(fmt.Sprintf("injected resource %v into pod", vfResourceName))
 	return nil
 }

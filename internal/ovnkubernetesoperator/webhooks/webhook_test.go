@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -35,6 +36,7 @@ func TestNetworkInjector_Default(t *testing.T) {
 	g := NewWithT(t)
 	controlPlaneNodeName := "control-plane-node"
 	workerNodeName := "worker-node"
+	resourceName := corev1.ResourceName("test-resource")
 
 	objects := []client.Object{
 		&corev1.Node{
@@ -52,7 +54,23 @@ func TestNetworkInjector_Default(t *testing.T) {
 			},
 		},
 		&ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: "operator-namespace",
+			},
 			Spec: ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfigSpec{},
+		},
+		&unstructured.Unstructured{
+			Object: map[string]interface{}{
+				"apiVersion": "k8s.cni.cncf.io/v1",
+				"kind":       "NetworkAttachmentDefinition",
+				"metadata": map[string]interface{}{
+					"name":      "dpf-ovn-kubernetes",
+					"namespace": "operator-namespace",
+					"annotations": map[string]interface{}{
+						"k8s.v1.cni.cncf.io/resourceName": resourceName.String(),
+					},
+				},
+			},
 		},
 	}
 
@@ -145,7 +163,109 @@ func TestNetworkInjector_Default(t *testing.T) {
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(tt.pod.Spec.Containers[0].Resources.Limits[resourceName].Equal(resource.MustParse(tt.expectedResourceCount))).To(BeTrue())
 			g.Expect(tt.pod.Spec.Containers[0].Resources.Requests[resourceName].Equal(resource.MustParse(tt.expectedResourceCount))).To(BeTrue())
-			g.Expect(tt.pod.Annotations[annotationKeyName] == annotationValue).To(Equal(tt.expectAnnotation))
+			g.Expect(tt.pod.Annotations[annotationKeyToBeInjected] == "operator-namespace/dpf-ovn-kubernetes").To(Equal(tt.expectAnnotation))
+		})
+	}
+}
+
+func TestNetworkInjector_PreReqObjects(t *testing.T) {
+	g := NewWithT(t)
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-pod",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "nginx",
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{},
+						Limits:   corev1.ResourceList{},
+					},
+				},
+			},
+		},
+	}
+
+	dpfOVNKubernetesOperatorConfig := &ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "operator-namespace",
+		},
+		Spec: ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfigSpec{},
+	}
+
+	networkAttachDefWithoutAnnotation := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "k8s.cni.cncf.io/v1",
+			"kind":       "NetworkAttachmentDefinition",
+			"metadata": map[string]interface{}{
+				"name":      "dpf-ovn-kubernetes",
+				"namespace": "operator-namespace",
+			},
+		},
+	}
+
+	networkAttachDefWithAnnotation := &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "k8s.cni.cncf.io/v1",
+			"kind":       "NetworkAttachmentDefinition",
+			"metadata": map[string]interface{}{
+				"name":      "dpf-ovn-kubernetes",
+				"namespace": "operator-namespace",
+				"annotations": map[string]interface{}{
+					"k8s.v1.cni.cncf.io/resourceName": "some-resource",
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name            string
+		existingObjects []client.Object
+		expectError     bool
+	}{
+		{
+			name:            "no DPFOVNKubernetesOperatorConfig",
+			existingObjects: nil,
+			expectError:     false,
+		},
+		{
+			name:            "many DPFOVNKubernetesOperatorConfig",
+			existingObjects: nil,
+			expectError:     false,
+		},
+		{
+			name:            "no NetworkAttachmentDefinition",
+			existingObjects: []client.Object{dpfOVNKubernetesOperatorConfig},
+			expectError:     true,
+		},
+		{
+			name:            "no annotation on NetworkAttachmentDefinition",
+			existingObjects: []client.Object{dpfOVNKubernetesOperatorConfig, networkAttachDefWithoutAnnotation},
+			expectError:     true,
+		},
+		{
+			name:            "all prereq objects exist",
+			existingObjects: []client.Object{dpfOVNKubernetesOperatorConfig, networkAttachDefWithAnnotation},
+			expectError:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := scheme.Scheme
+			g.Expect(ovnkubernetesoperatorv1.AddToScheme(s)).To(Succeed())
+			fakeclient := fake.NewClientBuilder().WithObjects(tt.existingObjects...).WithScheme(s).Build()
+			webhook := &NetworkInjector{
+				Client: fakeclient,
+			}
+			err := webhook.Default(context.Background(), pod)
+			if tt.expectError {
+				g.Expect(err).To(HaveOccurred())
+			} else {
+				g.Expect(err).ToNot(HaveOccurred())
+			}
 		})
 	}
 }
