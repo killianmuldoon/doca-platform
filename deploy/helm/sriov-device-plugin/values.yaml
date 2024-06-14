@@ -28,9 +28,10 @@ sriovdpConfig:
             "resourceName": "bf_sf",
             "resourcePrefix": "nvidia.com",
             "deviceType": "auxNetDevice",
-            "selectors": {
-                "pfNames": ["p0#4-1106"],
+            "selectors": [{
+                "vendors": ["15b3"],
+                "pfNames": ["p0#1-100"],
                 "auxTypes": ["sf"]
-            }
+            }]
         }]
     }
