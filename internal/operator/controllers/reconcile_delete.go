@@ -21,9 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/inventory"
@@ -31,7 +29,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -77,13 +74,6 @@ func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOp
 
 	if len(errs) > 0 {
 		log.Error(kerrors.NewAggregate(errs), "DPF System DPUServices not yet deleted: Requeueing.")
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
-	}
-
-	log.Info("Ensuring DPF Custom Resources are deleted")
-	// Delete all instances of every resource that the operator is responsible for.
-	if err := r.deleteCustomResources(ctx); err != nil {
-		log.Error(err, "Custom resources not yet deleted: Requeueing.")
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
@@ -169,41 +159,6 @@ func (r *DPFOperatorConfigReconciler) deleteObjects(ctx context.Context, manifes
 		uns.SetAPIVersion(obj.GetObjectKind().GroupVersionKind().GroupVersion().String())
 		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(obj), uns); !apierrors.IsNotFound(err) {
 			errs = append(errs, fmt.Errorf("object %v/%v still exists", obj.GetObjectKind().GroupVersionKind().Kind, klog.KObj(obj)))
-		}
-	}
-	return kerrors.NewAggregate(errs)
-}
-
-// operatorControlledResources tracks the resources which need to be deleted by the DPF Operator.
-// deleting these resources should result in the deletion of resources they own on the DPU clusters.
-var operatorControlledResources = []schema.GroupVersionKind{
-	dpuservicev1.DPUServiceGroupVersionKind,
-	sfcv1.GroupVersion.WithKind("DPUServiceChain"),
-	sfcv1.GroupVersion.WithKind("DPUServiceInterface"),
-}
-
-func (r *DPFOperatorConfigReconciler) deleteCustomResources(ctx context.Context) error {
-	var errs []error
-
-	// For each kind of resource controlled by the DPF Operator.
-	for _, resource := range operatorControlledResources {
-		// Check if any objects of that type remain in the cluster.
-		objListKind := fmt.Sprintf("%vList", resource.Kind)
-		list := &unstructured.UnstructuredList{}
-		list.SetGroupVersionKind(resource.GroupVersion().WithKind(objListKind))
-		if err := r.Client.List(ctx, list); err != nil {
-			errs = append(errs, err)
-		}
-
-		// If no items exist all are deleted.
-		if len(list.Items) == 0 {
-			continue
-		}
-		for _, obj := range list.Items {
-			errs = append(errs, fmt.Errorf("%d instances of resource Kind %v still exist. ", len(list.Items), resource))
-			if err := r.Client.Delete(ctx, &obj); client.IgnoreNotFound(err) != nil {
-				errs = append(errs, err)
-			}
 		}
 	}
 	return kerrors.NewAggregate(errs)
