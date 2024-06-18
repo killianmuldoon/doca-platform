@@ -59,16 +59,88 @@ func hash(s string) uint64 {
 
 // Utility function to find an OVS interface based on the condition that the
 // external_id:dpf-id=condition which is sent as an input
+func checkPortInBrSfc(condition string) (bool, error) {
+	ovsVsctlPath, err := exec.LookPath("ovs-vsctl")
+	if err != nil {
+		return false, err
+	}
+
+	// Figure out if the port is on the expected sfc-chain bridge (br-sfc)
+	args := []string{"-t", "5", "iface-to-br", condition}
+	cmd := exec.Command(ovsVsctlPath, args...)
+	var stderr bytes.Buffer
+	var output bytes.Buffer
+	cmd.Stderr = &stderr
+	cmd.Stdout = &output
+	err = cmd.Run()
+	if err != nil {
+		return false, fmt.Errorf("error running ovs-vsctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
+	}
+
+	if strings.TrimSuffix(output.String(), "\n") == "br-sfc" {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// Utility function to find an OVS interface based on the condition that the
+// external_id:dpf-id=condition which is sent as an input
 func findInterface(condition string) (string, error) {
 	ovsVsctlPath, err := exec.LookPath("ovs-vsctl")
 	if err != nil {
 		return "", err
 	}
 	args := []string{"-t", "5", "--oneline", "--no-heading", "--format=csv", "--data=bare",
-		"--columns=ofport", "find", "interface", "external_ids:dpf-id=" + condition}
+		"--columns=name", "find", "interface", "external_ids:dpf-id=" + condition}
 	cmd := exec.Command(ovsVsctlPath, args...)
 	var stderr bytes.Buffer
 	var output bytes.Buffer
+	cmd.Stderr = &stderr
+	cmd.Stdout = &output
+	err = cmd.Run()
+	if err != nil {
+		return "", fmt.Errorf("error running ovs-vsctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
+	}
+
+	portName := strings.TrimSuffix(output.String(), "\n")
+
+	found, err := checkPortInBrSfc(portName)
+	if err != nil {
+		return "", err
+	}
+
+	if found {
+		args := []string{"-t", "5", "--oneline", "--no-heading", "--format=csv", "--data=bare",
+			"--columns=ofport", "find", "interface", "name=" + portName}
+		cmd = exec.Command(ovsVsctlPath, args...)
+		stderr.Reset()
+		output.Reset()
+		cmd.Stderr = &stderr
+		cmd.Stdout = &output
+		err = cmd.Run()
+		if err != nil {
+			return "", fmt.Errorf("error running ovs-vsctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
+		}
+		return strings.TrimSuffix(output.String(), "\n"), nil
+	}
+
+	// Build br-hbn patch p + intfname + brsfc
+	portNameOld := portName
+	portName = "p" + portNameOld + "brsfc"
+	found, err = checkPortInBrSfc(portName)
+	if err != nil {
+		return "", err
+	}
+	if !found {
+		return "", fmt.Errorf("port %s or %s not found in br-sfc", portNameOld, portName)
+	}
+
+	args = []string{"-t", "5", "--oneline", "--no-heading", "--format=csv", "--data=bare",
+		"--columns=ofport", "find", "interface", "name=" + portName}
+	cmd = exec.Command(ovsVsctlPath, args...)
+	stderr.Reset()
+	output.Reset()
 	cmd.Stderr = &stderr
 	cmd.Stdout = &output
 	err = cmd.Run()
