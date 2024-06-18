@@ -24,6 +24,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/scheme"
 )
 
+const (
+	// IPPoolKind is the kind of the NVIPAM IPPool CR
+	IPPoolKind = "IPPool"
+	// IPPoolListKind is the kind of the list related to the NVIPAM IPPool CR
+	IPPoolListKind = "IPPoolList"
+	// CIDRPoolKind is the kind of the NVIPAM CIDRPool CR
+	CIDRPoolKind = "CIDRPool"
+	// CIDRPoolListKind is the kind of the list related to the NVIPAM CIDRPool CR
+	CIDRPoolListKind = "CIDRPoolList"
+)
+
 var (
 	// GroupVersion is group version used to register these objects
 	GroupVersion = schema.GroupVersion{Group: "nv-ipam.nvidia.com", Version: "v1alpha1"}

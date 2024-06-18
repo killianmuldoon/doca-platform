@@ -53,10 +53,10 @@ type IPV4Network struct {
 	// TODO: Validate that input is a valid subnet
 	Network string `json:"network"`
 	// GatewayIndex determines which IP in the subnet extracted from the CIDR should be the gateway IP.
-	GatewayIndex int `json:"gatewayIndex"`
+	GatewayIndex uint `json:"gatewayIndex"`
 	// PrefixSize is the size of the subnet that should be allocated per node.
 	// TODO: Validate that value fits the CIDR
-	PrefixSize int `json:"prefixSize"`
+	PrefixSize uint `json:"prefixSize"`
 	// Exclusions is a list of IPs that should be excluded when splitting the CIDR into subnets per node.
 	// TODO: Validate values are part of the CIDR
 	Exclusions []string `json:"exclusions,omitempty"`
