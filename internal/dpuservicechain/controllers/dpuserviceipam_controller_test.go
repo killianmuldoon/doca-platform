@@ -27,10 +27,13 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//nolint:goconst
 var _ = Describe("DPUServiceIPAM Controller", func() {
 	Context("When reconciling a resource", func() {
 		var testNS *corev1.Namespace
@@ -100,6 +103,8 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			Eventually(func(g Gomega) {
 				got := &nvipamv1.IPPool{}
 				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, got)).To(Succeed())
+				g.Expect(got.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpuserviceipam-name", "pool-1"))
+				g.Expect(got.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpuserviceipam-namespace", testNS.Name))
 				g.Expect(got.Spec.Subnet).To(Equal("192.168.0.0/20"))
 				g.Expect(got.Spec.PerNodeBlockSize).To(Equal(256))
 				g.Expect(got.Spec.Gateway).To(Equal("192.168.0.1"))
@@ -157,6 +162,151 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 				g.Expect(got.Items).To(ConsistOf(
 					HaveField("ObjectMeta.Name", "resource-2"),
 				))
+			}).WithTimeout(10 * time.Second).Should(Succeed())
+		})
+		It("should reconcile NVIPAM CIDRPool in DPU cluster when ipv4Network is set", func() {
+			By("Creating the DPUServiceIPAM resource")
+			dpuServiceIPAM := getMinimalDPUServiceIPAM(testNS.Name)
+			dpuServiceIPAM.Name = "pool-1"
+			dpuServiceIPAM.Spec.IPV4Network = &sfcv1.IPV4Network{
+				Network:      "192.168.0.0/20",
+				GatewayIndex: 1,
+				PrefixSize:   24,
+			}
+			dpuServiceIPAM.Spec.NodeSelector = &corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{
+					{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      "some-key",
+								Operator: corev1.NodeSelectorOpExists,
+							},
+						},
+					},
+				},
+			}
+
+			Expect(testClient.Create(ctx, dpuServiceIPAM)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceIPAM)
+
+			Eventually(func(g Gomega) {
+				got := &nvipamv1.CIDRPool{}
+				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, got)).To(Succeed())
+				g.Expect(got.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpuserviceipam-name", "pool-1"))
+				g.Expect(got.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpuserviceipam-namespace", testNS.Name))
+				g.Expect(got.Spec.CIDR).To(Equal("192.168.0.0/20"))
+				g.Expect(got.Spec.PerNodeNetworkPrefix).To(Equal(uint(24)))
+				g.Expect(got.Spec.GatewayIndex).To(Equal(ptr.To[uint](1)))
+				g.Expect(got.Spec.NodeSelector).To(BeComparableTo(&corev1.NodeSelector{
+					NodeSelectorTerms: []corev1.NodeSelectorTerm{
+						{
+							MatchExpressions: []corev1.NodeSelectorRequirement{
+								{
+									Key:      "some-key",
+									Operator: corev1.NodeSelectorOpExists,
+								},
+							},
+						},
+					},
+				}))
+			}).WithTimeout(10 * time.Second).Should(Succeed())
+
+			By("Removing the DPUServiceIPAM resource")
+			Expect(testClient.Delete(ctx, dpuServiceIPAM)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				got := &nvipamv1.CIDRPoolList{}
+				g.Expect(dpfClusterClient.List(ctx, got)).To(Succeed())
+				g.Expect(got.Items).To(BeEmpty())
+			}).WithTimeout(10 * time.Second).Should(Succeed())
+		})
+		It("should remove NVIPAM IPPool in DPU cluster when ipv4Subnet is updated to unset and ipv4Network is set", func() {
+			By("Creating the DPUServiceIPAM resource")
+			dpuServiceIPAM := getMinimalDPUServiceIPAM(testNS.Name)
+			dpuServiceIPAM.Name = "pool-1"
+			dpuServiceIPAM.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
+				Subnet:         "192.168.0.0/20",
+				Gateway:        "192.168.0.1",
+				PerNodeIPCount: 256,
+			}
+
+			dpuServiceIPAM.SetManagedFields(nil)
+			dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
+			// FieldOwner must be the same as the controlller so that we can set a field to nil later
+			Expect(testClient.Patch(ctx, dpuServiceIPAM, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceIPAMControllerName))).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceIPAM)
+
+			Eventually(func(g Gomega) {
+				gotCIDRPool := &nvipamv1.CIDRPool{}
+				g.Expect(apierrors.IsNotFound(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotCIDRPool))).To(BeTrue())
+				gotIPPool := &nvipamv1.IPPool{}
+				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool)).To(Succeed())
+			}).WithTimeout(10 * time.Second).Should(Succeed())
+
+			By("Updating the spec to unset ipv4Subnet and set ipv4Network")
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceIPAM), dpuServiceIPAM)).To(Succeed())
+			dpuServiceIPAM.Spec.IPV4Subnet = nil
+			dpuServiceIPAM.Spec.IPV4Network = &sfcv1.IPV4Network{
+				Network:      "192.168.0.0/20",
+				GatewayIndex: 1,
+				PrefixSize:   24,
+			}
+			dpuServiceIPAM.SetManagedFields(nil)
+			dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
+			// FieldOwner must be the same as the controlller because we modify a field that the controller owns (see
+			// defer in the main reconcile function)
+			Expect(testClient.Patch(ctx, dpuServiceIPAM, client.Apply, client.FieldOwner(dpuServiceIPAMControllerName))).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				gotIPPool := &nvipamv1.IPPool{}
+				g.Expect(apierrors.IsNotFound(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool))).To(BeTrue())
+				gotCIDRPool := &nvipamv1.CIDRPool{}
+				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotCIDRPool)).To(Succeed())
+			}).WithTimeout(10 * time.Second).Should(Succeed())
+		})
+		It("should remove NVIPAM CIDRPool in DPU cluster when ipv4Network is updated to unset and ipv4Subnet is set", func() {
+			By("Creating the DPUServiceIPAM resource")
+			dpuServiceIPAM := getMinimalDPUServiceIPAM(testNS.Name)
+			dpuServiceIPAM.Name = "pool-1"
+			dpuServiceIPAM.Spec.IPV4Network = &sfcv1.IPV4Network{
+				Network:      "192.168.0.0/20",
+				GatewayIndex: 1,
+				PrefixSize:   24,
+			}
+
+			dpuServiceIPAM.SetManagedFields(nil)
+			dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
+			// FieldOwner must be the same as the controlller so that we can set a field to nil later
+			Expect(testClient.Patch(ctx, dpuServiceIPAM, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceIPAMControllerName))).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceIPAM)
+
+			Eventually(func(g Gomega) {
+				gotIPPool := &nvipamv1.IPPool{}
+				g.Expect(apierrors.IsNotFound(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool))).To(BeTrue())
+				gotCIDRPool := &nvipamv1.CIDRPool{}
+				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotCIDRPool)).To(Succeed())
+			}).WithTimeout(10 * time.Second).Should(Succeed())
+
+			By("Updating the spec to unset ipv4Network and set ipv4Subnet")
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceIPAM), dpuServiceIPAM)).To(Succeed())
+			dpuServiceIPAM.Spec.IPV4Network = nil
+			dpuServiceIPAM.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
+				Subnet:         "192.168.0.0/20",
+				Gateway:        "192.168.0.1",
+				PerNodeIPCount: 256,
+			}
+
+			dpuServiceIPAM.SetManagedFields(nil)
+			dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
+			// FieldOwner must be the same as the controlller because we modify a field that the controller owns (see
+			// defer in the main reconcile function)
+			Expect(testClient.Patch(ctx, dpuServiceIPAM, client.Apply, client.FieldOwner(dpuServiceIPAMControllerName))).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				gotCIDRPool := &nvipamv1.CIDRPool{}
+				g.Expect(apierrors.IsNotFound(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotCIDRPool))).To(BeTrue())
+				gotIPPool := &nvipamv1.IPPool{}
+				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool)).To(Succeed())
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 		})
 	})
