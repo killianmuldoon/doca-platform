@@ -6,8 +6,7 @@ docaHbn:
     tag: ${HBN_TAG}
   imagePullPolicy: IfNotPresent
   containerSecurityContext:
-    capabilities:
-      add: ["NET_ADMIN"]
+    privileged: true
 
 # Sets image details for docaInit container.
 hbnInit:

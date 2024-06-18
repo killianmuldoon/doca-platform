@@ -6,8 +6,7 @@ docaHbn:
     tag: 2.2.0-doca2.7.0-dpf
   imagePullPolicy: IfNotPresent
   containerSecurityContext:
-    capabilities:
-      add: ["NET_ADMIN"]
+    privileged: true
 
 # Sets image details for docaInit container.
 hbnInit:
