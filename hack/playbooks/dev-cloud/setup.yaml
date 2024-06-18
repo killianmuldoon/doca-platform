@@ -1,0 +1,14 @@
+---
+- name: Clean setup
+  hosts: cloud
+  remote_user: root
+  tasks:
+  - include_tasks: tasks/install_bfb.yaml
+
+- name: Setup DPU
+  hosts: dpu
+  remote_user: ubuntu
+  gather_facts: no
+  become: true
+  tasks:
+  - include_tasks: tasks/setup_dpu.yaml

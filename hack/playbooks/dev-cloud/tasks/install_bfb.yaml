@@ -1,0 +1,29 @@
+---
+- name: Install DOCA package using dpkg
+  ansible.builtin.apt:
+    deb: /auto/sw/release/doca/doca-host-repo/doca-repo-2.7.0/doca-repo-2.7.0-0.0.2-240327-092655-daily/doca-host_2.7.0-123000-24.04-ubuntu2204_amd64.deb
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Install rshim package
+  ansible.builtin.apt:
+    name: rshim
+    state: present
+
+- name: Create bfb.cfg with required configuration
+  ansible.builtin.copy:
+    dest: ~/bfb.cfg
+    content: |
+      ubuntu_PASSWORD='$1$vgUlT5Ao$g6wB3Quxen2j3UF8a9opv/'
+      ENABLE_SFC_HBN=yes
+      NUM_VFs_PHYS_PORT0=12
+      NUM_VFs_PHYS_PORT1=2
+      CLOUD_OPTION=true
+
+- name: Install BFB with configuration
+  ansible.builtin.shell: bfb-install --bfb /auto/sw_mc_soc_release/doca_dpu/doca_2.7.0/last_stable_ubuntu_22.04_dk --config ~/bfb.cfg --rshim rshim0
+  register: bfb_install
+
+- debug: var=bfb_install.stdout_lines
