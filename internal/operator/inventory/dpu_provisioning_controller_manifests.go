@@ -324,7 +324,7 @@ func (p *dpfProvisioningControllerObjects) setDefaultImageNames(deployment *apps
 	if err != nil {
 		return err
 	}
-	err = p.setFlags(c, fmt.Sprintf("--parprouterd-image=%s", release.ParprouterdImage))
+	err = p.setFlags(c, fmt.Sprintf("--parprouterd-image=%s", release.ParproutedImage))
 	if err != nil {
 		return err
 	}

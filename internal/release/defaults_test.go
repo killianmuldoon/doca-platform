@@ -30,7 +30,7 @@ func TestDefaults_Parse(t *testing.T) {
 		"customOVNKubernetesDPUImage":    "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/ovn-kubernetes-dpu:v0.0.0",
 		"customOVNKubernetesNonDPUImage": "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/ovn-kubernetes-non-dpu:v0.0.0",
 		"dmsImage":                       "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/dms-server:v2.7",
-		"parprouterdImage":               "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/parprouterd:v0.1",
+		"parproutedImage":                "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/parprouted:v0.1",
 		"dhcrelayImage":                  "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/dhcrelay:v0.1",
 		"hostnetworksetupImage":          "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/hostnetworksetup:v0.1",
 	}
@@ -60,8 +60,8 @@ func TestDefaults_Parse(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "fail when parprouterdImage empty/missing",
-			content: withoutValue(g, defaultValues, "parprouterdImage"),
+			name:    "fail when parproutedImage empty/missing",
+			content: withoutValue(g, defaultValues, "parproutedImage"),
 			wantErr: true,
 		},
 		{

@@ -1,6 +1,6 @@
 customOVNKubernetesDPUImage: nvidia.com/ovn-kubernetes-dpu:v0.0.0
 customOVNKubernetesNonDPUImage: nvidia.com/ovn-kubernetes-non-dpu:v0.0.0
 dmsImage: nvidia.com/dms-server:v2.7
-parprouterdImage: nvidia.com/parprouterd:v0.1
+parproutedImage: nvidia.com/parprouted:v0.0.0
 dhcRelayImage: nvidia.com/dhcrelay:v0.1
 hostNetworkSetupImage: nvidia.com/hostnetworksetup:v0.1
