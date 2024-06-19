@@ -386,7 +386,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			"--dms-image=nvidia.com/dms-server:v2.7",
 			"--hostnetwork-image=nvidia.com/hostnetworksetup:v0.1",
 			"--dhcrelay-image=nvidia.com/dhcrelay:v0.1",
-			"--parprouterd-image=nvidia.com/parprouterd:v0.1",
+			"--parprouterd-image=nvidia.com/parprouted:v0.0.0",
 			fmt.Sprintf("--image-pull-secret=%s", expectedImagePullSecret),
 			fmt.Sprintf("--bfb-pvc=%s", expectedPVC),
 			fmt.Sprintf("--dhcp=%s", expectedDHCP),
