@@ -99,7 +99,7 @@ spec:
           - '*'
           verbs:
           - '*'
-        serviceAccountName: dpf-operator-dpf-operator-controller-manager
+        serviceAccountName: dpf-operator-controller-manager
       deployments:
       - label:
           app.kubernetes.io/component: manager
@@ -110,7 +110,7 @@ spec:
           app.kubernetes.io/part-of: dpf-operator
           control-plane: controller-manager
           dpf.nvidia.com/component: dpf-operator-controller-manager
-        name: dpf-operator-dpf-operator-controller-manager
+        name: dpf-operator-controller-manager
         spec:
           replicas: 1
           selector:
@@ -161,7 +161,7 @@ spec:
                     - ALL
               imagePullSecrets:
               - name: ngc-secret
-              serviceAccountName: dpf-operator-dpf-operator-controller-manager
+              serviceAccountName: dpf-operator-controller-manager
               terminationGracePeriodSeconds: 10
       permissions:
       - rules:
@@ -196,7 +196,7 @@ spec:
           verbs:
           - create
           - patch
-        serviceAccountName: dpf-operator-dpf-operator-controller-manager
+        serviceAccountName: dpf-operator-controller-manager
     strategy: deployment
   installModes:
   - supported: false

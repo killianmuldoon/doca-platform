@@ -8,3 +8,9 @@ images:
   newTag: v0.0.0
 patchesStrategicMerge:
 - control-plane-affinity-patch.yaml
+
+labels:
+- includeSelectors: true
+  includeTemplates: true
+  pairs:
+    dpf.nvidia.com/component: dpf-operator-controller-manager
