@@ -496,8 +496,6 @@ test-build-and-push-artifacts: $(KUSTOMIZE) ## Build and push DPF artifacts (ima
 	# Build and push all the helm charts
 	$(MAKE) helm-package-all helm-push-all
 
-OLM_VERSION ?= v0.27.0
-OPERATOR_REGISTRY_VERSION ?= v1.39.0
 OPERATOR_NAMESPACE ?= dpf-operator-system
 
 .PHONY: test-deploy-operator-kustomize
@@ -506,6 +504,9 @@ test-deploy-operator-kustomize: $(KUSTOMIZE) ## Deploy the DPF Operator using ku
 	cd config/operator-and-crds/ && $(KUSTOMIZE) edit set namespace $(OPERATOR_NAMESPACE)
 	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
 	$(KUSTOMIZE) build config/operator-and-crds/ | $(KUBECTL) apply -f -
+
+OLM_VERSION ?= v0.28.0
+OPERATOR_REGISTRY_VERSION ?= v1.43.1
 
 .PHONY: test-deploy-operator-operator-sdk
 test-deploy-operator-operator-sdk: $(KUSTOMIZE) ## Deploy the DPF Operator using operator-sdk

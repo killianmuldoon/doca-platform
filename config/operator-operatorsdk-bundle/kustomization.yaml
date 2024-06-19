@@ -1,6 +1,5 @@
 # Adds namespace to all resources.
 namespace: dpf-operator
-
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
@@ -10,7 +9,9 @@ namePrefix: dpf-operator-
 
 resources:
 - resources/dpf-operator.clusterserviceversion.yaml
-- ../operator/default
+- ../operator/crd
+- ../operator/rbac
+- ../operator/manager
 - ../operator/samples
 - ../dpuservice/crd
 - ../servicechainset/crd
