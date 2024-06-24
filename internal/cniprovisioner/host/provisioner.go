@@ -32,9 +32,13 @@ import (
 	"github.com/vishvananda/netlink"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
+	kexec "k8s.io/utils/exec"
 )
 
 const (
+	// networkManagerUnmanagedPFConfigurationPath is the path to the file that contains the NetworkManager
+	// configuration related to marking the PF as unmanaged.
+	networkManagerUnmanagedPFConfigurationPath = "/etc/NetworkManager/conf.d/dpf.conf"
 	// ovnDBsPath is the path where the OVN Databases are stored
 	ovnDBsPath = "/var/lib/ovn-ic/etc/"
 	// ovnCleanUpDoneFile is the name of the file that indicates that OVN Kubernetes cleanup has happened
@@ -73,6 +77,7 @@ type HostCNIProvisioner struct {
 	ctx                       context.Context
 	ensureConfigurationTicker clock.Ticker
 	networkHelper             networkhelper.NetworkHelper
+	exec                      kexec.Interface
 
 	// FileSystemRoot controls the file system root. It's used for enabling easier testing of the package. Defaults to
 	// empty.
@@ -89,11 +94,12 @@ type HostCNIProvisioner struct {
 }
 
 // New creates a HostCNIProvisioner that can configure the system
-func New(ctx context.Context, clock clock.WithTicker, networkHelper networkhelper.NetworkHelper, pf0 string, pfIPNet *net.IPNet) *HostCNIProvisioner {
+func New(ctx context.Context, clock clock.WithTicker, networkHelper networkhelper.NetworkHelper, exec kexec.Interface, pf0 string, pfIPNet *net.IPNet) *HostCNIProvisioner {
 	return &HostCNIProvisioner{
 		ctx:                       ctx,
 		ensureConfigurationTicker: clock.NewTicker(2 * time.Second),
 		networkHelper:             networkHelper,
+		exec:                      exec,
 		FileSystemRoot:            "",
 		pf0:                       pf0,
 		pfIPNet:                   pfIPNet,
@@ -162,9 +168,56 @@ func (p *HostCNIProvisioner) configure() error {
 	return nil
 }
 
-// configurePF configures an IP on the PF that is in the same subnet as the VTEP. This is essential for enabling Pod
-// to External connectivity.
+// configurePF does two things:
+//   - forces the NetworkManager to treat the PF as unmanaged (the default is to take it under its management and treat
+//     it as externally managed when we add manually an IP)
+//   - configures an IP on the PF that is in the same subnet as the VTEP.
+//
+// This configuration is essential for enabling Pod to External connectivity.
 func (p *HostCNIProvisioner) configurePF() error {
+	if err := p.configureUnmanagedPF(); err != nil {
+		return fmt.Errorf("error while marking the PF as unmanaged for NetworkManager: %w", err)
+	}
+
+	if err := p.configurePFIP(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// configureUnmanagedPF configures the NetworkManager to treat the PF as unmanaged.
+func (p *HostCNIProvisioner) configureUnmanagedPF() error {
+	configPath := filepath.Join(p.FileSystemRoot, networkManagerUnmanagedPFConfigurationPath)
+	content, err := os.ReadFile(configPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("error while reading file %s: %w", configPath, err)
+	}
+
+	expectedConfigContent := fmt.Sprintf("[keyfile]\nunmanaged-devices=interface-name:%s", p.pf0)
+
+	// Note that we don't check if the NetworkManager is reloaded if the file already exists and has the content we
+	// expect it to have.
+	if content != nil && expectedConfigContent == string(content) {
+		klog.Info("PF is already configured as unmanaged in NetworkManager, skipping")
+		return nil
+	}
+
+	if err := os.WriteFile(configPath, []byte(expectedConfigContent), 0644); err != nil {
+		return fmt.Errorf("error while writing file %s: %w", configPath, err)
+	}
+
+	cmd := p.exec.Command("systemctl", "reload", "NetworkManager")
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error while reloading the NetworkManager systemd service: %w", err)
+	}
+
+	return nil
+}
+
+// configurePFIP configures an IP for the PF.
+func (p *HostCNIProvisioner) configurePFIP() error {
 	hasAddress, err := p.networkHelper.LinkIPAddressExists(p.pf0, p.pfIPNet)
 	if err != nil {
 		return fmt.Errorf("error while listing PF IPs: %w", err)
@@ -177,6 +230,7 @@ func (p *HostCNIProvisioner) configurePF() error {
 	if err != nil {
 		return fmt.Errorf("error while setting PF IP: %w", err)
 	}
+
 	return nil
 }
 

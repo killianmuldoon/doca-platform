@@ -686,6 +686,9 @@ docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build do
 OVS_BASE_IMAGE_NAME = base-image-ovs
 OVS_BASE_IMAGE = $(REGISTRY)/$(OVS_BASE_IMAGE_NAME)
 
+SYSTEMD_BASE_IMAGE_NAME = base-image-systemd
+SYSTEMD_BASE_IMAGE = $(REGISTRY)/$(SYSTEMD_BASE_IMAGE_NAME)
+
 # Images that are running on the DPU enabled host cluster nodes (workers)
 OVNKUBERNETES_DPU_IMAGE_NAME = ovn-kubernetes-dpu
 export OVNKUBERNETES_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_DPU_IMAGE_NAME)
@@ -809,11 +812,11 @@ docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker imag
 		-t $(DPUCNIPROVISIONER_IMAGE):$(TAG)
 
 .PHONY: docker-build-hostcniprovisioner
-docker-build-hostcniprovisioner: ## Build docker images for the HOST CNI Provisioner
+docker-build-hostcniprovisioner: docker-build-base-image-systemd ## Build docker images for the HOST CNI Provisioner
 	# Base image can't be distroless because of the readiness probe that is using cat which doesn't exist in distroless
 	docker build \
 		--build-arg builder_image=$(BUILD_IMAGE) \
-		--build-arg base_image=$(ALPINE_IMAGE) \
+		--build-arg base_image=$(SYSTEMD_BASE_IMAGE):$(TAG) \
 		--build-arg target_arch=$(HOST_ARCH) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
@@ -829,6 +832,15 @@ docker-build-base-image-ovs: ## Build base docker image with OVS dependencies
 		-f Dockerfile.ovs \
 		. \
 		-t $(OVS_BASE_IMAGE):$(TAG)
+
+.PHONY: docker-build-base-image-systemd
+docker-build-base-image-systemd: ## Build base docker image with systemd dependencies
+	docker buildx build \
+		--load \
+		--platform linux/${HOST_ARCH} \
+		-f Dockerfile.systemd \
+		. \
+		-t $(SYSTEMD_BASE_IMAGE):$(TAG)
 
 .PHONY: docker-build-hbn-sidecar
 docker-build-hbn-sidecar: $(HBN_SIDECAR_DIR) ## Build HBN sidecar DPU service image

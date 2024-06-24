@@ -36,6 +36,8 @@ import (
 	"go.uber.org/mock/gomock"
 	"golang.org/x/exp/maps"
 	clock "k8s.io/utils/clock/testing"
+	kexec "k8s.io/utils/exec"
+	kexecTesting "k8s.io/utils/exec/testing"
 )
 
 var _ = Describe("Host CNI Provisioner", func() {
@@ -43,9 +45,10 @@ var _ = Describe("Host CNI Provisioner", func() {
 		It("should configure the system fully", func() {
 			testCtrl := gomock.NewController(GinkgoT())
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			fakeExec := &kexecTesting.FakeExec{}
 			pfIPNet, err := netlink.ParseIPNet("192.168.1.2/24")
 			Expect(err).ToNot(HaveOccurred())
-			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper, "ens25f0np0", pfIPNet)
+			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper, fakeExec, "ens25f0np0", pfIPNet)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "hostcniprovisioner")
@@ -65,6 +68,10 @@ var _ = Describe("Host CNI Provisioner", func() {
 			err = os.MkdirAll(filepath.Dir(sriovNumVfsPath), 0755)
 			Expect(err).NotTo(HaveOccurred())
 			err = os.WriteFile(sriovNumVfsPath, []byte(strconv.Itoa(2)), 0444)
+			Expect(err).NotTo(HaveOccurred())
+
+			nmConfigPath := filepath.Join(tmpDir, "/etc/NetworkManager/conf.d/")
+			err = os.MkdirAll(nmConfigPath, 0755)
 			Expect(err).NotTo(HaveOccurred())
 
 			networkhelper.EXPECT().LinkIPAddressExists("ens25f0np0", pfIPNet).Return(false, nil)
@@ -89,6 +96,12 @@ var _ = Describe("Host CNI Provisioner", func() {
 			networkhelper.EXPECT().RouteExists(ovnMasqueradeIP, nil, "br-ex").Return(true, nil)
 			networkhelper.EXPECT().DeleteRoute(ovnMasqueradeIP, nil, "br-ex")
 
+			fakeExec.CommandScript = append(fakeExec.CommandScript, kexecTesting.FakeCommandAction(func(cmd string, args ...string) kexec.Cmd {
+				Expect(cmd).To(Equal("systemctl"))
+				Expect(args).To(Equal([]string{"reload", "NetworkManager"}))
+				return kexec.New().Command("echo")
+			}))
+
 			err = provisioner.RunOnce()
 			Expect(err).ToNot(HaveOccurred())
 
@@ -99,6 +112,15 @@ var _ = Describe("Host CNI Provisioner", func() {
 				"/var/lib/ovn-ic/etc/dpf-cleanup-done": {},
 			})
 
+			verifyFS(tmpDir, nmConfigPath, map[string]verifyFSEntry{
+				"/etc/NetworkManager/conf.d": {
+					isDir: true,
+				},
+				"/etc/NetworkManager/conf.d/dpf.conf": {
+					content: "[keyfile]\nunmanaged-devices=interface-name:ens25f0np0",
+				},
+			})
+
 			By("Asserting fake filesystem")
 			assertFakeFilesystem(tmpDir)
 		})
@@ -107,7 +129,7 @@ var _ = Describe("Host CNI Provisioner", func() {
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
 			ctx, cancel := context.WithCancel(ctx)
 			c := clock.NewFakeClock(time.Now())
-			provisioner := hostcniprovisioner.New(ctx, c, networkhelper, "", nil)
+			provisioner := hostcniprovisioner.New(ctx, c, networkhelper, nil, "", nil)
 
 			networkhelper.EXPECT().DummyLinkExists("pf0vf0").DoAndReturn(func(link string) (bool, error) {
 				c.Step(2 * time.Second)
@@ -139,9 +161,10 @@ var _ = Describe("Host CNI Provisioner", func() {
 		It("should not error out on subsequent runs when network calls are mocked", func(ctx context.Context) {
 			testCtrl := gomock.NewController(GinkgoT(), gomock.WithOverridableExpectations())
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			fakeExec := &kexecTesting.FakeExec{}
 			pfIPNet, err := netlink.ParseIPNet("192.168.1.2/24")
 			Expect(err).ToNot(HaveOccurred())
-			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper, "ens25f0np0", pfIPNet)
+			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper, fakeExec, "ens25f0np0", pfIPNet)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "hostcniprovisioner")
@@ -159,7 +182,17 @@ var _ = Describe("Host CNI Provisioner", func() {
 			err = os.WriteFile(sriovNumVfsPath, []byte(strconv.Itoa(2)), 0444)
 			Expect(err).NotTo(HaveOccurred())
 
+			nmConfigPath := filepath.Join(tmpDir, "/etc/NetworkManager/conf.d/")
+			err = os.MkdirAll(nmConfigPath, 0755)
+			Expect(err).NotTo(HaveOccurred())
+
 			networkHelperMockAll(networkhelper)
+
+			fakeExec.CommandScript = append(fakeExec.CommandScript, kexecTesting.FakeCommandAction(func(cmd string, args ...string) kexec.Cmd {
+				Expect(cmd).To(Equal("systemctl"))
+				Expect(args).To(Equal([]string{"reload", "NetworkManager"}))
+				return kexec.New().Command("echo")
+			}))
 
 			err = provisioner.RunOnce()
 			Expect(err).ToNot(HaveOccurred())
@@ -170,9 +203,10 @@ var _ = Describe("Host CNI Provisioner", func() {
 		It("should not cleanup the OVN databases if original cleanup is already done", func(ctx context.Context) {
 			testCtrl := gomock.NewController(GinkgoT(), gomock.WithOverridableExpectations())
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			fakeExec := &kexecTesting.FakeExec{}
 			pfIPNet, err := netlink.ParseIPNet("192.168.1.2/24")
 			Expect(err).ToNot(HaveOccurred())
-			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper, "ens25f0np0", pfIPNet)
+			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper, fakeExec, "ens25f0np0", pfIPNet)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "hostcniprovisioner")
@@ -194,7 +228,17 @@ var _ = Describe("Host CNI Provisioner", func() {
 			err = os.WriteFile(sriovNumVfsPath, []byte(strconv.Itoa(2)), 0444)
 			Expect(err).NotTo(HaveOccurred())
 
+			nmConfigPath := filepath.Join(tmpDir, "/etc/NetworkManager/conf.d/")
+			err = os.MkdirAll(nmConfigPath, 0755)
+			Expect(err).NotTo(HaveOccurred())
+
 			networkHelperMockAll(networkhelper)
+
+			fakeExec.CommandScript = append(fakeExec.CommandScript, kexecTesting.FakeCommandAction(func(cmd string, args ...string) kexec.Cmd {
+				Expect(cmd).To(Equal("systemctl"))
+				Expect(args).To(Equal([]string{"reload", "NetworkManager"}))
+				return kexec.New().Command("echo")
+			}))
 
 			err = provisioner.RunOnce()
 			Expect(err).ToNot(HaveOccurred())
@@ -207,8 +251,46 @@ var _ = Describe("Host CNI Provisioner", func() {
 				"/var/lib/ovn-ic/etc/file1.db":         {},
 			})
 		})
-	})
+		It("should not reload the NetworkManager if the config file identical", func(ctx context.Context) {
+			testCtrl := gomock.NewController(GinkgoT(), gomock.WithOverridableExpectations())
+			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			fakeExec := &kexecTesting.FakeExec{}
+			pfIPNet, err := netlink.ParseIPNet("192.168.1.2/24")
+			Expect(err).ToNot(HaveOccurred())
+			provisioner := hostcniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), networkhelper, fakeExec, "ens25f0np0", pfIPNet)
 
+			// Prepare Filesystem
+			tmpDir, err := os.MkdirTemp("", "hostcniprovisioner")
+			DeferCleanup(os.RemoveAll, tmpDir)
+			Expect(err).NotTo(HaveOccurred())
+			provisioner.FileSystemRoot = tmpDir
+
+			ovnDBsPath := filepath.Join(tmpDir, "/var/lib/ovn-ic/etc/")
+			err = os.MkdirAll(ovnDBsPath, 0755)
+			Expect(err).NotTo(HaveOccurred())
+			_, err = os.Create(filepath.Join(ovnDBsPath, "file1.db"))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = os.Create(filepath.Join(ovnDBsPath, "dpf-cleanup-done"))
+			Expect(err).NotTo(HaveOccurred())
+
+			sriovNumVfsPath := filepath.Join(tmpDir, "/sys/class/net/ens25f0np0/device/sriov_numvfs")
+			err = os.MkdirAll(filepath.Dir(sriovNumVfsPath), 0755)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(sriovNumVfsPath, []byte(strconv.Itoa(2)), 0444)
+			Expect(err).NotTo(HaveOccurred())
+
+			nmConfigPath := filepath.Join(tmpDir, "/etc/NetworkManager/conf.d/")
+			err = os.MkdirAll(nmConfigPath, 0755)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(filepath.Join(nmConfigPath, "dpf.conf"), []byte("[keyfile]\nunmanaged-devices=interface-name:ens25f0np0"), 0644)
+			Expect(err).NotTo(HaveOccurred())
+
+			networkHelperMockAll(networkhelper)
+
+			err = provisioner.RunOnce()
+			Expect(err).ToNot(HaveOccurred())
+		})
+	})
 })
 
 func assertFakeFilesystem(tmpDir string) {

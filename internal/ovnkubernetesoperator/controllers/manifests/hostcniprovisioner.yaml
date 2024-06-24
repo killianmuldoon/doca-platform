@@ -58,6 +58,8 @@ spec:
     spec:
       containers:
       - env:
+        - name: SYSTEMCTL_FORCE_BUS
+          value: "1"
         - name: NODE_NAME
           valueFrom:
             fieldRef:
@@ -79,7 +81,15 @@ spec:
           name: ovndb
         - mountPath: /etc/hostcniprovisioner
           name: config
+        - mountPath: /etc/NetworkManager/conf.d
+          name: networkmanager-confd
+        - mountPath: /var/run/dbus/system_bus_socket
+          name: systemd-dbus
+        - mountPath: /var/run/systemd
+          name: var-run-systemd
       hostNetwork: true
+      securityContext:
+        runAsUser: 0
       serviceAccountName: host-cni-provisioner
       volumes:
       - hostPath:
@@ -91,3 +101,12 @@ spec:
       - configMap:
           name: host-cni-provisioner
         name: config
+      - hostPath:
+          path: /etc/NetworkManager/conf.d
+        name: networkmanager-confd
+      - hostPath:
+          path: /var/run/systemd
+        name: var-run-systemd
+      - hostPath:
+          path: /var/run/dbus/system_bus_socket
+        name: systemd-dbus

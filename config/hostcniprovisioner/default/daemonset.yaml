@@ -18,6 +18,9 @@ spec:
     spec:
       serviceAccountName: host-cni-provisioner
       hostNetwork: true
+      securityContext:
+        # Needed so that we can run systemd reload
+        runAsUser: 0
       containers:
       - name: host-cni-provisioner
         image: controller
@@ -30,6 +33,9 @@ spec:
         securityContext:
           privileged: true
         env:
+        # Needed so that we can run systemd reload
+        - name: SYSTEMCTL_FORCE_BUS
+          value: "1"
         - name: NODE_NAME
           valueFrom:
             fieldRef:
@@ -41,6 +47,14 @@ spec:
           mountPath: /var/lib/ovn-ic
         - name: config
           mountPath: /etc/hostcniprovisioner
+        - name: networkmanager-confd
+          mountPath: /etc/NetworkManager/conf.d
+        # Needed so that we can run systemd reload
+        - name: systemd-dbus
+          mountPath: /var/run/dbus/system_bus_socket
+        # Needed so that we can run systemd reload
+        - name: var-run-systemd
+          mountPath: /var/run/systemd
       volumes:
       - name: fakefs
         hostPath:
@@ -51,3 +65,12 @@ spec:
       - name: config
         configMap:
           name: host-cni-provisioner
+      - name: networkmanager-confd
+        hostPath:
+          path: /etc/NetworkManager/conf.d
+      - name: var-run-systemd
+        hostPath:
+          path: /var/run/systemd
+      - name: systemd-dbus
+        hostPath:
+          path: /var/run/dbus/system_bus_socket

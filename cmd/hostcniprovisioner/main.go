@@ -36,6 +36,7 @@ import (
 	"github.com/vishvananda/netlink"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
+	kexec "k8s.io/utils/exec"
 )
 
 const (
@@ -57,7 +58,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	c := clock.RealClock{}
-	provisioner := hostcniprovisioner.New(ctx, c, networkhelper.New(), config.HostPF0, pfIP)
+	provisioner := hostcniprovisioner.New(ctx, c, networkhelper.New(), kexec.New(), config.HostPF0, pfIP)
 
 	err = provisioner.RunOnce()
 	if err != nil {
