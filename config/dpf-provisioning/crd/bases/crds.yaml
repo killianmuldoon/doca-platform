@@ -435,6 +435,10 @@ spec:
                 description: Object that describes the DPU that will be created if
                   insufficient replicas are detected
                 properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    type: object
                   spec:
                     properties:
                       BFB:

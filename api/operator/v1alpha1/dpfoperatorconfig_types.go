@@ -57,6 +57,8 @@ type ProvisioningConfiguration struct {
 	ImagePullSecretForDMSAndHostNetwork string `json:"imagePullSecretForDMSAndHostNetwork"`
 	// DHCPServerAddress is the address of the DHCP server that allocates IP for DPU
 	DHCPServerAddress string `json:"dhcpServerAddress"`
+	// DMSTimeout is the max time in seconds within which a DMS API must respond, 0 is unlimited
+	DMSTimeout *int `json:"dmsTimeout,omitempty"`
 }
 
 // DPFOperatorConfigStatus defines the observed state of DPFOperatorConfig

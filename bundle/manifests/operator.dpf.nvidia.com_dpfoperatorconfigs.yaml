@@ -74,6 +74,10 @@ spec:
                     description: DHCPServerAddress is the address of the DHCP server
                       that allocates IP for DPU
                     type: string
+                  dmsTimeout:
+                    description: DMSTimeout is the max time in seconds within which
+                      a DMS API must respond, 0 is unlimited
+                    type: integer
                   imagePullSecretForDMSAndHostNetwork:
                     description: ImagePullSecretForDMSAndHostNetwork is the imagePullSecret
                       which is passed to pods created by the DPF Provisioning controller.

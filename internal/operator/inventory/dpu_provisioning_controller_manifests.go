@@ -105,6 +105,9 @@ func (p *dpfProvisioningControllerObjects) GenerateManifests(vars Variables) ([]
 	if ip := net.ParseIP(vars.DPFProvisioningController.DHCP); ip == nil {
 		return nil, fmt.Errorf("DPFProvisioningController invalid DHCP")
 	}
+	if t := vars.DPFProvisioningController.DMSTimeout; t != nil && *t < 0 {
+		return nil, fmt.Errorf("DPFProvisioningController invalid DMSTimeout, must be greater than or equal to 0")
+	}
 
 	// make a copy of the objects
 	objsCopy := make([]*unstructured.Unstructured, 0, len(p.objects))
@@ -145,6 +148,7 @@ func (p *dpfProvisioningControllerObjects) dpfProvisioningDeploymentEdit(vars Va
 			p.setComponentLabel,
 			p.setDefaultImageNames,
 			p.setDHCP,
+			p.setDMSTimeout,
 		}
 		for _, mod := range mods {
 			if err := mod(deployment, vars); err != nil {
@@ -253,6 +257,18 @@ func (p *dpfProvisioningControllerObjects) setDHCP(deploy *appsv1.Deployment, va
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
 	}
 	return p.setFlags(c, fmt.Sprintf("--dhcp=%s", vars.DPFProvisioningController.DHCP))
+}
+
+func (p *dpfProvisioningControllerObjects) setDMSTimeout(deploy *appsv1.Deployment, vars Variables) error {
+	t := vars.DPFProvisioningController.DMSTimeout
+	if t == nil {
+		return nil
+	}
+	c := p.getContainer(deploy)
+	if c == nil {
+		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
+	}
+	return p.setFlags(c, fmt.Sprintf("--dms-timeout=%d", *vars.DPFProvisioningController.DMSTimeout))
 }
 
 func (p *dpfProvisioningControllerObjects) setFlags(c *corev1.Container, newFlags ...string) error {

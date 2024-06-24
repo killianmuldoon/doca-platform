@@ -320,12 +320,14 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		expectedImagePullSecret2 := "foo-test-image-pull-secret-2"
 		expectedImagePullSecret3 := "foo-test-image-pull-secret-3"
 		expectedDHCP := "192.169.1.1"
+		expectedDmsTimeout := 20
 		vars := Variables{
 			Namespace: "foo",
 			DPFProvisioningController: DPFProvisioningVariables{
 				BFBPersistentVolumeClaimName:        expectedPVC,
 				ImagePullSecretForDMSAndHostNetwork: expectedImagePullSecret,
 				DHCP:                                expectedDHCP,
+				DMSTimeout:                          &expectedDmsTimeout,
 			},
 			ImagePullSecrets: []string{expectedImagePullSecret2, expectedImagePullSecret3},
 		}
@@ -390,8 +392,10 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			fmt.Sprintf("--image-pull-secret=%s", expectedImagePullSecret),
 			fmt.Sprintf("--bfb-pvc=%s", expectedPVC),
 			fmt.Sprintf("--dhcp=%s", expectedDHCP),
+			fmt.Sprintf("--dms-timeout=%d", expectedDmsTimeout),
 		}
 		g.Expect(gotDeployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+		g.Expect(gotDeployment.Spec.Template.Spec.Containers[0].Args).To(HaveLen(len(expectedArgs)))
 		for i, ea := range expectedArgs {
 			g.Expect(container.Args[i]).To(Equal(ea))
 		}
