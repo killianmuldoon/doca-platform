@@ -134,9 +134,9 @@ OVNKUBERNETES_BASE_IMAGE=harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kub
 # Points to branch dpf-23.09.0
 OVN_REVISION=89fb67b6222d1e6a48fed3ae6d6ac486326c6ab2
 # Points to branch dpf-4.14
-OVNKUBERNETES_DPU_REVISION=890f4c946b300ff2fd0fc17871c490e191a2002a
+OVNKUBERNETES_DPU_REVISION=4050b08d14eac5ccdac2e398a25ee790347b8cfa
 # Points to branch dpf-4.14-non-dpu
-OVNKUBERNETES_NON_DPU_REVISION=cb13d1127603a438b9db98c290fdf187c77efc9c
+OVNKUBERNETES_NON_DPU_REVISION=f73cdc1f764b36a1f4df9849e15f32eb0e0082c1
 
 .PHONY: clean
 clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
