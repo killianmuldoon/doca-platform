@@ -16,6 +16,8 @@ spec:
       labels:
         app.kubernetes.io/name: host-cni-provisioner
     spec:
+      nodeSelector:
+        feature.node.kubernetes.io/dpu-enabled: "true"
       serviceAccountName: host-cni-provisioner
       hostNetwork: true
       securityContext:

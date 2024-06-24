@@ -88,6 +88,8 @@ spec:
         - mountPath: /var/run/systemd
           name: var-run-systemd
       hostNetwork: true
+      nodeSelector:
+        feature.node.kubernetes.io/dpu-enabled: "true"
       securityContext:
         runAsUser: 0
       serviceAccountName: host-cni-provisioner
