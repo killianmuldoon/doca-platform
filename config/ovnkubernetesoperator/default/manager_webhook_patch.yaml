@@ -5,6 +5,9 @@ metadata:
   namespace: system
 spec:
   template:
+    metadata:
+      labels:
+        network-injector.dpf.nvidia.com/skip-injection: ""
     spec:
       containers:
       - name: manager
