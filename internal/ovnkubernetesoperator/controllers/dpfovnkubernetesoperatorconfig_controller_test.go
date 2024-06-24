@@ -227,7 +227,7 @@ networking:
 			// Mocked Worker Node
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker1), nodeWorker1)).To(Succeed())
 			nodeWorker1.SetLabels(map[string]string{
-				workerNodeLabel: "",
+				dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue,
 			})
 			nodeWorker1.SetAnnotations(map[string]string{
 				ovnKubernetesNodeChassisIDAnnotation: "worker-1",
@@ -239,7 +239,7 @@ networking:
 			// Mocked Worker Node
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker2), nodeWorker2)).To(Succeed())
 			nodeWorker2.SetLabels(map[string]string{
-				workerNodeLabel: "",
+				dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue,
 			})
 			nodeWorker2.SetAnnotations(map[string]string{
 				ovnKubernetesNodeChassisIDAnnotation: "worker-2",
@@ -410,8 +410,9 @@ networking:
 							{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
 									{
-										Key:      controlPlaneNodeLabel,
-										Operator: corev1.NodeSelectorOpExists,
+										Key:      dpuEnabledNodeLabelKey,
+										Operator: corev1.NodeSelectorOpNotIn,
+										Values:   []string{dpuEnabledNodeLabelValue},
 									},
 								},
 							},
@@ -423,15 +424,13 @@ networking:
 
 			Eventually(func(g Gomega) {
 				got := &corev1.NodeList{}
-				g.Expect(testClient.List(ctx, got)).To(Succeed())
-				workerCounter := 0
+				g.Expect(testClient.List(ctx, got, client.MatchingLabels{
+					dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue,
+				})).To(Succeed())
+				g.Expect(got.Items).To(HaveLen(2))
 				for _, node := range got.Items {
-					if _, ok := node.Labels[workerNodeLabel]; ok {
-						workerCounter++
-						g.Expect(node.Annotations).NotTo(HaveKey(ovnKubernetesNodeChassisIDAnnotation))
-					}
+					g.Expect(node.Annotations).NotTo(HaveKey(ovnKubernetesNodeChassisIDAnnotation))
 				}
-				g.Expect(workerCounter).To(Equal(2))
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -469,15 +468,13 @@ networking:
 
 			Eventually(func(g Gomega) {
 				got := &corev1.NodeList{}
-				g.Expect(testClient.List(ctx, got)).To(Succeed())
-				workerCounter := 0
+				g.Expect(testClient.List(ctx, got, client.MatchingLabels{
+					dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue,
+				})).To(Succeed())
+				g.Expect(got.Items).To(HaveLen(2))
 				for _, node := range got.Items {
-					if _, ok := node.Labels[workerNodeLabel]; ok {
-						workerCounter++
-						g.Expect(node.Labels).To(HaveKey(networkPreconfigurationReadyNodeLabel))
-					}
+					g.Expect(node.Labels).To(HaveKey(networkPreconfigurationReadyNodeLabel))
 				}
-				g.Expect(workerCounter).To(Equal(2))
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 
 			By("Checking the deployment of the custom OVN Kubernetes")
@@ -534,7 +531,7 @@ networking:
 		It("should not cleanup node chassis id annotation if node network preconfiguration is done", func() {
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker2), nodeWorker2)).To(Succeed())
 			nodeWorker2.SetLabels(map[string]string{
-				workerNodeLabel:                       "",
+				dpuEnabledNodeLabelKey:                dpuEnabledNodeLabelValue,
 				networkPreconfigurationReadyNodeLabel: "",
 			})
 			nodeWorker2.SetAnnotations(map[string]string{

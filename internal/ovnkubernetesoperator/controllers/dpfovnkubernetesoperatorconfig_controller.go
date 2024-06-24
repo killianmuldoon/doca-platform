@@ -111,11 +111,11 @@ const (
 	// clusterConfigNamespace is the Namespace where the OpenShift cluster configuration ConfigMap exists.
 	clusterConfigNamespace = "kube-system"
 
-	// controlPlaneNodeLabel is the well known Kubernetes label:
-	// https://kubernetes.io/docs/reference/labels-annotations-taints/#node-role-kubernetes-io-control-plane
-	controlPlaneNodeLabel = "node-role.kubernetes.io/control-plane"
-	// workerNodeLabel is the label that is added on worker nodes in OpenShift
-	workerNodeLabel = "node-role.kubernetes.io/worker"
+	// dpuEnabledNodeLabelKey is the node label that indicates that a node is DPU enabled. This label is the one that
+	// the provisioning workflow takes action on.
+	dpuEnabledNodeLabelKey = "feature.node.kubernetes.io/dpu-enabled"
+	// dpuEnabledNodeLabelValue is the value of the dpuEnabledNodeLabelKey.
+	dpuEnabledNodeLabelValue = "true"
 	// networkSetupReadyNodeLabel is the label used to determine when a node is ready to run the custom OVN Kubernetes
 	// Pod.
 	networkPreconfigurationReadyNodeLabel = "dpf.nvidia.com/network-preconfig-ready"
@@ -442,8 +442,9 @@ func adjustOVNKubernetesDaemonSetNodeSelector(ctx context.Context, c client.Clie
 					{
 						MatchExpressions: []corev1.NodeSelectorRequirement{
 							{
-								Key:      controlPlaneNodeLabel,
-								Operator: corev1.NodeSelectorOpExists,
+								Key:      dpuEnabledNodeLabelKey,
+								Operator: corev1.NodeSelectorOpNotIn,
+								Values:   []string{dpuEnabledNodeLabelValue},
 							},
 						},
 					},
@@ -497,9 +498,9 @@ func removeNodeChassisAnnotations(ctx context.Context, c client.Client) error {
 
 	nodes := &corev1.NodeList{}
 	labelSelector := labels.NewSelector()
-	req, err := labels.NewRequirement(workerNodeLabel, selection.Exists, nil)
+	req, err := labels.NewRequirement(dpuEnabledNodeLabelKey, selection.In, []string{dpuEnabledNodeLabelValue})
 	if err != nil {
-		return fmt.Errorf("error while creating label selector requirement for label %s: %w", workerNodeLabel, err)
+		return fmt.Errorf("error while creating label selector requirement for label %s=%s: %w", dpuEnabledNodeLabelKey, dpuEnabledNodeLabelValue, err)
 	}
 	labelSelector = labelSelector.Add(*req)
 	req, err = labels.NewRequirement(networkPreconfigurationReadyNodeLabel, selection.DoesNotExist, nil)
@@ -677,9 +678,9 @@ func markNetworkPreconfigurationReady(ctx context.Context, c client.Client) erro
 	var errs []error
 	nodes := &corev1.NodeList{}
 	labelSelector := labels.NewSelector()
-	req, err := labels.NewRequirement(workerNodeLabel, selection.Exists, nil)
+	req, err := labels.NewRequirement(dpuEnabledNodeLabelKey, selection.In, []string{dpuEnabledNodeLabelValue})
 	if err != nil {
-		return fmt.Errorf("error while creating label selector requirement for label %s: %w", workerNodeLabel, err)
+		return fmt.Errorf("error while creating label selector requirement for label %s=%s: %w", dpuEnabledNodeLabelKey, dpuEnabledNodeLabelValue, err)
 	}
 	labelSelector = labelSelector.Add(*req)
 	err = c.List(ctx, nodes, &client.ListOptions{LabelSelector: labelSelector})
