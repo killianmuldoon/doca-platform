@@ -76,7 +76,7 @@ func AddPort(portName string, metadata string) error {
 		"--", "set", "int", portName, "external_ids:dpf-id="+metadata)
 }
 
-func AddPatchPort(portName string, brA string, brB string) error {
+func AddPatchPort(portName string, brA string, brB string, metadata string) error {
 	// portBrA := fmt.Sprintf("%s-%s", portName, brA)
 	// portBrB := fmt.Sprintf("%s-%s", portName, brB)
 	// match on ovs-cni naming
@@ -88,7 +88,8 @@ func AddPatchPort(portName string, brA string, brB string) error {
 		return err
 	}
 	err = runOVSVsctl("-t", "5", "--may-exist", "add-port", brB, portBrB, "--", "set", "int", portBrB, "type=patch",
-		"--", "set", "int", portBrB, fmt.Sprintf("options:peer=%s", portBrA))
+		"--", "set", "int", portBrB, fmt.Sprintf("options:peer=%s", portBrA),
+		"--", "set", "int", portBrB, "external_ids:dpf-id="+metadata)
 
 	return err
 }
@@ -122,7 +123,7 @@ func AddInterfacesToOvs(ctx context.Context, serviceInterface *sfcv1.ServiceInte
 
 	if serviceInterface.Spec.InterfaceType == "ovn" {
 		log.Info("matched on ovn")
-		err := AddPatchPort("patch", "br-ovn", "br-sfc")
+		err := AddPatchPort("patch", "br-ovn", "br-sfc", metadata)
 		if err != nil {
 			log.Info(fmt.Sprintf("failed to add port %s", err.Error()))
 			return err
