@@ -62,6 +62,13 @@ spec:
                   - raw
                   type: object
                 type: array
+              containerdConfig:
+                properties:
+                  registryEndpoint:
+                    type: string
+                required:
+                - registryEndpoint
+                type: object
               grub:
                 properties:
                   kernelParameters:
