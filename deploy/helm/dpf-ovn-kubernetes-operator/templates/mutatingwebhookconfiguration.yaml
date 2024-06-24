@@ -34,4 +34,8 @@ webhooks:
     resources:
     - pods
   sideEffects: None
+  objectSelector:
+    matchExpressions:
+    - key: network-injector.dpf.nvidia.com/skip-injection
+      operator: DoesNotExist
 {{- end }}
