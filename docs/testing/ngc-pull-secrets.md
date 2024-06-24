@@ -26,6 +26,8 @@ Some DPF components are deployed by the DPF Operator as DPU Services, that are b
 
 The following secret is required for Argo CD to be able to deploy the charts.
 
+Note that Argo CD will automatically detect the secret by the label. There is no need to reference this secret in any configuration.
+
 
 ```bash
 echo "
@@ -63,7 +65,7 @@ operator-sdk run bundle --namespace dpf-operator-system  --pull-secret-name ngc-
 ```
 
 ### Configure secret in DPFOperatorConfig
-Specify the secret in the `DPFOperatorConfig`:
+Specify the secret in the `DPFOperatorConfig` both in the `spec.imagePullSecrets` section and in the `spec.provisioningConfiguration.imagePullSecretForDMSAndHostNetwork` section.
 
 ```yaml
 apiVersion: operator.dpf.nvidia.com/v1alpha1
@@ -72,6 +74,8 @@ metadata:
   name: dpfoperatorconfig
   namespace: dpf-operator-system
 spec:
+  provisioningConfiguration:
+    imagePullSecretForDMSAndHostNetwork: ngc-secret
   imagePullSecrets:
   - ngc-secret
 ...
