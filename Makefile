@@ -500,19 +500,32 @@ OPERATOR_NAMESPACE ?= dpf-operator-system
 
 .PHONY: test-deploy-operator-kustomize
 test-deploy-operator-kustomize: $(KUSTOMIZE) ## Deploy the DPF Operator using kustomize
-	#$(KUBECTL) create namespace $(OPERATOR_NAMESPACE)
 	cd config/operator-and-crds/ && $(KUSTOMIZE) edit set namespace $(OPERATOR_NAMESPACE)
 	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
 	$(KUSTOMIZE) build config/operator-and-crds/ | $(KUBECTL) apply -f -
 
 OLM_VERSION ?= v0.28.0
 OPERATOR_REGISTRY_VERSION ?= v1.43.1
+OLM_DIR = $(REPOSDIR)/olm
+OLM_DOWNLOAD_URL = https://github.com/operator-framework/operator-lifecycle-manager/releases/download
+.PHONY: test-install-operator-lifecycle-manager
+test-install-operator-lifecycle-manager:
+	mkdir -p $(OLM_DIR)
+	curl -L $(OLM_DOWNLOAD_URL)/$(OLM_VERSION)/crds.yaml -o $(OLM_DIR)/crds.yaml
+	curl -L $(OLM_DOWNLOAD_URL)/$(OLM_VERSION)/olm.yaml -o $(OLM_DIR)/olm.yaml
+
+	# Operator SDK always installs the `latest` image for the configmap-operator. We need to replace that for this installation.
+	$Q sed -i 's/configmap-operator-registry:latest/configmap-operator-registry:$(OLM_VERSION)/g' $(OLM_DIR)/olm.yaml
+
+	$(KUBECTL) create -f "$(OLM_DIR)/crds.yaml"
+	$(KUBECTL) wait --for=condition=Established -f "$(OLM_DIR)/crds.yaml"
+	$(KUBECTL) create -f "$(OLM_DIR)/olm.yaml"
+	$(KUBECTL) rollout status -w deployment/olm-operator --namespace=olm
+	$(KUBECTL) rollout status -w deployment/catalog-operator --namespace=olm
+
 
 .PHONY: test-deploy-operator-operator-sdk
-test-deploy-operator-operator-sdk: $(KUSTOMIZE) ## Deploy the DPF Operator using operator-sdk
-	# Install OLM in the cluster
-	$(OPERATOR_SDK) olm install --version $(OLM_VERSION)
-
+test-deploy-operator-operator-sdk: $(KUSTOMIZE) test-install-operator-lifecycle-manager ## Deploy the DPF Operator using operator-sdk
 	# Create the namespace for the operator to be installed.
 	$(KUBECTL) create namespace $(OPERATOR_NAMESPACE)
 	# TODO: This flow does not work on MacOS dues to some issue pulling images. Should be enabled to make local testing equivalent to CI.
