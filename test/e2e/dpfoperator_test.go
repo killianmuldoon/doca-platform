@@ -44,6 +44,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	// ngcSecretName must match the name given to the secret in `create-ngc-secrets.sh`
+	ngcSecretName = "ngc-secret"
+)
+
 var (
 	testObjectsPath            = "../objects/"
 	numClusters                = 1
@@ -66,7 +71,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 	imagePullSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "dpf-image-pull-secret",
+			Name:      ngcSecretName,
 			Namespace: "dpf-operator-system",
 		},
 	}
@@ -191,7 +196,10 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		})
 
 		It("create the imagePullSecret for the DPF OperatorConfig", func() {
-			Expect(testClient.Create(ctx, imagePullSecret)).To(Succeed())
+			err := testClient.Create(ctx, imagePullSecret)
+			if err != nil && !apierrors.IsAlreadyExists(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
 			cleanupObjs = append(cleanupObjs, imagePullSecret)
 		})
 
@@ -217,7 +225,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					Name:      "dpf-provisioning-controller-manager"},
 					dpfProvisioningDeployment)).To(Succeed())
 				g.Expect(dpfProvisioningDeployment.Status.ReadyReplicas).To(Equal(*dpfProvisioningDeployment.Spec.Replicas))
-			}).WithTimeout(180 * time.Second).Should(Succeed())
+			}).WithTimeout(300 * time.Second).Should(Succeed())
 		})
 
 		It("ensure the DPF Provisioning objects can be created", func() {

@@ -468,15 +468,20 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 	# Create a minikube cluster to host the test.
 	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
 
+	$(KUBECTL) create namespace dpf-operator-system
+
+	# Create secrets required for using artefacts from NGC if required.
+	$(CURDIR)/hack/scripts/create-ngc-secrets.sh
+
 	# Deploy cert manager to provide certificates for webhooks.
-	$Q kubectl apply -f $(CERT_MANAGER_YAML)
+	$Q $(KUBECTL) apply -f $(CERT_MANAGER_YAML)
 
 	# Mirror images for e2e tests from docker hub and push them in the test registry to avoid docker pull limits.
 	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
 	$(MAKE) test-build-and-push-artifacts
 
 	echo "Waiting for cert-manager deployment to be ready."
-	kubectl wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
+	$(KUBECTL) wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
 
 	# Deploy Kamaji as the underlying control plane provider.
 	$Q $(HELM) upgrade --set image.pullPolicy=IfNotPresent --set cfssl.image.tag=v1.6.5 --install kamaji $(KAMAJI)
@@ -524,12 +529,13 @@ test-install-operator-lifecycle-manager:
 	$(KUBECTL) rollout status -w deployment/catalog-operator --namespace=olm
 
 
+OPERATOR_SDK_RUN_BUNDLE_EXTRA_ARGS ?= ""
 .PHONY: test-deploy-operator-operator-sdk
 test-deploy-operator-operator-sdk: $(KUSTOMIZE) test-install-operator-lifecycle-manager ## Deploy the DPF Operator using operator-sdk
 	# Create the namespace for the operator to be installed.
 	$(KUBECTL) create namespace $(OPERATOR_NAMESPACE)
 	# TODO: This flow does not work on MacOS dues to some issue pulling images. Should be enabled to make local testing equivalent to CI.
-	$(OPERATOR_SDK) run bundle --namespace $(OPERATOR_NAMESPACE) --index-image quay.io/operator-framework/opm:$(OPERATOR_REGISTRY_VERSION) $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
+	$(OPERATOR_SDK) run bundle --namespace $(OPERATOR_NAMESPACE) --index-image quay.io/operator-framework/opm:$(OPERATOR_REGISTRY_VERSION) $(OPERATOR_SDK_RUN_BUNDLE_EXTRA_ARGS) $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
 
 .PHONY: test-undeploy-operator-kustomize
 test-undeploy-operator-kustomize: $(KUSTOMIZE) ## Undeploy the DPF Operator using kustomize
@@ -1126,12 +1132,12 @@ dev-prereqs-dpuservice: $(KUSTOMIZE) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(HELM)
 	$(KUSTOMIZE) build config/dpuservice/crd | $(KUBECTL) apply -f -
 
     # Deploy cert manager to provide certificates for webhooks
-	$Q kubectl apply -f $(CERT_MANAGER_YAML) \
+	$Q $(KUBECTL) apply -f $(CERT_MANAGER_YAML) \
 	&& echo "Waiting for cert-manager deployment to be ready."\
-	&& kubectl wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
+	&& $(KUBECTL) wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
 
 	# Deploy argoCD as the underlying application provider.
-	$Q kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f - && kubectl apply -f $(ARGOCD_YAML)
+	$Q $(KUBECTL) create namespace argocd --dry-run=client -o yaml | $(KUBECTL) apply -f - && $(KUBECTL) apply -f $(ARGOCD_YAML)
 
 	$Q $(HELM) upgrade --set image.pullPolicy=IfNotPresent --set cfssl.image.tag=v1.6.5 --install kamaji $(KAMAJI)
 
