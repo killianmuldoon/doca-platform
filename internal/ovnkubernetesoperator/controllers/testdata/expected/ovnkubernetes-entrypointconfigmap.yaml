@@ -1,6 +1,6 @@
 apiVersion: v1
 data:
-  dpf-inventory.json: '[{"hostClusterNodeName":"ocp-node-1","hostIP":"10.0.96.10/24","dpuIP":"10.0.96.20/24","gateway":"10.0.96.254"},{"hostClusterNodeName":"ocp-node-2","hostIP":"10.0.97.10/24","dpuIP":"10.0.97.20/24","gateway":"10.0.97.254"}]'
+  dpf-inventory.json: '[{"hostClusterNodeName":"ocp-node-1","gateway":"10.0.96.254","hostPF0VF0":"ens1f0v0"},{"hostClusterNodeName":"ocp-node-2","gateway":"10.0.97.254","hostPF0VF0":"ens27f0v0"}]'
   ovnkube-lib.sh: |-
     #!/bin/bash
     set -x
@@ -514,7 +514,7 @@ data:
         gw_interface_flag="--exgw-interface=br-ex1"
       fi
 
-      node_mgmt_port_netdev_flags=
+      node_mgmt_port_netdev_flags="--ovnkube-node-mgmt-port-netdev $(cat /ovnkube-lib/dpf-inventory.json | jq -r ".[] | select(.hostClusterNodeName==\"${K8S_NODE}\").hostPF0VF0")"
       if [[ -n "${OVNKUBE_NODE_MGMT_PORT_NETDEV}" ]] ; then
         node_mgmt_port_netdev_flags="--ovnkube-node-mgmt-port-netdev ${OVNKUBE_NODE_MGMT_PORT_NETDEV}"
       fi

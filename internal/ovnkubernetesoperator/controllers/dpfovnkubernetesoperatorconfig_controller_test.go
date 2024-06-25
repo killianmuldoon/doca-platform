@@ -570,7 +570,6 @@ networking:
 			})
 			It("should generate correct object when all expected fields are there", func() {
 				operatorConfig := getMinimalDPFOVNKubernetesOperatorConfig("")
-				operatorConfig.Spec.HostPF0VF0 = "enp75s0f0v0"
 				operatorConfig.Spec.ImagePullSecrets = []string{"secret-1", "secret-2"}
 				out, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, operatorConfig, "some-image")
 				Expect(err).ToNot(HaveOccurred())
@@ -617,10 +616,6 @@ networking:
 							MountPath: "/var/dpf/sys",
 						}))
 
-						Expect(c.Env).To(ContainElement(corev1.EnvVar{
-							Name:  "OVNKUBE_NODE_MGMT_PORT_NETDEV",
-							Value: "enp75s0f0v0",
-						}))
 						Expect(c.Image).To(Equal("some-image"))
 					}
 					if c.Name == "ovn-controller" {
@@ -746,7 +741,6 @@ networking:
 			})
 			It("should generate correct object", func() {
 				operatorConfig := getMinimalDPFOVNKubernetesOperatorConfig("dpf-operator-system")
-				//operatorConfig.Name = "dpfoperatorconfig"
 				operatorConfig.Spec.HostPF0 = "ens27f0np0"
 				operatorConfig.Spec.Hosts = []ovnkubernetesoperatorv1.Host{
 					{
@@ -761,9 +755,30 @@ networking:
 						DPUIP:               "10.0.97.20/24",
 						Gateway:             "10.0.97.254",
 					},
+					// We don't expect this node to be included in the config because the node doesn't have the expected
+					// label
+					{
+						HostClusterNodeName: "ocp-node-3",
+						HostIP:              "10.0.98.10/24",
+						DPUIP:               "10.0.98.20/24",
+						Gateway:             "10.0.98.254",
+					},
+					// We don't expect this node to be included in the config because it doesn't exist in the cluster
+					{
+						HostClusterNodeName: "ocp-node-4",
+						HostIP:              "10.0.99.10/24",
+						DPUIP:               "10.0.99.20/24",
+						Gateway:             "10.0.99.254",
+					},
 				}
 
-				out, err := generateCustomOVNKubernetesEntrypointConfigMap(&originalConfigMap, operatorConfig)
+				hostNodes := []corev1.Node{
+					{ObjectMeta: metav1.ObjectMeta{Name: "ocp-node-1", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pf-name": "ens1f0np0"}}},
+					{ObjectMeta: metav1.ObjectMeta{Name: "ocp-node-2", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pf-name": "ens27f0np0"}}},
+					{ObjectMeta: metav1.ObjectMeta{Name: "ocp-node-3"}},
+				}
+
+				out, err := generateCustomOVNKubernetesEntrypointConfigMap(&originalConfigMap, operatorConfig, hostNodes)
 				Expect(err).ToNot(HaveOccurred())
 
 				content, err := os.ReadFile("testdata/expected/ovnkubernetes-entrypointconfigmap.yaml")
@@ -783,7 +798,7 @@ networking:
 			})
 			It("should error out when relevant key is not found in configmap", func() {
 				delete(originalConfigMap.Data, ovnKubernetesEntrypointConfigMapScriptKey)
-				_, err := generateCustomOVNKubernetesEntrypointConfigMap(&originalConfigMap, getMinimalDPFOVNKubernetesOperatorConfig(""))
+				_, err := generateCustomOVNKubernetesEntrypointConfigMap(&originalConfigMap, getMinimalDPFOVNKubernetesOperatorConfig(""), []corev1.Node{})
 				Expect(err).To(HaveOccurred())
 			})
 		})

@@ -120,6 +120,9 @@ const (
 	// so that we can construct the dpu node name in the tenant cluster. This label is added via the a script that the
 	// user preconfigures on the cluster using MachineConfig.
 	dpuPCIAddressLabelKey = "feature.node.kubernetes.io/dpu.features-dpu-pciAddress"
+	// dpuPFNameLabelKey is the node label that indicates the PF name of the DPU. This label is added via the a script
+	// that the user preconfigures on the cluster using MachineConfig.
+	dpuPFNameLabelKey = "feature.node.kubernetes.io/dpu.features-dpu-pf-name"
 	// networkSetupReadyNodeLabel is the label used to determine when a node is ready to run the custom OVN Kubernetes
 	// Pod.
 	networkPreconfigurationReadyNodeLabel = "dpf.nvidia.com/network-preconfig-ready"
@@ -771,7 +774,13 @@ func deployCustomOVNKubernetesEntrypointConfigMap(ctx context.Context, c client.
 	if err := c.Get(ctx, key, ovnKubernetesEntrypointConfigMap); err != nil {
 		return fmt.Errorf("error while getting %s %s: %w", ovnKubernetesEntrypointConfigMap.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
-	customOVNKubernetesEntrypointConfigMap, err := generateCustomOVNKubernetesEntrypointConfigMap(ovnKubernetesEntrypointConfigMap, operatorConfig)
+
+	hostNodeList := &corev1.NodeList{}
+	if err := c.List(ctx, hostNodeList, client.MatchingLabels{dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue}); err != nil {
+		return fmt.Errorf("error while listing dpu enabled nodes: %w", err)
+	}
+
+	customOVNKubernetesEntrypointConfigMap, err := generateCustomOVNKubernetesEntrypointConfigMap(ovnKubernetesEntrypointConfigMap, operatorConfig, hostNodeList.Items)
 	if err != nil {
 		return fmt.Errorf("error while generating custom OVN Kubernetes Entrypoint ConfigMap: %w", err)
 	}
@@ -940,17 +949,12 @@ func generateCustomOVNKubernetesDaemonSet(base *appsv1.DaemonSet, operatorConfig
 			MountPath: hostPath,
 		})
 
-		// https://gitlab-master.nvidia.com/vremmas/dpf-dpu-ovs-for-host/-/commit/57e552e831fef852ae25c24c8e02698130dd19e7
-		out.Spec.Template.Spec.Containers[i].Env = append(out.Spec.Template.Spec.Containers[i].Env, corev1.EnvVar{
-			Name:  "OVNKUBE_NODE_MGMT_PORT_NETDEV",
-			Value: operatorConfig.Spec.HostPF0VF0,
-		})
 		configured = true
 		break
 	}
 
 	if !configured {
-		errs = append(errs, fmt.Errorf("error while configuring volume and env variables for container %s in %s Daemonset: container not found", ovnKubernetesKubeControllerContainerName, ovnKubernetesDaemonsetName))
+		errs = append(errs, fmt.Errorf("error while configuring volume for container %s in %s Daemonset: container not found", ovnKubernetesKubeControllerContainerName, ovnKubernetesDaemonsetName))
 	}
 
 	// Use custom config maps
@@ -1074,7 +1078,7 @@ func generateCustomOVNKubernetesConfigMap(base *corev1.ConfigMap) (*corev1.Confi
 
 // generateCustomOVNKubernetesEntrypointConfigMap returns a custom OVN Kubernetes Entrypoint ConfigMap based on the
 // given ConfigMap. Returns error if any of configuration is not reflected on the returned object.
-func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig) (*corev1.ConfigMap, error) {
+func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig, hostNodes []corev1.Node) (*corev1.ConfigMap, error) {
 	if base == nil {
 		return nil, fmt.Errorf("input is nil")
 	}
@@ -1090,11 +1094,37 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, oper
 	}
 	out.Data = dirtyOriginal.Data
 
+	type dpfInventoryEntry struct {
+		HostClusterNodeName string `json:"hostClusterNodeName"`
+		Gateway             string `json:"gateway"`
+		HostPF0VF0          string `json:"hostPF0VF0"`
+	}
+
+	dpfInventory := []dpfInventoryEntry{}
+
+	pf0vf0PerHost := getPF0VF0PerHost(hostNodes)
+
+	for _, h := range operatorConfig.Spec.Hosts {
+		o := dpfInventoryEntry{
+			HostClusterNodeName: h.HostClusterNodeName,
+			Gateway:             h.Gateway,
+		}
+
+		pf0vf0, ok := pf0vf0PerHost[h.HostClusterNodeName]
+		if !ok {
+			continue
+		}
+
+		o.HostPF0VF0 = pf0vf0
+
+		dpfInventory = append(dpfInventory, o)
+	}
+
 	// Create new field with partial content of the DPFOperatorConfig
 	configMapInventoryField := "dpf-inventory.json"
-	hostNetConfigBytes, err := json.Marshal(operatorConfig.Spec.Hosts)
+	hostNetConfigBytes, err := json.Marshal(dpfInventory)
 	if err != nil {
-		return nil, fmt.Errorf("error while converting the HostNetworkConfiguration field of the DPFOperatorConfig object into bytes: %w", err)
+		return nil, fmt.Errorf("error while converting the internal dpfInventory DTO into bytes: %w", err)
 	}
 
 	out.Data[configMapInventoryField] = string(hostNetConfigBytes)
@@ -1124,6 +1154,13 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, oper
 		fmt.Sprintf("gateway_mode_flags=\"--gateway-mode shared --gateway-interface %s --gateway-nexthop $(cat /ovnkube-lib/%s | jq -r \".[] | select(.hostClusterNodeName==\\\"${K8S_NODE}\\\").gateway\")\"",
 			operatorConfig.Spec.HostPF0,
 			configMapInventoryField))
+
+	// To support different pf0vf0 name per host and also avoid requiring from the user to specify the pf0vf0 of the
+	// hosts via the config CR, we have to figure to configure that pf0vf0 per pod using the same mechanism as above.
+	value = strings.Replace(value,
+		"node_mgmt_port_netdev_flags=",
+		fmt.Sprintf("node_mgmt_port_netdev_flags=\"--ovnkube-node-mgmt-port-netdev $(cat /ovnkube-lib/%s | jq -r \".[] | select(.hostClusterNodeName==\\\"${K8S_NODE}\\\").hostPF0VF0\")\"",
+			configMapInventoryField), 1)
 
 	out.Data[ovnKubernetesEntrypointConfigMapScriptKey] = value
 
@@ -1181,6 +1218,21 @@ func getHostToDPUNodeName(nodes []corev1.Node) map[string]string {
 		if pciAddress, ok := n.Labels[dpuPCIAddressLabelKey]; ok {
 			// This is a contract with the provisioning team
 			m[n.Name] = fmt.Sprintf("%s-%s", n.Name, pciAddress)
+		}
+	}
+	return m
+}
+
+// getPF0VF0PerHost returns the mapping between the host node name and the name of the pf0vf0 VF.
+func getPF0VF0PerHost(nodes []corev1.Node) map[string]string {
+	m := make(map[string]string)
+	for _, n := range nodes {
+		if pfName, ok := n.Labels[dpuPFNameLabelKey]; ok {
+			// This is an assumption. It's not guaranteed that the VF will always look like that and it heavily depends
+			// on udev rules and other configuration on the system.
+			nameWithoutPF := pfName[:len(pfName)-3]
+			vf0Name := nameWithoutPF + "v0"
+			m[n.Name] = vf0Name
 		}
 	}
 	return m

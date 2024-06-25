@@ -31,9 +31,6 @@ type DPFOVNKubernetesOperatorConfigSpec struct {
 	Hosts []Host `json:"hosts"`
 	// HostPF0 is the name of the PF0 on the host. It needs to be the same across all the worker nodes.
 	HostPF0 string `json:"hostPF0"`
-	// HostPF0VF0 is the name of the first VF of the PF0 on the host. It needs to be the same across all the worker
-	// nodes.
-	HostPF0VF0 string `json:"hostPF0VF0"`
 
 	// List of secret names which are used to pull images for OVN Kubernetes components.
 	ImagePullSecrets []string `json:"imagePullSecrets,omitempty"`
