@@ -74,7 +74,7 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	provisioner := dpucniprovisioner.New(ovsClient, networkhelper.New(), kexec.New(), vtepIP, gateway, vtepCIDR, hostCIDR, config.HostPF0)
+	provisioner := dpucniprovisioner.New(ovsClient, networkhelper.New(), kexec.New(), vtepIP, gateway, vtepCIDR, hostCIDR, getHostPF0(config))
 
 	err = provisioner.RunOnce()
 	if err != nil {
@@ -142,4 +142,11 @@ func getGateway(c *dpucniprovisionerconfig.DPUCNIProvisionerConfig) (net.IP, err
 	}
 
 	return gateway, nil
+}
+
+// getHostPF0 figures out the name of the host pf0 from the given config
+func getHostPF0(c *dpucniprovisionerconfig.DPUCNIProvisionerConfig) string {
+	node := os.Getenv("NODE_NAME")
+	hostPF0 := c.PerNodeConfig[node].HostPF0
+	return hostPF0
 }

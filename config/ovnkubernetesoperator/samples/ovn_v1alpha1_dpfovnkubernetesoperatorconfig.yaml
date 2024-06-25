@@ -10,7 +10,6 @@ metadata:
   name: default
   namespace: dpf-operator-system
 spec:
-  hostPF0: ens2f0np0
   cidr: 10.0.96.0/20
   hosts:
   - hostClusterNodeName: ocp-worker-1

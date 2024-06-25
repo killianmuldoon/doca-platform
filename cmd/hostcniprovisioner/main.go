@@ -58,7 +58,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	c := clock.RealClock{}
-	provisioner := hostcniprovisioner.New(ctx, c, networkhelper.New(), kexec.New(), config.HostPF0, pfIP)
+	provisioner := hostcniprovisioner.New(ctx, c, networkhelper.New(), kexec.New(), getHostPF0(config), pfIP)
 
 	err = provisioner.RunOnce()
 	if err != nil {
@@ -102,25 +102,33 @@ func parseConfig() (*hostcniprovisionerconfig.HostCNIProvisionerConfig, error) {
 		return nil, err
 	}
 
+	node := os.Getenv("NODE_NAME")
+	if node == "" {
+		return nil, errors.New("NODE_NAME environment variable is not found. This is supposed to be configured via Kubernetes Downward API in production")
+	}
+
+	if _, ok := config.PerNodeConfig[node]; !ok {
+		return nil, errors.New("perNodeConfig for node %s doesn't exist")
+	}
+
 	return &config, nil
 }
 
 // getPFIP figures out the PF IP to be configured by the provisioner
 func getPFIP(c *hostcniprovisionerconfig.HostCNIProvisionerConfig) (*net.IPNet, error) {
 	node := os.Getenv("NODE_NAME")
-	if node == "" {
-		return nil, errors.New("NODE_NAME environment variable is not found. This is supposed to be configured via Kubernetes Downward API in production")
-	}
-
-	pfIPRaw, ok := c.PFIPs[node]
-	if !ok {
-		return nil, fmt.Errorf("PF IP not found in config for node %s", node)
-	}
-
+	pfIPRaw := c.PerNodeConfig[node].PFIP
 	pfIP, err := netlink.ParseIPNet(pfIPRaw)
 	if err != nil {
 		return nil, fmt.Errorf("error while parsing PF IP to net.IPNet: %w", err)
 	}
 
 	return pfIP, nil
+}
+
+// getHostPF0 figures out the name of the host pf0 from the given config
+func getHostPF0(c *hostcniprovisionerconfig.HostCNIProvisionerConfig) string {
+	node := os.Getenv("NODE_NAME")
+	hostPF0 := c.PerNodeConfig[node].HostPF0
+	return hostPF0
 }

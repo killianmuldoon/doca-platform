@@ -741,7 +741,6 @@ networking:
 			})
 			It("should generate correct object", func() {
 				operatorConfig := getMinimalDPFOVNKubernetesOperatorConfig("dpf-operator-system")
-				operatorConfig.Spec.HostPF0 = "ens27f0np0"
 				operatorConfig.Spec.Hosts = []ovnkubernetesoperatorv1.Host{
 					{
 						HostClusterNodeName: "ocp-node-1",
@@ -861,16 +860,24 @@ networking:
 					return operatorConfig
 				}(),
 					[]corev1.Node{
-						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-90-00"}}},
-						{ObjectMeta: metav1.ObjectMeta{Name: "worker2", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-30-00"}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{
+							"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-90-00",
+							"feature.node.kubernetes.io/dpu.features-dpu-pf-name":    "ens1f0np0",
+						}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker2", Labels: map[string]string{
+							"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-30-00",
+							"feature.node.kubernetes.io/dpu.features-dpu-pf-name":    "ens27f0np0",
+						}}},
 					},
 					dpucniprovisionerconfig.DPUCNIProvisionerConfig{
 						PerNodeConfig: map[string]dpucniprovisionerconfig.PerNodeConfig{
 							"worker1-0000-90-00": {
+								HostPF0: "ens1f0np0",
 								VTEPIP:  "10.0.96.20/24",
 								Gateway: "10.0.96.254",
 							},
 							"worker2-0000-30-00": {
+								HostPF0: "ens27f0np0",
 								VTEPIP:  "10.0.97.20/24",
 								Gateway: "10.0.97.254",
 							},
@@ -896,12 +903,55 @@ networking:
 					return operatorConfig
 				}(),
 					[]corev1.Node{
-						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-90-00"}}},
-						{ObjectMeta: metav1.ObjectMeta{Name: "worker2"}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{
+							"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-90-00",
+							"feature.node.kubernetes.io/dpu.features-dpu-pf-name":    "ens1f0np0",
+						}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker2", Labels: map[string]string{
+							"feature.node.kubernetes.io/dpu.features-dpu-pf-name": "ens27f0np0",
+						}}},
 					},
 					dpucniprovisionerconfig.DPUCNIProvisionerConfig{
 						PerNodeConfig: map[string]dpucniprovisionerconfig.PerNodeConfig{
 							"worker1-0000-90-00": {
+								HostPF0: "ens1f0np0",
+								VTEPIP:  "10.0.96.20/24",
+								Gateway: "10.0.96.254",
+							},
+						},
+						VTEPCIDR: "10.0.96.0/20",
+						HostCIDR: "10.0.110.0/24",
+					}),
+				Entry("node doesn't have pf label", func() *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig {
+					operatorConfig := getMinimalDPFOVNKubernetesOperatorConfig("")
+					operatorConfig.Spec.Hosts = []ovnkubernetesoperatorv1.Host{
+						{
+							HostClusterNodeName: "worker1",
+							DPUIP:               "10.0.96.20/24",
+							Gateway:             "10.0.96.254",
+						},
+						{
+							HostClusterNodeName: "worker2",
+							DPUIP:               "10.0.97.20/24",
+							Gateway:             "10.0.97.254",
+						},
+					}
+					operatorConfig.Spec.CIDR = "10.0.96.0/20"
+					return operatorConfig
+				}(),
+					[]corev1.Node{
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{
+							"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-90-00",
+							"feature.node.kubernetes.io/dpu.features-dpu-pf-name":    "ens1f0np0",
+						}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker2", Labels: map[string]string{
+							"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-30-00",
+						}}},
+					},
+					dpucniprovisionerconfig.DPUCNIProvisionerConfig{
+						PerNodeConfig: map[string]dpucniprovisionerconfig.PerNodeConfig{
+							"worker1-0000-90-00": {
+								HostPF0: "ens1f0np0",
 								VTEPIP:  "10.0.96.20/24",
 								Gateway: "10.0.96.254",
 							},
@@ -922,12 +972,19 @@ networking:
 					return operatorConfig
 				}(),
 					[]corev1.Node{
-						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-90-00"}}},
-						{ObjectMeta: metav1.ObjectMeta{Name: "worker2", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-30-00"}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{
+							"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-90-00",
+							"feature.node.kubernetes.io/dpu.features-dpu-pf-name":    "ens1f0np0",
+						}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker2", Labels: map[string]string{
+							"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-30-00",
+							"feature.node.kubernetes.io/dpu.features-dpu-pf-name":    "ens27f0np0",
+						}}},
 					},
 					dpucniprovisionerconfig.DPUCNIProvisionerConfig{
 						PerNodeConfig: map[string]dpucniprovisionerconfig.PerNodeConfig{
 							"worker1-0000-90-00": {
+								HostPF0: "ens1f0np0",
 								VTEPIP:  "10.0.96.20/24",
 								Gateway: "10.0.96.254",
 							},
@@ -1036,18 +1093,38 @@ spec:
 						HostClusterNodeName: "ocp-node-2",
 						HostIP:              "192.168.1.20/24",
 					},
+					// We don't expect this entry in the output config because the node doesn't have the expected label
+					{
+						HostClusterNodeName: "ocp-node-4",
+						HostIP:              "192.168.1.30/24",
+					},
+					// We don't expect this entry in the output config because the node doesn't exist in the cluster
+					{
+						HostClusterNodeName: "ocp-node-4",
+						HostIP:              "192.168.1.40/24",
+					},
 				}
-				operatorConfig.Spec.HostPF0 = "ens27f0np0"
+
+				hostNodes := []corev1.Node{
+					{ObjectMeta: metav1.ObjectMeta{Name: "ocp-node-1", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pf-name": "ens1f0np0"}}},
+					{ObjectMeta: metav1.ObjectMeta{Name: "ocp-node-2", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pf-name": "ens27f0np0"}}},
+					{ObjectMeta: metav1.ObjectMeta{Name: "ocp-node-3"}},
+				}
 
 				expectedHostCNIProvisionerConfig := hostcniprovisionerconfig.HostCNIProvisionerConfig{
-					PFIPs: map[string]string{
-						"ocp-node-1": "192.168.1.10/24",
-						"ocp-node-2": "192.168.1.20/24",
+					PerNodeConfig: map[string]hostcniprovisionerconfig.PerNodeConfig{
+						"ocp-node-1": {
+							PFIP:    "192.168.1.10/24",
+							HostPF0: "ens1f0np0",
+						},
+						"ocp-node-2": {
+							PFIP:    "192.168.1.20/24",
+							HostPF0: "ens27f0np0",
+						},
 					},
-					HostPF0: "ens27f0np0",
 				}
 
-				objects, err := generateHostCNIProvisionerObjects(operatorConfig)
+				objects, err := generateHostCNIProvisionerObjects(operatorConfig, hostNodes)
 				Expect(err).ToNot(HaveOccurred())
 
 				rawObjects, err := utils.BytesToUnstructured(hostCNIProvisionerManifestContent)
@@ -1105,7 +1182,7 @@ spec:
         `)
 
 				By("Running the test against the mocked environment")
-				_, err := generateHostCNIProvisionerObjects(operatorConfig)
+				_, err := generateHostCNIProvisionerObjects(operatorConfig, []corev1.Node{})
 				Expect(err).To(HaveOccurred())
 
 				By("Reverting hostCNIProvisionerManifestContent global variable to the original value")
@@ -1116,7 +1193,7 @@ spec:
 				operatorConfig := getMinimalDPFOVNKubernetesOperatorConfig("")
 				operatorConfig.Spec.ImagePullSecrets = []string{"secret-1", "secret-2"}
 
-				objects, err := generateHostCNIProvisionerObjects(operatorConfig)
+				objects, err := generateHostCNIProvisionerObjects(operatorConfig, []corev1.Node{})
 				Expect(err).ToNot(HaveOccurred())
 
 				rawObjects, err := utils.BytesToUnstructured(hostCNIProvisionerManifestContent)

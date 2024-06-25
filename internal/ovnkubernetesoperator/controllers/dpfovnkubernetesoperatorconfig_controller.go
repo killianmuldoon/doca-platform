@@ -626,7 +626,11 @@ func getDPUClusterClients(ctx context.Context, c client.Client) (map[controlplan
 
 // deployHostCNIProvisioner deploys the Host CNI Provisioner to the Host (OCP) cluster
 func deployHostCNIProvisioner(ctx context.Context, c client.Client, operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig) ([]*unstructured.Unstructured, error) {
-	hostCNIProvisionerObjects, err := generateHostCNIProvisionerObjects(operatorConfig)
+	hostNodeList := &corev1.NodeList{}
+	if err := c.List(ctx, hostNodeList, client.MatchingLabels{dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue}); err != nil {
+		return nil, fmt.Errorf("error while listing dpu enabled nodes: %w", err)
+	}
+	hostCNIProvisionerObjects, err := generateHostCNIProvisionerObjects(operatorConfig, hostNodeList.Items)
 	if err != nil {
 		return nil, fmt.Errorf("error while generating Host CNI provisioner objects: %w", err)
 	}
@@ -1098,11 +1102,13 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, oper
 		HostClusterNodeName string `json:"hostClusterNodeName"`
 		Gateway             string `json:"gateway"`
 		HostPF0VF0          string `json:"hostPF0VF0"`
+		HostPF0             string `json:"hostPF0"`
 	}
 
 	dpfInventory := []dpfInventoryEntry{}
 
 	pf0vf0PerHost := getPF0VF0PerHost(hostNodes)
+	pf0PerHost := getPF0PerHost(hostNodes)
 
 	for _, h := range operatorConfig.Spec.Hosts {
 		o := dpfInventoryEntry{
@@ -1116,6 +1122,13 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, oper
 		}
 
 		o.HostPF0VF0 = pf0vf0
+
+		pf0, ok := pf0PerHost[h.HostClusterNodeName]
+		if !ok {
+			continue
+		}
+
+		o.HostPF0 = pf0
 
 		dpfInventory = append(dpfInventory, o)
 	}
@@ -1151,8 +1164,8 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, oper
 	// Note: the OVN Kubernetes DaemonSet mounts the ovnkube-script-lib configmap under /ovnkube-lib.
 	value = strings.ReplaceAll(value,
 		"gateway_mode_flags=\"--gateway-mode shared --gateway-interface br-ex\"",
-		fmt.Sprintf("gateway_mode_flags=\"--gateway-mode shared --gateway-interface %s --gateway-nexthop $(cat /ovnkube-lib/%s | jq -r \".[] | select(.hostClusterNodeName==\\\"${K8S_NODE}\\\").gateway\")\"",
-			operatorConfig.Spec.HostPF0,
+		fmt.Sprintf("gateway_mode_flags=\"--gateway-mode shared --gateway-interface $(cat /ovnkube-lib/%s | jq -r \".[] | select(.hostClusterNodeName==\\\"${K8S_NODE}\\\").hostPF0\")\" --gateway-nexthop $(cat /ovnkube-lib/%s | jq -r \".[] | select(.hostClusterNodeName==\\\"${K8S_NODE}\\\").gateway\")\"",
+			configMapInventoryField,
 			configMapInventoryField))
 
 	// To support different pf0vf0 name per host and also avoid requiring from the user to specify the pf0vf0 of the
@@ -1180,21 +1193,27 @@ func generateDPUCNIProvisionerObjects(operatorConfig *ovnkubernetesoperatorv1.DP
 	}
 
 	hostToDPUNodeName := getHostToDPUNodeName(hostNodes)
+	pf0PerHost := getPF0PerHost(hostNodes)
 
 	config := dpucniprovisionerconfig.DPUCNIProvisionerConfig{
 		PerNodeConfig: make(map[string]dpucniprovisionerconfig.PerNodeConfig),
 		VTEPCIDR:      operatorConfig.Spec.CIDR,
 		HostCIDR:      hostCIDR.String(),
-		HostPF0:       operatorConfig.Spec.HostPF0,
 	}
 	for _, host := range operatorConfig.Spec.Hosts {
 		dpuName, ok := hostToDPUNodeName[host.HostClusterNodeName]
 		if !ok {
 			continue
 		}
+		pf0, ok := pf0PerHost[host.HostClusterNodeName]
+		if !ok {
+			continue
+		}
+
 		config.PerNodeConfig[dpuName] = dpucniprovisionerconfig.PerNodeConfig{
 			VTEPIP:  host.DPUIP,
 			Gateway: host.Gateway,
+			HostPF0: pf0,
 		}
 	}
 
@@ -1233,6 +1252,17 @@ func getPF0VF0PerHost(nodes []corev1.Node) map[string]string {
 			nameWithoutPF := pfName[:len(pfName)-3]
 			vf0Name := nameWithoutPF + "v0"
 			m[n.Name] = vf0Name
+		}
+	}
+	return m
+}
+
+// getPF0PerHost returns the mapping between the host node name and the name of the pf0 PF.
+func getPF0PerHost(nodes []corev1.Node) map[string]string {
+	m := make(map[string]string)
+	for _, n := range nodes {
+		if pfName, ok := n.Labels[dpuPFNameLabelKey]; ok {
+			m[n.Name] = pfName
 		}
 	}
 	return m
@@ -1279,18 +1309,27 @@ func getHostCIDRFromOpenShiftClusterConfig(openshiftClusterConfig *corev1.Config
 }
 
 // generateHostCNIProvisionerObjects generates the Host CNI Provisioner objects
-func generateHostCNIProvisionerObjects(operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig) ([]*unstructured.Unstructured, error) {
+func generateHostCNIProvisionerObjects(operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig, hostNodes []corev1.Node) ([]*unstructured.Unstructured, error) {
 	hostCNIProvisionerObjects, err := utils.BytesToUnstructured(hostCNIProvisionerManifestContent)
 	if err != nil {
 		return nil, fmt.Errorf("error while converting manifests to objects: %w", err)
 	}
 
+	pf0PerHost := getPF0PerHost(hostNodes)
+
 	config := hostcniprovisionerconfig.HostCNIProvisionerConfig{
-		PFIPs:   make(map[string]string),
-		HostPF0: operatorConfig.Spec.HostPF0,
+		PerNodeConfig: make(map[string]hostcniprovisionerconfig.PerNodeConfig),
 	}
 	for _, host := range operatorConfig.Spec.Hosts {
-		config.PFIPs[host.HostClusterNodeName] = host.HostIP
+		pf0, ok := pf0PerHost[host.HostClusterNodeName]
+		if !ok {
+			continue
+		}
+
+		config.PerNodeConfig[host.HostClusterNodeName] = hostcniprovisionerconfig.PerNodeConfig{
+			PFIP:    host.HostIP,
+			HostPF0: pf0,
+		}
 	}
 
 	err = populateCNIProvisionerConfigMap(hostCNIProvisionerObjects, "host-cni-provisioner", config)

@@ -13,7 +13,6 @@ spec:
   values:
     config:
       vfResourceName: openshift.io/bf3-p0-vfs
-      hostPF0: ens1f0np0
       cidr: 10.0.120.0/24
       hosts:
       - hostClusterNodeName: ocp-host-worker1-1

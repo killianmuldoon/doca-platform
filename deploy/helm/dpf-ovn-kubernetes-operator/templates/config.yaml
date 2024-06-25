@@ -5,7 +5,6 @@ metadata:
   name: {{ include "dpf-ovn-kubernetes-operator.fullname" . }}-default
   namespace: {{ .Release.Namespace }}
 spec:
-  hostPF0: {{ .Values.config.hostPF0 }}
   cidr: {{ .Values.config.cidr }}
   hosts: {{ .Values.config.hosts | default list | toJson }}
   imagePullSecrets: {{ .Values.imagePullSecrets | default list | toJson }}
