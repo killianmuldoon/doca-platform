@@ -119,7 +119,7 @@ const (
 	// dpuPCIAddressLabelKey is the node label that indicates the PCI address of the DPU. This information is useful
 	// so that we can construct the dpu node name in the tenant cluster. This label is added via the a script that the
 	// user preconfigures on the cluster using MachineConfig.
-	dpuPCIAddressLabelKey = "provisioning.dpf.nvidia.com/dpu-pciAddress"
+	dpuPCIAddressLabelKey = "feature.node.kubernetes.io/dpu.features-dpu-pciAddress"
 	// networkSetupReadyNodeLabel is the label used to determine when a node is ready to run the custom OVN Kubernetes
 	// Pod.
 	networkPreconfigurationReadyNodeLabel = "dpf.nvidia.com/network-preconfig-ready"

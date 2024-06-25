@@ -846,8 +846,8 @@ networking:
 					return operatorConfig
 				}(),
 					[]corev1.Node{
-						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-90-00"}}},
-						{ObjectMeta: metav1.ObjectMeta{Name: "worker2", Labels: map[string]string{"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-30-00"}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-90-00"}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker2", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-30-00"}}},
 					},
 					dpucniprovisionerconfig.DPUCNIProvisionerConfig{
 						PerNodeConfig: map[string]dpucniprovisionerconfig.PerNodeConfig{
@@ -881,7 +881,7 @@ networking:
 					return operatorConfig
 				}(),
 					[]corev1.Node{
-						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-90-00"}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-90-00"}}},
 						{ObjectMeta: metav1.ObjectMeta{Name: "worker2"}},
 					},
 					dpucniprovisionerconfig.DPUCNIProvisionerConfig{
@@ -907,8 +907,8 @@ networking:
 					return operatorConfig
 				}(),
 					[]corev1.Node{
-						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-90-00"}}},
-						{ObjectMeta: metav1.ObjectMeta{Name: "worker2", Labels: map[string]string{"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-30-00"}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-90-00"}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker2", Labels: map[string]string{"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-30-00"}}},
 					},
 					dpucniprovisionerconfig.DPUCNIProvisionerConfig{
 						PerNodeConfig: map[string]dpucniprovisionerconfig.PerNodeConfig{
