@@ -65,10 +65,6 @@ spec:
                     Host represents a host with a DPU where DPF operator is going to be installed to and we expect to have host network
                     working.
                   properties:
-                    dpuClusterNodeName:
-                      description: DPUClusterNodeName is the name of the node in the
-                        DPU cluster (Kamaji).
-                      type: string
                     dpuIP:
                       description: |-
                         DPUIP is the IP that will be assigned to the VTEP interface of the DPU.
@@ -89,7 +85,6 @@ spec:
                         TODO: Add validator in validating webhook to ensure string is actually net.IPNet
                       type: string
                   required:
-                  - dpuClusterNodeName
                   - dpuIP
                   - gateway
                   - hostClusterNodeName

@@ -116,6 +116,10 @@ const (
 	dpuEnabledNodeLabelKey = "feature.node.kubernetes.io/dpu-enabled"
 	// dpuEnabledNodeLabelValue is the value of the dpuEnabledNodeLabelKey.
 	dpuEnabledNodeLabelValue = "true"
+	// dpuPCIAddressLabelKey is the node label that indicates the PCI address of the DPU. This information is useful
+	// so that we can construct the dpu node name in the tenant cluster. This label is added via the a script that the
+	// user preconfigures on the cluster using MachineConfig.
+	dpuPCIAddressLabelKey = "provisioning.dpf.nvidia.com/dpu-pciAddress"
 	// networkSetupReadyNodeLabel is the label used to determine when a node is ready to run the custom OVN Kubernetes
 	// Pod.
 	networkPreconfigurationReadyNodeLabel = "dpf.nvidia.com/network-preconfig-ready"
@@ -580,7 +584,12 @@ func deployDPUCNIProvisioner(ctx context.Context, c client.Client, dpuClustersCl
 		return nil, fmt.Errorf("error while getting %s %s: %w", openshiftClusterConfig.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
 
-	dpuCNIProvisionerObjects, err := generateDPUCNIProvisionerObjects(operatorConfig, openshiftClusterConfig)
+	hostNodeList := &corev1.NodeList{}
+	if err := c.List(ctx, hostNodeList, client.MatchingLabels{dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue}); err != nil {
+		return nil, fmt.Errorf("error while listing dpu enabled nodes: %w", err)
+	}
+
+	dpuCNIProvisionerObjects, err := generateDPUCNIProvisionerObjects(operatorConfig, openshiftClusterConfig, hostNodeList.Items)
 	if err != nil {
 		return nil, fmt.Errorf("error while generating DPU CNI provisioner objects: %w", err)
 	}
@@ -1122,7 +1131,7 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, oper
 }
 
 // generateDPUCNIProvisionerObjects generates the DPU CNI Provisioner objects
-func generateDPUCNIProvisionerObjects(operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig, openshiftClusterConfig *corev1.ConfigMap) ([]*unstructured.Unstructured, error) {
+func generateDPUCNIProvisionerObjects(operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig, openshiftClusterConfig *corev1.ConfigMap, hostNodes []corev1.Node) ([]*unstructured.Unstructured, error) {
 	dpuCNIProvisionerObjects, err := utils.BytesToUnstructured(dpuCNIProvisionerManifestContent)
 	if err != nil {
 		return nil, fmt.Errorf("error while converting manifests to objects: %w", err)
@@ -1133,6 +1142,8 @@ func generateDPUCNIProvisionerObjects(operatorConfig *ovnkubernetesoperatorv1.DP
 		return nil, fmt.Errorf("error while getting Host CIDR from OpenShift cluster config: %w", err)
 	}
 
+	hostToDPUNodeName := getHostToDPUNodeName(hostNodes)
+
 	config := dpucniprovisionerconfig.DPUCNIProvisionerConfig{
 		PerNodeConfig: make(map[string]dpucniprovisionerconfig.PerNodeConfig),
 		VTEPCIDR:      operatorConfig.Spec.CIDR,
@@ -1140,7 +1151,11 @@ func generateDPUCNIProvisionerObjects(operatorConfig *ovnkubernetesoperatorv1.DP
 		HostPF0:       operatorConfig.Spec.HostPF0,
 	}
 	for _, host := range operatorConfig.Spec.Hosts {
-		config.PerNodeConfig[host.DPUClusterNodeName] = dpucniprovisionerconfig.PerNodeConfig{
+		dpuName, ok := hostToDPUNodeName[host.HostClusterNodeName]
+		if !ok {
+			continue
+		}
+		config.PerNodeConfig[dpuName] = dpucniprovisionerconfig.PerNodeConfig{
 			VTEPIP:  host.DPUIP,
 			Gateway: host.Gateway,
 		}
@@ -1157,6 +1172,18 @@ func generateDPUCNIProvisionerObjects(operatorConfig *ovnkubernetesoperatorv1.DP
 	}
 
 	return dpuCNIProvisionerObjects, err
+}
+
+// getHostToDPUNodeName returns the mapping between the host node name and the dpu node name in the tenant cluster.
+func getHostToDPUNodeName(nodes []corev1.Node) map[string]string {
+	m := make(map[string]string)
+	for _, n := range nodes {
+		if pciAddress, ok := n.Labels[dpuPCIAddressLabelKey]; ok {
+			// This is a contract with the provisioning team
+			m[n.Name] = fmt.Sprintf("%s-%s", n.Name, pciAddress)
+		}
+	}
+	return m
 }
 
 // getHostCIDRFromOpenShiftClusterConfig extracts the Host CIDR from the given OpenShift Cluster Configuration.

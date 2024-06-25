@@ -44,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+//nolint:goconst
 var _ = Describe("DPFOVNKubernetesOperatorConfig Controller", func() {
 	Context("When checking the reconciliation of the Network Injector prerequisites", func() {
 		Context("With webhook enabled", func() {
@@ -750,14 +751,12 @@ networking:
 				operatorConfig.Spec.Hosts = []ovnkubernetesoperatorv1.Host{
 					{
 						HostClusterNodeName: "ocp-node-1",
-						DPUClusterNodeName:  "dpu-node-1",
 						HostIP:              "10.0.96.10/24",
 						DPUIP:               "10.0.96.20/24",
 						Gateway:             "10.0.96.254",
 					},
 					{
 						HostClusterNodeName: "ocp-node-2",
-						DPUClusterNodeName:  "dpu-node-2",
 						HostIP:              "10.0.97.10/24",
 						DPUIP:               "10.0.97.20/24",
 						Gateway:             "10.0.97.254",
@@ -789,23 +788,11 @@ networking:
 			})
 		})
 		Context("When checking generateDPUCNIProvisionerObjects()", func() {
-			It("should pass the DPFOVNKubernetesOperatorConfig settings to correct configmap", func() {
-				operatorConfig := getMinimalDPFOVNKubernetesOperatorConfig("")
-				operatorConfig.Spec.Hosts = []ovnkubernetesoperatorv1.Host{
-					{
-						DPUClusterNodeName: "dpu-node-1",
-						DPUIP:              "10.0.96.20/24",
-						Gateway:            "10.0.96.254",
-					},
-					{
-						DPUClusterNodeName: "dpu-node-2",
-						DPUIP:              "10.0.97.20/24",
-						Gateway:            "10.0.97.254",
-					},
-				}
-
-				operatorConfig.Spec.CIDR = "10.0.96.0/20"
-
+			DescribeTable("should pass the DPFOVNKubernetesOperatorConfig settings to correct configmap", func(
+				operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig,
+				nodes []corev1.Node,
+				expectedDPUCNIProvisionerConfig dpucniprovisionerconfig.DPUCNIProvisionerConfig,
+			) {
 				clusterConfigContent, err := os.ReadFile("testdata/original/cluster-config-v1-configmap.yaml")
 				Expect(err).ToNot(HaveOccurred())
 				clusterConfigUnstructured, err := utils.BytesToUnstructured(clusterConfigContent)
@@ -815,22 +802,7 @@ networking:
 				err = runtime.DefaultUnstructuredConverter.FromUnstructured(clusterConfigUnstructured[0].Object, &openshiftClusterConfigMap)
 				Expect(err).ToNot(HaveOccurred())
 
-				expectedDPUCNIProvisionerConfig := dpucniprovisionerconfig.DPUCNIProvisionerConfig{
-					PerNodeConfig: map[string]dpucniprovisionerconfig.PerNodeConfig{
-						"dpu-node-1": {
-							VTEPIP:  "10.0.96.20/24",
-							Gateway: "10.0.96.254",
-						},
-						"dpu-node-2": {
-							VTEPIP:  "10.0.97.20/24",
-							Gateway: "10.0.97.254",
-						},
-					},
-					VTEPCIDR: "10.0.96.0/20",
-					HostCIDR: "10.0.110.0/24",
-				}
-
-				objects, err := generateDPUCNIProvisionerObjects(operatorConfig, &openshiftClusterConfigMap)
+				objects, err := generateDPUCNIProvisionerObjects(operatorConfig, &openshiftClusterConfigMap, nodes)
 				Expect(err).ToNot(HaveOccurred())
 
 				rawObjects, err := utils.BytesToUnstructured(dpuCNIProvisionerManifestContent)
@@ -854,7 +826,101 @@ networking:
 					found = true
 				}
 				Expect(found).To(BeTrue())
-			})
+
+			},
+				Entry("normal case", func() *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig {
+					operatorConfig := getMinimalDPFOVNKubernetesOperatorConfig("")
+					operatorConfig.Spec.Hosts = []ovnkubernetesoperatorv1.Host{
+						{
+							HostClusterNodeName: "worker1",
+							DPUIP:               "10.0.96.20/24",
+							Gateway:             "10.0.96.254",
+						},
+						{
+							HostClusterNodeName: "worker2",
+							DPUIP:               "10.0.97.20/24",
+							Gateway:             "10.0.97.254",
+						},
+					}
+					operatorConfig.Spec.CIDR = "10.0.96.0/20"
+					return operatorConfig
+				}(),
+					[]corev1.Node{
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-90-00"}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker2", Labels: map[string]string{"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-30-00"}}},
+					},
+					dpucniprovisionerconfig.DPUCNIProvisionerConfig{
+						PerNodeConfig: map[string]dpucniprovisionerconfig.PerNodeConfig{
+							"worker1-0000-90-00": {
+								VTEPIP:  "10.0.96.20/24",
+								Gateway: "10.0.96.254",
+							},
+							"worker2-0000-30-00": {
+								VTEPIP:  "10.0.97.20/24",
+								Gateway: "10.0.97.254",
+							},
+						},
+						VTEPCIDR: "10.0.96.0/20",
+						HostCIDR: "10.0.110.0/24",
+					}),
+				Entry("node doesn't have pci label", func() *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig {
+					operatorConfig := getMinimalDPFOVNKubernetesOperatorConfig("")
+					operatorConfig.Spec.Hosts = []ovnkubernetesoperatorv1.Host{
+						{
+							HostClusterNodeName: "worker1",
+							DPUIP:               "10.0.96.20/24",
+							Gateway:             "10.0.96.254",
+						},
+						{
+							HostClusterNodeName: "worker2",
+							DPUIP:               "10.0.97.20/24",
+							Gateway:             "10.0.97.254",
+						},
+					}
+					operatorConfig.Spec.CIDR = "10.0.96.0/20"
+					return operatorConfig
+				}(),
+					[]corev1.Node{
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-90-00"}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker2"}},
+					},
+					dpucniprovisionerconfig.DPUCNIProvisionerConfig{
+						PerNodeConfig: map[string]dpucniprovisionerconfig.PerNodeConfig{
+							"worker1-0000-90-00": {
+								VTEPIP:  "10.0.96.20/24",
+								Gateway: "10.0.96.254",
+							},
+						},
+						VTEPCIDR: "10.0.96.0/20",
+						HostCIDR: "10.0.110.0/24",
+					}),
+				Entry("node not mentioned in the DPFOVNKubernetesOperatorConfig", func() *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig {
+					operatorConfig := getMinimalDPFOVNKubernetesOperatorConfig("")
+					operatorConfig.Spec.Hosts = []ovnkubernetesoperatorv1.Host{
+						{
+							HostClusterNodeName: "worker1",
+							DPUIP:               "10.0.96.20/24",
+							Gateway:             "10.0.96.254",
+						},
+					}
+					operatorConfig.Spec.CIDR = "10.0.96.0/20"
+					return operatorConfig
+				}(),
+					[]corev1.Node{
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker1", Labels: map[string]string{"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-90-00"}}},
+						{ObjectMeta: metav1.ObjectMeta{Name: "worker2", Labels: map[string]string{"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-30-00"}}},
+					},
+					dpucniprovisionerconfig.DPUCNIProvisionerConfig{
+						PerNodeConfig: map[string]dpucniprovisionerconfig.PerNodeConfig{
+							"worker1-0000-90-00": {
+								VTEPIP:  "10.0.96.20/24",
+								Gateway: "10.0.96.254",
+							},
+						},
+						VTEPCIDR: "10.0.96.0/20",
+						HostCIDR: "10.0.110.0/24",
+					}),
+			)
 			It("should error out when provisioner configmap is not found", func() {
 				By("Copying the dpuCNIProvisionerManifestContent global variable")
 				dpuCNIProvisionerManifestContentLength := len(dpuCNIProvisionerManifestContent)
@@ -897,7 +963,7 @@ spec:
 				Expect(err).ToNot(HaveOccurred())
 
 				By("Running the test against the mocked environment")
-				_, err = generateDPUCNIProvisionerObjects(operatorConfig, &openshiftClusterConfigMap)
+				_, err = generateDPUCNIProvisionerObjects(operatorConfig, &openshiftClusterConfigMap, nil)
 				Expect(err).To(HaveOccurred())
 
 				By("Reverting dpuCNIProvisionerManifestContent global variable to the original value")
@@ -917,7 +983,7 @@ spec:
 				err = runtime.DefaultUnstructuredConverter.FromUnstructured(clusterConfigUnstructured[0].Object, &openshiftClusterConfigMap)
 				Expect(err).ToNot(HaveOccurred())
 
-				objects, err := generateDPUCNIProvisionerObjects(operatorConfig, &openshiftClusterConfigMap)
+				objects, err := generateDPUCNIProvisionerObjects(operatorConfig, &openshiftClusterConfigMap, nil)
 				Expect(err).ToNot(HaveOccurred())
 
 				rawObjects, err := utils.BytesToUnstructured(dpuCNIProvisionerManifestContent)

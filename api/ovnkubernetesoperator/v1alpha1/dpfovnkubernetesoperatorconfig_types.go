@@ -47,8 +47,6 @@ type DPFOVNKubernetesOperatorConfigSpec struct {
 type Host struct {
 	// HostClusterNodeName is the name of the node in the host cluster (OpenShift).
 	HostClusterNodeName string `json:"hostClusterNodeName"`
-	// DPUClusterNodeName is the name of the node in the DPU cluster (Kamaji).
-	DPUClusterNodeName string `json:"dpuClusterNodeName"`
 	// HostIP is the IP that will be assigned to the PF Representor on each Host.
 	// TODO: Add validator in validating webhook to ensure string is actually net.IPNet
 	HostIP string `json:"hostIP"`
