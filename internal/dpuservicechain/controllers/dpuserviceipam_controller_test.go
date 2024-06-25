@@ -232,7 +232,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			dpuServiceIPAM.SetManagedFields(nil)
 			dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
-			// FieldOwner must be the same as the controlller so that we can set a field to nil later
+			// FieldOwner must be the same as the controller so that we can set a field to nil later
 			Expect(testClient.Patch(ctx, dpuServiceIPAM, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceIPAMControllerName))).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceIPAM)
 
@@ -244,18 +244,20 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 
 			By("Updating the spec to unset ipv4Subnet and set ipv4Network")
-			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceIPAM), dpuServiceIPAM)).To(Succeed())
-			dpuServiceIPAM.Spec.IPV4Subnet = nil
-			dpuServiceIPAM.Spec.IPV4Network = &sfcv1.IPV4Network{
-				Network:      "192.168.0.0/20",
-				GatewayIndex: 1,
-				PrefixSize:   24,
-			}
-			dpuServiceIPAM.SetManagedFields(nil)
-			dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
-			// FieldOwner must be the same as the controlller because we modify a field that the controller owns (see
-			// defer in the main reconcile function)
-			Expect(testClient.Patch(ctx, dpuServiceIPAM, client.Apply, client.FieldOwner(dpuServiceIPAMControllerName))).To(Succeed())
+			Eventually(func(g Gomega) {
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceIPAM), dpuServiceIPAM)).To(Succeed())
+				dpuServiceIPAM.Spec.IPV4Subnet = nil
+				dpuServiceIPAM.Spec.IPV4Network = &sfcv1.IPV4Network{
+					Network:      "192.168.0.0/20",
+					GatewayIndex: 1,
+					PrefixSize:   24,
+				}
+				dpuServiceIPAM.SetManagedFields(nil)
+				dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
+				// FieldOwner must be the same as the controller because we modify a field that the controller owns (see
+				// defer in the main reconcile function)
+				g.Expect(testClient.Patch(ctx, dpuServiceIPAM, client.Apply, client.FieldOwner(dpuServiceIPAMControllerName))).To(Succeed())
+			}).WithTimeout(10 * time.Second).Should(Succeed())
 
 			Eventually(func(g Gomega) {
 				gotIPPool := &nvipamv1.IPPool{}
@@ -288,19 +290,21 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 
 			By("Updating the spec to unset ipv4Network and set ipv4Subnet")
-			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceIPAM), dpuServiceIPAM)).To(Succeed())
-			dpuServiceIPAM.Spec.IPV4Network = nil
-			dpuServiceIPAM.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
-				Subnet:         "192.168.0.0/20",
-				Gateway:        "192.168.0.1",
-				PerNodeIPCount: 256,
-			}
+			Eventually(func(g Gomega) {
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceIPAM), dpuServiceIPAM)).To(Succeed())
+				dpuServiceIPAM.Spec.IPV4Network = nil
+				dpuServiceIPAM.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
+					Subnet:         "192.168.0.0/20",
+					Gateway:        "192.168.0.1",
+					PerNodeIPCount: 256,
+				}
 
-			dpuServiceIPAM.SetManagedFields(nil)
-			dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
-			// FieldOwner must be the same as the controlller because we modify a field that the controller owns (see
-			// defer in the main reconcile function)
-			Expect(testClient.Patch(ctx, dpuServiceIPAM, client.Apply, client.FieldOwner(dpuServiceIPAMControllerName))).To(Succeed())
+				dpuServiceIPAM.SetManagedFields(nil)
+				dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
+				// FieldOwner must be the same as the controller because we modify a field that the controller owns (see
+				// defer in the main reconcile function)
+				g.Expect(testClient.Patch(ctx, dpuServiceIPAM, client.Apply, client.FieldOwner(dpuServiceIPAMControllerName))).To(Succeed())
+			}).WithTimeout(10 * time.Second).Should(Succeed())
 
 			Eventually(func(g Gomega) {
 				gotCIDRPool := &nvipamv1.CIDRPool{}
