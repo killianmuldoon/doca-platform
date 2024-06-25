@@ -18,32 +18,38 @@ set -o nounset
 set -o pipefail
 set -o errexit
 
-# create-ngc-secrets.sh will create secrets required to pull images and helm charts from NGC if an NGC API KEY is set in the environment
+# create-artefact-secrets.sh will create secrets required to pull images and helm charts from NGC or Gitlab if the relevant API KEY is set in the environment
 
-NGC_API_KEY="${NGC_API_KEY:-""}"
+IMAGE_PULL_KEY="${IMAGE_PULL_KEY:-""}"
 
-if [[ "$NGC_API_KEY" == "" ]]; then
-  echo "NGC_API_KEY not set. Skipping NGC secret creation"
+if [[ "$IMAGE_PULL_KEY" == "" ]]; then
+  echo "IMAGE_PULL_KEY not set. Skipping imagePullSecret creation"
   exit 1
 fi
 
+REGISTRY_SERVER=$(echo $REGISTRY | cut -d'/' -f1)
 
 ## Create a pull secret to be used for images in Kubernetes
-kubectl -n dpf-operator-system create secret docker-registry ngc-secret --docker-server=nvcr.io --docker-username="\$oauthtoken" --docker-password=$NGC_API_KEY
+kubectl -n dpf-operator-system create secret docker-registry dpf-pull-secret --docker-server=$REGISTRY_SERVER --docker-username="\$oauthtoken" --docker-password=$IMAGE_PULL_KEY
 
 ## Create a pull secret to be used by ArgoCD for pulling helm charts
+HELM_REPO_URL=$REGISTRY
+if [[ $$REGISTRY_SERVER == nvcr.io ]]; then
+  HELM_REPO_URL = https://helm.ngc.nvidia.com/nvstaging/mellanox
+fi
+
 echo "
 apiVersion: v1
 kind: Secret
 metadata:
-  name: nvstaging-helm
+  name: dpf-helm-secret
   namespace: dpf-operator-system
   labels:
     argocd.argoproj.io/secret-type: repository
 stringData:
-  name: nvstaging
-  url: https://helm.ngc.nvidia.com/nvstaging/mellanox
+  name: dpf-helm
+  url: $HELM_REPO_URL
   type: helm
   username: \$oauthtoken
-  password: $NGC_API_KEY
+  password: $IMAGE_PULL_KEY
 " | kubectl apply -f -

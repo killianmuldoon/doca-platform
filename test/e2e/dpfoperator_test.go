@@ -45,8 +45,8 @@ import (
 )
 
 const (
-	// ngcSecretName must match the name given to the secret in `create-ngc-secrets.sh`
-	ngcSecretName = "ngc-secret"
+	// pullSecretName must match the name given to the secret in `create-artefact-secrets.sh`
+	pullSecretName = "dpf-pull-secret"
 )
 
 var (
@@ -71,7 +71,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 	imagePullSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ngcSecretName,
+			Name:      pullSecretName,
 			Namespace: "dpf-operator-system",
 		},
 	}

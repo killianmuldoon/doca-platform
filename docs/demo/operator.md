@@ -43,7 +43,7 @@ spec:
   ## Config for the provisioning controller.
   provisioningConfiguration: 
     bfbPVCName: "bfb-pvc" # Matches existing PVC
-    imagePullSecret: "ngc-secret" # Matches existing secret. Not required for this demo.
+    imagePullSecret: "dpf-pull-secret" # Matches existing secret. Not required for this demo.
   ## Used for options the user is advised against - e.g. disabling system components
   overrides:
      disableOVNKubernetesReconcile: true
@@ -105,7 +105,7 @@ spec:
   ## Config for the provisioning controller.
   provisioningConfiguration: 
     bfbPVCName: "bfb-pvc"
-    imagePullSecret: "ngc-secret"
+    imagePullSecret: "dpf-pull-secret"
   ## Config for the ovn-kubernetes configuration.
   hostNetworkConfiguration:
     hostPF0: ens2f0np0

@@ -17,7 +17,7 @@ export NGC_API_KEY=<YOUR_KEY>
 ```
 5. Create the Kubernetes secret in the DPF Operator namespace:
 ```bash
-kubectl -n dpf-operator-system create secret docker-registry ngc-secret --docker-server=nvcr.io --docker-username="\$oauthtoken" --docker-password=$NGC_API_KEY
+kubectl -n dpf-operator-system create secret docker-registry dpf-pull-secret --docker-server=nvcr.io --docker-username="\$oauthtoken" --docker-password=$NGC_API_KEY
 ```
 
 ### Create Argo CD secret for NGC nvstaging Helm charts
@@ -61,7 +61,7 @@ operator-sdk olm install --version v0.27.0
 ```
 5. Install DPF Operator bundle:
 ```bash
-operator-sdk run bundle --namespace dpf-operator-system  --pull-secret-name ngc-secret nvcr.io/nvstaging/mellanox/dpf-operator-bundle:0.0.1
+operator-sdk run bundle --namespace dpf-operator-system  --pull-secret-name dpf-pull-secret nvcr.io/nvstaging/mellanox/dpf-operator-bundle:0.0.1
 ```
 
 ### Configure secret in DPFOperatorConfig
@@ -75,8 +75,8 @@ metadata:
   namespace: dpf-operator-system
 spec:
   provisioningConfiguration:
-    imagePullSecretForDMSAndHostNetwork: ngc-secret
+    imagePullSecretForDMSAndHostNetwork: dpf-pull-secret
   imagePullSecrets:
-  - ngc-secret
+  - dpf-pull-secret
 ...
 ```

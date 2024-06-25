@@ -470,8 +470,8 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 
 	$(KUBECTL) create namespace dpf-operator-system
 
-	# Create secrets required for using artefacts from NGC if required.
-	$(CURDIR)/hack/scripts/create-ngc-secrets.sh
+	# Create secrets required for using artefacts if required.
+	$(CURDIR)/hack/scripts/create-artefact-secrets.sh
 
 	# Deploy cert manager to provide certificates for webhooks.
 	$Q $(KUBECTL) apply -f $(CERT_MANAGER_YAML)
@@ -491,12 +491,12 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 test-build-and-push-artifacts: $(KUSTOMIZE) ## Build and push DPF artifacts (images, charts, bundle) for e2e tests.
 	# Build and push the sfcset, dpuservice, operator and operator-bundle images.
 	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
+	$(MAKE) docker-build-sfc-controller docker-push-sfc-controller
 	$(MAKE) docker-build-dpuservice docker-push-dpuservice; \
 	$(MAKE) docker-build-operator docker-push-operator ; \
 	$(MAKE) docker-build-operator-bundle docker-push-operator-bundle; \
-	$(MAKE) docker-build-sfcset docker-push-sfcset
-	$(MAKE) docker-build-dpf-provisioning docker-push-dpf-provisioning
-	$(MAKE) docker-build-sfc-controller docker-push-sfc-controller
+	$(MAKE) docker-build-sfcset docker-push-sfcset; \
+	$(MAKE) docker-build-dpf-provisioning docker-push-dpf-provisioning;
 
 	# Build and push all the helm charts
 	$(MAKE) helm-package-all helm-push-all

@@ -130,7 +130,8 @@ e2e:
       when: always
   variables:
     # The helm bundles and operator-sdk require a remote repository in the e2e environment.
-    REGISTRY: harbor.mellanox.com/cloud-orchestration-dev/dpf/e2e
+    REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-operator/e2e
+    IMAGE_PULL_KEY: $GITLAB_REGISTRY_TOKEN
     # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
     MINIKUBE_CNI: flannel
     MINIKUBE_DRIVER: docker
