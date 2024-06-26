@@ -113,8 +113,6 @@ nightly-release:
     TAG: v0.0.0-$CI_COMMIT_SHORT_SHA
   tags:
     - release
-  before_script:
-    - docker login $REGISTRY_SHORT_NAME
   script:
     - make release
   after_script:
@@ -136,6 +134,7 @@ e2e:
     MINIKUBE_CNI: flannel
     MINIKUBE_DRIVER: docker
     ARTIFACTS: $CI_PROJECT_DIR/artifacts
+    TAG: v0.0.0-$CI_COMMIT_SHORT_SHA-test
   tags:
     - e2e
   cache:

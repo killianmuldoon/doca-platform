@@ -130,7 +130,7 @@ ENVSUBST_VERSION ?= v1.4.2
 # 3. Login into the OpenShift node and retag the image to `harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:<SHA256_OF_INPUT_IMAGE>`
 #    e.g. podman tag quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e
 # 4. Push the image
-OVNKUBERNETES_BASE_IMAGE=harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e
+OVNKUBERNETES_BASE_IMAGE=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-operator/ovn-kubernetes-base:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e
 # Points to branch dpf-23.09.0
 OVN_REVISION=89fb67b6222d1e6a48fed3ae6d6ac486326c6ab2
 # Points to branch dpf-4.14
@@ -256,6 +256,12 @@ $(ARGOCD_YAML): | $(CHARTSDIR)
 # Token used to pull from internal git registries. Used to enable https authentication in git clones from the internal NVIDIA gitlab.
 GITLAB_TOKEN ?= ""
 
+# OVS CNI
+OVS_CNI_REVISION ?= fb0d92995331f1de782baeac9bf30ffa01e5fe40
+OVS_CNI_DIR=$(REPOSDIR)/ovs-cni-$(OVS_CNI_REVISION)
+$(OVS_CNI_DIR): | $(REPOSDIR)
+	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-sfc-cni.git $(OVS_CNI_DIR) $(OVS_CNI_REVISION)
+
 # HBN side car
 HBN_SIDECAR_DIR=$(REPOSDIR)/hbn-sidecar
 $(HBN_SIDECAR_DIR): | $(REPOSDIR)
@@ -295,7 +301,7 @@ $(OPERATOR_SDK): | $(TOOLSDIR)
 	$Q chmod +x $(OPERATOR_SDK)
 
 ##@ Development
-GENERATE_TARGETS ?= operator dpuservice dpf-provisioning hostcniprovisioner dpucniprovisioner sfcset operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded sfc-controller release-defaults hbn-dpuservice
+GENERATE_TARGETS ?= operator dpuservice dpf-provisioning hostcniprovisioner dpucniprovisioner sfcset operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded sfc-controller release-defaults hbn-dpuservice ovs-cni
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -422,6 +428,10 @@ generate-manifests-dpf-provisioning: $(KUSTOMIZE) $(DPF_PROVISIONING_DIR) ## Gen
 .PHONY: generate-manifests-hbn-dpuservice
 generate-manifests-hbn-dpuservice: $(ENVSUBST)
 	$(ENVSUBST) < deploy/dpuservices/hbn/chart/values.yaml.tmpl > deploy/dpuservices/hbn/chart/values.yaml
+
+.PHONY: generate-manifests-ovs-cni
+generate-manifests-ovs-cni: $(ENVSUBST) ## Generate values for OVS helm chart.
+	$(ENVSUBST) < deploy/helm/ovs-cni/values.yaml.tmpl > deploy/helm/ovs-cni/values.yaml
 
 OPERATOR_HELM_CHART_NAME ?= dpf-operator
 OPERATOR_HELM_CHART ?= $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)
@@ -678,7 +688,7 @@ binary-binary-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-
 
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouted dms dhcrelay ovnkubernetes-operator hbn
-DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn-sidecar
+DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn-sidecar ovs-cni
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
@@ -711,6 +721,9 @@ export DPFPROVISIONING_IMAGE ?= $(REGISTRY)/$(DPFPROVISIONING_IMAGE_NAME)
 
 SFC_CONTROLLER_IMAGE_NAME ?= sfc-controller-manager
 export SFC_CONTROLLER_IMAGE ?= $(REGISTRY)/$(SFC_CONTROLLER_IMAGE_NAME)
+
+OVS_CNI_IMAGE_NAME ?= ovs-cni-plugin
+export OVS_CNI_IMAGE ?= $(REGISTRY)/$(OVS_CNI_IMAGE_NAME)
 
 ## TODO: Cleanup image building and versioning for dhcrelay, parprouted and hostnetwork.
 DHCRELAY_VERSION ?= 0.1
@@ -852,6 +865,18 @@ docker-build-hbn-sidecar: $(HBN_SIDECAR_DIR) ## Build HBN sidecar DPU service im
 		. \
 		-t $(HBN_SIDECAR_IMAGE):$(TAG)
 
+.PHONY: docker-build-ovs-cni
+docker-build-ovs-cni: $(OVS_CNI_DIR) ## Builds the OVS CNI image
+	cd $(OVS_CNI_DIR) && \
+	$(OVS_CNI_DIR)/hack/get_version.sh > .version && \
+	docker buildx build . \
+	--load \
+	--build-arg goarch=$(DPU_ARCH) \
+	--platform linux/${DPU_ARCH} \
+	-f ./cmd/Dockerfile \
+	-t $(OVS_CNI_IMAGE):${TAG}
+
+
 .PHONY: docker-build-ovnkubernetes-dpu
 docker-build-ovnkubernetes-dpu: $(OVNKUBERNETES_DPU_DIR) $(OVN_DIR) ## Builds the custom OVN Kubernetes image that is used for the DPU (worker) nodes
 	docker buildx build \
@@ -934,6 +959,10 @@ docker-push-dpf-provisioning: ## Push the docker image for dpf provisioning cont
 .PHONY: docker-push-hbn-sidecar
 docker-push-hbn-sidecar: ## Push the docker image for HBN sidecar.
 	docker push $(HBN_SIDECAR_IMAGE):$(TAG)
+
+.PHONY: docker-push-ovs-cni
+docker-push-ovs-cni: ## Push the docker image for ovs-cni
+	docker push $(OVS_CNI_IMAGE):$(TAG)
 
 .PHONY: docker-push-dhcrelay
 docker-push-dhcrelay: ## Push the docker image for dhcrelate.

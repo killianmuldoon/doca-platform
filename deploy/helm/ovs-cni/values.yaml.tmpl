@@ -15,8 +15,8 @@ arm64:
     containerSecurityContext:
       privileged: true
     image:
-      repository: nvidia.com/ovs-cni-plugin
-      tag: v0.0.0
+      repository: ${OVS_CNI_IMAGE}
+      tag: ${TAG}
     imagePullPolicy: Always
     resources:
       requests:
