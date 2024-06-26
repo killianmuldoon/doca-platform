@@ -296,8 +296,12 @@ networking:
 			cleanupObjects = append(cleanupObjects, kamajiSecret)
 
 			By("Creating image pull secrets")
-			secretOne := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "secret-1", Namespace: testNS.Name}}
-			secretTwo := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "secret-2", Namespace: testNS.Name}}
+			secretOne := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "secret-1", Namespace: testNS.Name},
+				Data: map[string][]byte{"key1": []byte("value1")},
+				Type: corev1.SecretTypeOpaque}
+			secretTwo := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "secret-2", Namespace: testNS.Name},
+				Data: map[string][]byte{corev1.BasicAuthUsernameKey: []byte("user"), corev1.BasicAuthPasswordKey: []byte("pass")},
+				Type: corev1.SecretTypeBasicAuth}
 			Expect(testClient.Create(ctx, secretOne)).To(Succeed())
 			cleanupObjects = append(cleanupObjects, secretOne)
 			Expect(testClient.Create(ctx, secretTwo)).To(Succeed())
@@ -476,6 +480,22 @@ networking:
 				for _, node := range got.Items {
 					g.Expect(node.Labels).To(HaveKey(networkPreconfigurationReadyNodeLabel))
 				}
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			By("Checking the replication of image pull secrets")
+			Eventually(func(g Gomega) {
+				gotSecret := &corev1.Secret{}
+				key := client.ObjectKey{Namespace: "openshift-ovn-kubernetes", Name: "secret-1"}
+				g.Expect(testClient.Get(ctx, key, gotSecret)).To(Succeed())
+				g.Expect(gotSecret.Data).To(Equal(map[string][]byte{"key1": []byte("value1")}))
+				g.Expect(gotSecret.Type).To(Equal(corev1.SecretTypeOpaque))
+
+				gotSecret = &corev1.Secret{}
+				key = client.ObjectKey{Namespace: "openshift-ovn-kubernetes", Name: "secret-2"}
+				g.Expect(testClient.Get(ctx, key, gotSecret)).To(Succeed())
+				g.Expect(gotSecret.Data).To(Equal(map[string][]byte{corev1.BasicAuthUsernameKey: []byte("user"), corev1.BasicAuthPasswordKey: []byte("pass")}))
+				g.Expect(gotSecret.Type).To(Equal(corev1.SecretTypeBasicAuth))
+
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 
 			By("Checking the deployment of the custom OVN Kubernetes")

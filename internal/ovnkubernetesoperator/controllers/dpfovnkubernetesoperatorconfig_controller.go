@@ -723,12 +723,38 @@ func deployCustomOVNKubernetes(ctx context.Context,
 	customOVNKubernetesDPUImage string,
 	customOVNKubernetesNonDPUImage string) error {
 
+	if err := replicateImagePullSecrets(ctx, c, operatorConfig); err != nil {
+		return fmt.Errorf("error while replicating image pull secrets: %w", err)
+	}
+
 	if err := deployCustomOVNKubernetesForWorkers(ctx, c, operatorConfig, customOVNKubernetesDPUImage); err != nil {
 		return fmt.Errorf("error while deploying the custom OVN Kubernetes for worker nodes: %w", err)
 	}
 
 	if err := deployCustomOVNKubernetesForControlPlane(ctx, c, operatorConfig, customOVNKubernetesNonDPUImage); err != nil {
 		return fmt.Errorf("error while deploying the custom OVN Kubernetes for control plane nodes: %w", err)
+	}
+
+	return nil
+}
+
+// replicateImagePullSecrets replicates image pull secrets required by OVN Kubernetes
+func replicateImagePullSecrets(ctx context.Context, c client.Client, operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig) error {
+	for _, secret := range operatorConfig.Spec.ImagePullSecrets {
+		currentSecret := &corev1.Secret{}
+		key := client.ObjectKey{Namespace: operatorConfig.Namespace, Name: secret}
+		if err := c.Get(ctx, key, currentSecret); err != nil {
+			return fmt.Errorf("error while getting %s %s: %w", currentSecret.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+		}
+
+		replicatedSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: ovnKubernetesNamespace, Name: secret}}
+		replicatedSecret.Type = currentSecret.Type
+		replicatedSecret.Data = currentSecret.Data
+		replicatedSecret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
+		replicatedSecret.SetManagedFields(nil)
+		if err := c.Patch(ctx, replicatedSecret, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOVNKubernetesOperatorConfigControllerName)); err != nil {
+			return fmt.Errorf("error while patching %s %s: %w", replicatedSecret.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+		}
 	}
 
 	return nil
