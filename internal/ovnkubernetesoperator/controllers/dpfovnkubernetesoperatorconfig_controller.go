@@ -1164,7 +1164,7 @@ func generateCustomOVNKubernetesEntrypointConfigMap(base *corev1.ConfigMap, oper
 	// Note: the OVN Kubernetes DaemonSet mounts the ovnkube-script-lib configmap under /ovnkube-lib.
 	value = strings.ReplaceAll(value,
 		"gateway_mode_flags=\"--gateway-mode shared --gateway-interface br-ex\"",
-		fmt.Sprintf("gateway_mode_flags=\"--gateway-mode shared --gateway-interface $(cat /ovnkube-lib/%s | jq -r \".[] | select(.hostClusterNodeName==\\\"${K8S_NODE}\\\").hostPF0\")\" --gateway-nexthop $(cat /ovnkube-lib/%s | jq -r \".[] | select(.hostClusterNodeName==\\\"${K8S_NODE}\\\").gateway\")\"",
+		fmt.Sprintf("gateway_mode_flags=\"--gateway-mode shared --gateway-interface $(cat /ovnkube-lib/%s | jq -r \".[] | select(.hostClusterNodeName==\\\"${K8S_NODE}\\\").hostPF0\") --gateway-nexthop $(cat /ovnkube-lib/%s | jq -r \".[] | select(.hostClusterNodeName==\\\"${K8S_NODE}\\\").gateway\")\"",
 			configMapInventoryField,
 			configMapInventoryField))
 
