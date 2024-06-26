@@ -139,13 +139,6 @@ spec:
                   - raw
                   type: object
                 type: array
-              containerdConfig:
-                properties:
-                  registryEndpoint:
-                    type: string
-                required:
-                - registryEndpoint
-                type: object
               grub:
                 properties:
                   kernelParameters:
@@ -268,8 +261,6 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
-                  drain:
-                    type: boolean
                   no_effect:
                     type: string
                   taint:
@@ -494,8 +485,6 @@ spec:
                             additionalProperties:
                               type: string
                             type: object
-                          drain:
-                            type: boolean
                           no_effect:
                             type: string
                           taint:
@@ -811,12 +800,6 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-  - nodemaintenance.medik8s.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
   - provisioning.dpf.nvidia.com
   resources:
   - dpuflavors
@@ -915,7 +898,6 @@ spec:
       - args:
         - --health-probe-bind-address=:8081
         - --metrics-bind-address=127.0.0.1:8080
-        - --leader-elect
         - --zap-log-level=3
         - --dms-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server:v2.7
         - --hostnetwork-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/hostnetworksetup:v0.1
