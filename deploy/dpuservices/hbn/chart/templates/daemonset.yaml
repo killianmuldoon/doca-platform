@@ -40,6 +40,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
               {{- . | nindent 12 }}
       {{- end }}
+      imagePullSecrets: {{ .Values.imagePullSecrets | default list | toJson }}
       containers:
       - name: doca-hbn
         env:
