@@ -99,25 +99,6 @@ test:
   script:
     - make test-report
 
-nightly-release:
-  stage: build
-  needs: [ ]
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-      when: manual
-      allow_failure: true
-    - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_RELEASE == "true"
-      when: always
-  variables:
-    # Note: This job is generic to allow it to use both harbor and nvcr.io registries. Variables defined under https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/-/pipeline_schedules define the specific behaviour.
-    TAG: v0.0.0-$CI_COMMIT_SHORT_SHA
-  tags:
-    - release
-  script:
-    - make release
-  after_script:
-    - ./hack/scripts/slack-notification.sh
-
 e2e:
   stage: test
   needs: [ ]
@@ -160,6 +141,42 @@ e2e:
     - ./hack/scripts/slack-notification.sh
     - make test-cache-images
     - make clean-test-env
+
+nightly-release:
+  stage: build
+  needs: [ ]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_RELEASE == "true"
+      when: always
+  variables:
+    # Note: This job is generic to allow it to use both harbor and nvcr.io registries. Variables defined under https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/-/pipeline_schedules define the specific behaviour.
+    TAG: v0.0.0-$CI_COMMIT_SHORT_SHA
+    REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-operator/e2e
+  tags:
+    - release
+  script:
+    - make release
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+
+mirror-packages:
+  stage: build
+  needs: []
+  variables:
+    # This is the name of the pipeline being triaged. Must match the name of the pipeline in Gitlab.
+    TRIAGE_PIPELINE_NAME: "Periodic package mirror"
+  tags:
+    - release
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $MIRROR_PACKAGES == "true"
+      when: always
+  script:
+    - ./hack/scripts/mirror-packages-to-gitlab.sh
+  after_script:
+    - ./hack/scripts/slack-notification.sh
 
 triage:
   stage: triage

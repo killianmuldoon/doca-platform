@@ -8,13 +8,14 @@ FROM --platform=${TARGETPLATFORM} ubuntu:22.04
 RUN apt update && \
     apt install -y wget systemd python3 libbsd0 libelf1 libibverbs1 libjansson4 libnuma1 libpcap0.8 libunbound8 libunwind8 kmod ifupdown netbase uuid-runtime
 
-# TODO: Replace with official repository instead of Alin's once we have such repo.
-# TODO: Potentially parameterize architecture to ensure the image can be build for x86 architecture.
-RUN wget -O ibverbs.deb https://gitlab-master.nvidia.com/api/v4/projects/112105/packages/generic/ovs-switch/0.0.1/ibverbs.deb && \
+ARG package_version=v0.0.1
+ARG package_url=https://gitlab-master.nvidia.com/api/v4/projects/112105/packages/generic/ovs-base/$package_version
+
+RUN wget -O ibverbs.deb $package_url/ibverbs-providers_2404mlnx51-1.2404054_arm64.deb && \
     dpkg -i ibverbs.deb
-RUN wget -O ovs-lib.deb https://gitlab-master.nvidia.com/api/v4/projects/112105/packages/generic/ovs-switch/0.0.1/ovs-lib.deb && \
+RUN wget -O ovs-lib.deb $package_url/libopenvswitch_2.17.8-1_arm64.deb && \
     dpkg -i ovs-lib.deb
-RUN wget -O ovs-common.deb https://gitlab-master.nvidia.com/api/v4/projects/112105/packages/generic/ovs-switch/0.0.1/ovs-common.deb &&\
+RUN wget -O ovs-common.deb $package_url/openvswitch-common_2.17.8-1_arm64.deb && \
     dpkg -i ovs-common.deb
-RUN wget -O ovs-switch.deb https://gitlab-master.nvidia.com/api/v4/projects/112105/packages/generic/ovs-switch/0.0.1/ovs-switch.deb && \
+RUN wget -O ovs-switch.deb $package_url/openvswitch-switch_2.17.8-1_arm64.deb && \
     dpkg -i ovs-switch.deb
