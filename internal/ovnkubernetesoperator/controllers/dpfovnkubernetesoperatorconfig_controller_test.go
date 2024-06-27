@@ -364,7 +364,7 @@ networking:
 
 		It("should successfully deploy the custom OVN Kubernetes", func() {
 			operatorConfig := getMinimalDPFOVNKubernetesOperatorConfig(testNS.Name)
-			operatorConfig.Spec.ImagePullSecrets = []string{"secret-1", "secret-2"}
+			operatorConfig.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "secret-1"}, {Name: "secret-2"}}
 			Expect(testClient.Create(ctx, operatorConfig)).To(Succeed())
 			// DPF Operator creates objects when reconciling the DPFOVNKubernetesOperatorConfig and we need to ensure that on
 			// deletion of these objects there is no DPFOVNKubernetesOperatorConfig in the cluster to trigger recreation of those.
@@ -590,7 +590,7 @@ networking:
 			})
 			It("should generate correct object when all expected fields are there", func() {
 				operatorConfig := getMinimalDPFOVNKubernetesOperatorConfig("")
-				operatorConfig.Spec.ImagePullSecrets = []string{"secret-1", "secret-2"}
+				operatorConfig.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "secret-1"}, {Name: "secret-2"}}
 				out, err := generateCustomOVNKubernetesDaemonSet(&originalDaemonset, operatorConfig, "some-image")
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1064,7 +1064,7 @@ spec:
 			})
 			It("should pass imagePullSecrets specified in DPFOVNKubernetesOperatorConfig to the DaemonSet", func() {
 				operatorConfig := getMinimalDPFOVNKubernetesOperatorConfig("")
-				operatorConfig.Spec.ImagePullSecrets = []string{"secret-1", "secret-2"}
+				operatorConfig.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "secret-1"}, {Name: "secret-2"}}
 
 				clusterConfigContent, err := os.ReadFile("testdata/original/cluster-config-v1-configmap.yaml")
 				Expect(err).ToNot(HaveOccurred())
@@ -1211,7 +1211,7 @@ spec:
 			})
 			It("should pass imagePullSecrets specified in DPFOVNKubernetesOperatorConfig to the DaemonSet", func() {
 				operatorConfig := getMinimalDPFOVNKubernetesOperatorConfig("")
-				operatorConfig.Spec.ImagePullSecrets = []string{"secret-1", "secret-2"}
+				operatorConfig.Spec.ImagePullSecrets = []corev1.LocalObjectReference{{Name: "secret-1"}, {Name: "secret-2"}}
 
 				objects, err := generateHostCNIProvisionerObjects(operatorConfig, []corev1.Node{})
 				Expect(err).ToNot(HaveOccurred())

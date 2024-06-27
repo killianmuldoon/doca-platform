@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -31,7 +32,7 @@ type DPFOVNKubernetesOperatorConfigSpec struct {
 	Hosts []Host `json:"hosts"`
 
 	// List of secret names which are used to pull images for OVN Kubernetes components.
-	ImagePullSecrets []string `json:"imagePullSecrets,omitempty"`
+	ImagePullSecrets []corev1.LocalObjectReference `json:"imagePullSecrets,omitempty"`
 
 	// NetworkInjectorConfig is the configuration related to the Network Injector Webhook.
 	NetworkInjectorConfig `json:",inline"`

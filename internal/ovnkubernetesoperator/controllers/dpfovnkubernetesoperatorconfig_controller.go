@@ -742,12 +742,12 @@ func deployCustomOVNKubernetes(ctx context.Context,
 func replicateImagePullSecrets(ctx context.Context, c client.Client, operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig) error {
 	for _, secret := range operatorConfig.Spec.ImagePullSecrets {
 		currentSecret := &corev1.Secret{}
-		key := client.ObjectKey{Namespace: operatorConfig.Namespace, Name: secret}
+		key := client.ObjectKey{Namespace: operatorConfig.Namespace, Name: secret.Name}
 		if err := c.Get(ctx, key, currentSecret); err != nil {
 			return fmt.Errorf("error while getting %s %s: %w", currentSecret.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 		}
 
-		replicatedSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: ovnKubernetesNamespace, Name: secret}}
+		replicatedSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Namespace: ovnKubernetesNamespace, Name: secret.Name}}
 		replicatedSecret.Type = currentSecret.Type
 		replicatedSecret.Data = currentSecret.Data
 		replicatedSecret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
@@ -1410,13 +1410,10 @@ func populateCNIProvisionerConfigMap(objects []*unstructured.Unstructured, confi
 }
 
 // setImagePullSecrets sets the imagePullSecrets field in any relevant unstructured object
-func setImagePullSecrets(objects []*unstructured.Unstructured, imagePullSecrets []string) error {
+func setImagePullSecrets(objects []*unstructured.Unstructured, imagePullSecrets []corev1.LocalObjectReference) error {
 	toBeAdded := make([]interface{}, 0, len(imagePullSecrets))
 	for _, imagePullSecret := range imagePullSecrets {
-		ref := &corev1.LocalObjectReference{
-			Name: imagePullSecret,
-		}
-		out, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&ref)
+		out, err := runtime.DefaultUnstructuredConverter.ToUnstructured(&imagePullSecret)
 		if err != nil {
 			return fmt.Errorf("error converting imagePullSecret to unstructured: %w", err)
 		}
@@ -1451,11 +1448,7 @@ func setImagePullSecrets(objects []*unstructured.Unstructured, imagePullSecrets 
 }
 
 // setDaemonSetImagePullSecrets sets the imagePullSecrets to the given daemonset
-func setDaemonSetImagePullSecrets(daemonset *appsv1.DaemonSet, imagePullSecrets []string) {
-	for _, imagePullSecret := range imagePullSecrets {
-		daemonset.Spec.Template.Spec.ImagePullSecrets = append(daemonset.Spec.Template.Spec.ImagePullSecrets, corev1.LocalObjectReference{
-			Name: imagePullSecret,
-		})
-	}
+func setDaemonSetImagePullSecrets(daemonset *appsv1.DaemonSet, imagePullSecrets []corev1.LocalObjectReference) {
+	daemonset.Spec.Template.Spec.ImagePullSecrets = append(daemonset.Spec.Template.Spec.ImagePullSecrets, imagePullSecrets...)
 	daemonset.Spec.Template.Spec.ImagePullSecrets = slices.Compact(daemonset.Spec.Template.Spec.ImagePullSecrets)
 }
