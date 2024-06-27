@@ -268,7 +268,7 @@ $(HBN_SIDECAR_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/aserdean/hbn-sidecar.git $(HBN_SIDECAR_DIR)
 
 ## Parprouted image with DPF patches
-PARPROUTED_REVISION ?= 416f175d82eb2236d70119d6606e8a9a93ca7388
+PARPROUTED_REVISION ?= cda116e6312bd583b5ceed7c814d1bf539f33f6f
 PARPROUTED_DIR=$(REPOSDIR)/parprouted-$(PARPROUTED_REVISION)
 $(PARPROUTED_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/parprouted.git $(PARPROUTED_DIR) $(PARPROUTED_REVISION)
