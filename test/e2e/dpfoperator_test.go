@@ -65,7 +65,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 	dpuServiceInterfaceNamespace := "test"
 	dpuServiceChainName := "svc-chain-test"
 	dpuServiceChainNamespace := "test-2"
-	dpuServiceIPAMName := "switched-application"
+	dpuServiceIPAMWithIPPoolName := "switched-application"
+	dpuServiceIPAMWithCIDRPoolName := "routed-application"
 	dpuServiceIPAMNamespace := "test-3"
 	dpfProvisioningControllerPVCName := "dpf-provisioning-volume"
 
@@ -464,7 +465,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 			dpuServiceIPAM := &unstructured.Unstructured{}
 			Expect(yaml.Unmarshal(data, dpuServiceIPAM)).To(Succeed())
-			dpuServiceIPAM.SetName(dpuServiceIPAMName)
+			dpuServiceIPAM.SetName(dpuServiceIPAMWithIPPoolName)
 			dpuServiceIPAM.SetNamespace(dpuServiceIPAMNamespace)
 			Expect(testClient.Create(ctx, dpuServiceIPAM)).To(Succeed())
 			cleanupObjs = append(cleanupObjs, dpuServiceIPAM)
@@ -492,7 +493,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		It("delete the DPUServiceIPAM with subnet split per node configuration and check NVIPAM IPPool is deleted in each cluster", func() {
 			By("deleting the DPUServiceIPAM")
 			dpuServiceIPAM := &sfcv1.DPUServiceIPAM{}
-			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceIPAMNamespace, Name: dpuServiceIPAMName}, dpuServiceIPAM)).To(Succeed())
+			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceIPAMNamespace, Name: dpuServiceIPAMWithIPPoolName}, dpuServiceIPAM)).To(Succeed())
 			Expect(testClient.Delete(ctx, dpuServiceIPAM)).To(Succeed())
 
 			By("checking that NVIPAM IPPool CR is deleted in each DPU cluster")
@@ -509,6 +510,61 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 						"dpf.nvidia.com/dpuserviceipam-namespace": dpuServiceIPAM.GetNamespace(),
 					})).To(Succeed())
 					g.Expect(ipPools.Items).To(BeEmpty())
+				}
+			}).WithTimeout(180 * time.Second).Should(Succeed())
+		})
+
+		It("create a DPUServiceIPAM with cidr split in subnet per node configuration and check NVIPAM CIDRPool is created to each cluster", func() {
+			By("creating the DPUServiceIPAM CR")
+			data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuserviceipam_cidr.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+			dpuServiceIPAM := &unstructured.Unstructured{}
+			Expect(yaml.Unmarshal(data, dpuServiceIPAM)).To(Succeed())
+			dpuServiceIPAM.SetName(dpuServiceIPAMWithCIDRPoolName)
+			dpuServiceIPAM.SetNamespace(dpuServiceIPAMNamespace)
+			Expect(testClient.Create(ctx, dpuServiceIPAM)).To(Succeed())
+			cleanupObjs = append(cleanupObjs, dpuServiceIPAM)
+
+			By("checking that NVIPAM CIDRPool CR is created in the DPU clusters")
+			Eventually(func(g Gomega) {
+				dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
+				g.Expect(err).ToNot(HaveOccurred())
+				for i := range dpuControlPlanes {
+					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
+					g.Expect(err).ToNot(HaveOccurred())
+
+					cidrPools := &nvipamv1.CIDRPoolList{}
+					g.Expect(dpuClient.List(ctx, cidrPools, client.MatchingLabels{
+						"dpf.nvidia.com/dpuserviceipam-name":      dpuServiceIPAM.GetName(),
+						"dpf.nvidia.com/dpuserviceipam-namespace": dpuServiceIPAM.GetNamespace(),
+					})).To(Succeed())
+					g.Expect(cidrPools.Items).To(HaveLen(1))
+
+					// TODO: Check that NVIPAM has reconciled the resources and status reflects that.
+				}
+			}).WithTimeout(180 * time.Second).Should(Succeed())
+		})
+
+		It("delete the DPUServiceIPAM with cidr split in subnet per node configuration and check NVIPAM CIDRPool is deleted in each cluster", func() {
+			By("deleting the DPUServiceIPAM")
+			dpuServiceIPAM := &sfcv1.DPUServiceIPAM{}
+			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceIPAMNamespace, Name: dpuServiceIPAMWithCIDRPoolName}, dpuServiceIPAM)).To(Succeed())
+			Expect(testClient.Delete(ctx, dpuServiceIPAM)).To(Succeed())
+
+			By("checking that NVIPAM CIDRPool CR is deleted in each DPU cluster")
+			Eventually(func(g Gomega) {
+				dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
+				g.Expect(err).ToNot(HaveOccurred())
+				for i := range dpuControlPlanes {
+					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
+					g.Expect(err).ToNot(HaveOccurred())
+
+					cidrPools := &nvipamv1.CIDRPoolList{}
+					g.Expect(dpuClient.List(ctx, cidrPools, client.MatchingLabels{
+						"dpf.nvidia.com/dpuserviceipam-name":      dpuServiceIPAM.GetName(),
+						"dpf.nvidia.com/dpuserviceipam-namespace": dpuServiceIPAM.GetNamespace(),
+					})).To(Succeed())
+					g.Expect(cidrPools.Items).To(BeEmpty())
 				}
 			}).WithTimeout(180 * time.Second).Should(Succeed())
 		})

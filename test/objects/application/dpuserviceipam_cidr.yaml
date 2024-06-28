@@ -3,8 +3,8 @@ kind: DPUServiceIPAM
 metadata:
   name: pool1
 spec:
-  ipv4CIDR:
-    cidr: "192.168.0.0/20"
+  ipv4Network:
+    network: "192.168.0.0/20"
     gatewayIndex: 1
     prefixSize: 24
     exclusions:
