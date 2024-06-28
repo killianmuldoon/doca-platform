@@ -172,6 +172,11 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 				Network:      "192.168.0.0/20",
 				GatewayIndex: 1,
 				PrefixSize:   24,
+				Exclusions:   []string{"192.168.0.1", "192.168.0.2"},
+				Allocations: map[string]string{
+					"node-1": "192.168.1.0/24",
+					"node-2": "192.168.2.0/24",
+				},
 			}
 			dpuServiceIPAM.Spec.NodeSelector = &corev1.NodeSelector{
 				NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -197,6 +202,14 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 				g.Expect(got.Spec.CIDR).To(Equal("192.168.0.0/20"))
 				g.Expect(got.Spec.PerNodeNetworkPrefix).To(Equal(uint(24)))
 				g.Expect(got.Spec.GatewayIndex).To(Equal(ptr.To[uint](1)))
+				g.Expect(got.Spec.Exclusions).To(ConsistOf([]nvipamv1.ExcludeRange{
+					{StartIP: "192.168.0.1", EndIP: "192.168.0.1"},
+					{StartIP: "192.168.0.2", EndIP: "192.168.0.2"},
+				}))
+				g.Expect(got.Spec.StaticAllocations).To(ConsistOf([]nvipamv1.CIDRPoolStaticAllocation{
+					{NodeName: "node-1", Prefix: "192.168.1.0/24"},
+					{NodeName: "node-2", Prefix: "192.168.2.0/24"},
+				}))
 				g.Expect(got.Spec.NodeSelector).To(BeComparableTo(&corev1.NodeSelector{
 					NodeSelectorTerms: []corev1.NodeSelectorTerm{
 						{

@@ -255,12 +255,22 @@ func generateIPPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.IPPool {
 		},
 	}
 	pool.ObjectMeta.ManagedFields = nil
-	pool.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind("IPPool"))
+	pool.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind(nvipamv1.IPPoolKind))
 	return pool
 }
 
 // generateCIDRPool generates a CIDRPool object for the given dpuServiceIPAM
 func generateCIDRPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.CIDRPool {
+	exclusions := make([]nvipamv1.ExcludeRange, 0, len(dpuServiceIPAM.Spec.IPV4Network.Exclusions))
+	for _, ip := range dpuServiceIPAM.Spec.IPV4Network.Exclusions {
+		exclusions = append(exclusions, nvipamv1.ExcludeRange{StartIP: ip, EndIP: ip})
+	}
+
+	allocations := make([]nvipamv1.CIDRPoolStaticAllocation, 0, len(dpuServiceIPAM.Spec.IPV4Network.Allocations))
+	for node, prefix := range dpuServiceIPAM.Spec.IPV4Network.Allocations {
+		allocations = append(allocations, nvipamv1.CIDRPoolStaticAllocation{NodeName: node, Prefix: prefix})
+	}
+
 	pool := &nvipamv1.CIDRPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpuServiceIPAM.Name,
@@ -275,10 +285,12 @@ func generateCIDRPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.CIDRPool {
 			GatewayIndex:         ptr.To[uint](dpuServiceIPAM.Spec.IPV4Network.GatewayIndex),
 			PerNodeNetworkPrefix: dpuServiceIPAM.Spec.IPV4Network.PrefixSize,
 			NodeSelector:         dpuServiceIPAM.Spec.NodeSelector,
+			Exclusions:           exclusions,
+			StaticAllocations:    allocations,
 		},
 	}
 	pool.ObjectMeta.ManagedFields = nil
-	pool.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind("CIDRPool"))
+	pool.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind(nvipamv1.CIDRPoolKind))
 	return pool
 }
 
