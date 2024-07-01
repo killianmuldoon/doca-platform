@@ -134,7 +134,7 @@ OVNKUBERNETES_BASE_IMAGE=gitlab-master.nvidia.com:5005/doca-platform-foundation/
 # Points to branch dpf-23.09.0
 OVN_REVISION=89fb67b6222d1e6a48fed3ae6d6ac486326c6ab2
 # Points to branch dpf-4.14
-OVNKUBERNETES_DPU_REVISION=4050b08d14eac5ccdac2e398a25ee790347b8cfa
+OVNKUBERNETES_DPU_REVISION=33f3f2bd91cc68305a39add3dfdaa0142121b69e
 # Points to branch dpf-4.14-non-dpu
 OVNKUBERNETES_NON_DPU_REVISION=f73cdc1f764b36a1f4df9849e15f32eb0e0082c1
 
