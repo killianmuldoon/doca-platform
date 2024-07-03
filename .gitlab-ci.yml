@@ -158,23 +158,8 @@ nightly-release:
   tags:
     - release
   script:
-    - make release
-  after_script:
-    - ./hack/scripts/slack-notification.sh
-
-mirror-packages:
-  stage: build
-  needs: []
-  variables:
-    # This is the name of the pipeline being triaged. Must match the name of the pipeline in Gitlab.
-    TRIAGE_PIPELINE_NAME: "Periodic package mirror"
-  tags:
-    - release
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "schedule" && $MIRROR_PACKAGES == "true"
-      when: always
-  script:
     - ./hack/scripts/mirror-packages-to-gitlab.sh
+    - make release
   after_script:
     - ./hack/scripts/slack-notification.sh
 
