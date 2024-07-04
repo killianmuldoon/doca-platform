@@ -115,6 +115,12 @@ copy_required_startup_configs() {
     cp "${HBN_DEFAULT_FILES_PATH}"/etc/network/ifupdown2/ifupdown2.conf "${HBN_CONFIG_DIR}"/etc/network/ifupdown2/ifupdown2.conf
   fi
 
+# mgmt.intf config file
+  mkdir -p "${HBN_CONFIG_DIR}"/etc/network/interfaces.d
+  if [[ ! -e "${HBN_CONFIG_DIR}"/etc/network/interfaces.d/mgmt.intf ]]; then
+        cp "${HBN_DEFAULT_FILES_PATH}"/etc/network/interfaces.d/mgmt.intf "${HBN_CONFIG_DIR}"/etc/network/interfaces.d/mgmt.intf
+  fi
+
 # supervisor config files 
   mkdir -p "$HBN_CONFIG_DIR"/etc/supervisor/conf.d
 
