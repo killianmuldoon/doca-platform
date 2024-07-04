@@ -725,17 +725,10 @@ export SFC_CONTROLLER_IMAGE ?= $(REGISTRY)/$(SFC_CONTROLLER_IMAGE_NAME)
 OVS_CNI_IMAGE_NAME ?= ovs-cni-plugin
 export OVS_CNI_IMAGE ?= $(REGISTRY)/$(OVS_CNI_IMAGE_NAME)
 
-## TODO: Cleanup image building and versioning for dhcrelay, parprouted and hostnetwork.
-DHCRELAY_VERSION ?= 0.1
-export DHCRELAY_IMAGE ?= $(REGISTRY)/dhcrelay:v$(DHCRELAY_VERSION)
-
-export PARPROUTED_IMAGE ?= $(REGISTRY)/parprouted:$(TAG)
-
-export HOSTNETWORK_IMAGE ?= $(REGISTRY)/hostnetworksetup:v$(HOSTNETWORK_VERSION)
-HOSTNETWORK_VERSION ?= 0.1
-
-export DMS_IMAGE ?= $(REGISTRY)/dms-server:v$(DMS_VERSION)
-DMS_VERSION ?= 2.7
+export DHCRELAY_IMAGE ?= $(REGISTRY)/dhcrelay
+export PARPROUTED_IMAGE ?= $(REGISTRY)/parprouted
+export HOSTNETWORK_IMAGE ?= $(REGISTRY)/hostnetworksetup
+export DMS_IMAGE ?= $(REGISTRY)/dms-server
 
 HOSTCNIPROVISIONER_IMAGE_NAME ?= host-cni-provisioner
 HOSTCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(HOSTCNIPROVISIONER_IMAGE_NAME)
@@ -914,24 +907,24 @@ docker-build-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-e
 
 .PHONY: docker-build-parprouted
 docker-build-parprouted: $(PARPROUTED_DIR) ## Build docker image with the parprouted.
-	cd $(PARPROUTED_DIR) && $(MAKE) parprouted && docker build --platform linux/${HOST_ARCH} -t ${PARPROUTED_IMAGE} .
+	cd $(PARPROUTED_DIR) && $(MAKE) parprouted && docker build --platform linux/${HOST_ARCH} -t $(PARPROUTED_IMAGE):$(TAG) .
 
 .PHONY: docker-build-dhcrelay
 docker-build-dhcrelay: ## Build docker image with the dhcrelay.
-	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t ${DHCRELAY_IMAGE} . -f dockerfile/Dockerfile.dhcrelay
+	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t $(DHCRELAY_IMAGE):$(TAG) . -f dockerfile/Dockerfile.dhcrelay
 
 .PHONY: docker-build-hostnetwork
 docker-build-hostnetwork: ## Build docker image with the hostnetwork.
-	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t ${HOSTNETWORK_IMAGE} . -f dockerfile/Dockerfile.hostnetwork
+	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t $(HOSTNETWORK_IMAGE):$(TAG) . -f dockerfile/Dockerfile.hostnetwork
 
 .PHONY: docker-build-dms
 docker-build-dms: ## Build docker image with the hostnetwork.
-	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t ${DMS_IMAGE} . -f dockerfile/Dockerfile.dms
+	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t $(DMS_IMAGE):$(TAG) . -f dockerfile/Dockerfile.dms
 
 .PHONY: docker-build-hbn
 docker-build-hbn: ## Build docker image for HBN.
 	## Note this image only ever builds for arm64.
-	cd $(HBN_DPUSERVICE_DIR) && docker build --build-arg hbn_nvcr_tag=$(HBN_NVCR_TAG) -t ${HBN_IMAGE}:${HBN_TAG} . -f Dockerfile
+	cd $(HBN_DPUSERVICE_DIR) && docker build --build-arg hbn_nvcr_tag=$(HBN_NVCR_TAG) -t $(HBN_IMAGE):$(HBN_TAG) . -f Dockerfile
 
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the docker images for all DOCKER_BUILD_TARGETS.
@@ -966,19 +959,19 @@ docker-push-ovs-cni: ## Push the docker image for ovs-cni
 
 .PHONY: docker-push-dhcrelay
 docker-push-dhcrelay: ## Push the docker image for dhcrelate.
-	cd $(DPF_PROVISIONING_DIR) && docker push ${DHCRELAY_IMAGE}
+	cd $(DPF_PROVISIONING_DIR) && docker push $(DHCRELAY_IMAGE):$(TAG)
 
 .PHONY: docker-push-parprouted
 docker-push-parprouted: ## Push the docker image for parprouted.
-	cd $(DPF_PROVISIONING_DIR) && docker push ${PARPROUTED_IMAGE}
+	cd $(DPF_PROVISIONING_DIR) && docker push $(PARPROUTED_IMAGE):$(TAG)
 
 .PHONY: docker-push-hostnetwork
 docker-push-hostnetwork: ## Push the docker image for the hostnetwork.
-	cd $(DPF_PROVISIONING_DIR) && docker push ${HOSTNETWORK_IMAGE}
+	cd $(DPF_PROVISIONING_DIR) && docker push $(HOSTNETWORK_IMAGE):$(TAG)
 
 .PHONY: docker-push-dms
 docker-push-dms: ## Push the docker image for DMS.
-	cd $(DPF_PROVISIONING_DIR) && docker push ${DMS_IMAGE}
+	cd $(DPF_PROVISIONING_DIR) && docker push $(DMS_IMAGE):$(TAG)
 
 .PHONY: docker-push-dpucniprovisioner
 docker-push-dpucniprovisioner: ## Push the docker image for DPU CNI Provisioner.

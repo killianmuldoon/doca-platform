@@ -29,10 +29,10 @@ func TestDefaults_Parse(t *testing.T) {
 	defaultValues := map[string]string{
 		"customOVNKubernetesDPUImage":    "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/ovn-kubernetes-dpu:v0.0.0",
 		"customOVNKubernetesNonDPUImage": "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/ovn-kubernetes-non-dpu:v0.0.0",
-		"dmsImage":                       "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/dms-server:v2.7",
-		"parproutedImage":                "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/parprouted:v0.1",
-		"dhcrelayImage":                  "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/dhcrelay:v0.1",
-		"hostnetworksetupImage":          "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/hostnetworksetup:v0.1",
+		"dmsImage":                       "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/dms-server:v0.0.0",
+		"parproutedImage":                "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/parprouted:v0.0.0",
+		"dhcrelayImage":                  "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/dhcrelay:v0.0.0",
+		"hostnetworksetupImage":          "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/hostnetworksetup:v0.0.0",
 	}
 	tests := []struct {
 		name    string
