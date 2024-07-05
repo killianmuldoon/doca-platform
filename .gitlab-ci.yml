@@ -152,9 +152,30 @@ nightly-release:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_RELEASE == "true"
       when: always
   variables:
+    TAG: v0.0.0-nightly-$CI_COMMIT_SHORT_SHA
+    REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-operator/e2e
+  tags:
+    - release
+  script:
+    - ./hack/scripts/mirror-packages-to-gitlab.sh
+    - make release
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+
+ci-release:
+  stage: build
+  needs: [ ]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'push' && $CI_COMMIT_BRANCH == "main"
+  variables:
     # Note: This job is generic to allow it to use both harbor and nvcr.io registries. Variables defined under https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/-/pipeline_schedules define the specific behaviour.
     TAG: v0.0.0-$CI_COMMIT_SHORT_SHA
-    REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-operator/e2e
+    REGISTRY: nvcr.io/nvstaging/mellanox
+    CI_PIPELINE_NAME: "CI release"
+    HELM_PUSH_CMD: cm-push
+    ## \$$$$oauthtoken resolves to the correct username $oauthtoken after being plumbed through GitLab, env, make and shell.
+    HELM_PUSH_OPTS: --username="\$$$$oauthtoken" --password=$NGC_API_KEY -f
+    HELM_REGISTRY: https://helm.ngc.nvidia.com/nvstaging/mellanox
   tags:
     - release
   script:
