@@ -66,11 +66,6 @@ const (
 	// physSwitchID is the content of /sys/class/net/<vf_rep>/phys_switch_id. In our case, we don't care about the value
 	// as long as the value is the same for the PF and VF representors.
 	physSwitchIDValue = "custom_value"
-
-	// ovnManagementVFRep is the VF *representor* used by OVN Kubernetes. This assumes that we select that particular VF
-	// (name would be something like enp23s0f0v0) for the OVN management in the OVN Kubernetes configuration
-	// (i.e. OVNKUBE_NODE_MGMT_PORT_NETDEV env variable).
-	ovnManagementVFRep = "pf0vf0"
 )
 
 type HostCNIProvisioner struct {
@@ -97,7 +92,7 @@ type HostCNIProvisioner struct {
 func New(ctx context.Context, clock clock.WithTicker, networkHelper networkhelper.NetworkHelper, exec kexec.Interface, pf0 string, pfIPNet *net.IPNet) *HostCNIProvisioner {
 	return &HostCNIProvisioner{
 		ctx:                       ctx,
-		ensureConfigurationTicker: clock.NewTicker(2 * time.Second),
+		ensureConfigurationTicker: clock.NewTicker(30 * time.Second),
 		networkHelper:             networkHelper,
 		exec:                      exec,
 		FileSystemRoot:            "",
@@ -130,11 +125,17 @@ func (p *HostCNIProvisioner) EnsureConfiguration() {
 		case <-p.ctx.Done():
 			return
 		case <-p.ensureConfigurationTicker.C():
-			// The VF used for OVN management is getting renamed when OVN Kubernetes starts. On restart, the link is no
-			// longer there and OVN Kubernetes can't start, therefore we need to ensure the link always exists.
-			err := p.addDummyLinkIfNotExists(ovnManagementVFRep)
+			// There are at least 2 reasons we run this function in a loop:
+			// * The VF used for OVN management is getting renamed when OVN Kubernetes starts. On restart, the link is no
+			//   longer there and OVN Kubernetes can't start, therefore we need to ensure the link always exists.
+			// * On node reboot, the container that the provisioning team is running to configure VFs on the host may
+			//   run after this provisioner has done it's configuration. This means that we may end up in a situation
+			//   where the provisioner hasn't created the relevant dummy devices and entries in the filesystem because
+			//   the number of VFs was 0. By running this function in a loop, we ensure that eventually the fake env
+			//   will be configured.
+			err := p.configureFakeEnvironment()
 			if err != nil {
-				klog.Errorf("failed to ensure dummy link %s: %s", ovnManagementVFRep, err.Error())
+				klog.Errorf("failed to ensure fake environment: %s", err.Error())
 			}
 		}
 	}

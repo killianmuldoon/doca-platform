@@ -122,17 +122,30 @@ var _ = Describe("Host CNI Provisioner", func() {
 			})
 
 			By("Asserting fake filesystem")
-			assertFakeFilesystem(tmpDir)
+			assertFakeFilesystem(tmpDir, getExpectedFSEntriesFor2VFs())
 		})
 		It("should ensure that the OVN management link is always in place", func(ctx context.Context) {
 			testCtrl := gomock.NewController(GinkgoT())
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
 			ctx, cancel := context.WithCancel(ctx)
 			c := clock.NewFakeClock(time.Now())
-			provisioner := hostcniprovisioner.New(ctx, c, networkhelper, nil, "", nil)
+			provisioner := hostcniprovisioner.New(ctx, c, networkhelper, nil, "ens25f0np0", nil)
 
+			// Creating mocked host filesystem to avoid unnecessary lines of code
+			tmpDir, err := os.MkdirTemp("", "hostcniprovisioner")
+			DeferCleanup(os.RemoveAll, tmpDir)
+			Expect(err).NotTo(HaveOccurred())
+			provisioner.FileSystemRoot = tmpDir
+
+			sriovNumVfsPath := filepath.Join(tmpDir, "/sys/class/net/ens25f0np0/device/sriov_numvfs")
+			err = os.MkdirAll(filepath.Dir(sriovNumVfsPath), 0755)
+			Expect(err).NotTo(HaveOccurred())
+			err = os.WriteFile(sriovNumVfsPath, []byte(strconv.Itoa(1)), 0444)
+			Expect(err).NotTo(HaveOccurred())
+
+			// Start of the test
 			networkhelper.EXPECT().DummyLinkExists("pf0vf0").DoAndReturn(func(link string) (bool, error) {
-				c.Step(2 * time.Second)
+				c.Step(30 * time.Second)
 				return false, errors.New("some-error")
 			})
 
@@ -141,7 +154,7 @@ var _ = Describe("Host CNI Provisioner", func() {
 				return false, nil
 			})
 			networkhelper.EXPECT().AddDummyLink("pf0vf0").Do(func(link string) {
-				c.Step(2 * time.Second)
+				c.Step(30 * time.Second)
 			})
 
 			networkhelper.EXPECT().DummyLinkExists("pf0vf0").DoAndReturn(func(link string) (bool, error) {
@@ -151,7 +164,58 @@ var _ = Describe("Host CNI Provisioner", func() {
 			})
 
 			Eventually(func(g Gomega) {
-				c.Step(2 * time.Second)
+				c.Step(30 * time.Second)
+				provisioner.EnsureConfiguration()
+			}).Should(BeNil())
+
+		}, SpecTimeout(5*time.Second))
+		It("should ensure that the fake environment is updated when the number of VFs increases", func(ctx context.Context) {
+			testCtrl := gomock.NewController(GinkgoT())
+			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			ctx, cancel := context.WithCancel(ctx)
+			c := clock.NewFakeClock(time.Now())
+			provisioner := hostcniprovisioner.New(ctx, c, networkhelper, nil, "ens25f0np0", nil)
+
+			tmpDir, err := os.MkdirTemp("", "hostcniprovisioner")
+			DeferCleanup(os.RemoveAll, tmpDir)
+			Expect(err).NotTo(HaveOccurred())
+			provisioner.FileSystemRoot = tmpDir
+
+			sriovNumVfsPath := filepath.Join(tmpDir, "/sys/class/net/ens25f0np0/device/sriov_numvfs")
+			err = os.MkdirAll(filepath.Dir(sriovNumVfsPath), 0755)
+			Expect(err).NotTo(HaveOccurred())
+
+			// This scenario can never happen in reality since it starts always from 0. It's done like this to test that
+			// the code is reacting correctly.
+			By("setting the numbers of VFs to 1")
+			err = os.WriteFile(sriovNumVfsPath, []byte(strconv.Itoa(1)), 0666)
+			Expect(err).NotTo(HaveOccurred())
+
+			networkhelper.EXPECT().DummyLinkExists("pf0vf0").DoAndReturn(func(link string) (bool, error) {
+				By("validating filesystem for 1 VF")
+				assertFakeFilesystem(tmpDir, getExpectedFSEntriesFor1VF())
+				return false, nil
+			})
+
+			networkhelper.EXPECT().AddDummyLink("pf0vf0").Do(func(link string) {
+				By("increasing to 2 VFs")
+				err = os.WriteFile(sriovNumVfsPath, []byte(strconv.Itoa(2)), 0666)
+				Expect(err).NotTo(HaveOccurred())
+				c.Step(30 * time.Second)
+			})
+
+			networkhelper.EXPECT().DummyLinkExists("pf0vf0").DoAndReturn(func(link string) (bool, error) {
+				By("validating filesystem for 2 VF")
+				assertFakeFilesystem(tmpDir, getExpectedFSEntriesFor2VFs())
+				return true, nil
+			})
+			networkhelper.EXPECT().DummyLinkExists("pf0vf1").Return(false, nil)
+			networkhelper.EXPECT().AddDummyLink("pf0vf1").Do(func(link string) {
+				cancel()
+			})
+
+			Eventually(func(g Gomega) {
+				c.Step(30 * time.Second)
 				provisioner.EnsureConfiguration()
 			}).Should(BeNil())
 
@@ -293,8 +357,42 @@ var _ = Describe("Host CNI Provisioner", func() {
 	})
 })
 
-func assertFakeFilesystem(tmpDir string) {
-	expectedEntries := map[string]verifyFSEntry{
+func getExpectedFSEntriesFor1VF() map[string]verifyFSEntry {
+	return map[string]verifyFSEntry{
+		"/var/dpf/sys/class/net": {
+			isDir: true,
+		},
+		"/var/dpf/sys/class/net/ens25f0np0": {
+			isDir: true,
+		},
+		"/var/dpf/sys/class/net/ens25f0np0/subsystem": {
+			isSymlink: true,
+			content:   "/var/dpf/sys/class/net",
+		},
+		"/var/dpf/sys/class/net/ens25f0np0/phys_switch_id": {
+			isDir:   false,
+			content: "custom_value",
+		},
+		"/var/dpf/sys/class/net/ens25f0np0/phys_port_name": {
+			isDir:   false,
+			content: "p0",
+		},
+		"/var/dpf/sys/class/net/pf0vf0": {
+			isDir: true,
+		},
+		"/var/dpf/sys/class/net/pf0vf0/phys_switch_id": {
+			isDir:   false,
+			content: "custom_value",
+		},
+		"/var/dpf/sys/class/net/pf0vf0/phys_port_name": {
+			isDir:   false,
+			content: "c1pf0vf0",
+		},
+	}
+}
+
+func getExpectedFSEntriesFor2VFs() map[string]verifyFSEntry {
+	return map[string]verifyFSEntry{
 		"/var/dpf/sys/class/net": {
 			isDir: true,
 		},
@@ -336,7 +434,9 @@ func assertFakeFilesystem(tmpDir string) {
 			content: "c1pf0vf1",
 		},
 	}
+}
 
+func assertFakeFilesystem(tmpDir string, expectedEntries map[string]verifyFSEntry) {
 	pathToVerify := filepath.Join(tmpDir, "/var/dpf/sys/class/net")
 	verifyFS(tmpDir, pathToVerify, expectedEntries)
 }
