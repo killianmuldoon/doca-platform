@@ -17,10 +17,12 @@ limitations under the License.
 package dpucniprovisioner_test
 
 import (
+	"context"
 	"errors"
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
 	networkhelperMock "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper/mock"
@@ -31,6 +33,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/vishvananda/netlink"
 	"go.uber.org/mock/gomock"
+	clock "k8s.io/utils/clock/testing"
 	kexec "k8s.io/utils/exec"
 	kexecTesting "k8s.io/utils/exec/testing"
 	"k8s.io/utils/ptr"
@@ -70,7 +73,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			Expect(err).ToNot(HaveOccurred())
 			hostCIDR, err := netlink.ParseIPNet("10.0.100.1/24")
 			Expect(err).ToNot(HaveOccurred())
-			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, vtepIPNet, gateway, vtepCIDR, hostCIDR, "ens25f0np0")
+			provisioner := dpucniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, vtepIPNet, gateway, vtepCIDR, hostCIDR, "ens25f0np0")
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -136,6 +139,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			networkhelper.EXPECT().AddRoute(vtepCIDR, gateway, "vtep0", nil)
 			networkhelper.EXPECT().AddRoute(hostCIDR, gateway, "vtep0", ptr.To[int](10000))
 
+			networkhelper.EXPECT().LinkExists("pf0vf0").Return(true, nil)
 			networkhelper.EXPECT().SetLinkDown("pf0vf0")
 			networkhelper.EXPECT().RenameLink("pf0vf0", "ovn-k8s-mp0_0")
 			networkhelper.EXPECT().SetLinkUp("ovn-k8s-mp0_0")
@@ -159,7 +163,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, hostCIDR, err := net.ParseCIDR("10.0.100.1/24")
 			Expect(err).ToNot(HaveOccurred())
-			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, vtepIPNet, gateway, vtepCIDR, hostCIDR, "ens25f0np0")
+			provisioner := dpucniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, vtepIPNet, gateway, vtepCIDR, hostCIDR, "ens25f0np0")
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -228,6 +232,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			networkhelper.EXPECT().SetLinkUp("vtep0")
 			networkhelper.EXPECT().AddRoute(hostCIDR, gateway, "vtep0", ptr.To[int](10000))
 
+			networkhelper.EXPECT().LinkExists("pf0vf0").Return(true, nil)
 			networkhelper.EXPECT().SetLinkDown("pf0vf0")
 			networkhelper.EXPECT().RenameLink("pf0vf0", "ovn-k8s-mp0_0")
 			networkhelper.EXPECT().SetLinkUp("ovn-k8s-mp0_0")
@@ -239,6 +244,44 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(ovsSystemdConfig)).To(Equal(ovsSystemdConfigContentPopulated))
 		})
+		It("should ensure that the OVN management link is always configured", func(ctx context.Context) {
+			testCtrl := gomock.NewController(GinkgoT())
+			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			ctx, cancel := context.WithCancel(ctx)
+			c := clock.NewFakeClock(time.Now())
+			provisioner := dpucniprovisioner.New(ctx, c, nil, networkhelper, nil, nil, nil, nil, nil, "")
+
+			networkhelper.EXPECT().LinkExists("pf0vf0").DoAndReturn(func(link string) (bool, error) {
+				c.Step(30 * time.Second)
+				return false, errors.New("some-error")
+			})
+
+			networkhelper.EXPECT().LinkExists("pf0vf0").DoAndReturn(func(link string) (bool, error) {
+				By("error occurred, it retries and link exists so it should rename the link")
+				return true, nil
+			})
+
+			networkhelper.EXPECT().SetLinkDown("pf0vf0")
+			networkhelper.EXPECT().RenameLink("pf0vf0", "ovn-k8s-mp0_0")
+			networkhelper.EXPECT().SetLinkUp("ovn-k8s-mp0_0").Do(func(link string) {
+				c.Step(30 * time.Second)
+			})
+
+			networkhelper.EXPECT().LinkExists("pf0vf0").DoAndReturn(func(link string) (bool, error) {
+				By("link doesn't exist, it should not try to rename the link, but ensure it's up")
+				return false, nil
+			})
+
+			networkhelper.EXPECT().SetLinkUp("ovn-k8s-mp0_0").Do(func(link string) {
+				cancel()
+			})
+
+			Eventually(func(g Gomega) {
+				c.Step(30 * time.Second)
+				provisioner.EnsureConfiguration()
+			}).Should(BeNil())
+
+		}, SpecTimeout(5*time.Second))
 	})
 	Context("When it runs once when the system is configured", func() {
 		It("should skip configuration", func() {
@@ -246,7 +289,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovsClient := ovsclientMock.NewMockOVSClient(testCtrl)
 			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
 			fakeExec := &kexecTesting.FakeExec{}
-			provisioner := dpucniprovisioner.New(ovsClient, networkhelper, fakeExec, nil, nil, nil, nil, "ens25f0np0")
+			provisioner := dpucniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, nil, nil, nil, nil, "ens25f0np0")
 
 			ovsClient.EXPECT().BridgeExists("br-int").Return(true, nil)
 			ovsClient.EXPECT().BridgeExists("ens25f0np0").Return(true, nil)

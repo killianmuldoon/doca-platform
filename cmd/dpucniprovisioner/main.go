@@ -19,12 +19,14 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"os"
 	"os/signal"
+	"sync"
 
 	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu"
 	dpucniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/config"
@@ -34,6 +36,7 @@ import (
 
 	"github.com/vishvananda/netlink"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
 	kexec "k8s.io/utils/exec"
 )
 
@@ -74,12 +77,21 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	provisioner := dpucniprovisioner.New(ovsClient, networkhelper.New(), kexec.New(), vtepIP, gateway, vtepCIDR, hostCIDR, getHostPF0(config))
+	ctx, cancel := context.WithCancel(context.Background())
+	c := clock.RealClock{}
+	provisioner := dpucniprovisioner.New(ctx, c, ovsClient, networkhelper.New(), kexec.New(), vtepIP, gateway, vtepCIDR, hostCIDR, getHostPF0(config))
 
 	err = provisioner.RunOnce()
 	if err != nil {
 		klog.Fatal(err)
 	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		provisioner.EnsureConfiguration()
+	}()
 
 	err = readyz.ReportReady()
 	if err != nil {
@@ -88,9 +100,12 @@ func main() {
 
 	klog.Info("DPU CNI Provisioner is ready")
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	<-c
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
+	<-ch
+	klog.Info("Received termination signal, terminating.")
+	cancel()
+	wg.Wait()
 }
 
 // parseConfig parses the DPUCNIProvisionerConfig from the filesystem. Notice that the config is cluster scoped and is

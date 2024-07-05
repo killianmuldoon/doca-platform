@@ -155,6 +155,21 @@ func (mr *MockNetworkHelperMockRecorder) GetPFRepMACAddress(device any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPFRepMACAddress", reflect.TypeOf((*MockNetworkHelper)(nil).GetPFRepMACAddress), device)
 }
 
+// LinkExists mocks base method.
+func (m *MockNetworkHelper) LinkExists(link string) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LinkExists", link)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// LinkExists indicates an expected call of LinkExists.
+func (mr *MockNetworkHelperMockRecorder) LinkExists(link any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkExists", reflect.TypeOf((*MockNetworkHelper)(nil).LinkExists), link)
+}
+
 // LinkIPAddressExists mocks base method.
 func (m *MockNetworkHelper) LinkIPAddressExists(link string, ipNet *net.IPNet) (bool, error) {
 	m.ctrl.T.Helper()

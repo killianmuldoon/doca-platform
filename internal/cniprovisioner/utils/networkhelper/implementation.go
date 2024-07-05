@@ -274,6 +274,19 @@ func (n *networkHelper) DummyLinkExists(link string) (bool, error) {
 	return true, nil
 }
 
+// LinkExists checks whether a link exists
+func (n *networkHelper) LinkExists(link string) (bool, error) {
+	_, err := netlink.LinkByName(link)
+	if err != nil {
+		if _, ok := err.(netlink.LinkNotFoundError); ok {
+			return false, nil
+		}
+		return false, fmt.Errorf("netlink.LinkByName() failed: %w", err)
+	}
+
+	return true, nil
+}
+
 // GetPFRepMacAddress returns the MAC address of the PF Representor provided as input. When you run this function in
 // the DPU, it will give you the MAC address of the PF Representor on the host.
 func (n *networkHelper) GetPFRepMACAddress(device string) (net.HardwareAddr, error) {

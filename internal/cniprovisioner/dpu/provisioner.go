@@ -17,16 +17,19 @@ limitations under the License.
 package dpucniprovisioner
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/ovsclient"
 
 	"k8s.io/klog/v2"
+	"k8s.io/utils/clock"
 	kexec "k8s.io/utils/exec"
 	"k8s.io/utils/ptr"
 )
@@ -43,9 +46,11 @@ const (
 )
 
 type DPUCNIProvisioner struct {
-	ovsClient     ovsclient.OVSClient
-	networkHelper networkhelper.NetworkHelper
-	exec          kexec.Interface
+	ctx                       context.Context
+	ensureConfigurationTicker clock.Ticker
+	ovsClient                 ovsclient.OVSClient
+	networkHelper             networkhelper.NetworkHelper
+	exec                      kexec.Interface
 
 	// FileSystemRoot controls the file system root. It's used for enabling easier testing of the package. Defaults to
 	// empty.
@@ -70,7 +75,9 @@ type DPUCNIProvisioner struct {
 }
 
 // New creates a DPUCNIProvisioner that can configure the system
-func New(ovsClient ovsclient.OVSClient,
+func New(ctx context.Context,
+	clock clock.WithTicker,
+	ovsClient ovsclient.OVSClient,
 	networkHelper networkhelper.NetworkHelper,
 	exec kexec.Interface,
 	vtepIPNet *net.IPNet,
@@ -79,15 +86,17 @@ func New(ovsClient ovsclient.OVSClient,
 	hostCIDR *net.IPNet,
 	pf0 string) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
-		ovsClient:      ovsClient,
-		networkHelper:  networkHelper,
-		exec:           exec,
-		FileSystemRoot: "",
-		vtepIPNet:      vtepIPNet,
-		gateway:        gateway,
-		vtepCIDR:       vtepCIDR,
-		hostCIDR:       hostCIDR,
-		brEx:           pf0,
+		ctx:                       ctx,
+		ensureConfigurationTicker: clock.NewTicker(30 * time.Second),
+		ovsClient:                 ovsClient,
+		networkHelper:             networkHelper,
+		exec:                      exec,
+		FileSystemRoot:            "",
+		vtepIPNet:                 vtepIPNet,
+		gateway:                   gateway,
+		vtepCIDR:                  vtepCIDR,
+		hostCIDR:                  hostCIDR,
+		brEx:                      pf0,
 	}
 }
 
@@ -107,6 +116,24 @@ func (p *DPUCNIProvisioner) RunOnce() error {
 	}
 	klog.Info("Configuration complete.")
 	return nil
+}
+
+// EnsureConfiguration ensures that particular configuration is in place. This is a blocking function.
+func (p *DPUCNIProvisioner) EnsureConfiguration() {
+	for {
+		select {
+		case <-p.ctx.Done():
+			return
+		case <-p.ensureConfigurationTicker.C():
+			// We need to ensure that the OVN Management VF is configured in a loop to ensure that when the host
+			// restarts and the VFs are removed and recreated, the VF is configured again so that OVN Kubernetes can
+			// function.
+			err := p.configureOVNManagementVF()
+			if err != nil {
+				klog.Errorf("failed to ensure OVN management VF configuration: %s", err.Error())
+			}
+		}
+	}
 }
 
 // configure runs the provisioning flow without checking existing configuration
@@ -299,20 +326,28 @@ func (p *DPUCNIProvisioner) configureHostToServiceConnectivity() error {
 func (p *DPUCNIProvisioner) configureOVNManagementVF() error {
 	vfRepresentorLinkName := "pf0vf0"
 	expectedLinkName := "ovn-k8s-mp0_0"
-	err := p.networkHelper.SetLinkDown(vfRepresentorLinkName)
+	vfRepresentorLinkExists, err := p.networkHelper.LinkExists(vfRepresentorLinkName)
 	if err != nil {
-		return fmt.Errorf("error while setting link %s down: %w", vfRepresentorLinkName, err)
+		return fmt.Errorf("error while checking whether link %s exists: %w", vfRepresentorLinkName, err)
 	}
 
-	err = p.networkHelper.RenameLink(vfRepresentorLinkName, expectedLinkName)
-	if err != nil {
-		return fmt.Errorf("error while renaming link %s to %s: %w", vfRepresentorLinkName, expectedLinkName, err)
+	if vfRepresentorLinkExists {
+		err := p.networkHelper.SetLinkDown(vfRepresentorLinkName)
+		if err != nil {
+			return fmt.Errorf("error while setting link %s down: %w", vfRepresentorLinkName, err)
+		}
+
+		err = p.networkHelper.RenameLink(vfRepresentorLinkName, expectedLinkName)
+		if err != nil {
+			return fmt.Errorf("error while renaming link %s to %s: %w", vfRepresentorLinkName, expectedLinkName, err)
+		}
 	}
 
 	err = p.networkHelper.SetLinkUp(expectedLinkName)
 	if err != nil {
 		return fmt.Errorf("error while setting link %s up: %w", expectedLinkName, err)
 	}
+
 	return nil
 }
 
