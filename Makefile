@@ -263,7 +263,7 @@ $(OVS_CNI_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-sfc-cni.git $(OVS_CNI_DIR) $(OVS_CNI_REVISION)
 
 ## Parprouted image with DPF patches
-PARPROUTED_REVISION ?= cda116e6312bd583b5ceed7c814d1bf539f33f6f
+PARPROUTED_REVISION ?= f710c992b06c058ff61afca4dea6b46ca9f2e8f9
 PARPROUTED_DIR=$(REPOSDIR)/parprouted-$(PARPROUTED_REVISION)
 $(PARPROUTED_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/parprouted.git $(PARPROUTED_DIR) $(PARPROUTED_REVISION)
