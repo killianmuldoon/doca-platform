@@ -262,11 +262,6 @@ OVS_CNI_DIR=$(REPOSDIR)/ovs-cni-$(OVS_CNI_REVISION)
 $(OVS_CNI_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-sfc-cni.git $(OVS_CNI_DIR) $(OVS_CNI_REVISION)
 
-# HBN side car
-HBN_SIDECAR_DIR=$(REPOSDIR)/hbn-sidecar
-$(HBN_SIDECAR_DIR): | $(REPOSDIR)
-	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/aserdean/hbn-sidecar.git $(HBN_SIDECAR_DIR)
-
 ## Parprouted image with DPF patches
 PARPROUTED_REVISION ?= cda116e6312bd583b5ceed7c814d1bf539f33f6f
 PARPROUTED_DIR=$(REPOSDIR)/parprouted-$(PARPROUTED_REVISION)
@@ -849,12 +844,13 @@ docker-build-base-image-systemd: ## Build base docker image with systemd depende
 		-t $(SYSTEMD_BASE_IMAGE):$(TAG)
 
 .PHONY: docker-build-hbn-sidecar
-docker-build-hbn-sidecar: $(HBN_SIDECAR_DIR) ## Build HBN sidecar DPU service image
+docker-build-hbn-sidecar: docker-build-base-image-ovs ## Build HBN sidecar DPU service image
+	cd $(HBN_DPUSERVICE_DIR) && \
 	docker buildx build \
 		--load \
 		--platform linux/${DPU_ARCH} \
-		--build-arg hbn_sidecar_dir=$(shell realpath --relative-to $(CURDIR) $(HBN_SIDECAR_DIR)) \
-		-f $(HBN_SIDECAR_DIR)/Dockerfile \
+		--build-arg base_image=$(OVS_BASE_IMAGE):$(TAG) \
+		-f Dockerfile.sidecar \
 		. \
 		-t $(HBN_SIDECAR_IMAGE):$(TAG)
 

@@ -34,6 +34,7 @@ lftp -c "mirror ${SOURCE_URL}"
 
 for i in $(find $TMP_DIR -type f ); do
     path="${i#"$TMP_DIR"/}"
+    echo "uploading ${i}\n"
     curl --fail-with-body --header "PRIVATE-TOKEN:${GITLAB_REGISTRY_TOKEN}" \
          --upload-file $i \
          "https://gitlab-master.nvidia.com/api/v4/projects/$PROJECT_ID/packages/generic/${path}"

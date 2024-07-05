@@ -1,0 +1,12 @@
+ARG base_image
+
+FROM --platform=${TARGETPLATFORM} ${base_image}
+
+RUN apt update && \
+    apt install -y python3-pyinotify
+
+WORKDIR /workspace
+
+COPY ovs-watcher.py ovs-watcher.py
+
+ENTRYPOINT ["python3", "/workspace/ovs-watcher.py"]
