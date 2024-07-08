@@ -74,6 +74,21 @@ func TestNetworkInjector_Default(t *testing.T) {
 		},
 	}
 
+	controlPlaneMatchExpressions := []corev1.NodeSelectorTerm{
+		{
+			MatchExpressions: []corev1.NodeSelectorRequirement{
+				{
+					Key:      "node-role.kubernetes.io/master",
+					Operator: corev1.NodeSelectorOpExists,
+				},
+				{
+					Key:      "node-role.kubernetes.io/control-plane",
+					Operator: corev1.NodeSelectorOpExists,
+				},
+			},
+		},
+	}
+
 	basePod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test-pod",
@@ -93,14 +108,17 @@ func TestNetworkInjector_Default(t *testing.T) {
 	hostNetworkPod := basePod.DeepCopy()
 	hostNetworkPod.Spec.HostNetwork = true
 
-	podWithControlPlaneSelector := basePod.DeepCopy()
-	podWithControlPlaneSelector.Spec.NodeSelector = map[string]string{"node-role.kubernetes.io/master": ""}
+	podWithControlPlaneNodeSelector := basePod.DeepCopy()
+	podWithControlPlaneNodeSelector.Spec.NodeSelector = map[string]string{"node-role.kubernetes.io/master": ""}
 
-	podWithControlPlaneNodeSelectorTerms := basePod.DeepCopy()
-	setSelectorTermsToNode(podWithControlPlaneNodeSelectorTerms, controlPlaneNodeName)
+	podWithControlPlaneNodeSelectorMatchExpressions := basePod.DeepCopy()
+	setSelectorTerms(podWithControlPlaneNodeSelectorMatchExpressions, controlPlaneMatchExpressions)
+
+	podWithControlPlaneNodeNameSelectorTerms := basePod.DeepCopy()
+	setSelectorTermsToNodeName(podWithControlPlaneNodeNameSelectorTerms, controlPlaneNodeName)
 
 	podWithWorkerNodeSelectorTerms := basePod.DeepCopy()
-	setSelectorTermsToNode(podWithWorkerNodeSelectorTerms, workerNodeName)
+	setSelectorTermsToNodeName(podWithWorkerNodeSelectorTerms, workerNodeName)
 
 	podWithExistingVFResources := basePod.DeepCopy()
 
@@ -124,14 +142,20 @@ func TestNetworkInjector_Default(t *testing.T) {
 		},
 		{
 			name:                  "don't inject resource into pod that has a node selector for a control plane machine",
-			pod:                   podWithControlPlaneSelector,
+			pod:                   podWithControlPlaneNodeSelector,
 			expectedResourceCount: "0",
 		},
 		{
 			name:                  "don't inject resource into pod that explicitly targets a control plane node with NodeSelectorTerms",
-			pod:                   podWithControlPlaneNodeSelectorTerms,
+			pod:                   podWithControlPlaneNodeNameSelectorTerms,
 			expectedResourceCount: "0",
 		},
+		{
+			name:                  "don't inject resource into pod that explicitly targets a control plane node with NodeSelectorTerms",
+			pod:                   podWithControlPlaneNodeSelectorMatchExpressions,
+			expectedResourceCount: "0",
+		},
+
 		{
 			name:                  "inject resource into pod that explicitly targets a worker node with NodeSelectorTerms",
 			pod:                   podWithWorkerNodeSelectorTerms,
@@ -270,7 +294,20 @@ func TestNetworkInjector_PreReqObjects(t *testing.T) {
 	}
 }
 
-func setSelectorTermsToNode(pod *corev1.Pod, nodeName string) {
+func setSelectorTermsToNodeName(pod *corev1.Pod, nodeName string) {
+	setSelectorTerms(pod, []corev1.NodeSelectorTerm{
+		{
+			MatchFields: []corev1.NodeSelectorRequirement{
+				{
+					Key:    "metadata.name",
+					Values: []string{nodeName},
+				},
+			},
+		},
+	})
+}
+
+func setSelectorTerms(pod *corev1.Pod, terms []corev1.NodeSelectorTerm) {
 	if pod.Spec.Affinity == nil {
 		pod.Spec.Affinity = &corev1.Affinity{}
 	}
@@ -281,15 +318,5 @@ func setSelectorTermsToNode(pod *corev1.Pod, nodeName string) {
 		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{}
 	}
 	pod.Spec.Affinity.NodeAffinity.
-		RequiredDuringSchedulingIgnoredDuringExecution.
-		NodeSelectorTerms = []corev1.NodeSelectorTerm{
-		{
-			MatchFields: []corev1.NodeSelectorRequirement{
-				{
-					Key:    "metadata.name",
-					Values: []string{nodeName},
-				},
-			},
-		},
-	}
+		RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = terms
 }

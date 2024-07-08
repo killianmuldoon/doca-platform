@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/ovnkubernetesoperator/v1alpha1"
-	consts "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/ovnkubernetesoperator/consts"
+	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/ovnkubernetesoperator/consts"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -43,9 +43,9 @@ var (
 	// annotationKeyToBeInjected is the multus annotation we inject to the pods so that multus can inject the VFs
 	annotationKeyToBeInjected = "v1.multus-cni.io/default-network"
 
-	controlPlaneNodeLabels = []string{
-		"node-role.kubernetes.io/master",
-		"node-role.kubernetes.io/control-plane",
+	controlPlaneNodeLabels = map[string]bool{
+		"node-role.kubernetes.io/master":        true,
+		"node-role.kubernetes.io/control-plane": true,
 	}
 )
 
@@ -127,25 +127,43 @@ func getVFResourceName(ctx context.Context, c client.Reader, netAttachDefNamespa
 // This is the case for pods created by DaemonSets which set node affinity matching to a node name on creation.
 func (webhook *NetworkInjector) isScheduledToControlPlane(ctx context.Context, pod *corev1.Pod) (bool, error) {
 	// If the pod has a control plane node selector no-op.
-	for _, label := range controlPlaneNodeLabels {
+	for label := range controlPlaneNodeLabels {
 		if _, ok := pod.Spec.NodeSelector[label]; ok {
 			return true, nil
 		}
 	}
-
-	var nodeName string
-	if pod.Spec.Affinity != nil &&
-		pod.Spec.Affinity.NodeAffinity != nil &&
-		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil &&
-		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms != nil {
-		terms := pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+	if terms := getNodeSelectorTerms(pod); terms != nil {
 		for _, term := range terms {
-			if term.MatchFields != nil {
-				for _, field := range term.MatchFields {
-					if field.Key == "metadata.name" {
-						nodeName = field.Values[0]
+			// If the pod selects for a control plane node label return true.
+			if term.MatchExpressions != nil {
+				for _, expression := range term.MatchExpressions {
+					if _, ok := controlPlaneNodeLabels[expression.Key]; ok {
+						if expression.Operator == corev1.NodeSelectorOpExists {
+							return true, nil
+						}
 					}
 				}
+			}
+
+			// If the pod selects a specific control plane nodename. This is the case for DaemonSet pods.
+			isControlPlanePod, err := webhook.hasControlPlaneNodeName(ctx, term)
+			if err != nil {
+				return false, err
+			}
+			if isControlPlanePod {
+				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func (webhook *NetworkInjector) hasControlPlaneNodeName(ctx context.Context, term corev1.NodeSelectorTerm) (bool, error) {
+	var nodeName string
+	if term.MatchFields != nil {
+		for _, field := range term.MatchFields {
+			if field.Key == "metadata.name" {
+				nodeName = field.Values[0]
 			}
 		}
 	}
@@ -154,18 +172,28 @@ func (webhook *NetworkInjector) isScheduledToControlPlane(ctx context.Context, p
 	}
 	node := &corev1.Node{}
 	if err := webhook.Client.Get(ctx, client.ObjectKey{Namespace: "", Name: nodeName}, node); err != nil {
-		return false, fmt.Errorf("failed to get node pod is scheduled to %q: %w", pod.Spec.NodeName, err)
+		return false, fmt.Errorf("failed to get node pod is scheduled to %q: %w", nodeName, err)
 	}
 	if node.Labels == nil {
 		return false, nil
 	}
 
-	for _, label := range controlPlaneNodeLabels {
+	for label := range controlPlaneNodeLabels {
 		if _, ok := node.Labels[label]; ok {
 			return true, nil
 		}
 	}
 	return false, nil
+}
+
+func getNodeSelectorTerms(pod *corev1.Pod) []corev1.NodeSelectorTerm {
+	if pod.Spec.Affinity != nil &&
+		pod.Spec.Affinity.NodeAffinity != nil &&
+		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution != nil &&
+		pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms != nil {
+		return pod.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+	}
+	return nil
 }
 
 // getConfig returns the correct DPFOVNKubernetesOperatorConfig from the given list. Returns error if bad configuration
