@@ -102,15 +102,7 @@ func New(ctx context.Context,
 
 // RunOnce runs the provisioning flow once and exits
 func (p *DPUCNIProvisioner) RunOnce() error {
-	isConfigured, err := p.isSystemAlreadyConfigured()
-	if err != nil {
-		return err
-	}
-	if isConfigured {
-		klog.Info("System is already configured, skipping configuration")
-		return nil
-	}
-	err = p.configure()
+	err := p.configure()
 	if err != nil {
 		return err
 	}
@@ -192,7 +184,7 @@ func (p *DPUCNIProvisioner) configure() error {
 
 // setupOVSBridge creates an OVS bridge tailored to work with OVS-DOCA
 func (p *DPUCNIProvisioner) setupOVSBridge(name string, controller string) error {
-	err := p.ovsClient.AddBridge(name)
+	err := p.ovsClient.AddBridgeIfNotExists(name)
 	if err != nil {
 		return err
 	}
@@ -230,7 +222,7 @@ func (p *DPUCNIProvisioner) connectOVSBridges(brA string, brB string) (string, s
 // addPatchPortWithPeer adds a patch port to a bridge and configures a peer for that port
 func (p *DPUCNIProvisioner) addOVSPatchPortWithPeer(bridge string, port string, peer string) error {
 	// TODO: Check for this error and validate expected error, otherwise return error
-	_ = p.ovsClient.AddPort(bridge, port)
+	_ = p.ovsClient.AddPortIfNotExists(bridge, port)
 	err := p.ovsClient.SetPortType(port, ovsclient.Patch)
 	if err != nil {
 		return err
@@ -242,7 +234,7 @@ func (p *DPUCNIProvisioner) addOVSPatchPortWithPeer(bridge string, port string, 
 // traffic going through the geneve tunnels can function as expected.
 func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkPort string) error {
 	vtep := "vtep0"
-	err := p.ovsClient.AddPort(brOVN, vtep)
+	err := p.ovsClient.AddPortIfNotExists(brOVN, vtep)
 	if err != nil {
 		return err
 	}
@@ -252,7 +244,7 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 		return err
 	}
 
-	err = p.networkHelper.SetLinkIPAddress(vtep, p.vtepIPNet)
+	err = p.setLinkIPAddressIfNotSet(vtep, p.vtepIPNet)
 	if err != nil {
 		return fmt.Errorf("error while setting VTEP IP: %w", err)
 	}
@@ -269,7 +261,7 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 	if vtepNetwork.String() != p.vtepCIDR.String() {
 		// Add route related to traffic that needs to go from one Pod running on worker Node A to another Pod running
 		// on worker Node B.
-		err = p.networkHelper.AddRoute(p.vtepCIDR, p.gateway, vtep, nil)
+		err = p.addRouteIfNotExists(p.vtepCIDR, p.gateway, vtep, nil)
 		if err != nil {
 			return fmt.Errorf("error while adding route %s %s %s: %w", p.vtepCIDR, p.gateway.String(), vtep, err)
 		}
@@ -282,7 +274,7 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 	// which gets a DHCP IP in that CIDR. Given that, we need to set the metric of this route to something very high
 	// so that it's the last preferred route in the route table for that CIDR. The reason for that is this OVS bug that
 	// selects the route with the highest prio as preferred https://redmine.mellanox.com/issues/3871067.
-	err = p.networkHelper.AddRoute(p.hostCIDR, p.gateway, vtep, ptr.To[int](10000))
+	err = p.addRouteIfNotExists(p.hostCIDR, p.gateway, vtep, ptr.To[int](10000))
 	if err != nil {
 		return fmt.Errorf("error while adding route %s %s %s: %w", p.hostCIDR, p.gateway.String(), vtep, err)
 	}
@@ -296,11 +288,45 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 	return p.ovsClient.SetBridgeUplinkPort(p.brEx, uplinkPort)
 }
 
+// setLinkIPAddressIfNotSet sets an IP address to a link if it's not already set
+func (p *DPUCNIProvisioner) setLinkIPAddressIfNotSet(link string, ipNet *net.IPNet) error {
+	hasIP, err := p.networkHelper.LinkIPAddressExists(link, ipNet)
+	if err != nil {
+		return fmt.Errorf("error checking whether IP exists: %w", err)
+	}
+	if hasIP {
+		klog.Infof("Link %s has IP %s, skipping configuration", link, ipNet)
+		return nil
+	}
+	err = p.networkHelper.SetLinkIPAddress(link, ipNet)
+	if err != nil {
+		return fmt.Errorf("error setting IP address: %w", err)
+	}
+	return nil
+}
+
+// addRouteIfNotExists adds a route if it doesn't already exist
+func (p *DPUCNIProvisioner) addRouteIfNotExists(network *net.IPNet, gateway net.IP, device string, metric *int) error {
+	hasRoute, err := p.networkHelper.RouteExists(network, gateway, device)
+	if err != nil {
+		return fmt.Errorf("error checking whether route exists: %w", err)
+	}
+	if hasRoute {
+		klog.Infof("Route %s %s %s exists, skipping configuration", network, gateway, device)
+		return nil
+	}
+	err = p.networkHelper.AddRoute(network, gateway, device, metric)
+	if err != nil {
+		return fmt.Errorf("error adding route: %w", err)
+	}
+	return nil
+}
+
 // configureHostToServiceConnectivity configures br-ex so that Service ClusterIP traffic from the host to the DPU finds
 // it's way to the br-int
 func (p *DPUCNIProvisioner) configureHostToServiceConnectivity() error {
 	pfRep := "pf0hpf"
-	err := p.ovsClient.AddPort(p.brEx, pfRep)
+	err := p.ovsClient.AddPortIfNotExists(p.brEx, pfRep)
 	if err != nil {
 		return err
 	}
@@ -356,37 +382,6 @@ func (p *DPUCNIProvisioner) configureOVNManagementVF() error {
 //nolint:unused
 func (p *DPUCNIProvisioner) configureVFs() error { panic("unimplemented") }
 
-// isSystemAlreadyConfigured checks if the system is already configured. No thorough checks are done, just a high level
-// check to avoid re-running the configuration.
-// TODO: Make rest of the calls idempotent and skip such check.
-func (p *DPUCNIProvisioner) isSystemAlreadyConfigured() (bool, error) {
-	exists, err := p.ovsClient.BridgeExists(brInt)
-	if err != nil {
-		return false, err
-	}
-	if !exists {
-		return false, nil
-	}
-
-	exists, err = p.ovsClient.BridgeExists(p.brEx)
-	if err != nil {
-		return false, err
-	}
-	if !exists {
-		return false, nil
-	}
-
-	exists, err = p.ovsClient.BridgeExists(brOVN)
-	if err != nil {
-		return false, err
-	}
-	if !exists {
-		return false, nil
-	}
-
-	return true, nil
-}
-
 // cleanUpBridges removes all the relevant bridges
 func (p *DPUCNIProvisioner) cleanUpBridges() error {
 	// Default bridges that exist in freshly installed DPUs. This step is required as we need to plug in the PF later,
@@ -399,22 +394,12 @@ func (p *DPUCNIProvisioner) cleanUpBridges() error {
 	if err != nil {
 		return err
 	}
-
-	// Bridges that are created as part of this process
-	err = p.ovsClient.DeleteBridgeIfExists(brInt)
-	if err != nil {
-		return err
-	}
-	err = p.ovsClient.DeleteBridgeIfExists(p.brEx)
-	if err != nil {
-		return err
-	}
-	return p.ovsClient.DeleteBridgeIfExists(brOVN)
+	return nil
 }
 
 // configureOVSDaemon configures the OVS Daemon and triggers a restart of the daemon via systemd
 func (p *DPUCNIProvisioner) configureOVSDaemon() error {
-	err := p.exposeOVSDBOverTCP()
+	configuredNow, err := p.exposeOVSDBOverTCP()
 	if err != nil {
 		return err
 	}
@@ -425,30 +410,36 @@ func (p *DPUCNIProvisioner) configureOVSDaemon() error {
 		return err
 	}
 
-	cmd := p.exec.Command("systemctl", "restart", "openvswitch-switch.service")
-	err = cmd.Run()
-	if err != nil {
-		return fmt.Errorf("error while restarting OVS systemd service: %w", err)
+	// We avoid restarting OVS because it takes time if the OVS is already configured. We don't check for OVS being
+	// configured in DOCA to avoid extra code for now. It's very unlikely we hit this case.
+	if configuredNow {
+		cmd := p.exec.Command("systemctl", "restart", "openvswitch-switch.service")
+		err = cmd.Run()
+		if err != nil {
+			return fmt.Errorf("error while restarting OVS systemd service: %w", err)
+		}
 	}
 	return nil
 }
 
 // exposeOVSDBOverTCP reconfigures OVS to expose ovs-db via TCP
-func (p *DPUCNIProvisioner) exposeOVSDBOverTCP() error {
+func (p *DPUCNIProvisioner) exposeOVSDBOverTCP() (bool, error) {
 	configPath := filepath.Join(p.FileSystemRoot, ovsSystemdConfigPath)
 	content, err := os.ReadFile(configPath)
 	if err != nil {
-		return fmt.Errorf("error while reading file %s: %w", configPath, err)
+		return false, fmt.Errorf("error while reading file %s: %w", configPath, err)
 	}
 
+	var configured bool
 	// TODO: Could do better parsing here but that _should_ be good enough given that the default is that
 	// OVS_CTL_OPTS is not specified.
 	if !strings.Contains(string(content), "--remote=ptcp:8500") {
 		content = append(content, "\nOVS_CTL_OPTS=\"--ovsdb-server-options=--remote=ptcp:8500\""...)
 		err := os.WriteFile(configPath, content, 0644)
 		if err != nil {
-			return fmt.Errorf("error while writing file %s: %w", configPath, err)
+			return false, fmt.Errorf("error while writing file %s: %w", configPath, err)
 		}
+		configured = true
 	}
-	return nil
+	return configured, nil
 }

@@ -26,8 +26,8 @@ import (
 type OVSClient interface {
 	// BridgeExists checks if a bridge exists
 	BridgeExists(name string) (bool, error)
-	// AddBridge adds a bridge
-	AddBridge(name string) error
+	// AddBridgeIfNotExists adds a bridge if it doesn't exist
+	AddBridgeIfNotExists(name string) error
 	// DeleteBridgeIfExists deletes a bridge if it exists
 	DeleteBridgeIfExists(name string) error
 	// SetBridgeDataPathType sets the datapath type of a bridge
@@ -41,8 +41,8 @@ type OVSClient interface {
 	// SetBridgeController sets the controller for a bridge
 	SetBridgeController(bridge string, controller string) error
 
-	// AddPort adds a port to a bridge
-	AddPort(bridge string, port string) error
+	// AddPortIfNotExists adds a port to a bridge if it doesn't exist
+	AddPortIfNotExists(bridge string, port string) error
 	// SetPortType sets the type of a port
 	SetPortType(port string, portType PortType) error
 	// SetPatchPortPeer sets the peer for a patch port

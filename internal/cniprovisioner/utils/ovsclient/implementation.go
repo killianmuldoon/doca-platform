@@ -69,9 +69,9 @@ func (c *ovsClient) BridgeExists(name string) (bool, error) {
 	return true, nil
 }
 
-// AddBridge adds a bridge
-func (c *ovsClient) AddBridge(name string) error {
-	return c.runOVSVsctl("add-br", name)
+// AddBridgeIfNotExists adds a bridge if it doesn't exist
+func (c *ovsClient) AddBridgeIfNotExists(name string) error {
+	return c.runOVSVsctl("--may-exist", "add-br", name)
 }
 
 // DeleteBridgeIfExists deletes a bridge if it exists
@@ -104,9 +104,9 @@ func (c *ovsClient) SetBridgeController(bridge string, controller string) error 
 	return c.runOVSVsctl("set-controller", bridge, controller)
 }
 
-// AddPort adds a port to a bridge
-func (c *ovsClient) AddPort(bridge string, port string) error {
-	return c.runOVSVsctl("add-port", bridge, port)
+// AddPortIfNotExists adds a port to a bridge if it doesn't exist
+func (c *ovsClient) AddPortIfNotExists(bridge string, port string) error {
+	return c.runOVSVsctl("--may-exist", "add-port", bridge, port)
 }
 
 // SetPortType adds a port to a bridge

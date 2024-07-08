@@ -56,32 +56,32 @@ func (m *MockOVSClient) EXPECT() *MockOVSClientMockRecorder {
 	return m.recorder
 }
 
-// AddBridge mocks base method.
-func (m *MockOVSClient) AddBridge(name string) error {
+// AddBridgeIfNotExists mocks base method.
+func (m *MockOVSClient) AddBridgeIfNotExists(name string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddBridge", name)
+	ret := m.ctrl.Call(m, "AddBridgeIfNotExists", name)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// AddBridge indicates an expected call of AddBridge.
-func (mr *MockOVSClientMockRecorder) AddBridge(name any) *gomock.Call {
+// AddBridgeIfNotExists indicates an expected call of AddBridgeIfNotExists.
+func (mr *MockOVSClientMockRecorder) AddBridgeIfNotExists(name any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddBridge", reflect.TypeOf((*MockOVSClient)(nil).AddBridge), name)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddBridgeIfNotExists", reflect.TypeOf((*MockOVSClient)(nil).AddBridgeIfNotExists), name)
 }
 
-// AddPort mocks base method.
-func (m *MockOVSClient) AddPort(bridge, port string) error {
+// AddPortIfNotExists mocks base method.
+func (m *MockOVSClient) AddPortIfNotExists(bridge, port string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddPort", bridge, port)
+	ret := m.ctrl.Call(m, "AddPortIfNotExists", bridge, port)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// AddPort indicates an expected call of AddPort.
-func (mr *MockOVSClientMockRecorder) AddPort(bridge, port any) *gomock.Call {
+// AddPortIfNotExists indicates an expected call of AddPortIfNotExists.
+func (mr *MockOVSClientMockRecorder) AddPortIfNotExists(bridge, port any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPort", reflect.TypeOf((*MockOVSClient)(nil).AddPort), bridge, port)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPortIfNotExists", reflect.TypeOf((*MockOVSClient)(nil).AddPortIfNotExists), bridge, port)
 }
 
 // BridgeExists mocks base method.
