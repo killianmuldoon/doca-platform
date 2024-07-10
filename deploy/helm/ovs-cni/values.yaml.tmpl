@@ -29,8 +29,8 @@ arm64:
     containerSecurityContext:
       privileged: true
     image:
-      repository: harbor.mellanox.com/cloud-orchestration-dev/ovs-cni-plugin
-      tag: latest
+      repository: ${OVS_CNI_IMAGE}
+      tag: ${TAG}
     imagePullPolicy: Always
     resources:
       requests:
