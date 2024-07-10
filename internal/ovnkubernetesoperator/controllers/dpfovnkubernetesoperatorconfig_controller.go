@@ -26,6 +26,7 @@ import (
 	"net"
 	"slices"
 	"strings"
+	"time"
 
 	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/ovnkubernetesoperator/v1alpha1"
 	dpucniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/dpu/config"
@@ -49,6 +50,7 @@ import (
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
 )
@@ -191,10 +193,11 @@ func (r *DPFOVNKubernetesOperatorConfigReconciler) Reconcile(ctx context.Context
 	}
 
 	if err := r.reconcile(ctx, operatorConfig); err != nil {
-		return ctrl.Result{}, err
+		log.Error(err, "error while reconciling")
+		return ctrl.Result{RequeueAfter: 15 * time.Second}, nil
 	}
 
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: 3 * time.Minute}, nil
 }
 
 // reconcile runs the main reconciliation loop
@@ -223,9 +226,31 @@ func (r *DPFOVNKubernetesOperatorConfigReconciler) reconcileDelete(ctx context.C
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPFOVNKubernetesOperatorConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	dpu := &metav1.PartialObjectMetadata{}
+	dpu.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "Dpu"))
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig{}).
+		WatchesMetadata(dpu, handler.EnqueueRequestsFromMapFunc(r.generateRequestForConfig)).
 		Complete(r)
+}
+
+// generateRequestForConfig returns a single request for the DPFOperatorConfig that exists in the cluster if it exists
+func (r *DPFOVNKubernetesOperatorConfigReconciler) generateRequestForConfig(ctx context.Context, o client.Object) []ctrl.Request {
+	log := ctrllog.FromContext(ctx)
+	reqs := []ctrl.Request{}
+
+	operatorConfigList := &ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfigList{}
+	if err := r.Client.List(ctx, operatorConfigList); err != nil {
+		return nil
+	}
+
+	if len(operatorConfigList.Items) != 1 {
+		log.Info("expected a single DPFOVNKubernetesOperatorConfig in the cluster")
+		return reqs
+	}
+
+	reqs = append(reqs, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(&operatorConfigList.Items[0])})
+	return reqs
 }
 
 // reconcileNetworkInjectorPrerequisites reconciles the prerequisites needed by the Network Injector
