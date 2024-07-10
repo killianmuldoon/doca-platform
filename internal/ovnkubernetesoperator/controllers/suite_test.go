@@ -59,6 +59,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "ovnkubernetesoperator", "crd", "bases"),
+			filepath.Join("..", "..", "..", "config", "dpf-provisioning", "crd", "bases"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "openshift"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "multus"),
 		},

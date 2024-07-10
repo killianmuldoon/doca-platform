@@ -17,7 +17,7 @@ spec:
         app.kubernetes.io/name: host-cni-provisioner
     spec:
       nodeSelector:
-        feature.node.kubernetes.io/dpu-enabled: "true"
+        ovn.dpf.nvidia.com/provisioning-done: ""
       serviceAccountName: host-cni-provisioner
       hostNetwork: true
       securityContext:

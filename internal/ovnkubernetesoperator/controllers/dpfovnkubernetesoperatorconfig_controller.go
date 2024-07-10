@@ -111,11 +111,6 @@ const (
 	// clusterConfigNamespace is the Namespace where the OpenShift cluster configuration ConfigMap exists.
 	clusterConfigNamespace = "kube-system"
 
-	// dpuEnabledNodeLabelKey is the node label that indicates that a node is DPU enabled. This label is the one that
-	// the provisioning workflow takes action on.
-	dpuEnabledNodeLabelKey = "feature.node.kubernetes.io/dpu-enabled"
-	// dpuEnabledNodeLabelValue is the value of the dpuEnabledNodeLabelKey.
-	dpuEnabledNodeLabelValue = "true"
 	// dpuPCIAddressLabelKey is the node label that indicates the PCI address of the DPU. This information is useful
 	// so that we can construct the dpu node name in the tenant cluster. This label is added via the a script that the
 	// user preconfigures on the cluster using MachineConfig.
@@ -123,9 +118,12 @@ const (
 	// dpuPFNameLabelKey is the node label that indicates the PF name of the DPU. This label is added via the a script
 	// that the user preconfigures on the cluster using MachineConfig.
 	dpuPFNameLabelKey = "feature.node.kubernetes.io/dpu.features-dpu-pf-name"
+	// provisioningDoneNodeLabelKey is the node label that indicates that a node has its DPU provisioned. This label
+	// is the one that the provisioning workflow takes action on.
+	provisioningDoneNodeLabelKey = "ovn.dpf.nvidia.com/provisioning-done"
 	// networkSetupReadyNodeLabel is the label used to determine when a node is ready to run the custom OVN Kubernetes
 	// Pod.
-	networkPreconfigurationReadyNodeLabel = "dpf.nvidia.com/network-preconfig-ready"
+	networkPreconfigurationReadyNodeLabel = "ovn.dpf.nvidia.com/network-preconfig-ready"
 )
 
 //go:embed manifests/hostcniprovisioner.yaml
@@ -290,6 +288,10 @@ func generateNetworkInjectorNetAttachDef(operatorConfig *ovnkubernetesoperatorv1
 // TODO: Prefetch all the necessary objects and pass them in functions instead of fetching them multiple times as part
 // of the reconcile loop
 func (r *DPFOVNKubernetesOperatorConfigReconciler) reconcileCustomOVNKubernetesDeployment(ctx context.Context, operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig) error {
+	if err := markNodesAsInstallable(ctx, r.Client); err != nil {
+		return fmt.Errorf("error while marking nodes as installable: %w", err)
+	}
+
 	// - ensure cluster version operator doesn't reconcile cluster network operator
 	// - ensure network operator is scaled down
 	// - ensure node identity webhook is removed
@@ -326,6 +328,65 @@ func (r *DPFOVNKubernetesOperatorConfigReconciler) reconcileCustomOVNKubernetesD
 	}
 
 	return nil
+}
+
+// markNodesAsInstallable marks the relevant nodes as installable so that the rest of the flow can be executed only for
+// those nodes.
+func markNodesAsInstallable(ctx context.Context, c client.Client) error {
+	var errs []error
+
+	dpus := &unstructured.UnstructuredList{}
+	dpus.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "Dpu"))
+	if err := c.List(ctx, dpus); err != nil {
+		return fmt.Errorf("error while listing %s as unstructured: %w", dpus.GetObjectKind().GroupVersionKind().String(), err)
+	}
+
+	nodesWithProvisionedDPU := make(map[string]struct{})
+	for _, dpu := range dpus.Items {
+		phase, exists, err := unstructured.NestedString(dpu.Object, "status", "phase")
+		if err != nil {
+			return fmt.Errorf("error while extracting phase from DPU: %w", err)
+		}
+		if !exists {
+			continue
+		}
+		if phase != "Ready" {
+			continue
+		}
+
+		nodeName, exists, err := unstructured.NestedString(dpu.Object, "spec", "nodeName")
+		if err != nil {
+			return fmt.Errorf("error while extracting nodeName from DPU: %w", err)
+		}
+		if !exists {
+			continue
+		}
+
+		nodesWithProvisionedDPU[nodeName] = struct{}{}
+	}
+
+	nodes := &corev1.NodeList{}
+	err := c.List(ctx, nodes)
+	if err != nil {
+		return fmt.Errorf("error while listing nodes: %w", err)
+	}
+
+	for i, node := range nodes.Items {
+		if _, ok := nodesWithProvisionedDPU[node.Name]; !ok {
+			continue
+		}
+
+		if nodes.Items[i].Labels == nil {
+			nodes.Items[i].Labels = make(map[string]string)
+		}
+		nodes.Items[i].Labels[provisioningDoneNodeLabelKey] = ""
+		nodes.Items[i].SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind(NodeKind))
+		nodes.Items[i].ObjectMeta.ManagedFields = nil
+		if err := c.Patch(ctx, &nodes.Items[i], client.Apply, client.ForceOwnership, client.FieldOwner(dpfOVNKubernetesOperatorConfigControllerName)); err != nil {
+			errs = append(errs, fmt.Errorf("error while patching %s %s: %w", nodes.Items[i].GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&nodes.Items[i]).String(), err))
+		}
+	}
+	return kerrors.NewAggregate(errs)
 }
 
 // scaleDownOVNKubernetesComponents scales down pre-existing OVN Kubernetes related components to prepare the cluster
@@ -449,9 +510,8 @@ func adjustOVNKubernetesDaemonSetNodeSelector(ctx context.Context, c client.Clie
 					{
 						MatchExpressions: []corev1.NodeSelectorRequirement{
 							{
-								Key:      dpuEnabledNodeLabelKey,
-								Operator: corev1.NodeSelectorOpNotIn,
-								Values:   []string{dpuEnabledNodeLabelValue},
+								Key:      provisioningDoneNodeLabelKey,
+								Operator: corev1.NodeSelectorOpDoesNotExist,
 							},
 						},
 					},
@@ -505,9 +565,9 @@ func removeNodeChassisAnnotations(ctx context.Context, c client.Client) error {
 
 	nodes := &corev1.NodeList{}
 	labelSelector := labels.NewSelector()
-	req, err := labels.NewRequirement(dpuEnabledNodeLabelKey, selection.In, []string{dpuEnabledNodeLabelValue})
+	req, err := labels.NewRequirement(provisioningDoneNodeLabelKey, selection.Exists, nil)
 	if err != nil {
-		return fmt.Errorf("error while creating label selector requirement for label %s=%s: %w", dpuEnabledNodeLabelKey, dpuEnabledNodeLabelValue, err)
+		return fmt.Errorf("error while creating label selector requirement for label %s: %w", provisioningDoneNodeLabelKey, err)
 	}
 	labelSelector = labelSelector.Add(*req)
 	req, err = labels.NewRequirement(networkPreconfigurationReadyNodeLabel, selection.DoesNotExist, nil)
@@ -588,7 +648,7 @@ func deployDPUCNIProvisioner(ctx context.Context, c client.Client, dpuClustersCl
 	}
 
 	hostNodeList := &corev1.NodeList{}
-	if err := c.List(ctx, hostNodeList, client.MatchingLabels{dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue}); err != nil {
+	if err := c.List(ctx, hostNodeList, client.MatchingLabels{provisioningDoneNodeLabelKey: ""}); err != nil {
 		return nil, fmt.Errorf("error while listing dpu enabled nodes: %w", err)
 	}
 
@@ -627,7 +687,7 @@ func getDPUClusterClients(ctx context.Context, c client.Client) (map[controlplan
 // deployHostCNIProvisioner deploys the Host CNI Provisioner to the Host (OCP) cluster
 func deployHostCNIProvisioner(ctx context.Context, c client.Client, operatorConfig *ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig) ([]*unstructured.Unstructured, error) {
 	hostNodeList := &corev1.NodeList{}
-	if err := c.List(ctx, hostNodeList, client.MatchingLabels{dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue}); err != nil {
+	if err := c.List(ctx, hostNodeList, client.MatchingLabels{provisioningDoneNodeLabelKey: ""}); err != nil {
 		return nil, fmt.Errorf("error while listing dpu enabled nodes: %w", err)
 	}
 	hostCNIProvisionerObjects, err := generateHostCNIProvisionerObjects(operatorConfig, hostNodeList.Items)
@@ -694,9 +754,9 @@ func markNetworkPreconfigurationReady(ctx context.Context, c client.Client) erro
 	var errs []error
 	nodes := &corev1.NodeList{}
 	labelSelector := labels.NewSelector()
-	req, err := labels.NewRequirement(dpuEnabledNodeLabelKey, selection.In, []string{dpuEnabledNodeLabelValue})
+	req, err := labels.NewRequirement(provisioningDoneNodeLabelKey, selection.Exists, nil)
 	if err != nil {
-		return fmt.Errorf("error while creating label selector requirement for label %s=%s: %w", dpuEnabledNodeLabelKey, dpuEnabledNodeLabelValue, err)
+		return fmt.Errorf("error while creating label selector requirement for label %s: %w", provisioningDoneNodeLabelKey, err)
 	}
 	labelSelector = labelSelector.Add(*req)
 	err = c.List(ctx, nodes, &client.ListOptions{LabelSelector: labelSelector})
@@ -806,7 +866,7 @@ func deployCustomOVNKubernetesEntrypointConfigMap(ctx context.Context, c client.
 	}
 
 	hostNodeList := &corev1.NodeList{}
-	if err := c.List(ctx, hostNodeList, client.MatchingLabels{dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue}); err != nil {
+	if err := c.List(ctx, hostNodeList, client.MatchingLabels{provisioningDoneNodeLabelKey: ""}); err != nil {
 		return fmt.Errorf("error while listing dpu enabled nodes: %w", err)
 	}
 

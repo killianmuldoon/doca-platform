@@ -145,6 +145,8 @@ var _ = Describe("DPFOVNKubernetesOperatorConfig Controller", func() {
 		var nodeWorker1 *corev1.Node
 		var nodeWorker2 *corev1.Node
 		var nodeControlPlane1 *corev1.Node
+		var dpuWorker1 *unstructured.Unstructured
+		var dpuWorker2 *unstructured.Unstructured
 
 		BeforeEach(func() {
 			By("Creating the namespace")
@@ -166,6 +168,14 @@ var _ = Describe("DPFOVNKubernetesOperatorConfig Controller", func() {
 			nodeControlPlane1 = &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "control-plane-1"}}
 			Expect(testClient.Create(ctx, nodeControlPlane1)).To(Succeed())
 			cleanupObjects = append(cleanupObjects, nodeControlPlane1)
+
+			By("Adding 2 DPU objects in the cluster")
+			dpuWorker1 = getMinimalBFB("dpu-worker-1", testNS.Name, "worker-1")
+			Expect(testClient.Create(ctx, dpuWorker1)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, dpuWorker1)
+			dpuWorker2 = getMinimalBFB("dpu-worker-2", testNS.Name, "worker-2")
+			Expect(testClient.Create(ctx, dpuWorker2)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, dpuWorker2)
 
 			By("Creating the prerequisite OpenShift environment")
 			clusterVersionCR = getDefaultClusterVersion(clusterVersionCRName)
@@ -227,9 +237,6 @@ networking:
 
 			// Mocked Worker Node
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker1), nodeWorker1)).To(Succeed())
-			nodeWorker1.SetLabels(map[string]string{
-				dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue,
-			})
 			nodeWorker1.SetAnnotations(map[string]string{
 				ovnKubernetesNodeChassisIDAnnotation: "worker-1",
 			})
@@ -239,9 +246,6 @@ networking:
 
 			// Mocked Worker Node
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker2), nodeWorker2)).To(Succeed())
-			nodeWorker2.SetLabels(map[string]string{
-				dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue,
-			})
 			nodeWorker2.SetAnnotations(map[string]string{
 				ovnKubernetesNodeChassisIDAnnotation: "worker-2",
 			})
@@ -415,9 +419,8 @@ networking:
 							{
 								MatchExpressions: []corev1.NodeSelectorRequirement{
 									{
-										Key:      dpuEnabledNodeLabelKey,
-										Operator: corev1.NodeSelectorOpNotIn,
-										Values:   []string{dpuEnabledNodeLabelValue},
+										Key:      provisioningDoneNodeLabelKey,
+										Operator: corev1.NodeSelectorOpDoesNotExist,
 									},
 								},
 							},
@@ -430,12 +433,9 @@ networking:
 			Eventually(func(g Gomega) {
 				got := &corev1.NodeList{}
 				g.Expect(testClient.List(ctx, got, client.MatchingLabels{
-					dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue,
+					provisioningDoneNodeLabelKey: "",
 				})).To(Succeed())
-				g.Expect(got.Items).To(HaveLen(2))
-				for _, node := range got.Items {
-					g.Expect(node.Annotations).NotTo(HaveKey(ovnKubernetesNodeChassisIDAnnotation))
-				}
+				g.Expect(got.Items).To(BeEmpty())
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 
 			Eventually(func(g Gomega) {
@@ -450,6 +450,30 @@ networking:
 				got := &appsv1.DaemonSet{}
 				key := client.ObjectKey{Namespace: "dpf-operator-system", Name: "host-cni-provisioner"}
 				g.Expect(testClient.Get(ctx, key, got)).To(Succeed())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			By("Turning the DPUs to Ready")
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuWorker1), dpuWorker1)).To(Succeed())
+			Expect(unstructured.SetNestedField(dpuWorker1.Object, "Ready", "status", "phase")).ToNot(HaveOccurred())
+			dpuWorker1.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "Dpu"))
+			dpuWorker1.SetManagedFields(nil)
+			Expect(testClient.Status().Patch(ctx, dpuWorker1, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuWorker2), dpuWorker2)).To(Succeed())
+			Expect(unstructured.SetNestedField(dpuWorker2.Object, "Ready", "status", "phase")).ToNot(HaveOccurred())
+			dpuWorker2.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "Dpu"))
+			dpuWorker2.SetManagedFields(nil)
+			Expect(testClient.Status().Patch(ctx, dpuWorker2, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				got := &corev1.NodeList{}
+				g.Expect(testClient.List(ctx, got, client.MatchingLabels{
+					provisioningDoneNodeLabelKey: "",
+				})).To(Succeed())
+				g.Expect(got.Items).To(HaveLen(2))
+				for _, node := range got.Items {
+					g.Expect(node.Annotations).NotTo(HaveKey(ovnKubernetesNodeChassisIDAnnotation))
+				}
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 
 			By("Turning the CNI Provisioners to ready")
@@ -474,7 +498,7 @@ networking:
 			Eventually(func(g Gomega) {
 				got := &corev1.NodeList{}
 				g.Expect(testClient.List(ctx, got, client.MatchingLabels{
-					dpuEnabledNodeLabelKey: dpuEnabledNodeLabelValue,
+					provisioningDoneNodeLabelKey: "",
 				})).To(Succeed())
 				g.Expect(got.Items).To(HaveLen(2))
 				for _, node := range got.Items {
@@ -552,7 +576,7 @@ networking:
 		It("should not cleanup node chassis id annotation if node network preconfiguration is done", func() {
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(nodeWorker2), nodeWorker2)).To(Succeed())
 			nodeWorker2.SetLabels(map[string]string{
-				dpuEnabledNodeLabelKey:                dpuEnabledNodeLabelValue,
+				provisioningDoneNodeLabelKey:          "",
 				networkPreconfigurationReadyNodeLabel: "",
 			})
 			nodeWorker2.SetAnnotations(map[string]string{
@@ -605,7 +629,7 @@ networking:
 								{
 									MatchExpressions: []corev1.NodeSelectorRequirement{
 										{
-											Key:      "dpf.nvidia.com/network-preconfig-ready",
+											Key:      "ovn.dpf.nvidia.com/network-preconfig-ready",
 											Operator: corev1.NodeSelectorOpExists,
 										},
 									},
@@ -1280,6 +1304,28 @@ func getDefaultClusterVersion(name string) *unstructured.Unstructured {
 			},
 			"spec": map[string]interface{}{
 				"clusterID": "9a3d8fa9-773a-4d99-a80a-5ddac0956d95",
+			},
+		},
+	}
+}
+
+func getMinimalBFB(name string, namespace string, nodeName string) *unstructured.Unstructured {
+	return &unstructured.Unstructured{
+		Object: map[string]interface{}{
+			"apiVersion": "provisioning.dpf.nvidia.com/v1alpha1",
+			"kind":       "Dpu",
+			"metadata": map[string]interface{}{
+				"name":      name,
+				"namespace": namespace,
+			},
+			"spec": map[string]interface{}{
+				"nodeName": nodeName,
+				"bfb":      "some-bfb",
+				"k8s_cluster": map[string]interface{}{
+					"name":      "some-cluster",
+					"namespace": "some-namespace",
+				},
+				"dpuFlavor": "some-flavor",
 			},
 		},
 	}

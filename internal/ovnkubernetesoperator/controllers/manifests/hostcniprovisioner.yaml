@@ -89,7 +89,7 @@ spec:
           name: var-run-systemd
       hostNetwork: true
       nodeSelector:
-        feature.node.kubernetes.io/dpu-enabled: "true"
+        ovn.dpf.nvidia.com/provisioning-done: ""
       securityContext:
         runAsUser: 0
       serviceAccountName: host-cni-provisioner
