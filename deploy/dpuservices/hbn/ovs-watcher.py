@@ -31,12 +31,12 @@ def get_ofport(input):
     return result.stdout.splitlines()[0]
 
 def add_flows(input, output):
-    cmd = "ovs-ofctl", "add-flow", "br-hbn", "in_port=%s,actions=%s" % (input, output)
+    cmd = "ovs-ofctl", "add-flow", "br-hbn", "table=0,priority=0,in_port=%s,actions=%s" % (input, output)
     print(cmd)
     result = subprocess.run(cmd, timeout=15, capture_output=True, text=True)
     if result.returncode:
         exit(1)
-    cmd = "ovs-ofctl", "add-flow", "br-hbn", "in_port=%s,actions=%s" % (output, input)
+    cmd = "ovs-ofctl", "add-flow", "br-hbn", "table=0,priority=0,in_port=%s,actions=%s" % (output, input)
     print(cmd)
     result = subprocess.run(cmd, timeout=15, capture_output=True, text=True)
     if result.returncode:
