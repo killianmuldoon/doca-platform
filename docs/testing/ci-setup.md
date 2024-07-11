@@ -145,12 +145,12 @@ sudo gitlab-runner install --user=gitlab-runner --working-directory=/gitlab-runn
 sudo gitlab-runner start
 
 ## Runner must be registered in the CI as a shell runner with command from gitlab UI.
-
 gitlab-runner register XXXX 
 
 ## Must be done with credentials that allow pushing to the given registry.
 ## Must be done as the gitlab-runner user.
 su gitlab-runner
-docker login harbor.mellanox.com
-docker login nvcr.io
+docker login nvcr.io #Note. This is an interactive command and needs to be done manually.
+docker login gitlab-master.nvidia.com:5005 #Note. This is an interactive command and needs to be done manually.
+
 ```
