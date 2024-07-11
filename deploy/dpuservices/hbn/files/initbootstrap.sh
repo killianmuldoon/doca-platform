@@ -186,7 +186,28 @@ generate_configuration_files() {
     fi
 }
 
+# aserdean: This is a HACK in order to make HBN 2.2 happy and see the ports inside the container
+#           via the command devlink port show.
+#           TODO remove this workaround in the future since HBN 2.3 will not need it
+msg "Moving host SFs to container using devlink port reload"
+POD=$(chroot /host crictl pods | grep ${POD_NAME} | cut -d " " -f 1)
+NS=$(chroot /host crictl inspectp ${POD} | grep cni | head -n 1 | tr -d '"'| cut -d "/" -f 5)
+PORTS=$(ip -br a | grep _sf | cut -f1 -d ' ')
 
+for port in $PORTS
+do
+   msg "processing ${port}"
+   pci_id=chroot /host nsenter -t 1 -n devlink port show ${port} | cut -f1 -d ' ' | tr ':' ' ' | tr '\n' ' ' 
+   port_r=$(echo ${pci_id} | cut --complement -d'/' -f3)
+   msg "devlink dev reload ${port_r} netns ${NS}"
+   chroot /host nsenter -t 1 -n devlink dev reload ${port_r} netns ${NS}
+   intf_post=$(devlink port show ${pci_id} | cut -f5 -d ' ' | head -1)
+   msg "renaming ${intf_post} with ${port}"
+   ip link set name ${port} dev ${intf_post}
+done
+
+
+msg "SFs moved to container"
 
 msg "HBN initial config for DPF/SFC started."
 
