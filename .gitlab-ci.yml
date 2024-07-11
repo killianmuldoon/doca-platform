@@ -7,7 +7,11 @@ workflow:
 variables:
   ## This is a read-only token used for pulling repositories. Defined in the DPF operator CI/CD settings.
   GITLAB_TOKEN: $CI_TOKEN
+  ## This is a read only token for reading from the Gitlab API. Used for triage and slack notification scripts.
   GITLAB_API_TOKEN: $API_READ_TOKEN
+  ## This variable can be overridden to false for specific e2e jobs which will leave the environment intact on job failure for investigation.
+  ## Note this does not prevent another job from starting on the same setup so it's recommended to pause the associated gitlab runner if debugging e2e test in this way.
+  E2E_ENV_CLEANUP: "true"
 
 stages:
   - verify
@@ -140,7 +144,7 @@ e2e:
   after_script:
     - ./hack/scripts/slack-notification.sh
     - make test-cache-images
-    - make clean-test-env
+    - if [ "$E2E_ENV_CLEANUP" == "true" ]; then make clean-test-env; fi
 
 nightly-release:
   stage: build
