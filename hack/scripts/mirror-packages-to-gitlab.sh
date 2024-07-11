@@ -27,10 +27,11 @@ PROJECT_ID=112105
 # Directory on which to store the files locally before upload.
 TMP_DIR=/tmp/dpf-build-files
 
+# Remove this directory and recreate it to ensure there are no stale artifacts stored there.
 mkdir -p $TMP_DIR
 cd $TMP_DIR
 
-lftp -c "mirror ${SOURCE_URL}"
+lftp -c "mirror -e ${SOURCE_URL}"
 
 for i in $(find $TMP_DIR -type f ); do
     path="${i#"$TMP_DIR"/}"

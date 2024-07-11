@@ -496,7 +496,7 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 test-build-and-push-artifacts: $(KUSTOMIZE) ## Build and push DPF artifacts (images, charts, bundle) for e2e tests.
 	# Build and push the sfcset, dpuservice, operator and operator-bundle images.
 	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
-	$(MAKE) docker-build-sfc-controller docker-push-sfc-controller
+	$(MAKE) docker-build-sfc-controller docker-push-sfc-controller; \
 	$(MAKE) docker-build-dpuservice docker-push-dpuservice; \
 	$(MAKE) docker-build-operator docker-push-operator ; \
 	$(MAKE) docker-build-operator-bundle docker-push-operator-bundle; \

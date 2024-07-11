@@ -24,7 +24,7 @@ IMAGE_PULL_KEY="${IMAGE_PULL_KEY:-""}"
 
 if [[ "$IMAGE_PULL_KEY" == "" ]]; then
   echo "IMAGE_PULL_KEY not set. Skipping imagePullSecret creation"
-  exit 1
+  exit 0
 fi
 
 REGISTRY_SERVER=$(echo $REGISTRY | cut -d'/' -f1)
