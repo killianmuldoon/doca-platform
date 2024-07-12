@@ -6,7 +6,7 @@ imagePullSecrets: []
 docaHbn:
   image:
     repository: nvidia.com/hbn
-    tag: 2.2.0-doca2.7.0-dpf
+    tag: 2.2.0-doca2.7.0-dpf-v0.0.0
   imagePullPolicy: IfNotPresent
   containerSecurityContext:
     privileged: true
@@ -15,7 +15,7 @@ docaHbn:
 hbnInit:
   image:
     repository: nvidia.com/hbn
-    tag: 2.2.0-doca2.7.0-dpf
+    tag: 2.2.0-doca2.7.0-dpf-v0.0.0
   imagePullPolicy: IfNotPresent
   containerSecurityContext:
     privileged: true

@@ -682,8 +682,8 @@ binary-binary-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ovnkubernetesoperator gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/ovnkubernetesoperator
 
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS)
-HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouted dms dhcrelay ovnkubernetes-operator hbn
-DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn-sidecar ovs-cni
+HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouted dms dhcrelay ovnkubernetes-operator
+DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn hbn-sidecar ovs-cni
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
@@ -743,7 +743,7 @@ HBN_DPUSERVICE_DIR ?= deploy/dpuservices/hbn
 HBN_IMAGE_NAME ?= hbn
 export HBN_IMAGE ?= $(REGISTRY)/$(HBN_IMAGE_NAME)
 export HBN_NVCR_TAG ?= 2.2.0-doca2.7.0
-export HBN_TAG ?= $(HBN_NVCR_TAG)-dpf
+export HBN_TAG ?= $(HBN_NVCR_TAG)-dpf-$(TAG)
 
 HBN_SIDECAR_IMAGE_NAME ?= hbn-sidecar
 export HBN_SIDECAR_IMAGE ?= $(REGISTRY)/$(HBN_SIDECAR_IMAGE_NAME)
