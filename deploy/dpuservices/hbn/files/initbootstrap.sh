@@ -198,7 +198,7 @@ for port in $PORTS
 do
    msg "processing ${port}"
    aux_num=$(ls -l /sys/class/net/ | grep ${port} | awk  -F '/' '{print $9}')
-   pci_id=$(chroot /host nsenter -t 1 -n devlink port show | grep ${aux_num} |cut -f1 -d ' ' | tr ':' ' ' | tr '\n' ' ')
+   pci_id=$(chroot /host nsenter -t 1 -n devlink port show | grep "${aux_num}/" |cut -f1 -d ' ' | tr ':' ' ' | tr '\n' ' ')
    port_r=$(echo ${pci_id} | cut --complement -d'/' -f3)
    msg "pci_id=${pci_id}"
    msg "devlink dev reload ${port_r} netns ${NS}"
