@@ -166,6 +166,11 @@ func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *sfcv1.Servic
 		return nil
 	}
 
+	if serviceInterface.Spec.InterfaceType == "physical" {
+		log.Info("Ignoring delete on physical interfaces.")
+		return nil
+	}
+
 	portName := FigureOutName(ctx, serviceInterface)
 
 	if portName != "" {
