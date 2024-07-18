@@ -89,8 +89,8 @@ All commands are run as root from /root unless otherwise specified.
 to run the script you will need to provide the environment with the tokens listed below.
 Note: in case of using a leased setup from Colossus you can use root user by using `sudo su`
 after you logged in with the user who made the lease.
-* use OS: ubuntu-22.04-x86_64-standard
-Link to colossus lease:
+* use OS: ubuntu-22.04-x86_64-standard<br>
+Link to colossus lease:<br>
 - https://colossus.nvidia.com/web/index.html#/schedule
 
 ```shell
@@ -108,5 +108,9 @@ export NGC_API_KEY="<ngc_api_key>"
 
 # Copy the gitlab_runner.sh script to your machine inside /root directory.
 https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/-/blob/main/hack/scripts/gitlab_runner.sh?ref_type=heads
+
+# Grant execution permisson & execute script
+chmod +x gitlab_runner.sh
+./gitlab_runner.sh
 
 ```
