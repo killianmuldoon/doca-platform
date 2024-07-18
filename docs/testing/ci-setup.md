@@ -136,7 +136,7 @@ sudo sysctl fs.inotify.max_user_instances=8192
 sudo rm -rf /gitlab-runner/.bash_logout
 
 ## Download the gitlab runner binary
-sudo curl -L --output /usr/local/bin/gitlab-runner "https://s3.dualstack.us-east-1.amazonaws.com/gitlab-runner-downloads/v16.5.0/binaries/gitlab-runner-linux-amd64"
+sudo curl -L --output /usr/local/bin/gitlab-runner "https://s3.dualstack.us-east-1.amazonaws.com/gitlab-runner-downloads/v17.1.0/binaries/gitlab-runner-linux-amd64"
 sudo chmod +x /usr/local/bin/gitlab-runner
 
 ## install gitlab runner and register 

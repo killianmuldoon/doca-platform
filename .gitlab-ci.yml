@@ -5,6 +5,8 @@ workflow:
   name: $CI_PIPELINE_NAME
 
 variables:
+  ## Enable timestamps in job logs. See https://docs.gitlab.com/ee/ci/yaml/ci_job_log_timestamps.html
+  FF_TIMESTAMPS: true
   ## This is a read-only token used for pulling repositories. Defined in the DPF operator CI/CD settings.
   GITLAB_TOKEN: $CI_TOKEN
   ## This is a read only token for reading from the Gitlab API. Used for triage and slack notification scripts.
@@ -162,7 +164,7 @@ nightly-release:
     - release
   script:
     - ./hack/scripts/mirror-packages-to-gitlab.sh
-    - make release
+    - timeout 30m make release
   after_script:
     - ./hack/scripts/slack-notification.sh
 
@@ -172,7 +174,7 @@ ci-release:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'push' && $CI_COMMIT_BRANCH == "main"
   variables:
-    # Note: This job is generic to allow it to use both harbor and nvcr.io registries. Variables defined under https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/-/pipeline_schedules define the specific behaviour.
+    # Note: Variables are also defined under https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/-/pipeline_schedules
     TAG: v0.0.0-$CI_COMMIT_SHORT_SHA
     REGISTRY: nvcr.io/nvstaging/mellanox
     CI_PIPELINE_NAME: "CI release"
@@ -184,7 +186,7 @@ ci-release:
     - release
   script:
     - ./hack/scripts/mirror-packages-to-gitlab.sh
-    - make release
+    - timeout 30m make release
   after_script:
     - ./hack/scripts/slack-notification.sh
 
