@@ -150,6 +150,10 @@ e2e:
 
 nightly-release:
   stage: build
+  # We have a known issue in the OVS CNI build that can lead to the build getting stuck. Retry helps improve the
+  # probability of having a successful nightly release. Even if the known issue is fixed, we should keep that retry for
+  # transient errors (e.g. network).
+  retry: 2
   needs: [ ]
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
