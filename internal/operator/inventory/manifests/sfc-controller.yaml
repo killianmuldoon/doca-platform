@@ -5,6 +5,6 @@ metadata:
   namespace: dpf-operator-system
 spec:
   source:
-    repoURL: nvidia.com
+    repoURL: example.com
     chart: sfc-controller
-    version: v0.0.0
+    version: v0.1.0

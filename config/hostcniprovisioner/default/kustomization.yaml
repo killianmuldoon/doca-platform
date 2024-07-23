@@ -7,5 +7,5 @@ resources:
 - configmap.yaml
 images:
 - name: controller
-  newName: nvidia.com/host-cni-provisioner
-  newTag: v0.0.0
+  newName: example.com/host-cni-provisioner
+  newTag: v0.1.0

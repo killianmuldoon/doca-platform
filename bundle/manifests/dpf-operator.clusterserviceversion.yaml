@@ -30,7 +30,7 @@ metadata:
     capabilities: Basic Install
     operators.operatorframework.io/builder: operator-sdk-v1.34.1
     operators.operatorframework.io/project_layout: unknown
-  name: dpf-operator.v0.0.0
+  name: dpf-operator.v0.1.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -139,7 +139,7 @@ spec:
               containers:
               - command:
                 - /manager
-                image: nvidia.com/dpf-operator-controller-manager:v0.0.0
+                image: example.com/dpf-operator-controller-manager:v0.1.0
                 livenessProbe:
                   httpGet:
                     path: /healthz
@@ -219,4 +219,4 @@ spec:
   provider:
     name: Provider Name
     url: https://your.domain
-  version: 0.0.0
+  version: 0.1.0

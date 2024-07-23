@@ -5,8 +5,8 @@ imagePullSecrets: []
 # Sets image details for docaHBN container.
 docaHbn:
   image:
-    repository: nvidia.com/hbn
-    tag: 2.2.0-doca2.7.0-dpf-v0.0.0
+    repository: example.com/hbn
+    tag: 2.2.0-doca2.7.0-dpf-v0.1.0
   imagePullPolicy: IfNotPresent
   containerSecurityContext:
     privileged: true
@@ -14,8 +14,8 @@ docaHbn:
 # Sets image details for docaInit container.
 hbnInit:
   image:
-    repository: nvidia.com/hbn
-    tag: 2.2.0-doca2.7.0-dpf-v0.0.0
+    repository: example.com/hbn
+    tag: 2.2.0-doca2.7.0-dpf-v0.1.0
   imagePullPolicy: IfNotPresent
   containerSecurityContext:
     privileged: true
@@ -23,8 +23,8 @@ hbnInit:
 # Sets image details for docaInit container.
 hbnSidecar:
   image:
-    repository: nvidia.com/hbn-sidecar
-    tag: v0.0.0
+    repository: example.com/hbn-sidecar
+    tag: v0.1.0
   imagePullPolicy: IfNotPresent
   containerSecurityContext:
     privileged: true

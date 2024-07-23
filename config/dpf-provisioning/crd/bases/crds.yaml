@@ -124,6 +124,13 @@ spec:
                   - raw
                   type: object
                 type: array
+              containerdConfig:
+                properties:
+                  registryEndpoint:
+                    type: string
+                required:
+                - registryEndpoint
+                type: object
               grub:
                 properties:
                   kernelParameters:
@@ -245,6 +252,8 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  drain:
+                    type: boolean
                   no_effect:
                     type: string
                   taint:
@@ -468,6 +477,8 @@ spec:
                             additionalProperties:
                               type: string
                             type: object
+                          drain:
+                            type: boolean
                           no_effect:
                             type: string
                           taint:

@@ -38,7 +38,7 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
-        image: nvidia.com/dpu-cni-provisioner:v0.0.0
+        image: example.com/dpu-cni-provisioner:v0.1.0
         imagePullPolicy: Always
         name: dpu-cni-provisioner
         readinessProbe:

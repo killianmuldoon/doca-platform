@@ -75,6 +75,8 @@ spec:
                     additionalProperties:
                       type: string
                     type: object
+                  drain:
+                    type: boolean
                   no_effect:
                     type: string
                   taint:

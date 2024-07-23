@@ -4,5 +4,5 @@ resources:
 - manager.yaml
 images:
 - name: controller
-  newName: nvidia.com/dpf-ovn-kubernetes-operator-controller-manager
-  newTag: v0.0.0
+  newName: example.com/dpf-ovn-kubernetes-operator-controller-manager
+  newTag: v0.1.0

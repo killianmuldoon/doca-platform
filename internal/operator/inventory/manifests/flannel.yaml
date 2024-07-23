@@ -5,7 +5,7 @@ metadata:
   namespace: dpf-operator-system
 spec:
   source:
-    repoURL: nvidia.com
+    repoURL: example.com
     chart: flannel
     version: v0.25.1
   values:

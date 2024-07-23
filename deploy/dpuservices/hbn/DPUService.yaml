@@ -6,7 +6,7 @@ metadata:
 spec:
   source:
     repoURL:  nvidia.com/dpf
-    version: v0.0.0
+    version: v0.1.0
     chart: hbn
   serviceID: hbn
   serviceDaemonSet:

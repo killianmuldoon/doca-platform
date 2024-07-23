@@ -574,7 +574,7 @@ spec:
       containers:
       - command:
         - /manager
-        image: nvidia.com/dpuservice-controller-manager:v0.0.0
+        image: example.com/dpuservice-controller-manager:v0.1.0
         livenessProbe:
           httpGet:
             path: /healthz

@@ -8,7 +8,7 @@ metadata:
     operatorframework.io/suggested-namespace: dpf-operator-system
     provider: NVIDIA
     support: NVIDIA
-  name: dpf-operator.v0.0.0
+  name: dpf-operator.v0.1.0
   namespace: placeholder
 spec:
   minKubeVersion: v1
@@ -47,4 +47,4 @@ spec:
   maturity: alpha
   provider:
     name: NVIDIA
-  version: 0.0.0
+  version: 0.1.0

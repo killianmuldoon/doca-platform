@@ -16,9 +16,9 @@
 # Export is needed here so that the envsubst used in make targets has access to those variables even when they are not
 # explictily set when calling make.
 # The tag must have three digits with a leading v - i.e. v9.9.1
-export TAG ?= v0.0.0
+export TAG ?= v0.1.0
 # Note: Registry defaults to non-existing registry intentionally to avoid overriding useful images.
-export REGISTRY ?= nvidia.com
+export REGISTRY ?= example.com
 
 # If V is set to 1 the output will be verbose.
 Q = $(if $(filter 1,$V),,@)
@@ -107,7 +107,7 @@ ENVTEST_VERSION ?= v0.0.0-20240110160329-8f8247fdc1c3
 GOLANGCI_LINT_VERSION ?= v1.58.1
 MOCKGEN_VERSION ?= v0.4.0
 GOTESTSUM_VERSION ?= v1.11.0
-DPF_PROVISIONING_CONTROLLER_REV ?= b9aa48758b6a873d67d88a1c80ecfcdc2a790720
+DPF_PROVISIONING_CONTROLLER_REV ?= ef433c117e341ea117048ee4e968ea1d9645a897
 ENVSUBST_VERSION ?= v1.4.2
 
 ## OVN Kubernetes Images
