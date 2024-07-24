@@ -33,11 +33,9 @@ var (
 // DPUServiceIPAMSpec defines the desired state of DPUServiceIPAM
 type DPUServiceIPAMSpec struct {
 	// IPV4Network is the configuration related to splitting a network into subnets per node, each with their own gateway.
-	// TODO: Add validation that only one of ipv4Network and ipv4Subnet is configured.
 	IPV4Network *IPV4Network `json:"ipv4Network,omitempty"`
 	// IPV4Subnet is the configuration related to splitting a subnet into blocks per node. In this setup, there is a
 	// single gateway.
-	// TODO: Add validation that only one of ipv4Network and ipv4Subnet is configured.
 	IPV4Subnet *IPV4Subnet `json:"ipv4Subnet,omitempty"`
 
 	// ClusterSelector determines in which clusters the DPUServiceIPAM controller should apply the configuration.
@@ -50,18 +48,14 @@ type DPUServiceIPAMSpec struct {
 // broadcast IP per node).
 type IPV4Network struct {
 	// Network is the CIDR from which subnets should be allocated per node.
-	// TODO: Validate that input is a valid subnet
 	Network string `json:"network"`
 	// GatewayIndex determines which IP in the subnet extracted from the CIDR should be the gateway IP.
 	GatewayIndex uint `json:"gatewayIndex"`
 	// PrefixSize is the size of the subnet that should be allocated per node.
-	// TODO: Validate that value fits the CIDR
 	PrefixSize uint `json:"prefixSize"`
 	// Exclusions is a list of IPs that should be excluded when splitting the CIDR into subnets per node.
-	// TODO: Validate values are part of the CIDR
 	Exclusions []string `json:"exclusions,omitempty"`
 	// Allocations describes the subnets that should be assigned in each DPU node.
-	// TODO: Validate value is part of the CIDR defined above
 	Allocations map[string]string `json:"allocations,omitempty"`
 }
 
@@ -72,7 +66,6 @@ type IPV4Subnet struct {
 	// TODO: Validate that input is a valid subnet
 	Subnet string `json:"subnet"`
 	// Gateway is the IP in the subnet that should be the gateway of the subnet.
-	// TODO: Validate that IP is part of subnet
 	Gateway string `json:"gateway"`
 	// PerNodeIPCount is the number of IPs that should be allocated per node.
 	PerNodeIPCount int `json:"perNodeIPCount"`

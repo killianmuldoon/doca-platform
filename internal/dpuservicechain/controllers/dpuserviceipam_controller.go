@@ -109,9 +109,6 @@ func (r *DPUServiceIPAMReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 //
 //nolint:unparam
 func (r *DPUServiceIPAMReconciler) reconcile(ctx context.Context, dpuServiceIPAM *sfcv1.DPUServiceIPAM) (ctrl.Result, error) {
-	if err := validateDPUServiceIPAM(dpuServiceIPAM); err != nil {
-		return ctrl.Result{}, fmt.Errorf("error while validating: %w", err)
-	}
 	if err := reconcileObjectsInDPUClusters(ctx, r, r.Client, dpuServiceIPAM); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -292,20 +289,6 @@ func generateCIDRPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.CIDRPool {
 	pool.ObjectMeta.ManagedFields = nil
 	pool.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind(nvipamv1.CIDRPoolKind))
 	return pool
-}
-
-func validateDPUServiceIPAM(dpuServiceIPAM *sfcv1.DPUServiceIPAM) error {
-	// TODO: Move validation to webhook
-	if dpuServiceIPAM.Spec.IPV4Network != nil && dpuServiceIPAM.Spec.IPV4Subnet != nil {
-		return errors.New("DPUServiceIPAM should not specify both ipv4Network and ipv4Subnet")
-	}
-
-	// TODO: Move validation to webhook
-	if dpuServiceIPAM.Spec.IPV4Network == nil && dpuServiceIPAM.Spec.IPV4Subnet == nil {
-		return errors.New("DPUServiceIPAM should specify either ipv4Network or ipv4Subnet")
-	}
-
-	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

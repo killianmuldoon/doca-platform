@@ -85,21 +85,18 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               ipv4Network:
-                description: |-
-                  IPV4Network is the configuration related to splitting a network into subnets per node, each with their own gateway.
-                  TODO: Add validation that only one of ipv4Network and ipv4Subnet is configured.
+                description: IPV4Network is the configuration related to splitting
+                  a network into subnets per node, each with their own gateway.
                 properties:
                   allocations:
                     additionalProperties:
                       type: string
-                    description: |-
-                      Allocations describes the subnets that should be assigned in each DPU node.
-                      TODO: Validate value is part of the CIDR defined above
+                    description: Allocations describes the subnets that should be
+                      assigned in each DPU node.
                     type: object
                   exclusions:
-                    description: |-
-                      Exclusions is a list of IPs that should be excluded when splitting the CIDR into subnets per node.
-                      TODO: Validate values are part of the CIDR
+                    description: Exclusions is a list of IPs that should be excluded
+                      when splitting the CIDR into subnets per node.
                     items:
                       type: string
                     type: array
@@ -108,14 +105,12 @@ spec:
                       from the CIDR should be the gateway IP.
                     type: integer
                   network:
-                    description: |-
-                      Network is the CIDR from which subnets should be allocated per node.
-                      TODO: Validate that input is a valid subnet
+                    description: Network is the CIDR from which subnets should be
+                      allocated per node.
                     type: string
                   prefixSize:
-                    description: |-
-                      PrefixSize is the size of the subnet that should be allocated per node.
-                      TODO: Validate that value fits the CIDR
+                    description: PrefixSize is the size of the subnet that should
+                      be allocated per node.
                     type: integer
                 required:
                 - gatewayIndex
@@ -126,12 +121,10 @@ spec:
                 description: |-
                   IPV4Subnet is the configuration related to splitting a subnet into blocks per node. In this setup, there is a
                   single gateway.
-                  TODO: Add validation that only one of ipv4Network and ipv4Subnet is configured.
                 properties:
                   gateway:
-                    description: |-
-                      Gateway is the IP in the subnet that should be the gateway of the subnet.
-                      TODO: Validate that IP is part of subnet
+                    description: Gateway is the IP in the subnet that should be the
+                      gateway of the subnet.
                     type: string
                   perNodeIPCount:
                     description: PerNodeIPCount is the number of IPs that should be
