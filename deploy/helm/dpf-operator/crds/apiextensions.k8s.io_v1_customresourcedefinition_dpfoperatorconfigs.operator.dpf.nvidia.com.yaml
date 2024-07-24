@@ -1,0 +1,99 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  labels:
+    dpf.nvidia.com/component: dpf-operator-controller-manager
+  name: dpfoperatorconfigs.operator.dpf.nvidia.com
+spec:
+  group: operator.dpf.nvidia.com
+  names:
+    kind: DPFOperatorConfig
+    listKind: DPFOperatorConfigList
+    plural: dpfoperatorconfigs
+    singular: dpfoperatorconfig
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: DPFOperatorConfig is the Schema for the dpfoperatorconfigs API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DPFOperatorConfigSpec defines the desired state of DPFOperatorConfig
+            properties:
+              imagePullSecrets:
+                description: |-
+                  List of secret names which are used to pull images for DPF system components and DPUServices.
+                  These secrets must be in the same namespace as the DPF Operator Config and should be created before the config is created.
+                  System reconciliation will not proceed until these secrets are available.
+                items:
+                  type: string
+                type: array
+              overrides:
+                description: Overrides exposes a set of fields which impact the recommended
+                  behaviour of the DPF Operator
+                properties:
+                  disableSystemComponents:
+                    description: DisableSystemComponents is a list of system components
+                      that will not be deployed.
+                    items:
+                      type: string
+                    type: array
+                  paused:
+                    description: Paused disables all reconciliation of the DPFOperatorConfig
+                      when set to true.
+                    type: boolean
+                type: object
+              provisioningConfiguration:
+                description: ProvisioningConfiguration defines dpf-provisioning-controller
+                  related configurations
+                properties:
+                  bfbPVCName:
+                    description: BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim
+                      used by dpf-provisioning-controller
+                    type: string
+                  dhcpServerAddress:
+                    description: DHCPServerAddress is the address of the DHCP server
+                      that allocates IP for DPU
+                    type: string
+                  dmsTimeout:
+                    description: DMSTimeout is the max time in seconds within which
+                      a DMS API must respond, 0 is unlimited
+                    type: integer
+                  imagePullSecretForDMSAndHostNetwork:
+                    description: ImagePullSecretForDMSAndHostNetwork is the imagePullSecret
+                      which is passed to pods created by the DPF Provisioning controller.
+                    type: string
+                required:
+                - bfbPVCName
+                - dhcpServerAddress
+                - imagePullSecretForDMSAndHostNetwork
+                type: object
+            type: object
+          status:
+            description: DPFOperatorConfigStatus defines the observed state of DPFOperatorConfig
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

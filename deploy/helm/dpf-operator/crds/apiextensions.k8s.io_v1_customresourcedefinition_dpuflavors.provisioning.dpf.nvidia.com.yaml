@@ -1,0 +1,116 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  labels:
+    dpf.nvidia.com/component: dpf-operator-controller-manager
+  name: dpuflavors.provisioning.dpf.nvidia.com
+spec:
+  group: provisioning.dpf.nvidia.com
+  names:
+    kind: DPUFlavor
+    listKind: DPUFlavorList
+    plural: dpuflavors
+    singular: dpuflavor
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: DPUFlavor is the Schema for the dpuflavors API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              bfcfgParameters:
+                items:
+                  type: string
+                type: array
+              configFiles:
+                items:
+                  properties:
+                    operation:
+                      enum:
+                      - override
+                      - append
+                      type: string
+                    path:
+                      type: string
+                    permissions:
+                      type: string
+                    raw:
+                      type: string
+                  required:
+                  - path
+                  - permissions
+                  - raw
+                  type: object
+                type: array
+              containerdConfig:
+                properties:
+                  registryEndpoint:
+                    type: string
+                required:
+                - registryEndpoint
+                type: object
+              grub:
+                properties:
+                  kernelParameters:
+                    items:
+                      type: string
+                    type: array
+                required:
+                - kernelParameters
+                type: object
+              nvconfig:
+                items:
+                  properties:
+                    device:
+                      type: string
+                    hostPowerCycleRequired:
+                      type: boolean
+                    parameters:
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - parameters
+                  type: object
+                type: array
+              ovs:
+                properties:
+                  rawConfigScript:
+                    type: string
+                required:
+                - rawConfigScript
+                type: object
+              sysctl:
+                properties:
+                  parameters:
+                    items:
+                      type: string
+                    type: array
+                required:
+                - parameters
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true

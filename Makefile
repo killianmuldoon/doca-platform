@@ -198,20 +198,6 @@ $(HELM): | $(TOOLSDIR)
 	$Q mv $(TOOLSDIR)/$(HELM_BIN) $(TOOLSDIR)/$(HELM_BIN)-$(HELM_VER)
 	$Q rm -f $(GET_HELM)
 
-
-# helmify is used to generate helm charts.
-HELMIFY_VER = v0.4.13
-HELMIFY_BIN = helmify
-HELMIFY = $(abspath $(TOOLSDIR)/$(HELMIFY_BIN)-$(HELMIFY_VER))
-HELMIFY_ARCH = $(shell echo $(ARCH) | sed s/amd64/x86_64/) # The helmify URL uses the format x86_64 for its architecture.
-$(HELMIFY): | $(TOOLSDIR)
-	$Q echo "Installing helmify-$(HELMIFY_VER) to $(TOOLSDIR)"
-	echo $(strip https://github.com/arttor/helmify/releases/download/$(HELMIFY_VER)/helmify_$(OS)_$(HELMIFY_ARCH).tar.gz)
-	curl -fL -o $(TOOLSDIR)/helmify.tar.gz https://github.com/arttor/helmify/releases/download/$(HELMIFY_VER)/helmify_$(OS)_$(strip $(HELMIFY_ARCH)).tar.gz
-	tar -xvf $(TOOLSDIR)/helmify.tar.gz -C $(TOOLSDIR) && rm $(TOOLSDIR)/helmify.tar.gz
-	mv $(TOOLSDIR)/$(HELMIFY_BIN) $(HELMIFY)
-	chmod +x $(HELMIFY)
-
 # kamaji is the underlying control plane provider
 KAMAJI_REPO_URL=https://clastix.github.io/charts
 KAMAJI_REPO_NAME=clastix
@@ -300,7 +286,7 @@ GENERATE_TARGETS ?= operator dpuservice dpf-provisioning hostcniprovisioner dpuc
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
-	$(MAKE) generate-mocks generate-modules generate-manifests generate-go-deepcopy generate-operator-bundle generate-helm-chart-operator
+	$(MAKE) generate-mocks generate-modules generate-manifests generate-go-deepcopy generate-operator-bundle
 
 .PHONY: generate-mocks
 generate-mocks: $(MOCKGEN) ## Generate mocks
@@ -327,6 +313,9 @@ generate-manifests-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manifest
 	output:crd:dir=./config/operator/crd/bases \
 	output:rbac:dir=./config/operator/rbac
 	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
+	$(KUSTOMIZE) build config/operator-crds -o  deploy/helm/dpf-operator/crds/
+	$(ENVSUBST) < deploy/helm/dpf-operator/values.yaml.tmpl > deploy/helm/dpf-operator/values.yaml
+
 
 .PHONY: generate-manifests-ovnkubernetes-operator
 generate-manifests-ovnkubernetes-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVSUBST) ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes operator controller.
@@ -427,12 +416,6 @@ generate-manifests-hbn-dpuservice: $(ENVSUBST)
 .PHONY: generate-manifests-ovs-cni
 generate-manifests-ovs-cni: $(ENVSUBST) ## Generate values for OVS helm chart.
 	$(ENVSUBST) < deploy/helm/ovs-cni/values.yaml.tmpl > deploy/helm/ovs-cni/values.yaml
-
-OPERATOR_HELM_CHART_NAME ?= dpf-operator
-OPERATOR_HELM_CHART ?= $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)
-.PHONY: generate-helm-chart-operator
-generate-helm-chart-operator: $(KUSTOMIZE) $(HELMIFY) generate-manifests-operator generate-manifests-operator-embedded ## Create a helm chart for the DPF Operator.
-	$(KUSTOMIZE) build  config/operator-and-crds | $(HELMIFY) -image-pull-secrets -crd-dir -generate-defaults $(OPERATOR_HELM_CHART)
 
 .PHONY: generate-operator-bundle
 generate-operator-bundle: $(OPERATOR_SDK) $(KUSTOMIZE) ## Generate bundle manifests and metadata, then validate generated files.
@@ -701,7 +684,7 @@ OVNKUBERNETES_NON_DPU_IMAGE_NAME = ovn-kubernetes-non-dpu
 export OVNKUBERNETES_NON_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_NON_DPU_IMAGE_NAME)
 
 DPFOPERATOR_IMAGE_NAME ?= dpf-operator-controller-manager
-DPFOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOPERATOR_IMAGE_NAME)
+export DPFOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOPERATOR_IMAGE_NAME)
 
 SFCSET_IMAGE_NAME ?= sfcset-controller-manager
 export SFCSET_IMAGE ?= $(REGISTRY)/$(SFCSET_IMAGE_NAME)
@@ -1004,6 +987,10 @@ docker-push-hbn: ## Push the docker image for HBN
 # helm charts
 HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam ovs-cni sfc-controller ovnkubernetes-operator operator hbn-dpuservice
 HELM_REGISTRY ?= oci://$(REGISTRY)
+
+# metadata for the operator helm chart
+OPERATOR_HELM_CHART_NAME ?= dpf-operator
+OPERATOR_HELM_CHART ?= $(HELMDIR)/$(OPERATOR_HELM_CHART_NAME)
 
 ## metadata for servicechain controller.
 export SERVICECHAIN_CONTROLLER_HELM_CHART_NAME = servicechain
