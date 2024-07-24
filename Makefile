@@ -1002,13 +1002,8 @@ docker-push-hbn: ## Push the docker image for HBN
 	docker push $(HBN_IMAGE):$(HBN_TAG)
 
 # helm charts
-
 HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam ovs-cni sfc-controller ovnkubernetes-operator operator hbn-dpuservice
 HELM_REGISTRY ?= oci://$(REGISTRY)
-
-## used in templating the DPUService
-HELM_REPO := $(shell if echo $(HELM_REGISTRY) | grep -q '^http'; then echo $(HELM_REGISTRY); else echo $(REGISTRY); fi)
-export HELM_REPO
 
 ## metadata for servicechain controller.
 export SERVICECHAIN_CONTROLLER_HELM_CHART_NAME = servicechain
@@ -1098,53 +1093,48 @@ helm-package-ovnkubernetes-operator: $(CHARTSDIR) $(HELM) ## Package helm chart 
 helm-package-hbn-dpuservice: $(DPUSERVICESDIR) $(HELM) generate-manifests-hbn-dpuservice ## Package helm chart for HBN
 	$(HELM) package $(HBN_HELM_CHART) --version $(HBN_HELM_CHART_VER) --destination $(CHARTSDIR)
 
-helm-cm-push: $(HELM)
-	# installs the helm chartmuseum push plugin which is used to push to NGC.
-	$(HELM) plugin list | grep cm-push || $(HELM) plugin install https://github.com/chartmuseum/helm-push
-
-HELM_PUSH_CMD ?= push
 .PHONY: helm-push-all
 helm-push-all: $(addprefix helm-push-,$(HELM_TARGETS))  ## Push the helm charts for all components.
 
 .PHONY: helm-push-servicechain-controller
-helm-push-servicechain-controller: $(CHARTSDIR) helm-cm-push ## Push helm chart for service chain controller
-	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS) $(CHARTSDIR)/$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME)-$(SERVICECHAIN_CONTROLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+helm-push-servicechain-controller: $(CHARTSDIR) ## Push helm chart for service chain controller
+	$(HELM) push $(CHARTSDIR)/$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME)-$(SERVICECHAIN_CONTROLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-multus
-helm-push-multus: $(CHARTSDIR) helm-cm-push ## Push helm chart for multus CNI
-	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS) $(CHARTSDIR)/$(MULTUS_HELM_CHART_NAME)-$(MULTUS_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+helm-push-multus: $(CHARTSDIR) ## Push helm chart for multus CNI
+	$(HELM) push $(CHARTSDIR)/$(MULTUS_HELM_CHART_NAME)-$(MULTUS_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-sriov-device-plugin
-helm-push-sriov-device-plugin: $(CHARTSDIR) helm-cm-push ## Push helm chart for sriov-network-device-plugin
-	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS) $(CHARTSDIR)/$(SRIOV_DP_HELM_CHART_NAME)-$(SRIOV_DP_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+helm-push-sriov-device-plugin: $(CHARTSDIR) ## Push helm chart for sriov-network-device-plugin
+	$(HELM) push $(CHARTSDIR)/$(SRIOV_DP_HELM_CHART_NAME)-$(SRIOV_DP_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-nvidia-k8s-ipam
-helm-push-nvidia-k8s-ipam: $(CHARTSDIR) helm-cm-push ## Push helm chart for nvidia-k8s-ipam
-	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS) $(CHARTSDIR)/$(NVIDIA_K8S_IPAM_HELM_CHART_NAME)-$(NVIDIA_K8S_IPAM_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+helm-push-nvidia-k8s-ipam: $(CHARTSDIR) ## Push helm chart for nvidia-k8s-ipam
+	$(HELM) push $(CHARTSDIR)/$(NVIDIA_K8S_IPAM_HELM_CHART_NAME)-$(NVIDIA_K8S_IPAM_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-flannel
-helm-push-flannel: $(CHARTSDIR) helm-cm-push ## Push helm chart for flannel CNI
-	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(FLANNEL_HELM_CHART_NAME)-$(FLANNEL_VERSION).tgz $(HELM_REGISTRY)
+helm-push-flannel: $(CHARTSDIR) ## Push helm chart for flannel CNI
+	$(HELM) push $(CHARTSDIR)/$(FLANNEL_HELM_CHART_NAME)-$(FLANNEL_VERSION).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-ovs-cni
-helm-push-ovs-cni: $(CHARTSDIR) helm-cm-push ## Push helm chart for OVS CNI
-	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(OVS_CNI_HELM_CHART_NAME)-$(OVS_CNI_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+helm-push-ovs-cni: $(CHARTSDIR) ## Push helm chart for OVS CNI
+	$(HELM) push $(CHARTSDIR)/$(OVS_CNI_HELM_CHART_NAME)-$(OVS_CNI_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-sfc-controller
-helm-push-sfc-controller: $(CHARTSDIR) helm-cm-push ## Push helm chart for sfc-controller
-	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS) $(CHARTSDIR)/$(SFC_CONTOLLER_HELM_CHART_NAME)-$(SFC_CONTOLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+helm-push-sfc-controller: $(CHARTSDIR) ## Push helm chart for sfc-controller
+	$(HELM) push $(CHARTSDIR)/$(SFC_CONTOLLER_HELM_CHART_NAME)-$(SFC_CONTOLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-ovnkubernetes-operator
-helm-push-ovnkubernetes-operator: $(CHARTSDIR) helm-cm-push ## Push helm chart for DPF OVN Kubernetes Operator
-	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS) $(CHARTSDIR)/$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME)-$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+helm-push-ovnkubernetes-operator: $(CHARTSDIR) ## Push helm chart for DPF OVN Kubernetes Operator
+	$(HELM) push $(CHARTSDIR)/$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME)-$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-operator
-helm-push-operator: $(CHARTSDIR) helm-cm-push ## Push helm chart for dpf-operator
-	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
+helm-push-operator: $(CHARTSDIR) ## Push helm chart for dpf-operator
+	$(HELM) push  $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-hbn-dpuservice
-helm-push-hbn-dpuservice: $(CHARTSDIR) helm-cm-push ## Push helm chart for HBN
-	$(HELM) $(HELM_PUSH_CMD) $(HELM_PUSH_OPTS)  $(CHARTSDIR)/$(HBN_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
+helm-push-hbn-dpuservice: $(CHARTSDIR) ## Push helm chart for HBN
+	$(HELM) push $(CHARTSDIR)/$(HBN_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
 
 ##@ Development Environment
 

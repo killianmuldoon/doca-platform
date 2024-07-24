@@ -33,11 +33,6 @@ REGISTRY_SERVER=$(echo $REGISTRY | cut -d'/' -f1)
 kubectl -n dpf-operator-system create secret docker-registry dpf-pull-secret --docker-server=$REGISTRY_SERVER --docker-username="\$oauthtoken" --docker-password=$IMAGE_PULL_KEY
 
 ## Create a pull secret to be used by ArgoCD for pulling helm charts
-HELM_REPO_URL=$REGISTRY
-if [[ "$REGISTRY_SERVER" == "nvcr.io" ]]; then
-  HELM_REPO_URL="https://helm.ngc.nvidia.com/nvstaging/mellanox"
-fi
-
 echo "
 apiVersion: v1
 kind: Secret
@@ -48,7 +43,7 @@ metadata:
     argocd.argoproj.io/secret-type: repository
 stringData:
   name: dpf-helm
-  url: $HELM_REPO_URL
+  url: $REGISTRY
   type: helm
   username: \$oauthtoken
   password: $IMAGE_PULL_KEY

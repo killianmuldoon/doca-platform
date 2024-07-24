@@ -20,14 +20,16 @@ set -o nounset
 set -o pipefail
 set -o errexit
 
+E2E_TEST="${E2E_TEST:-""}"
+
 ## Ignore if the pipeline is not from a schedule or not from a "push" - i.e. when a new commit is added to main.
-if [ "$CI_PIPELINE_SOURCE" != "schedule" || "$CI_PIPELINE_SOURCE" != "push" ]; then
+if [[ "$CI_PIPELINE_SOURCE" != "schedule" && "$CI_PIPELINE_SOURCE" != "push" ]]; then
   echo "Skipping slack notification: this is not a scheduled or push pipeline"
   exit 0
 fi
 
 ## Exit if the job succeeded.
-if [ "$CI_JOB_STATUS" == "success" ]; then
+if [[ "$CI_JOB_STATUS" == "success" ]]; then
   echo "Skipping slack notification: this pipeline succeeded"
   exit 0
 fi

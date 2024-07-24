@@ -48,7 +48,7 @@ sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl || log_and_e
 
 ## Install docker
 sudo apt-get update > /dev/null || log_and_exit "Failed to update package list"
-sudo apt-get install -y ca-certificates curl lftp > /dev/null || log_and_exit "Failed to install required packages"
+sudo apt-get install -y ca-certificates curl apt-transport-https lftp > /dev/null || log_and_exit "Failed to install required packages"
 sudo install -m 0755 -d /etc/apt/keyrings || log_and_exit "Failed to create /etc/apt/keyrings directory"
 sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc || log_and_exit "Failed to download Docker GPG key"
 sudo chmod a+r /etc/apt/keyrings/docker.asc || log_and_exit "Failed to set permissions on Docker GPG key"
@@ -56,6 +56,12 @@ sudo chmod a+r /etc/apt/keyrings/docker.asc || log_and_exit "Failed to set permi
 echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null || log_and_exit "Failed to add Docker repository"
 sudo apt-get update > /dev/null || log_and_exit "Failed to update package list after adding Docker repository"
 sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin > /dev/null || log_and_exit "Failed to install Docker packages"
+
+## Install helm
+sudo curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null || log_and_exit "Failed to add helm signing key"
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm.gpg] https://baltocdn.com/helm/stable/debian/ all main" | sudo tee /etc/apt/sources.list.d/helm-stable-debian.list || log_and_exit "Failed to add helm repository"
+sudo apt-get update > /dev/null || log_and_exit "Failed to update package list after adding helm repository"
+sudo apt-get install -y helm  || log_and_exit "Failed to install helm packages"
 
 ## Add the gitlab runner to the docker group
 sudo usermod -aG docker gitlab-runner || log_and_exit "Failed to add gitlab-runner to docker group"
@@ -128,9 +134,12 @@ gitlab-runner register  --non-interactive \
 
 ## Must be done with credentials that allow pushing to the given registry.
 ## Must be done as the gitlab-runner user.
-echo "Switching to gitlab-runner user for Docker login"
+echo "Switching to gitlab-runner user for docker and helm login"
 echo "$PERSONAL_ACCESS_TOKEN" | sudo -u gitlab-runner docker login --username \$oauthtoken --password-stdin gitlab-master.nvidia.com:5005 || log_and_exit "Failed to login to gitlab repo"
 echo "$NGC_API_KEY" | sudo -u gitlab-runner docker login --username \$oauthtoken --password-stdin nvcr.io || log_and_exit "Failed to login to nvcr.io"
+## log in to helm registries
+echo "$NGC_API_KEY" | sudo -u gitlab-runner helm registry login nvcr.io --username \$oauthtoken --password-stdin
+echo "$PERSONAL_ACCESS_TOKEN" | sudo -u gitlab-runner helm registry login gitlab-master.nvidia.com:5005 --username \$oauthtoken --password-stdin
 
 # Done
 echo "GitLab runner setup completed successfully"
