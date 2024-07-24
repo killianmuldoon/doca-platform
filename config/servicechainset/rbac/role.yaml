@@ -21,6 +21,16 @@ rules:
   - list
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - coordination.k8s.io
   resources:
   - leases
@@ -31,6 +41,22 @@ rules:
   - list
   - patch
   - update
+  - watch
+- apiGroups:
+  - nv-ipam.nvidia.com
+  resources:
+  - cidrpools
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - nv-ipam.nvidia.com
+  resources:
+  - ippools
+  verbs:
+  - get
+  - list
   - watch
 - apiGroups:
   - sfc.dpf.nvidia.com

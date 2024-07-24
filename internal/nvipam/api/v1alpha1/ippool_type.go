@@ -1,17 +1,14 @@
 /*
-Copyright 2024 NVIDIA
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+ Copyright 2023, NVIDIA CORPORATION & AFFILIATES
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+     http://www.apache.org/licenses/LICENSE-2.0
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
 */
 
 package v1alpha1
@@ -42,8 +39,10 @@ type IPPoolSpec struct {
 	// amount of IPs to allocate for each node,
 	// must be less than amount of available IPs in the subnet
 	PerNodeBlockSize int `json:"perNodeBlockSize"`
+	// contains reserved IP addresses that should not be allocated by nv-ipam
+	Exclusions []ExcludeRange `json:"exclusions,omitempty"`
 	// gateway for the pool
-	Gateway string `json:"gateway"`
+	Gateway string `json:"gateway,omitempty"`
 	// selector for nodes, if empty match all nodes
 	NodeSelector *corev1.NodeSelector `json:"nodeSelector,omitempty"`
 }

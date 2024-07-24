@@ -387,6 +387,7 @@ generate-manifests-sfcset: $(KUSTOMIZE) $(ENVSUBST) ## Generate manifests e.g. C
 	$(CONTROLLER_GEN) \
 	paths="./cmd/servicechainset/..." \
 	paths="./internal/servicechainset/..." \
+	paths="./internal/pod-ipam-injector/..." \
 	paths="./api/servicechain/..." \
 	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
 	rbac:roleName=manager-role \

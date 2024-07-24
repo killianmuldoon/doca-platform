@@ -22,6 +22,8 @@ import (
 	"os"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
+	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/nvipam/api/v1alpha1"
+	ipamcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/pod-ipam-injector/controllers"
 	sfcsetcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/servicechainset/controllers"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -41,8 +43,8 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
 	utilruntime.Must(sfcv1.AddToScheme(scheme))
+	utilruntime.Must(nvipamv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -129,6 +131,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceChainSet")
+		os.Exit(1)
+	}
+	if err = (&ipamcontroller.PodIpamReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "PodIpam")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
