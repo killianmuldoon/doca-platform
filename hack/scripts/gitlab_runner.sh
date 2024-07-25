@@ -24,8 +24,8 @@ log_and_exit() {
 }
 
 ## Check for required variables
-if [ -z "$GROUP_ACCESS_TOKEN" ] || [ -z "$PERSONAL_ACCESS_TOKEN" ] || [ -z "$NGC_API_KEY" ]; then
-    log_and_exit "All GROUPL_ACCESS_TOKEN, PERSONAL_ACCESS_TOKEN and NGC_API_KEY variables are required"
+if [ -z "$GROUP_ACCESS_TOKEN" ]; then
+    log_and_exit "All GROUP_ACCESS_TOKEN variable is required"
 fi
 
 ## GLOBAL VARS
@@ -131,15 +131,6 @@ gitlab-runner register  --non-interactive \
   --docker-network-mtu=0 \
   --docker-cpus="4" \
   --docker-memory="4000000000" || log_and_exit "Failed to register docker gitlab-runner"
-
-## Must be done with credentials that allow pushing to the given registry.
-## Must be done as the gitlab-runner user.
-echo "Switching to gitlab-runner user for docker and helm login"
-echo "$PERSONAL_ACCESS_TOKEN" | sudo -u gitlab-runner docker login --username \$oauthtoken --password-stdin gitlab-master.nvidia.com:5005 || log_and_exit "Failed to login to gitlab repo"
-echo "$NGC_API_KEY" | sudo -u gitlab-runner docker login --username \$oauthtoken --password-stdin nvcr.io || log_and_exit "Failed to login to nvcr.io"
-## log in to helm registries
-echo "$NGC_API_KEY" | sudo -u gitlab-runner helm registry login nvcr.io --username \$oauthtoken --password-stdin
-echo "$PERSONAL_ACCESS_TOKEN" | sudo -u gitlab-runner helm registry login gitlab-master.nvidia.com:5005 --username \$oauthtoken --password-stdin
 
 # Done
 echo "GitLab runner setup completed successfully"

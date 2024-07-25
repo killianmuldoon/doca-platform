@@ -11,9 +11,6 @@ variables:
   GITLAB_TOKEN: $CI_TOKEN
   ## This is a read only token for reading from the Gitlab API. Used for triage and slack notification scripts.
   GITLAB_API_TOKEN: $API_READ_TOKEN
-  ## This variable can be overridden to false for specific e2e jobs which will leave the environment intact on job failure for investigation.
-  ## Note this does not prevent another job from starting on the same setup so it's recommended to pause the associated gitlab runner if debugging e2e test in this way.
-  E2E_ENV_CLEANUP: "true"
 
 stages:
   - verify
@@ -136,6 +133,7 @@ e2e:
     paths:
       - artifacts/*
   before_script:
+    - ./hack/scripts/ci_helm_docker_login.sh
     # artifacts are not correctly delete when gitlab restarts jobs.
     - rm -rf artifacts
     - make clean-test-env generate test-env-e2e || go run hack/tools/resource-collector/main.go --kubeconfig ~/.kube/config  --artifactsDirectory $ARTIFACTS
@@ -146,7 +144,7 @@ e2e:
   after_script:
     - ./hack/scripts/slack-notification.sh
     - make test-cache-images
-    - if [ "$E2E_ENV_CLEANUP" == "true" ]; then make clean-test-env; fi
+    - make clean-test-env
 
 release:
   stage: build
@@ -169,6 +167,7 @@ release:
   tags:
     - release
   script:
+    - ./hack/scripts/ci_helm_docker_login.sh
     - timeout 30m make release
   after_script:
     - ./hack/scripts/slack-notification.sh

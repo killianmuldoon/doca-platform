@@ -94,17 +94,8 @@ Link to colossus lease:<br>
 - https://colossus.nvidia.com/web/index.html#/schedule
 
 ```shell
-# Make sure you have these valid tokens variables set on the host
-#
-
 # Should have gitlab group owner permissions for creating a group runner.
 export GROUP_ACCESS_TOKEN="<group_access_token>"
-
-# Should have gitlab maintainer permissions for dpf project to login to the repo.
-export PERSONAL_ACCESS_TOKEN="<personal_access_token>"
-
-# need to login to nvcr.io to pull/push images.
-export NGC_API_KEY="<ngc_api_key>"
 
 # Copy the gitlab_runner.sh script to your machine inside /root directory.
 https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/-/blob/main/hack/scripts/gitlab_runner.sh?ref_type=heads
