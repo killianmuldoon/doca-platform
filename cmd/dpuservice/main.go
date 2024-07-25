@@ -26,6 +26,7 @@ import (
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	dpuservicecontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservice/controllers"
 	dpuservicechaincontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservicechain/controllers"
+	dpuservicechainwebhooks "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dpuservicechain/webhooks"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/nvipam/api/v1alpha1"
 
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -151,6 +152,13 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPUServiceIPAM")
+		os.Exit(1)
+	}
+
+	if err = (&dpuservicechainwebhooks.DPUServiceIPAMValidator{
+		Client: mgr.GetClient(),
+	}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "DPUServiceIPAM")
 		os.Exit(1)
 	}
 

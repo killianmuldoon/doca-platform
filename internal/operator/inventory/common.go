@@ -35,6 +35,7 @@ const (
 	DeploymentKind                     ObjectKind = "Deployment"
 	StatefulSetKind                    ObjectKind = "StatefulSet"
 	CertificateKind                    ObjectKind = "Certificate"
+	IssuerKind                         ObjectKind = "Issuer"
 	RoleKind                           ObjectKind = "Role"
 	ServiceAccountKind                 ObjectKind = "ServiceAccount"
 	ServiceKind                        ObjectKind = "Service"

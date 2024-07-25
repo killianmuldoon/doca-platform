@@ -454,12 +454,28 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}).WithTimeout(300 * time.Second).Should(Succeed())
 		})
 
-		It("create a DPUServiceIPAM with subnet split per node configuration and check NVIPAM IPPool is created to each cluster", func() {
+		It("create an invalid DPUServiceIPAM and ensure that the webhook rejects the request", func() {
 			By("creating the DPUServiceIPAM Namespace")
 			testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceIPAMNamespace}}
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
 			cleanupObjs = append(cleanupObjs, testNS)
 
+			By("creating the invalid DPUServiceIPAM CR")
+			dpuServiceIPAM := &sfcv1.DPUServiceIPAM{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "some-name",
+					Namespace: dpuServiceIPAMNamespace,
+				},
+			}
+			dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
+
+			err := testClient.Create(ctx, dpuServiceIPAM)
+			Expect(err).To(HaveOccurred())
+			Expect(apierrors.IsBadRequest(err)).To(BeTrue())
+			Expect(err.Error()).To(ContainSubstring("either ipv4Subnet or ipv4Network must be specified"))
+		})
+
+		It("create a DPUServiceIPAM with subnet split per node configuration and check NVIPAM IPPool is created to each cluster", func() {
 			By("creating the DPUServiceIPAM CR")
 			data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuserviceipam_subnet.yaml"))
 			Expect(err).ToNot(HaveOccurred())

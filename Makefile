@@ -330,7 +330,7 @@ generate-manifests-ovnkubernetes-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVS
 	output:crd:dir=./config/ovnkubernetesoperator/crd/bases \
 	output:rbac:dir=./config/ovnkubernetesoperator/rbac \
 	output:webhook:dir=./config/ovnkubernetesoperator/webhook \
-    webhook
+	webhook
 	cd config/ovnkubernetesoperator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
 	rm -rf deploy/helm/dpf-ovn-kubernetes-operator/crds/* && find config/ovnkubernetesoperator/crd/bases/ -type f -exec cp {} deploy/helm/dpf-ovn-kubernetes-operator/crds/ \;
 	$(ENVSUBST) < deploy/helm/dpf-ovn-kubernetes-operator/values.yaml.tmpl > deploy/helm/dpf-ovn-kubernetes-operator/values.yaml
@@ -346,7 +346,9 @@ generate-manifests-dpuservice: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manife
 	crd:crdVersions=v1 \
 	rbac:roleName=manager-role \
 	output:crd:dir=./config/dpuservice/crd/bases \
-	output:rbac:dir=./config/dpuservice/rbac
+	output:rbac:dir=./config/dpuservice/rbac \
+	output:webhook:dir=./config/dpuservice/webhook \
+	webhook
 	cd config/dpuservice/manager && $(KUSTOMIZE) edit set image controller=$(DPUSERVICE_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-dpucniprovisioner

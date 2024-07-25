@@ -41,6 +41,8 @@ type DPUServiceIPAMValidator struct {
 
 var _ webhook.CustomValidator = &DPUServiceIPAMValidator{}
 
+// +kubebuilder:webhook:path=/validate-sfc-dpf-nvidia-com-v1alpha1-dpuserviceipam,mutating=false,failurePolicy=fail,groups=sfc.dpf.nvidia.com,resources=dpuserviceipams,verbs=create;update,versions=v1alpha1,name=ipam-validator.sfc.dpf.nvidia.com,admissionReviewVersions=v1,sideEffects=None
+
 func (v *DPUServiceIPAMValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(&sfcv1.DPUServiceIPAM{}).

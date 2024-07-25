@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	. "github.com/onsi/gomega"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -44,13 +45,17 @@ func TestDPUServiceControllerManifestsParse(t *testing.T) {
 	g.Expect(foundByKind).To(HaveKey(ServiceAccountKind))
 	g.Expect(foundByKind).To(HaveKey(ClusterRoleKind))
 	g.Expect(foundByKind).To(HaveKey(ClusterRoleBindingKind))
+	g.Expect(foundByKind).To(HaveKey(ValidatingWebhookConfigurationKind))
+	g.Expect(foundByKind).To(HaveKey(ServiceKind))
+	g.Expect(foundByKind).To(HaveKey(CertificateKind))
+	g.Expect(foundByKind).To(HaveKey(IssuerKind))
 
 	// make sure no namespace and crd obj
 	g.Expect(foundByKind).ToNot(HaveKey(CustomResourceDefinitionKind))
 	g.Expect(foundByKind).ToNot(HaveKey(NamespaceKind))
 
 	// ensure no additional object kinds
-	g.Expect(foundByKind).To(HaveLen(6))
+	g.Expect(foundByKind).To(HaveLen(10))
 
 	// ensure objects parse to concrete type
 	g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(foundByKind[DeploymentKind].UnstructuredContent(), &appsv1.Deployment{})).ToNot(HaveOccurred())
@@ -59,4 +64,6 @@ func TestDPUServiceControllerManifestsParse(t *testing.T) {
 	g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(foundByKind[ServiceAccountKind].UnstructuredContent(), &corev1.ServiceAccount{})).ToNot(HaveOccurred())
 	g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(foundByKind[ClusterRoleKind].UnstructuredContent(), &rbacv1.ClusterRole{})).ToNot(HaveOccurred())
 	g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(foundByKind[ClusterRoleBindingKind].UnstructuredContent(), &rbacv1.ClusterRoleBinding{})).ToNot(HaveOccurred())
+	g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(foundByKind[ValidatingWebhookConfigurationKind].UnstructuredContent(), &admissionregistrationv1.ValidatingWebhookConfiguration{})).ToNot(HaveOccurred())
+	g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(foundByKind[ServiceKind].UnstructuredContent(), &corev1.Service{})).ToNot(HaveOccurred())
 }
