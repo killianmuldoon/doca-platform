@@ -67,7 +67,7 @@ networkAttachmentBrSFCJson: |-
       "mtu": 1500,
       "interface_type": "dpdk",
       "ipam": {
-        "type": "static"
+        "type": "nv-ipam"
       }
     }
 networkAttachmentBrHBNJson: |-
