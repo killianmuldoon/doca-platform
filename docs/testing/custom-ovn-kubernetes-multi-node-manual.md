@@ -1,5 +1,6 @@
 # Test Custom OVN Kubernetes on OpenShift Multi Node cluster
 
+### NOTE: This guide is out of date and may not work with v0.1.X of DPF. 
 ## QA provided cluster
 
 This guide serves as a blueprint on how to test the custom OVN Kubernetes setup on a cluster provided by QA.

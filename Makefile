@@ -274,7 +274,7 @@ $(DPF_PROVISIONING_DIR): | $(REPOSDIR)
 # operator-sdk is used to generate operator-sdk bundles
 OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download
 OPERATOR_SDK_BIN = operator-sdk
-OPERATOR_SDK_VER = v1.34.1
+OPERATOR_SDK_VER = v1.35.0
 OPERATOR_SDK = $(abspath $(TOOLSDIR)/$(OPERATOR_SDK_BIN)-$(OPERATOR_SDK_VER))
 $(OPERATOR_SDK): | $(TOOLSDIR)
 	$Q echo "Installing $(OPERATOR_SDK_BIN)-$(OPERATOR_SDK_VER) to $(TOOLSDIR)"
@@ -303,17 +303,18 @@ generate-manifests: controller-gen kustomize $(addprefix generate-manifests-,$(G
 
 .PHONY: generate-manifests-operator
 generate-manifests-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVSUBST) ## Generate manifests e.g. CRD, RBAC. for the operator controller.
-	$(MAKE) clean-generated-yaml SRC_DIRS="./config/operator/crd/bases"
+	$(MAKE) clean-generated-yaml SRC_DIRS="./deploy/helm/dpf-operator/crds/"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/operator/..." \
 	paths="./internal/operator/..." \
 	paths="./api/operator/..." \
 	crd:crdVersions=v1 \
-	rbac:roleName=manager-role \
-	output:crd:dir=./config/operator/crd/bases \
-	output:rbac:dir=./config/operator/rbac
-	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
-	$(KUSTOMIZE) build config/operator-crds -o  deploy/helm/dpf-operator/crds/
+	rbac:roleName="dpf-operator-manager-role" \
+	output:crd:dir=./deploy/helm/dpf-operator/crds \
+	output:rbac:dir=./deploy/helm/dpf-operator/templates
+	## Copy all other CRD definitions to the operator helm directory
+	$(KUSTOMIZE) build config/operator-additional-crds -o  deploy/helm/dpf-operator/crds/;
+	## Set the image name and tag in the operator helm chart values
 	$(ENVSUBST) < deploy/helm/dpf-operator/values.yaml.tmpl > deploy/helm/dpf-operator/values.yaml
 
 
@@ -421,9 +422,18 @@ generate-manifests-ovs-cni: $(ENVSUBST) ## Generate values for OVS helm chart.
 	$(ENVSUBST) < deploy/helm/ovs-cni/values.yaml.tmpl > deploy/helm/ovs-cni/values.yaml
 
 .PHONY: generate-operator-bundle
-generate-operator-bundle: $(OPERATOR_SDK) $(KUSTOMIZE) ## Generate bundle manifests and metadata, then validate generated files.
-	$(KUSTOMIZE) build config/operator-operatorsdk-bundle | $(OPERATOR_SDK) generate bundle \
-	--overwrite --package dpf-operator --version $(BUNDLE_VERSION) --default-channel=$(BUNDLE_VERSION) --channels=$(BUNDLE_VERSION)
+generate-operator-bundle: $(OPERATOR_SDK) $(HELM) generate-manifests-operator ## Generate bundle manifests and metadata, then validate generated files.
+	# First template the actual manifests to include using helm.
+	mkdir -p hack/charts/dpf-operator/
+	$(HELM) template --namespace $(OPERATOR_NAMESPACE) --set image=$(DPFOPERATOR_IMAGE):$(TAG) $(OPERATOR_HELM_CHART) \
+	--set templateOperatorBundle=true > hack/charts/dpf-operator/manifests.yaml
+	# Next generate the operator bundle.
+    # Note we need to explicitly set stdin to null using < /dev/null.
+	$(OPERATOR_SDK) generate bundle \
+	--overwrite --package dpf-operator --version $(BUNDLE_VERSION) --default-channel=$(BUNDLE_VERSION) --channels=$(BUNDLE_VERSION) \
+	--deploy-dir hack/charts/dpf-operator --crds-dir deploy/helm/dpf-operator/crds 	</dev/null
+
+	# We need to ensure operator-sdk receives nothing on stdin by explicitly redirecting null there.
 	# Remove the createdAt field to prevent rebasing issues.
 	# TODO: Currently the clusterserviceversion is not being correctly generated e.g. metadata is missing.
 	$Q sed -i '/  createdAt:/d'  bundle/manifests/dpf-operator.clusterserviceversion.yaml
@@ -492,11 +502,10 @@ test-build-and-push-artifacts: $(KUSTOMIZE) ## Build and push DPF artifacts (ima
 
 OPERATOR_NAMESPACE ?= dpf-operator-system
 
-.PHONY: test-deploy-operator-kustomize
-test-deploy-operator-kustomize: $(KUSTOMIZE) ## Deploy the DPF Operator using kustomize
-	cd config/operator-and-crds/ && $(KUSTOMIZE) edit set namespace $(OPERATOR_NAMESPACE)
-	cd config/operator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOPERATOR_IMAGE):$(TAG)
-	$(KUSTOMIZE) build config/operator-and-crds/ | $(KUBECTL) apply -f -
+.PHONY: test-deploy-operator-helm
+test-deploy-operator-helm: $(HELM) ## Deploy the DPF Operator using helm
+	$(HELM) install --create-namespace --namespace $(OPERATOR_NAMESPACE) --set image=$(DPFOPERATOR_IMAGE):$(TAG)  dpf-operator $(OPERATOR_HELM_CHART)
+
 
 OLM_VERSION ?= v0.28.0
 OPERATOR_REGISTRY_VERSION ?= v1.43.1
@@ -525,10 +534,6 @@ test-deploy-operator-operator-sdk: $(KUSTOMIZE) test-install-operator-lifecycle-
 	$(KUBECTL) create namespace $(OPERATOR_NAMESPACE)
 	# TODO: This flow does not work on MacOS dues to some issue pulling images. Should be enabled to make local testing equivalent to CI.
 	$(OPERATOR_SDK) run bundle --namespace $(OPERATOR_NAMESPACE) --index-image quay.io/operator-framework/opm:$(OPERATOR_REGISTRY_VERSION) $(OPERATOR_SDK_RUN_BUNDLE_EXTRA_ARGS) $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
-
-.PHONY: test-undeploy-operator-kustomize
-test-undeploy-operator-kustomize: $(KUSTOMIZE) ## Undeploy the DPF Operator using kustomize
-	$(KUSTOMIZE) build config/operator-and-crds/ | $(KUBECTL) delete -f -
 
 ARTIFACTS_DIR ?= $(shell pwd)/artifacts
 .PHONY: test-cache-images
@@ -1156,8 +1161,6 @@ dev-dpuservice: $(MINIKUBE) $(SKAFFOLD) ## Deploy dpuservice controller to dev c
 	$(SKAFFOLD) debug -p dpuservice --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
 dev-operator:  $(MINIKUBE) $(SKAFFOLD) generate-manifests-operator-embedded ## Deploy operator controller to dev cluster using skaffold
-	# Ensure the manager's kustomization has the correct image name and has not been changed by generation.
-	git restore config/operator/manager/kustomization.yaml
 	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false --cleanup=false
 

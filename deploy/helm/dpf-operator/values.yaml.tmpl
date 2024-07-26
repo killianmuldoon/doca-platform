@@ -1,13 +1,12 @@
 controllerManager:
-  manager:
-    containerSecurityContext:
-      allowPrivilegeEscalation: false
-      capabilities:
-        drop:
-        - ALL
-    image:
-      repository: ${DPFOPERATOR_IMAGE}
-      tag: ${TAG}
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+  image:
+    repository: ${DPFOPERATOR_IMAGE}
+    tag: ${TAG}
   replicas: 1
   serviceAccount:
     annotations: {}

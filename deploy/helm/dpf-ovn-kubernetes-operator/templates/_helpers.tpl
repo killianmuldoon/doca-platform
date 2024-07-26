@@ -54,7 +54,7 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 Function that returns if the operator webhook is enabled. The result can be compared using string comparison.
 */}}
 {{- define "dpf-ovn-kubernetes-operator.isWebhookEnabled" -}}
-{{- if has "--enable-webhook=false" .Values.controllerManager.manager.args -}}
+{{- if has "--enable-webhook=false" .Values.controllerManager.args -}}
 false
 {{- else -}}
 true

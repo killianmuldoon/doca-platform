@@ -2,34 +2,14 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: ClusterServiceVersion
 metadata:
   annotations:
-    alm-examples: |-
-      [
-        {
-          "apiVersion": "operator.dpf.nvidia.com/v1alpha1",
-          "kind": "DPFOperatorConfig",
-          "metadata": {
-            "labels": {
-              "app.kubernetes.io/created-by": "dpf-operator",
-              "app.kubernetes.io/instance": "dpfoperatorconfig-sample",
-              "app.kubernetes.io/managed-by": "kustomize",
-              "app.kubernetes.io/name": "dpfoperatorconfig",
-              "app.kubernetes.io/part-of": "dpf-operator"
-            },
-            "name": "dpf-operator-dpfoperatorconfig",
-            "namespace": "dpf-operator"
-          },
-          "spec": {
-            "provisioningConfiguration": {
-              "bfbPVCName": "dpf-provisioning-volume",
-              "dhcpServerAddress": "8.8.8.8",
-              "imagePullSecretForDMSAndHostNetwork": "fake-name"
-            }
-          }
-        }
-      ]
+    alm-examples: '[]'
     capabilities: Basic Install
-    operators.operatorframework.io/builder: operator-sdk-v1.34.1
+    description: Deploy and manage DOCA Platform Foundations in a Kubernetes cluster
+    operatorframework.io/suggested-namespace: dpf-operator-system
+    operators.operatorframework.io/builder: operator-sdk-v1.35.0
     operators.operatorframework.io/project_layout: unknown
+    provider: NVIDIA
+    support: NVIDIA
   name: dpf-operator.v0.1.0
   namespace: placeholder
 spec:
@@ -47,9 +27,6 @@ spec:
       version: v1alpha1
     - kind: Bfb
       name: bfbs.provisioning.dpf.nvidia.com
-      version: v1alpha1
-    - kind: DPFOperatorConfig
-      name: dpfoperatorconfigs.operator.dpf.nvidia.com
       version: v1alpha1
     - kind: DPUFlavor
       name: dpuflavors.provisioning.dpf.nvidia.com
@@ -84,11 +61,14 @@ spec:
     - kind: ServiceInterfaceSet
       name: serviceinterfacesets.sfc.dpf.nvidia.com
       version: v1alpha1
-  description: Dpf Operator description. TODO.
-  displayName: Dpf Operator
-  icon:
-  - base64data: ""
-    mediatype: ""
+    - kind: DPFOperatorConfig
+      name: dpfoperatorconfigs.operator.dpf.nvidia.com
+      version: v1alpha1
+  description: |
+    ## DPF Operator
+
+    DPF Operator installs and manages a DOCA Platform Foundation system for provisioning DPUs.
+  displayName: DPF Operator
   install:
     spec:
       clusterPermissions:
@@ -104,17 +84,21 @@ spec:
       - label:
           app.kubernetes.io/component: manager
           app.kubernetes.io/created-by: dpf-operator
-          app.kubernetes.io/instance: controller-manager
-          app.kubernetes.io/managed-by: kustomize
-          app.kubernetes.io/name: deployment
+          app.kubernetes.io/instance: release-name
+          app.kubernetes.io/managed-by: Helm
+          app.kubernetes.io/name: dpf-operator
           app.kubernetes.io/part-of: dpf-operator
+          app.kubernetes.io/version: 0.1.0
           control-plane: controller-manager
           dpf.nvidia.com/component: dpf-operator-controller-manager
+          helm.sh/chart: dpf-operator-0.1.0
         name: dpf-operator-controller-manager
         spec:
           replicas: 1
           selector:
             matchLabels:
+              app.kubernetes.io/instance: release-name
+              app.kubernetes.io/name: dpf-operator
               control-plane: controller-manager
               dpf.nvidia.com/component: dpf-operator-controller-manager
           strategy: {}
@@ -123,6 +107,8 @@ spec:
               annotations:
                 kubectl.kubernetes.io/default-container: manager
               labels:
+                app.kubernetes.io/instance: release-name
+                app.kubernetes.io/name: dpf-operator
                 control-plane: controller-manager
                 dpf.nvidia.com/component: dpf-operator-controller-manager
             spec:
@@ -159,8 +145,6 @@ spec:
                   capabilities:
                     drop:
                     - ALL
-              imagePullSecrets:
-              - name: dpf-pull-secret
               serviceAccountName: dpf-operator-controller-manager
               terminationGracePeriodSeconds: 10
       permissions:
@@ -199,24 +183,22 @@ spec:
         serviceAccountName: dpf-operator-controller-manager
     strategy: deployment
   installModes:
-  - supported: false
+  - supported: true
     type: OwnNamespace
-  - supported: false
+  - supported: true
     type: SingleNamespace
   - supported: false
     type: MultiNamespace
-  - supported: true
+  - supported: false
     type: AllNamespaces
   keywords:
-  - dpf-operator
-  links:
-  - name: Dpf Operator
-    url: https://dpf-operator.domain
+  - dpf
+  - dpu
   maintainers:
-  - email: your@email.com
-    name: Maintainer Name
+  - email: nvidia-network-operator-support@nvidia.com
+    name: NVIDIA
   maturity: alpha
+  minKubeVersion: 1.29.0
   provider:
-    name: Provider Name
-    url: https://your.domain
+    name: NVIDIA
   version: 0.1.0

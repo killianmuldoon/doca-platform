@@ -1,7 +1,8 @@
+{{ if .Values.templateOperatorBundle }}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "dpf-operator.fullname" . }}-manager-rolebinding-openshift
+  name: dpf-operator-manager-rolebinding-openshift
   labels:
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: dpf-operator
@@ -14,5 +15,6 @@ roleRef:
   name: system:openshift:scc:privileged
 subjects:
 - kind: ServiceAccount
-  name: '{{ include "dpf-operator.fullname" . }}-controller-manager'
+  name: 'dpf-operator-controller-manager'
   namespace: '{{ .Release.Namespace }}'
+{{ end }}

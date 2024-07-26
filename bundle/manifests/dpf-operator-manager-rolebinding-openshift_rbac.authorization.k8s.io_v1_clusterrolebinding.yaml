@@ -5,10 +5,13 @@ metadata:
   labels:
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: dpf-operator
-    app.kubernetes.io/instance: manager-rolebinding-openshift
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: clusterrolebinding
+    app.kubernetes.io/instance: release-name
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: dpf-operator
     app.kubernetes.io/part-of: dpf-operator
+    app.kubernetes.io/version: 0.1.0
+    dpf.nvidia.com/component: dpf-operator-controller-manager
+    helm.sh/chart: dpf-operator-0.1.0
   name: dpf-operator-manager-rolebinding-openshift
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -17,4 +20,4 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: dpf-operator-controller-manager
-  namespace: dpf-operator
+  namespace: dpf-operator-system
