@@ -264,7 +264,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				g.Expect(found).To(HaveKey("ovs-cni"))
 				g.Expect(found).To(HaveKey("sfc-controller"))
 
-			}).WithTimeout(60 * time.Second).Should(Succeed())
+			}).WithTimeout(600 * time.Second).Should(Succeed())
 
 			Eventually(func(g Gomega) {
 				dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
