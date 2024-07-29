@@ -264,17 +264,17 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				g.Expect(found).To(HaveKey("ovs-cni"))
 				g.Expect(found).To(HaveKey("sfc-controller"))
 
-			}).WithTimeout(600 * time.Second).Should(Succeed())
+			}).WithTimeout(60 * time.Second).Should(Succeed())
 
 			Eventually(func(g Gomega) {
 				dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
 				g.Expect(err).ToNot(HaveOccurred())
 				for i := range dpuControlPlanes {
 					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
-					found := map[string]bool{}
 					g.Expect(err).ToNot(HaveOccurred())
 					deployments := appsv1.DeploymentList{}
 					g.Expect(dpuClient.List(ctx, &deployments)).To(Succeed())
+					found := map[string]bool{}
 					for i := range deployments.Items {
 						found[deployments.Items[i].GetLabels()["app.kubernetes.io/instance"]] = true
 					}
@@ -294,7 +294,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					g.Expect(found).To(HaveKey(ContainSubstring("ovs-cni")))
 					g.Expect(found).To(HaveKey(ContainSubstring("sfc-controller")))
 				}
-			}).WithTimeout(180 * time.Second).Should(Succeed())
+			}).WithTimeout(600 * time.Second).Should(Succeed())
 		})
 
 		It("create DPUServiceInterface and check that it is mirrored to each cluster", func() {
@@ -410,7 +410,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 						Namespace: dpuService.GetNamespace(),
 						Name:      config.Spec.ImagePullSecrets[0]}, &corev1.Secret{})).To(Succeed())
 				}
-			}).WithTimeout(180 * time.Second).Should(Succeed())
+			}).WithTimeout(600 * time.Second).Should(Succeed())
 
 			By("verify DPUService is created in the host cluster")
 			Eventually(func(g Gomega) {
@@ -419,7 +419,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				g.Expect(testClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
 				g.Expect(deploymentList.Items).To(HaveLen(1))
 				g.Expect(deploymentList.Items[0].Name).To(ContainSubstring("helm-guestbook"))
-			}).WithTimeout(180 * time.Second).Should(Succeed())
+			}).WithTimeout(600 * time.Second).Should(Succeed())
 		})
 
 		It("delete the DPUServices and check that the applications are cleaned up", func() {

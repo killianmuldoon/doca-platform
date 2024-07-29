@@ -307,7 +307,8 @@ func (r *DPUServiceReconciler) reconcileStatus(ctx context.Context, dpuService *
 	// Requeue if there are any errors, or if there are fewer applications than we have clusters.
 	if len(errs) > 0 || len(applicationList.Items) != len(clusters) {
 		log.Info("Applications not ready. Requeuing")
-		return ctrl.Result{Requeue: true}, nil
+		// TODO: Make the DPUService controller react to changes in appliations.
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 	return ctrl.Result{}, nil
 }

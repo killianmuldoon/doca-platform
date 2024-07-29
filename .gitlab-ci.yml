@@ -107,9 +107,7 @@ e2e:
   needs: [ ]
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-      allow_failure: true
     - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST == "true"
-      when: always
   variables:
     # The helm bundles and operator-sdk require a remote repository in the e2e environment.
     REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-operator/e2e
@@ -136,10 +134,9 @@ e2e:
     - ./hack/scripts/ci_helm_docker_login.sh
     # artifacts are not correctly delete when gitlab restarts jobs.
     - rm -rf artifacts
-    - make clean-test-env generate test-env-e2e || go run hack/tools/resource-collector/main.go --kubeconfig ~/.kube/config  --artifactsDirectory $ARTIFACTS
+    - make clean-test-env generate test-env-e2e
   script:
-    # If make-deploy-operator fails run the log collector to see the state of the cluster. This is the same log collector that runs during failing tests.
-    - make test-deploy-operator-helm || go run hack/tools/resource-collector/main.go --kubeconfig ~/.kube/config  --artifactsDirectory $ARTIFACTS
+    - make test-deploy-operator-helm
     - make test-e2e
   after_script:
     - ./hack/scripts/slack-notification.sh

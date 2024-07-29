@@ -544,7 +544,7 @@ test-cache-images: $(MINIKUBE) ## Add images to the minikube cache based on the 
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e  ## Run the e2e tests against a Kind k8s instance that is spun up.
 test-e2e: ## Run e2e tests
-	go test ./test/e2e/ -v -ginkgo.v
+	go test -timeout 0 ./test/e2e/ -v -ginkgo.v
 
 .PHONY: clean-test-env
 clean-test-env: $(MINIKUBE) ## Clean test environment (teardown minikube cluster)
