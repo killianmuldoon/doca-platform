@@ -78,33 +78,62 @@ func (a *NVIPAMIPAllocator) Allocate(ctx context.Context) error {
 
 	netconf, err := libcni.ConfFromBytes([]byte(fmt.Sprintf(netConf, a.poolName, a.poolType)))
 	if err != nil {
-		return err
+		return fmt.Errorf("error while unmarshaling netconf: %w", err)
 	}
 
 	res, err := a.cninet.GetNetworkCachedResult(netconf, rt)
 	if err != nil {
-		return err
+		return fmt.Errorf("error while getting result from cache: %w", err)
 	}
 
 	// CNI already called for this pod
 	if res != nil {
-		return a.populateSharedResultFile(res)
+		if err := a.populateSharedResultFile(res); err != nil {
+			return fmt.Errorf("error while populating file with cache result: %w", err)
+		}
+		return nil
 	}
 
 	res, err = a.cninet.AddNetwork(ctx, netconf, rt)
 	if err != nil {
-		return err
+		return fmt.Errorf("error while calling CNI ADD: %w", err)
 	}
 
 	if res == nil {
 		return errors.New("no result, something went wrong")
 	}
 
-	return a.populateSharedResultFile(res)
+	if err := a.populateSharedResultFile(res); err != nil {
+		return fmt.Errorf("error while populating file with CNI ADD result: %w", err)
+	}
+	return nil
 }
 
-// Deallocate deallocates an IP from the NVIPAM
-func (a *NVIPAMIPAllocator) Deallocate() {}
+// Deallocate deallocates the allocated IP from the NVIPAM
+func (a *NVIPAMIPAllocator) Deallocate(ctx context.Context) error {
+	rt := a.constructRuntimeConf()
+
+	netconf, err := libcni.ConfFromBytes([]byte(fmt.Sprintf(netConf, a.poolName, a.poolType)))
+	if err != nil {
+		return fmt.Errorf("error while unmarshaling netconf: %w", err)
+	}
+
+	res, err := a.cninet.GetNetworkCachedResult(netconf, rt)
+	if err != nil {
+		return fmt.Errorf("error while getting result from cache: %w", err)
+	}
+
+	if res == nil {
+		return errors.New("allocation can't be found in cache, we may leak some IP")
+	}
+
+	err = a.cninet.DelNetwork(ctx, netconf, rt)
+	if err != nil {
+		return fmt.Errorf("error while calling CNI DEL: %w", err)
+	}
+
+	return nil
+}
 
 func (a *NVIPAMIPAllocator) constructRuntimeConf() *libcni.RuntimeConf {
 	return &libcni.RuntimeConf{
@@ -142,12 +171,12 @@ func (a *NVIPAMIPAllocator) populateSharedResultFile(res types.Result) error {
 	resultFilePath := filepath.Join(a.FileSystemRoot, sharedResultFile)
 	err = os.MkdirAll(filepath.Dir(resultFilePath), 0755)
 	if err != nil {
-		return err
+		return fmt.Errorf("error while creating dir %s: %w", resultFilePath, err)
 	}
 
 	err = os.WriteFile(resultFilePath, bytes, 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("error while writing file %s: %w", resultFilePath, err)
 	}
 
 	return nil

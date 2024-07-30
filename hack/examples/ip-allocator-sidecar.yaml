@@ -46,6 +46,9 @@ spec:
       initContainers:
       - name: allocator
         image: example.com/ip-allocator:v0.1.0
+        command:
+        - ./manager
+        - allocator
         imagePullPolicy: IfNotPresent
         # Needs to always run so that later it can receive a signal to do a CMD DEL
         restartPolicy: Always
@@ -59,6 +62,17 @@ spec:
             command:
             - cat
             - /var/run/readyz
+        # We use preStop to deallocate the IP when the pod is deleted. Quoting the official docs:
+        # PreStop is called immediately before a container is terminated due to an
+        # API request or management event such as liveness/startup probe failure,
+        # preemption, resource contention, etc. The handler is not called if the
+        # container crashes or exits.
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - ./manager
+              - deallocator
         env:
         # We expect the user to provide this one
         - name: POOL

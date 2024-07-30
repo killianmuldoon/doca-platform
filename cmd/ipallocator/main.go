@@ -41,14 +41,35 @@ var requiredEnvVariables = map[string]bool{
 	"K8S_POD_UID":       true,
 }
 
+type Mode string
+
+// String returns the string representation of the mode
+func (m Mode) String() string {
+	return string(m)
+}
+
+const (
+	Allocator   Mode = "allocator"
+	Deallocator Mode = "deallocator"
+)
+
 func main() {
+	if len(os.Args) != 2 {
+		klog.Fatal("expecting mode to be specified via args")
+	}
+
+	modeRaw := os.Args[1]
+	mode, err := parseMode(modeRaw)
+	if err != nil {
+		klog.Fatalf("error while parsing mode: %s", err.Error())
+	}
+
 	klog.Info("Starting IP Allocator")
 	env, err := parseEnv()
 	if err != nil {
 		klog.Fatalf("error while parsing environment: %s", err.Error())
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
 	allocator := ipallocator.New(
 		libcni.NewCNIConfig([]string{ipallocator.CNIBinDir}, nil),
 		env["POOL"],
@@ -58,23 +79,65 @@ func main() {
 		env["K8S_POD_UID"],
 	)
 
-	err = allocator.Allocate(ctx)
-	if err != nil {
-		klog.Fatal(err)
+	switch mode {
+	case Allocator:
+		if err := runInAllocatorMode(allocator); err != nil {
+			klog.Fatal(err)
+		}
+	case Deallocator:
+		if err := runInDeallocatorMode(allocator); err != nil {
+			klog.Fatal(err)
+		}
+	}
+}
+
+// parseMode parses the mode in which the binary should be started
+func parseMode(mode string) (Mode, error) {
+	m := map[Mode]struct{}{
+		Allocator:   {},
+		Deallocator: {},
+	}
+	modeTyped := Mode(mode)
+	if _, ok := m[modeTyped]; !ok {
+		return "", errors.New("unknown mode")
 	}
 
-	err = readyz.ReportReady()
-	if err != nil {
-		klog.Fatal(err)
+	return modeTyped, nil
+}
+
+// runInAllocatorMode runs the allocator in Allocator mode
+func runInAllocatorMode(a *ipallocator.NVIPAMIPAllocator) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := a.Allocate(ctx); err != nil {
+		return err
 	}
 
-	klog.Info("IP Allocator job has finished")
+	if err := readyz.ReportReady(); err != nil {
+		return err
+	}
+
+	klog.Info("IP allocation is done")
 
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt)
 	<-ch
 	klog.Info("Received termination signal, terminating.")
-	cancel()
+
+	return nil
+}
+
+// runInDeallocatorMode runs the allocator in Deallocator mode
+func runInDeallocatorMode(a *ipallocator.NVIPAMIPAllocator) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	if err := a.Deallocate(ctx); err != nil {
+		return err
+	}
+	klog.Info("IP deallocation is done")
+	return nil
 }
 
 // parseEnv parses the required environment variables
