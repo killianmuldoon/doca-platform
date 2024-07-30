@@ -1,0 +1,31 @@
+# This patch inject a sidecar container which is a HTTP proxy for the
+# controller manager, it performs RBAC authorization against the Kubernetes API using SubjectAccessReviews.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        args:
+        - "--health-probe-bind-address=:8081"
+        - "--metrics-bind-address=127.0.0.1:8080"
+        - "--leader-elect"
+        - "--zap-log-level=3"
+        - --dms-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server:latest
+        - --hostnetwork-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/hostnetworksetup:v0.1
+        - --dhcrelay-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dhcrelay:v0.1
+        - --parprouterd-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/parprouterd:v0.1
+        - --image-pull-secret=dpf-provisioning-regcred
+        - --bfb-pvc=bfb-pvc
+        - --dhcp=10.211.0.124
+        volumeMounts:
+          - mountPath: /bfb
+            name: bfb-volume
+      volumes:
+      - name: bfb-volume
+        persistentVolumeClaim:
+          claimName: bfb-pvc

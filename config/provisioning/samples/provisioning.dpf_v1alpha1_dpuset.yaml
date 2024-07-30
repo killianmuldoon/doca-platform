@@ -1,0 +1,27 @@
+apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+kind: DpuSet
+metadata:
+  name: dpuset-example
+spec:
+  nodeSelector:
+    matchLabels:
+      feature.node.kubernetes.io/dpu-enabled: "true"
+  dpuSelector:
+    deviceID: "A2DC"
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 10%
+    type: RollingUpdate
+  dpuTemplate:
+    spec:
+      BFB:
+        bfb: "doca-23.09"
+      nodeEffect:
+        #custom_label:
+        #  dpu-provisoning: "running"
+        taint:
+          key: "dpu"
+          value: "provisioning"
+          effect: NoSchedule
+      k8s_cluster:
+        name: "dpu_cluster"

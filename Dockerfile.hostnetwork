@@ -1,0 +1,5 @@
+From ubuntu:22.04
+
+RUN apt-get update && apt-get install -y bridge-utils iptables iproute2 && rm -rf /var/lib/apt/lists/*
+
+COPY ./hostnetwork/hostnetwork.sh /usr/local/bin

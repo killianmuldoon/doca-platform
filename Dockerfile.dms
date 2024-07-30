@@ -1,0 +1,26 @@
+FROM nvcr.io/nvidia/doca/doca:2.7.0-full-rt-host
+
+RUN apt-get update -y && \
+    apt-get install -y --no-install-recommends libusb-1.0-0 libfuse2 ipmitool doca-services wget
+
+ARG package_version=main-0.1
+ARG package_url=https://gitlab-master.nvidia.com/api/v4/projects/112105/packages/generic/dpf-dms/$package_version
+
+# TODO: Replace with official repository instead of Peng's once we have such repo.
+RUN wget -O rshim_2.0.31.g2bfa5af_amd64.deb $package_url/rshim_2.0.31.g2bfa5af_amd64.deb && \
+    dpkg -i rshim_2.0.31.g2bfa5af_amd64.deb
+
+RUN wget -N -P /opt/mellanox/doca/services/dms $package_url/dmsd && \
+    chmod +x /opt/mellanox/doca/services/dms/dmsd
+
+RUN wget -N -P /usr/sbin $package_url/bfb-install && \
+    chmod +x /usr/sbin/bfb-install
+
+RUN echo "PCIE_RESET_DELAY 5" >  /etc/rshim.conf
+
+RUN mkdir -p /bfb-folder
+
+# doca-tools
+ENV PATH=/opt/mellanox/doca/tools:$PATH
+
+RUN echo "echo 'running rshim'; rshim" > rshim.sh && chmod +x rshim.sh

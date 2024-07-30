@@ -1,0 +1,162 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+  - update
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - pods/exec
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - delete
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpus
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpus/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpus/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpusets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpusets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpusets/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - nmstate.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - nodemaintenance.medik8s.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups: 
+  - "cert-manager.io"
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpuflavors
+  verbs:
+  - get
+  - list
+  - watch

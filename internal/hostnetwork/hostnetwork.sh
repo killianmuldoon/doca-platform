@@ -1,0 +1,97 @@
+#!/bin/bash
+
+#  2024 NVIDIA CORPORATION & AFFILIATES
+#
+#  Licensed under the Apache License, Version 2.0 (the License);
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an AS IS BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+set -ex -o pipefail
+
+brige_name="br-dpu"
+pci_sys_dir="/sys/bus/pci/devices"
+br_dpu_dir="/sys/class/net/${brige_name}"
+dpu_device_list=("0xa2dc" "0xa2d6")
+
+# get PF from PCI address
+get_net_devices_from_pci () {
+    local pci_address=$1
+    device_list=($(find "${pci_sys_dir}/${pci_address}/net" -mindepth 1 -maxdepth 1))
+    for device_path in "${device_list[@]}"; do
+        device=$(basename "${device_path}")
+        echo ${device}
+    done
+}
+
+
+bridge_check () {
+    while true; do
+        if [ -d "${br_dpu_dir}" ]; then
+            echo "${brige_name} is created"
+            break
+        else
+            echo "${brige_name} bridge does not exist"
+            sleep 5
+        fi
+    done
+
+    IP_COUNT=$(ip addr show $brige_name | grep 'inet ' | wc -l)
+    while true; do
+        if [ $IP_COUNT -ge 1 ]; then
+            break
+        else
+            echo "checking the ip address in ${brige_name}"
+            sleep 5
+        fi
+    done
+}
+
+create_PF () {
+    local pci_address=$1
+    pf_device=$(get_net_devices_from_pci ${pci_address})
+    vf_num=$(cat /sys/class/net/${pf_device}/device/sriov_numvfs)
+    if [ "$vf_num" -eq 0 ]; then
+        echo ${num_of_vfs} > /sys/class/net/${pf_device}/device/sriov_numvfs
+    else 
+        echo "the num of vf: ${vf_num} is setted before"
+    fi
+}
+
+if [[ -z "$device_pci_address" ]]; then
+    echo "device_pci_address environment does not exist"
+    exit 1
+fi
+
+
+if [[ -z "${num_of_vfs}" ]]; then
+  export num_of_vfs=16
+fi
+
+p0="${device_pci_address}.0"
+create_PF ${p0}
+
+p1="${device_pci_address}.1"
+if [ -d "${pci_sys_dir}/${p1}" ]; then
+    deviceID=`cat ${pci_sys_dir}/${p1}/device`
+    for dpu_device in "${dpu_device_list[@]}"; do
+        if [ "${dpu_device}" = "${deviceID}" ]; then
+            create_PF ${p1}
+            break
+        fi
+    done
+fi
+
+bridge_check
+
+sysctl -w net.ipv4.ip_forward=1
+iptables -I FORWARD -i ${brige_name} -j ACCEPT
+iptables -I FORWARD -o ${brige_name} -j ACCEPT
+
