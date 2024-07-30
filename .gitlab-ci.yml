@@ -160,6 +160,7 @@ release:
       when: always
   variables:
     TAG: v0.1.0-$CI_COMMIT_SHORT_SHA
+    OPERATOR_CHART_TAGS: "$TAG v0.1.0-latest"
     REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-operator/e2e
   tags:
     - release
@@ -169,7 +170,7 @@ release:
   after_script:
     - ./hack/scripts/slack-notification.sh
 
-## This job syncs release artifacts from a shared folder internally to the gitlab artifact repo.
+# This job syncs release artifacts from a shared folder internally to the gitlab artifact repo.
 push-release-artifacts:
   stage: build
   needs: []

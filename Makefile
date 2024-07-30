@@ -1076,9 +1076,12 @@ helm-package-ovs-cni: $(CHARTSDIR) $(HELM) ## Package helm chart for OVS CNI
 helm-package-sfc-controller: $(CHARTSDIR) $(HELM) ## Package helm chart for SFC controller
 	$(HELM) package $(SFC_CONTOLLER_HELM_CHART) --version $(SFC_CONTOLLER_HELM_CHART_VER) --destination $(CHARTSDIR)
 
+OPERATOR_CHART_TAGS ?=$(TAG)
 .PHONY: helm-package-operator
 helm-package-operator: $(CHARTSDIR) $(HELM) ## Package helm chart for DPF Operator
-	$(HELM) package $(OPERATOR_HELM_CHART) --version $(TAG) --destination $(CHARTSDIR)
+	for tag in $(OPERATOR_CHART_TAGS); do \
+		$(HELM) package $(OPERATOR_HELM_CHART) --version $$tag --destination $(CHARTSDIR); \
+	done
 
 .PHONY: helm-package-ovnkubernetes-operator
 helm-package-ovnkubernetes-operator: $(CHARTSDIR) $(HELM) ## Package helm chart for OVN Kubernetes Operator
@@ -1125,7 +1128,9 @@ helm-push-ovnkubernetes-operator: $(CHARTSDIR) ## Push helm chart for DPF OVN Ku
 
 .PHONY: helm-push-operator
 helm-push-operator: $(CHARTSDIR) ## Push helm chart for dpf-operator
-	$(HELM) push  $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
+	for tag in $(OPERATOR_CHART_TAGS); do \
+		$(HELM) push  $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)-$$tag.tgz $(HELM_REGISTRY); \
+	done
 
 .PHONY: helm-push-hbn-dpuservice
 helm-push-hbn-dpuservice: $(CHARTSDIR) ## Push helm chart for HBN
