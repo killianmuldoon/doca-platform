@@ -1,0 +1,105 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ip-allocator-sidecar
+  labels:
+    app: ip-allocator-sidecar
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ip-allocator-sidecar
+  template:
+    metadata:
+      labels:
+        app: ip-allocator-sidecar
+    spec:
+      topologySpreadConstraints:
+      - maxSkew: 2
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: DoNotSchedule
+        labelSelector:
+          matchLabels:
+            app: ip-allocator-sidecar
+      # We expect to run the sidecar for components pods that run on host network. Otherwise, pods could use multus to
+      # get more than 1 IPs that they may need.
+      hostNetwork: true
+      containers:
+      # Simulates a real world application that requires an IP from the NVIPAM
+      - name: app
+        image: ubuntu:22.04
+        imagePullPolicy: IfNotPresent
+        command:
+        - bash
+        - -c
+        - |
+          #!/usr/bin/env bash
+          set -euo pipefail
+
+          cat /tmp/ips/addresses && echo
+          sleep infinity
+        volumeMounts:
+        - mountPath: /tmp/ips
+          name: ips
+          readOnly: true
+      initContainers:
+      - name: allocator
+        image: example.com/ip-allocator:v0.1.0
+        imagePullPolicy: IfNotPresent
+        # Needs to always run so that later it can receive a signal to do a CMD DEL
+        restartPolicy: Always
+        securityContext:
+          # Needs to run as root to ensure that it can access the NVIPAM socket
+          runAsUser: 0
+        # Readiness probe is not really nessecary but it helps ensure that the file is written before the real app container
+        # starts.
+        readinessProbe:
+          exec:
+            command:
+            - cat
+            - /var/run/readyz
+        env:
+        # We expect the user to provide this one
+        - name: POOL
+          value: "pool1"
+        # We expect the user to provide this one
+        - name: POOL_TYPE
+          value: "ippool"
+        - name: K8S_POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: K8S_POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: K8S_POD_UID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.uid
+        volumeMounts:
+        - mountPath: /opt/cni/bin
+          name: cni-bin-dir
+          readOnly: true
+        - mountPath: /var/lib/cni/nv-ipam
+          name: nvipam-daemon-socket-dir
+          readOnly: true
+        - mountPath: /tmp/ips
+          name: ips
+        # Used for caching the result
+        - mountPath: /var/lib/cni
+          name: cache
+      volumes:
+      - name: ips
+        emptyDir: {}
+      - name: cni-bin-dir
+        hostPath:
+          path: /opt/cni/bin
+          type: Directory
+      - name: cache
+        emptyDir: {}
+      - name: nvipam-daemon-socket-dir
+        hostPath:
+          path: /var/lib/cni/nv-ipam
+          type: Directory

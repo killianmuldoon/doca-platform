@@ -622,7 +622,7 @@ release: generate # Build and push helm and container images for release.
 GO_GCFLAGS=""
 GO_LDFLAGS="-extldflags '-static'"
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS) $(HOST_ARCH_BUILD_TARGETS)
-DPU_ARCH_BUILD_TARGETS ?= dpucniprovisioner sfcset
+DPU_ARCH_BUILD_TARGETS ?= dpucniprovisioner sfcset ipallocator
 HOST_ARCH_BUILD_TARGETS ?= operator dpuservice hostcniprovisioner ovnkubernetes-operator
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
@@ -670,9 +670,13 @@ binary-sfc-controller: ## Build the Host CNI Provisioner binary.
 binary-binary-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-embedded ## Build the OVN Kubernetes operator.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ovnkubernetesoperator gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/ovnkubernetesoperator
 
+.PHONY: binary-ipallocator
+binary-ipallocator: ## Build the IP allocator binary.
+	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ipallocator gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/ipallocator
+
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouted dms dhcrelay ovnkubernetes-operator
-DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn hbn-sidecar ovs-cni
+DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn hbn-sidecar ovs-cni ipallocator
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
@@ -716,6 +720,9 @@ export DMS_IMAGE ?= $(REGISTRY)/dms-server
 
 HOSTCNIPROVISIONER_IMAGE_NAME ?= host-cni-provisioner
 HOSTCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(HOSTCNIPROVISIONER_IMAGE_NAME)
+
+IPALLOCATOR_IMAGE_NAME ?= ip-allocator
+IPALLOCATOR_IMAGE ?= $(REGISTRY)/$(IPALLOCATOR_IMAGE_NAME)
 
 OPERATOR_BUNDLE_NAME ?= dpf-operator-bundle
 OPERATOR_BUNDLE_REGISTRY ?= $(REGISTRY)
@@ -813,6 +820,19 @@ docker-build-hostcniprovisioner: docker-build-base-image-systemd ## Build docker
 		--build-arg package=./cmd/hostcniprovisioner \
 		. \
 		-t $(HOSTCNIPROVISIONER_IMAGE):$(TAG)
+
+.PHONY: docker-build-ipallocator
+docker-build-ipallocator: ## Build docker image for the IP Allocator
+	# Base image can't be distroless because of the readiness probe that is using cat which doesn't exist in distroless
+	docker build \
+		--build-arg builder_image=$(BUILD_IMAGE) \
+		--build-arg base_image=$(ALPINE_IMAGE) \
+		--build-arg target_arch=$(ARCH) \
+		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
+		--build-arg package=./cmd/ipallocator \
+		. \
+		-t $(IPALLOCATOR_IMAGE):$(TAG)
 
 .PHONY: docker-build-base-image-ovs
 docker-build-base-image-ovs: ## Build base docker image with OVS dependencies
@@ -965,6 +985,10 @@ docker-push-dpucniprovisioner: ## Push the docker image for DPU CNI Provisioner.
 .PHONY: docker-push-hostcniprovisioner
 docker-push-hostcniprovisioner: ## Push the docker image for Host CNI Provisioner.
 	docker push $(HOSTCNIPROVISIONER_IMAGE):$(TAG)
+
+.PHONY: docker-push-ipallocator
+docker-push-ipallocator: ## Push the docker image for IP Allocator.
+	docker push $(IPALLOCATOR_IMAGE):$(TAG)
 
 .PHONY: docker-push-ovnkubernetes-dpu
 docker-push-ovnkubernetes-dpu: ## Push the custom OVN Kubernetes image that is used for the DPU (worker) nodes
