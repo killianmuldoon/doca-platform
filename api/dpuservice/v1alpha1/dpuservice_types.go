@@ -27,10 +27,22 @@ var (
 	DPUServiceFinalizer         = "dpf.nvidia.com/dpuservice"
 	DPUServiceNameLabelKey      = "dpf.nvidia.com/dpuservice-name"
 	DPUServiceNamespaceLabelKey = "dpf.nvidia.com/dpuservice-namespace"
+
 	// DPFImagePullSecretLabelKey marks a secret as being an ImagePullSecret used by DPF which should be mirrored to DPUClusters.
 	DPFImagePullSecretLabelKey = "dpf.nvidia.com/image-pull-secret"
+
 	// HostDPUServiceAnnotationKey marks a DPUService to target the cluster the ArgoCD controller is running in.
 	HostDPUServiceAnnotationKey = "dpf.nvidia.com/host-dpu-service"
+
+	// Conditions
+	ConditionDPUService = "DPUService"
+
+	// Condition Reasons
+	ConditionPendingReason    = "Pending"
+	ConditionSuccessfulReason = "Successful"
+
+	// Condition Messages
+	ConditionSuccessfulMessage = "The %s has been provisioned successfully"
 )
 
 //+kubebuilder:object:root=true
@@ -89,7 +101,11 @@ type ServiceDaemonSetValues struct {
 }
 
 // DPUServiceStatus defines the observed state of DPUService
-type DPUServiceStatus struct{}
+type DPUServiceStatus struct {
+	// Conditions defines current service state.
+	// +optional
+	Conditions *[]metav1.Condition `json:"conditions,omitempty"`
+}
 
 //+kubebuilder:object:root=true
 

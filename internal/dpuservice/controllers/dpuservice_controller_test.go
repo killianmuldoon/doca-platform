@@ -23,7 +23,6 @@ import (
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/test/utils"
 
@@ -75,8 +74,10 @@ var _ = Describe("DPUService Controller", func() {
 				{Namespace: "dpu-three", Name: "cluster-three"},
 			}
 			for i := range clusters {
-				cleanupObjs = append(cleanupObjs, testKamajiClusterSecret(clusters[i]))
-				Expect(testClient.Create(ctx, testKamajiClusterSecret(clusters[i]))).To(Succeed())
+				kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(clusters[i], cfg)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
+				cleanupObjs = append(cleanupObjs, kamajiSecret)
 			}
 
 			dpuServices := []*dpuservicev1.DPUService{
@@ -177,6 +178,10 @@ var _ = Describe("DPUService Controller", func() {
 				assertApplication(g, testClient, dpuServices, clusters)
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 
+			Eventually(func(g Gomega) {
+				assertDPUServiceCondition(g, testClient, dpuServices)
+			}).WithTimeout(30 * time.Second).Should(BeNil())
+
 			By("delete the DPUService and ensure the application associated with it are deleted")
 			for i := range dpuServices {
 				Expect(testClient.Delete(ctx, dpuServices[i])).To(Succeed())
@@ -205,7 +210,6 @@ var _ = Describe("DPUService Controller", func() {
 				g.Expect(testClient.List(ctx, gotDpuServices)).To(Succeed())
 				g.Expect(gotDpuServices.Items).To(BeEmpty())
 			}).WithTimeout(30 * time.Second).Should(BeNil())
-
 		})
 	})
 })
@@ -215,6 +219,21 @@ func assertDPUService(g Gomega, testClient client.Client, dpuServices []*dpuserv
 		gotDPUService := &dpuservicev1.DPUService{}
 		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServices[i]), gotDPUService)).To(Succeed())
 		g.Expect(gotDPUService.Finalizers).To(ConsistOf([]string{dpuservicev1.DPUServiceFinalizer}))
+	}
+}
+
+func assertDPUServiceCondition(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService) {
+	for i := range dpuServices {
+		gotDPUService := &dpuservicev1.DPUService{}
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServices[i]), gotDPUService)).To(Succeed())
+		Expect(gotDPUService.Status.Conditions).NotTo(BeNil())
+		Expect(*gotDPUService.Status.Conditions).To(ContainElement(
+			And(
+				HaveField("Type", dpuservicev1.ConditionDPUService),
+				HaveField("Status", metav1.ConditionTrue),
+				HaveField("Reason", dpuservicev1.ConditionSuccessfulReason),
+				HaveField("Message", fmt.Sprintf(dpuservicev1.ConditionSuccessfulMessage, dpuservicev1.ConditionDPUService))),
+		))
 	}
 }
 
@@ -357,10 +376,12 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 				{Namespace: testNS.Name, Name: "cluster-two"},
 				{Namespace: testNS.Name, Name: "cluster-three"},
 			}
-			secrets := []*corev1.Secret{
-				testKamajiClusterSecret(clusters[0]),
-				testKamajiClusterSecret(clusters[1]),
-				testKamajiClusterSecret(clusters[2]),
+
+			secrets := []*corev1.Secret{}
+			for _, cluster := range clusters {
+				kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(cluster, cfg)
+				Expect(err).ToNot(HaveOccurred())
+				secrets = append(secrets, kamajiSecret)
 			}
 			for _, s := range secrets {
 				Expect(testClient.Create(ctx, s)).To(Succeed())
@@ -384,11 +405,15 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 				{Namespace: testNS.Name, Name: "cluster-five"},
 				{Namespace: testNS.Name, Name: "cluster-six"},
 			}
-			secrets := []*corev1.Secret{
-				testKamajiClusterSecret(clusters[0]),
-				testKamajiClusterSecret(clusters[1]),
+			secrets := []*corev1.Secret{}
+			for _, cluster := range clusters {
 				// Not creating a kamaji secret for this cluster.
-				//testKamajiClusterSecret(clusters[2]),
+				if cluster.Name == "cluster-six" {
+					continue
+				}
+				kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(cluster, cfg)
+				Expect(err).ToNot(HaveOccurred())
+				secrets = append(secrets, kamajiSecret)
 			}
 			for _, s := range secrets {
 				Expect(testClient.Create(ctx, s)).To(Succeed())
@@ -416,13 +441,15 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 				{Namespace: testNS.Name, Name: "cluster-eight"},
 				{Namespace: testNS.Name, Name: "cluster-nine"},
 			}
-			brokenSecret := testKamajiClusterSecret(clusters[2])
-			brokenSecret.Data["admin.conf"] = []byte("just-a-field")
-			secrets := []*corev1.Secret{
-				testKamajiClusterSecret(clusters[0]),
-				testKamajiClusterSecret(clusters[1]),
+			secrets := []*corev1.Secret{}
+			for _, cluster := range clusters {
+				kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(cluster, cfg)
+				Expect(err).ToNot(HaveOccurred())
 				// the third secret is malformed.
-				brokenSecret,
+				if cluster.Name == "cluster-nine" {
+					kamajiSecret.Data["admin.conf"] = []byte("just-a-field")
+				}
+				secrets = append(secrets, kamajiSecret)
 			}
 			for _, s := range secrets {
 				Expect(testClient.Create(ctx, s)).To(Succeed())
@@ -479,42 +506,3 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 		})
 	})
 })
-
-func testKamajiClusterSecret(cluster controlplane.DPFCluster) *corev1.Secret {
-	adminConfig := &kubeconfig.Type{
-		Clusters: []*kubeconfig.ClusterWithName{
-			{
-				Name: cluster.Name,
-				Cluster: kubeconfig.Cluster{
-					Server:                   "https://localhost.com:6443",
-					CertificateAuthorityData: []byte("lotsofdifferentletterstobesecure"),
-				},
-			},
-		},
-		Users: []*kubeconfig.UserWithName{
-			{
-				Name: "not-used",
-				User: kubeconfig.User{
-					ClientKeyData:         []byte("lotsofdifferentletterstobesecure"),
-					ClientCertificateData: []byte("lotsofdifferentletterstobesecure"),
-				},
-			},
-		},
-	}
-	confData, err := json.Marshal(adminConfig)
-	Expect(err).To(Not(HaveOccurred()))
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%v-admin-kubeconfig", cluster.Name),
-			Namespace: cluster.Namespace,
-			Labels: map[string]string{
-				controlplanemeta.DPFClusterSecretClusterNameLabelKey: cluster.Name,
-				"kamaji.clastix.io/component":                        "admin-kubeconfig",
-				"kamaji.clastix.io/project":                          "kamaji",
-			},
-		},
-		Data: map[string][]byte{
-			"admin.conf": confData,
-		},
-	}
-}

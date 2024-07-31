@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -129,7 +130,7 @@ var _ = Describe("DPFOperatorConfig Controller - Reconcile System Components", f
 			config.Spec.ProvisioningConfiguration.ImagePullSecretForDMSAndHostNetwork = "foo-image-pull-secret"
 			config.Spec.ImagePullSecrets = []string{"secret-one", "secret-two"}
 			config.Spec.Overrides = &operatorv1.Overrides{}
-			config.Spec.Overrides.Paused = true
+			config.Spec.Overrides.Paused = ptr.To(true)
 			Expect(testClient.Create(ctx, config)).To(Succeed())
 			Consistently(func(g Gomega) {
 				gotConfig := &operatorv1.DPFOperatorConfig{}

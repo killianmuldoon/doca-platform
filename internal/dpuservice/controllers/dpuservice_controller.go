@@ -28,9 +28,11 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/controlplane/metadata"
+	ssa "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/serversideapply"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -102,14 +104,9 @@ func (r *DPUServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	//original := dpuService.DeepCopy()
 	// Defer a patch call to always patch the object when Reconcile exits.
 	defer func() {
-		// TODO: Make this a generic patcher.
-		// TODO: There is an issue patching status here with SSA - the finalizer managed field becomes broken and the finalizer can not be removed. Investigate.
-		// Set the GVK explicitly for the patch.
-		dpuService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
-		// Do not include manged fields in the patch call. This does not remove existing fields.
-		dpuService.ObjectMeta.ManagedFields = nil
-		err := r.Client.Patch(ctx, dpuService, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName))
-		reterr = kerrors.NewAggregate([]error{reterr, err})
+		if err := ssa.Patch(ctx, r.Client, dpuServiceControllerName, dpuService); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
 	}()
 
 	// Handle deletion reconciliation loop.
@@ -153,7 +150,7 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 		log.Info(fmt.Sprintf("Requeueing: %d applications still managed by DPUService", len(applications.Items)))
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
-	// If there are no associated applications remove the finalizer
+	// If there are no associated applications remove the finalizer.
 	log.Info("Removing finalizer")
 	controllerutil.RemoveFinalizer(dpuService, dpuservicev1.DPUServiceFinalizer)
 	return ctrl.Result{}, nil
@@ -161,6 +158,11 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 
 func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) {
 	var res ctrl.Result
+	if dpuService.Status.Conditions == nil {
+		dpuService.Status.Conditions = &[]metav1.Condition{}
+	}
+	addFalseCondition(dpuService.Status.Conditions, dpuservicev1.ConditionDPUService)
+
 	// Get the list of clusters this DPUService targets.
 	// TODO: Add some way to check if the clusters are healthy. Reconciler should retry clusters if they're unready.
 	clusters, err := controlplane.GetDPFClusters(ctx, r.Client)
@@ -190,11 +192,31 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	if err = r.reconcileImagePullSecrets(ctx, clusters, dpuService); err != nil {
 		return ctrl.Result{}, err
 	}
+
 	// Update the status of the DPUService.
 	if res, err = r.reconcileStatus(ctx, dpuService, clusters); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	addTrueCondition(dpuService.Status.Conditions, dpuservicev1.ConditionDPUService)
 	return res, nil
+}
+
+func addTrueCondition(conditions *[]metav1.Condition, conditionType string) {
+	addCondition(conditions, metav1.ConditionTrue, conditionType)
+}
+
+func addFalseCondition(conditions *[]metav1.Condition, conditionType string) {
+	addCondition(conditions, metav1.ConditionFalse, conditionType)
+}
+
+func addCondition(conditions *[]metav1.Condition, conditionStatus metav1.ConditionStatus, conditionType string) {
+	meta.SetStatusCondition(conditions, metav1.Condition{
+		Type:    conditionType,
+		Status:  conditionStatus,
+		Reason:  dpuservicev1.ConditionSuccessfulReason,
+		Message: fmt.Sprintf(dpuservicev1.ConditionSuccessfulMessage, conditionType),
+	})
 }
 
 // reconcileArgoSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
@@ -218,7 +240,7 @@ func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, cluster
 		}
 		// Create or patch
 		log.Info("Patching Secrets for DPF clusters")
-		if err := r.Client.Patch(ctx, argoSecret, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
+		if err := ssa.Patch(ctx, r.Client, dpuServiceControllerName, argoSecret); err != nil {
 			errs = append(errs, err)
 			continue
 		}
@@ -310,6 +332,7 @@ func (r *DPUServiceReconciler) reconcileStatus(ctx context.Context, dpuService *
 		// TODO: Make the DPUService controller react to changes in appliations.
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
+
 	return ctrl.Result{}, nil
 }
 
@@ -323,7 +346,7 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, argoCDNa
 	dpuAppProject := argocd.NewAppProject(argoCDNamespace, dpuAppProjectName, clusterKeys)
 
 	log.Info("Patching AppProject for DPU clusters")
-	if err := r.Client.Patch(ctx, dpuAppProject, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
+	if err := ssa.Patch(ctx, r.Client, dpuServiceControllerName, dpuAppProject); err != nil {
 		return err
 	}
 
@@ -331,7 +354,7 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, argoCDNa
 	hostAppProject := argocd.NewAppProject(argoCDNamespace, hostAppProjectName, inClusterKey)
 
 	log.Info("Patching AppProject for Host cluster")
-	if err := r.Client.Patch(ctx, hostAppProject, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
+	if err := ssa.Patch(ctx, r.Client, dpuServiceControllerName, hostAppProject); err != nil {
 		return err
 	}
 
@@ -353,14 +376,14 @@ func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, argoCDN
 			argoApplication := argocd.NewApplication(argoCDNamespace, project, clusterKey, dpuService, values)
 
 			log.Info("Patching Application", "Application", klog.KObj(argoApplication))
-			if err := r.Client.Patch(ctx, argoApplication, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
+			if err := ssa.Patch(ctx, r.Client, dpuServiceControllerName, argoApplication); err != nil {
 				return err
 			}
 		}
 	} else {
 		argoApplication := argocd.NewApplication(argoCDNamespace, project, types.NamespacedName{Namespace: "*", Name: "in-cluster"}, dpuService, values)
 		log.Info("Patching Application", "Application", klog.KObj(argoApplication))
-		if err := r.Client.Patch(ctx, argoApplication, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
+		if err := ssa.Patch(ctx, r.Client, dpuServiceControllerName, argoApplication); err != nil {
 			return err
 		}
 	}

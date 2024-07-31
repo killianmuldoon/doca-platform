@@ -137,7 +137,7 @@ func isPaused(config *operatorv1.DPFOperatorConfig) bool {
 	if config.Spec.Overrides == nil {
 		return false
 	}
-	return config.Spec.Overrides.Paused
+	return *config.Spec.Overrides.Paused
 }
 
 //nolint:unparam

@@ -35,7 +35,7 @@ type Overrides struct {
 	DisableSystemComponents []string `json:"disableSystemComponents,omitempty"`
 	// Paused disables all reconciliation of the DPFOperatorConfig when set to true.
 	// +optional
-	Paused bool `json:"paused,omitempty"`
+	Paused *bool `json:"paused,omitempty"`
 }
 
 // DPFOperatorConfigSpec defines the desired state of DPFOperatorConfig

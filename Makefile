@@ -440,6 +440,8 @@ generate-operator-bundle: $(OPERATOR_SDK) $(HELM) generate-manifests-operator ##
 	# We need to ensure operator-sdk receives nothing on stdin by explicitly redirecting null there.
 	# Remove the createdAt field to prevent rebasing issues.
 	# TODO: Currently the clusterserviceversion is not being correctly generated e.g. metadata is missing.
+	# MacOS: We have to ensure that we are using gnu sed. Install gnu-sed via homebrew and put it somewhere in your PATH.
+	#   e.g.: ln -s /opt/homebrew/bin/gsed $HOME/bin/sed
 	$Q sed -i '/  createdAt:/d'  bundle/manifests/dpf-operator.clusterserviceversion.yaml
 	$(OPERATOR_SDK) bundle validate ./bundle
 
