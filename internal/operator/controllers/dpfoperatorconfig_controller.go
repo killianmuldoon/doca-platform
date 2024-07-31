@@ -189,7 +189,6 @@ func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Cont
 	vars := getVariablesFromConfig(config)
 	// TODO: Handle deletion of objects on version upgrade.
 	// Create objects for components deployed to the management cluster.
-	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.ArgoCD, vars))
 	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.DPUService, vars))
 	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.DPFProvisioning, vars))
 

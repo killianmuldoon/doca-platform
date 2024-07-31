@@ -1,3 +1,11 @@
+## argo-cd and kamaji are installed as dependencies and configured here.
+argo-cd:
+  enabled: true
+  dex:
+    enabled: false
+  notifications:
+    enabled: false
+
 controllerManager:
   containerSecurityContext:
     allowPrivilegeEscalation: false
@@ -11,4 +19,3 @@ controllerManager:
   serviceAccount:
     annotations: {}
 imagePullSecrets: []
-kubernetesClusterDomain: cluster.local

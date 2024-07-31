@@ -174,8 +174,6 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}).WithTimeout(300 * time.Second).Should(Succeed())
 		})
 
-		// TODO: Create hollow nodes to join the cluster and host the applications.
-
 		It("create the PersistentVolumeClaim for the DPF Provisioning controller", func() {
 			data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpf-provisioning-pvc.yaml"))
 			Expect(err).ToNot(HaveOccurred())
@@ -273,19 +271,20 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
 					g.Expect(err).ToNot(HaveOccurred())
 					deployments := appsv1.DeploymentList{}
-					g.Expect(dpuClient.List(ctx, &deployments)).To(Succeed())
+					g.Expect(dpuClient.List(ctx, &deployments, client.HasLabels{"argocd.argoproj.io/instance"})).To(Succeed())
 					found := map[string]bool{}
 					for i := range deployments.Items {
-						found[deployments.Items[i].GetLabels()["app.kubernetes.io/instance"]] = true
+						found[deployments.Items[i].GetLabels()["argocd.argoproj.io/instance"]] = true
 					}
 					daemonsets := appsv1.DaemonSetList{}
-					g.Expect(dpuClient.List(ctx, &daemonsets)).To(Succeed())
+					g.Expect(dpuClient.List(ctx, &daemonsets, client.HasLabels{"argocd.argoproj.io/instance"})).To(Succeed())
 					for i := range daemonsets.Items {
-						found[daemonsets.Items[i].GetLabels()["app.kubernetes.io/instance"]] = true
+						found[daemonsets.Items[i].GetLabels()["argocd.argoproj.io/instance"]] = true
 					}
 
 					// Expect each of the following to have been created by the operator.
 					// These are labels of the appv1 type - e.g. DaemonSet or Deployment on the DPU cluster.
+					g.Expect(found).To(HaveLen(7))
 					g.Expect(found).To(HaveKey(ContainSubstring("multus")))
 					g.Expect(found).To(HaveKey(ContainSubstring("sriov-device-plugin")))
 					g.Expect(found).To(HaveKey(ContainSubstring("flannel")))

@@ -85,9 +85,6 @@ func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOp
 	if err := r.deleteObjects(ctx, r.Inventory.DPFProvisioning, vars); err != nil {
 		errs = append(errs, err)
 	}
-	if err := r.deleteObjects(ctx, r.Inventory.ArgoCD, vars); err != nil {
-		errs = append(errs, err)
-	}
 
 	if len(errs) > 0 {
 		log.Error(kerrors.NewAggregate(errs), "DPF system components not yet deleted: Requeueing.")
@@ -106,7 +103,6 @@ func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOp
 }
 
 // deleteArgoObjects delete additional objects created for ArgoCD in the DPUService controller.
-// TODO: This will be solved through ownerReferences when ArgoCD is deployed by the operator.
 func (r *DPFOperatorConfigReconciler) deleteArgoObjects(ctx context.Context) error {
 	// Delete ArgoCD secrets created for DPF.
 	secrets := &corev1.SecretList{}

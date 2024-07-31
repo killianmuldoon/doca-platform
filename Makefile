@@ -302,7 +302,7 @@ generate-modules: ## Run go mod tidy to update go modules
 generate-manifests: controller-gen kustomize $(addprefix generate-manifests-,$(GENERATE_TARGETS)) ## Run all generate-manifests-* targets
 
 .PHONY: generate-manifests-operator
-generate-manifests-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVSUBST) ## Generate manifests e.g. CRD, RBAC. for the operator controller.
+generate-manifests-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVSUBST) $(HELM) ## Generate manifests e.g. CRD, RBAC. for the operator controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./deploy/helm/dpf-operator/crds/"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/operator/..." \
@@ -316,6 +316,9 @@ generate-manifests-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVSUBST) ## Gener
 	$(KUSTOMIZE) build config/operator-additional-crds -o  deploy/helm/dpf-operator/crds/;
 	## Set the image name and tag in the operator helm chart values
 	$(ENVSUBST) < deploy/helm/dpf-operator/values.yaml.tmpl > deploy/helm/dpf-operator/values.yaml
+	## Update the helm dependencies for the chart.
+	$(HELM) repo add argo https://argoproj.github.io/argo-helm
+	$(HELM) dependency build $(OPERATOR_HELM_CHART)
 
 
 .PHONY: generate-manifests-ovnkubernetes-operator
@@ -426,6 +429,7 @@ generate-operator-bundle: $(OPERATOR_SDK) $(HELM) generate-manifests-operator ##
 	# First template the actual manifests to include using helm.
 	mkdir -p hack/charts/dpf-operator/
 	$(HELM) template --namespace $(OPERATOR_NAMESPACE) --set image=$(DPFOPERATOR_IMAGE):$(TAG) $(OPERATOR_HELM_CHART) \
+	--set argo-cd.enabled=false \
 	--set templateOperatorBundle=true > hack/charts/dpf-operator/manifests.yaml
 	# Next generate the operator bundle.
     # Note we need to explicitly set stdin to null using < /dev/null.
@@ -505,7 +509,6 @@ OPERATOR_NAMESPACE ?= dpf-operator-system
 .PHONY: test-deploy-operator-helm
 test-deploy-operator-helm: $(HELM) ## Deploy the DPF Operator using helm
 	$(HELM) install --create-namespace --namespace $(OPERATOR_NAMESPACE) --set image=$(DPFOPERATOR_IMAGE):$(TAG)  dpf-operator $(OPERATOR_HELM_CHART)
-
 
 OLM_VERSION ?= v0.28.0
 OPERATOR_REGISTRY_VERSION ?= v1.43.1
@@ -1178,7 +1181,6 @@ dev-prereqs-dpuservice: $(KUSTOMIZE) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(HELM)
 	&& echo "Waiting for cert-manager deployment to be ready."\
 	&& $(KUBECTL) wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
 
-	# Deploy argoCD as the underlying application provider.
 	$Q $(KUBECTL) create namespace argocd --dry-run=client -o yaml | $(KUBECTL) apply -f - && $(KUBECTL) apply -f $(ARGOCD_YAML)
 
 	$Q $(HELM) upgrade --set image.pullPolicy=IfNotPresent --set cfssl.image.tag=v1.6.5 --install kamaji $(KAMAJI)

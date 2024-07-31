@@ -87,20 +87,11 @@ var (
 
 	//go:embed manifests/sfc-controller.yaml
 	sfcControllerData []byte
-
-	//go:embed manifests/argocd.yaml
-	argoCDData []byte
 )
 
 // New returns a new Manifests inventory with data preloaded but parsing not completed.
 func New() *Manifests {
 	return &Manifests{
-
-		// TODO: Currently the source for the argo manifests is this repo.
-		// Link them to the upstream argo repo and use kustomize to generate the files.
-		ArgoCD: &argoCDObjects{
-			data: argoCDData,
-		},
 		DPUService: &dpuServiceControllerObjects{
 			data: dpuServiceData,
 		},
@@ -140,9 +131,6 @@ func New() *Manifests {
 
 // ParseAll creates Kubernetes objects for all manifests related to the DPFOperator.
 func (m *Manifests) ParseAll() error {
-	if err := m.ArgoCD.Parse(); err != nil {
-		return err
-	}
 	if err := m.DPUService.Parse(); err != nil {
 		return err
 	}
@@ -177,12 +165,7 @@ func (m *Manifests) ParseAll() error {
 func (m *Manifests) generateAllManifests(variables Variables) ([]client.Object, error) {
 	out := []client.Object{}
 	var errs []error
-	objs, err := m.ArgoCD.GenerateManifests(variables)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	out = append(out, objs...)
-	objs, err = m.DPUService.GenerateManifests(variables)
+	objs, err := m.DPUService.GenerateManifests(variables)
 	if err != nil {
 		errs = append(errs, err)
 	}

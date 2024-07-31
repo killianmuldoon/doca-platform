@@ -16,15 +16,6 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - kind: Application
-      name: applications.argoproj.io
-      version: v1alpha1
-    - kind: ApplicationSet
-      name: applicationsets.argoproj.io
-      version: v1alpha1
-    - kind: AppProject
-      name: appprojects.argoproj.io
-      version: v1alpha1
     - kind: Bfb
       name: bfbs.provisioning.dpf.nvidia.com
       version: v1alpha1

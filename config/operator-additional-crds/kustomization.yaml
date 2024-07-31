@@ -6,7 +6,6 @@ resources:
   - ../dpuservice/crd
   - ../servicechainset/crd
   - ../dpf-provisioning/crd
-  - ../argocd/crd
 
 labels:
   - includeSelectors: true
