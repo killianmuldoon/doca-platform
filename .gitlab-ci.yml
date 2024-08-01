@@ -3,6 +3,8 @@ image: golang:1.22
 workflow:
   # This variable can be defined where the job is triggered. e.g. the pipeline schedule in the gitlab UI
   name: $CI_PIPELINE_NAME
+  auto_cancel:
+    on_new_commit: interruptible
 
 variables:
   ## Enable timestamps in job logs. See https://docs.gitlab.com/ee/ci/yaml/ci_job_log_timestamps.html
@@ -19,6 +21,7 @@ stages:
   - triage
 
 lint:
+  interruptible: true
   stage: verify
   needs: []
   rules:
@@ -50,6 +53,7 @@ lint:
     - make lint-helm
 
 verify:
+  interruptible: true
   stage: verify
   needs: []
   rules:
@@ -76,6 +80,7 @@ verify:
     - git diff
 
 test:
+  interruptible: true
   stage: test
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
@@ -103,6 +108,7 @@ test:
     - make test-report
 
 e2e:
+  interruptible: true
   stage: test
   needs: [ ]
   rules:

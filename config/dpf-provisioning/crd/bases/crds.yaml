@@ -255,7 +255,7 @@ spec:
                   drain:
                     type: boolean
                   no_effect:
-                    type: string
+                    type: boolean
                   taint:
                     description: |-
                       The node this Taint is attached to has the "effect" on
@@ -480,7 +480,7 @@ spec:
                           drain:
                             type: boolean
                           no_effect:
-                            type: string
+                            type: boolean
                           taint:
                             description: |-
                               The node this Taint is attached to has the "effect" on
