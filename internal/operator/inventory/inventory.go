@@ -82,7 +82,7 @@ var (
 	//go:embed manifests/nv-k8s-ipam.yaml
 	nvK8sIpamData []byte
 
-	//go:embed manifests/dpf-provisioning-controller.yaml
+	//go:embed manifests/provisioning-controller.yaml
 	dpfProvisioningControllerData []byte
 
 	//go:embed manifests/sfc-controller.yaml

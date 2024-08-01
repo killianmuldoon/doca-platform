@@ -1,7 +1,21 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    app.kubernetes.io/component: manager
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: system
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: namespace
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+    control-plane: controller-manager
+  name: dpf-provisioning
+---
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
     controller-gen.kubebuilder.io/version: v0.14.0
   name: bfbs.provisioning.dpf.nvidia.com
 spec:
@@ -65,6 +79,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
     controller-gen.kubebuilder.io/version: v0.14.0
   name: dpuflavors.provisioning.dpf.nvidia.com
 spec:
@@ -180,6 +195,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
     controller-gen.kubebuilder.io/version: v0.14.0
   name: dpus.provisioning.dpf.nvidia.com
 spec:
@@ -188,8 +204,8 @@ spec:
     webhook:
       clientConfig:
         service:
-          name: webhook-service
-          namespace: system
+          name: dpf-provisioning-webhook-service
+          namespace: dpf-provisioning
           path: /convert
       conversionReviewVersions:
       - v1
@@ -399,6 +415,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
+    cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
     controller-gen.kubebuilder.io/version: v0.14.0
   name: dpusets.provisioning.dpf.nvidia.com
 spec:
@@ -545,11 +562,13 @@ spec:
                           items:
                             type: string
                           type: array
+                          x-kubernetes-list-type: atomic
                       required:
                       - key
                       - operator
                       type: object
                     type: array
+                    x-kubernetes-list-type: atomic
                   matchLabels:
                     additionalProperties:
                       type: string
@@ -593,3 +612,665 @@ spec:
     storage: true
     subresources:
       status: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: controller-manager-sa
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: serviceaccount
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-controller-manager
+  namespace: dpf-provisioning
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: leader-election-role
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: role
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-leader-election-role
+  namespace: dpf-provisioning
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: dpf-provisioning-manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - pods
+  - pods/exec
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - nmstate.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - nodemaintenance.medik8s.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpuflavors
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpus
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpus/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpus/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpusets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpusets/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpusets/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: leader-election-rolebinding
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: rolebinding
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-leader-election-rolebinding
+  namespace: dpf-provisioning
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dpf-provisioning-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: dpf-provisioning-controller-manager
+  namespace: dpf-provisioning
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: manager-rolebinding
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: clusterrolebinding
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: dpf-provisioning-manager-role
+subjects:
+- kind: ServiceAccount
+  name: dpf-provisioning-controller-manager
+  namespace: dpf-provisioning
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: manager-rolebinding
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: clusterrolebinding
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-manager-scc-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:privileged
+subjects:
+- kind: ServiceAccount
+  name: dpf-provisioning-controller-manager
+  namespace: dpf-provisioning
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app.kubernetes.io/component: webhook
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: webhook-service
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: service
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-webhook-service
+  namespace: dpf-provisioning
+spec:
+  ports:
+  - port: 443
+    protocol: TCP
+    targetPort: 9443
+  selector:
+    control-plane: controller-manager
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/component: manager
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: controller-manager
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: deployment
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+    control-plane: controller-manager
+  name: dpf-provisioning-controller-manager
+  namespace: dpf-provisioning
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: manager
+      labels:
+        control-plane: controller-manager
+    spec:
+      containers:
+      - args:
+        - --health-probe-bind-address=:8081
+        - --metrics-bind-address=127.0.0.1:8080
+        - --leader-elect
+        - --zap-log-level=3
+        - --dms-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server:latest
+        - --hostnetwork-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/hostnetworksetup:v0.1
+        - --dhcrelay-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dhcrelay:v0.1
+        - --parprouterd-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/parprouterd:v0.1
+        - --image-pull-secret=dpf-provisioning-regcred
+        - --bfb-pvc=bfb-pvc
+        - --dhcp=10.211.0.124
+        command:
+        - /manager
+        image: example.com/provisioning-controller-manager:v0.1.0
+        imagePullPolicy: Always
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8081
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        name: manager
+        ports:
+        - containerPort: 9443
+          name: webhook-server
+          protocol: TCP
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8081
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        resources:
+          limits:
+            cpu: 4
+            memory: 8Gi
+          requests:
+            cpu: 1
+            memory: 2Gi
+        securityContext:
+          capabilities:
+            drop:
+            - ALL
+          privileged: true
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cert
+          readOnly: true
+        - mountPath: /bfb
+          name: bfb-volume
+      imagePullSecrets:
+      - name: dpf-provisioning-regcred
+      serviceAccountName: dpf-provisioning-controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - name: cert
+        secret:
+          defaultMode: 420
+          secretName: webhook-server-cert
+      - name: bfb-volume
+        persistentVolumeClaim:
+          claimName: bfb-pvc
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  labels:
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: serving-cert
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: certificate
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-serving-cert
+  namespace: dpf-provisioning
+spec:
+  dnsNames:
+  - dpf-provisioning-webhook-service.dpf-provisioning.svc
+  - dpf-provisioning-webhook-service.dpf-provisioning.svc.cluster.local
+  issuerRef:
+    kind: Issuer
+    name: dpf-provisioning-selfsigned-issuer
+  secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  labels:
+    app.kubernetes.io/component: certificate
+    app.kubernetes.io/created-by: dpf-provisioning-controller
+    app.kubernetes.io/instance: serving-cert
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: certificate
+    app.kubernetes.io/part-of: dpf-provisioning-controller
+  name: dpf-provisioning-selfsigned-issuer
+  namespace: dpf-provisioning
+spec:
+  selfSigned: {}
+---
+apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+kind: DPUFlavor
+metadata:
+  name: dpf-provisioning-hbn-ovn
+  namespace: dpf-provisioning
+spec:
+  bfcfgParameters:
+  - UPDATE_ATF_UEFI=yes
+  - UPDATE_DPU_OS=yes
+  - WITH_NIC_FW_UPDATE=yes
+  configFiles:
+  - operation: override
+    path: /etc/mellanox/mlnx-bf.conf
+    permissions: "0644"
+    raw: |
+      ALLOW_SHARED_RQ="no"
+      IPSEC_FULL_OFFLOAD="no"
+      ENABLE_ESWITCH_MULTIPORT="yes"
+  - operation: override
+    path: /etc/mellanox/mlnx-ovs.conf
+    permissions: "0644"
+    raw: |
+      CREATE_OVS_BRIDGES="no"
+  - operation: override
+    path: /etc/mellanox/mlnx-sf.conf
+    permissions: "0644"
+    raw: ""
+  grub:
+    kernelParameters:
+    - console=hvc0
+    - console=ttyAMA0
+    - earlycon=pl011,0x13010000
+    - fixrttc
+    - net.ifnames=0
+    - biosdevname=0
+    - iommu.passthrough=1
+    - cgroup_no_v1=net_prio,net_cls
+    - hugepagesz=2048kB
+    - hugepages=3072
+  nvconfig:
+  - device: '*'
+    parameters:
+    - PF_BAR2_ENABLE=0
+    - PER_PF_NUM_SF=1
+    - PF_TOTAL_SF=20
+    - PF_SF_BAR_SIZE=10
+    - NUM_PF_MSIX_VALID=0
+    - PF_NUM_PF_MSIX_VALID=1
+    - PF_NUM_PF_MSIX=228
+    - INTERNAL_CPU_MODEL=1
+    - INTERNAL_CPU_OFFLOAD_ENGINE=0
+    - SRIOV_EN=1
+    - NUM_OF_VFS=46
+    - LAG_RESOURCE_ALLOCATION=1
+  ovs:
+    rawConfigScript: |
+      ovs-vsctl set Open_vSwitch . other_config:doca-init=true -- \
+      set Open_vSwitch . other_config:dpdk-extra="-a 0000:00:00.0" -- \
+      set Open_vSwitch . other_config:hw-offload-ct-size=64000 -- \
+      set Open_vSwitch . other_config:dpdk-max-memzones="50000" -- \
+      set Open_vSwitch . other_config:hw-offload="true" -- \
+      set Open_vSwitch . other_config:pmd-quiet-idle=true -- \
+      set Open_vSwitch . other_config:max-idle=20000 -- \
+      set Open_vSwitch . other_config:max-revalidator=5000 -- \
+      --if-exists del-br ovsbr1 -- \
+      --if-exists del-br ovsbr2 -- \
+      --may-exist add-br br-sfc -- \
+      set bridge br-sfc datapath_type=netdev -- \
+      set bridge br-sfc fail_mode=secure -- \
+      --may-exist add-port br-sfc p0 -- \
+      set Interface p0 type=dpdk
+
+      ovs-vsctl --may-exist add-br br-ovn-k8s-ch -- \
+      --may-exist add-br br-kubelet-ch -- \
+      set bridge br-ovn-k8s-ch datapath_type=netdev -- \
+      set bridge br-kubelet-ch datapath_type=netdev
+
+      ovs-vsctl add-port br-kubelet-ch pf0vf1 || true
+      ovs-vsctl add-port br-ovn-k8s-ch pf0vf2 || true
+      ovs-vsctl --may-exist add-port br-kubelet-ch en3f0pf0sf1000 || true
+      ovs-vsctl --may-exist add-port br-ovn-k8s-ch en3f0pf0sf1001 || true
+
+      ovs-vsctl set Interface pf0vf1 type=dpdk -- \
+      set Interface pf0vf2 type=dpdk -- \
+      set Interface en3f0pf0sf1000 type=dpdk -- \
+      set Interface en3f0pf0sf1001 type=dpdk
+      systemctl restart openvswitch-switch
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
+  name: dpf-provisioning-mutating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /mutate-provisioning-dpf-nvidia-com-v1alpha1-bfb
+  failurePolicy: Fail
+  name: mbfb.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - bfbs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /mutate-provisioning-dpf-nvidia-com-v1alpha1-dpu
+  failurePolicy: Fail
+  name: mdpu.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dpus
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /mutate-provisioning-dpf-nvidia-com-v1alpha1-dpuset
+  failurePolicy: Fail
+  name: mdpuset.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dpusets
+  sideEffects: None
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
+  name: dpf-provisioning-validating-webhook-configuration
+webhooks:
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /validate-provisioning-dpf-nvidia-com-v1alpha1-bfb
+  failurePolicy: Fail
+  name: vbfb.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - bfbs
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /validate-provisioning-dpf-nvidia-com-v1alpha1-dpu
+  failurePolicy: Fail
+  name: vdpu.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dpus
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /validate-provisioning-dpf-nvidia-com-v1alpha1-dpuflavor
+  failurePolicy: Fail
+  name: vdpuflavor.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    - DELETE
+    resources:
+    - dpuflavors
+  sideEffects: None
+- admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: dpf-provisioning-webhook-service
+      namespace: dpf-provisioning
+      path: /validate-provisioning-dpf-nvidia-com-v1alpha1-dpuset
+  failurePolicy: Fail
+  name: vdpuset.kb.io
+  rules:
+  - apiGroups:
+    - provisioning.dpf.nvidia.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - CREATE
+    - UPDATE
+    resources:
+    - dpusets
+  sideEffects: None

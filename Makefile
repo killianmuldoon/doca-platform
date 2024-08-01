@@ -107,7 +107,6 @@ ENVTEST_VERSION ?= v0.0.0-20240110160329-8f8247fdc1c3
 GOLANGCI_LINT_VERSION ?= v1.58.1
 MOCKGEN_VERSION ?= v0.4.0
 GOTESTSUM_VERSION ?= v1.11.0
-DPF_PROVISIONING_CONTROLLER_REV ?= 506f9a1f6687f840b8ea5f72e2920f1be517ca6b
 ENVSUBST_VERSION ?= v1.4.2
 
 ## OVN Kubernetes Images
@@ -267,10 +266,6 @@ OVN_DIR=$(REPOSDIR)/ovn-$(OVN_REVISION)
 $(OVN_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR) $(OVN_REVISION)
 
-DPF_PROVISIONING_DIR=$(REPOSDIR)/dpf-provisioning-controller-$(DPF_PROVISIONING_CONTROLLER_REV)
-$(DPF_PROVISIONING_DIR): | $(REPOSDIR)
-	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-provisioning-controller.git $(DPF_PROVISIONING_DIR) $(DPF_PROVISIONING_CONTROLLER_REV)
-
 # operator-sdk is used to generate operator-sdk bundles
 OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download
 OPERATOR_SDK_BIN = operator-sdk
@@ -282,7 +277,7 @@ $(OPERATOR_SDK): | $(TOOLSDIR)
 	$Q chmod +x $(OPERATOR_SDK)
 
 ##@ Development
-GENERATE_TARGETS ?= operator dpuservice dpf-provisioning hostcniprovisioner dpucniprovisioner sfcset operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded sfc-controller release-defaults hbn-dpuservice ovs-cni dummydpuservice
+GENERATE_TARGETS ?= operator dpuservice provisioning hostcniprovisioner dpucniprovisioner sfcset operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded sfc-controller release-defaults hbn-dpuservice ovs-cni dummydpuservice
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -370,8 +365,8 @@ generate-manifests-release-defaults: $(ENVSUBST) ## Generates manifests that con
 TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 .PHONY: generate-manifests-operator-embedded
-generate-manifests-operator-embedded: $(ENVSUBST) generate-manifests-dpuservice generate-manifests-dpf-provisioning generate-manifests-release-defaults ## Generates manifests that are embedded into the operator binary.
-	cp $(DPF_PROVISIONING_DIR)/output/deploy.yaml ./internal/operator/inventory/manifests/dpf-provisioning-controller.yaml
+generate-manifests-operator-embedded: $(ENVSUBST) generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults ## Generates manifests that are embedded into the operator binary.
+	$(KUSTOMIZE) build config/provisioning/default > $(EMBEDDED_MANIFESTS_DIR)/provisioning-controller.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
 	# Substitute environment variables and generate embedded manifests from templates.
 	$(ENVSUBST) < $(TEMPLATES_DIR)/servicefunctionchainset-controller.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/servicefunctionchainset-controller.yaml
@@ -411,10 +406,20 @@ generate-manifests-sfc-controller: generate-manifests-sfcset $(ENVSUBST)
 	# Template the image name and tag used in the helm templates.
 	$(ENVSUBST) < deploy/helm/sfc-controller/values.yaml.tmpl > deploy/helm/sfc-controller/values.yaml
 
-.PHONY: generate-manifests-dpf-provisioning
-generate-manifests-dpf-provisioning: $(KUSTOMIZE) $(DPF_PROVISIONING_DIR) ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
-	$(MAKE) IMG=$(DPFPROVISIONING_IMAGE):$(TAG) -C $(DPF_PROVISIONING_DIR) kustomize-build
-	$(KUSTOMIZE) build $(DPF_PROVISIONING_DIR)/config/crd > ./config/dpf-provisioning/crd/bases/crds.yaml
+.PHONY: generate-manifests-provisioning
+generate-manifests-provisioning: $(KUSTOMIZE) $(ENVTEST) ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
+	$(MAKE) clean-generated-yaml SRC_DIRS="./config/provisioning/crd/bases"
+	$(CONTROLLER_GEN) \
+	paths="./cmd/provisioning/..." \
+	paths="./internal/provisioning/..." \
+	paths="./api/provisioning/..." \
+	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
+	rbac:roleName=manager-role \
+	output:crd:dir=./config/provisioning/crd/bases \
+	output:rbac:dir=./config/provisioning/rbac \
+	output:webhook:dir=./config/provisioning/webhook \
+	webhook
+	cd config/provisioning/manager && $(KUSTOMIZE) edit set image controller=$(PROVISIONING_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-hbn-dpuservice
 generate-manifests-hbn-dpuservice: $(ENVSUBST)
@@ -505,7 +510,7 @@ test-build-and-push-artifacts: $(KUSTOMIZE) ## Build and push DPF artifacts (ima
 	$(MAKE) docker-build-dpuservice docker-push-dpuservice; \
 	$(MAKE) docker-build-operator docker-push-operator ; \
 	$(MAKE) docker-build-operator-bundle docker-push-operator-bundle; \
-	$(MAKE) docker-build-dpf-provisioning docker-push-dpf-provisioning;
+	$(MAKE) docker-build-provisioning docker-push-provisioning;
 
 	# Build and push all the helm charts
 	$(MAKE) helm-package-all helm-push-all
@@ -688,7 +693,7 @@ binary-ipallocator: ## Build the IP allocator binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ipallocator gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/cmd/ipallocator
 
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS)
-HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle dpf-provisioning hostnetwork parprouted dms dhcrelay ovnkubernetes-operator
+HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle provisioning hostnetwork parprouted dms dhcrelay ovnkubernetes-operator
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn hbn-sidecar ovs-cni ipallocator
 
 .PHONY: docker-build-all
@@ -717,8 +722,8 @@ export SFCSET_IMAGE ?= $(REGISTRY)/$(SFCSET_IMAGE_NAME)
 DPUSERVICE_IMAGE_NAME ?= dpuservice-controller-manager
 DPUSERVICE_IMAGE ?= $(REGISTRY)/$(DPUSERVICE_IMAGE_NAME)
 
-DPFPROVISIONING_IMAGE_NAME ?= dpf-provisioning-controller-manager
-export DPFPROVISIONING_IMAGE ?= $(REGISTRY)/$(DPFPROVISIONING_IMAGE_NAME)
+PROVISIONING_IMAGE_NAME ?= provisioning-controller-manager
+export PROVISIONING_IMAGE ?= $(REGISTRY)/$(PROVISIONING_IMAGE_NAME)
 
 SFC_CONTROLLER_IMAGE_NAME ?= sfc-controller-manager
 export SFC_CONTROLLER_IMAGE ?= $(REGISTRY)/$(SFC_CONTROLLER_IMAGE_NAME)
@@ -808,9 +813,9 @@ docker-build-dpuservice: ## Build docker images for the dpuservice-controller
 		. \
 		-t $(DPUSERVICE_IMAGE):$(TAG)
 
-.PHONY: docker-build-dpf-provisioning
-docker-build-dpf-provisioning: $(DPF_PROVISIONING_DIR) ## Build docker images for the dpf-provisioning-controller
-	cd $(DPF_PROVISIONING_DIR) && docker build -t $(DPFPROVISIONING_IMAGE):$(TAG) . -f dockerfile/Dockerfile.controller
+.PHONY: docker-build-provisioning
+docker-build-provisioning: ## Build docker images for the provisioning-controller
+	docker build -t $(PROVISIONING_IMAGE):$(TAG) . -f Dockerfile.provisioning-controller
 
 .PHONY: docker-build-dpucniprovisioner
 docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker images for the DPU CNI Provisioner
@@ -932,15 +937,15 @@ docker-build-parprouted: $(PARPROUTED_DIR) ## Build docker image with the parpro
 
 .PHONY: docker-build-dhcrelay
 docker-build-dhcrelay: ## Build docker image with the dhcrelay.
-	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t $(DHCRELAY_IMAGE):$(TAG) . -f dockerfile/Dockerfile.dhcrelay
+	docker build --platform linux/${HOST_ARCH} -t $(DHCRELAY_IMAGE):$(TAG) . -f Dockerfile.dhcrelay
 
 .PHONY: docker-build-hostnetwork
 docker-build-hostnetwork: ## Build docker image with the hostnetwork.
-	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t $(HOSTNETWORK_IMAGE):$(TAG) . -f dockerfile/Dockerfile.hostnetwork
+	docker build --platform linux/${HOST_ARCH} -t $(HOSTNETWORK_IMAGE):$(TAG) . -f Dockerfile.hostnetwork
 
 .PHONY: docker-build-dms
 docker-build-dms: ## Build docker image with the hostnetwork.
-	cd $(DPF_PROVISIONING_DIR) && docker build --platform linux/${HOST_ARCH} -t $(DMS_IMAGE):$(TAG) . -f dockerfile/Dockerfile.dms
+	docker build --platform linux/${HOST_ARCH} -t $(DMS_IMAGE):$(TAG) . -f Dockerfile.dms
 
 .PHONY: docker-build-hbn
 docker-build-hbn: ## Build docker image for HBN.
@@ -978,9 +983,9 @@ docker-push-operator: ## Push the docker image for operator.
 docker-push-dpuservice: ## Push the docker image for dpuservice.
 	docker push $(DPUSERVICE_IMAGE):$(TAG)
 
-.PHONY: docker-push-dpf-provisioning
-docker-push-dpf-provisioning: ## Push the docker image for dpf provisioning controller.
-	docker push $(DPFPROVISIONING_IMAGE):$(TAG)
+.PHONY: docker-push-provisioning
+docker-push-provisioning: ## Push the docker image for dpf provisioning controller.
+	docker push $(PROVISIONING_IMAGE):$(TAG)
 
 .PHONY: docker-push-hbn-sidecar
 docker-push-hbn-sidecar: ## Push the docker image for HBN sidecar.
@@ -992,19 +997,19 @@ docker-push-ovs-cni: ## Push the docker image for ovs-cni
 
 .PHONY: docker-push-dhcrelay
 docker-push-dhcrelay: ## Push the docker image for dhcrelate.
-	cd $(DPF_PROVISIONING_DIR) && docker push $(DHCRELAY_IMAGE):$(TAG)
+	docker push $(DHCRELAY_IMAGE):$(TAG)
 
 .PHONY: docker-push-parprouted
 docker-push-parprouted: ## Push the docker image for parprouted.
-	cd $(DPF_PROVISIONING_DIR) && docker push $(PARPROUTED_IMAGE):$(TAG)
+	docker push $(PARPROUTED_IMAGE):$(TAG)
 
 .PHONY: docker-push-hostnetwork
 docker-push-hostnetwork: ## Push the docker image for the hostnetwork.
-	cd $(DPF_PROVISIONING_DIR) && docker push $(HOSTNETWORK_IMAGE):$(TAG)
+	docker push $(HOSTNETWORK_IMAGE):$(TAG)
 
 .PHONY: docker-push-dms
 docker-push-dms: ## Push the docker image for DMS.
-	cd $(DPF_PROVISIONING_DIR) && docker push $(DMS_IMAGE):$(TAG)
+	docker push $(DMS_IMAGE):$(TAG)
 
 .PHONY: docker-push-dpucniprovisioner
 docker-push-dpucniprovisioner: ## Push the docker image for DPU CNI Provisioner.

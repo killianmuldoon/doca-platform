@@ -7,15 +7,24 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - events
+  - configmaps
   verbs:
-  - create
-  - patch
-  - update
-  - delete
+  - get
+  - list
+  - watch
 - apiGroups:
   - ""
   resources:
+  - events
+  verbs:
+  - create
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - ""
+  resources:
+  - nodes
   - pods
   - pods/exec
   verbs:
@@ -29,33 +38,31 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - nodes
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - secrets
   verbs:
+  - create
+  - delete
   - get
   - list
   - watch
-  - create
-  - delete
+- apiGroups:
+  - cert-manager.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - nmstate.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - nodemaintenance.medik8s.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
 - apiGroups:
   - provisioning.dpf.nvidia.com
   resources:
@@ -82,6 +89,14 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpuflavors
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - provisioning.dpf.nvidia.com
   resources:
@@ -134,29 +149,3 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - nmstate.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - nodemaintenance.medik8s.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups: 
-  - "cert-manager.io"
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
-  - provisioning.dpf.nvidia.com
-  resources:
-  - dpuflavors
-  verbs:
-  - get
-  - list
-  - watch

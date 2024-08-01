@@ -5,7 +5,7 @@ namePrefix: dpf-operator-
 resources:
   - ../dpuservice/crd
   - ../servicechainset/crd
-  - ../dpf-provisioning/crd
+  - ../provisioning/crd
 
 labels:
   - includeSelectors: true
