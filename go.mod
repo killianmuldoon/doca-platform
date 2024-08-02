@@ -4,24 +4,27 @@ go 1.22.1
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.3
+	github.com/cert-manager/cert-manager v1.15.2
 	github.com/containernetworking/cni v1.2.3
 	github.com/google/go-cmp v0.6.0
+	github.com/medik8s/node-maintenance-operator v0.17.0
 	github.com/nmstate/kubernetes-nmstate/api v0.0.0-20240724090508-085e77ddd99a
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
 	github.com/openconfig/gnoi v0.4.1
 	github.com/openconfig/gnoigo v0.0.0-20240320202954-ebd033e3542c
+	github.com/pkg/errors v0.9.1
 	github.com/vishvananda/netlink v1.2.1-beta.2.0.20240304185031-70def89fcbfb
 	go.uber.org/mock v0.4.0
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
+	google.golang.org/grpc v1.64.1
 	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.0.2
 	k8s.io/api v0.30.1
 	k8s.io/apimachinery v0.30.1
 	k8s.io/client-go v0.30.1
 	k8s.io/klog/v2 v2.120.1
-	k8s.io/kubernetes v1.30.3
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
-	sigs.k8s.io/controller-runtime v0.18.4
+	sigs.k8s.io/controller-runtime v0.18.2
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -45,7 +48,6 @@ require (
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/cert-manager/cert-manager v1.15.1
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.12.0 // indirect
@@ -69,11 +71,9 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.4.0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/medik8s/node-maintenance-operator v0.17.0
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.18.0 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.46.0 // indirect
@@ -91,11 +91,10 @@ require (
 	golang.org/x/tools v0.21.1-0.20240508182429-e35e4ccd0d2d // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240515191416-fc5f0ca64291 // indirect
-	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
-	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.30.1 // indirect
 	k8s.io/klog v1.0.0 // indirect

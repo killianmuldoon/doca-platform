@@ -33,7 +33,6 @@ import (
 
 	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/provisioning/v1alpha1"
 
-	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,6 +43,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -374,6 +374,58 @@ func GetHostCIDRFromOpenShiftClusterConfig(ctx context.Context, client crclient.
 	}
 
 	return *cidr, nil
+}
+
+// ReplaceDaemonSetPodNodeNameNodeAffinity replaces the RequiredDuringSchedulingIgnoredDuringExecution
+// NodeAffinity of the given affinity with a new NodeAffinity that selects the given nodeName.
+// Note that this function assumes that no NodeAffinity conflicts with the selected nodeName.
+//
+// This method is copied from https://github.com/kubernetes/kubernetes/blob/dbc2b0a5c7acc349ea71a14e49913661eaf708d2/pkg/controller/daemon/util/daemonset_util.go#L176
+func ReplaceDaemonSetPodNodeNameNodeAffinity(affinity *corev1.Affinity, nodename string) *corev1.Affinity {
+	nodeSelReq := corev1.NodeSelectorRequirement{
+		Key:      metav1.ObjectNameField,
+		Operator: corev1.NodeSelectorOpIn,
+		Values:   []string{nodename},
+	}
+
+	nodeSelector := &corev1.NodeSelector{
+		NodeSelectorTerms: []corev1.NodeSelectorTerm{
+			{
+				MatchFields: []corev1.NodeSelectorRequirement{nodeSelReq},
+			},
+		},
+	}
+
+	if affinity == nil {
+		return &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{
+				RequiredDuringSchedulingIgnoredDuringExecution: nodeSelector,
+			},
+		}
+	}
+
+	if affinity.NodeAffinity == nil {
+		affinity.NodeAffinity = &corev1.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: nodeSelector,
+		}
+		return affinity
+	}
+
+	nodeAffinity := affinity.NodeAffinity
+
+	if nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = nodeSelector
+		return affinity
+	}
+
+	// Replace node selector with the new one.
+	nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms = []corev1.NodeSelectorTerm{
+		{
+			MatchFields: []corev1.NodeSelectorRequirement{nodeSelReq},
+		},
+	}
+
+	return affinity
 }
 
 func GeneratePodToleration(nodeEffect provisioningdpfv1alpha1.NodeEffect) []corev1.Toleration {
