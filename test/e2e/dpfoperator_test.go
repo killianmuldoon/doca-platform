@@ -39,6 +39,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	machineryruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -607,9 +608,14 @@ func getDPUService(namespace, name string, host bool) *unstructured.Unstructured
 
 	// This annotation is what defines a host DPUService.
 	if host {
-		svc.SetAnnotations(map[string]string{
-			dpuservicev1.HostDPUServiceAnnotationKey: "",
-		})
+		dpuService := &dpuservicev1.DPUService{}
+		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(svc.UnstructuredContent(), dpuService)).ToNot(HaveOccurred())
+		dpuService.Spec.DeployInCluster = &host
+		obj, err := machineryruntime.DefaultUnstructuredConverter.ToUnstructured(dpuService)
+		Expect(err).ToNot(HaveOccurred())
+		svc = &unstructured.Unstructured{
+			Object: obj,
+		}
 	}
 	return svc
 }

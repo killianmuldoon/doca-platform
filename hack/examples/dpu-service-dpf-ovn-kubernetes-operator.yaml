@@ -3,9 +3,8 @@ kind: DPUService
 metadata:
   name: dpf-ovn-kubernetes-operator
   namespace: dpf-operator-system
-  annotations:
-    dpf.nvidia.com/host-dpu-service: ""
 spec:
+  deployOnTenant: true
   source:
     repoURL: harbor.mellanox.com/cloud-orchestration-dev/dpf/vremmas
     chart: dpf-ovn-kubernetes-operator

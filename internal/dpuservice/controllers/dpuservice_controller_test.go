@@ -141,13 +141,14 @@ var _ = Describe("DPUService Controller", func() {
 				{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two", Namespace: testNS.Name}},
 			}
 			// A DPUService that should be deployed to the same cluster the DPF system is deployed in.
+			var deployInCluster = true
 			hostDPUService := &dpuservicev1.DPUService{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "host-dpu-service",
-					Namespace: testNS.Name,
-					Annotations: map[string]string{
-						dpuservicev1.HostDPUServiceAnnotationKey: "",
-					}},
+					Namespace: testNS.Name},
+				Spec: dpuservicev1.DPUServiceSpec{
+					DeployInCluster: &deployInCluster,
+				},
 			}
 
 			By("create dpuservices and check the correct secrets, appproject and applications are created")

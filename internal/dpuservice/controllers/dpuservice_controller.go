@@ -393,8 +393,8 @@ func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, argoCDN
 
 // getProjectName returns the correct project name for the DPUService depending on the cluster it's destined for.
 func getProjectName(dpuService *dpuservicev1.DPUService) string {
-	if dpuService.GetAnnotations() != nil {
-		if _, ok := dpuService.GetAnnotations()[dpuservicev1.HostDPUServiceAnnotationKey]; ok {
+	if dpuService.Spec.DeployInCluster != nil {
+		if *dpuService.Spec.DeployInCluster {
 			return hostAppProjectName
 		}
 	}

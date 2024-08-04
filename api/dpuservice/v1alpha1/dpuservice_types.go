@@ -31,9 +31,6 @@ var (
 	// DPFImagePullSecretLabelKey marks a secret as being an ImagePullSecret used by DPF which should be mirrored to DPUClusters.
 	DPFImagePullSecretLabelKey = "dpf.nvidia.com/image-pull-secret"
 
-	// HostDPUServiceAnnotationKey marks a DPUService to target the cluster the ArgoCD controller is running in.
-	HostDPUServiceAnnotationKey = "dpf.nvidia.com/host-dpu-service"
-
 	// Conditions
 	ConditionDPUService = "DPUService"
 
@@ -68,6 +65,9 @@ type DPUServiceSpec struct {
 	Values *runtime.RawExtension `json:"values,omitempty"`
 	// +optional
 	ServiceDaemonSet *ServiceDaemonSetValues `json:"serviceDaemonSet,omitempty"`
+	// DeployInCluster indicates if the DPUService Helm Chart will be deployed on the Host cluster. Default to false.
+	// +optional
+	DeployInCluster *bool `json:"deployInCluster,omitempty"`
 }
 
 type ApplicationSource struct {
