@@ -277,12 +277,14 @@ func expectedMultipleNetAnnotation(pooltype string, assignGW bool) string {
 }
 
 func changePodState(ctx context.Context, phase corev1.PodPhase) {
-	pod := &corev1.Pod{}
-	Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
-	pod.Status.Phase = phase
-	pod.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Pod"))
-	pod.ManagedFields = nil
-	Expect(testClient.Status().Patch(ctx, pod, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+	Eventually(func(g Gomega) {
+		pod := &corev1.Pod{}
+		g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
+		pod.Status.Phase = phase
+		pod.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Pod"))
+		pod.ManagedFields = nil
+		g.Expect(testClient.Status().Patch(ctx, pod, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+	}).WithTimeout(10 * time.Second).Should(Succeed())
 }
 
 func createPodWithAnnotation(ctx context.Context, nets string) *corev1.Pod {
