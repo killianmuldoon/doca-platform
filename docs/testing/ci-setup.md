@@ -1,9 +1,9 @@
 ## DPF Operator CI setup
 
-The DPF operator is currently tested using gitlab runners on specific bare metal machines. The runners can be viewed at https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/-/settings/ci_cd under #Runners.
+The DPF operator is currently tested using gitlab runners on specific bare metal machines. The runners can be viewed at https://gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/-/settings/ci_cd under #Runners.
 The bare metal machines are running Ubuntu 22.04.
 
-Some jobs are run periodically as configured through [Gitlab scheduled pipelines](https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/-/pipeline_schedules)
+Some jobs are run periodically as configured through [Gitlab scheduled pipelines](https://gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/-/pipeline_schedules)
 
 Jobs handled by the DPF can be viewed in the [gitlab-ci file](../../.gitlab-ci.yml)
 
@@ -98,7 +98,7 @@ Link to colossus lease:<br>
 export GROUP_ACCESS_TOKEN="<group_access_token>"
 
 # Copy the gitlab_runner.sh script to your machine inside /root directory.
-https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/-/blob/main/hack/scripts/gitlab_runner.sh?ref_type=heads
+https://gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/-/blob/main/hack/scripts/gitlab_runner.sh?ref_type=heads
 
 # Grant execution permisson & execute script
 chmod +x gitlab_runner.sh

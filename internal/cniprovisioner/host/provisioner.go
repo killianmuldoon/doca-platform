@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/networkhelper"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/networkhelper"
 
 	"github.com/vishvananda/netlink"
 	"k8s.io/klog/v2"

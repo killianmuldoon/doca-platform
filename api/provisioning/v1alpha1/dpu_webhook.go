@@ -20,7 +20,7 @@ import (
 	"errors"
 	"fmt"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/provisioning/controllers/util/powercycle"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/powercycle"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"

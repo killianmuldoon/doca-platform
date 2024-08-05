@@ -21,10 +21,10 @@ import (
 	"flag"
 	"os"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/servicechain/v1alpha1"
-	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/nvipam/api/v1alpha1"
-	ipamcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/pod-ipam-injector/controllers"
-	sfcsetcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/servicechainset/controllers"
+	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
+	ipamcontroller "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/pod-ipam-injector/controllers"
+	sfcsetcontroller "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/servicechainset/controllers"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"

@@ -19,7 +19,7 @@ package inventory
 import (
 	"fmt"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/controller-runtime/pkg/client"

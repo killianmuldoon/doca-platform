@@ -23,7 +23,7 @@ import (
 	"runtime"
 	"testing"
 
-	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/ovnkubernetesoperator/v1alpha1"
+	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/ovnkubernetesoperator/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

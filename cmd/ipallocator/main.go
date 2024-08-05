@@ -23,8 +23,8 @@ import (
 	"os"
 	"os/signal"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/cniprovisioner/utils/readyz"
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/ipallocator"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/readyz"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/ipallocator"
 
 	"github.com/containernetworking/cni/libcni"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"

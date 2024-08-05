@@ -19,7 +19,7 @@ package state
 import (
 	"context"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/provisioning/v1alpha1"
+	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

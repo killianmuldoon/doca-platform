@@ -21,7 +21,7 @@ import (
 	"net/http"
 	"os"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/dummydpuservice"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/dummydpuservice"
 )
 
 const (

@@ -162,12 +162,12 @@ docker login harbor.mellanox.com -u ***** -p *****
 
 Create access token in gitlab user
 
-Copy [git-clone-repo.sh](https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/-/blob/main/hack/scripts/git-clone-repo.sh?ref_type=heads)
+Copy [git-clone-repo.sh](https://gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/-/blob/main/hack/scripts/git-clone-repo.sh?ref_type=heads)
 
 Export the token
 
 ```sh
-./git-clone-repos.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-operator.git dpf-operator
+./git-clone-repos.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/doca-platform-foundation.git dpf-operator
 ```
 
 # deployment

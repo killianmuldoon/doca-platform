@@ -22,10 +22,10 @@ import (
 	"flag"
 	"os"
 
-	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/ovnkubernetesoperator/v1alpha1"
-	ovnkubernetesoperatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/ovnkubernetesoperator/controllers"
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/ovnkubernetesoperator/webhooks"
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/release"
+	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/ovnkubernetesoperator/v1alpha1"
+	ovnkubernetesoperatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/ovnkubernetesoperator/controllers"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/ovnkubernetesoperator/webhooks"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"

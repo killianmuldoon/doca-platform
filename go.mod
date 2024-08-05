@@ -1,4 +1,4 @@
-module gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator
+module gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation
 
 go 1.22.1
 

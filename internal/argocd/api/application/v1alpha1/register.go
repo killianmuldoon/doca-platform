@@ -1,7 +1,7 @@
 package v1alpha1
 
 import (
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/argocd/api/application"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

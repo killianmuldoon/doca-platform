@@ -19,7 +19,7 @@ package inventory
 import (
 	"testing"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 
 	. "github.com/onsi/gomega"
 )

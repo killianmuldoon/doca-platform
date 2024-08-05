@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/dpuservice/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"

@@ -116,7 +116,7 @@ e2e:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST == "true"
   variables:
     # The helm bundles and operator-sdk require a remote repository in the e2e environment.
-    REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-operator/e2e
+    REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/doca-platform-foundation/e2e
     IMAGE_PULL_KEY: $GITLAB_REGISTRY_TOKEN
     # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
     MINIKUBE_CNI: flannel
@@ -167,7 +167,7 @@ release:
   variables:
     TAG: v0.1.0-$CI_COMMIT_SHORT_SHA
     OPERATOR_CHART_TAGS: "$TAG v0.1.0-latest"
-    REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-operator/e2e
+    REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/doca-platform-foundation/e2e
   tags:
     - release
   script:

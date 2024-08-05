@@ -22,9 +22,9 @@ import (
 	"net"
 	"strings"
 
-	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/api/operator/v1alpha1"
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/operator/utils"
-	"gitlab-master.nvidia.com/doca-platform-foundation/dpf-operator/internal/release"
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
