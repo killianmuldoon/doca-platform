@@ -942,8 +942,8 @@ spec:
         - --bfb-pvc=bfb-pvc
         - --dhcp=10.211.0.124
         command:
-        - /manager
-        image: example.com/provisioning-controller-manager:v0.1.0
+        - /provisioning
+        image: example.com/dpf-system:v0.1.0
         imagePullPolicy: Always
         livenessProbe:
           httpGet:

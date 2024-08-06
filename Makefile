@@ -138,7 +138,7 @@ OVNKUBERNETES_DPU_REVISION=33f3f2bd91cc68305a39add3dfdaa0142121b69e
 OVNKUBERNETES_NON_DPU_REVISION=f73cdc1f764b36a1f4df9849e15f32eb0e0082c1
 
 .PHONY: clean
-clean: ; $(info  Cleaning...)	 @ ## Cleanup everything
+clean: ; $(info  Cleaning...)	 @ ## Clean non-essential files from the repo
 	@rm -rf $(TOOLSDIR)
 	@rm -rf $(CHARTSDIR)
 	@rm -rf $(REPOSDIR)
@@ -277,7 +277,7 @@ $(OPERATOR_SDK): | $(TOOLSDIR)
 	$Q chmod +x $(OPERATOR_SDK)
 
 ##@ Development
-GENERATE_TARGETS ?= operator dpuservice provisioning hostcniprovisioner dpucniprovisioner sfcset operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded sfc-controller release-defaults hbn-dpuservice ovs-cni dummydpuservice
+GENERATE_TARGETS ?= operator dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded sfc-controller release-defaults hbn-dpuservice ovs-cni dummydpuservice
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -348,7 +348,7 @@ generate-manifests-dpuservice: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manife
 	output:rbac:dir=./config/dpuservice/rbac \
 	output:webhook:dir=./config/dpuservice/webhook \
 	webhook
-	cd config/dpuservice/manager && $(KUSTOMIZE) edit set image controller=$(DPUSERVICE_IMAGE):$(TAG)
+	cd config/dpuservice/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-dpucniprovisioner
 generate-manifests-dpucniprovisioner: $(KUSTOMIZE) ## Generates DPU CNI provisioner manifests
@@ -382,8 +382,8 @@ generate-manifests-ovnkubernetes-operator-embedded: generate-manifests-dpucnipro
 	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/ovnkubernetesoperator/controllers/manifests/hostcniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/ovnkubernetesoperator/controllers/manifests/dpucniprovisioner.yaml
 
-.PHONY: generate-manifests-sfcset
-generate-manifests-sfcset: $(KUSTOMIZE) $(ENVSUBST) ## Generate manifests e.g. CRD, RBAC. for the sfcset controller.
+.PHONY: generate-manifests-servicechainset
+generate-manifests-servicechainset: $(KUSTOMIZE) $(ENVSUBST) ## Generate manifests e.g. CRD, RBAC. for the servicechainset controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/servicechainset/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/servicechainset/..." \
@@ -394,13 +394,13 @@ generate-manifests-sfcset: $(KUSTOMIZE) $(ENVSUBST) ## Generate manifests e.g. C
 	rbac:roleName=manager-role \
 	output:crd:dir=./config/servicechainset/crd/bases \
 	output:rbac:dir=./config/servicechainset/rbac
-	cd config/servicechainset/manager && $(KUSTOMIZE) edit set image controller=$(SFCSET_IMAGE):$(TAG)
+	cd config/servicechainset/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
 	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/servicechain/crds/ \;
 	# Template the image name and tag used in the helm templates.
 	$(ENVSUBST) < deploy/helm/servicechain/values.yaml.tmpl > deploy/helm/servicechain/values.yaml
 
 .PHONY: generate-manifests-sfc-controller
-generate-manifests-sfc-controller: generate-manifests-sfcset $(ENVSUBST)
+generate-manifests-sfc-controller: generate-manifests-servicechainset $(ENVSUBST)
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_servicechains.yaml deploy/helm/sfc-controller/crds/
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/sfc-controller/crds/
 	# Template the image name and tag used in the helm templates.
@@ -419,7 +419,7 @@ generate-manifests-provisioning: $(KUSTOMIZE) $(ENVTEST) ## Generate manifests e
 	output:rbac:dir=./config/provisioning/rbac \
 	output:webhook:dir=./config/provisioning/webhook \
 	webhook
-	cd config/provisioning/manager && $(KUSTOMIZE) edit set image controller=$(PROVISIONING_IMAGE):$(TAG)
+	cd config/provisioning/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-hbn-dpuservice
 generate-manifests-hbn-dpuservice: $(ENVSUBST)
@@ -433,7 +433,7 @@ generate-manifests-ovs-cni: $(ENVSUBST) ## Generate values for OVS helm chart.
 generate-operator-bundle: $(OPERATOR_SDK) $(HELM) generate-manifests-operator ## Generate bundle manifests and metadata, then validate generated files.
 	# First template the actual manifests to include using helm.
 	mkdir -p hack/charts/dpf-operator/
-	$(HELM) template --namespace $(OPERATOR_NAMESPACE) --set image=$(DPFOPERATOR_IMAGE):$(TAG) $(OPERATOR_HELM_CHART) \
+	$(HELM) template --namespace $(OPERATOR_NAMESPACE) --set image=$(DPF_SYSTEM_IMAGE):$(TAG) $(OPERATOR_HELM_CHART) \
 	--set argo-cd.enabled=false \
 	--set templateOperatorBundle=true > hack/charts/dpf-operator/manifests.yaml
 	# Next generate the operator bundle.
@@ -493,7 +493,6 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 	$Q $(KUBECTL) apply -f $(CERT_MANAGER_YAML)
 
 	# Mirror images for e2e tests from docker hub and push them in the test registry to avoid docker pull limits.
-	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
 	$(MAKE) test-build-and-push-artifacts
 
 	echo "Waiting for cert-manager deployment to be ready."
@@ -506,11 +505,7 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 .PHONY: test-build-and-push-artifacts
 test-build-and-push-artifacts: $(KUSTOMIZE) ## Build and push DPF artifacts (images, charts, bundle) for e2e tests.
 	# Build and push the dpuservice, provisioning, operator and operator-bundle images.
-	$Q eval $$($(MINIKUBE) -p $(TEST_CLUSTER_NAME) docker-env); \
-	$(MAKE) docker-build-dpuservice docker-push-dpuservice; \
-	$(MAKE) docker-build-operator docker-push-operator ; \
-	$(MAKE) docker-build-operator-bundle docker-push-operator-bundle; \
-	$(MAKE) docker-build-provisioning docker-push-provisioning;
+	$(MAKE) docker-build-dpf-system docker-push-dpf-system;
 
 	# Build and push all the helm charts
 	$(MAKE) helm-package-all helm-push-all
@@ -519,7 +514,7 @@ OPERATOR_NAMESPACE ?= dpf-operator-system
 
 .PHONY: test-deploy-operator-helm
 test-deploy-operator-helm: $(HELM) ## Deploy the DPF Operator using helm
-	$(HELM) install --create-namespace --namespace $(OPERATOR_NAMESPACE) --set image=$(DPFOPERATOR_IMAGE):$(TAG)  dpf-operator $(OPERATOR_HELM_CHART)
+	$(HELM) install --create-namespace --namespace $(OPERATOR_NAMESPACE) --set image=$(DPF_SYSTEM_IMAGE):$(TAG) --set imagePullSecrets[0].name=dpf-pull-secret dpf-operator $(OPERATOR_HELM_CHART)
 
 OLM_VERSION ?= v0.28.0
 OPERATOR_REGISTRY_VERSION ?= v1.43.1
@@ -587,10 +582,10 @@ verify-copyright: ## Verify copyrights for project files
 	$Q $(CURDIR)/hack/scripts/copyright-validation.sh
 
 .PHONY: lint-helm
-lint-helm: $(HELM) lint-helm-sfcset lint-helm-multus lint-helm-sriov-dp lint-helm-nvidia-k8s-ipam lint-helm-ovs-cni lint-helm-sfc-controller lint-helm-ovnkubernetes-operator lint-helm-dummydpuservice
+lint-helm: $(HELM) lint-helm-servicechainset lint-helm-multus lint-helm-sriov-dp lint-helm-nvidia-k8s-ipam lint-helm-ovs-cni lint-helm-sfc-controller lint-helm-ovnkubernetes-operator lint-helm-dummydpuservice
 
-.PHONY: lint-helm-sfcset
-lint-helm-sfcset: $(HELM) ## Run helm lint for sfcset chart
+.PHONY: lint-helm-servicechainset
+lint-helm-servicechainset: $(HELM) ## Run helm lint for servicechainset chart
 	$Q $(HELM) lint $(SERVICECHAIN_CONTROLLER_HELM_CHART)
 
 .PHONY: lint-helm-multus
@@ -625,6 +620,8 @@ lint-helm-dummydpuservice: $(HELM) ## Run helm lint for dummydpuservice chart
 
 .PHONY: release
 release: generate # Build and push helm and container images for release.
+	# Build multiarch images which will run on both DPUs and x86 hosts.
+	$(MAKE) $(addprefix docker-build-,$(MULTI_ARCH_DOCKER_BUILD_TARGETS))
 	# Build arm64 images which will run on DPUs.
 	$(MAKE) ARCH=$(DPU_ARCH) $(addprefix docker-build-,$(DPU_ARCH_DOCKER_BUILD_TARGETS))
 	# Build amd64 images which will run on x86 hosts.
@@ -637,11 +634,12 @@ release: generate # Build and push helm and container images for release.
 
 ##@ Build
 
-GO_GCFLAGS=""
-GO_LDFLAGS="-extldflags '-static'"
+GO_GCFLAGS ?= ""
+GO_LDFLAGS ?= "-extldflags '-static'"
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS) $(HOST_ARCH_BUILD_TARGETS)
-DPU_ARCH_BUILD_TARGETS ?= dpucniprovisioner sfcset ipallocator
-HOST_ARCH_BUILD_TARGETS ?= operator dpuservice hostcniprovisioner ovnkubernetes-operator
+DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset
+DPU_ARCH_BUILD_TARGETS ?= dpucniprovisioner ipallocator
+HOST_ARCH_BUILD_TARGETS ?=  hostcniprovisioner ovnkubernetes-operator
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
 # The BUNDLE_VERSION is the same as the TAG but the first character is stripped. This is used to strip a leading `v` which is invalid for Bundle versions.
@@ -660,17 +658,24 @@ ALPINE_IMAGE = alpine:3.19
 .PHONY: binaries
 binaries: $(addprefix binary-,$(BUILD_TARGETS)) ## Build all binaries
 
-.PHONY: binary-sfcset
-binary-sfcset: ## Build the sfcset controller binary.
-	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/sfcset-manager gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/servicechainset
+.PHONY: binaries-dpf-system
+binaries-dpf-system: $(addprefix binary-,$(DPF_SYSTEM_BUILD_TARGETS)) ## Build binaries for the dpf-system image.
 
 .PHONY: binary-operator
-binary-operator: generate-manifests-operator-embedded ## Build the operator controller binary.
-	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/operator-manager gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/operator
+binary-operator: ## Build the operator controller binary.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/operator gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/operator
+
+.PHONY: binary-provisioning
+binary-provisioning: ## Build the provisioning controller binary.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/provisioning gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/provisioning
 
 .PHONY: binary-dpuservice
 binary-dpuservice: ## Build the dpuservice controller binary.
-	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/dpuservice-manager gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/dpuservice
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/dpuservice gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/dpuservice
+
+.PHONY: binary-servicechainset
+binary-servicechainset: ## Build the servicechainset controller binary.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/servicechainset gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/servicechainset
 
 .PHONY: binary-dpucniprovisioner
 binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
@@ -692,12 +697,16 @@ binary-binary-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-
 binary-ipallocator: ## Build the IP allocator binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ipallocator gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/ipallocator
 
-DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS)
-HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle provisioning hostnetwork parprouted dms dhcrelay ovnkubernetes-operator
+DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
+HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle hostnetwork parprouted dms dhcrelay ovnkubernetes-operator
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn hbn-sidecar ovs-cni ipallocator
+MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
+
+DPF_SYSTEM_IMAGE_NAME ?= dpf-system
+export DPF_SYSTEM_IMAGE ?= $(REGISTRY)/$(DPF_SYSTEM_IMAGE_NAME)
 
 OVS_BASE_IMAGE_NAME = base-image-ovs
 OVS_BASE_IMAGE = $(REGISTRY)/$(OVS_BASE_IMAGE_NAME)
@@ -712,18 +721,6 @@ export OVNKUBERNETES_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_DPU_IMAGE_NAME)
 # Images that are running on the non DPU host cluster nodes (control plane)
 OVNKUBERNETES_NON_DPU_IMAGE_NAME = ovn-kubernetes-non-dpu
 export OVNKUBERNETES_NON_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_NON_DPU_IMAGE_NAME)
-
-DPFOPERATOR_IMAGE_NAME ?= dpf-operator-controller-manager
-export DPFOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOPERATOR_IMAGE_NAME)
-
-SFCSET_IMAGE_NAME ?= sfcset-controller-manager
-export SFCSET_IMAGE ?= $(REGISTRY)/$(SFCSET_IMAGE_NAME)
-
-DPUSERVICE_IMAGE_NAME ?= dpuservice-controller-manager
-DPUSERVICE_IMAGE ?= $(REGISTRY)/$(DPUSERVICE_IMAGE_NAME)
-
-PROVISIONING_IMAGE_NAME ?= provisioning-controller-manager
-export PROVISIONING_IMAGE ?= $(REGISTRY)/$(PROVISIONING_IMAGE_NAME)
 
 SFC_CONTROLLER_IMAGE_NAME ?= sfc-controller-manager
 export SFC_CONTROLLER_IMAGE ?= $(REGISTRY)/$(SFC_CONTROLLER_IMAGE_NAME)
@@ -765,17 +762,37 @@ export HBN_SIDECAR_IMAGE ?= $(REGISTRY)/$(HBN_SIDECAR_IMAGE_NAME)
 DUMMYDPUSERVICE_IMAGE_NAME ?= dummydpuservice
 export DUMMYDPUSERVICE_IMAGE ?= $(REGISTRY)/$(DUMMYDPUSERVICE_IMAGE_NAME)
 
-.PHONY: docker-build-sfcset
-docker-build-sfcset: ## Build docker images for the sfcset-controller
+DPF_SYSTEM_ARCH ?= $(HOST_ARCH) $(DPU_ARCH)
+.PHONY: docker-build-dpf-system # Build a multi-arch image for DPF System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
+docker-build-dpf-system: $(addprefix docker-build-dpf-system-for-,$(DPF_SYSTEM_ARCH))
+
+docker-build-dpf-system-for-%:
+	# Provenance false ensures this target builds an image rather than a manifest when using buildx.
 	docker build \
+		--provenance=false \
+		--platform=linux/$* \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
-		--build-arg target_arch=$(ARCH) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
-		--build-arg package=./cmd/servicechainset \
+		-f dpf-system.Dockerfile \
 		. \
-		-t $(SFCSET_IMAGE):$(TAG)
+		-t $(DPF_SYSTEM_IMAGE):$(TAG)-$*
+
+.PHONY: docker-push-dpf-system # Push a multi-arch image for DPF System using `docker manifest`. The variable DPF_SYSTEM_ARCH defines which architectures this target pushes for.
+docker-push-dpf-system: $(addprefix docker-push-dpf-system-for-,$(DPF_SYSTEM_ARCH))
+	docker manifest push --purge $(DPF_SYSTEM_IMAGE):$(TAG)
+
+docker-push-dpf-system-for-%:
+	# Tag and push the arch-specific image with the single arch-agnostic tag.
+	docker tag $(DPF_SYSTEM_IMAGE):$(TAG)-$* $(DPF_SYSTEM_IMAGE):$(TAG)
+	docker push $(DPF_SYSTEM_IMAGE):$(TAG)
+	# This must be called in a separate target to ensure the shell command is called in the correct order.
+	$(MAKE) docker-create-manifest
+
+docker-create-manifest:
+	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
+	docker manifest create --amend $(DPF_SYSTEM_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(DPF_SYSTEM_IMAGE):$(TAG))
 
 .PHONY: docker-build-sfc-controller
 docker-build-sfc-controller: docker-build-base-image-ovs ## Build docker images for the sfc-controller
@@ -788,34 +805,6 @@ docker-build-sfc-controller: docker-build-base-image-ovs ## Build docker images 
 		--build-arg package=./cmd/sfc-controller \
 		. \
 		-t $(SFC_CONTROLLER_IMAGE):$(TAG)
-
-.PHONY: docker-build-operator
-docker-build-operator: generate-manifests-operator-embedded ## Build docker images for the operator-controller
-	docker build \
-		--build-arg builder_image=$(BUILD_IMAGE) \
-		--build-arg base_image=$(BASE_IMAGE) \
-		--build-arg target_arch=$(ARCH) \
-		--build-arg ldflags=$(GO_LDFLAGS) \
-		--build-arg gcflags=$(GO_GCFLAGS) \
-		--build-arg package=./cmd/operator \
-		. \
-		-t $(DPFOPERATOR_IMAGE):$(TAG)
-
-.PHONY: docker-build-dpuservice
-docker-build-dpuservice: ## Build docker images for the dpuservice-controller
-	docker build \
-		--build-arg builder_image=$(BUILD_IMAGE) \
-		--build-arg base_image=$(BASE_IMAGE) \
-		--build-arg target_arch=$(ARCH) \
-		--build-arg ldflags=$(GO_LDFLAGS) \
-		--build-arg gcflags=$(GO_GCFLAGS) \
-		--build-arg package=./cmd/dpuservice \
-		. \
-		-t $(DPUSERVICE_IMAGE):$(TAG)
-
-.PHONY: docker-build-provisioning
-docker-build-provisioning: ## Build docker images for the provisioning-controller
-	docker build -t $(PROVISIONING_IMAGE):$(TAG) . -f Dockerfile.provisioning-controller
 
 .PHONY: docker-build-dpucniprovisioner
 docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker images for the DPU CNI Provisioner
@@ -967,25 +956,9 @@ docker-build-dummydpuservice: ## Build docker images for the dummydpuservice
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the docker images for all DOCKER_BUILD_TARGETS.
 
-.PHONY: docker-push-sfcset
-docker-push-sfcset: ## Push the docker image for sfcset.
-	docker push $(SFCSET_IMAGE):$(TAG)
-
 .PHONY: docker-push-sfc-controller
 docker-push-sfc-controller:
 	docker push $(SFC_CONTROLLER_IMAGE):$(TAG)
-
-.PHONY: docker-push-operator
-docker-push-operator: ## Push the docker image for operator.
-	docker push $(DPFOPERATOR_IMAGE):$(TAG)
-
-.PHONY: docker-push-dpuservice
-docker-push-dpuservice: ## Push the docker image for dpuservice.
-	docker push $(DPUSERVICE_IMAGE):$(TAG)
-
-.PHONY: docker-push-provisioning
-docker-push-provisioning: ## Push the docker image for dpf provisioning controller.
-	docker push $(PROVISIONING_IMAGE):$(TAG)
 
 .PHONY: docker-push-hbn-sidecar
 docker-push-hbn-sidecar: ## Push the docker image for HBN sidecar.
@@ -1234,17 +1207,14 @@ dev-prereqs-dpuservice: $(KUSTOMIZE) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(HELM)
 SKAFFOLD_REGISTRY=localhost:5000
 dev-dpuservice: $(MINIKUBE) $(SKAFFOLD) ## Deploy dpuservice controller to dev cluster using skaffold
 	# Use minikube for docker build and deployment and run skaffold
-	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p dpuservice --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
 dev-operator:  $(MINIKUBE) $(SKAFFOLD) generate-manifests-operator-embedded ## Deploy operator controller to dev cluster using skaffold
-	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false --cleanup=false
 
 dev-ovnkubernetes-operator:  $(MINIKUBE) $(SKAFFOLD) generate-manifests-ovnkubernetes-operator-embedded ## Deploy operator controller to dev cluster using skaffold
 	# Ensure the manager's kustomization has the correct image name and has not been changed by generation.
 	git restore config/ovnkubernetesoperator/manager/kustomization.yaml
-	$Q eval $$($(MINIKUBE) -p $(DEV_CLUSTER_NAME) docker-env); \
 	$(SKAFFOLD) debug -p ovnkubernetes-operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist

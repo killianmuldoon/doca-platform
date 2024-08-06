@@ -38,7 +38,7 @@ spec:
     spec:
       containers:
       - command:
-        - /manager
+        - /dpuservice
         #args: dropped to allow debugging
         #- --leader-elect
         image: controller:latest

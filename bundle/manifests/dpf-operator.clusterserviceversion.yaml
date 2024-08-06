@@ -115,8 +115,8 @@ spec:
                         operator: Exists
               containers:
               - command:
-                - /manager
-                image: example.com/dpf-operator-controller-manager:v0.1.0
+                - /operator
+                image: example.com/dpf-system:v0.1.0
                 livenessProbe:
                   httpGet:
                     path: /healthz

@@ -1,0 +1,51 @@
+ARG builder_image
+ARG base_image
+
+# 1) Dependency stage which is used to download dependencies.
+# This is seperate from the builder image to enable clear caching of downloaded artifacts.
+FROM --platform=linux/${TARGETARCH} ${builder_image}  AS dependency
+WORKDIR /workspace
+ARG TARGETARCH
+
+# kubeadm is required to create join tokens for DPU nodes.
+# TODO: Remove this in favor of using a client-go call for a join token.
+RUN wget https://cdn.dl.k8s.io/release/v1.29.3/bin/linux/${TARGETARCH}/kubeadm && chmod +x kubeadm
+RUN mkdir -p /kubeconfig
+
+# 2) Builder stage builds go binaries.
+FROM ${builder_image} AS builder
+WORKDIR /workspace
+
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+# Cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY ./ ./
+
+# Ensure that no additional tools or artifacts are included.
+RUN make clean
+
+ARG gcflags
+ARG ldflags
+ARG TARGETARCH
+
+ENV GO_LDFLAGS=\"${ldflags}\"
+ENV GO_GCFLAGS=\"${gcflags}\"
+ENV ARCH=${TARGETARCH}
+
+RUN make binaries-dpf-system
+
+# 3) Final stage copies artefacts from the builder and dependency stages.
+FROM --platform=linux/${TARGETARCH} ${base_image}
+WORKDIR /
+COPY --from=dependency /workspace/kubeadm /bin
+COPY --from=dependency /kubeconfig /kubeconfig
+
+COPY --from=builder /workspace/bin/operator .
+COPY --from=builder /workspace/bin/provisioning .
+COPY --from=builder /workspace/bin/dpuservice .
+COPY --from=builder /workspace/bin/servicechainset .
