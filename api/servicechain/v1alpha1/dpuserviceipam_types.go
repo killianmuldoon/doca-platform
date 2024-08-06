@@ -50,9 +50,9 @@ type IPV4Network struct {
 	// Network is the CIDR from which subnets should be allocated per node.
 	Network string `json:"network"`
 	// GatewayIndex determines which IP in the subnet extracted from the CIDR should be the gateway IP.
-	GatewayIndex uint `json:"gatewayIndex"`
+	GatewayIndex int32 `json:"gatewayIndex"`
 	// PrefixSize is the size of the subnet that should be allocated per node.
-	PrefixSize uint `json:"prefixSize"`
+	PrefixSize int32 `json:"prefixSize"`
 	// Exclusions is a list of IPs that should be excluded when splitting the CIDR into subnets per node.
 	Exclusions []string `json:"exclusions,omitempty"`
 	// Allocations describes the subnets that should be assigned in each DPU node.

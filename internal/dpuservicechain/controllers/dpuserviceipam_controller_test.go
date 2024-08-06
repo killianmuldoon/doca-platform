@@ -200,8 +200,8 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 				g.Expect(got.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpuserviceipam-name", "pool-1"))
 				g.Expect(got.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpuserviceipam-namespace", testNS.Name))
 				g.Expect(got.Spec.CIDR).To(Equal("192.168.0.0/20"))
-				g.Expect(got.Spec.PerNodeNetworkPrefix).To(Equal(uint(24)))
-				g.Expect(got.Spec.GatewayIndex).To(Equal(ptr.To[uint](1)))
+				g.Expect(got.Spec.PerNodeNetworkPrefix).To(Equal(int32(24)))
+				g.Expect(got.Spec.GatewayIndex).To(Equal(ptr.To[int32](1)))
 				g.Expect(got.Spec.Exclusions).To(ConsistOf([]nvipamv1.ExcludeRange{
 					{StartIP: "192.168.0.1", EndIP: "192.168.0.1"},
 					{StartIP: "192.168.0.2", EndIP: "192.168.0.2"},

@@ -279,7 +279,7 @@ func generateCIDRPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.CIDRPool {
 		},
 		Spec: nvipamv1.CIDRPoolSpec{
 			CIDR:                 dpuServiceIPAM.Spec.IPV4Network.Network,
-			GatewayIndex:         ptr.To[uint](dpuServiceIPAM.Spec.IPV4Network.GatewayIndex),
+			GatewayIndex:         ptr.To[int32](dpuServiceIPAM.Spec.IPV4Network.GatewayIndex),
 			PerNodeNetworkPrefix: dpuServiceIPAM.Spec.IPV4Network.PrefixSize,
 			NodeSelector:         dpuServiceIPAM.Spec.NodeSelector,
 			Exclusions:           exclusions,

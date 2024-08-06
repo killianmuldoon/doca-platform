@@ -105,6 +105,7 @@ spec:
                   gatewayIndex:
                     description: GatewayIndex determines which IP in the subnet extracted
                       from the CIDR should be the gateway IP.
+                    format: int32
                     type: integer
                   network:
                     description: Network is the CIDR from which subnets should be
@@ -113,6 +114,7 @@ spec:
                   prefixSize:
                     description: PrefixSize is the size of the subnet that should
                       be allocated per node.
+                    format: int32
                     type: integer
                 required:
                 - gatewayIndex
