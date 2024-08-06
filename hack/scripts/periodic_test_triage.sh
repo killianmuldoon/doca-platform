@@ -29,7 +29,7 @@ NOTIFICATION_FAILURE_THRESHOLD="${NOTIFICATION_FAILURE_THRESHOLD:-3}"
 TRIAGE_PIPELINE_NAME="${TRIAGE_PIPELINE_NAME:-""}"
 
 # results pulls the last 100 results for pipelines from the gitlab api.
-results=$(curl --request GET --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" "https://gitlab-master.nvidia.com/api/v4/projects/doca-platform-foundation%2Fdpf-operator/pipelines?per_page=100")
+results=$(curl --request GET --header "PRIVATE-TOKEN: ${GITLAB_API_TOKEN}" "https://gitlab-master.nvidia.com/api/v4/projects/doca-platform-foundation%2Fdoca-platform-foundation/pipelines?per_page=100")
 
 # filtered_results are the most recent $NUM_TEST_CONSIDERED pipeline runs that have "Periodic unit test" as their name.
 filtered_results=$(echo ${results} | jq -c --argjson NUM_TESTS_CONSIDERED "${NUM_TESTS_CONSIDERED}" --arg TRIAGE_PIPELINE_NAME "${TRIAGE_PIPELINE_NAME}" '[.[]  | select ( .name == $TRIAGE_PIPELINE_NAME)] | limit($NUM_TESTS_CONSIDERED;.[])')
