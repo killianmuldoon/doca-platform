@@ -37,7 +37,6 @@ func Patch(ctx context.Context, c client.Client, owner string, obj client.Object
 	}
 	desiredUnstructured := originalUnstructured.DeepCopy()
 	originalUnstructured.SetManagedFields(nil)
-	originalUnstructured.SetResourceVersion("")
 
 	if err := c.Patch(ctx, originalUnstructured, client.Apply, client.ForceOwnership, client.FieldOwner(owner)); err != nil {
 		return fmt.Errorf("patch object %s: %v", objNamespaceName, err)
