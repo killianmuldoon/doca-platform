@@ -17,6 +17,7 @@ limitations under the License.
 package conditions
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -266,6 +267,215 @@ func TestAddTrueAndFalse(t *testing.T) {
 				g.Expect(expectedCond.Reason).To(Equal(c.Reason))
 				g.Expect(expectedCond.Message).To(Equal(c.Message))
 			}
+		})
+	}
+}
+
+// TestSetSummary tests the SetSummary function with table-driven tests
+func TestSetSummary(t *testing.T) {
+	g := NewWithT(t)
+	tests := []struct {
+		name              string
+		initialConditions []metav1.Condition
+		expectedCondition metav1.Condition
+	}{
+		{
+			name: "All conditions are ready",
+			initialConditions: []metav1.Condition{
+				{
+					Type:    "ApplicationsReady",
+					Status:  metav1.ConditionTrue,
+					Reason:  string(ReasonSuccess),
+					Message: "",
+				},
+				{
+					Type:    "ApplicationPrereqsReconciled",
+					Status:  metav1.ConditionTrue,
+					Reason:  string(ReasonSuccess),
+					Message: "",
+				},
+			},
+			expectedCondition: metav1.Condition{
+				Type:    string(TypeReady),
+				Status:  metav1.ConditionTrue,
+				Reason:  string(ReasonSuccess),
+				Message: string(MessageSuccess),
+			},
+		},
+		{
+			name: "One condition is not ready",
+			initialConditions: []metav1.Condition{
+				{
+					Type:    "ApplicationsReady",
+					Status:  metav1.ConditionFalse,
+					Reason:  string(ReasonPending),
+					Message: "",
+				},
+				{
+					Type:    "ApplicationPrereqsReconciled",
+					Status:  metav1.ConditionTrue,
+					Reason:  string(ReasonSuccess),
+					Message: "",
+				},
+			},
+			expectedCondition: metav1.Condition{
+				Type:    string(TypeReady),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(ReasonPending),
+				Message: fmt.Sprintf(MessageNotReadyTemplate, "ApplicationsReady"),
+			},
+		},
+		{
+			name: "One condition is failed",
+			initialConditions: []metav1.Condition{
+				{
+					Type:    "ApplicationsReady",
+					Status:  metav1.ConditionFalse,
+					Reason:  string(ReasonFailure),
+					Message: "",
+				},
+				{
+					Type:    "ApplicationPrereqsReconciled",
+					Status:  metav1.ConditionTrue,
+					Reason:  string(ReasonSuccess),
+					Message: "",
+				},
+			},
+			expectedCondition: metav1.Condition{
+				Type:    string(TypeReady),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(ReasonFailure),
+				Message: fmt.Sprintf(MessageNotReadyTemplate, "ApplicationsReady"),
+			},
+		},
+		{
+			name: "One condition is errored",
+			initialConditions: []metav1.Condition{
+				{
+					Type:    "ApplicationsReady",
+					Status:  metav1.ConditionFalse,
+					Reason:  string(ReasonError),
+					Message: "",
+				},
+				{
+					Type:    "ApplicationPrereqsReconciled",
+					Status:  metav1.ConditionTrue,
+					Reason:  string(ReasonSuccess),
+					Message: "",
+				},
+			},
+			expectedCondition: metav1.Condition{
+				Type:    string(TypeReady),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(ReasonPending),
+				Message: fmt.Sprintf(MessageNotReadyTemplate, "ApplicationsReady"),
+			},
+		},
+		{
+			name: "One condition is errored, one has a failure",
+			initialConditions: []metav1.Condition{
+				{
+					Type:    "ApplicationsReady",
+					Status:  metav1.ConditionFalse,
+					Reason:  string(ReasonError),
+					Message: "",
+				},
+				{
+					Type:    "SomethingReady",
+					Status:  metav1.ConditionFalse,
+					Reason:  string(ReasonFailure),
+					Message: "",
+				},
+			},
+			expectedCondition: metav1.Condition{
+				Type:    string(TypeReady),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(ReasonFailure),
+				Message: fmt.Sprintf(MessageNotReadyTemplate, "ApplicationsReady, SomethingReady"),
+			},
+		},
+		{
+			name: "One condition is awaiting deletion",
+			initialConditions: []metav1.Condition{
+				{
+					Type:    "ApplicationsReady",
+					Status:  metav1.ConditionFalse,
+					Reason:  string(ReasonAwaitingDeletion),
+					Message: "",
+				},
+				{
+					Type:    "ApplicationPrereqsReconciled",
+					Status:  metav1.ConditionTrue,
+					Reason:  string(ReasonSuccess),
+					Message: "",
+				},
+			},
+			expectedCondition: metav1.Condition{
+				Type:    string(TypeReady),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(ReasonAwaitingDeletion),
+				Message: fmt.Sprintf(MessageNotReadyTemplate, "ApplicationsReady"),
+			},
+		},
+		{
+			name: "One condition is awaiting deletion, one is errored",
+			initialConditions: []metav1.Condition{
+				{
+					Type:    "ApplicationsReady",
+					Status:  metav1.ConditionFalse,
+					Reason:  string(ReasonAwaitingDeletion),
+					Message: "",
+				},
+				{
+					Type:    "ApplicationPrereqsReconciled",
+					Status:  metav1.ConditionFalse,
+					Reason:  string(ReasonError),
+					Message: "",
+				},
+			},
+			expectedCondition: metav1.Condition{
+				Type:    string(TypeReady),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(ReasonAwaitingDeletion),
+				Message: fmt.Sprintf(MessageNotReadyTemplate, "ApplicationsReady, ApplicationPrereqsReconciled"),
+			},
+		},
+		{
+			name: "One condition is awaiting deletion, one has a failure",
+			initialConditions: []metav1.Condition{
+				{
+					Type:    "ApplicationsReady",
+					Status:  metav1.ConditionFalse,
+					Reason:  string(ReasonAwaitingDeletion),
+					Message: "",
+				},
+				{
+					Type:    "SomethingReady",
+					Status:  metav1.ConditionFalse,
+					Reason:  string(ReasonFailure),
+					Message: "",
+				},
+			},
+			expectedCondition: metav1.Condition{
+				Type:    string(TypeReady),
+				Status:  metav1.ConditionFalse,
+				Reason:  string(ReasonAwaitingDeletion),
+				Message: fmt.Sprintf(MessageNotReadyTemplate, "ApplicationsReady, SomethingReady"),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			obj := &MockObject{}
+			obj.SetConditions(tt.initialConditions)
+			SetSummary(obj)
+
+			readyCondition := Get(obj, TypeReady)
+			g.Expect(readyCondition).NotTo(BeNil())
+			g.Expect(tt.expectedCondition.Status).To(Equal(readyCondition.Status))
+			g.Expect(tt.expectedCondition.Reason).To(Equal(readyCondition.Reason))
+			g.Expect(tt.expectedCondition.Message).To(Equal(readyCondition.Message))
 		})
 	}
 }

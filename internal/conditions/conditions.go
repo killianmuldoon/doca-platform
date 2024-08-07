@@ -17,6 +17,9 @@ limitations under the License.
 package conditions
 
 import (
+	"fmt"
+	"strings"
+
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -63,6 +66,8 @@ type ConditionMessage string
 const (
 	// MessageSuccess is the default success message.
 	MessageSuccess ConditionMessage = "Reconciliation successful"
+
+	MessageNotReadyTemplate = "The following conditions are not ready: %s"
 )
 
 type GetSet interface {
@@ -72,9 +77,8 @@ type GetSet interface {
 
 // EnsureConditions ensures that all specified conditions are present.
 // allConditions can be left nil if no conditions must be initialized.
-func EnsureConditions(obj client.Object, allConditions []ConditionType) {
-	mutateObj := obj.(GetSet)
-	conditions := GetSet.GetConditions(mutateObj)
+func EnsureConditions(obj GetSet, allConditions []ConditionType) {
+	conditions := obj.GetConditions()
 
 	if conditions == nil {
 		conditions = []metav1.Condition{}
@@ -92,22 +96,61 @@ func EnsureConditions(obj client.Object, allConditions []ConditionType) {
 		}
 	}
 
-	mutateObj.SetConditions(conditions)
+	obj.SetConditions(conditions)
 }
 
 // AddTrue adds a condition with Status=True, Reason=Successful and Message=Reconciliation successful.
-func AddTrue(obj client.Object, conditionType ConditionType) {
+func AddTrue(obj GetSet, conditionType ConditionType) {
 	add(obj, metav1.ConditionTrue, conditionType, ReasonSuccess, MessageSuccess)
 }
 
 // AddFalse adds a condition with Status=False, Reason=Pending and a specified message.
-func AddFalse(obj client.Object, conditionType ConditionType, conditionReason ConditionReason, conditionMessage ConditionMessage) {
+func AddFalse(obj GetSet, conditionType ConditionType, conditionReason ConditionReason, conditionMessage ConditionMessage) {
 	add(obj, metav1.ConditionFalse, conditionType, conditionReason, conditionMessage)
 }
 
-func add(obj client.Object, cs metav1.ConditionStatus, ct ConditionType, cr ConditionReason, cm ConditionMessage) {
-	mutateObj := obj.(GetSet)
-	conditions := GetSet.GetConditions(mutateObj)
+// SetSummary sets the overall controller condition and add a summary to the message.
+// If we have:
+// - only ready conditions, the reason is Success.
+// - unready conditions, the reason will be Pending.
+// - failed conditions, the reason is Failure.
+// - one of the conditions is in deletion, the reason is AwaitingDeletion
+func SetSummary(obj GetSet) {
+	conditions := obj.GetConditions()
+
+	var isDeleting bool
+	notReadyConditions := []string{}
+	reason := ReasonPending
+	for _, condition := range conditions {
+		if condition.Reason == string(ReasonAwaitingDeletion) {
+			isDeleting = true
+		}
+		if condition.Type == string(TypeReady) {
+			continue
+		}
+		if condition.Status == metav1.ConditionTrue {
+			continue
+		}
+		if condition.Reason == string(ReasonFailure) {
+			reason = ReasonFailure
+		}
+		notReadyConditions = append(notReadyConditions, condition.Type)
+	}
+
+	if len(notReadyConditions) == 0 {
+		AddTrue(obj, TypeReady)
+		return
+	}
+
+	if isDeleting {
+		reason = ReasonAwaitingDeletion
+	}
+	message := fmt.Sprintf(MessageNotReadyTemplate, strings.Join(notReadyConditions, ", "))
+	AddFalse(obj, TypeReady, reason, ConditionMessage(message))
+}
+
+func add(obj GetSet, cs metav1.ConditionStatus, ct ConditionType, cr ConditionReason, cm ConditionMessage) {
+	conditions := obj.GetConditions()
 
 	if conditions == nil {
 		conditions = []metav1.Condition{}
@@ -120,7 +163,7 @@ func add(obj client.Object, cs metav1.ConditionStatus, ct ConditionType, cr Cond
 		Message: string(cm),
 	})
 
-	mutateObj.SetConditions(conditions)
+	obj.SetConditions(conditions)
 }
 
 // Get returns a condition with a specific type.
