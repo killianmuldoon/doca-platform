@@ -358,8 +358,10 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				flowsPerArray += "\n"
 			}
 
-			// Add cookie, in_port, actions wait for learn actions and outputs
-			flowsPerArray += fmt.Sprintf("cookie=%d, in_port=%s actions=", hash(req.NamespacedName.String()), arrayPort)
+			// Add unique cookie based on hashing the namespace name together with the table, priority constants and input port
+			// this will result in the following string:
+			//  cookie=0x24592fc503504d3, table=0, priority=20, in_port=97 actions=
+			flowsPerArray += fmt.Sprintf("cookie=%d, table=0, priority=20, in_port=%s actions=", hash(req.NamespacedName.String()), arrayPort)
 
 			// Reset output string
 			outputFlowPart := ""
@@ -378,7 +380,7 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				}
 
 				// Add learn action
-				learnAction += fmt.Sprintf("learn(idle_timeout=10,priority=1,in_port=%s,dl_dst=dl_src,output:NXM_OF_IN_PORT[])", iter)
+				learnAction += fmt.Sprintf("learn(idle_timeout=10,table=0,priority=30,in_port=%s,dl_dst=dl_src,output:NXM_OF_IN_PORT[])", iter)
 
 				if outputFlowPart != "" {
 					// If it's not the first output action add comma
