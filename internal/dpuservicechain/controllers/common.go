@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 
 	corev1 "k8s.io/api/core/v1"
@@ -92,6 +94,15 @@ func reconcileObjectDeletionInDPUClusters(ctx context.Context,
 	}
 
 	if existingObjs > 0 {
+		// TODO: Remove that condition and do for any object using that function
+		if dpuServiceIPAM, ok := dpuServiceObject.(*sfcv1.DPUServiceIPAM); ok {
+			conditions.AddFalse(
+				dpuServiceIPAM,
+				sfcv1.ConditionDPUIPAMObjectReconciled,
+				conditions.ReasonAwaitingDeletion,
+				conditions.ConditionMessage(fmt.Sprintf("There are %d objects that still exist in the DPU Clusters", existingObjs)),
+			)
+		}
 		return &shouldRequeueError{err: fmt.Errorf("%d objects still exist across all DPU clusters", existingObjs)}
 	}
 
@@ -114,6 +125,7 @@ func reconcileObjectsInDPUClusters(ctx context.Context,
 		// TODO: In future we should tolerate this error, but only when we have status reporting.
 		return err
 	}
+
 	for _, c := range clusters {
 		cl, err := c.NewClient(ctx, k8sClient)
 		if err != nil {

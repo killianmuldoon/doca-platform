@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -29,6 +31,28 @@ const (
 var (
 	DPUServiceIPAMGroupVersionKind = GroupVersion.WithKind(DPUServiceIPAMKind)
 )
+
+// Status related variables
+const (
+	ConditionDPUIPAMObjectReconciled conditions.ConditionType = "DPUIPAMObjectReconciled"
+)
+
+var (
+	DPUServiceIPAMConditions = []conditions.ConditionType{
+		conditions.TypeReady,
+		ConditionDPUIPAMObjectReconciled,
+	}
+)
+
+var _ conditions.GetSet = &DPUServiceIPAM{}
+
+func (c *DPUServiceIPAM) GetConditions() []metav1.Condition {
+	return c.Status.Conditions
+}
+
+func (c *DPUServiceIPAM) SetConditions(conditions []metav1.Condition) {
+	c.Status.Conditions = conditions
+}
 
 // DPUServiceIPAMSpec defines the desired state of DPUServiceIPAM
 type DPUServiceIPAMSpec struct {
@@ -73,8 +97,9 @@ type IPV4Subnet struct {
 
 // DPUServiceIPAMStatus defines the observed state of DPUServiceIPAM
 type DPUServiceIPAMStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions reflect the status of the object
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true

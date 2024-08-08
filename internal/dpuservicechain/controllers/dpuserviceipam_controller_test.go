@@ -17,9 +17,11 @@ limitations under the License.
 package controllers
 
 import (
+	"sync"
 	"time"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
@@ -29,6 +31,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/client-go/dynamic"
+	"k8s.io/client-go/dynamic/dynamicinformer"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -57,7 +64,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{sfcv1.DPUServiceIPAMFinalizer}))
 		})
 	})
-	Context("When checking the behavior on the DPU cluster ", func() {
+	Context("When checking the behavior on the DPU cluster", func() {
 		var testNS *corev1.Namespace
 		var dpfClusterClient client.Client
 		BeforeEach(func() {
@@ -242,7 +249,6 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 				Gateway:        "192.168.0.1",
 				PerNodeIPCount: 256,
 			}
-
 			dpuServiceIPAM.SetManagedFields(nil)
 			dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
 			// FieldOwner must be the same as the controller so that we can set a field to nil later
@@ -325,6 +331,260 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 				gotIPPool := &nvipamv1.IPPool{}
 				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool)).To(Succeed())
 			}).WithTimeout(10 * time.Second).Should(Succeed())
+		})
+	})
+	Context("When checking the status transitions", func() {
+		var testNS *corev1.Namespace
+		var dpuServiceIPAM *sfcv1.DPUServiceIPAM
+		var kamajiSecret *corev1.Secret
+		var dpfClusterClient client.Client
+		type event struct {
+			oldObj *unstructured.Unstructured
+			newObj *unstructured.Unstructured
+		}
+		var updateEvents chan event
+		var deleteEvents chan *unstructured.Unstructured
+
+		BeforeEach(func() {
+			By("Creating the namespaces")
+			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+			Expect(testClient.Create(ctx, testNS)).To(Succeed())
+			DeferCleanup(testClient.Delete, ctx, testNS)
+
+			By("Adding fake kamaji cluster")
+			dpfCluster := controlplane.DPFCluster{Name: "envtest", Namespace: testNS.Name}
+			var err error
+			kamajiSecret, err = testutils.GetFakeKamajiClusterSecretFromEnvtest(dpfCluster, cfg)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, kamajiSecret)
+			dpfClusterClient, err = dpfCluster.NewClient(ctx, testClient)
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Creating the informer infrastructure for DPUServiceIPAM")
+			var wg sync.WaitGroup
+			stopCh := make(chan struct{})
+			updateEvents = make(chan event, 100)
+			deleteEvents = make(chan *unstructured.Unstructured, 100)
+			DeferCleanup(func() {
+				close(stopCh)
+				wg.Wait()
+				close(updateEvents)
+				close(deleteEvents)
+			})
+
+			dc, err := dynamic.NewForConfig(cfg)
+			Expect(err).ToNot(HaveOccurred())
+			informer := dynamicinformer.
+				NewFilteredDynamicSharedInformerFactory(dc, 0, testNS.Name, nil).
+				ForResource(schema.GroupVersionResource{
+					Group:    sfcv1.DPUServiceIPAMGroupVersionKind.Group,
+					Version:  sfcv1.DPUServiceIPAMGroupVersionKind.Version,
+					Resource: "dpuserviceipams",
+				}).Informer()
+
+			handlers := cache.ResourceEventHandlerFuncs{
+				UpdateFunc: func(oldObj, obj interface{}) {
+					ou := oldObj.(*unstructured.Unstructured)
+					nu := obj.(*unstructured.Unstructured)
+					updateEvents <- event{
+						oldObj: ou,
+						newObj: nu,
+					}
+				},
+				DeleteFunc: func(obj interface{}) {
+					o := obj.(*unstructured.Unstructured)
+					deleteEvents <- o
+				},
+			}
+			_, err = informer.AddEventHandler(handlers)
+			Expect(err).ToNot(HaveOccurred())
+
+			wg.Add(1)
+			go func() {
+				informer.Run(stopCh)
+				defer wg.Done()
+			}()
+
+			By("Creating a DPUServiceIPAM")
+			dpuServiceIPAM = getMinimalDPUServiceIPAM(testNS.Name)
+			dpuServiceIPAM.Name = "pool-1"
+			dpuServiceIPAM.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
+				Subnet:         "192.168.0.0/20",
+				Gateway:        "192.168.0.1",
+				PerNodeIPCount: 256,
+			}
+			Expect(testClient.Create(ctx, dpuServiceIPAM)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceIPAM)
+
+		})
+		It("DPUServiceIPAM has condition DPUIPAMObjectReconciled with Pending Reason at start of the reconciliation loop", func() {
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &event{}
+				g.Eventually(updateEvents).Should(Receive(ev))
+				oldObj := &sfcv1.DPUServiceIPAM{}
+				newObj := &sfcv1.DPUServiceIPAM{}
+				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+
+				g.Expect(oldObj.Status.Conditions).To(BeEmpty())
+				g.Expect(newObj.Status.Conditions).ToNot(BeEmpty())
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+					HaveField("Status", metav1.ConditionUnknown),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+			))
+		})
+		It("DPUServiceIPAM has condition DPUIPAMObjectReconciled with Success Reason at end of successful reconciliation loop", func() {
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &event{}
+				g.Eventually(updateEvents).Should(Receive(ev))
+				oldObj := &sfcv1.DPUServiceIPAM{}
+				newObj := &sfcv1.DPUServiceIPAM{}
+				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+
+				g.Expect(oldObj.Status.Conditions).To(ContainElement(
+					And(
+						HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+						HaveField("Status", metav1.ConditionUnknown),
+						HaveField("Reason", string(conditions.ReasonPending)),
+					),
+				))
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+			))
+		})
+		It("DPUServiceIPAM has condition DPUIPAMObjectReconciled with Error Reason at the end of a reconciliation loop that failed", func() {
+			By("Breaking the kamaji cluster secret to produce an error")
+			// Taking ownership of the labels
+			clusterName := kamajiSecret.Labels["kamaji.clastix.io/name"]
+			kamajiSecret.Labels["kamaji.clastix.io/name"] = "some"
+			kamajiSecret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
+			kamajiSecret.SetManagedFields(nil)
+			Expect(testClient.Patch(ctx, kamajiSecret, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+			delete(kamajiSecret.Labels, "kamaji.clastix.io/name")
+			kamajiSecret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
+			kamajiSecret.SetManagedFields(nil)
+			Expect(testClient.Patch(ctx, kamajiSecret, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			DeferCleanup(func() {
+				By("Reverting the kamaji cluster secret to ensure DPUServiceIPAM deletion can be done")
+				kamajiSecret.Labels["kamaji.clastix.io/name"] = clusterName
+				kamajiSecret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
+				kamajiSecret.SetManagedFields(nil)
+				Expect(testClient.Patch(ctx, kamajiSecret, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+			})
+
+			By("Checking condition")
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &event{}
+				g.Eventually(updateEvents).Should(Receive(ev))
+				oldObj := &sfcv1.DPUServiceIPAM{}
+				newObj := &sfcv1.DPUServiceIPAM{}
+				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+
+				g.Expect(oldObj.Status.Conditions).To(ContainElement(
+					And(
+						HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+						HaveField("Status", metav1.ConditionUnknown),
+						HaveField("Reason", string(conditions.ReasonPending)),
+					),
+				))
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonError)),
+				),
+			))
+
+		})
+		It("DPUServiceIPAM has condition Deleting with ObjectsExistInDPUClusters Reason when there are still objects in the DPUCluster", func() {
+			By("Ensuring that the DPUServiceIPAM has been reconciled successfully")
+			Eventually(func(g Gomega) []metav1.Condition {
+				got := &sfcv1.DPUServiceIPAM{}
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceIPAM), got)).To(Succeed())
+				return got.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ContainElement(
+				And(
+					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+					HaveField("Status", metav1.ConditionTrue),
+				),
+			))
+
+			By("Adding finalizer to the underlying object")
+			gotIPPool := &nvipamv1.IPPool{}
+			Eventually(dpfClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool).Should(Succeed())
+			gotIPPool.SetFinalizers([]string{"test.dpf.nvidia.com/test"})
+			gotIPPool.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind(nvipamv1.IPPoolKind))
+			gotIPPool.SetManagedFields(nil)
+			Expect(testClient.Patch(ctx, gotIPPool, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			By("Deleting the DPUServiceIPAM")
+			Expect(testClient.Delete(ctx, dpuServiceIPAM)).To(Succeed())
+
+			By("Checking the deleted condition is added")
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &event{}
+				g.Eventually(updateEvents).Should(Receive(ev))
+				oldObj := &sfcv1.DPUServiceIPAM{}
+				newObj := &sfcv1.DPUServiceIPAM{}
+				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+
+				g.Expect(oldObj.Status.Conditions).To(ContainElement(
+					And(
+						HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+					),
+				))
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
+					HaveField("Message", ContainSubstring("1")),
+				),
+			))
+
+			By("Removing finalizer from the underlying object to ensure deletion")
+			gotIPPool = &nvipamv1.IPPool{}
+			Eventually(dpfClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool).Should(Succeed())
+			gotIPPool.SetFinalizers([]string{})
+			gotIPPool.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind(nvipamv1.IPPoolKind))
+			gotIPPool.SetManagedFields(nil)
+			Expect(testClient.Patch(ctx, gotIPPool, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 		})
 	})
 })

@@ -23,7 +23,9 @@ import (
 	"time"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
+	ssa "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/serversideapply"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -80,15 +82,13 @@ func (r *DPUServiceIPAMReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	// Defer a patch call to always patch the object when Reconcile exits.
 	defer func() {
 		log.Info("Calling defer")
-		// TODO: Make this a generic patcher.
-		// TODO: There is an issue patching status here with SSA - the finalizer managed field becomes broken and the finalizer can not be removed. Investigate.
-		// Set the GVK explicitly for the patch.
-		dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
-		// Do not include manged fields in the patch call. This does not remove existing fields.
-		dpuServiceIPAM.ObjectMeta.ManagedFields = nil
-		err := r.Client.Patch(ctx, dpuServiceIPAM, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceIPAMControllerName))
+
+		conditions.SetSummary(dpuServiceIPAM)
+		err := ssa.Patch(ctx, r.Client, dpuServiceIPAMControllerName, dpuServiceIPAM)
 		reterr = kerrors.NewAggregate([]error{reterr, err})
 	}()
+
+	conditions.EnsureConditions(dpuServiceIPAM, sfcv1.DPUServiceIPAMConditions)
 
 	// Handle deletion reconciliation loop.
 	if !dpuServiceIPAM.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -110,8 +110,18 @@ func (r *DPUServiceIPAMReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 //nolint:unparam
 func (r *DPUServiceIPAMReconciler) reconcile(ctx context.Context, dpuServiceIPAM *sfcv1.DPUServiceIPAM) (ctrl.Result, error) {
 	if err := reconcileObjectsInDPUClusters(ctx, r, r.Client, dpuServiceIPAM); err != nil {
+		conditions.AddFalse(
+			dpuServiceIPAM,
+			sfcv1.ConditionDPUIPAMObjectReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
 		return ctrl.Result{}, err
 	}
+	conditions.AddTrue(
+		dpuServiceIPAM,
+		sfcv1.ConditionDPUIPAMObjectReconciled,
+	)
 	return ctrl.Result{}, nil
 }
 
@@ -121,6 +131,12 @@ func (r *DPUServiceIPAMReconciler) reconcile(ctx context.Context, dpuServiceIPAM
 func (r *DPUServiceIPAMReconciler) reconcileDelete(ctx context.Context, dpuServiceIPAM *sfcv1.DPUServiceIPAM) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling delete")
+	conditions.AddFalse(
+		dpuServiceIPAM,
+		sfcv1.ConditionDPUIPAMObjectReconciled,
+		conditions.ReasonAwaitingDeletion,
+		"",
+	)
 	if err := reconcileObjectDeletionInDPUClusters(ctx, r, r.Client, dpuServiceIPAM); err != nil {
 		if errors.Is(err, &shouldRequeueError{}) {
 			log.Info(fmt.Sprintf("Requeueing because %s", err.Error()))
@@ -204,7 +220,7 @@ func deleteDPUServiceOwnedPoolsOfType(ctx context.Context, c client.Client, dpuS
 // reconcileIPPoolMode reconciles NVIPAM IPPool object and removes any leftover CIDRPool
 func reconcileIPPoolMode(ctx context.Context, c client.Client, dpuServiceIPAM *sfcv1.DPUServiceIPAM) error {
 	pool := generateIPPool(dpuServiceIPAM)
-	if err := c.Patch(ctx, pool, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceChainControllerName)); err != nil {
+	if err := c.Patch(ctx, pool, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceIPAMControllerName)); err != nil {
 		return fmt.Errorf("error while patching %s %s: %w", pool.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(pool), err)
 	}
 
@@ -220,7 +236,7 @@ func reconcileIPPoolMode(ctx context.Context, c client.Client, dpuServiceIPAM *s
 // reconcileCIDRPoolMode reconciles NVIPAM CIDRPool object and removes any leftover IPPool
 func reconcileCIDRPoolMode(ctx context.Context, c client.Client, dpuServiceIPAM *sfcv1.DPUServiceIPAM) error {
 	pool := generateCIDRPool(dpuServiceIPAM)
-	if err := c.Patch(ctx, pool, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceChainControllerName)); err != nil {
+	if err := c.Patch(ctx, pool, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceIPAMControllerName)); err != nil {
 		return fmt.Errorf("error while patching %s %s: %w", pool.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(pool), err)
 	}
 
