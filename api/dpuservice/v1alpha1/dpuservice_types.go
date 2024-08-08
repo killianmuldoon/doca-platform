@@ -17,30 +17,47 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
-var (
+const (
 	DPUServiceFinalizer         = "dpf.nvidia.com/dpuservice"
 	DPUServiceNameLabelKey      = "dpf.nvidia.com/dpuservice-name"
 	DPUServiceNamespaceLabelKey = "dpf.nvidia.com/dpuservice-namespace"
 
 	// DPFImagePullSecretLabelKey marks a secret as being an ImagePullSecret used by DPF which should be mirrored to DPUClusters.
 	DPFImagePullSecretLabelKey = "dpf.nvidia.com/image-pull-secret"
-
-	// Conditions
-	ConditionDPUService = "DPUService"
-
-	// Condition Reasons
-	ConditionPendingReason    = "Pending"
-	ConditionSuccessfulReason = "Successful"
-
-	// Condition Messages
-	ConditionSuccessfulMessage = "The %s has been provisioned successfully"
 )
+
+const (
+	ConditionApplicationPrereqsReconciled conditions.ConditionType = "ApplicationPrereqsReconciled"
+	ConditionApplicationsReconciled       conditions.ConditionType = "ApplicationsReconciled"
+	ConditionApplicationsReady            conditions.ConditionType = "ApplicationsReady"
+)
+
+var (
+	AllConditions = []conditions.ConditionType{
+		conditions.TypeReady,
+		ConditionApplicationPrereqsReconciled,
+		ConditionApplicationsReconciled,
+		ConditionApplicationsReady,
+	}
+)
+
+var _ conditions.GetSet = &DPUService{}
+
+func (c *DPUService) GetConditions() []metav1.Condition {
+	return c.Status.Conditions
+}
+
+func (c *DPUService) SetConditions(conditions []metav1.Condition) {
+	c.Status.Conditions = conditions
+}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
@@ -104,7 +121,7 @@ type ServiceDaemonSetValues struct {
 type DPUServiceStatus struct {
 	// Conditions defines current service state.
 	// +optional
-	Conditions *[]metav1.Condition `json:"conditions,omitempty"`
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true

@@ -19,12 +19,14 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
@@ -32,7 +34,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -70,6 +71,12 @@ const (
 	// The ArgoCD namespace will always be the same as that where the reconciler is deployed.
 	// TODO:Figure out a way to make this dynamic while preserving the e2e tests.
 	argoCDNamespace = "dpf-operator-system"
+
+	ConditionMessageApplicationsNotInSync conditions.ConditionMessage = "Applications are not in sync."
+
+	conditionMessageErroredTemplate             = "Unable to reconcile: %v"
+	conditionMessageAppNotReadyTemplate         = "The following applications are not ready: %v"
+	conditionMessageAppAwaitingDeletionTemplate = "The following applications are awaiting deletion: %v"
 )
 
 const (
@@ -100,10 +107,11 @@ func (r *DPUServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 		return ctrl.Result{}, err
 	}
+	conditions.EnsureConditions(dpuService, dpuservicev1.AllConditions)
 
-	//original := dpuService.DeepCopy()
 	// Defer a patch call to always patch the object when Reconcile exits.
 	defer func() {
+		conditions.SetSummary(dpuService)
 		if err := ssa.Patch(ctx, r.Client, dpuServiceControllerName, dpuService); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
@@ -125,7 +133,9 @@ func (r *DPUServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 //nolint:unparam
 func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
+	// TODO: add deletion for Argo Secrets, AppProject and ImagePullSecrets. Also add AwaitingDeletion conditions.
 	log.Info("handling DPUService deletion")
+
 	errs := []error{}
 	applications := &argov1.ApplicationList{}
 	if err := r.Client.List(ctx, applications, client.MatchingLabels{
@@ -143,6 +153,34 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 			}
 		}
 	}
+
+	// List Applications again to verify if it is in deletion.
+	// Already deleted Applications will not be listed.
+	if err := r.Client.List(ctx, applications, client.MatchingLabels{
+		dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
+		dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
+	}); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	appsInDeletion := []string{}
+	for _, app := range applications.Items {
+		if !app.GetDeletionTimestamp().IsZero() {
+			argoApp := fmt.Sprintf("%s/%s.%s", app.Namespace, app.Name, app.GroupVersionKind().Group)
+			appsInDeletion = append(appsInDeletion, argoApp)
+		}
+	}
+
+	if len(appsInDeletion) > 0 {
+		message := fmt.Sprintf(conditionMessageAppAwaitingDeletionTemplate, strings.Join(appsInDeletion, ", "))
+		conditions.AddFalse(
+			dpuService,
+			dpuservicev1.ConditionApplicationsReconciled,
+			conditions.ReasonAwaitingDeletion,
+			conditions.ConditionMessage(message),
+		)
+	}
+
 	if len(errs) > 0 {
 		return ctrl.Result{}, kerrors.NewAggregate(errs)
 	}
@@ -150,6 +188,11 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 		log.Info(fmt.Sprintf("Requeueing: %d applications still managed by DPUService", len(applications.Items)))
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
+
+	// Add AwaitingDeletion condition to true. Probably this will never going to apply on the DPUService as it will be
+	// deleted in the next step anyway.
+	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationsReconciled)
+
 	// If there are no associated applications remove the finalizer.
 	log.Info("Removing finalizer")
 	controllerutil.RemoveFinalizer(dpuService, dpuservicev1.DPUServiceFinalizer)
@@ -158,65 +201,81 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 
 func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) {
 	var res ctrl.Result
-	if dpuService.Status.Conditions == nil {
-		dpuService.Status.Conditions = &[]metav1.Condition{}
-	}
-	addFalseCondition(dpuService.Status.Conditions, dpuservicev1.ConditionDPUService)
 
 	// Get the list of clusters this DPUService targets.
 	// TODO: Add some way to check if the clusters are healthy. Reconciler should retry clusters if they're unready.
 	clusters, err := controlplane.GetDPFClusters(ctx, r.Client)
 	if err != nil {
-		// TODO: In future we should tolerate this error, but only when we have status reporting.
 		return ctrl.Result{}, err
 	}
 
-	// Ensure the Argo secret for each cluster is up-to-date.
-	if err = r.reconcileArgoSecrets(ctx, clusters); err != nil {
-		// TODO: In future we should tolerate this error, but only when we have status reporting.
-		return ctrl.Result{}, err
-	}
-
-	//  Ensure the ArgoCD AppProject exists and is up-to-date.
-	if err = r.reconcileAppProject(ctx, argoCDNamespace, clusters); err != nil {
-		// TODO: In future we should tolerate this error, but only when we have status reporting.
+	if err := r.reconcileApplicationPrereqs(ctx, clusters); err != nil {
+		message := fmt.Sprintf(conditionMessageErroredTemplate, err.Error())
+		conditions.AddFalse(
+			dpuService,
+			dpuservicev1.ConditionApplicationPrereqsReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(message),
+		)
 		return ctrl.Result{}, err
 	}
 
 	// Update the ArgoApplication for all target clusters.
 	if err = r.reconcileApplication(ctx, argoCDNamespace, clusters, dpuService); err != nil {
-		// TODO: In future we should tolerate this error, but only when we have status reporting.
+		err = fmt.Errorf("Application: %w", err)
+		message := fmt.Sprintf(conditionMessageErroredTemplate, err)
+		conditions.AddFalse(
+			dpuService,
+			dpuservicev1.ConditionApplicationsReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(message),
+		)
 		return ctrl.Result{}, err
 	}
+	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationsReconciled)
 
+	// TODO: We have to keep the creation of the ImagePullSecrets after the Applications reconciliation,
+	// because the namespace dpf-operator-system will be created with the first Applications.
+	// We should fix this to also move the ImagePullSecrets creation into the prereqs method.
 	if err = r.reconcileImagePullSecrets(ctx, clusters, dpuService); err != nil {
+		err = fmt.Errorf("ImagePullSecrets: %w", err)
+		message := fmt.Sprintf(conditionMessageErroredTemplate, err)
+		conditions.AddFalse(
+			dpuService,
+			dpuservicev1.ConditionApplicationPrereqsReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(message),
+		)
 		return ctrl.Result{}, err
 	}
+	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationPrereqsReconciled)
 
 	// Update the status of the DPUService.
-	if res, err = r.reconcileStatus(ctx, dpuService, clusters); err != nil {
+	if res, err = r.reconcileApplicationsReadiness(ctx, dpuService, clusters); err != nil {
+		conditions.AddFalse(
+			dpuService,
+			dpuservicev1.ConditionApplicationsReady,
+			conditions.ReasonFailure,
+			ConditionMessageApplicationsNotInSync,
+		)
 		return ctrl.Result{}, err
 	}
 
-	addTrueCondition(dpuService.Status.Conditions, dpuservicev1.ConditionDPUService)
 	return res, nil
 }
 
-func addTrueCondition(conditions *[]metav1.Condition, conditionType string) {
-	addCondition(conditions, metav1.ConditionTrue, conditionType)
-}
+func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, clusters []controlplane.DPFCluster) error {
+	// Ensure the Argo secret for each cluster is up-to-date.
+	if err := r.reconcileArgoSecrets(ctx, clusters); err != nil {
+		return fmt.Errorf("ArgoSecrets: %v", err)
+	}
 
-func addFalseCondition(conditions *[]metav1.Condition, conditionType string) {
-	addCondition(conditions, metav1.ConditionFalse, conditionType)
-}
+	//  Ensure the ArgoCD AppProject exists and is up-to-date.
+	if err := r.reconcileAppProject(ctx, argoCDNamespace, clusters); err != nil {
+		return fmt.Errorf("AppProject: %v", err)
+	}
 
-func addCondition(conditions *[]metav1.Condition, conditionStatus metav1.ConditionStatus, conditionType string) {
-	meta.SetStatusCondition(conditions, metav1.Condition{
-		Type:    conditionType,
-		Status:  conditionStatus,
-		Reason:  dpuservicev1.ConditionSuccessfulReason,
-		Message: fmt.Sprintf(dpuservicev1.ConditionSuccessfulMessage, conditionType),
-	})
+	return nil
 }
 
 // reconcileArgoSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
@@ -303,9 +362,9 @@ type tlsClientConfig struct {
 	CertData []byte `json:"certData,omitempty"`
 }
 
-// reconcileStatus returns a reconcile result representing whether ArgoCD Applications have been fully synced.
+// reconcileApplicationsReadiness returns a reconcile result representing whether ArgoCD Applications have been fully synced.
 // TODO: This function should update status with errors representing the state of the application.
-func (r *DPUServiceReconciler) reconcileStatus(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []controlplane.DPFCluster) (ctrl.Result, error) {
+func (r *DPUServiceReconciler) reconcileApplicationsReadiness(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []controlplane.DPFCluster) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	applicationList := &argov1.ApplicationList{}
 	var errs []error
@@ -318,21 +377,33 @@ func (r *DPUServiceReconciler) reconcileStatus(ctx context.Context, dpuService *
 		return ctrl.Result{}, err
 	}
 
-	// Get a summarized status for each application linked to the DPUService.
+	outOfSyncApplications := []string{}
+	// Get a summarized error for each application linked to the DPUService and set it as the condition message.
 	for i := range applicationList.Items {
 		app := applicationList.Items[i]
 		if app.Status.Sync.Status != argov1.SyncStatusCodeSynced {
-			errs = append(errs, fmt.Errorf("application %s/%s not yet ready", app.Name, app.Namespace))
+			argoApp := fmt.Sprintf("%s/%s.%s", app.Namespace, app.Name, app.GroupVersionKind().Group)
+			outOfSyncApplications = append(outOfSyncApplications, argoApp)
+
+			errs = append(errs, fmt.Errorf("application %s not yet ready", argoApp))
 		}
 	}
 
-	// Requeue if there are any errors, or if there are fewer applications than we have clusters.
+	// Update condition and requeue if there are any errors, or if there are fewer applications than we have clusters.
 	if len(errs) > 0 || len(applicationList.Items) != len(clusters) {
 		log.Info("Applications not ready. Requeuing")
+		message := fmt.Sprintf(conditionMessageAppNotReadyTemplate, strings.Join(outOfSyncApplications, ", "))
+		conditions.AddFalse(
+			dpuService,
+			dpuservicev1.ConditionApplicationsReady,
+			conditions.ReasonPending,
+			conditions.ConditionMessage(message),
+		)
 		// TODO: Make the DPUService controller react to changes in appliations.
 		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
 	}
 
+	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationsReady)
 	return ctrl.Result{}, nil
 }
 

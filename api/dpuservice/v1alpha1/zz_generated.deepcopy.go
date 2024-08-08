@@ -142,13 +142,9 @@ func (in *DPUServiceStatus) DeepCopyInto(out *DPUServiceStatus) {
 	*out = *in
 	if in.Conditions != nil {
 		in, out := &in.Conditions, &out.Conditions
-		*out = new([]metav1.Condition)
-		if **in != nil {
-			in, out := *in, *out
-			*out = make([]metav1.Condition, len(*in))
-			for i := range *in {
-				(*in)[i].DeepCopyInto(&(*out)[i])
-			}
+		*out = make([]metav1.Condition, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
 }

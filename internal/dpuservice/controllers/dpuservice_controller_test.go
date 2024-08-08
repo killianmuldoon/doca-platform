@@ -22,6 +22,7 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
@@ -80,66 +81,7 @@ var _ = Describe("DPUService Controller", func() {
 				cleanupObjs = append(cleanupObjs, kamajiSecret)
 			}
 
-			dpuServices := []*dpuservicev1.DPUService{
-				{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one", Namespace: testNS.Name},
-					Spec: dpuservicev1.DPUServiceSpec{
-						Source: dpuservicev1.ApplicationSource{
-							RepoURL:     "repository.com",
-							Version:     "v1.1",
-							Chart:       "first-chart",
-							ReleaseName: "release-one",
-						},
-						ServiceID: ptr.To("service-one"),
-						Values: &runtime.RawExtension{
-							Object: &unstructured.Unstructured{
-								Object: map[string]interface{}{
-									"value": "one",
-									"other": "two",
-								},
-							},
-						},
-						ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
-							NodeSelector: &corev1.NodeSelector{
-								NodeSelectorTerms: []corev1.NodeSelectorTerm{
-									{
-										MatchExpressions: []corev1.NodeSelectorRequirement{
-											{
-												Key:      "key",
-												Operator: "Exists",
-											},
-										},
-									},
-								},
-							},
-							Resources: corev1.ResourceList{
-								"cpu": *resource.NewQuantity(5, resource.DecimalSI),
-							},
-							UpdateStrategy: &appsv1.DaemonSetUpdateStrategy{
-								Type: appsv1.RollingUpdateDaemonSetStrategyType,
-								RollingUpdate: &appsv1.RollingUpdateDaemonSet{
-									MaxUnavailable: &intstr.IntOrString{
-										Type:   0,
-										IntVal: 0,
-										StrVal: "",
-									},
-									MaxSurge: &intstr.IntOrString{
-										Type:   0,
-										IntVal: 0,
-										StrVal: "",
-									},
-								},
-							},
-							Labels: map[string]string{
-								"label-one": "label-value",
-							},
-							Annotations: map[string]string{
-								"annotation-one": "annotation",
-							},
-						},
-					},
-				},
-				{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two", Namespace: testNS.Name}},
-			}
+			dpuServices := getMinimalDPUServices(testNS.Name)
 			// A DPUService that should be deployed to the same cluster the DPF system is deployed in.
 			var deployInCluster = true
 			hostDPUService := &dpuservicev1.DPUService{
@@ -227,13 +169,32 @@ func assertDPUServiceCondition(g Gomega, testClient client.Client, dpuServices [
 	for i := range dpuServices {
 		gotDPUService := &dpuservicev1.DPUService{}
 		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServices[i]), gotDPUService)).To(Succeed())
-		Expect(gotDPUService.Status.Conditions).NotTo(BeNil())
-		Expect(*gotDPUService.Status.Conditions).To(ContainElement(
+		g.Expect(gotDPUService.Status.Conditions).NotTo(BeNil())
+		g.Expect(gotDPUService.Status.Conditions).To(ConsistOf(
 			And(
-				HaveField("Type", dpuservicev1.ConditionDPUService),
+				HaveField("Type", string(conditions.TypeReady)),
+				HaveField("Status", metav1.ConditionFalse),
+				HaveField("Reason", string(conditions.ReasonPending)),
+				HaveField("Message", fmt.Sprintf(conditions.MessageNotReadyTemplate, "ApplicationsReady")),
+			),
+			And(
+				HaveField("Type", string(dpuservicev1.ConditionApplicationPrereqsReconciled)),
 				HaveField("Status", metav1.ConditionTrue),
-				HaveField("Reason", dpuservicev1.ConditionSuccessfulReason),
-				HaveField("Message", fmt.Sprintf(dpuservicev1.ConditionSuccessfulMessage, dpuservicev1.ConditionDPUService))),
+				HaveField("Reason", string(conditions.ReasonSuccess)),
+				HaveField("Message", string(conditions.MessageSuccess)),
+			),
+			And(
+				HaveField("Type", string(dpuservicev1.ConditionApplicationsReconciled)),
+				HaveField("Status", metav1.ConditionTrue),
+				HaveField("Reason", string(conditions.ReasonSuccess)),
+				HaveField("Message", string(conditions.MessageSuccess)),
+			),
+			// Argo can not deploy anything on the DPUs during unit tests.
+			And(
+				HaveField("Type", string(dpuservicev1.ConditionApplicationsReady)),
+				HaveField("Status", metav1.ConditionFalse),
+				HaveField("Reason", string(conditions.ReasonPending)),
+			),
 		))
 	}
 }
@@ -339,6 +300,69 @@ func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuser
 				g.Expect(appValuesMap).To(HaveKeyWithValue(k, v))
 			}
 		}
+	}
+}
+
+func getMinimalDPUServices(testNamespace string) []*dpuservicev1.DPUService {
+	return []*dpuservicev1.DPUService{
+		{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one", Namespace: testNamespace},
+			Spec: dpuservicev1.DPUServiceSpec{
+				Source: dpuservicev1.ApplicationSource{
+					RepoURL:     "repository.com",
+					Version:     "v1.1",
+					Chart:       "first-chart",
+					ReleaseName: "release-one",
+				},
+				ServiceID: ptr.To("service-one"),
+				Values: &runtime.RawExtension{
+					Object: &unstructured.Unstructured{
+						Object: map[string]interface{}{
+							"value": "one",
+							"other": "two",
+						},
+					},
+				},
+				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+					NodeSelector: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{
+							{
+								MatchExpressions: []corev1.NodeSelectorRequirement{
+									{
+										Key:      "key",
+										Operator: "Exists",
+									},
+								},
+							},
+						},
+					},
+					Resources: corev1.ResourceList{
+						"cpu": *resource.NewQuantity(5, resource.DecimalSI),
+					},
+					UpdateStrategy: &appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.RollingUpdateDaemonSetStrategyType,
+						RollingUpdate: &appsv1.RollingUpdateDaemonSet{
+							MaxUnavailable: &intstr.IntOrString{
+								Type:   0,
+								IntVal: 0,
+								StrVal: "",
+							},
+							MaxSurge: &intstr.IntOrString{
+								Type:   0,
+								IntVal: 0,
+								StrVal: "",
+							},
+						},
+					},
+					Labels: map[string]string{
+						"label-one": "label-value",
+					},
+					Annotations: map[string]string{
+						"annotation-one": "annotation",
+					},
+				},
+			},
+		},
+		{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two", Namespace: testNamespace}},
 	}
 }
 
