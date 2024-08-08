@@ -42,10 +42,15 @@ RUN make binaries-dpf-system
 # 3) Final stage copies artefacts from the builder and dependency stages.
 FROM --platform=linux/${TARGETARCH} ${base_image}
 WORKDIR /
-COPY --from=dependency /workspace/kubeadm /bin
-COPY --from=dependency /kubeconfig /kubeconfig
 
-COPY --from=builder /workspace/bin/operator .
-COPY --from=builder /workspace/bin/provisioning .
-COPY --from=builder /workspace/bin/dpuservice .
-COPY --from=builder /workspace/bin/servicechainset .
+# Ensure all files are copied with the correct user.
+ENV uid=65532
+USER ${uid}:${uid}
+
+COPY --chown=${uid} --from=dependency /workspace/kubeadm /bin
+COPY --chown=${uid} --from=dependency /kubeconfig /kubeconfig
+
+COPY --chown=${uid} --from=builder /workspace/bin/operator .
+COPY --chown=${uid} --from=builder /workspace/bin/provisioning .
+COPY --chown=${uid} --from=builder /workspace/bin/dpuservice .
+COPY --chown=${uid} --from=builder /workspace/bin/servicechainset .
