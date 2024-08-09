@@ -252,7 +252,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			By("Breaking the kamaji cluster secret to produce an error")
 			// Taking ownership of the labels
 			clusterName := kamajiSecret.Labels["kamaji.clastix.io/name"]
-			kamajiSecret.Labels["kamaji.clastix.io/name"] = "some"
+			kamajiSecret.Labels["kamaji.clastix.io/name"] = "some2"
 			kamajiSecret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
 			kamajiSecret.SetManagedFields(nil)
 			Expect(testClient.Patch(ctx, kamajiSecret, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())

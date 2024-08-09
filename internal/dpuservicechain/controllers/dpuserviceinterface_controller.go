@@ -24,12 +24,15 @@ import (
 	"time"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
+	ssa "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/serversideapply"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -57,9 +60,12 @@ const (
 // +kubebuilder:rbac:groups=kamaji.clastix.io,resources=tenantcontrolplanes,verbs=get;list;watch
 
 // Reconcile reconciles changes in a DPUServiceInterface.
+//
+//nolint:dupl
 func (r *DPUServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling")
+
 	dpuServiceInterface := &sfcv1.DPUServiceInterface{}
 	if err := r.Client.Get(ctx, req.NamespacedName, dpuServiceInterface); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -68,6 +74,18 @@ func (r *DPUServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 		return ctrl.Result{}, err
 	}
+
+	// Defer a patch call to always patch the object when Reconcile exits.
+	defer func() {
+		log.Info("Calling defer")
+
+		conditions.SetSummary(dpuServiceInterface)
+		err := ssa.Patch(ctx, r.Client, dpuServiceInterfaceControllerName, dpuServiceInterface)
+		reterr = kerrors.NewAggregate([]error{reterr, err})
+	}()
+
+	conditions.EnsureConditions(dpuServiceInterface, sfcv1.DPUServiceInterfaceConditions)
+
 	// Handle deletion reconciliation loop.
 	if !dpuServiceInterface.ObjectMeta.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, dpuServiceInterface)
@@ -75,15 +93,31 @@ func (r *DPUServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	// Add finalizer if not set.
 	if !controllerutil.ContainsFinalizer(dpuServiceInterface, sfcv1.DPUServiceInterfaceFinalizer) {
+		log.Info("Adding finalizer")
 		controllerutil.AddFinalizer(dpuServiceInterface, sfcv1.DPUServiceInterfaceFinalizer)
-		if err := r.Update(ctx, dpuServiceInterface); err != nil {
-			return ctrl.Result{}, err
-		}
+		return ctrl.Result{}, nil
 	}
 
+	return r.reconcile(ctx, dpuServiceInterface)
+}
+
+// reconcile handles the main reconciliation loop
+//
+//nolint:unparam
+func (r *DPUServiceInterfaceReconciler) reconcile(ctx context.Context, dpuServiceInterface *sfcv1.DPUServiceInterface) (ctrl.Result, error) {
 	if err := reconcileObjectsInDPUClusters(ctx, r, r.Client, dpuServiceInterface); err != nil {
+		conditions.AddFalse(
+			dpuServiceInterface,
+			sfcv1.ConditionServiceInterfaceSetReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
 		return ctrl.Result{}, err
 	}
+	conditions.AddTrue(
+		dpuServiceInterface,
+		sfcv1.ConditionServiceInterfaceSetReconciled,
+	)
 	return ctrl.Result{}, nil
 }
 
@@ -119,8 +153,15 @@ func (r *DPUServiceInterfaceReconciler) reconcileDelete(ctx context.Context, dpu
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling delete")
 	if err := reconcileObjectDeletionInDPUClusters(ctx, r, r.Client, dpuServiceInterface); err != nil {
-		if errors.Is(err, &shouldRequeueError{}) {
+		e := &shouldRequeueError{}
+		if errors.As(err, &e) {
 			log.Info(fmt.Sprintf("Requeueing because %s", err.Error()))
+			conditions.AddFalse(
+				dpuServiceInterface,
+				sfcv1.ConditionServiceInterfaceSetReconciled,
+				conditions.ReasonAwaitingDeletion,
+				conditions.ConditionMessage(err.Error()),
+			)
 			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
 		return ctrl.Result{}, err
@@ -128,10 +169,6 @@ func (r *DPUServiceInterfaceReconciler) reconcileDelete(ctx context.Context, dpu
 
 	log.Info("Removing finalizer")
 	controllerutil.RemoveFinalizer(dpuServiceInterface, sfcv1.DPUServiceInterfaceFinalizer)
-	if err := r.Client.Update(ctx, dpuServiceInterface); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	return ctrl.Result{}, nil
 }
 

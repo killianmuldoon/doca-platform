@@ -14,13 +14,43 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:dupl
 package v1alpha1
 
 import (
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var DPUServiceInterfaceFinalizer = "sfc.dpf.nvidia.com/dpuserviceinterface"
+const (
+	DPUServiceInterfaceFinalizer = "sfc.dpf.nvidia.com/dpuserviceinterface"
+	DPUServiceInterfaceKind      = "DPUServiceInterface"
+)
+
+var DPUServiceInterfaceGroupVersionKind = GroupVersion.WithKind(DPUServiceInterfaceKind)
+
+// Status related variables
+const (
+	ConditionServiceInterfaceSetReconciled conditions.ConditionType = "ServiceInterfaceSetReconciled"
+)
+
+var (
+	DPUServiceInterfaceConditions = []conditions.ConditionType{
+		conditions.TypeReady,
+		ConditionServiceInterfaceSetReconciled,
+	}
+)
+
+var _ conditions.GetSet = &DPUServiceInterface{}
+
+func (c *DPUServiceInterface) GetConditions() []metav1.Condition {
+	return c.Status.Conditions
+}
+
+func (c *DPUServiceInterface) SetConditions(conditions []metav1.Condition) {
+	c.Status.Conditions = conditions
+}
 
 // DPUServiceInterfaceSpec defines the desired state of DPUServiceInterfaceSpec
 type DPUServiceInterfaceSpec struct {
@@ -36,8 +66,9 @@ type ServiceInterfaceSetSpecTemplate struct {
 
 // DPUServiceInterfaceStatus defines the observed state of DPUServiceInterface
 type DPUServiceInterfaceStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions defines current service state.
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
