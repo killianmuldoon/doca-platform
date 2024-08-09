@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -78,9 +79,12 @@ func (r *DPUServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	defer func() {
 		log.Info("Calling defer")
 
-		conditions.SetSummary(dpuServiceChain)
-		err := ssa.Patch(ctx, r.Client, dpuServiceChainControllerName, dpuServiceChain)
-		reterr = kerrors.NewAggregate([]error{reterr, err})
+		if err := updateSummary(ctx, r, r.Client, sfcv1.ConditionServiceChainSetReady, dpuServiceChain); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+		if err := ssa.Patch(ctx, r.Client, dpuServiceChainControllerName, dpuServiceChain); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
 	}()
 
 	conditions.EnsureConditions(dpuServiceChain, sfcv1.DPUServiceChainConditions)
@@ -117,6 +121,7 @@ func (r *DPUServiceChainReconciler) reconcile(ctx context.Context, dpuServiceCha
 		dpuServiceChain,
 		sfcv1.ConditionServiceChainSetReconciled,
 	)
+
 	return ctrl.Result{}, nil
 }
 
@@ -180,6 +185,26 @@ func (r *DPUServiceChainReconciler) deleteObjectsInDPUCluster(ctx context.Contex
 		},
 	}
 	return k8sClient.Delete(ctx, scs)
+}
+
+// getUnreadyObjects is the method called by reconcileReadinessOfObjectsInDPUClusters function which returns whether
+// objects in the DPU cluster are ready. The input to the function is a list of objects that exist in a particular
+// cluster.
+func (r *DPUServiceChainReconciler) getUnreadyObjects(objects []unstructured.Unstructured) ([]types.NamespacedName, error) {
+	unreadyObjs := []types.NamespacedName{}
+	for _, o := range objects {
+		// TODO: Convert to ServiceChainSet when we implement status for this controller
+		conditions, exists, err := unstructured.NestedSlice(o.Object, "status", "conditions")
+		if err != nil {
+			return nil, err
+		}
+		// TODO: Check on condition ready when we implement status for this controller
+		if len(conditions) == 0 || !exists {
+			unreadyObjs = append(unreadyObjs, types.NamespacedName{Name: o.GetName(), Namespace: o.GetNamespace()})
+			continue
+		}
+	}
+	return unreadyObjs, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

@@ -32,6 +32,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -79,9 +80,12 @@ func (r *DPUServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.
 	defer func() {
 		log.Info("Calling defer")
 
-		conditions.SetSummary(dpuServiceInterface)
-		err := ssa.Patch(ctx, r.Client, dpuServiceInterfaceControllerName, dpuServiceInterface)
-		reterr = kerrors.NewAggregate([]error{reterr, err})
+		if err := updateSummary(ctx, r, r.Client, sfcv1.ConditionServiceInterfaceSetReady, dpuServiceInterface); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+		if err := ssa.Patch(ctx, r.Client, dpuServiceInterfaceControllerName, dpuServiceInterface); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
 	}()
 
 	conditions.EnsureConditions(dpuServiceInterface, sfcv1.DPUServiceInterfaceConditions)
@@ -118,6 +122,7 @@ func (r *DPUServiceInterfaceReconciler) reconcile(ctx context.Context, dpuServic
 		dpuServiceInterface,
 		sfcv1.ConditionServiceInterfaceSetReconciled,
 	)
+
 	return ctrl.Result{}, nil
 }
 
@@ -181,6 +186,26 @@ func (r *DPUServiceInterfaceReconciler) deleteObjectsInDPUCluster(ctx context.Co
 		},
 	}
 	return k8sClient.Delete(ctx, sis)
+}
+
+// getUnreadyObjects is the method called by reconcileReadinessOfObjectsInDPUClusters function which returns whether
+// objects in the DPU cluster are ready. The input to the function is a list of objects that exist in a particular
+// cluster.
+func (r *DPUServiceInterfaceReconciler) getUnreadyObjects(objects []unstructured.Unstructured) ([]types.NamespacedName, error) {
+	unreadyObjs := []types.NamespacedName{}
+	for _, o := range objects {
+		// TODO: Convert to ServiceInterfaceSet when we implement status for this controller
+		conditions, exists, err := unstructured.NestedSlice(o.Object, "status", "conditions")
+		if err != nil {
+			return nil, err
+		}
+		// TODO: Check on condition ready when we implement status for this controller
+		if len(conditions) == 0 || !exists {
+			unreadyObjs = append(unreadyObjs, types.NamespacedName{Name: o.GetName(), Namespace: o.GetNamespace()})
+			continue
+		}
+	}
+	return unreadyObjs, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

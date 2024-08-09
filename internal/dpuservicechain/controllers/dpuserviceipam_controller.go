@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -85,9 +86,12 @@ func (r *DPUServiceIPAMReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	defer func() {
 		log.Info("Calling defer")
 
-		conditions.SetSummary(dpuServiceIPAM)
-		err := ssa.Patch(ctx, r.Client, dpuServiceIPAMControllerName, dpuServiceIPAM)
-		reterr = kerrors.NewAggregate([]error{reterr, err})
+		if err := updateSummary(ctx, r, r.Client, sfcv1.ConditionDPUIPAMObjectReady, dpuServiceIPAM); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+		if err := ssa.Patch(ctx, r.Client, dpuServiceIPAMControllerName, dpuServiceIPAM); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
 	}()
 
 	conditions.EnsureConditions(dpuServiceIPAM, sfcv1.DPUServiceIPAMConditions)
@@ -124,6 +128,7 @@ func (r *DPUServiceIPAMReconciler) reconcile(ctx context.Context, dpuServiceIPAM
 		dpuServiceIPAM,
 		sfcv1.ConditionDPUIPAMObjectReconciled,
 	)
+
 	return ctrl.Result{}, nil
 }
 
@@ -205,6 +210,25 @@ func (r *DPUServiceIPAMReconciler) deleteObjectsInDPUCluster(ctx context.Context
 	}
 
 	return nil
+}
+
+// getUnreadyObjects is the method called by reconcileReadinessOfObjectsInDPUClusters function which returns whether
+// objects in the DPU cluster are ready. The input to the function is a list of objects that exist in a particular
+// cluster.
+func (r *DPUServiceIPAMReconciler) getUnreadyObjects(objects []unstructured.Unstructured) ([]types.NamespacedName, error) {
+	unreadyObjs := []types.NamespacedName{}
+	for _, o := range objects {
+		// Both IPPool and CIDRPool objects have the same status field. Unfortunately we don't have a condition ready
+		// for those resources so we rely on the allocations struct to be populated to indicate that a resource is ready.
+		allocations, exists, err := unstructured.NestedSlice(o.Object, "status", "allocations")
+		if err != nil {
+			return nil, err
+		}
+		if len(allocations) == 0 || !exists {
+			unreadyObjs = append(unreadyObjs, types.NamespacedName{Name: o.GetName(), Namespace: o.GetNamespace()})
+		}
+	}
+	return unreadyObjs, nil
 }
 
 // deleteDPUServiceOwnedPoolsOfType deletes all the objects owned by the given DPUServiceIPAM object

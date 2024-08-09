@@ -192,7 +192,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			dpuServiceInterface = createDPUServiceInterface(ctx, "interface", testNS.Name, nil)
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceInterface)
 		})
-		It("DPUServiceInterface has condition ServiceInterfaceSetReconciled with Pending Reason at start of the reconciliation loop", func() {
+		It("DPUServiceInterface has all the conditions with Pending Reason at start of the reconciliation loop", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &event{}
 				g.Eventually(updateEvents).Should(Receive(ev))
@@ -215,9 +215,14 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 					HaveField("Status", metav1.ConditionUnknown),
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionServiceInterfaceSetReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
 			))
 		})
-		It("DPUServiceInterface has condition ServiceInterfaceSetReconciled with Success Reason at end of successful reconciliation loop", func() {
+		It("DPUServiceInterface has condition ServiceInterfaceSetReconciled with Success Reason at end of successful reconciliation loop but ServiceInterfaceSetReady with Pending reason on underlying object not ready", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &event{}
 				g.Eventually(updateEvents).Should(Receive(ev))
@@ -237,11 +242,47 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			}).WithTimeout(10 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionServiceInterfaceSetReconciled)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionServiceInterfaceSetReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+			))
+		})
+		// TODO: Fix that test when we implement status for ServiceInterfaceSet
+		It("DPUServiceInterface has all conditions with Success Reason at end of successful reconciliation loop and underlying object ready", Pending, func() {
+			// TODO: Patch InterfaceSet with status
+
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &event{}
+				g.Eventually(updateEvents).Should(Receive(ev))
+				oldObj := &sfcv1.DPUServiceInterface{}
+				newObj := &sfcv1.DPUServiceInterface{}
+				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
 					HaveField("Status", metav1.ConditionTrue),
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
 				And(
 					HaveField("Type", string(sfcv1.ConditionServiceInterfaceSetReconciled)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionServiceInterfaceSetReady)),
 					HaveField("Status", metav1.ConditionTrue),
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
@@ -296,6 +337,11 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonError)),
 				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionServiceInterfaceSetReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
 			))
 
 		})
@@ -349,6 +395,11 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
 					HaveField("Message", ContainSubstring("1")),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionServiceInterfaceSetReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
 				),
 			))
 

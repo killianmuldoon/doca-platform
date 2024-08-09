@@ -33,12 +33,14 @@ var DPUServiceChainGroupVersionKind = GroupVersion.WithKind(DPUServiceChainKind)
 // Status related variables
 const (
 	ConditionServiceChainSetReconciled conditions.ConditionType = "ServiceChainSetReconciled"
+	ConditionServiceChainSetReady      conditions.ConditionType = "ServiceChainSetReady"
 )
 
 var (
 	DPUServiceChainConditions = []conditions.ConditionType{
 		conditions.TypeReady,
 		ConditionServiceChainSetReconciled,
+		ConditionServiceChainSetReady,
 	}
 )
 

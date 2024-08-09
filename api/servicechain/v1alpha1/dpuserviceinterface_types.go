@@ -33,12 +33,14 @@ var DPUServiceInterfaceGroupVersionKind = GroupVersion.WithKind(DPUServiceInterf
 // Status related variables
 const (
 	ConditionServiceInterfaceSetReconciled conditions.ConditionType = "ServiceInterfaceSetReconciled"
+	ConditionServiceInterfaceSetReady      conditions.ConditionType = "ServiceInterfaceSetReady"
 )
 
 var (
 	DPUServiceInterfaceConditions = []conditions.ConditionType{
 		conditions.TypeReady,
 		ConditionServiceInterfaceSetReconciled,
+		ConditionServiceInterfaceSetReady,
 	}
 )
 

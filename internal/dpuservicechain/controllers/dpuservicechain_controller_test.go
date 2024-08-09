@@ -193,7 +193,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			dpuServiceChain = createDPUServiceChain(ctx, "chain", testNS.Name, nil)
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceChain)
 		})
-		It("DPUServiceChain has condition ServiceChainSetReconciled with Pending Reason at start of the reconciliation loop", func() {
+		It("DPUServiceChain has most conditions with Pending Reason at start of the reconciliation loop", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &event{}
 				g.Eventually(updateEvents).Should(Receive(ev))
@@ -216,9 +216,15 @@ var _ = Describe("ServiceChainSet Controller", func() {
 					HaveField("Status", metav1.ConditionUnknown),
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
+				// Ideally this should have been unknown, but we update this status on defer
+				And(
+					HaveField("Type", string(sfcv1.ConditionServiceChainSetReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
 			))
 		})
-		It("DPUServiceChain has condition ServiceChainSetReconciled with Success Reason at end of successful reconciliation loop", func() {
+		It("DPUServiceChain has condition ServiceChainSetReconciled with Success Reason at end of successful reconciliation loop but ServiceChainSetReady with Pending reason on underlying object not ready", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &event{}
 				g.Eventually(updateEvents).Should(Receive(ev))
@@ -238,11 +244,47 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			}).WithTimeout(10 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionServiceChainSetReconciled)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionServiceChainSetReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+			))
+		})
+		// TODO: Fix that test when we implement status for ServiceChainSet
+		It("DPUServiceChain has all conditions with Success Reason at end of successful reconciliation loop and underlying object ready", Pending, func() {
+			// TODO: Patch ServiceChainSet with status
+
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &event{}
+				g.Eventually(updateEvents).Should(Receive(ev))
+				oldObj := &sfcv1.DPUServiceChain{}
+				newObj := &sfcv1.DPUServiceChain{}
+				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
 					HaveField("Status", metav1.ConditionTrue),
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
 				And(
 					HaveField("Type", string(sfcv1.ConditionServiceChainSetReconciled)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionServiceChainSetReady)),
 					HaveField("Status", metav1.ConditionTrue),
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
@@ -297,6 +339,11 @@ var _ = Describe("ServiceChainSet Controller", func() {
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonError)),
 				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionServiceChainSetReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
 			))
 
 		})
@@ -350,6 +397,11 @@ var _ = Describe("ServiceChainSet Controller", func() {
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
 					HaveField("Message", ContainSubstring("1")),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionServiceChainSetReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
 				),
 			))
 

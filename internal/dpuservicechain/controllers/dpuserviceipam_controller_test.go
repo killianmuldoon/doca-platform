@@ -418,7 +418,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceIPAM)
 
 		})
-		It("DPUServiceIPAM has condition DPUIPAMObjectReconciled with Pending Reason at start of the reconciliation loop", func() {
+		It("DPUServiceIPAM has all the conditions with Pending Reason at start of the reconciliation loop", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &event{}
 				g.Eventually(updateEvents).Should(Receive(ev))
@@ -441,9 +441,15 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 					HaveField("Status", metav1.ConditionUnknown),
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
+				// We have success here because there is no object in the cluster to watch on
+				And(
+					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
 			))
 		})
-		It("DPUServiceIPAM has condition DPUIPAMObjectReconciled with Success Reason at end of successful reconciliation loop", func() {
+		It("DPUServiceIPAM has condition DPUIPAMObjectReconciled with Success Reason at end of successful reconciliation loop but DPUIPAMObjectReady with Pending reason on underlying object not ready", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &event{}
 				g.Eventually(updateEvents).Should(Receive(ev))
@@ -463,6 +469,48 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			}).WithTimeout(10 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+			))
+		})
+		It("DPUServiceIPAM has all conditions with Success Reason at end of successful reconciliation loop and underlying object ready", func() {
+			By("Patching the status of the underlying object to indicate success")
+			gotIPPool := &nvipamv1.IPPool{}
+			Eventually(dpfClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool).Should(Succeed())
+			gotIPPool.Status.Allocations = []nvipamv1.Allocation{
+				{
+					NodeName: "bla",
+					StartIP:  "10.0.0.1",
+					EndIP:    "10.0.0.2",
+				},
+			}
+			gotIPPool.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind(nvipamv1.IPPoolKind))
+			gotIPPool.SetManagedFields(nil)
+			Expect(testClient.Status().Patch(ctx, gotIPPool, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			By("Checking the conditions")
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &event{}
+				g.Eventually(updateEvents).Should(Receive(ev))
+				oldObj := &sfcv1.DPUServiceIPAM{}
+				newObj := &sfcv1.DPUServiceIPAM{}
+				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
 					HaveField("Status", metav1.ConditionTrue),
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
@@ -471,9 +519,14 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 					HaveField("Status", metav1.ConditionTrue),
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
 			))
 		})
-		It("DPUServiceIPAM has condition DPUIPAMObjectReconciled with Error Reason at the end of a reconciliation loop that failed", func() {
+		It("DPUServiceIPAM has condition DPUIPAMObjectReconciled with Error Reason at the end of first reconciliation loop that failed", func() {
 			By("Breaking the kamaji cluster secret to produce an error")
 			// Taking ownership of the labels
 			clusterName := kamajiSecret.Labels["kamaji.clastix.io/name"]
@@ -522,8 +575,12 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonError)),
 				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
 			))
-
 		})
 		It("DPUServiceIPAM has condition Deleting with ObjectsExistInDPUClusters Reason when there are still objects in the DPUCluster", func() {
 			By("Ensuring that the DPUServiceIPAM has been reconciled successfully")
@@ -575,6 +632,11 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
 					HaveField("Message", ContainSubstring("1")),
+				),
+				And(
+					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
 				),
 			))
 

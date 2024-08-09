@@ -19,15 +19,28 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"strings"
 
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// namespacedNameInCluster is a struct that points to a particular object within a cluster
+type namespacedNameInCluster struct {
+	Object  types.NamespacedName
+	Cluster controlplane.DPFCluster
+}
+
+func (n *namespacedNameInCluster) String() string {
+	return fmt.Sprintf("{Cluster: %s/%s, Object: %s/%s}", n.Cluster.Namespace, n.Cluster.Name, n.Object.Namespace, n.Object.Name)
+}
 
 // objectsInDPUClustersReconciler is an interface that enables host cluster reconcilers to reconcile objects in the DPU
 // clusters in a standardized way.
@@ -44,6 +57,10 @@ type objectsInDPUClustersReconciler interface {
 	// objects in the DPU cluster related to the given parentObject. The implementation should delete objects in the
 	// DPU cluster.
 	deleteObjectsInDPUCluster(ctx context.Context, dpuClusterClient client.Client, parentObject client.Object) error
+	// getUnreadyObjects is the method called by reconcileReadinessOfObjectsInDPUClusters function which returns whether
+	// objects in the DPU cluster are ready. The input to the function is a list of objects that exist in a particular
+	// cluster.
+	getUnreadyObjects(objects []unstructured.Unstructured) ([]types.NamespacedName, error)
 }
 
 // shouldRequeueError is an error returned by the functions below that indicates that an event should be requeued. This
@@ -70,7 +87,8 @@ func reconcileObjectDeletionInDPUClusters(ctx context.Context,
 	//TODO implement list clusters with label selector
 	clusters, err := controlplane.GetDPFClusters(ctx, k8sClient)
 	if err != nil {
-		// TODO: In future we should tolerate this error, but only when we have status reporting.
+		// TODO: Adjust error handling here to do as much work as possible with clusters we managed to rerieve, report
+		// error back to the controller logs and update status accordingly
 		return err
 	}
 	var existingObjs int
@@ -109,7 +127,8 @@ func reconcileObjectsInDPUClusters(ctx context.Context,
 	//TODO implement list clusters with label selector
 	clusters, err := controlplane.GetDPFClusters(ctx, k8sClient)
 	if err != nil {
-		// TODO: In future we should tolerate this error, but only when we have status reporting.
+		// TODO: Adjust error handling here to do as much work as possible with clusters we managed to rerieve, report
+		// error back to the controller logs and update status accordingly
 		return err
 	}
 
@@ -126,5 +145,95 @@ func reconcileObjectsInDPUClusters(ctx context.Context,
 			return err
 		}
 	}
+	return nil
+}
+
+// reconcileReadinessOfObjectsInDPUClusters handles the readiness reconciliation loop for objects in the DPU clusters
+//
+//nolint:unparam
+func reconcileReadinessOfObjectsInDPUClusters(ctx context.Context,
+	r objectsInDPUClustersReconciler,
+	k8sClient client.Client,
+	dpuServiceObject client.Object,
+) ([]namespacedNameInCluster, error) {
+
+	// Get the list of clusters this DPUServiceObject targets.
+	//TODO implement list clusters with label selector
+	clusters, err := controlplane.GetDPFClusters(ctx, k8sClient)
+	if err != nil {
+		// TODO: Adjust error handling here to do as much work as possible with clusters we managed to rerieve, report
+		// error back to the controller logs and update status accordingly
+		return nil, err
+	}
+
+	unreadyObjs := []namespacedNameInCluster{}
+	for _, c := range clusters {
+		cl, err := c.NewClient(ctx, k8sClient)
+		if err != nil {
+			return nil, err
+		}
+		objs, err := r.getObjectsInDPUCluster(ctx, cl, dpuServiceObject)
+		if err != nil {
+			return nil, err
+		}
+		uo, err := r.getUnreadyObjects(objs)
+		if err != nil {
+			return nil, err
+		}
+		for _, o := range uo {
+			unreadyObjs = append(unreadyObjs, namespacedNameInCluster{Object: o, Cluster: c})
+		}
+
+	}
+	return unreadyObjs, nil
+}
+
+// reconcileReadinessOfObjectsInDPUClusters handles the readiness reconciliation loop for objects in the DPU clusters
+//
+//nolint:unparam
+func updateSummary(ctx context.Context,
+	r objectsInDPUClustersReconciler,
+	k8sClient client.Client,
+	objReadyCondition conditions.ConditionType,
+	dpuServiceObject client.Object,
+) error {
+
+	objAsGetSet, ok := dpuServiceObject.(conditions.GetSet)
+	if !ok {
+		return fmt.Errorf("error while converting object to conditions.GetSet")
+	}
+
+	defer conditions.SetSummary(objAsGetSet)
+	unreadyObjs, err := reconcileReadinessOfObjectsInDPUClusters(ctx, r, k8sClient, dpuServiceObject)
+	if err != nil {
+		conditions.AddFalse(
+			objAsGetSet,
+			objReadyCondition,
+			conditions.ReasonPending,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
+		return err
+	}
+
+	if len(unreadyObjs) > 0 {
+		conditions.AddFalse(
+			objAsGetSet,
+			objReadyCondition,
+			conditions.ReasonPending,
+			conditions.ConditionMessage(fmt.Sprintf("Objects not ready: %s", strings.Join(func() []string {
+				out := []string{}
+				for _, o := range unreadyObjs {
+					out = append(out, o.String())
+				}
+				return out
+			}(), ","))),
+		)
+	} else {
+		conditions.AddTrue(
+			objAsGetSet,
+			objReadyCondition,
+		)
+	}
+
 	return nil
 }

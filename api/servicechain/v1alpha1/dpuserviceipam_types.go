@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:dupl
 package v1alpha1
 
 import (
@@ -33,12 +34,14 @@ var DPUServiceIPAMGroupVersionKind = GroupVersion.WithKind(DPUServiceIPAMKind)
 // Status related variables
 const (
 	ConditionDPUIPAMObjectReconciled conditions.ConditionType = "DPUIPAMObjectReconciled"
+	ConditionDPUIPAMObjectReady      conditions.ConditionType = "DPUIPAMObjectReady"
 )
 
 var (
 	DPUServiceIPAMConditions = []conditions.ConditionType{
 		conditions.TypeReady,
 		ConditionDPUIPAMObjectReconciled,
+		ConditionDPUIPAMObjectReady,
 	}
 )
 
