@@ -20,8 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 
 	corev1 "k8s.io/api/core/v1"
@@ -81,28 +79,17 @@ func reconcileObjectDeletionInDPUClusters(ctx context.Context,
 		if err != nil {
 			return err
 		}
-		if err := r.deleteObjectsInDPUCluster(ctx, cl, dpuServiceObject); err != nil {
+		if err := r.deleteObjectsInDPUCluster(ctx, cl, dpuServiceObject); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 		objs, err := r.getObjectsInDPUCluster(ctx, cl, dpuServiceObject)
-		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				return err
-			}
+		if err != nil && !apierrors.IsNotFound(err) {
+			return err
 		}
 		existingObjs += len(objs)
 	}
 
 	if existingObjs > 0 {
-		// TODO: Remove that condition and do for any object using that function
-		if dpuServiceIPAM, ok := dpuServiceObject.(*sfcv1.DPUServiceIPAM); ok {
-			conditions.AddFalse(
-				dpuServiceIPAM,
-				sfcv1.ConditionDPUIPAMObjectReconciled,
-				conditions.ReasonAwaitingDeletion,
-				conditions.ConditionMessage(fmt.Sprintf("There are %d objects that still exist in the DPU Clusters", existingObjs)),
-			)
-		}
 		return &shouldRequeueError{err: fmt.Errorf("%d objects still exist across all DPU clusters", existingObjs)}
 	}
 
@@ -132,11 +119,8 @@ func reconcileObjectsInDPUClusters(ctx context.Context,
 			return err
 		}
 		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceObject.GetNamespace()}}
-		if err := cl.Create(ctx, ns); err != nil {
-			// Fail if this returns any error other than alreadyExists.
-			if !apierrors.IsAlreadyExists(err) {
-				return err
-			}
+		if err := cl.Create(ctx, ns); err != nil && !apierrors.IsAlreadyExists(err) {
+			return err
 		}
 		if err := r.createOrUpdateObjectsInDPUCluster(ctx, cl, dpuServiceObject); err != nil {
 			return err

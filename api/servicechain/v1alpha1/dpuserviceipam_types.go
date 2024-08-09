@@ -28,9 +28,7 @@ const (
 	DPUServiceIPAMKind      = "DPUServiceIPAM"
 )
 
-var (
-	DPUServiceIPAMGroupVersionKind = GroupVersion.WithKind(DPUServiceIPAMKind)
-)
+var DPUServiceIPAMGroupVersionKind = GroupVersion.WithKind(DPUServiceIPAMKind)
 
 // Status related variables
 const (

@@ -17,10 +17,39 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-var DPUServiceChainFinalizer = "sfc.dpf.nvidia.com/dpuservicechain"
+const (
+	DPUServiceChainFinalizer = "sfc.dpf.nvidia.com/dpuservicechain"
+	DPUServiceChainKind      = "DPUServiceChain"
+)
+
+var DPUServiceChainGroupVersionKind = GroupVersion.WithKind(DPUServiceChainKind)
+
+// Status related variables
+const (
+	ConditionServiceChainSetReconciled conditions.ConditionType = "ServiceChainSetReconciled"
+)
+
+var (
+	DPUServiceChainConditions = []conditions.ConditionType{
+		conditions.TypeReady,
+		ConditionServiceChainSetReconciled,
+	}
+)
+
+var _ conditions.GetSet = &DPUServiceChain{}
+
+func (c *DPUServiceChain) GetConditions() []metav1.Condition {
+	return c.Status.Conditions
+}
+
+func (c *DPUServiceChain) SetConditions(conditions []metav1.Condition) {
+	c.Status.Conditions = conditions
+}
 
 // DPUServiceChainSpec defines the desired state of DPUServiceChainSpec
 type DPUServiceChainSpec struct {
@@ -36,8 +65,9 @@ type ServiceChainSetSpecTemplate struct {
 
 // DPUServiceChainStatus defines the observed state of DPUServiceChain
 type DPUServiceChainStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions reflect the status of the object
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true

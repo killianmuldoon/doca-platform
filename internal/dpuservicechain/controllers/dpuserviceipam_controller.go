@@ -66,6 +66,8 @@ const (
 //+kubebuilder:rbac:groups=nv-ipam.nvidia.com,resources=ippools,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reconciles changes in a DPUServiceIPAM object
+//
+//nolint:dupl
 func (r *DPUServiceIPAMReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling")
@@ -131,15 +133,17 @@ func (r *DPUServiceIPAMReconciler) reconcile(ctx context.Context, dpuServiceIPAM
 func (r *DPUServiceIPAMReconciler) reconcileDelete(ctx context.Context, dpuServiceIPAM *sfcv1.DPUServiceIPAM) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling delete")
-	conditions.AddFalse(
-		dpuServiceIPAM,
-		sfcv1.ConditionDPUIPAMObjectReconciled,
-		conditions.ReasonAwaitingDeletion,
-		"",
-	)
+
 	if err := reconcileObjectDeletionInDPUClusters(ctx, r, r.Client, dpuServiceIPAM); err != nil {
-		if errors.Is(err, &shouldRequeueError{}) {
+		e := &shouldRequeueError{}
+		if errors.As(err, &e) {
 			log.Info(fmt.Sprintf("Requeueing because %s", err.Error()))
+			conditions.AddFalse(
+				dpuServiceIPAM,
+				sfcv1.ConditionDPUIPAMObjectReconciled,
+				conditions.ReasonAwaitingDeletion,
+				conditions.ConditionMessage(err.Error()),
+			)
 			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 		}
 		return ctrl.Result{}, fmt.Errorf("error while reconciling deletion of objects in DPU clusters: %w", err)
