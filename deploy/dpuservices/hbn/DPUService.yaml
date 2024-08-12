@@ -7,7 +7,7 @@ spec:
   source:
     repoURL:  nvidia.com/dpf
     version: v0.1.0
-    chart: hbn
+    chart: hbn-chart
   serviceID: hbn
   serviceDaemonSet:
     nodeSelector:

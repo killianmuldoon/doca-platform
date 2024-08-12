@@ -6,5 +6,5 @@ metadata:
 spec:
   source:
     repoURL: example.com
-    chart: sriov-device-plugin
+    chart: sriov-device-plugin-chart
     version: v0.1.0

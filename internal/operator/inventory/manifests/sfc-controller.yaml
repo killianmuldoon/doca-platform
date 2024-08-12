@@ -6,5 +6,5 @@ metadata:
 spec:
   source:
     repoURL: example.com
-    chart: sfc-controller
+    chart: sfc-controller-chart
     version: v0.1.0

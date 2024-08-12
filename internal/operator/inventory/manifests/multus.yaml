@@ -6,5 +6,5 @@ metadata:
 spec:
   source:
     repoURL: example.com
-    chart: multus
+    chart: multus-chart
     version: v0.1.0

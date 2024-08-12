@@ -6,5 +6,5 @@ metadata:
 spec:
   source:
     repoURL: example.com
-    chart: ovs-cni
+    chart: ovs-cni-chart
     version: v0.1.0

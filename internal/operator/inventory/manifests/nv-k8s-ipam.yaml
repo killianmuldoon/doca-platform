@@ -6,5 +6,5 @@ metadata:
 spec:
   source:
     repoURL: example.com
-    chart: nvidia-k8s-ipam
+    chart: nvidia-k8s-ipam-chart
     version: v0.1.0
