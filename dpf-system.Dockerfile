@@ -37,7 +37,9 @@ ENV GO_LDFLAGS=\"${ldflags}\"
 ENV GO_GCFLAGS=\"${gcflags}\"
 ENV ARCH=${TARGETARCH}
 
-RUN make binaries-dpf-system
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    make -j4 binaries-dpf-system
 
 # 3) Final stage copies artefacts from the builder and dependency stages.
 FROM --platform=linux/${TARGETARCH} ${base_image}

@@ -481,6 +481,12 @@ test-report: envtest gotestsum ## Run tests and generate a junit style report
 
 TEST_CLUSTER_NAME := dpf-test
 test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUBST) ## Setup a Kubernetes environment to run tests.
+	# Build and push the dpuservice, provisioning, operator and operator-bundle images.
+	$(MAKE) docker-build-dpf-system docker-push-dpf-system
+
+	# Build and push all the helm charts
+	$(MAKE) helm-package-all helm-push-all
+
 	# Create a minikube cluster to host the test.
 	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
 
@@ -492,23 +498,12 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 	# Deploy cert manager to provide certificates for webhooks.
 	$Q $(KUBECTL) apply -f $(CERT_MANAGER_YAML)
 
-	# Mirror images for e2e tests from docker hub and push them in the test registry to avoid docker pull limits.
-	$(MAKE) test-build-and-push-artifacts
-
 	echo "Waiting for cert-manager deployment to be ready."
 	$(KUBECTL) wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
 
 	# Deploy Kamaji as the underlying control plane provider.
 	$Q $(HELM) upgrade --set image.pullPolicy=IfNotPresent --set cfssl.image.tag=v1.6.5 --install kamaji $(KAMAJI)
 
-
-.PHONY: test-build-and-push-artifacts
-test-build-and-push-artifacts: $(KUSTOMIZE) ## Build and push DPF artifacts (images, charts, bundle) for e2e tests.
-	# Build and push the dpuservice, provisioning, operator and operator-bundle images.
-	$(MAKE) docker-build-dpf-system docker-push-dpf-system;
-
-	# Build and push all the helm charts
-	$(MAKE) helm-package-all helm-push-all
 
 OPERATOR_NAMESPACE ?= dpf-operator-system
 
