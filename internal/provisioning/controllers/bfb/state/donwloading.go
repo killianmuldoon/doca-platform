@@ -126,6 +126,9 @@ func downloadBfb(ctx context.Context, bfbTask butil.BfbTask) {
 		if err != nil {
 			return nil, err
 		}
+		if resp.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("failed to get: %s status: %d", bfbTask.Url, resp.StatusCode)
+		}
 		defer resp.Body.Close() //nolint: errcheck
 
 		buf := make([]byte, 128*1024*1024)
