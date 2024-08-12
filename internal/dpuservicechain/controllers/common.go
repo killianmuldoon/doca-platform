@@ -23,10 +23,9 @@ import (
 
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -137,8 +136,7 @@ func reconcileObjectsInDPUClusters(ctx context.Context,
 		if err != nil {
 			return err
 		}
-		ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceObject.GetNamespace()}}
-		if err := cl.Create(ctx, ns); err != nil && !apierrors.IsAlreadyExists(err) {
+		if err := utils.EnsureNamespace(ctx, cl, dpuServiceObject.GetNamespace()); err != nil {
 			return err
 		}
 		if err := r.createOrUpdateObjectsInDPUCluster(ctx, cl, dpuServiceObject); err != nil {

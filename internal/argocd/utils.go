@@ -115,9 +115,6 @@ func NewApplication(namespace, projectName string, cluster types.NamespacedName,
 					Prune:    true,
 					SelfHeal: true,
 				},
-				SyncOptions: []string{
-					"CreateNamespace=true",
-				},
 			},
 			Destination: argov1.ApplicationDestination{
 				// TODO: We should ensure cluster names are unique.

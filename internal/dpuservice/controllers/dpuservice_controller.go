@@ -30,6 +30,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 	ssa "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/serversideapply"
 
 	corev1 "k8s.io/api/core/v1"
@@ -57,6 +58,7 @@ type DPUServiceReconciler struct {
 // +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=persistentvolumeclaims;events;configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=namespaces,verbs=create
 // +kubebuilder:rbac:groups=argoproj.io,resources=appprojects;applications,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kamaji.clastix.io,resources=tenantcontrolplanes,verbs=get;list;watch
 
@@ -213,7 +215,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 		return err
 	}
 
-	if err := r.reconcileApplicationPrereqs(ctx, clusters); err != nil {
+	if err := r.reconcileApplicationPrereqs(ctx, dpuService, clusters); err != nil {
 		message := fmt.Sprintf(conditionMessageErroredTemplate, err.Error())
 		conditions.AddFalse(
 			dpuService,
@@ -223,6 +225,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 		)
 		return err
 	}
+	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationPrereqsReconciled)
 
 	// Update the ArgoApplication for all target clusters.
 	if err = r.reconcileApplication(ctx, argoCDNamespace, clusters, dpuService); err != nil {
@@ -238,26 +241,16 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	}
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationsReconciled)
 
-	// TODO: We have to keep the creation of the ImagePullSecrets after the Applications reconciliation,
-	// because the namespace dpf-operator-system will be created with the first Applications.
-	// We should fix this to also move the ImagePullSecrets creation into the prereqs method.
-	if err = r.reconcileImagePullSecrets(ctx, clusters, dpuService); err != nil {
-		err = fmt.Errorf("ImagePullSecrets: %w", err)
-		message := fmt.Sprintf(conditionMessageErroredTemplate, err)
-		conditions.AddFalse(
-			dpuService,
-			dpuservicev1.ConditionApplicationPrereqsReconciled,
-			conditions.ReasonError,
-			conditions.ConditionMessage(message),
-		)
-		return err
-	}
-	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationPrereqsReconciled)
-
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, clusters []controlplane.DPFCluster) error {
+func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []controlplane.DPFCluster) error {
+	// Ensure the DPUService namespace exists in target clusters.
+	project := getProjectName(dpuService)
+	if err := r.ensureNamespaces(ctx, clusters, project); err != nil {
+		return fmt.Errorf("Cluster namespaces: %v", err)
+	}
+
 	// Ensure the Argo secret for each cluster is up-to-date.
 	if err := r.reconcileArgoSecrets(ctx, clusters); err != nil {
 		return fmt.Errorf("ArgoSecrets: %v", err)
@@ -268,7 +261,32 @@ func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, 
 		return fmt.Errorf("AppProject: %v", err)
 	}
 
+	// Reconcile the ImagePullSecrets.
+	if err := r.reconcileImagePullSecrets(ctx, clusters, dpuService); err != nil {
+		return fmt.Errorf("ImagePullSecrets: %v", err)
+	}
+
 	return nil
+}
+
+func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, clusters []controlplane.DPFCluster, project string) error {
+	var errs []error
+	if project == dpuAppProjectName {
+		for _, cluster := range clusters {
+			dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
+			if err != nil {
+				errs = append(errs, err)
+			}
+			if err := utils.EnsureNamespace(ctx, dpuClusterClient, argoCDNamespace); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	} else {
+		if err := utils.EnsureNamespace(ctx, r.Client, argoCDNamespace); err != nil {
+			return fmt.Errorf("In-Cluster namespace: %v", err)
+		}
+	}
+	return kerrors.NewAggregate(errs)
 }
 
 // reconcileArgoSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.

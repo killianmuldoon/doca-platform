@@ -33,6 +33,12 @@ rules:
   - update
   - watch
 - apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+- apiGroups:
   - argoproj.io
   resources:
   - applications
