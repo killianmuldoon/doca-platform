@@ -1,10 +1,18 @@
 image: golang:1.22
 
+default:
+  interruptible: true
+
 workflow:
   # This variable can be defined where the job is triggered. e.g. the pipeline schedule in the gitlab UI
   name: $CI_PIPELINE_NAME
   auto_cancel:
     on_new_commit: interruptible
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      auto_cancel:
+        on_new_commit: none
+    - when: always # Other pipelines can run, but use the default parameters
 
 variables:
   ## Enable timestamps in job logs. See https://docs.gitlab.com/ee/ci/yaml/ci_job_log_timestamps.html
@@ -21,7 +29,6 @@ stages:
   - triage
 
 lint:
-  interruptible: true
   stage: verify
   needs: []
   rules:
@@ -53,7 +60,6 @@ lint:
     - make lint-helm
 
 verify:
-  interruptible: true
   stage: verify
   needs: []
   rules:
@@ -80,7 +86,6 @@ verify:
     - git diff
 
 test:
-  interruptible: true
   stage: test
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
@@ -108,7 +113,6 @@ test:
     - make test-report
 
 e2e:
-  interruptible: true
   stage: test
   needs: [ ]
   rules:
@@ -150,6 +154,7 @@ e2e:
     - make clean-test-env
 
 release:
+  interruptible: false
   stage: build
   # We have a known issue in the OVS CNI build that can lead to the build getting stuck. Retry helps improve the
   # probability of having a successful nightly release. Even if the known issue is fixed, we should keep that retry for
@@ -178,6 +183,7 @@ release:
 
 # This job syncs release artifacts from a shared folder internally to the gitlab artifact repo.
 push-release-artifacts:
+  interruptible: false
   stage: build
   needs: []
   rules:
@@ -197,6 +203,7 @@ push-release-artifacts:
     - ./hack/scripts/slack-notification.sh
 
 triage:
+  interruptible: false
   stage: triage
   needs: []
   variables:
