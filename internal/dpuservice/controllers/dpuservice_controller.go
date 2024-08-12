@@ -136,7 +136,6 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 	// TODO: add deletion for Argo Secrets, AppProject and ImagePullSecrets. Also add AwaitingDeletion conditions.
 	log.Info("handling DPUService deletion")
 
-	errs := []error{}
 	applications := &argov1.ApplicationList{}
 	if err := r.Client.List(ctx, applications, client.MatchingLabels{
 		dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
@@ -149,7 +148,13 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 		if err := r.Client.Delete(ctx, &app); err != nil {
 			// Tolerate if the application is not found and already deleted.
 			if !apierrors.IsNotFound(err) {
-				errs = append(errs, err)
+				conditions.AddFalse(
+					dpuService,
+					dpuservicev1.ConditionApplicationsReconciled,
+					conditions.ReasonAwaitingDeletion,
+					conditions.ConditionMessage(fmt.Sprintf("Error occurred: %v", err)),
+				)
+				return ctrl.Result{}, err
 			}
 		}
 	}
@@ -181,9 +186,6 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 		)
 	}
 
-	if len(errs) > 0 {
-		return ctrl.Result{}, kerrors.NewAggregate(errs)
-	}
 	if len(applications.Items) > 0 {
 		log.Info(fmt.Sprintf("Requeueing: %d applications still managed by DPUService", len(applications.Items)))
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
@@ -436,7 +438,6 @@ func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, argoCDN
 	log := ctrllog.FromContext(ctx)
 
 	project := getProjectName(dpuService)
-	var errs []error
 	values, err := argoCDValuesFromDPUService(dpuService)
 	if err != nil {
 		return err
@@ -458,8 +459,7 @@ func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, argoCDN
 			return err
 		}
 	}
-	return kerrors.NewAggregate(errs)
-
+	return nil
 }
 
 // getProjectName returns the correct project name for the DPUService depending on the cluster it's destined for.
