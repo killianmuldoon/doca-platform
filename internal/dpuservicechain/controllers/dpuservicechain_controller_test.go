@@ -78,12 +78,14 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			}
 			Expect(scs.Spec).To(BeEquivalentTo(*getTestServiceChainSetSpec(nil)))
 			By("Update DPUServiceChain")
-			dsc := &sfcv1.DPUServiceChain{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
-			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dsc), dsc)).NotTo(HaveOccurred())
 			labelSelector := &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}
-			updatedSpec := getTestServiceChainSetSpec(labelSelector)
-			dsc.Spec.Template.Spec = *updatedSpec
-			Expect(testClient.Update(ctx, dsc)).NotTo(HaveOccurred())
+			Eventually(func(g Gomega) {
+				dsc := &sfcv1.DPUServiceChain{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dsc), dsc)).NotTo(HaveOccurred())
+				updatedSpec := getTestServiceChainSetSpec(labelSelector)
+				dsc.Spec.Template.Spec = *updatedSpec
+				g.Expect(testClient.Update(ctx, dsc)).To(Succeed())
+			}).Should(Succeed())
 			By("Verify ServiceChainSet is updated")
 			Eventually(func(g Gomega) {
 				scs := &sfcv1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}

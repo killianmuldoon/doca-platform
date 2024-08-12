@@ -77,12 +77,14 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			}
 			Expect(scs.Spec).To(BeEquivalentTo(*getTestServiceInterfaceSetSpec(nil)))
 			By("Update DPUServiceInterface")
-			dsc := &sfcv1.DPUServiceInterface{ObjectMeta: metav1.ObjectMeta{Name: dsiResourceName, Namespace: testNS}}
-			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dsc), dsc)).NotTo(HaveOccurred())
 			labelSelector := &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}
-			updatedSpec := getTestServiceInterfaceSetSpec(labelSelector)
-			dsc.Spec.Template.Spec = *updatedSpec
-			Expect(testClient.Update(ctx, dsc)).NotTo(HaveOccurred())
+			Eventually(func(g Gomega) {
+				dsc := &sfcv1.DPUServiceInterface{ObjectMeta: metav1.ObjectMeta{Name: dsiResourceName, Namespace: testNS}}
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dsc), dsc)).NotTo(HaveOccurred())
+				updatedSpec := getTestServiceInterfaceSetSpec(labelSelector)
+				dsc.Spec.Template.Spec = *updatedSpec
+				g.Expect(testClient.Update(ctx, dsc)).To(Succeed())
+			}).Should(Succeed())
 			By("Verify ServiceInterfaceSet is updated")
 			Eventually(func(g Gomega) {
 				scs := &sfcv1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: dsiResourceName, Namespace: testNS}}
