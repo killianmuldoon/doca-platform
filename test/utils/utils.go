@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
@@ -132,4 +133,17 @@ func GetFakeKamajiClusterSecretFromEnvtest(cluster controlplane.DPFCluster, cfg 
 
 func GetTestLabels() map[string]string {
 	return map[string]string{"some": "label", "color": "blue", "lab": "santa-clara"}
+}
+
+// ForceObjectReconcileWithAnnotation adds patches the passed object with an annotation to force it to be reconciled.
+func ForceObjectReconcileWithAnnotation(ctx context.Context, c client.Client, obj client.Object) error {
+	err := c.Get(ctx, client.ObjectKeyFromObject(obj), obj)
+	if err != nil {
+		return err
+	}
+	err = c.Patch(ctx, obj, client.RawPatch(types.MergePatchType, []byte(fmt.Sprintf("{\"metadata\":{\"annotations\":{%q: %q}}}", "annotatedAt", time.Now().Format(time.RFC3339)))))
+	if err != nil {
+		return err
+	}
+	return nil
 }

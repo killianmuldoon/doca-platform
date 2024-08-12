@@ -410,6 +410,13 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			gotInterfaceSet.SetGroupVersionKind(sfcv1.ServiceInterfaceSetGroupVersionKind)
 			gotInterfaceSet.SetManagedFields(nil)
 			Expect(testClient.Patch(ctx, gotInterfaceSet, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			// Trigger reconcile to avoid waiting the duration we have specified when objects are not yet deleted in the
+			// underlying cluster.
+			// TODO: consider if there's ways to speed up this reconcile.
+			Eventually(func(g Gomega) {
+				g.Expect(testutils.ForceObjectReconcileWithAnnotation(ctx, testClient, dpuServiceInterface)).To(Succeed())
+			}).Should(Succeed())
 		})
 	})
 })

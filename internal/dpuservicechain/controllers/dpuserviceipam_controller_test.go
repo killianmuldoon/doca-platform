@@ -647,6 +647,13 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			gotIPPool.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind(nvipamv1.IPPoolKind))
 			gotIPPool.SetManagedFields(nil)
 			Expect(testClient.Patch(ctx, gotIPPool, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			// Trigger reconcile to avoid waiting the duration we have specified when objects are not yet deleted in the
+			// underlying cluster.
+			// TODO: consider if there's ways to speed up this reconcile.
+			Eventually(func(g Gomega) {
+				g.Expect(testutils.ForceObjectReconcileWithAnnotation(ctx, testClient, dpuServiceIPAM)).To(Succeed())
+			}).Should(Succeed())
 		})
 	})
 })

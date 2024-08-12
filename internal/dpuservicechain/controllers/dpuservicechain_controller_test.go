@@ -412,6 +412,13 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			gotChainSet.SetGroupVersionKind(sfcv1.ServiceChainSetGroupVersionKind)
 			gotChainSet.SetManagedFields(nil)
 			Expect(testClient.Patch(ctx, gotChainSet, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+			// Trigger reconcile to avoid waiting the duration we have specified when objects are not yet deleted in the
+			// underlying cluster.
+			// TODO: consider if there's ways to speed up this reconcile.
+			Eventually(func(g Gomega) {
+				g.Expect(testutils.ForceObjectReconcileWithAnnotation(ctx, testClient, dpuServiceChain)).To(Succeed())
+			}).Should(Succeed())
 		})
 	})
 })

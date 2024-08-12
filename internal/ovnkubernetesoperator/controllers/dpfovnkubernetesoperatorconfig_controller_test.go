@@ -40,7 +40,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/utils/ptr"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -563,7 +562,7 @@ networking:
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, operatorConfig)
 
 			Consistently(func(g Gomega) {
-				_, _ = reconciler.Reconcile(ctx, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(operatorConfig)})
+				g.Expect(testutils.ForceObjectReconcileWithAnnotation(ctx, testClient, operatorConfig)).To(Succeed())
 				got := &appsv1.DaemonSet{}
 				key := client.ObjectKey{Namespace: "dpf-operator-system", Name: "host-cni-provisioner"}
 				g.Expect(testClient.Get(ctx, key, got)).To(HaveOccurred())
