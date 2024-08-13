@@ -33,6 +33,7 @@ NODE_CPUS="${NODE_CPUS:-"4"}"
 NODE_DISK="${NODE_DISK:-"100g"}"
 MINIKUBE_CNI="${MINIKUBE_CNI:-kindnet}"
 MINIKUBE_KUBERNETES_VERSION="${MINIKUBE_KUBERNETES_VERSION:-"v1.29.3"}"
+MINIKUBE_DOCKER_MIRROR="${MINIKUBE_DOCKER_MIRROR:-"https://dockerhub.nvidia.com"}"
 
 ## Detect the OS.
 OS="unknown"
@@ -66,6 +67,7 @@ MINIKUBE_ARGS="${MINIKUBE_ARGS:-"\
   --nodes=$NUM_NODES \
   --cni $MINIKUBE_CNI \
   --kubernetes-version $MINIKUBE_KUBERNETES_VERSION \
+  --registry-mirror="$MINIKUBE_DOCKER_MIRROR" \
   --preload=true \
   --cache-images=true \
   --addons registry \
