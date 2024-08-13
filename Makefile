@@ -499,7 +499,7 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 	$Q $(KUBECTL) apply -f $(CERT_MANAGER_YAML)
 
 	echo "Waiting for cert-manager deployment to be ready."
-	$(KUBECTL) wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
+	$(KUBECTL) -n cert-manager rollout status deploy cert-manager-webhook --timeout=180s
 
 	# Deploy Kamaji as the underlying control plane provider.
 	$Q $(HELM) upgrade --set image.pullPolicy=IfNotPresent --set cfssl.image.tag=v1.6.5 --install kamaji $(KAMAJI)
@@ -1195,8 +1195,8 @@ dev-prereqs-dpuservice: $(KUSTOMIZE) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(HELM)
 
     # Deploy cert manager to provide certificates for webhooks
 	$Q $(KUBECTL) apply -f $(CERT_MANAGER_YAML) \
-	&& echo "Waiting for cert-manager deployment to be ready."\
-	&& $(KUBECTL) wait --for=condition=ready pod -l app=webhook --timeout=180s -n cert-manager
+	&& echo "Waiting for cert-manager deployment to be ready." \
+	&& $(KUBECTL) -n cert-manager rollout status deploy cert-manager-webhook --timeout=180s
 
 	$Q $(KUBECTL) create namespace argocd --dry-run=client -o yaml | $(KUBECTL) apply -f - && $(KUBECTL) apply -f $(ARGOCD_YAML)
 
