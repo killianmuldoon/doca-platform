@@ -17,6 +17,7 @@ limitations under the License.
 package inventory
 
 import (
+	"context"
 	_ "embed"
 
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -28,6 +29,9 @@ type Component interface {
 	Name() string
 	Parse() error
 	GenerateManifests(variables Variables) ([]client.Object, error)
+	// IsReady reports an object and a field in that object which is used to check the ready status of a Component.
+	// Returns an error if the object is not ready.
+	IsReady(ctx context.Context, c client.Client, namespace string) error
 }
 
 // Variables contains information required to generate manifests from the inventory.
@@ -45,9 +49,8 @@ type DPFProvisioningVariables struct {
 	DMSTimeout                          *int
 }
 
-// Manifests holds kubernetes object manifests to be deployed by the operator.
-type Manifests struct {
-	ArgoCD                  Component
+// SystemComponents holds kubernetes object manifests to be deployed by the operator.
+type SystemComponents struct {
 	DPUService              Component
 	DPFProvisioning         Component
 	ServiceFunctionChainSet Component
@@ -89,13 +92,13 @@ var (
 	sfcControllerData []byte
 )
 
-// New returns a new Manifests inventory with data preloaded but parsing not completed.
-func New() *Manifests {
-	return &Manifests{
+// New returns a new SystemComponents inventory with data preloaded but parsing not completed.
+func New() *SystemComponents {
+	return &SystemComponents{
 		DPUService: &dpuServiceControllerObjects{
 			data: dpuServiceData,
 		},
-		DPFProvisioning: &dpfProvisioningControllerObjects{
+		DPFProvisioning: &provisioningControllerObjects{
 			data: dpfProvisioningControllerData,
 		},
 		ServiceFunctionChainSet: &fromDPUService{
@@ -129,130 +132,98 @@ func New() *Manifests {
 	}
 }
 
+// SystemDPUServices returns DPUService Components deployed by the DPF Operator.
+func (s *SystemComponents) SystemDPUServices() []Component {
+	return []Component{
+		s.ServiceFunctionChainSet,
+		s.Multus,
+		s.SRIOVDevicePlugin,
+		s.Flannel,
+		s.NvIPAM,
+		s.OvsCni,
+		s.SfcController,
+	}
+}
+
+// AllComponents returns all Components deployed by the DPF Operator.
+func (s *SystemComponents) AllComponents() []Component {
+	return []Component{
+		s.DPFProvisioning,
+		s.DPUService,
+		s.ServiceFunctionChainSet,
+		s.Multus,
+		s.SRIOVDevicePlugin,
+		s.Flannel,
+		s.NvIPAM,
+		s.OvsCni,
+		s.SfcController,
+	}
+}
+
 // ParseAll creates Kubernetes objects for all manifests related to the DPFOperator.
-func (m *Manifests) ParseAll() error {
-	if err := m.DPUService.Parse(); err != nil {
-		return err
-	}
-	if err := m.DPFProvisioning.Parse(); err != nil {
-		return err
-	}
-	if err := m.ServiceFunctionChainSet.Parse(); err != nil {
-		return err
-	}
-	if err := m.Multus.Parse(); err != nil {
-		return err
-	}
-	if err := m.SRIOVDevicePlugin.Parse(); err != nil {
-		return err
-	}
-	if err := m.Flannel.Parse(); err != nil {
-		return err
-	}
-	if err := m.NvIPAM.Parse(); err != nil {
-		return err
-	}
-	if err := m.OvsCni.Parse(); err != nil {
-		return err
-	}
-	if err := m.SfcController.Parse(); err != nil {
-		return err
+func (s *SystemComponents) ParseAll() error {
+	for _, component := range s.AllComponents() {
+		if err := component.Parse(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 // generateAllManifests returns all Kubernetes objects.
-func (m *Manifests) generateAllManifests(variables Variables) ([]client.Object, error) {
+func (s *SystemComponents) generateAllManifests(variables Variables) ([]client.Object, error) {
 	out := []client.Object{}
 	var errs []error
-	objs, err := m.DPUService.GenerateManifests(variables)
-	if err != nil {
-		errs = append(errs, err)
+	for _, component := range s.AllComponents() {
+		manifests, err := component.GenerateManifests(variables)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		out = append(out, manifests...)
 	}
-	out = append(out, objs...)
-	objs, err = m.DPFProvisioning.GenerateManifests(variables)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	out = append(out, objs...)
-	objs, err = m.ServiceFunctionChainSet.GenerateManifests(variables)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	out = append(out, objs...)
-	objs, err = m.Multus.GenerateManifests(variables)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	out = append(out, objs...)
-	objs, err = m.SRIOVDevicePlugin.GenerateManifests(variables)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	out = append(out, objs...)
-	objs, err = m.Flannel.GenerateManifests(variables)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	out = append(out, objs...)
-	objs, err = m.NvIPAM.GenerateManifests(variables)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	out = append(out, objs...)
-	objs, err = m.OvsCni.GenerateManifests(variables)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	out = append(out, objs...)
-	objs, err = m.SfcController.GenerateManifests(variables)
-	if err != nil {
-		errs = append(errs, err)
-	}
-	out = append(out, objs...)
 	if len(errs) != 0 {
 		return nil, kerrors.NewAggregate(errs)
 	}
 	return out, nil
 }
 
-func (m *Manifests) setDPUService(input dpuServiceControllerObjects) *Manifests {
-	m.DPUService = &input
-	return m
+func (s *SystemComponents) setDPUService(input dpuServiceControllerObjects) *SystemComponents {
+	s.DPUService = &input
+	return s
 }
 
-func (m *Manifests) setMultus(input fromDPUService) *Manifests {
-	m.Multus = &input
-	return m
+func (s *SystemComponents) setMultus(input fromDPUService) *SystemComponents {
+	s.Multus = &input
+	return s
 
 }
 
-func (m *Manifests) setSRIOVDevicePlugin(input fromDPUService) *Manifests {
-	m.SRIOVDevicePlugin = &input
-	return m
+func (s *SystemComponents) setSRIOVDevicePlugin(input fromDPUService) *SystemComponents {
+	s.SRIOVDevicePlugin = &input
+	return s
 }
 
-func (m *Manifests) setServiceFunctionChainSet(input fromDPUService) *Manifests {
-	m.ServiceFunctionChainSet = &input
-	return m
+func (s *SystemComponents) setServiceFunctionChainSet(input fromDPUService) *SystemComponents {
+	s.ServiceFunctionChainSet = &input
+	return s
 }
 
-func (m *Manifests) setFlannel(input fromDPUService) *Manifests {
-	m.Flannel = &input
-	return m
+func (s *SystemComponents) setFlannel(input fromDPUService) *SystemComponents {
+	s.Flannel = &input
+	return s
 }
 
-func (m *Manifests) setNvK8sIpam(input fromDPUService) *Manifests {
-	m.NvIPAM = &input
-	return m
+func (s *SystemComponents) setNvK8sIpam(input fromDPUService) *SystemComponents {
+	s.NvIPAM = &input
+	return s
 }
 
-func (m *Manifests) setOvsCni(input fromDPUService) *Manifests {
-	m.OvsCni = &input
-	return m
+func (s *SystemComponents) setOvsCni(input fromDPUService) *SystemComponents {
+	s.OvsCni = &input
+	return s
 }
 
-func (m *Manifests) setSfcController(input fromDPUService) *Manifests {
-	m.SfcController = &input
-	return m
+func (s *SystemComponents) setSfcController(input fromDPUService) *SystemComponents {
+	s.SfcController = &input
+	return s
 }

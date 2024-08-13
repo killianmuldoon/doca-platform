@@ -17,14 +17,20 @@ limitations under the License.
 package inventory
 
 import (
+	"context"
+	"errors"
+	"fmt"
+
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ObjectKind represends different Kind of Kubernetes Objects
+// ObjectKind represents different Kind of Kubernetes Objects
 type ObjectKind string
 
 const (
-	// ObjectKind
 	NamespaceKind                      ObjectKind = "Namespace"
 	CustomResourceDefinitionKind       ObjectKind = "CustomResourceDefinition"
 	ClusterRoleKind                    ObjectKind = "ClusterRole"
@@ -75,4 +81,34 @@ func localObjRefsFromStrings(names ...string) []corev1.LocalObjectReference {
 		localObjectRefs = append(localObjectRefs, corev1.LocalObjectReference{Name: name})
 	}
 	return localObjectRefs
+}
+
+// deploymentReadyCheck can be used to check for readiness of an inventory Component that has exactly one Kubernetes Deployment of interest.
+// The Component returns and error when the number of ReadyReplicas is zero or below the current number of Replicas.
+func deploymentReadyCheck(ctx context.Context, c client.Client, namespace string, objects []*unstructured.Unstructured) error {
+	deployment := &appsv1.Deployment{}
+	found := false
+	for _, obj := range objects {
+		if obj.GetKind() == string(DeploymentKind) {
+			err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: obj.GetName()}, deployment)
+			if err != nil {
+				return err
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		return errors.New("deployment not found in objects")
+	}
+
+	// Consider the deployment not ready if it has no replicas.
+	if deployment.Status.Replicas == 0 {
+		return fmt.Errorf("Deployment %s/%s has no replicas", deployment.GetNamespace(), deployment.GetName())
+	}
+	if deployment.Status.ReadyReplicas != deployment.Status.Replicas {
+		return fmt.Errorf("Deployment %s/%s has %d readyReplicas, want %d",
+			deployment.GetNamespace(), deployment.GetName(), deployment.Status.ReadyReplicas, deployment.Status.Replicas)
+	}
+	return nil
 }

@@ -1183,6 +1183,9 @@ DEV_CLUSTER_NAME ?= dpf-dev
 dev-minikube: $(MINIKUBE) ## Create a minikube cluster for development.
 	CLUSTER_NAME=$(DEV_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
 
+clean-dev-env: $(MINIKUBE)
+	$(MINIKUBE) delete -p $(DEV_CLUSTER_NAME)
+
 clean-minikube: $(MINIKUBE)  ## Delete the development minikube cluster.
 	$(MINIKUBE) delete -p $(DEV_CLUSTER_NAME)
 

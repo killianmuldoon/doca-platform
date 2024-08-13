@@ -27,6 +27,7 @@ import (
 	"slices"
 	"strings"
 
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
@@ -152,6 +153,7 @@ func (c *Cluster) run(ctx context.Context) error {
 	if err != nil {
 		errs = append(errs, fmt.Errorf("error collecting GVKs that the DPF Operator inventory contains: %w", err))
 	}
+	gvks = append(gvks, operatorv1.DPFOperatorConfigGroupVersionKind)
 	// best effort to include as many GVKs as possible
 	resourcesToCollect = append(resourcesToCollect, gvks...)
 	resourcesToCollect = slices.Compact(resourcesToCollect)

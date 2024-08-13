@@ -17,6 +17,7 @@ limitations under the License.
 package inventory
 
 import (
+	"context"
 	"fmt"
 
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
@@ -89,4 +90,10 @@ func (d *dpuServiceControllerObjects) GenerateManifests(vars Variables) ([]clien
 	}
 
 	return ret, nil
+}
+
+// IsReady reports the readiness of the dpuservice controller objects. It returns an error when the number of Replicas in
+// the single provisioning controller deployment is true.
+func (d *dpuServiceControllerObjects) IsReady(ctx context.Context, c client.Client, namespace string) error {
+	return deploymentReadyCheck(ctx, c, namespace, d.objects)
 }

@@ -22,7 +22,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // ConditionType represents different types of conditions in the conditions pkg.
@@ -167,9 +166,8 @@ func add(obj GetSet, cs metav1.ConditionStatus, ct ConditionType, cr ConditionRe
 }
 
 // Get returns a condition with a specific type.
-func Get(obj client.Object, conditionType ConditionType) *metav1.Condition {
-	mutateObj := obj.(GetSet)
-	conditions := GetSet.GetConditions(mutateObj)
+func Get(obj GetSet, conditionType ConditionType) *metav1.Condition {
+	conditions := obj.GetConditions()
 
 	for _, c := range conditions {
 		if c.Type == string(conditionType) {

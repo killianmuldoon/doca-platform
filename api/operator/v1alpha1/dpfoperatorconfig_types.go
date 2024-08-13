@@ -17,7 +17,24 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	ImagePullSecretsReconciledCondition conditions.ConditionType = "ImagePullSecretsReconciled"
+	SystemComponentsReconciledCondition conditions.ConditionType = "SystemComponentsReconciled"
+	SystemComponentsReadyCondition      conditions.ConditionType = "SystemComponentsReadyCondition"
+)
+
+var (
+	Conditions = []conditions.ConditionType{
+		conditions.TypeReady,
+		ImagePullSecretsReconciledCondition,
+		SystemComponentsReconciledCondition,
+		SystemComponentsReadyCondition,
+	}
 )
 
 var (
@@ -63,8 +80,8 @@ type ProvisioningConfiguration struct {
 
 // DPFOperatorConfigStatus defines the observed state of DPFOperatorConfig
 type DPFOperatorConfigStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions exposes the current state of the OperatorConfig.
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -90,4 +107,11 @@ type DPFOperatorConfigList struct {
 
 func init() {
 	SchemeBuilder.Register(&DPFOperatorConfig{}, &DPFOperatorConfigList{})
+}
+
+func (c *DPFOperatorConfig) SetConditions(conditions []metav1.Condition) {
+	c.Status.Conditions = conditions
+}
+func (c *DPFOperatorConfig) GetConditions() []metav1.Condition {
+	return c.Status.Conditions
 }

@@ -20,10 +20,13 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
+	"strings"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
+	ssa "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/serversideapply"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -50,7 +53,7 @@ type DPFOperatorConfigReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	Settings  *DPFOperatorConfigReconcilerSettings
-	Inventory *inventory.Manifests
+	Inventory *inventory.SystemComponents
 }
 
 // DPFOperatorConfigReconcilerSettings contains settings related to the DPFOperatorConfig.
@@ -99,6 +102,7 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		}
 		return ctrl.Result{}, err
 	}
+	conditions.EnsureConditions(dpfOperatorConfig, operatorv1.Conditions)
 
 	// If the DPFOperatorConfig is paused take no further action.
 	if isPaused(dpfOperatorConfig) {
@@ -108,15 +112,14 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// Defer a patch call to always patch the object when Reconcile exits.
 	defer func() {
-		log.Info("Calling defer")
-		// TODO: Make this a generic patcher.
-		// TODO: There is an issue patching status here with SSA - the finalizer managed field becomes broken and the finalizer can not be removed. Investigate.
-		// Set the GVK explicitly for the patch.
-		dpfOperatorConfig.SetGroupVersionKind(operatorv1.DPFOperatorConfigGroupVersionKind)
-		// Do not include manged fields in the patch call. This does not remove existing fields.
-		dpfOperatorConfig.ObjectMeta.ManagedFields = nil
-		err := r.Client.Patch(ctx, dpfOperatorConfig, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
-		reterr = kerrors.NewAggregate([]error{reterr, err})
+		// Update the ready condition for the system components.
+		r.updateSystemComponentStatus(ctx, dpfOperatorConfig)
+		// Set the summary condition for the DPFOperatorConfig.
+		conditions.SetSummary(dpfOperatorConfig)
+
+		if err := ssa.Patch(ctx, r.Client, dpfOperatorConfigControllerName, dpfOperatorConfig); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
 	}()
 
 	// Handle deletion reconciliation loop.
@@ -142,15 +145,53 @@ func isPaused(config *operatorv1.DPFOperatorConfig) bool {
 
 //nolint:unparam
 func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (ctrl.Result, error) {
-
 	if err := r.reconcileImagePullSecrets(ctx, dpfOperatorConfig); err != nil {
+		conditions.AddFalse(
+			dpfOperatorConfig,
+			operatorv1.ImagePullSecretsReconciledCondition,
+			conditions.ReasonError,
+			conditions.ConditionMessage(fmt.Sprintf("Image pull secrets must be reconciled for DPF Operator to continue: %s", err.Error())))
 		return ctrl.Result{}, err
 	}
+	conditions.AddTrue(dpfOperatorConfig, operatorv1.ImagePullSecretsReconciledCondition)
+
 	if err := r.reconcileSystemComponents(ctx, dpfOperatorConfig); err != nil {
+		conditions.AddFalse(
+			dpfOperatorConfig,
+			operatorv1.SystemComponentsReconciledCondition,
+			conditions.ReasonError,
+			conditions.ConditionMessage(err.Error()))
 		return ctrl.Result{}, err
 	}
+	conditions.AddTrue(dpfOperatorConfig, operatorv1.SystemComponentsReconciledCondition)
 
 	return ctrl.Result{}, nil
+}
+
+func (r *DPFOperatorConfigReconciler) updateSystemComponentStatus(ctx context.Context, config *operatorv1.DPFOperatorConfig) {
+	unreadyMessages := []string{}
+	log := ctrllog.FromContext(ctx)
+	log.Info("Updating status of DPF OperatorConfig")
+	baseMessage := "System components are not ready: "
+	for _, component := range r.Inventory.AllComponents() {
+		log.Info("Component", "component", component)
+		err := component.IsReady(ctx, r.Client, config.Namespace)
+		if err != nil {
+			log.Error(err, "Component not ready", "component", component)
+			unreadyMessages = append(unreadyMessages, fmt.Sprintf("%s: %s", component.Name(), err.Error()))
+		}
+	}
+
+	if len(unreadyMessages) > 0 {
+		conditions.AddFalse(
+			config,
+			operatorv1.SystemComponentsReadyCondition,
+			conditions.ReasonError,
+			conditions.ConditionMessage(fmt.Sprintf("%s: %s", baseMessage, strings.Join(unreadyMessages, ", "))))
+		return
+	}
+
+	conditions.AddTrue(config, operatorv1.SystemComponentsReadyCondition)
 }
 
 func getVariablesFromConfig(config *operatorv1.DPFOperatorConfig) inventory.Variables {
@@ -185,21 +226,14 @@ func getVariablesFromConfig(config *operatorv1.DPFOperatorConfig) inventory.Vari
 // 8. OVS CNI
 // 8. SFC Controller
 func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
-	var errs []error
+	errs := []error{}
 	vars := getVariablesFromConfig(config)
 	// TODO: Handle deletion of objects on version upgrade.
-	// Create objects for components deployed to the management cluster.
-	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.DPUService, vars))
-	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.DPFProvisioning, vars))
 
-	// Create DPUServices for system components deployed to the DPU cluster.
-	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.ServiceFunctionChainSet, vars))
-	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.SRIOVDevicePlugin, vars))
-	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.Multus, vars))
-	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.Flannel, vars))
-	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.NvIPAM, vars))
-	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.OvsCni, vars))
-	errs = append(errs, r.generateAndPatchObjects(ctx, r.Inventory.SfcController, vars))
+	// Create objects for system components.
+	for _, component := range r.Inventory.AllComponents() {
+		errs = append(errs, r.generateAndPatchObjects(ctx, component, vars))
+	}
 
 	return kerrors.NewAggregate(errs)
 }

@@ -29,7 +29,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		inventory *Manifests
+		inventory *SystemComponents
 		wantErr   bool
 	}{
 		{

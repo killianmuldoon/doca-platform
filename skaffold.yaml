@@ -15,11 +15,10 @@ profiles:
             buildArgs:
               ## Used for debugging. Disable inlining and optimizations in the go compiler. Passed to go build using `-gcflags`
               GCFLAGS: "all=-N -l"
-              target_arch: "arm64"
               package: ./cmd/dpuservice
               builder_image: golang:1.22
               base_image: gcr.io/distroless/static:nonroot
-            dockerfile: Dockerfile
+            dockerfile: dpf-system.Dockerfile
     manifests:
       ## Deploy the manager.
       kustomize:
@@ -46,11 +45,10 @@ profiles:
               ## Used for debugging. Disable inlining and optimizations in the go compiler. Passed to go build using `-gcflags`
               gcflags: "all=-N -l"
               ldflags: "-extldflags '-static'"
-              target_arch: "arm64"
               package: ./cmd/operator
               builder_image: golang:1.22
               base_image: gcr.io/distroless/static:nonroot
-            dockerfile: Dockerfile
+            dockerfile: dpf-system.Dockerfile
     deploy:
       helm:
         releases:
@@ -84,7 +82,6 @@ profiles:
       kustomize:
         paths:
           - config/ovnkubernetesoperator/default
-
     portForward:
       - resourceType: deployment
         resourceName: dpf-operator-controller-manager
@@ -96,6 +93,6 @@ profiles:
         resourceName: dpuservice-controller-manager
         namespace: dpuservice-controller-system
         port: 56268
-        localPort: 8081
+        localPort: 8083
         address: 0.0.0.0
 

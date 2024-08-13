@@ -17,6 +17,7 @@ limitations under the License.
 package inventory
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 	"net"
@@ -40,23 +41,23 @@ const (
 	webhookServiceName                     = "dpf-provisioning-webhook-service"
 )
 
-var _ Component = &dpfProvisioningControllerObjects{}
+var _ Component = &provisioningControllerObjects{}
 
-// dpfProvisioningControllerObjects contains objects that are used to generate Provisioning Controller manifests.
-// dpfProvisioningControllerObjects objects should be immutable after Parse()
-type dpfProvisioningControllerObjects struct {
+// provisioningControllerObjects contains objects that are used to generate Provisioning Controller manifests.
+// provisioningControllerObjects objects should be immutable after Parse()
+type provisioningControllerObjects struct {
 	data    []byte
 	objects []*unstructured.Unstructured
 }
 
-func (p *dpfProvisioningControllerObjects) Name() string {
+func (p *provisioningControllerObjects) Name() string {
 	return "DPFProvisioningController"
 }
 
 // Parse returns typed objects for the Provisioning controller deployment.
-func (p *dpfProvisioningControllerObjects) Parse() (err error) {
+func (p *provisioningControllerObjects) Parse() (err error) {
 	if p.data == nil {
-		return fmt.Errorf("dpfProvisioningControllerObjects.data can not be empty")
+		return fmt.Errorf("provisioningControllerObjects.data can not be empty")
 	}
 	objs, err := utils.BytesToUnstructured(p.data)
 	if err != nil {
@@ -90,7 +91,7 @@ func (p *dpfProvisioningControllerObjects) Parse() (err error) {
 }
 
 // GenerateManifests applies edits and returns objects
-func (p *dpfProvisioningControllerObjects) GenerateManifests(vars Variables) ([]client.Object, error) {
+func (p *provisioningControllerObjects) GenerateManifests(vars Variables) ([]client.Object, error) {
 	if _, ok := vars.DisableSystemComponents[p.Name()]; ok {
 		return []client.Object{}, nil
 	}
@@ -135,7 +136,7 @@ func (p *dpfProvisioningControllerObjects) GenerateManifests(vars Variables) ([]
 	return ret, nil
 }
 
-func (p *dpfProvisioningControllerObjects) dpfProvisioningDeploymentEdit(vars Variables) StructuredEdit {
+func (p *provisioningControllerObjects) dpfProvisioningDeploymentEdit(vars Variables) StructuredEdit {
 	return func(obj client.Object) error {
 		deployment, ok := obj.(*appsv1.Deployment)
 		if !ok {
@@ -160,7 +161,7 @@ func (p *dpfProvisioningControllerObjects) dpfProvisioningDeploymentEdit(vars Va
 }
 
 // Set the component label for the deployment.
-func (p *dpfProvisioningControllerObjects) setComponentLabel(deployment *appsv1.Deployment, _ Variables) error {
+func (p *provisioningControllerObjects) setComponentLabel(deployment *appsv1.Deployment, _ Variables) error {
 	labels := deployment.Spec.Template.ObjectMeta.Labels
 	if labels == nil {
 		labels = map[string]string{}
@@ -195,7 +196,7 @@ func fixupWebhookServiceEdit(obj *unstructured.Unstructured) error {
 	return nil
 }
 
-func (p *dpfProvisioningControllerObjects) validateDeployment(obj *unstructured.Unstructured) error {
+func (p *provisioningControllerObjects) validateDeployment(obj *unstructured.Unstructured) error {
 	deployment := &appsv1.Deployment{}
 	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), deployment); err != nil {
 		return fmt.Errorf("error while parsing Deployment for Provisioning Controller: %w", err)
@@ -212,7 +213,7 @@ func (p *dpfProvisioningControllerObjects) validateDeployment(obj *unstructured.
 	return nil
 }
 
-func (p *dpfProvisioningControllerObjects) getContainer(deploy *appsv1.Deployment) *corev1.Container {
+func (p *provisioningControllerObjects) getContainer(deploy *appsv1.Deployment) *corev1.Container {
 	for i, c := range deploy.Spec.Template.Spec.Containers {
 		if c.Name == dpfProvisioningControllerContainerName {
 			return &deploy.Spec.Template.Spec.Containers[i]
@@ -221,7 +222,7 @@ func (p *dpfProvisioningControllerObjects) getContainer(deploy *appsv1.Deploymen
 	return nil
 }
 
-func (p *dpfProvisioningControllerObjects) getVolume(deploy *appsv1.Deployment, volName string) *corev1.Volume {
+func (p *provisioningControllerObjects) getVolume(deploy *appsv1.Deployment, volName string) *corev1.Volume {
 	for i, vol := range deploy.Spec.Template.Spec.Volumes {
 		if vol.Name == volName && vol.PersistentVolumeClaim != nil {
 			return &deploy.Spec.Template.Spec.Volumes[i]
@@ -230,7 +231,7 @@ func (p *dpfProvisioningControllerObjects) getVolume(deploy *appsv1.Deployment, 
 	return nil
 }
 
-func (p *dpfProvisioningControllerObjects) setBFBPersistentVolumeClaim(deploy *appsv1.Deployment, vars Variables) error {
+func (p *provisioningControllerObjects) setBFBPersistentVolumeClaim(deploy *appsv1.Deployment, vars Variables) error {
 	vol := p.getVolume(deploy, bfbVolumeName)
 	if vol == nil {
 		return fmt.Errorf("error while generating Deployment for Provisioning Controller: no bfb volume found")
@@ -243,7 +244,7 @@ func (p *dpfProvisioningControllerObjects) setBFBPersistentVolumeClaim(deploy *a
 	return p.setFlags(c, fmt.Sprintf("--bfb-pvc=%s", vol.PersistentVolumeClaim.ClaimName))
 }
 
-func (p *dpfProvisioningControllerObjects) setImagePullSecrets(deploy *appsv1.Deployment, vars Variables) error {
+func (p *provisioningControllerObjects) setImagePullSecrets(deploy *appsv1.Deployment, vars Variables) error {
 	c := p.getContainer(deploy)
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
@@ -251,7 +252,7 @@ func (p *dpfProvisioningControllerObjects) setImagePullSecrets(deploy *appsv1.De
 	return p.setFlags(c, fmt.Sprintf("--image-pull-secret=%s", vars.DPFProvisioningController.ImagePullSecretForDMSAndHostNetwork))
 }
 
-func (p *dpfProvisioningControllerObjects) setDHCP(deploy *appsv1.Deployment, vars Variables) error {
+func (p *provisioningControllerObjects) setDHCP(deploy *appsv1.Deployment, vars Variables) error {
 	c := p.getContainer(deploy)
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
@@ -259,7 +260,7 @@ func (p *dpfProvisioningControllerObjects) setDHCP(deploy *appsv1.Deployment, va
 	return p.setFlags(c, fmt.Sprintf("--dhcp=%s", vars.DPFProvisioningController.DHCP))
 }
 
-func (p *dpfProvisioningControllerObjects) setDMSTimeout(deploy *appsv1.Deployment, vars Variables) error {
+func (p *provisioningControllerObjects) setDMSTimeout(deploy *appsv1.Deployment, vars Variables) error {
 	t := vars.DPFProvisioningController.DMSTimeout
 	if t == nil {
 		return nil
@@ -271,7 +272,7 @@ func (p *dpfProvisioningControllerObjects) setDMSTimeout(deploy *appsv1.Deployme
 	return p.setFlags(c, fmt.Sprintf("--dms-timeout=%d", *vars.DPFProvisioningController.DMSTimeout))
 }
 
-func (p *dpfProvisioningControllerObjects) setFlags(c *corev1.Container, newFlags ...string) error {
+func (p *provisioningControllerObjects) setFlags(c *corev1.Container, newFlags ...string) error {
 	pending := make(map[string]string)
 	for _, f := range newFlags {
 		name := p.parseFlagName(f)
@@ -298,7 +299,7 @@ func (p *dpfProvisioningControllerObjects) setFlags(c *corev1.Container, newFlag
 	return nil
 }
 
-func (p *dpfProvisioningControllerObjects) parseFlagName(arg string) string {
+func (p *provisioningControllerObjects) parseFlagName(arg string) string {
 	if len(arg) < 2 || arg[0] != '-' {
 		return ""
 	}
@@ -318,7 +319,7 @@ func (p *dpfProvisioningControllerObjects) parseFlagName(arg string) string {
 	return name
 }
 
-func (p *dpfProvisioningControllerObjects) setDefaultImageNames(deployment *appsv1.Deployment, _ Variables) error {
+func (p *provisioningControllerObjects) setDefaultImageNames(deployment *appsv1.Deployment, _ Variables) error {
 	c := p.getContainer(deployment)
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
@@ -345,4 +346,10 @@ func (p *dpfProvisioningControllerObjects) setDefaultImageNames(deployment *apps
 		return err
 	}
 	return nil
+}
+
+// IsReady reports the readiness of the provisioning controller objects. It returns an error when the number of Replicas in
+// the single provisioning controller deployment is true.
+func (p *provisioningControllerObjects) IsReady(ctx context.Context, c client.Client, namespace string) error {
+	return deploymentReadyCheck(ctx, c, namespace, p.objects)
 }

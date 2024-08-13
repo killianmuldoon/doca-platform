@@ -17,6 +17,7 @@ limitations under the License.
 package inventory
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -27,6 +28,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func Test_fromDPUService_GenerateManifests(t *testing.T) {
@@ -123,6 +126,100 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			g.Expect(err).ToNot(HaveOccurred())
 
 			g.Expect(gott).To(Equal(tt.want))
+		})
+	}
+}
+
+func Test_fromDPUService_ReadyCheck(t *testing.T) {
+	g := NewWithT(t)
+
+	s := scheme.Scheme
+	g.Expect(dpuservicev1.AddToScheme(s)).To(Succeed())
+
+	dpuService := &dpuservicev1.DPUService{
+		TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "testService",
+			Namespace: "testNamespace",
+		},
+		Spec:   dpuservicev1.DPUServiceSpec{},
+		Status: dpuservicev1.DPUServiceStatus{},
+	}
+	tests := []struct {
+		name       string
+		conditions []metav1.Condition
+		wantErr    bool
+	}{
+		{
+			name:       "error if object has nil conditions",
+			conditions: nil,
+			wantErr:    true,
+		},
+		{
+			name:       "error if object has no conditions",
+			conditions: []metav1.Condition{},
+			wantErr:    true,
+		},
+		{
+			name: "error if object has no Ready condition",
+			conditions: []metav1.Condition{
+				{
+					Type:   "UnrelatedCondition",
+					Status: "True",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "error if object has Ready condition with status: False",
+			conditions: []metav1.Condition{
+				{
+					Type:   "UnrelatedCondition",
+					Status: "False",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "error if object has Ready condition with status: Unknown",
+			conditions: []metav1.Condition{
+				{
+					Type:   "UnrelatedCondition",
+					Status: "Unknown",
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "succeed if has condition Ready with status True",
+			conditions: []metav1.Condition{
+				{
+					Type:   "Ready",
+					Status: "True",
+				},
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dpuService.Status.Conditions = tt.conditions
+			testClient := fake.NewClientBuilder().WithScheme(s).WithObjects(dpuService).Build()
+			f := &fromDPUService{
+				name: tt.name,
+				dpuService: &unstructured.Unstructured{
+					Object: map[string]interface{}{
+						"metadata": map[string]interface{}{
+							"name":      dpuService.Name,
+							"namespace": dpuService.Namespace,
+						},
+					},
+				},
+			}
+			err := f.IsReady(context.Background(), testClient, dpuService.Namespace)
+			g.Expect(err != nil).To(Equal(tt.wantErr))
+
 		})
 	}
 }

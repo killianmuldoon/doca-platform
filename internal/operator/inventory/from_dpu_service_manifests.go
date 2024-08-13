@@ -17,12 +17,15 @@ limitations under the License.
 package inventory
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -76,7 +79,7 @@ func (f *fromDPUService) GenerateManifests(vars Variables) ([]client.Object, err
 	edits := NewEdits().AddForAll(NamespaceEdit(vars.Namespace))
 
 	if vars.ImagePullSecrets != nil {
-		edits.AddForKindS(DPUServiceKind, dpuserviceAddValueEdit("imagePullSecrets", localObjRefsFromStrings(vars.ImagePullSecrets...)))
+		edits.AddForKindS(DPUServiceKind, dpuServiceAddValueEdit("imagePullSecrets", localObjRefsFromStrings(vars.ImagePullSecrets...)))
 	}
 
 	err := edits.Apply([]*unstructured.Unstructured{dpuServiceCopy})
@@ -89,7 +92,7 @@ func (f *fromDPUService) GenerateManifests(vars Variables) ([]client.Object, err
 	return []client.Object{dpuServiceCopy}, nil
 }
 
-func dpuserviceAddValueEdit(key string, value interface{}) StructuredEdit {
+func dpuServiceAddValueEdit(key string, value interface{}) StructuredEdit {
 	return func(obj client.Object) error {
 		dpuService, ok := obj.(*dpuservicev1.DPUService)
 		if !ok {
@@ -115,4 +118,17 @@ func dpuserviceAddValueEdit(key string, value interface{}) StructuredEdit {
 		dpuService.Spec.Values.Raw = nil
 		return nil
 	}
+}
+
+// IsReady returns an error if the DPUService does not have a Ready status condition.
+func (f *fromDPUService) IsReady(ctx context.Context, c client.Client, namespace string) error {
+	obj := &dpuservicev1.DPUService{}
+	err := c.Get(ctx, client.ObjectKey{Name: f.dpuService.GetName(), Namespace: namespace}, obj)
+	if err != nil {
+		return err
+	}
+	if !meta.IsStatusConditionTrue(obj.GetConditions(), string(conditions.TypeReady)) {
+		return fmt.Errorf("DPUService %s/%s is not ready", obj.Namespace, obj.Name)
+	}
+	return nil
 }
