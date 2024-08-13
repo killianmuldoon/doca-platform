@@ -18,24 +18,19 @@ package controllers //nolint:dupl
 
 import (
 	"context"
-	"sync"
 	"time"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils/informer"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/tools/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -122,12 +117,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		var dpuServiceInterface *sfcv1.DPUServiceInterface
 		var kamajiSecret *corev1.Secret
 		var dpfClusterClient client.Client
-		type event struct {
-			oldObj *unstructured.Unstructured
-			newObj *unstructured.Unstructured
-		}
-		var updateEvents chan event
-		var deleteEvents chan *unstructured.Unstructured
+		var i *informer.TestInformer
 
 		BeforeEach(func() {
 			By("Creating the namespaces")
@@ -146,49 +136,9 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating the informer infrastructure for DPUServiceInterface")
-			var wg sync.WaitGroup
-			stopCh := make(chan struct{})
-			updateEvents = make(chan event, 100)
-			deleteEvents = make(chan *unstructured.Unstructured, 100)
-			DeferCleanup(func() {
-				close(stopCh)
-				wg.Wait()
-				close(updateEvents)
-				close(deleteEvents)
-			})
-
-			dc, err := dynamic.NewForConfig(cfg)
-			Expect(err).ToNot(HaveOccurred())
-			informer := dynamicinformer.
-				NewFilteredDynamicSharedInformerFactory(dc, 0, testNS.Name, nil).
-				ForResource(schema.GroupVersionResource{
-					Group:    sfcv1.DPUServiceInterfaceGroupVersionKind.Group,
-					Version:  sfcv1.DPUServiceInterfaceGroupVersionKind.Version,
-					Resource: "dpuserviceinterfaces",
-				}).Informer()
-
-			handlers := cache.ResourceEventHandlerFuncs{
-				UpdateFunc: func(oldObj, obj interface{}) {
-					ou := oldObj.(*unstructured.Unstructured)
-					nu := obj.(*unstructured.Unstructured)
-					updateEvents <- event{
-						oldObj: ou,
-						newObj: nu,
-					}
-				},
-				DeleteFunc: func(obj interface{}) {
-					o := obj.(*unstructured.Unstructured)
-					deleteEvents <- o
-				},
-			}
-			_, err = informer.AddEventHandler(handlers)
-			Expect(err).ToNot(HaveOccurred())
-
-			wg.Add(1)
-			go func() {
-				informer.Run(stopCh)
-				defer wg.Done()
-			}()
+			i = informer.NewInformer(cfg, sfcv1.DPUServiceInterfaceGroupVersionKind, testNS.Name, "dpuserviceinterfaces")
+			DeferCleanup(i.Cleanup)
+			go i.Run()
 
 			By("Creating a DPUServiceInterface")
 			dpuServiceInterface = createDPUServiceInterface(ctx, "interface", testNS.Name, nil)
@@ -196,12 +146,12 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		})
 		It("DPUServiceInterface has all the conditions with Pending Reason at start of the reconciliation loop", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
-				ev := &event{}
-				g.Eventually(updateEvents).Should(Receive(ev))
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
 				oldObj := &sfcv1.DPUServiceInterface{}
 				newObj := &sfcv1.DPUServiceInterface{}
-				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
-				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(BeEmpty())
 				g.Expect(newObj.Status.Conditions).ToNot(BeEmpty())
@@ -226,12 +176,12 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		})
 		It("DPUServiceInterface has condition ServiceInterfaceSetReconciled with Success Reason at end of successful reconciliation loop but ServiceInterfaceSetReady with Pending reason on underlying object not ready", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
-				ev := &event{}
-				g.Eventually(updateEvents).Should(Receive(ev))
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
 				oldObj := &sfcv1.DPUServiceInterface{}
 				newObj := &sfcv1.DPUServiceInterface{}
-				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
-				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(ContainElement(
 					And(
@@ -264,12 +214,12 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			// TODO: Patch InterfaceSet with status
 
 			Eventually(func(g Gomega) []metav1.Condition {
-				ev := &event{}
-				g.Eventually(updateEvents).Should(Receive(ev))
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
 				oldObj := &sfcv1.DPUServiceInterface{}
 				newObj := &sfcv1.DPUServiceInterface{}
-				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
-				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				return newObj.Status.Conditions
 			}).WithTimeout(10 * time.Second).Should(ConsistOf(
@@ -313,12 +263,12 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 
 			By("Checking condition")
 			Eventually(func(g Gomega) []metav1.Condition {
-				ev := &event{}
-				g.Eventually(updateEvents).Should(Receive(ev))
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
 				oldObj := &sfcv1.DPUServiceInterface{}
 				newObj := &sfcv1.DPUServiceInterface{}
-				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
-				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(ContainElement(
 					And(
@@ -373,12 +323,12 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 
 			By("Checking the deleted condition is added")
 			Eventually(func(g Gomega) []metav1.Condition {
-				ev := &event{}
-				g.Eventually(updateEvents).Should(Receive(ev))
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
 				oldObj := &sfcv1.DPUServiceInterface{}
 				newObj := &sfcv1.DPUServiceInterface{}
-				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
-				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(ContainElement(
 					And(

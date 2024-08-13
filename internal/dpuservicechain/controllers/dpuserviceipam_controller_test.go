@@ -17,7 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"sync"
 	"time"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
@@ -25,17 +24,13 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils/informer"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -338,12 +333,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 		var dpuServiceIPAM *sfcv1.DPUServiceIPAM
 		var kamajiSecret *corev1.Secret
 		var dpfClusterClient client.Client
-		type event struct {
-			oldObj *unstructured.Unstructured
-			newObj *unstructured.Unstructured
-		}
-		var updateEvents chan event
-		var deleteEvents chan *unstructured.Unstructured
+		var i *informer.TestInformer
 
 		BeforeEach(func() {
 			By("Creating the namespaces")
@@ -362,49 +352,9 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating the informer infrastructure for DPUServiceIPAM")
-			var wg sync.WaitGroup
-			stopCh := make(chan struct{})
-			updateEvents = make(chan event, 100)
-			deleteEvents = make(chan *unstructured.Unstructured, 100)
-			DeferCleanup(func() {
-				close(stopCh)
-				wg.Wait()
-				close(updateEvents)
-				close(deleteEvents)
-			})
-
-			dc, err := dynamic.NewForConfig(cfg)
-			Expect(err).ToNot(HaveOccurred())
-			informer := dynamicinformer.
-				NewFilteredDynamicSharedInformerFactory(dc, 0, testNS.Name, nil).
-				ForResource(schema.GroupVersionResource{
-					Group:    sfcv1.DPUServiceIPAMGroupVersionKind.Group,
-					Version:  sfcv1.DPUServiceIPAMGroupVersionKind.Version,
-					Resource: "dpuserviceipams",
-				}).Informer()
-
-			handlers := cache.ResourceEventHandlerFuncs{
-				UpdateFunc: func(oldObj, obj interface{}) {
-					ou := oldObj.(*unstructured.Unstructured)
-					nu := obj.(*unstructured.Unstructured)
-					updateEvents <- event{
-						oldObj: ou,
-						newObj: nu,
-					}
-				},
-				DeleteFunc: func(obj interface{}) {
-					o := obj.(*unstructured.Unstructured)
-					deleteEvents <- o
-				},
-			}
-			_, err = informer.AddEventHandler(handlers)
-			Expect(err).ToNot(HaveOccurred())
-
-			wg.Add(1)
-			go func() {
-				informer.Run(stopCh)
-				defer wg.Done()
-			}()
+			i = informer.NewInformer(cfg, sfcv1.DPUServiceIPAMGroupVersionKind, testNS.Name, "dpuserviceipams")
+			DeferCleanup(i.Cleanup)
+			go i.Run()
 
 			By("Creating a DPUServiceIPAM")
 			dpuServiceIPAM = getMinimalDPUServiceIPAM(testNS.Name)
@@ -420,12 +370,12 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 		})
 		It("DPUServiceIPAM has all the conditions with Pending Reason at start of the reconciliation loop", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
-				ev := &event{}
-				g.Eventually(updateEvents).Should(Receive(ev))
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
 				oldObj := &sfcv1.DPUServiceIPAM{}
 				newObj := &sfcv1.DPUServiceIPAM{}
-				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
-				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(BeEmpty())
 				g.Expect(newObj.Status.Conditions).ToNot(BeEmpty())
@@ -451,12 +401,12 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 		})
 		It("DPUServiceIPAM has condition DPUIPAMObjectReconciled with Success Reason at end of successful reconciliation loop but DPUIPAMObjectReady with Pending reason on underlying object not ready", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
-				ev := &event{}
-				g.Eventually(updateEvents).Should(Receive(ev))
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
 				oldObj := &sfcv1.DPUServiceIPAM{}
 				newObj := &sfcv1.DPUServiceIPAM{}
-				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
-				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(ContainElement(
 					And(
@@ -501,12 +451,12 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			By("Checking the conditions")
 			Eventually(func(g Gomega) []metav1.Condition {
-				ev := &event{}
-				g.Eventually(updateEvents).Should(Receive(ev))
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
 				oldObj := &sfcv1.DPUServiceIPAM{}
 				newObj := &sfcv1.DPUServiceIPAM{}
-				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
-				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 				return newObj.Status.Conditions
 			}).WithTimeout(10 * time.Second).Should(ConsistOf(
 				And(
@@ -549,12 +499,12 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			By("Checking condition")
 			Eventually(func(g Gomega) []metav1.Condition {
-				ev := &event{}
-				g.Eventually(updateEvents).Should(Receive(ev))
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
 				oldObj := &sfcv1.DPUServiceIPAM{}
 				newObj := &sfcv1.DPUServiceIPAM{}
-				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
-				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(ContainElement(
 					And(
@@ -608,12 +558,12 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			By("Checking the deleted condition is added")
 			Eventually(func(g Gomega) []metav1.Condition {
-				ev := &event{}
-				g.Eventually(updateEvents).Should(Receive(ev))
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
 				oldObj := &sfcv1.DPUServiceIPAM{}
 				newObj := &sfcv1.DPUServiceIPAM{}
-				g.Expect(testClient.Scheme().Convert(ev.oldObj, oldObj, nil)).ToNot(HaveOccurred())
-				g.Expect(testClient.Scheme().Convert(ev.newObj, newObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(ContainElement(
 					And(
