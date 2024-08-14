@@ -411,9 +411,6 @@ func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningdpfv1alpha1.Dpu
 		case provisioningdpfv1alpha1.DPUOSInstalling:
 			dpuStatistics[provisioningdpfv1alpha1.DPUOSInstalling]++
 
-		case provisioningdpfv1alpha1.DPUHostNetworkConfiguration:
-			dpuStatistics[provisioningdpfv1alpha1.DPUHostNetworkConfiguration]++
-
 		case provisioningdpfv1alpha1.DPUClusterConfig:
 			dpuStatistics[provisioningdpfv1alpha1.DPUClusterConfig]++
 

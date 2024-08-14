@@ -95,12 +95,6 @@ func (st *dpuDeletingState) Handle(ctx context.Context, client client.Client, _ 
 				Namespace: st.dpu.Namespace,
 			},
 		},
-		&corev1.Pod{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cutil.GenerateHostnetworkPodName(st.dpu.Name),
-				Namespace: st.dpu.Namespace,
-			},
-		},
 	}
 
 	if objects, err := cutil.GetObjects(client, deleteObjects); err != nil {

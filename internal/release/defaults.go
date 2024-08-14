@@ -36,8 +36,6 @@ type Defaults struct {
 	CustomOVNKubernetesNonDPUImage string `yaml:"customOVNKubernetesNonDPUImage"`
 	// dmsImagemage is the DMS image
 	DMSImage              string `yaml:"dmsImage"`
-	ParproutedImage       string `yaml:"parproutedImage"`
-	DHCRelayImage         string `yaml:"dhcRelayImage"`
 	HostNetworkSetupImage string `yaml:"hostNetworkSetupImage"`
 }
 
@@ -57,14 +55,8 @@ func (d *Defaults) Parse() error {
 	if len(d.DMSImage) == 0 {
 		return errors.New("dmsImage can't be empty")
 	}
-	if len(d.ParproutedImage) == 0 {
-		return errors.New("parproutedImage can't be empty")
-	}
 	if len(d.HostNetworkSetupImage) == 0 {
 		return errors.New("hostNetworkSetupImage can't be empty")
-	}
-	if len(d.DHCRelayImage) == 0 {
-		return errors.New("dhcRelayImage can't be empty")
 	}
 	return nil
 }

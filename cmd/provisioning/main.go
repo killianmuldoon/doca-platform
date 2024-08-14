@@ -67,8 +67,6 @@ func main() {
 	var probeAddr string
 	var dmsImage string
 	var hostnetworkImage string
-	var dhcrelayImage string
-	var parprouterdImage string
 	var imagePullSecret string
 	var bfbPVC string
 	var dhcp string
@@ -82,8 +80,6 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&dmsImage, "dms-image", "", "The image for DMS pod.")
 	flag.StringVar(&hostnetworkImage, "hostnetwork-image", "", "The image for DMS pod.")
-	flag.StringVar(&dhcrelayImage, "dhcrelay-image", "", "The image for DMS pod.")
-	flag.StringVar(&parprouterdImage, "parprouterd-image", "", "The image for DMS pod.")
 	flag.StringVar(&imagePullSecret, "image-pull-secret", "", "The image pull secret for pulling DMS image.")
 	flag.StringVar(&bfbPVC, "bfb-pvc", "", "The pvc to storage bfb.")
 	flag.StringVar(&dhcp, "dhcp", "", "The DHCP server address.")
@@ -123,15 +119,13 @@ func main() {
 	}
 
 	dpuOptions := util.DPUOptions{
-		DMSImageWithTag:          dmsImage,
-		HostnetworkImageWithTag:  hostnetworkImage,
-		DHCRelayImageWithTag:     dhcrelayImage,
-		PrarprouterdImageWithTag: parprouterdImage,
-		ImagePullSecret:          imagePullSecret,
-		BfbPvc:                   bfbPVC,
-		DHCP:                     dhcp,
-		DMSTimeout:               dmsTimeout,
-		DMSPodTimeout:            dmsPodTimeout,
+		DMSImageWithTag:         dmsImage,
+		HostnetworkImageWithTag: hostnetworkImage,
+		ImagePullSecret:         imagePullSecret,
+		BfbPvc:                  bfbPVC,
+		DHCP:                    dhcp,
+		DMSTimeout:              dmsTimeout,
+		DMSPodTimeout:           dmsPodTimeout,
 	}
 	setupLog.Info("DPU", "options", dpuOptions)
 	if err = (&dpu.DpuReconciler{

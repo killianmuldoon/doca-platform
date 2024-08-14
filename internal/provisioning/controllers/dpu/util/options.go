@@ -26,7 +26,6 @@ var OsInstallTaskMap sync.Map
 type DPUOptions struct {
 	DMSImageWithTag          string
 	HostnetworkImageWithTag  string
-	DHCRelayImageWithTag     string
 	PrarprouterdImageWithTag string
 	ImagePullSecret          string
 	BfbPvc                   string

@@ -337,14 +337,6 @@ func (p *provisioningControllerObjects) setDefaultImageNames(deployment *appsv1.
 	if err != nil {
 		return err
 	}
-	err = p.setFlags(c, fmt.Sprintf("--dhcrelay-image=%s", release.DHCRelayImage))
-	if err != nil {
-		return err
-	}
-	err = p.setFlags(c, fmt.Sprintf("--parprouterd-image=%s", release.ParproutedImage))
-	if err != nil {
-		return err
-	}
 	return nil
 }
 

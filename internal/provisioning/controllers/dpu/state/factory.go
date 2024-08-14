@@ -47,10 +47,6 @@ func GetDPUState(dpu *provisioningdpfv1alpha1.Dpu) State {
 		return &dmsDeploymentState{
 			dpu,
 		}
-	case provisioningdpfv1alpha1.DPUHostNetworkConfiguration:
-		return &dpuHostNetworkConfigState{
-			dpu,
-		}
 	case provisioningdpfv1alpha1.DPUOSInstalling:
 		return &dpuOSInstallingState{
 			dpu,

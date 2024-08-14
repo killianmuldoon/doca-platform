@@ -77,7 +77,7 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 
 	// If the pod is available after rebooting, move to next phase
 	if duration > uptime {
-		state.Phase = provisioningdpfv1alpha1.DPUHostNetworkConfiguration
+		state.Phase = provisioningdpfv1alpha1.DPUClusterConfig
 		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondRebooted, "", ""))
 		return *state, nil
 	}
@@ -93,7 +93,7 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 	// Note: skipping the powercycle may cause issues with the firmware installation and configuration.
 	if cmd == powercycle.Skip {
 		logger.Info("Warning not rebooting: this may cause issues with DPU firmware installation and configuration")
-		state.Phase = provisioningdpfv1alpha1.DPUHostNetworkConfiguration
+		state.Phase = provisioningdpfv1alpha1.DPUClusterConfig
 		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondRebooted, "", ""))
 		return *state, nil
 	}

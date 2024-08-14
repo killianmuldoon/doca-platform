@@ -30,8 +30,6 @@ func TestDefaults_Parse(t *testing.T) {
 		"customOVNKubernetesDPUImage":    "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/ovn-kubernetes-dpu:v0.0.0",
 		"customOVNKubernetesNonDPUImage": "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/ovn-kubernetes-non-dpu:v0.0.0",
 		"dmsImage":                       "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/dms-server:v0.0.0",
-		"parproutedImage":                "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/parprouted:v0.0.0",
-		"dhcrelayImage":                  "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/dhcrelay:v0.0.0",
 		"hostnetworksetupImage":          "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/hostnetworksetup:v0.0.0",
 	}
 	tests := []struct {
@@ -57,16 +55,6 @@ func TestDefaults_Parse(t *testing.T) {
 		{
 			name:    "fail when dmsImage empty/missing",
 			content: withoutValue(g, defaultValues, "dmsImage"),
-			wantErr: true,
-		},
-		{
-			name:    "fail when parproutedImage empty/missing",
-			content: withoutValue(g, defaultValues, "parproutedImage"),
-			wantErr: true,
-		},
-		{
-			name:    "fail when dhcrelayImage empty/missing",
-			content: withoutValue(g, defaultValues, "dhcrelayImage"),
 			wantErr: true,
 		},
 		{

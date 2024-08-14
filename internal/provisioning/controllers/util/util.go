@@ -22,10 +22,8 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
-	"net"
 	"os"
 	"path"
 	"strings"
@@ -43,7 +41,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -105,10 +102,6 @@ func GenerateDMSServerCertName(dpuName string) string {
 
 func GenerateDMSClientCertName(dpuNamespace string) string {
 	return fmt.Sprintf("%s-%s", dpuNamespace, "dms-client-cert")
-}
-
-func GenerateHostnetworkPodName(dpuName string) string {
-	return fmt.Sprintf("%s-%s", dpuName, "hostnetwork")
 }
 
 func GenerateCASecretName(dpuNamespace string) string {
@@ -323,57 +316,6 @@ func ComputeMD5(filePath string) (string, error) {
 	}
 
 	return hex.EncodeToString(hash.Sum(nil)), nil
-}
-
-// getHostCIDRFromOpenShiftClusterConfig extracts the Host CIDR from the given OpenShift Cluster Configuration.
-func GetHostCIDRFromOpenShiftClusterConfig(ctx context.Context, client crclient.Client) (net.IPNet, error) {
-	openshiftClusterConfig := &corev1.ConfigMap{}
-
-	nn := types.NamespacedName{
-		Namespace: ClusterConfigNamespace,
-		Name:      ClusterConfigConfigMapName,
-	}
-
-	if err := client.Get(ctx, nn, openshiftClusterConfig); err != nil {
-		return net.IPNet{}, fmt.Errorf("error while getting %s %s: %w", openshiftClusterConfig.GetObjectKind().GroupVersionKind().String(), nn.String(), err)
-	}
-
-	// Unfortunately I couldn't find good documentation for what fields are available to add a link here. The best I could
-	// find is this IBM specific (?) documentation:
-	// https://docs.openshift.com/container-platform/4.14/installing/installing_ibm_cloud/install-ibm-cloud-installation-workflow.html#additional-install-config-parameters_install-ibm-cloud-installation-workflow
-	type machineNetworkEntry struct {
-		CIDR string `yaml:"cidr"`
-	}
-	type installConfig struct {
-		Networking struct {
-			MachineNetwork []machineNetworkEntry `yaml:"machineNetwork"`
-		} `yaml:"networking"`
-	}
-
-	var config installConfig
-	data, ok := openshiftClusterConfig.Data["install-config"]
-	if !ok {
-		return net.IPNet{}, errors.New("install-config key is not found in ConfigMap data")
-	}
-
-	if err := yaml.Unmarshal([]byte(data), &config); err != nil {
-		return net.IPNet{}, fmt.Errorf("error while unmarshalling data into struct: %w", err)
-	}
-
-	if len(config.Networking.MachineNetwork) == 0 {
-		return net.IPNet{}, errors.New("host CIDR not found in cluster config")
-	}
-
-	// We use the first CIDR that we find. If there are clusters with multiple CIDRs defined here, we need to adjust the
-	// logic and see how each CIDR is correlated with the primary IP of the node. Ultimately, we want to CIDR that contains
-	// the primary IP of the node or else, the encap IP that is set by the OVN Kubernetes for the node.
-	cidrRaw := config.Networking.MachineNetwork[0].CIDR
-	_, cidr, err := net.ParseCIDR(cidrRaw)
-	if err != nil {
-		return net.IPNet{}, fmt.Errorf("error while parsing CIDR from %s: %w", cidrRaw, err)
-	}
-
-	return *cidr, nil
 }
 
 // ReplaceDaemonSetPodNodeNameNodeAffinity replaces the RequiredDuringSchedulingIgnoredDuringExecution

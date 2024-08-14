@@ -152,41 +152,6 @@ write_files:
         EnvironmentFile=-/etc/default/kubelet
         ExecStart=
         ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELET_KUBEADM_ARGS $KUBELET_EXTRA_ARGS
-  - path: /etc/NetworkManager/dispatcher.d/dpf-comm-ch-connectivity
-    permissions: '0755'
-    content: |
-        #!/usr/bin/env bash
-        set -euo pipefail
-
-        # This script triggers an ARP REPLY in the broadcast domain of the SF used for the kubelet traffic in order to trigger
-        # route creation via parprouted running on the host. Without this, the DPU can't reach any IP, not even the gateway.
-        INT_NAME=$1
-        ACTION=$2
-
-        # This is the SF that is getting a DHCP IP via the parpouted/dhcrelay/sf-vf-bridge setup
-        SF_NAME=enp3s0f0s1000
-
-        if [ "${ACTION}" = "dhcp4-change" ]; then
-          if [ "${INT_NAME}" = "${SF_NAME}" ]; then
-            echo "Attempting arping for ${INT_NAME}"
-            for i in {0..10}; do
-              echo "Probing IPs for ${INT_NAME}"
-              ip_list=($(ip addr show ${INT_NAME} | grep -oP 'inet \K[\d.]+'))
-
-              if [[ ${#ip_list[@]} -lt 1 ]]; then
-                sleep 3
-                continue
-              fi
-
-              for ip in "${ip_list[@]}"; do
-                echo "Starting arping for ${INT_NAME} ${ip}"
-                arping -A -I ${INT_NAME} ${ip} -c 3
-                echo "Finished arping for ${INT_NAME} ${ip}"
-              done
-              break
-            done
-          fi
-        fi
   - path: /opt/dpf/join_k8s_cluster.sh
     permissions: '0755'
     content: |

@@ -387,8 +387,6 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			"--zap-log-level=3",
 			"--dms-image=example.com/dms-server:v0.1.0",
 			"--hostnetwork-image=example.com/hostnetworksetup:v0.1.0",
-			"--dhcrelay-image=example.com/dhcrelay:v0.1.0",
-			"--parprouterd-image=example.com/parprouted:v0.1.0",
 			fmt.Sprintf("--image-pull-secret=%s", expectedImagePullSecret),
 			fmt.Sprintf("--bfb-pvc=%s", expectedPVC),
 			fmt.Sprintf("--dhcp=%s", expectedDHCP),

@@ -157,12 +157,6 @@ OVS_CNI_DIR=$(REPOSDIR)/ovs-cni-$(OVS_CNI_REVISION)
 $(OVS_CNI_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-sfc-cni.git $(OVS_CNI_DIR) $(OVS_CNI_REVISION)
 
-## Parprouted image with DPF patches
-PARPROUTED_REVISION ?= f710c992b06c058ff61afca4dea6b46ca9f2e8f9
-PARPROUTED_DIR=$(REPOSDIR)/parprouted-$(PARPROUTED_REVISION)
-$(PARPROUTED_DIR): | $(REPOSDIR)
-	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/parprouted.git $(PARPROUTED_DIR) $(PARPROUTED_REVISION)
-
 # OVN Kubernetes dependencies to be able to build its docker image
 OVNKUBERNETES_DPU_DIR=$(REPOSDIR)/ovn-kubernetes-dpu-$(OVNKUBERNETES_DPU_REVISION)
 $(OVNKUBERNETES_DPU_DIR): | $(REPOSDIR)
@@ -599,7 +593,7 @@ binary-ipallocator: ## Build the IP allocator binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ipallocator gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/ipallocator
 
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
-HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle hostnetwork parprouted dms dhcrelay ovnkubernetes-operator
+HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle hostnetwork dms  ovnkubernetes-operator
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn hbn-sidecar ovs-cni ipallocator
 MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system
 
@@ -629,8 +623,6 @@ export SFC_CONTROLLER_IMAGE ?= $(REGISTRY)/$(SFC_CONTROLLER_IMAGE_NAME)
 OVS_CNI_IMAGE_NAME ?= ovs-cni-plugin
 export OVS_CNI_IMAGE ?= $(REGISTRY)/$(OVS_CNI_IMAGE_NAME)
 
-export DHCRELAY_IMAGE ?= $(REGISTRY)/dhcrelay
-export PARPROUTED_IMAGE ?= $(REGISTRY)/parprouted
 export HOSTNETWORK_IMAGE ?= $(REGISTRY)/hostnetworksetup
 export DMS_IMAGE ?= $(REGISTRY)/dms-server
 
@@ -821,14 +813,6 @@ docker-build-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-e
 		. \
 		-t $(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
 
-.PHONY: docker-build-parprouted
-docker-build-parprouted: $(PARPROUTED_DIR) ## Build docker image with the parprouted.
-	cd $(PARPROUTED_DIR) && $(MAKE) parprouted && docker build --platform linux/${HOST_ARCH} -t $(PARPROUTED_IMAGE):$(TAG) .
-
-.PHONY: docker-build-dhcrelay
-docker-build-dhcrelay: ## Build docker image with the dhcrelay.
-	docker build --platform linux/${HOST_ARCH} -t $(DHCRELAY_IMAGE):$(TAG) . -f Dockerfile.dhcrelay
-
 .PHONY: docker-build-hostnetwork
 docker-build-hostnetwork: ## Build docker image with the hostnetwork.
 	docker build --platform linux/${HOST_ARCH} -t $(HOSTNETWORK_IMAGE):$(TAG) . -f Dockerfile.hostnetwork
@@ -871,14 +855,6 @@ docker-push-hbn-sidecar: ## Push the docker image for HBN sidecar.
 .PHONY: docker-push-ovs-cni
 docker-push-ovs-cni: ## Push the docker image for ovs-cni
 	docker push $(OVS_CNI_IMAGE):$(TAG)
-
-.PHONY: docker-push-dhcrelay
-docker-push-dhcrelay: ## Push the docker image for dhcrelate.
-	docker push $(DHCRELAY_IMAGE):$(TAG)
-
-.PHONY: docker-push-parprouted
-docker-push-parprouted: ## Push the docker image for parprouted.
-	docker push $(PARPROUTED_IMAGE):$(TAG)
 
 .PHONY: docker-push-hostnetwork
 docker-push-hostnetwork: ## Push the docker image for the hostnetwork.

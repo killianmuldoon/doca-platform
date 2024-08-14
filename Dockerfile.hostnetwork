@@ -1,4 +1,4 @@
-From ubuntu:22.04
+FROM ubuntu:22.04
 
 RUN apt-get update && apt-get install -y bridge-utils iptables iproute2 && rm -rf /var/lib/apt/lists/*
 

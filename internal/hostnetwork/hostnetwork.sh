@@ -16,9 +16,9 @@
 
 set -ex -o pipefail
 
-brige_name="br-dpu"
+bridge_name="br-dpu"
 pci_sys_dir="/sys/bus/pci/devices"
-br_dpu_dir="/sys/class/net/${brige_name}"
+br_dpu_dir="/sys/class/net/${bridge_name}"
 dpu_device_list=("0xa2dc" "0xa2d6")
 
 # get PF from PCI address
@@ -31,37 +31,69 @@ get_net_devices_from_pci () {
     done
 }
 
-
 bridge_check () {
     while true; do
         if [ -d "${br_dpu_dir}" ]; then
-            echo "${brige_name} is created"
+            echo "${bridge_name} is created"
             break
         else
-            echo "${brige_name} bridge does not exist"
+            echo "${bridge_name} bridge does not exist"
             sleep 5
         fi
     done
 
-    IP_COUNT=$(ip addr show $brige_name | grep 'inet ' | wc -l)
+    IP_COUNT=$(ip addr show $bridge_name | grep 'inet ' | wc -l)
     while true; do
         if [ $IP_COUNT -ge 1 ]; then
             break
         else
-            echo "checking the ip address in ${brige_name}"
+            echo "checking the ip address in ${bridge_name}"
             sleep 5
         fi
     done
 }
 
-create_PF () {
-    local pci_address=$1
-    pf_device=$(get_net_devices_from_pci ${pci_address})
+create_VFs () {
+    local pf_device=$1
     vf_num=$(cat /sys/class/net/${pf_device}/device/sriov_numvfs)
     if [ "$vf_num" -eq 0 ]; then
         echo ${num_of_vfs} > /sys/class/net/${pf_device}/device/sriov_numvfs
     else 
-        echo "the num of vf: ${vf_num} is setted before"
+        echo "the num of vf: ${vf_num} is set before"
+    fi
+}
+
+add_vf_to_bridge () {
+    local pf_device=$1
+    vf_device=$(find /sys/class/net/${pf_device}/device/virtfn1/net -mindepth 1 -maxdepth 1 -type d)
+    if [ -n "${vf_device}" ]; then
+        vf_name=$(basename ${vf_device})
+        if ! ip link show master ${bridge_name} | grep -q ${vf_name}; then
+            echo "Adding VF ${vf_name} to bridge ${bridge_name}"
+            ip link set dev ${vf_name} master ${bridge_name}
+            ip link set dev ${vf_name} up
+        else
+            echo "VF ${vf_name} is already part of bridge ${bridge_name}"
+        fi
+    else
+        echo "No VFs found for ${pf_device}"
+    fi
+}
+
+configure_interface_pf0vf2 () {
+    local pf_device=$1
+    vf_device=$(find /sys/class/net/${pf_device}/device/virtfn2/net -mindepth 1 -maxdepth 1 -type d)
+    if [ -n "${vf_device}" ]; then
+        vf_name=$(basename ${vf_device})
+        if ! ip addr show ${vf_name} | grep -q "169.254.55.2"; then
+            ip link set dev ${vf_name} up
+            ip addr add 169.254.55.2/30 dev ${vf_name}
+            echo "Configured ${vf_name} with IP 169.254.55.2/30"
+        else
+            echo "${vf_name} is already configured with IP 169.254.55.2/30"
+        fi
+    else
+        echo "No VFs found for ${pf_device}"
     fi
 }
 
@@ -70,28 +102,39 @@ if [[ -z "$device_pci_address" ]]; then
     exit 1
 fi
 
-
 if [[ -z "${num_of_vfs}" ]]; then
   export num_of_vfs=16
 fi
 
-p0="${device_pci_address}.0"
-create_PF ${p0}
+while true; do
+    p0="${device_pci_address}.0"
+    pf_device_p0=$(get_net_devices_from_pci ${p0})
 
-p1="${device_pci_address}.1"
-if [ -d "${pci_sys_dir}/${p1}" ]; then
-    deviceID=`cat ${pci_sys_dir}/${p1}/device`
-    for dpu_device in "${dpu_device_list[@]}"; do
-        if [ "${dpu_device}" = "${deviceID}" ]; then
-            create_PF ${p1}
-            break
-        fi
-    done
-fi
+    create_VFs ${pf_device_p0}
 
-bridge_check
+    p1="${device_pci_address}.1"
+    pf_device_p1=$(get_net_devices_from_pci ${p0})
+    if [ -d "${pci_sys_dir}/${p1}" ]; then
+        deviceID=$(cat ${pci_sys_dir}/${p1}/device)
+        for dpu_device in "${dpu_device_list[@]}"; do
+            if [ "${dpu_device}" = "${deviceID}" ]; then
+                create_VFs ${pf_device_p1}
+                break
+            fi
+        done
+    fi
 
-sysctl -w net.ipv4.ip_forward=1
-iptables -I FORWARD -i ${brige_name} -j ACCEPT
-iptables -I FORWARD -o ${brige_name} -j ACCEPT
+    bridge_check
 
+    # Add VF1 of the PF device to the bridge
+    add_vf_to_bridge ${pf_device_p0}
+
+    # Configure the interface pf0vf2 for the 2nd Comm channel for SFC
+    configure_interface_pf0vf2 ${pf_device_p0}
+
+    sysctl -w net.ipv4.ip_forward=1
+    iptables -I FORWARD -i ${bridge_name} -j ACCEPT
+    iptables -I FORWARD -o ${bridge_name} -j ACCEPT
+
+    sleep 5
+done

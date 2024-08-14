@@ -40,8 +40,6 @@ const (
 	DPUOSInstalling DpuPhase = "OS Installing"
 	// In DPUClusterConfig state, The controller will verify DPU joined successfully to Kamaji cluster.
 	DPUClusterConfig DpuPhase = "DPU Cluster Config"
-	// Setup host network and start dhcrelay and prarprouterd container
-	DPUHostNetworkConfiguration DpuPhase = "Host Network Configuration"
 	// DPUReady means the DPU is ready to use.
 	DPUReady DpuPhase = "Ready"
 	// DPUError means error occurred.
@@ -55,14 +53,13 @@ const (
 type DPUConditionType string
 
 const (
-	DPUCondInitialized      DPUConditionType = "Initialized"
-	DPUCondBFBReady         DPUConditionType = "BFBReady"
-	DPUCondNodeEffectReady  DPUConditionType = "NodeEffectReady"
-	DPUCondDMSRunning       DPUConditionType = "DMSRunning"
-	DPUCondOSInstalled      DPUConditionType = "OSInstalled"
-	DPUCondRebooted         DPUConditionType = "Rebooted"
-	DPUCondHostNetworkReady DPUConditionType = "HostNetworkReady"
-	DPUCondReady            DPUConditionType = "Ready"
+	DPUCondInitialized     DPUConditionType = "Initialized"
+	DPUCondBFBReady        DPUConditionType = "BFBReady"
+	DPUCondNodeEffectReady DPUConditionType = "NodeEffectReady"
+	DPUCondDMSRunning      DPUConditionType = "DMSRunning"
+	DPUCondOSInstalled     DPUConditionType = "OSInstalled"
+	DPUCondRebooted        DPUConditionType = "Rebooted"
+	DPUCondReady           DPUConditionType = "Ready"
 )
 
 func (ct DPUConditionType) String() string {
