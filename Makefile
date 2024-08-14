@@ -13,8 +13,11 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
+## Include Make modules which are split up in this repo for better structure.
+include hack/tools/tools.mk
+
 # Export is needed here so that the envsubst used in make targets has access to those variables even when they are not
-# explictily set when calling make.
+# explicitly set when calling make.
 # The tag must have three digits with a leading v - i.e. v9.9.1
 export TAG ?= v0.1.0
 # Note: Registry defaults to non-existing registry intentionally to avoid overriding useful images.
@@ -67,13 +70,8 @@ SHELL = /usr/bin/env bash -o pipefail
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-
 LOCALBIN ?= $(shell pwd)/bin
 $(LOCALBIN):
-	@mkdir -p $@
-
-TOOLSDIR ?= $(shell pwd)/hack/tools/bin
-$(TOOLSDIR):
 	@mkdir -p $@
 
 CHARTSDIR ?= $(shell pwd)/hack/charts
@@ -90,24 +88,6 @@ $(REPOSDIR):
 
 HELMDIR ?= $(shell pwd)/deploy/helm
 
-## Tool Binaries
-KUBECTL ?= kubectl
-KUSTOMIZE ?= $(TOOLSDIR)/kustomize-$(KUSTOMIZE_VERSION)
-CONTROLLER_GEN ?= $(TOOLSDIR)/controller-gen-$(CONTROLLER_TOOLS_VERSION)
-ENVTEST ?= $(TOOLSDIR)/setup-envtest-$(ENVTEST_VERSION)
-GOLANGCI_LINT ?= $(TOOLSDIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
-MOCKGEN ?= $(TOOLSDIR)/mockgen-$(MOCKGEN_VERSION)
-GOTESTSUM ?= $(TOOLSDIR)/gotestsum-$(GOTESTSUM_VERSION)
-ENVSUBST ?= $(TOOLSDIR)/envsubst-$(ENVSUBST_VERSION)
-
-## Tool Versions
-KUSTOMIZE_VERSION ?= v5.3.0
-CONTROLLER_TOOLS_VERSION ?= v0.14.0
-ENVTEST_VERSION ?= v0.0.0-20240110160329-8f8247fdc1c3
-GOLANGCI_LINT_VERSION ?= v1.58.1
-MOCKGEN_VERSION ?= v0.4.0
-GOTESTSUM_VERSION ?= v1.11.0
-ENVSUBST_VERSION ?= v1.4.2
 
 ## OVN Kubernetes Images
 # We build 2 images for OVN Kubernetes. One for the DPU enabled nodes and another for the non DPU enabled ones. The
@@ -139,63 +119,11 @@ OVNKUBERNETES_NON_DPU_REVISION=f73cdc1f764b36a1f4df9849e15f32eb0e0082c1
 
 .PHONY: clean
 clean: ; $(info  Cleaning...)	 @ ## Clean non-essential files from the repo
-	@rm -rf $(TOOLSDIR)
 	@rm -rf $(CHARTSDIR)
+	@rm -rf $(TOOLSDIR)
 	@rm -rf $(REPOSDIR)
 
 ##@ Dependencies
-
-.PHONY: kustomize
-kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
-$(KUSTOMIZE): $(TOOLSDIR)
-	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
-
-.PHONY: controller-gen
-controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
-$(CONTROLLER_GEN): $(TOOLSDIR)
-	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen,$(CONTROLLER_TOOLS_VERSION))
-
-.PHONY: envtest
-envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
-$(ENVTEST): $(TOOLSDIR)
-	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
-
-.PHONY: golangci-lint
-golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
-$(GOLANGCI_LINT): $(TOOLSDIR)
-	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
-
-.PHONY: mockgen
-mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
-$(MOCKGEN): $(TOOLSDIR)
-	$(call go-install-tool,$(MOCKGEN),go.uber.org/mock/mockgen,${MOCKGEN_VERSION})
-	ln -f $(MOCKGEN) $(abspath $(TOOLSDIR)/mockgen)
-
-# gotestsum is used to generate junit style test reports
-.PHONY: gotestsum
-gotestsum: $(GOTESTSUM) # download gotestsum locally if necessary
-$(GOTESTSUM): $(TOOLSDIR)
-	$(call go-install-tool,$(GOTESTSUM),gotest.tools/gotestsum,${GOTESTSUM_VERSION})
-
-# envsubst is used to template files with environment variables
-.PHONY: envsubst
-envsubst: $(ENVSUBST) # download gotestsum locally if necessary
-$(ENVSUBST): $(TOOLSDIR)
-	$(call go-install-tool,$(ENVSUBST),github.com/a8m/envsubst/cmd/envsubst,${ENVSUBST_VERSION})
-
-
-# helm is used to manage helm deployments and artifacts.
-GET_HELM = $(TOOLSDIR)/get_helm.sh
-HELM_VER = v3.13.3
-HELM_BIN = helm
-HELM = $(abspath $(TOOLSDIR)/$(HELM_BIN)-$(HELM_VER))
-$(HELM): | $(TOOLSDIR)
-	$Q echo "Installing helm-$(HELM_VER) to $(TOOLSDIR)"
-	$Q curl -fsSL -o $(GET_HELM) https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
-	$Q chmod +x $(GET_HELM)
-	$Q env HELM_INSTALL_DIR=$(TOOLSDIR) PATH=$(PATH):$(TOOLSDIR) $(GET_HELM) --no-sudo -v $(HELM_VER)
-	$Q mv $(TOOLSDIR)/$(HELM_BIN) $(TOOLSDIR)/$(HELM_BIN)-$(HELM_VER)
-	$Q rm -f $(GET_HELM)
 
 # kamaji is the underlying control plane provider
 KAMAJI_REPO_URL=https://clastix.github.io/charts
@@ -207,24 +135,6 @@ $(KAMAJI): | $(CHARTSDIR) $(HELM)
 	$Q $(HELM) repo add $(KAMAJI_REPO_NAME) $(KAMAJI_REPO_URL)
 	$Q $(HELM) repo update
 	$Q $(HELM) pull $(KAMAJI_REPO_NAME)/$(KAMAJI_CHART_NAME) --version $(KAMAJI_CHART_VERSION) -d $(CHARTSDIR)
-
-# skaffold is used to run a debug build of the network operator for dev work.
-SKAFFOLD_VER := v2.10.0
-SKAFFOLD_BIN := skaffold
-SKAFFOLD := $(abspath $(TOOLSDIR)/$(SKAFFOLD_BIN)-$(SKAFFOLD_VER))
-$(SKAFFOLD): | $(TOOLSDIR)
-	$Q echo "Installing skaffold-$(SKAFFOLD_VER) to $(TOOLSDIR)"
-	$Q curl -fsSL https://storage.googleapis.com/skaffold/releases/$(SKAFFOLD_VER)/skaffold-$(OS)-$(ARCH) -o $(SKAFFOLD)
-	$Q chmod +x $(SKAFFOLD)
-
-# minikube is used to set-up a local kubernetes cluster for dev work.
-MINIKUBE_VER := v1.33.1
-MINIKUBE_BIN := minikube
-MINIKUBE := $(abspath $(TOOLSDIR)/$(MINIKUBE_BIN)-$(MINIKUBE_VER))
-$(MINIKUBE): | $(TOOLSDIR)
-	$Q echo "Installing minikube-$(MINIKUBE_VER) to $(TOOLSDIR)"
-	$Q curl -fsSL https://storage.googleapis.com/minikube/releases/$(MINIKUBE_VER)/minikube-$(OS)-$(ARCH) -o $(MINIKUBE)
-	$Q chmod +x $(MINIKUBE)
 
 # cert-manager is used for webhook certs in the dev setup.
 CERT_MANAGER_YAML=$(CHARTSDIR)/cert-manager.yaml
@@ -265,16 +175,6 @@ $(OVNKUBERNETES_NON_DPU_DIR): | $(REPOSDIR)
 OVN_DIR=$(REPOSDIR)/ovn-$(OVN_REVISION)
 $(OVN_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR) $(OVN_REVISION)
-
-# operator-sdk is used to generate operator-sdk bundles
-OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download
-OPERATOR_SDK_BIN = operator-sdk
-OPERATOR_SDK_VER = v1.35.0
-OPERATOR_SDK = $(abspath $(TOOLSDIR)/$(OPERATOR_SDK_BIN)-$(OPERATOR_SDK_VER))
-$(OPERATOR_SDK): | $(TOOLSDIR)
-	$Q echo "Installing $(OPERATOR_SDK_BIN)-$(OPERATOR_SDK_VER) to $(TOOLSDIR)"
-	$Q curl -sSfL $(OPERATOR_SDK_DL_URL)/$(OPERATOR_SDK_VER)/operator-sdk_$(OS)_$(ARCH) -o $(OPERATOR_SDK)
-	$Q chmod +x $(OPERATOR_SDK)
 
 ##@ Development
 GENERATE_TARGETS ?= operator dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded sfc-controller release-defaults hbn-dpuservice ovs-cni dummydpuservice
@@ -614,7 +514,7 @@ lint-helm-dummydpuservice: $(HELM) ## Run helm lint for dummydpuservice chart
 ##@ Release
 
 .PHONY: release
-release: generate # Build and push helm and container images for release.
+release: generate ## Build and push helm and container images for release.
 	# Build multiarch images which will run on both DPUs and x86 hosts.
 	$(MAKE) $(addprefix docker-build-,$(MULTI_ARCH_DOCKER_BUILD_TARGETS))
 	# Build arm64 images which will run on DPUs.
@@ -1215,16 +1115,3 @@ dev-ovnkubernetes-operator:  $(MINIKUBE) $(SKAFFOLD) generate-manifests-ovnkuber
 	git restore config/ovnkubernetesoperator/manager/kustomization.yaml
 	$(SKAFFOLD) debug -p ovnkubernetes-operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
-# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
-# $1 - target path with name of binary (ideally with version)
-# $2 - package url which can be installed
-# $3 - specific version of package
-define go-install-tool
-@[ -f $(1) ] || { \
-set -e; \
-package=$(2)@$(3) ;\
-echo "Downloading $${package}" ;\
-GOBIN=$(TOOLSDIR) go install $${package} ;\
-mv "$$(echo "$(1)" | sed "s/-$(3)$$//")" $(1) ;\
-}
-endef
