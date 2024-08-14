@@ -31,8 +31,8 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
-	ssa "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/serversideapply"
 
+	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -83,6 +83,12 @@ const (
 	dpuServiceControllerName = "dpuservice-manager"
 )
 
+// applyPatchOptions contains options which are passed to every `client.Apply` patch.
+var applyPatchOptions = []client.PatchOption{
+	client.ForceOwnership,
+	client.FieldOwner(dpuServiceControllerName),
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPUServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	tenantControlPlane := &metav1.PartialObjectMetadata{}
@@ -107,14 +113,16 @@ func (r *DPUServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 		return ctrl.Result{}, err
 	}
-	conditions.EnsureConditions(dpuService, dpuservicev1.AllConditions)
+	patcher := patch.NewSerialPatcher(dpuService, r.Client)
 
+	conditions.EnsureConditions(dpuService, dpuservicev1.AllConditions)
 	// Defer a patch call to always patch the object when Reconcile exits.
 	defer func() {
+		log.Info("Patching")
 		if err := r.summary(ctx, dpuService); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
-		if err := ssa.Patch(ctx, r.Client, dpuServiceControllerName, dpuService); err != nil {
+		if err := patcher.Patch(ctx, dpuService, patch.WithFieldOwner(dpuServiceControllerName)); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
@@ -309,7 +317,7 @@ func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, cluster
 		}
 		// Create or patch
 		log.Info("Patching Secrets for DPF clusters")
-		if err := ssa.Patch(ctx, r.Client, dpuServiceControllerName, argoSecret); err != nil {
+		if err := r.Client.Patch(ctx, argoSecret, client.Apply, applyPatchOptions...); err != nil {
 			errs = append(errs, err)
 			continue
 		}
@@ -428,7 +436,7 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, argoCDNa
 	dpuAppProject := argocd.NewAppProject(argoCDNamespace, dpuAppProjectName, clusterKeys)
 
 	log.Info("Patching AppProject for DPU clusters")
-	if err := ssa.Patch(ctx, r.Client, dpuServiceControllerName, dpuAppProject); err != nil {
+	if err := r.Client.Patch(ctx, dpuAppProject, client.Apply, applyPatchOptions...); err != nil {
 		return err
 	}
 
@@ -436,7 +444,7 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, argoCDNa
 	hostAppProject := argocd.NewAppProject(argoCDNamespace, hostAppProjectName, inClusterKey)
 
 	log.Info("Patching AppProject for Host cluster")
-	if err := ssa.Patch(ctx, r.Client, dpuServiceControllerName, hostAppProject); err != nil {
+	if err := r.Client.Patch(ctx, hostAppProject, client.Apply, applyPatchOptions...); err != nil {
 		return err
 	}
 
@@ -457,14 +465,14 @@ func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, argoCDN
 			argoApplication := argocd.NewApplication(argoCDNamespace, project, clusterKey, dpuService, values)
 
 			log.Info("Patching Application", "Application", klog.KObj(argoApplication))
-			if err := ssa.Patch(ctx, r.Client, dpuServiceControllerName, argoApplication); err != nil {
+			if err := r.Client.Patch(ctx, argoApplication, client.Apply, applyPatchOptions...); err != nil {
 				return err
 			}
 		}
 	} else {
 		argoApplication := argocd.NewApplication(argoCDNamespace, project, types.NamespacedName{Namespace: "*", Name: "in-cluster"}, dpuService, values)
 		log.Info("Patching Application", "Application", klog.KObj(argoApplication))
-		if err := ssa.Patch(ctx, r.Client, dpuServiceControllerName, argoApplication); err != nil {
+		if err := r.Client.Patch(ctx, argoApplication, client.Apply, applyPatchOptions...); err != nil {
 			return err
 		}
 	}
@@ -572,7 +580,7 @@ func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, cl
 			errs = append(errs, err)
 		}
 		for _, secret := range secretsToPatch {
-			if err := dpuClusterClient.Patch(ctx, secret, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName)); err != nil {
+			if err := dpuClusterClient.Patch(ctx, secret, client.Apply, applyPatchOptions...); err != nil {
 				errs = append(errs, err)
 			}
 		}

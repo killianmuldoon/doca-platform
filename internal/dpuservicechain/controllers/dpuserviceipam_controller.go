@@ -25,8 +25,8 @@ import (
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
-	ssa "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/serversideapply"
 
+	"github.com/fluxcd/pkg/runtime/patch"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -82,14 +82,16 @@ func (r *DPUServiceIPAMReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		return ctrl.Result{}, err
 	}
 
+	patcher := patch.NewSerialPatcher(dpuServiceIPAM, r.Client)
+
 	// Defer a patch call to always patch the object when Reconcile exits.
 	defer func() {
-		log.Info("Calling defer")
+		log.Info("Patching")
 
 		if err := updateSummary(ctx, r, r.Client, sfcv1.ConditionDPUIPAMObjectReady, dpuServiceIPAM); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
-		if err := ssa.Patch(ctx, r.Client, dpuServiceIPAMControllerName, dpuServiceIPAM); err != nil {
+		if err := patcher.Patch(ctx, dpuServiceIPAM, patch.WithFieldOwner(dpuServiceIPAMControllerName)); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()

@@ -26,8 +26,8 @@ import (
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
-	ssa "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/serversideapply"
 
+	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,6 +46,12 @@ const (
 	// DefaultDPFOperatorConfigSingletonNamespace is the default single valid name of the DPFOperatorConfig.
 	DefaultDPFOperatorConfigSingletonNamespace = "dpf-operator-system"
 )
+
+const (
+	dpfOperatorConfigControllerName = "dpfoperatorconfig-controller"
+)
+
+var applyPatchOptions = []client.PatchOption{client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)}
 
 // DPFOperatorConfigReconciler reconciles a DPFOperatorConfig object
 // TODO: Consider creating a constructor
@@ -69,10 +75,6 @@ type DPFOperatorConfigReconcilerSettings struct {
 // This Operator deploys ArgoCD and needs RBAC for all groups, resources and verbs.
 // TODO: Revisit this blanket RBAC.
 //+kubebuilder:rbac:groups=*,resources=*,verbs=*
-
-const (
-	dpfOperatorConfigControllerName = "dpfoperatorconfig-controller"
-)
 
 // SetupWithManager sets up the controller with the Manager.
 // TODO: consider watching other objects this controller interacts with e.g. pods, secrets with a label selector to speed up reconciliation.
@@ -110,6 +112,8 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, nil
 	}
 
+	patcher := patch.NewSerialPatcher(dpfOperatorConfig, r.Client)
+
 	// Defer a patch call to always patch the object when Reconcile exits.
 	defer func() {
 		// Update the ready condition for the system components.
@@ -117,7 +121,8 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		// Set the summary condition for the DPFOperatorConfig.
 		conditions.SetSummary(dpfOperatorConfig)
 
-		if err := ssa.Patch(ctx, r.Client, dpfOperatorConfigControllerName, dpfOperatorConfig); err != nil {
+		log.Info("Patching")
+		if err := patcher.Patch(ctx, dpfOperatorConfig, patch.WithFieldOwner(dpfOperatorConfigControllerName)); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
@@ -249,7 +254,7 @@ func (r *DPFOperatorConfigReconciler) generateAndPatchObjects(ctx context.Contex
 			(kind == "ValidatingWebhookConfiguration" || kind == "MutatingWebhookConfiguration") {
 			continue
 		}
-		err := r.Client.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName))
+		err := r.Client.Patch(ctx, obj, client.Apply, applyPatchOptions...)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
 				obj.GetObjectKind().GroupVersionKind().Kind,
@@ -274,7 +279,7 @@ func (r *DPFOperatorConfigReconciler) reconcileImagePullSecrets(ctx context.Cont
 		secret.SetManagedFields(nil)
 		labels[dpuservicev1.DPFImagePullSecretLabelKey] = ""
 		secret.SetLabels(labels)
-		if err := r.Client.Patch(ctx, secret, client.Apply, client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)); err != nil {
+		if err := r.Client.Patch(ctx, secret, client.Apply, applyPatchOptions...); err != nil {
 			return err
 		}
 	}

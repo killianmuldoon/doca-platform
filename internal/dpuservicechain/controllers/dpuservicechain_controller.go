@@ -26,8 +26,8 @@ import (
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
-	ssa "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/serversideapply"
 
+	"github.com/fluxcd/pkg/runtime/patch"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -75,14 +75,16 @@ func (r *DPUServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
+	patcher := patch.NewSerialPatcher(dpuServiceChain, r.Client)
+
 	// Defer a patch call to always patch the object when Reconcile exits.
 	defer func() {
-		log.Info("Calling defer")
+		log.Info("Patching")
 
 		if err := updateSummary(ctx, r, r.Client, sfcv1.ConditionServiceChainSetReady, dpuServiceChain); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
-		if err := ssa.Patch(ctx, r.Client, dpuServiceChainControllerName, dpuServiceChain); err != nil {
+		if err := patcher.Patch(ctx, dpuServiceChain, patch.WithFieldOwner(dpuServiceChainControllerName)); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
