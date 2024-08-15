@@ -35,7 +35,7 @@ import (
 
 func TestDPFProvisioningControllerObjects_Parse(t *testing.T) {
 	g := NewGomegaWithT(t)
-	originalObjects, err := utils.BytesToUnstructured(dpfProvisioningControllerData)
+	originalObjects, err := utils.BytesToUnstructured(provisioningControllerData)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	iterate := func(op func(*unstructured.Unstructured) bool) []byte {
@@ -149,7 +149,7 @@ func TestDPFProvisioningControllerObjects_Parse(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			p := provisioningControllerObjects{
-				data: dpfProvisioningControllerData,
+				data: provisioningControllerData,
 			}
 			p.data = tc.data
 			if tc.expectErr {
@@ -162,10 +162,10 @@ func TestDPFProvisioningControllerObjects_Parse(t *testing.T) {
 }
 
 func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
-	originalObjs, err := utils.BytesToUnstructured(dpfProvisioningControllerData)
+	originalObjs, err := utils.BytesToUnstructured(provisioningControllerData)
 	NewGomegaWithT(t).Expect(err).NotTo(HaveOccurred())
 	provCtrl := provisioningControllerObjects{
-		data: dpfProvisioningControllerData,
+		data: provisioningControllerData,
 	}
 	NewGomegaWithT(t).Expect(provCtrl.Parse()).NotTo(HaveOccurred())
 

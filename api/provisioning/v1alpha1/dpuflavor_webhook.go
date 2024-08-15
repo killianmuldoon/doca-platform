@@ -56,7 +56,8 @@ func (r *DPUFlavor) ValidateCreate() (admission.Warnings, error) {
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *DPUFlavor) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	dpuflavorlog.Info("validate update", "name", r.Name)
-	return nil, fmt.Errorf("DPUFlavor is immutable. You must recreate the DPUFlavor if you want to update its content")
+	// This is a no-op as this type is immutable. The immutability validation is done inside the CRD definition.
+	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type

@@ -83,7 +83,8 @@ type ContainerdConfig struct {
 type DPUFlavor struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DPUFlavor spec is immutable"
 	Spec DPUFlavorSpec `json:"spec,omitempty"`
 }
 

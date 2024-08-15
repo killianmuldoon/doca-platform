@@ -231,16 +231,17 @@ func getVariablesFromConfig(config *operatorv1.DPFOperatorConfig) inventory.Vari
 // 8. OVS CNI
 // 8. SFC Controller
 func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
-	errs := []error{}
 	vars := getVariablesFromConfig(config)
 	// TODO: Handle deletion of objects on version upgrade.
 
 	// Create objects for system components.
 	for _, component := range r.Inventory.AllComponents() {
-		errs = append(errs, r.generateAndPatchObjects(ctx, component, vars))
+		if err := r.generateAndPatchObjects(ctx, component, vars); err != nil {
+			return err
+		}
 	}
 
-	return kerrors.NewAggregate(errs)
+	return nil
 }
 
 func (r *DPFOperatorConfigReconciler) generateAndPatchObjects(ctx context.Context, manifests inventory.Component, vars inventory.Variables) error {

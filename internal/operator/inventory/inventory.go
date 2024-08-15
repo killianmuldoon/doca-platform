@@ -86,7 +86,7 @@ var (
 	nvK8sIpamData []byte
 
 	//go:embed manifests/provisioning-controller.yaml
-	dpfProvisioningControllerData []byte
+	provisioningControllerData []byte
 
 	//go:embed manifests/sfc-controller.yaml
 	sfcControllerData []byte
@@ -99,7 +99,7 @@ func New() *SystemComponents {
 			data: dpuServiceData,
 		},
 		DPFProvisioning: &provisioningControllerObjects{
-			data: dpfProvisioningControllerData,
+			data: provisioningControllerData,
 		},
 		ServiceFunctionChainSet: &fromDPUService{
 			name: "serviceFunctionChainSet",
