@@ -1,10 +1,12 @@
-## argo-cd and kamaji are installed as dependencies and configured here.
+## argo-cd and node feature discovery are installed as dependencies and configured here.
 argo-cd:
   enabled: true
   dex:
     enabled: false
   notifications:
     enabled: false
+node-feature-discovery:
+  enabled: true
 
 controllerManager:
   containerSecurityContext:

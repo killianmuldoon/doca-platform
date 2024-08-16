@@ -2,5 +2,8 @@ dependencies:
 - name: argo-cd
   repository: https://argoproj.github.io/argo-helm
   version: 6.10.0
-digest: sha256:3b082837422923ccd3d7b9490c52387f1e37233a7c663e82eee712be9fc26904
-generated: "2024-07-29T09:51:41.632301+01:00"
+- name: node-feature-discovery
+  repository: https://kubernetes-sigs.github.io/node-feature-discovery/charts
+  version: 0.16.4
+digest: sha256:cb43f04fba399b7956b458735b7d8b2b9a6c8e8f96c6a8be7b4bb30653a92775
+generated: "2024-08-15T14:51:15.947871+01:00"

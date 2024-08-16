@@ -9,3 +9,7 @@ dependencies:
     version: "6.10.0"
     repository: "https://argoproj.github.io/argo-helm"
     condition: argo-cd.enabled
+  - name: node-feature-discovery
+    version: "0.16.4"
+    repository: "https://kubernetes-sigs.github.io/node-feature-discovery/charts"
+    condition: node-feature-discovery.enabled
