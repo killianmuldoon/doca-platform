@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -154,6 +155,32 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			By("Reconciling the updated resource")
 			Eventually(func(g Gomega) {
 				assertServiceChainList(ctx, g, 2, &cleanupObjects, updatedSpec)
+			}, timeout*30, interval).Should(Succeed())
+		})
+		It("should successfully delete the ServiceChainSet", func() {
+			By("Creating ServiceChainSet, with Node Selector")
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
+				MatchLabels: map[string]string{"role": "firewall"}}))
+
+			By("Creating 2 nodes")
+			labels := map[string]string{"role": "firewall"}
+			cleanupObjects = append(cleanupObjects, createNode(ctx, "node1", labels))
+			cleanupObjects = append(cleanupObjects, createNode(ctx, "node2", labels))
+
+			By("Reconciling the created resource, 2 nodes, 2 matches")
+			Eventually(func(g Gomega) {
+				assertServiceChainList(ctx, g, 2, &cleanupObjects, getTestServiceChainSpec())
+			}, timeout*30, interval).Should(Succeed())
+
+			By("Deleting ServiceChainSet")
+			scs := cleanupObjects[0].(*sfcv1.ServiceChainSet)
+			Expect(testClient.Delete(ctx, scs)).NotTo(HaveOccurred())
+
+			By("Verifying ServiceChainSet is deleted")
+			Eventually(func(g Gomega) {
+				scs := cleanupObjects[0].(*sfcv1.ServiceChainSet)
+				err := testClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}, timeout*30, interval).Should(Succeed())
 		})
 	})

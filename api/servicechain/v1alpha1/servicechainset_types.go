@@ -20,7 +20,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-const ServiceChainSetKind = "ServiceChainSet"
+const (
+	// ServiceChainSetKind is the kind of the ServiceChainSet in string format.
+	ServiceChainSetKind = "ServiceChainSet"
+	// ServiceChainSetFinalizer is set on a ServiceChainSet when it is first handled by
+	// the controller, and removed when this object is deleted.
+	ServiceChainSetFinalizer = "dpf.nvidia.com/servicechainset"
+)
 
 var (
 	ServiceChainSetGroupVersionKind = GroupVersion.WithKind(ServiceChainSetKind)

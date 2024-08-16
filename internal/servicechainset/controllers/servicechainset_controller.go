@@ -30,6 +30,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -70,11 +71,36 @@ func (r *ServiceChainSetReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 		return ctrl.Result{}, err
 	}
+
 	if !scs.ObjectMeta.DeletionTimestamp.IsZero() {
-		// Return early, the object is deleting.
-		return ctrl.Result{}, nil
+		return r.reconcileDelete(ctx, scs)
 	}
+
+	// Add finalizer if not set.
+	if !controllerutil.ContainsFinalizer(scs, sfcv1.ServiceChainSetFinalizer) {
+		controllerutil.AddFinalizer(scs, sfcv1.ServiceChainSetFinalizer)
+		if err := r.Update(ctx, scs); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
+
 	return reconcileSet(ctx, scs, r.Client, scs.Spec.NodeSelector, r)
+}
+
+func (r *ServiceChainSetReconciler) reconcileDelete(ctx context.Context, scs *sfcv1.ServiceChainSet) (ctrl.Result, error) {
+	log := log.FromContext(ctx)
+	log.Info("Reconciling delete")
+	if err := deleteSet(ctx, scs, r.Client, r); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	log.Info("Removing finalizer")
+	controllerutil.RemoveFinalizer(scs, sfcv1.ServiceChainSetFinalizer)
+	if err := r.Client.Update(ctx, scs); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	return ctrl.Result{}, nil
 }
 
 func (r *ServiceChainSetReconciler) getChildMap(ctx context.Context, set client.Object) (map[string]client.Object, error) {

@@ -63,6 +63,27 @@ func reconcileSet(ctx context.Context, set client.Object, k8sClient client.Clien
 	return ctrl.Result{}, nil
 }
 
+func deleteSet(ctx context.Context, set client.Object, k8sClient client.Client,
+	reconciler serviceSetReconciler) error {
+	log := log.FromContext(ctx)
+
+	// Get Childs map (node->child) which are owned by Set
+	childMap, err := reconciler.getChildMap(ctx, set)
+	if err != nil {
+		return fmt.Errorf("failed to get Child list: %w", err)
+	}
+
+	// delete Child if node does not exist
+	for nodeName, child := range childMap {
+		if err := k8sClient.Delete(ctx, child); err != nil {
+			return fmt.Errorf("failed to delete child : %w", err)
+		}
+		log.Info("Child is deleted", "nodename", nodeName, "child", child)
+	}
+
+	return nil
+}
+
 func getNodeList(ctx context.Context, k8sClient client.Client, selector *metav1.LabelSelector) (*corev1.NodeList, error) {
 	nodeList := &corev1.NodeList{}
 	nodeSelector, err := metav1.LabelSelectorAsSelector(selector)
