@@ -25,7 +25,7 @@ import (
 const (
 	ImagePullSecretsReconciledCondition conditions.ConditionType = "ImagePullSecretsReconciled"
 	SystemComponentsReconciledCondition conditions.ConditionType = "SystemComponentsReconciled"
-	SystemComponentsReadyCondition      conditions.ConditionType = "SystemComponentsReadyCondition"
+	SystemComponentsReadyCondition      conditions.ConditionType = "SystemComponentsReady"
 )
 
 var (
@@ -82,6 +82,8 @@ type ProvisioningConfiguration struct {
 type DPFOperatorConfigStatus struct {
 	// Conditions exposes the current state of the OperatorConfig.
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// ObservedGeneration records the Generation observed on the object the last time it was patched.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

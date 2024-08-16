@@ -518,3 +518,56 @@ func TestGet(t *testing.T) {
 		})
 	}
 }
+
+func Test_highestSeverityReason(t *testing.T) {
+	tests := []struct {
+		name   string
+		first  ConditionReason
+		second ConditionReason
+		want   ConditionReason
+	}{
+		{
+			name:   "Pending is the default when both reasons are unknown",
+			first:  ConditionReason(""),
+			second: ConditionReason("ReasonIneffable"),
+			want:   ReasonPending,
+		},
+		{
+			name:   "ReasonPending has higher severity than an unknown reason",
+			first:  ConditionReason(""),
+			second: ReasonPending,
+			want:   ReasonPending,
+		},
+		{
+			name:   "AwaitingDeletion has higher severity than an unknown reason",
+			first:  ConditionReason("ReasonIneffable"),
+			second: ReasonAwaitingDeletion,
+			want:   ReasonAwaitingDeletion,
+		},
+		{
+			name:   "AwaitingDeletion has higher severity than Failure",
+			first:  ReasonFailure,
+			second: ReasonAwaitingDeletion,
+			want:   ReasonAwaitingDeletion,
+		},
+		{
+			name:   "AwaitingDeletion has higher severity than Pending",
+			first:  ReasonPending,
+			second: ReasonAwaitingDeletion,
+			want:   ReasonAwaitingDeletion,
+		},
+		{
+			name:   "Failure has higher severity than Pending",
+			first:  ReasonPending,
+			second: ReasonFailure,
+			want:   ReasonFailure,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := highestSeverityReason(tt.first, tt.second); got != tt.want {
+				t.Errorf("highestSeverityReason() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

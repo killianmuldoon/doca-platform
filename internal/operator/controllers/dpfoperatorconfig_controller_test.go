@@ -19,12 +19,14 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"testing"
 	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
+	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
 
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -37,71 +39,189 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("DPFOperator controller settings", func() {
-	Context("When setting up the controller", func() {
-		It("Should restrict reconciliation to a specific namespace and name when ConfigSingletonNamespaceName is set", func() {
-			singletonReconciler := &DPFOperatorConfigReconciler{
-				Client: testClient,
-				Scheme: scheme.Scheme,
-				Settings: &DPFOperatorConfigReconcilerSettings{
-					ConfigSingletonNamespaceName: &types.NamespacedName{
-						Namespace: "one-namespace",
-						Name:      "one-name",
-					},
-				},
-			}
-			_, err := singletonReconciler.Reconcile(ctx, ctrl.Request{
-				NamespacedName: types.NamespacedName{
+func TestDPFOperatorConfigSettings(t *testing.T) {
+	g := NewWithT(t)
+	t.Run("ConfigSingletonNamespaceName restricts reconciliation to a config with the specified name /namespace", func(t *testing.T) {
+		singletonReconciler := &DPFOperatorConfigReconciler{
+			Client: testClient,
+			Scheme: scheme.Scheme,
+			Settings: &DPFOperatorConfigReconcilerSettings{
+				ConfigSingletonNamespaceName: &types.NamespacedName{
 					Namespace: "one-namespace",
 					Name:      "one-name",
 				},
-			})
-			Expect(err).ToNot(HaveOccurred())
+			},
+		}
 
-			_, err = singletonReconciler.Reconcile(ctx, ctrl.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: "different-namespace",
-					Name:      "different-name",
-				},
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("only one object"))
+		_, err := singletonReconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "one-namespace",
+				Name:      "one-name",
+			},
 		})
-		It("Should allow reconciliation in any namespace and name when ConfigSingletonNamespaceName is unset", func() {
-			unrestrictedReconciler := &DPFOperatorConfigReconciler{
-				Client: testClient,
-				Scheme: scheme.Scheme,
-				Settings: &DPFOperatorConfigReconcilerSettings{
-					ConfigSingletonNamespaceName: nil,
-				},
-			}
-			_, err := unrestrictedReconciler.Reconcile(ctx, ctrl.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: "one-namespace",
-					Name:      "one-name",
-				},
-			})
-			Expect(err).ToNot(HaveOccurred())
+		g.Expect(err).ToNot(HaveOccurred())
 
-			_, err = unrestrictedReconciler.Reconcile(ctx, ctrl.Request{
-				NamespacedName: types.NamespacedName{
-					Namespace: "different-namespace",
-					Name:      "different-name",
-				},
-			})
-			Expect(err).NotTo(HaveOccurred())
+		// Fail with a different name.
+		_, err = singletonReconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "different-namespace",
+				Name:      "different-name",
+			},
 		})
+		g.Expect(err).To(HaveOccurred())
+		g.Expect(err.Error()).To(ContainSubstring("only one object"))
+
 	})
-})
 
-// getMinimalDPFOperatorConfig returns a minimal DPFOperatorConfig
-func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig {
-	return &operatorv1.DPFOperatorConfig{
+	t.Run("Unrestricted reconciler reconciles config of any name and namespace", func(t *testing.T) {
+		unrestrictedReconciler := &DPFOperatorConfigReconciler{
+			Client: testClient,
+			Scheme: scheme.Scheme,
+			Settings: &DPFOperatorConfigReconcilerSettings{
+				ConfigSingletonNamespaceName: nil,
+			},
+		}
+
+		_, err := unrestrictedReconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "one-namespace",
+				Name:      "one-name",
+			},
+		})
+		g.Expect(err).ToNot(HaveOccurred())
+
+		_, err = unrestrictedReconciler.Reconcile(ctx, ctrl.Request{
+			NamespacedName: types.NamespacedName{
+				Namespace: "different-namespace",
+				Name:      "different-name",
+			},
+		})
+		g.Expect(err).NotTo(HaveOccurred())
+	})
+}
+
+func TestDPFOperatorConfigReconciler_Conditions(t *testing.T) {
+	g := NewWithT(t)
+
+	testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+	// Create the namespace for the test.
+	g.Expect(testClient.Create(ctx, testNS)).To(Succeed())
+
+	// This DPFOperatorConfig as various problems which will be fixed during the flow of the test code.
+	config := &operatorv1.DPFOperatorConfig{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "config",
-			Namespace: namespace,
+			Namespace: testNS.Name,
 		},
 		Spec: operatorv1.DPFOperatorConfigSpec{
+
+			// This secret name is wrong - this prevents ImagePullSecretsReconciled from becoming true.
+			ImagePullSecrets: []string{"wrong-secret-name"},
+			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
+				BFBPersistentVolumeClaimName:        "{\"school\":\"EFG\", \"standard\": \"2\", \"name\": \"abc\", \"city\": \"miami\"}'",
+				ImagePullSecretForDMSAndHostNetwork: "secret-name",
+				DHCPServerAddress:                   "192.168.1.1",
+			},
+		},
+	}
+
+	// Create a secret which marks envtest as a DPUCluster.
+	kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(controlplane.DPFCluster{Name: "envtest", Namespace: testNS.Name}, cfg)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
+	// Create a pull secret to be used by the DPFOperatorConfig.
+	pullSecret := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "secret-one", Namespace: testNS.Name}}
+	g.Expect(testClient.Create(ctx, pullSecret)).To(Succeed())
+	// Create the DPFOperatorConfig.
+	g.Expect(testClient.Create(ctx, config)).To(Succeed())
+
+	t.Run("ImagePullSecretsReconciled Error when secret can not be found", func(t *testing.T) {
+		g.Eventually(func(g Gomega) {
+			g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
+			assertConditions(g, config, map[string]string{
+				"Ready":                      "Pending",
+				"SystemComponentsReady":      "Error",
+				"SystemComponentsReconciled": "Pending",
+				"ImagePullSecretsReconciled": "Error",
+			})
+		}).WithTimeout(10 * time.Second).Should(Succeed())
+	})
+	t.Run("ImagePullSecretsReconciled Success after secret name is fixed", func(t *testing.T) {
+		conf := &operatorv1.DPFOperatorConfig{}
+		g.Eventually(func(g Gomega) {
+			g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), conf)).To(Succeed())
+			conf.Spec.ImagePullSecrets = []string{"secret-one"}
+			g.Expect(testClient.Update(ctx, conf)).To(Succeed())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
+
+		g.Eventually(func(g Gomega) {
+			g.Expect(testutils.ForceObjectReconcileWithAnnotation(ctx, testClient, config)).To(Succeed())
+			g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), conf)).To(Succeed())
+			assertConditions(g, conf, map[string]string{
+				"Ready":                      "Pending",
+				"SystemComponentsReady":      "Error",
+				"SystemComponentsReconciled": "Success",
+				"ImagePullSecretsReconciled": "Success",
+			})
+		}).WithTimeout(5*time.Second).Should(Succeed(), fmt.Sprintf("test failed with %v", config))
+	})
+
+	t.Run("SystemComponentsReady AwaitingDeletion when DPFConfig is being deleted", func(t *testing.T) {
+		dpuservice := &dpuservicev1.DPUService{}
+
+		// Add a finalizer to a DPUService to prevent deletion from succeeding.
+		g.Eventually(func(g Gomega) {
+			g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: config.Namespace, Name: "multus"}, dpuservice)).To(Succeed())
+			dpuservice.ObjectMeta.SetFinalizers(append(dpuservice.ObjectMeta.GetFinalizers(), "another"))
+			g.Expect(testClient.Update(ctx, dpuservice)).To(Succeed())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
+
+		// Delete the DPFOperatorConfig
+		g.Expect(testClient.Delete(ctx, config)).To(Succeed())
+
+		g.Eventually(func(g Gomega) {
+			conf := &operatorv1.DPFOperatorConfig{}
+			g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), conf)).To(Succeed())
+			assertConditions(g, conf, map[string]string{
+				"Ready":                      "AwaitingDeletion",
+				"SystemComponentsReady":      "Error",
+				"SystemComponentsReconciled": "AwaitingDeletion",
+				"ImagePullSecretsReconciled": "Success",
+			})
+		}).WithTimeout(10 * time.Second).Should(Succeed())
+	})
+
+}
+
+// assertCondition takes a map of Condition type to Condition reasons and asserts it against the conditions of the passed config.
+func assertConditions(g Gomega, config *operatorv1.DPFOperatorConfig, assertion map[string]string) {
+	g.Expect(config.Status.Conditions).To(HaveLen(4))
+	for _, condition := range config.Status.Conditions {
+		g.Expect(assertion[condition.Type]).To(Equal(condition.Reason),
+			fmt.Sprintf("Expected condition %s to equal %s, actual %s. Message is %s", condition.Type, assertion[condition.Type], condition.Reason, condition.Message))
+	}
+}
+
+func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
+	g := NewWithT(t)
+	testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+	// Create the namespace for the test.
+	g.Expect(testClient.Create(ctx, testNS)).To(Succeed())
+
+	// Create the DPF ImagePullSecrets
+	g.Expect(testClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "secret-one", Namespace: testNS.Name}})).To(Succeed())
+	g.Expect(testClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "secret-two", Namespace: testNS.Name}})).To(Succeed())
+
+	config := &operatorv1.DPFOperatorConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "config",
+			Namespace: testNS.Name,
+		},
+		Spec: operatorv1.DPFOperatorConfigSpec{
+			ImagePullSecrets: []string{"secret-one", "secret-two"},
+			Overrides: &operatorv1.Overrides{
+				Paused: ptr.To(true),
+			},
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
 				BFBPersistentVolumeClaimName:        "foo-pvc",
 				ImagePullSecretForDMSAndHostNetwork: "foo-image-pull-secret",
@@ -109,103 +229,74 @@ func getMinimalDPFOperatorConfig(namespace string) *operatorv1.DPFOperatorConfig
 			},
 		},
 	}
+
+	t.Run("No reconcile when DPFOperatorConfig is paused", func(t *testing.T) {
+		g.Expect(testClient.Create(ctx, config)).To(Succeed())
+		g.Consistently(func(g Gomega) {
+			gotConfig := &operatorv1.DPFOperatorConfig{}
+			// Expect the config finalizers to not have been reconciled.
+			g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), gotConfig)).To(Succeed())
+			g.Expect(gotConfig.Finalizers).To(BeEmpty())
+
+			// Expect secrets to not have been labelled.
+			secrets := &corev1.SecretList{}
+			g.Expect(testClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey}, client.InNamespace(testNS.Name))).To(Succeed())
+			g.Expect(secrets.Items).To(BeEmpty())
+
+			// Expect no DPUServices to have been created.
+			dpuServices := &dpuservicev1.DPUServiceList{}
+			g.Expect(testClient.List(ctx, dpuServices, client.InNamespace(testNS.Name))).To(Succeed())
+			g.Expect(dpuServices.Items).To(BeEmpty())
+		}).WithTimeout(5 * time.Second).Should(Succeed())
+	})
+
+	t.Run("Reconcile Secrets and system components when DPFOperatorConfig is unpaused", func(t *testing.T) {
+		// Patch the DPFOperatorConfig to remove `spec.paused`
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
+		patch := client.RawPatch(types.MergePatchType, []byte(fmt.Sprintf("{\"spec\": {\"overrides\": {\"paused\":%t}}}", false)))
+		g.Expect(testClient.Patch(ctx, config, patch)).To(Succeed())
+
+		// Expect Finalizers to be reconciled.
+		g.Eventually(func(g Gomega) []string {
+			gotConfig := &operatorv1.DPFOperatorConfig{}
+			g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), gotConfig)).To(Succeed())
+			return gotConfig.Finalizers
+		}).WithTimeout(30 * time.Second).Should(ConsistOf([]string{operatorv1.DPFOperatorConfigFinalizer}))
+
+		// Expect the secrets to have been correctly labelled.
+		g.Eventually(func(g Gomega) {
+			secrets := &corev1.SecretList{}
+			g.Expect(testClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey}, client.InNamespace(testNS.Name))).To(Succeed())
+			g.Expect(secrets.Items).To(HaveLen(2))
+		}).WithTimeout(30 * time.Second).Should(Succeed())
+
+		// Expect the DPUService and Provisioning controller managers to be deployed.
+		waitForDeployment(g, config.Namespace, "dpuservice-controller-manager")
+		deployment := waitForDeployment(g, config.Namespace, "dpf-provisioning-controller-manager")
+		verifyPVC(g, deployment, "foo-pvc")
+
+		// Check the system components deployed as DPUServices are created as expected.
+		waitForDPUService(g, config.Namespace, "servicefunctionchainset-controller")
+		waitForDPUService(g, config.Namespace, "multus")
+		waitForDPUService(g, config.Namespace, "sriov-device-plugin")
+		waitForDPUService(g, config.Namespace, "flannel")
+		waitForDPUService(g, config.Namespace, "nvidia-k8s-ipam")
+		waitForDPUService(g, config.Namespace, "ovs-cni")
+		waitForDPUService(g, config.Namespace, "sfc-controller")
+	})
+
+	t.Run("Delete Operator config", func(t *testing.T) {
+		g.Expect(testClient.Delete(ctx, config)).To(Succeed())
+		g.Eventually(func(g Gomega) {
+			g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(config), config))).To(BeTrue())
+		}).WithTimeout(30 * time.Second).Should(Succeed())
+	})
+
 }
 
-var _ = Describe("DPFOperatorConfig Controller - Reconcile System Components", func() {
-	Context("controller should create DPF System components", func() {
-		testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
-		It("checks the DPFOperatorConfig takes no action when paused", func() {
-			// Create the namespace for the test.
-			Expect(testClient.Create(ctx, testNS)).To(Succeed())
-
-			// Create the DPF ImagePullSecrets
-			secretOneName := "secret-one"
-			secretTwoName := "secret-two"
-			Expect(testClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretOneName, Namespace: testNS.Name}})).To(Succeed())
-			Expect(testClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: secretTwoName, Namespace: testNS.Name}})).To(Succeed())
-
-			By("creating the DPFOperatorConfig")
-			config := getMinimalDPFOperatorConfig(testNS.Name)
-			config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName = "foo-pvc"
-			config.Spec.ProvisioningConfiguration.ImagePullSecretForDMSAndHostNetwork = "foo-image-pull-secret"
-			config.Spec.ImagePullSecrets = []string{"secret-one", "secret-two"}
-			config.Spec.Overrides = &operatorv1.Overrides{}
-			config.Spec.Overrides.Paused = ptr.To(true)
-			Expect(testClient.Create(ctx, config)).To(Succeed())
-			Consistently(func(g Gomega) {
-				gotConfig := &operatorv1.DPFOperatorConfig{}
-				// Expect the config finalizers to not have been reconciled.
-				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), gotConfig)).To(Succeed())
-				g.Expect(gotConfig.Finalizers).To(BeEmpty())
-
-				// Expect secrets to not have been labelled.
-				secrets := &corev1.SecretList{}
-				g.Expect(testClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})).To(Succeed())
-				g.Expect(secrets.Items).To(BeEmpty())
-
-				// Expect no DPUServices to have been created.
-				dpuServices := &dpuservicev1.DPUServiceList{}
-				g.Expect(testClient.List(ctx, dpuServices)).To(Succeed())
-				g.Expect(dpuServices.Items).To(BeEmpty())
-			}).WithTimeout(4 * time.Second).Should(Succeed())
-		})
-		It("reconciles the DPFOperatorConfig and deploys the system components when unpaused", func() {
-			By("unpausing the DPFOperatorConfig")
-			config := getMinimalDPFOperatorConfig(testNS.Name)
-			config.Spec.ImagePullSecrets = []string{"pull-secret-1", "pull-secret-1"}
-
-			// Patch the DPFOperatorConfig to remove `spec.paused`
-			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
-			patch := client.RawPatch(types.MergePatchType, []byte(fmt.Sprintf("{\"spec\": {\"overrides\": {\"paused\":%t}}}", false)))
-			Expect(testClient.Patch(ctx, config, patch)).To(Succeed())
-
-			By("checking the DPFOperatorConfig finalizer is reconciled")
-			Eventually(func(g Gomega) []string {
-				gotConfig := &operatorv1.DPFOperatorConfig{}
-				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), gotConfig)).To(Succeed())
-				return gotConfig.Finalizers
-			}).WithTimeout(30 * time.Second).Should(ConsistOf([]string{operatorv1.DPFOperatorConfigFinalizer}))
-
-			By("checking the DPF ImagePullSecrets are reconciled with the correct label")
-			Eventually(func(g Gomega) {
-				secrets := &corev1.SecretList{}
-				g.Expect(testClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})).To(Succeed())
-				g.Expect(secrets.Items).To(HaveLen(2))
-			}).WithTimeout(30 * time.Second).Should(Succeed())
-
-			By("checking the dpuservice-controller-manager deployment is created")
-			waitForDeployment(config.Namespace, "dpuservice-controller-manager")
-
-			By("checking the dpf-provisioning-controller deployment is created and configured")
-			// TODO: We should set the namespace for this component in the same way.
-			deployment := waitForDeployment(config.Namespace, "dpf-provisioning-controller-manager")
-			verifyPVC(deployment, "foo-pvc")
-
-			// Check the system components deployed as DPUServices are ready.
-			waitForDPUService(config.Namespace, "servicefunctionchainset-controller")
-			waitForDPUService(config.Namespace, "multus")
-			waitForDPUService(config.Namespace, "sriov-device-plugin")
-			waitForDPUService(config.Namespace, "flannel")
-			waitForDPUService(config.Namespace, "nvidia-k8s-ipam")
-			waitForDPUService(config.Namespace, "ovs-cni")
-			waitForDPUService(config.Namespace, "sfc-controller")
-		})
-		It("delete the DPFOperatorConfig", func() {
-			By("deleting the DPFOperatorConfig")
-			config := getMinimalDPFOperatorConfig(testNS.Name)
-			Expect(testClient.Delete(ctx, config)).To(Succeed())
-			By("checking the DPFOperatorConfig is deleted")
-			Eventually(func(g Gomega) {
-				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(config), config))).To(BeTrue())
-			}).WithTimeout(30 * time.Second).Should(Succeed())
-		})
-	})
-})
-
-func waitForDPUService(ns, name string) {
-	By(fmt.Sprintf("checking %s dpuservice is created and correctly configured", name))
+func waitForDPUService(g Gomega, ns, name string) {
 	dpuservice := &dpuservicev1.DPUService{}
-	Eventually(func(g Gomega) {
+	g.Eventually(func(g Gomega) {
 		g.Expect(testClient.Get(ctx, client.ObjectKey{
 			Namespace: ns,
 			Name:      name},
@@ -224,9 +315,9 @@ func waitForDPUService(ns, name string) {
 	}).WithTimeout(30 * time.Second).Should(Succeed())
 }
 
-func waitForDeployment(ns, name string) *appsv1.Deployment {
+func waitForDeployment(g Gomega, ns, name string) *appsv1.Deployment {
 	deployment := &appsv1.Deployment{}
-	Eventually(func(g Gomega) {
+	g.Eventually(func(g Gomega) {
 		g.Expect(testClient.Get(ctx, client.ObjectKey{
 			Namespace: ns,
 			Name:      name},
@@ -235,7 +326,7 @@ func waitForDeployment(ns, name string) *appsv1.Deployment {
 	return deployment
 }
 
-func verifyPVC(deployment *appsv1.Deployment, expected string) {
+func verifyPVC(g Gomega, deployment *appsv1.Deployment, expected string) {
 	var bfbPVC *corev1.PersistentVolumeClaimVolumeSource
 	for _, vol := range deployment.Spec.Template.Spec.Volumes {
 		if vol.Name == "bfb-volume" && vol.PersistentVolumeClaim != nil {
@@ -243,8 +334,6 @@ func verifyPVC(deployment *appsv1.Deployment, expected string) {
 			break
 		}
 	}
-	if bfbPVC == nil {
-		Fail("no pvc volume found")
-	}
-	Expect(bfbPVC.ClaimName).To(Equal(expected))
+	g.Expect(bfbPVC).NotTo(BeNil())
+	g.Expect(bfbPVC.ClaimName).To(Equal(expected))
 }

@@ -28,6 +28,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
@@ -145,7 +146,10 @@ func (r *DPFOperatorConfigReconciler) deleteObjects(ctx context.Context, compone
 		uns := &unstructured.Unstructured{}
 		uns.SetKind(obj.GetObjectKind().GroupVersionKind().Kind)
 		uns.SetAPIVersion(obj.GetObjectKind().GroupVersionKind().GroupVersion().String())
-		if err := r.Client.Get(ctx, client.ObjectKeyFromObject(obj), uns); client.IgnoreNotFound(err) != nil {
+		err := r.Client.Get(ctx, client.ObjectKeyFromObject(obj), uns)
+
+		// If result is anything other than StatusReasonNotFound return an error even if the error is nil.
+		if !apierrors.IsNotFound(err) {
 			errs = append(errs, fmt.Errorf("%s: %s/%s pending deletion", component.Name(), obj.GetObjectKind().GroupVersionKind().Kind, klog.KObj(obj)))
 		}
 	}

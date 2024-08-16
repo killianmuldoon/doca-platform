@@ -74,6 +74,14 @@ type GetSet interface {
 	SetConditions([]metav1.Condition)
 }
 
+func TypesAsStrings(conditionsTypes []ConditionType) []string {
+	out := []string{}
+	for _, conditionType := range conditionsTypes {
+		out = append(out, string(conditionType))
+	}
+	return out
+}
+
 // EnsureConditions ensures that all specified conditions are present.
 // allConditions can be left nil if no conditions must be initialized.
 func EnsureConditions(obj GetSet, allConditions []ConditionType) {
@@ -117,22 +125,16 @@ func AddFalse(obj GetSet, conditionType ConditionType, conditionReason Condition
 func SetSummary(obj GetSet) {
 	conditions := obj.GetConditions()
 
-	var isDeleting bool
 	notReadyConditions := []string{}
-	reason := ReasonPending
+	summaryReason := ReasonPending
 	for _, condition := range conditions {
-		if condition.Reason == string(ReasonAwaitingDeletion) {
-			isDeleting = true
-		}
 		if condition.Type == string(TypeReady) {
 			continue
 		}
 		if condition.Status == metav1.ConditionTrue {
 			continue
 		}
-		if condition.Reason == string(ReasonFailure) {
-			reason = ReasonFailure
-		}
+		summaryReason = highestSeverityReason(summaryReason, ConditionReason(condition.Reason))
 		notReadyConditions = append(notReadyConditions, condition.Type)
 	}
 
@@ -141,11 +143,37 @@ func SetSummary(obj GetSet) {
 		return
 	}
 
-	if isDeleting {
-		reason = ReasonAwaitingDeletion
-	}
 	message := fmt.Sprintf(MessageNotReadyTemplate, strings.Join(notReadyConditions, ", "))
-	AddFalse(obj, TypeReady, reason, ConditionMessage(message))
+	AddFalse(obj, TypeReady, summaryReason, ConditionMessage(message))
+}
+
+// reasonSeverity gives a severity score to order the ConditionReasons. The highest number is the most severe.
+// TODO: Revisit this severity ordering.
+var reasonSeverity = map[ConditionReason]int{
+	ReasonAwaitingDeletion: 3,
+	ReasonFailure:          2,
+	ReasonPending:          1,
+}
+
+// highestSeverityReason returns the ConditionReason with the highest severity.
+// If both reasons are unrecognized, it returns ReasonPending as the default.
+func highestSeverityReason(first, second ConditionReason) ConditionReason {
+	firstReason, firstFound := reasonSeverity[first]
+	secondReason, secondFound := reasonSeverity[second]
+
+	if !firstFound && !secondFound {
+		return ReasonPending
+	}
+	if !firstFound {
+		return second
+	}
+	if !secondFound {
+		return first
+	}
+	if firstReason > secondReason {
+		return first
+	}
+	return second
 }
 
 func add(obj GetSet, cs metav1.ConditionStatus, ct ConditionType, cr ConditionReason, cm ConditionMessage) {

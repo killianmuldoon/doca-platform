@@ -44,7 +44,6 @@ func CleanupAndWait(ctx context.Context, c client.Client, objs ...client.Object)
 		if err := c.Delete(ctx, o); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
-
 		key := client.ObjectKeyFromObject(o)
 		err := wait.ExponentialBackoff(
 			wait.Backoff{

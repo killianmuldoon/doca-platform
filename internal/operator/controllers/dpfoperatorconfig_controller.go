@@ -51,7 +51,10 @@ const (
 	dpfOperatorConfigControllerName = "dpfoperatorconfig-controller"
 )
 
-var applyPatchOptions = []client.PatchOption{client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)}
+var (
+	applyPatchOptions       = []client.PatchOption{client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)}
+	conditionTypesAsStrings = conditions.TypesAsStrings(operatorv1.Conditions)
+)
 
 // DPFOperatorConfigReconciler reconciles a DPFOperatorConfig object
 // TODO: Consider creating a constructor
@@ -122,7 +125,12 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		conditions.SetSummary(dpfOperatorConfig)
 
 		log.Info("Patching")
-		if err := patcher.Patch(ctx, dpfOperatorConfig, patch.WithFieldOwner(dpfOperatorConfigControllerName)); err != nil {
+		if err := patcher.Patch(ctx, dpfOperatorConfig,
+			patch.WithFieldOwner(dpfOperatorConfigControllerName),
+			patch.WithForceOverwriteConditions{},
+			patch.WithStatusObservedGeneration{},
+			patch.WithOwnedConditions{Conditions: conditionTypesAsStrings},
+		); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
@@ -177,9 +185,7 @@ func (r *DPFOperatorConfigReconciler) updateSystemComponentStatus(ctx context.Co
 	unreadyMessages := []string{}
 	log := ctrllog.FromContext(ctx)
 	log.Info("Updating status of DPF OperatorConfig")
-	baseMessage := "System components are not ready: "
 	for _, component := range r.Inventory.AllComponents() {
-		log.Info("Component", "component", component)
 		err := component.IsReady(ctx, r.Client, config.Namespace)
 		if err != nil {
 			log.Error(err, "Component not ready", "component", component)
@@ -192,7 +198,7 @@ func (r *DPFOperatorConfigReconciler) updateSystemComponentStatus(ctx context.Co
 			config,
 			operatorv1.SystemComponentsReadyCondition,
 			conditions.ReasonError,
-			conditions.ConditionMessage(fmt.Sprintf("%s: %s", baseMessage, strings.Join(unreadyMessages, ", "))))
+			conditions.ConditionMessage(fmt.Sprintf("System components are not ready: %s", strings.Join(unreadyMessages, ", "))))
 		return
 	}
 

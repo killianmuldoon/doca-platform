@@ -30,37 +30,27 @@ import (
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
-var cfg *rest.Config
-var testClient client.Client
-var testEnv *envtest.Environment
-var ctx, testManagerCancelFunc = context.WithCancel(ctrl.SetupSignalHandler())
-var reconciler *DPFOperatorConfigReconciler
+var (
+	cfg                        *rest.Config
+	testClient                 client.Client
+	testEnv                    *envtest.Environment
+	ctx, testManagerCancelFunc = context.WithCancel(ctrl.SetupSignalHandler())
+	reconciler                 *DPFOperatorConfigReconciler
+)
 
-func TestOperator(t *testing.T) {
-	RegisterFailHandler(Fail)
-
-	RunSpecs(t, "Controller Suite")
-}
-
-var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	By("bootstrapping test environment")
+func TestMain(m *testing.M) {
+	setupLogger := ctrl.Log.WithName("dpf-operator-config-controller-test-setup")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "deploy", "helm", "dpf-operator", "crds"),
@@ -81,24 +71,35 @@ var _ = BeforeSuite(func() {
 	}
 
 	var err error
-	// cfg is defined in this file globally.
-	cfg, err = testEnv.Start()
-	Expect(err).NotTo(HaveOccurred())
-	Expect(cfg).NotTo(BeNil())
-
-	Expect(operatorv1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(dpuservicev1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(sfcv1.AddToScheme(scheme.Scheme)).To(Succeed())
-	Expect(argov1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	s := scheme.Scheme
-	//+kubebuilder:scaffold:scheme
 
+	if err := operatorv1.AddToScheme(scheme.Scheme); err != nil {
+		panic(fmt.Sprintf("Failed to add DPFOperatorv1 scheme: %v", err))
+	}
+	if err := dpuservicev1.AddToScheme(scheme.Scheme); err != nil {
+		panic(fmt.Sprintf("Failed to add DPUservice v1 scheme: %v", err))
+	}
+	if err := sfcv1.AddToScheme(scheme.Scheme); err != nil {
+		panic(fmt.Sprintf("Failed to add SFC scheme: %v", err))
+	}
+	if err := argov1.AddToScheme(scheme.Scheme); err != nil {
+		panic(fmt.Sprintf("Failed to add Argo scheme: %v", err))
+	}
+
+	// cfg is defined in this file globally in this package. This allows the resource collector to use this
+	// config when it runs.
+	cfg, err = testEnv.Start()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to set up test environment: %v", err))
+	}
+
+	// testClient is defined globally in this package so it can be used by the resource.
 	testClient, err = client.New(cfg, client.Options{Scheme: s})
-	Expect(err).NotTo(HaveOccurred())
-	Expect(testClient).NotTo(BeNil())
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create client: %v", err))
+	}
 
-	By("setting up and running the test reconciler")
 	testManager, err := ctrl.NewManager(cfg,
 		ctrl.Options{
 			Scheme: scheme.Scheme,
@@ -106,10 +107,14 @@ var _ = BeforeSuite(func() {
 			Metrics: server.Options{
 				BindAddress: "0",
 			}})
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create test manager: %v", err))
+	}
 
 	inventory := inventory.New()
-	Expect(inventory.ParseAll()).To(Succeed())
+	if err := inventory.ParseAll(); err != nil {
+		panic(fmt.Sprintf("Failed to parse inventory: %v", err))
+	}
 	reconciler = &DPFOperatorConfigReconciler{
 		Client: testClient,
 		Scheme: testManager.GetScheme(),
@@ -118,22 +123,26 @@ var _ = BeforeSuite(func() {
 		},
 		Inventory: inventory,
 	}
-	err = reconciler.SetupWithManager(testManager)
-	Expect(err).ToNot(HaveOccurred())
+	if err := reconciler.SetupWithManager(testManager); err != nil {
+		panic(fmt.Sprintf("Failed to setup DPFOperatorConfigReconciler: %v", err))
+	}
 
 	go func() {
-		defer GinkgoRecover()
-		err = testManager.Start(ctx)
-		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+		if err := testManager.Start(ctx); err != nil {
+			panic(fmt.Sprintf("Failed to start test manager: %v", err))
+		}
 	}()
 
-})
+	// run the test suite in this package.
+	if code := m.Run(); code != 0 {
+		setupLogger.Info("error running tests: ", code)
+	}
 
-var _ = AfterSuite(func() {
-	By("tearing down the test environment")
 	if testManagerCancelFunc != nil {
 		testManagerCancelFunc()
 	}
-	err := testEnv.Stop()
-	Expect(err).NotTo(HaveOccurred())
-})
+
+	if err := testEnv.Stop(); err != nil {
+		panic(fmt.Sprintf("Failed to stop test environment: %v", err))
+	}
+}
