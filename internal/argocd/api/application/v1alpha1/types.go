@@ -669,6 +669,27 @@ const (
 	SyncStatusCodeOutOfSync SyncStatusCode = "OutOfSync"
 )
 
+// Copied from: https://github.com/argoproj/gitops-engine/blob/55bb49480a68ca9653b88ddbbc66584d52267081/pkg/health/health.go
+// Represents resource health status
+type HealthStatusCode string
+
+const (
+	// Indicates that health assessment failed and actual health status is unknown
+	HealthStatusUnknown HealthStatusCode = "Unknown"
+	// Progressing health status means that resource is not healthy but still have a chance to reach healthy state
+	HealthStatusProgressing HealthStatusCode = "Progressing"
+	// Resource is 100% healthy
+	HealthStatusHealthy HealthStatusCode = "Healthy"
+	// Assigned to resources that are suspended or paused. The typical example is a
+	// [suspended](https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#suspend) CronJob.
+	HealthStatusSuspended HealthStatusCode = "Suspended"
+	// Degrade status is used if resource status indicates failure or resource could not reach healthy state
+	// within some timeout.
+	HealthStatusDegraded HealthStatusCode = "Degraded"
+	// Indicates that resource is missing in the cluster.
+	HealthStatusMissing HealthStatusCode = "Missing"
+)
+
 // ApplicationConditionType represents type of application condition. Type name has following convention:
 // prefix "Error" means error condition
 // prefix "Warning" means warning condition
@@ -733,9 +754,7 @@ type SyncStatus struct {
 // HealthStatus contains information about the currently observed health state of an application or resource
 type HealthStatus struct {
 	// Status holds the status code of the application or resource
-	// TODO(killianmuldoon): Need to see if this is a safe change. This is a field we have to import from the rest of argo so we change the type.
-	// Replaced health.HealthStatusCode here with `string` which it is a type alias for.
-	Status string `json:"status,omitempty" protobuf:"bytes,1,opt,name=status"`
+	Status HealthStatusCode `json:"status,omitempty" protobuf:"bytes,1,opt,name=status"`
 	// Message is a human-readable informational message describing the health status
 	Message string `json:"message,omitempty" protobuf:"bytes,2,opt,name=message"`
 }

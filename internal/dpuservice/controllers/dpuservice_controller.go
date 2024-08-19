@@ -25,6 +25,7 @@ import (
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
@@ -73,10 +74,6 @@ const (
 	// The ArgoCD namespace will always be the same as that where the reconciler is deployed.
 	// TODO:Figure out a way to make this dynamic while preserving the e2e tests.
 	argoCDNamespace = "dpf-operator-system"
-
-	conditionMessageErroredTemplate             = "Unable to reconcile: %v"
-	conditionMessageAppNotReadyTemplate         = "The following applications are not ready: %v"
-	conditionMessageAppAwaitingDeletionTemplate = "The following applications are awaiting deletion: %v"
 )
 
 const (
@@ -190,7 +187,7 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 	}
 
 	if len(appsInDeletion) > 0 {
-		message := fmt.Sprintf(conditionMessageAppAwaitingDeletionTemplate, strings.Join(appsInDeletion, ", "))
+		message := fmt.Sprintf("The following applications are awaiting deletion: %v", strings.Join(appsInDeletion, ", "))
 		conditions.AddFalse(
 			dpuService,
 			dpuservicev1.ConditionApplicationsReconciled,
@@ -223,7 +220,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	}
 
 	if err := r.reconcileApplicationPrereqs(ctx, dpuService, clusters); err != nil {
-		message := fmt.Sprintf(conditionMessageErroredTemplate, err.Error())
+		message := fmt.Sprintf("Unable to reconcile application prereq for %s", err.Error())
 		conditions.AddFalse(
 			dpuService,
 			dpuservicev1.ConditionApplicationPrereqsReconciled,
@@ -236,8 +233,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 
 	// Update the ArgoApplication for all target clusters.
 	if err = r.reconcileApplication(ctx, argoCDNamespace, clusters, dpuService); err != nil {
-		err = fmt.Errorf("Application: %w", err)
-		message := fmt.Sprintf(conditionMessageErroredTemplate, err)
+		message := fmt.Sprintf("Unable to reconcile Applications: %v", err)
 		conditions.AddFalse(
 			dpuService,
 			dpuservicev1.ConditionApplicationsReconciled,
@@ -400,19 +396,19 @@ func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservi
 		return err
 	}
 
-	outOfSyncApplications := []string{}
+	unreadyApplications := []string{}
 	// Get a summarized error for each application linked to the DPUService and set it as the condition message.
-	for i := range applicationList.Items {
-		app := applicationList.Items[i]
-		if app.Status.Sync.Status != argov1.SyncStatusCodeSynced {
-			argoApp := fmt.Sprintf("%s/%s.%s", app.Namespace, app.Name, app.GroupVersionKind().Group)
-			outOfSyncApplications = append(outOfSyncApplications, argoApp)
+	for _, app := range applicationList.Items {
+		argoApp := fmt.Sprintf("%s/%s.%s", app.Namespace, app.Name, application.ApplicationFullName)
+		if app.Status.Sync.Status != argov1.SyncStatusCodeSynced || app.Status.Health.Status != argov1.HealthStatusHealthy {
+			appWithStatus := fmt.Sprintf("%s (Sync=%s, Health=%s)", argoApp, app.Status.Sync.Status, app.Status.Health.Status)
+			unreadyApplications = append(unreadyApplications, appWithStatus)
 		}
 	}
 
 	// Update condition and requeue if there are any errors, or if there are fewer applications than we have clusters.
-	if len(outOfSyncApplications) > 0 || len(applicationList.Items) != len(clusters) {
-		message := fmt.Sprintf(conditionMessageAppNotReadyTemplate, strings.Join(outOfSyncApplications, ", "))
+	if len(unreadyApplications) > 0 || len(applicationList.Items) != len(clusters) {
+		message := fmt.Sprintf("Applications are not ready: %v", strings.Join(unreadyApplications, ", "))
 		conditions.AddFalse(
 			dpuService,
 			dpuservicev1.ConditionApplicationsReady,
