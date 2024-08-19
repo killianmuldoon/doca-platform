@@ -91,8 +91,8 @@ func (r *DPUServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	tenantControlPlane := &metav1.PartialObjectMetadata{}
 	tenantControlPlane.SetGroupVersionKind(controlplanemeta.TenantControlPlaneGVK)
 	return ctrl.NewControllerManagedBy(mgr).
-		// TODO: Consider also watching on Application reconcile. This was very noisy when initially tried.
 		For(&dpuservicev1.DPUService{}).
+		Watches(&argov1.Application{}, handler.EnqueueRequestsFromMapFunc(r.ArgoApplicationToDPUService)).
 		// TODO: This doesn't currently work for status updates - need to find a way to increase reconciliation frequency.
 		WatchesMetadata(tenantControlPlane, handler.EnqueueRequestsFromMapFunc(r.DPUClusterToDPUService)).
 		Complete(r)
@@ -419,8 +419,7 @@ func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservi
 			conditions.ReasonPending,
 			conditions.ConditionMessage(message),
 		)
-		// TODO: Make the DPUService controller react to changes in Applications
-		return fmt.Errorf("Applications not ready. Requeuing")
+		return nil
 	}
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationsReady)
 	return nil
@@ -545,6 +544,24 @@ func (r *DPUServiceReconciler) DPUClusterToDPUService(ctx context.Context, o cli
 		result = append(result, ctrl.Request{NamespacedName: name})
 	}
 	return result
+}
+
+// ArgoApplicationToDPUService ensures a DPUService is updated each time there is an update to the linked Argo Application.
+func (r *DPUServiceReconciler) ArgoApplicationToDPUService(ctx context.Context, o client.Object) []ctrl.Request {
+	namespace, ok := o.GetLabels()[dpuservicev1.DPUServiceNamespaceLabelKey]
+	if !ok {
+		return nil
+	}
+	name, ok := o.GetLabels()[dpuservicev1.DPUServiceNameLabelKey]
+	if !ok {
+		return nil
+	}
+	return []ctrl.Request{{
+		NamespacedName: client.ObjectKey{
+			Namespace: namespace,
+			Name:      name,
+		},
+	}}
 }
 
 func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, clusters []controlplane.DPFCluster, service *dpuservicev1.DPUService) error {
