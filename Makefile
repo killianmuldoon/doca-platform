@@ -213,6 +213,7 @@ generate-manifests-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVSUBST) $(HELM) 
 	$(HELM) repo add nfd https://kubernetes-sigs.github.io/node-feature-discovery/charts
 	$(HELM) repo add prometheus https://prometheus-community.github.io/helm-charts
 	$(HELM) repo add grafana https://grafana.github.io/helm-charts
+	$(HELM) repo add clastix https://clastix.github.io/charts
 	$(HELM) dependency build $(OPERATOR_HELM_CHART)
 
 
@@ -338,6 +339,8 @@ generate-operator-bundle: $(OPERATOR_SDK) $(HELM) generate-manifests-operator ##
 		--set argo-cd.enabled=false \
 		--set node-feature-discovery.enabled=false \
 		--set kube-state-metrics.enabled=false \
+		--set kamaji.enabled=false \
+		--set kamaji-etcd.enabled=false \
 		--set grafana.enabled=false \
 		--set prometheus.enabled=false \
 		--set templateOperatorBundle=true > hack/charts/dpf-operator/manifests.yaml
@@ -409,9 +412,6 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 
 	echo "Waiting for cert-manager deployment to be ready."
 	$(KUBECTL) -n cert-manager rollout status deploy cert-manager-webhook --timeout=180s
-
-	# Deploy Kamaji as the underlying control plane provider.
-	$Q $(HELM) upgrade --set image.pullPolicy=IfNotPresent --set cfssl.image.tag=v1.6.5 --install kamaji $(KAMAJI)
 
 .PHONY: test-env-dpf-standalone
 test-env-dpf-standalone:
@@ -1107,8 +1107,6 @@ dev-prereqs-dpuservice: $(KUSTOMIZE) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(HELM)
 	&& $(KUBECTL) -n cert-manager rollout status deploy cert-manager-webhook --timeout=180s
 
 	$Q $(KUBECTL) create namespace argocd --dry-run=client -o yaml | $(KUBECTL) apply -f - && $(KUBECTL) apply -f $(ARGOCD_YAML)
-
-	$Q $(HELM) upgrade --set image.pullPolicy=IfNotPresent --set cfssl.image.tag=v1.6.5 --install kamaji $(KAMAJI)
 
 SKAFFOLD_REGISTRY=localhost:5000
 dev-dpuservice: $(MINIKUBE) $(SKAFFOLD) ## Deploy dpuservice controller to dev cluster using skaffold
