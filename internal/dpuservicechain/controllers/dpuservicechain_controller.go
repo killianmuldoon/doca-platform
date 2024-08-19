@@ -84,7 +84,11 @@ func (r *DPUServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		if err := updateSummary(ctx, r, r.Client, sfcv1.ConditionServiceChainSetReady, dpuServiceChain); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
-		if err := patcher.Patch(ctx, dpuServiceChain, patch.WithFieldOwner(dpuServiceChainControllerName)); err != nil {
+		if err := patcher.Patch(ctx, dpuServiceChain,
+			patch.WithFieldOwner(dpuServiceChainControllerName),
+			patch.WithStatusObservedGeneration{},
+			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(sfcv1.DPUServiceChainConditions)},
+		); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()

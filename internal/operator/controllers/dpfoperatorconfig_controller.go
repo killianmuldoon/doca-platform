@@ -52,8 +52,7 @@ const (
 )
 
 var (
-	applyPatchOptions       = []client.PatchOption{client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)}
-	conditionTypesAsStrings = conditions.TypesAsStrings(operatorv1.Conditions)
+	applyPatchOptions = []client.PatchOption{client.ForceOwnership, client.FieldOwner(dpfOperatorConfigControllerName)}
 )
 
 // DPFOperatorConfigReconciler reconciles a DPFOperatorConfig object
@@ -127,9 +126,8 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		log.Info("Patching")
 		if err := patcher.Patch(ctx, dpfOperatorConfig,
 			patch.WithFieldOwner(dpfOperatorConfigControllerName),
-			patch.WithForceOverwriteConditions{},
 			patch.WithStatusObservedGeneration{},
-			patch.WithOwnedConditions{Conditions: conditionTypesAsStrings},
+			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(operatorv1.Conditions)},
 		); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}

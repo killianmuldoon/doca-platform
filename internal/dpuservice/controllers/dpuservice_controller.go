@@ -112,14 +112,18 @@ func (r *DPUServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}
 	patcher := patch.NewSerialPatcher(dpuService, r.Client)
 
-	conditions.EnsureConditions(dpuService, dpuservicev1.AllConditions)
+	conditions.EnsureConditions(dpuService, dpuservicev1.Conditions)
 	// Defer a patch call to always patch the object when Reconcile exits.
 	defer func() {
 		log.Info("Patching")
 		if err := r.summary(ctx, dpuService); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
-		if err := patcher.Patch(ctx, dpuService, patch.WithFieldOwner(dpuServiceControllerName)); err != nil {
+		if err := patcher.Patch(ctx, dpuService,
+			patch.WithFieldOwner(dpuServiceControllerName),
+			patch.WithStatusObservedGeneration{},
+			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(dpuservicev1.Conditions)},
+		); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()

@@ -41,7 +41,7 @@ const (
 )
 
 var (
-	AllConditions = []conditions.ConditionType{
+	Conditions = []conditions.ConditionType{
 		conditions.TypeReady,
 		ConditionApplicationPrereqsReconciled,
 		ConditionApplicationsReconciled,
@@ -120,8 +120,9 @@ type ServiceDaemonSetValues struct {
 // DPUServiceStatus defines the observed state of DPUService
 type DPUServiceStatus struct {
 	// Conditions defines current service state.
-	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// ObservedGeneration records the Generation observed on the object the last time it was patched.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

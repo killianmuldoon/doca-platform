@@ -99,8 +99,9 @@ type IPV4Subnet struct {
 // DPUServiceIPAMStatus defines the observed state of DPUServiceIPAM
 type DPUServiceIPAMStatus struct {
 	// Conditions reflect the status of the object
-	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// ObservedGeneration records the Generation observed on the object the last time it was patched.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

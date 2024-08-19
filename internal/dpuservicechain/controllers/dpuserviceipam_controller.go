@@ -91,7 +91,11 @@ func (r *DPUServiceIPAMReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 		if err := updateSummary(ctx, r, r.Client, sfcv1.ConditionDPUIPAMObjectReady, dpuServiceIPAM); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
-		if err := patcher.Patch(ctx, dpuServiceIPAM, patch.WithFieldOwner(dpuServiceIPAMControllerName)); err != nil {
+		if err := patcher.Patch(ctx, dpuServiceIPAM,
+			patch.WithFieldOwner(dpuServiceIPAMControllerName),
+			patch.WithStatusObservedGeneration{},
+			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(sfcv1.DPUServiceIPAMConditions)},
+		); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
