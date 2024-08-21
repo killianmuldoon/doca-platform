@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -88,7 +89,7 @@ func (r *ServiceInterfaceSetReconciler) getChildMap(ctx context.Context, set cli
 	}
 	for i := range serviceInterfaceList.Items {
 		si := serviceInterfaceList.Items[i]
-		serviceInterfaceMap[si.Spec.Node] = &si
+		serviceInterfaceMap[*si.Spec.Node] = &si
 	}
 	return serviceInterfaceMap, nil
 }
@@ -111,7 +112,7 @@ func (r *ServiceInterfaceSetReconciler) createOrUpdateChild(ctx context.Context,
 			OwnerReferences: []metav1.OwnerReference{*owner},
 		},
 		Spec: sfcv1.ServiceInterfaceSpec{
-			Node:          nodeName,
+			Node:          ptr.To(nodeName),
 			InterfaceType: serviceInterfaceSet.Spec.Template.Spec.InterfaceType,
 			InterfaceName: serviceInterfaceSet.Spec.Template.Spec.InterfaceName,
 		},

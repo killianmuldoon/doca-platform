@@ -29,6 +29,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -60,9 +61,9 @@ var _ = Describe("PodIpam Controller", func() {
 			By("Create ServiceChain with IPAM Reference")
 			defaultGateway := false
 			ipam := &sfcv1.IPAM{
-				DefaultGateway: defaultGateway,
+				DefaultGateway: ptr.To(defaultGateway),
 				Reference: &sfcv1.ObjectRef{
-					Namespace: defaultNS,
+					Namespace: ptr.To(defaultNS),
 					Name:      ipamRefName,
 				},
 			}
@@ -84,9 +85,9 @@ var _ = Describe("PodIpam Controller", func() {
 			By("Create ServiceChain with IPAM Reference")
 			defaultGateway := true
 			ipam := &sfcv1.IPAM{
-				DefaultGateway: defaultGateway,
+				DefaultGateway: ptr.To(defaultGateway),
 				Reference: &sfcv1.ObjectRef{
-					Namespace: defaultNS,
+					Namespace: ptr.To(defaultNS),
 					Name:      ipamRefName,
 				},
 			}
@@ -108,7 +109,7 @@ var _ = Describe("PodIpam Controller", func() {
 			By("Create ServiceChain with IPAM MatchLabels")
 			defaultGateway := false
 			ipam := &sfcv1.IPAM{
-				DefaultGateway: defaultGateway,
+				DefaultGateway: ptr.To(defaultGateway),
 				MatchLabels:    testutils.GetTestLabels(),
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, ipam, ifcName))
@@ -129,7 +130,7 @@ var _ = Describe("PodIpam Controller", func() {
 			By("Create ServiceChain with IPAM MatchLabels")
 			defaultGateway := true
 			ipam := &sfcv1.IPAM{
-				DefaultGateway: defaultGateway,
+				DefaultGateway: ptr.To(defaultGateway),
 				MatchLabels:    testutils.GetTestLabels(),
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, ipam, ifcName))
@@ -150,15 +151,15 @@ var _ = Describe("PodIpam Controller", func() {
 			By("Create ServiceChain2 with IPAM MatchLabels")
 			defaultGateway := false
 			ipam := &sfcv1.IPAM{
-				DefaultGateway: defaultGateway,
+				DefaultGateway: ptr.To(defaultGateway),
 				MatchLabels:    testutils.GetTestLabels(),
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, ipam, ifcName))
 			By("Create ServiceChain2 with IPAM ref")
 			ipam2 := &sfcv1.IPAM{
-				DefaultGateway: defaultGateway,
+				DefaultGateway: ptr.To(defaultGateway),
 				Reference: &sfcv1.ObjectRef{
-					Namespace: defaultNS,
+					Namespace: ptr.To(defaultNS),
 					Name:      ipamRefName2,
 				},
 			}
@@ -190,7 +191,7 @@ var _ = Describe("PodIpam Controller", func() {
 			}).WithTimeout(20 * time.Second).Should(Not(BeNil()))
 			By("Create ServiceChain with IPAM MatchLabels")
 			ipam := &sfcv1.IPAM{
-				DefaultGateway: defaultGateway,
+				DefaultGateway: ptr.To(defaultGateway),
 				MatchLabels:    testutils.GetTestLabels(),
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, ipam, ifcName))
@@ -352,14 +353,17 @@ func createServiceChain(ctx context.Context, name string, ipam *sfcv1.IPAM, ifcN
 			Namespace: defaultNS,
 		},
 		Spec: sfcv1.ServiceChainSpec{
-			Node: nodeName,
+			Node: ptr.To(nodeName),
 			Switches: []sfcv1.Switch{
 				{
 					Ports: []sfcv1.Port{
 						{
 							Service: &sfcv1.Service{
 								InterfaceName: ifcName,
-								IPAM:          ipam,
+								Reference: &sfcv1.ObjectRef{
+									Name: "p0",
+								},
+								IPAM: ipam,
 							},
 						},
 					},

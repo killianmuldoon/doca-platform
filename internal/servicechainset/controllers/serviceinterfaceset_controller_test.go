@@ -27,6 +27,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -137,7 +138,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(sis), sis)).NotTo(HaveOccurred())
 			updatedSpec := &sfcv1.ServiceInterfaceSpec{
 				InterfaceType: "vlan",
-				InterfaceName: "eth1.100",
+				InterfaceName: ptr.To("eth1.100"),
 				Vlan: &sfcv1.VLAN{
 					VlanID:             100,
 					ParentInterfaceRef: "p7",
@@ -174,7 +175,7 @@ func assertServiceInterfaceList(ctx context.Context, g Gomega, nodeCount int, cl
 		serviceInterface := si
 		*cleanupObjects = append(*cleanupObjects, &serviceInterface)
 		assertServiceInterface(g, &si, testSpec)
-		nodeMap[si.Spec.Node] = true
+		nodeMap[*si.Spec.Node] = true
 	}
 	g.ExpectWithOffset(1, nodeMap).To(HaveLen(nodeCount))
 }
@@ -182,12 +183,12 @@ func assertServiceInterfaceList(ctx context.Context, g Gomega, nodeCount int, cl
 func assertServiceInterface(g Gomega, sc *sfcv1.ServiceInterface, testSpec *sfcv1.ServiceInterfaceSpec) {
 	specCopy := testSpec.DeepCopy()
 	node := sc.Spec.Node
-	specCopy.Vlan.ParentInterfaceRef = specCopy.Vlan.ParentInterfaceRef + "-" + node
-	specCopy.VF.ParentInterfaceRef = specCopy.VF.ParentInterfaceRef + "-" + node
+	specCopy.Vlan.ParentInterfaceRef = specCopy.Vlan.ParentInterfaceRef + "-" + *node
+	specCopy.VF.ParentInterfaceRef = specCopy.VF.ParentInterfaceRef + "-" + *node
 	specCopy.Node = node
 	g.ExpectWithOffset(2, sc.Spec).To(Equal(*specCopy))
-	g.ExpectWithOffset(2, node).NotTo(BeEmpty())
-	g.ExpectWithOffset(2, sc.Name).To(Equal(svcIfcSetName + "-" + node))
+	g.ExpectWithOffset(2, *node).NotTo(BeEmpty())
+	g.ExpectWithOffset(2, sc.Name).To(Equal(svcIfcSetName + "-" + *node))
 	g.ExpectWithOffset(2, sc.Labels[ServiceInterfaceSetNameLabel]).To(Equal(svcIfcSetName))
 	g.ExpectWithOffset(2, sc.Labels[ServiceInterfaceSetNamespaceLabel]).To(Equal(defaultNS))
 	g.ExpectWithOffset(2, sc.OwnerReferences).To(HaveLen(1))
@@ -220,7 +221,7 @@ func createServiceInterfaceSet(ctx context.Context, labelSelector *metav1.LabelS
 func getTestServiceInterfaceSpec() *sfcv1.ServiceInterfaceSpec {
 	return &sfcv1.ServiceInterfaceSpec{
 		InterfaceType: "vf",
-		InterfaceName: "enp33s0f0np0v0",
+		InterfaceName: ptr.To("enp33s0f0np0v0"),
 		Vlan: &sfcv1.VLAN{
 			VlanID:             102,
 			ParentInterfaceRef: "p0",

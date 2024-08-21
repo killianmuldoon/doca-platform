@@ -20,21 +20,33 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ServiceInterfaceSetKind is the kind of the ServiceInterfaceSet
 const ServiceInterfaceSetKind = "ServiceInterfaceSet"
 
 var (
+	// ServiceInterfaceSetGroupVersionKind is the GroupVersionKind of the ServiceInterfaceSet
 	ServiceInterfaceSetGroupVersionKind = GroupVersion.WithKind(ServiceInterfaceSetKind)
 )
 
 // ServiceInterfaceSetSpec defines the desired state of ServiceInterfaceSet
 type ServiceInterfaceSetSpec struct {
-	// Select the Nodes with specific labels, ServiceInterface CRs will be created only for these Nodes
-	NodeSelector *metav1.LabelSelector        `json:"nodeSelector,omitempty"`
-	Template     ServiceInterfaceSpecTemplate `json:"template"`
+	// Select the Nodes with specific labels, ServiceInterface CRs will be
+	// created only for these Nodes
+	// +optional
+	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
+	// Template holds the template for the erviceInterfaceSpec
+	// +required
+	Template ServiceInterfaceSpecTemplate `json:"template"`
 }
 
+// ServiceInterfaceSpecTemplate defines the template from which ServiceInterfaceSpecs
+// are created
 type ServiceInterfaceSpecTemplate struct {
-	Spec       ServiceInterfaceSpec `json:"spec"`
+	// ServiceInterfaceSpec is the spec for the ServiceInterfaceSpec
+	// +required
+	Spec ServiceInterfaceSpec `json:"spec"`
+	// ObjectMeta holds metadata like labels and annotations.
+	// +optional
 	ObjectMeta `json:"metadata,omitempty"`
 }
 

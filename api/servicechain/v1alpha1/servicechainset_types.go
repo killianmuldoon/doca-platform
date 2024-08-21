@@ -29,18 +29,29 @@ const (
 )
 
 var (
+	// ServiceChainSetGroupVersionKind is the GroupVersionKind of the ServiceChainSet
 	ServiceChainSetGroupVersionKind = GroupVersion.WithKind(ServiceChainSetKind)
 )
 
 // ServiceChainSetSpec defines the desired state of ServiceChainSet
 type ServiceChainSetSpec struct {
-	// Select the Nodes with specific labels, ServiceChain CRs will be created only for these Nodes
-	NodeSelector *metav1.LabelSelector    `json:"nodeSelector,omitempty"`
-	Template     ServiceChainSpecTemplate `json:"template"`
+	// Select the Nodes with specific labels, ServiceChain CRs will be created
+	// only for these Nodes
+	// +optional
+	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
+	// ServiceChainSpecTemplate holds the template for the ServiceChainSpec
+	// +required
+	Template ServiceChainSpecTemplate `json:"template"`
 }
 
+// ServiceChainSpecTemplate defines the template from which ServiceChainSpecs
+// are created
 type ServiceChainSpecTemplate struct {
-	Spec       ServiceChainSpec `json:"spec"`
+	// ServiceChainSpec is the spec for the ServiceChainSpec
+	// +required
+	Spec ServiceChainSpec `json:"spec"`
+	// ObjectMeta holds metadata like labels and annotations.
+	// +optional
 	ObjectMeta `json:"metadata,omitempty"`
 }
 

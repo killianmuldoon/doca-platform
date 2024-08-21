@@ -19,7 +19,12 @@ limitations under the License.
 // +groupName=sfc.dpf.nvidia.com
 package v1alpha1
 
+// ObjectMeta holds metadata like labels and annotations.
 type ObjectMeta struct {
-	Labels      map[string]string `json:"labels,omitempty"`
+	// Labels is a map of string keys and values.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// Annotations is a map of string keys and values.
+	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 }

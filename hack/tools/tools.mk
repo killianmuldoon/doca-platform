@@ -87,7 +87,7 @@ $(HELM): | $(TOOLSDIR)
 	$Q echo "Installing helm-$(HELM_VER) to $(TOOLSDIR)"
 	$Q curl -fsSL -o $(GET_HELM) https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
 	$Q chmod +x $(GET_HELM)
-	$Q env HELM_INSTALL_DIR=$(TOOLSDIR) PATH=$(PATH):$(TOOLSDIR) $(GET_HELM) --no-sudo -v $(HELM_VER)
+	$Q env HELM_INSTALL_DIR=$(TOOLSDIR) PATH="$(PATH):$(TOOLSDIR)" $(GET_HELM) --no-sudo -v $(HELM_VER)
 	$Q mv $(TOOLSDIR)/$(HELM_BIN) $(TOOLSDIR)/$(HELM_BIN)-$(HELM_VER)
 	$Q rm -f $(GET_HELM)
 

@@ -99,7 +99,7 @@ func FigureOutName(ctx context.Context, serviceInterface *sfcv1.ServiceInterface
 	portName := ""
 	if serviceInterface.Spec.InterfaceType == "physical" {
 		log.Info("matched on physical")
-		portName = serviceInterface.Spec.InterfaceName
+		portName = *serviceInterface.Spec.InterfaceName
 	}
 	if serviceInterface.Spec.InterfaceType == "pf" {
 		log.Info("matched on pf")
@@ -202,7 +202,7 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	node := os.Getenv("SFC_NODE_NAME")
 
-	if serviceInterface.Spec.Node != node {
+	if *serviceInterface.Spec.Node != node {
 		// this object was not intended for this nodes
 		// skip
 		log.Info("serviceInterface.Spec.Node: %s != node: %s", serviceInterface.Spec.Node, node)

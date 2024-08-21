@@ -23,43 +23,90 @@ import (
 // ServiceChainSpec defines the desired state of ServiceChain
 type ServiceChainSpec struct {
 	// Node where this ServiceChain applies to
-	Node string `json:"node,omitempty"`
+	// +optional
+	Node *string `json:"node,omitempty"`
 	// The switches of the ServiceChain, order is significant
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=50
+	// +required
 	Switches []Switch `json:"switches"`
 }
 
+// Switch defines the switch configuration
 type Switch struct {
+	// Ports of the switch
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=50
+	// +required
 	Ports []Port `json:"ports"`
 }
 
+// Port defines the port configuration
+// +kubebuilder:validation:XValidation:rule="(has(self.service) && !has(self.serviceInterface)) || (!has(self.service) && has(self.serviceInterface))", message="either service or serviceInterface must be specified"
 type Port struct {
-	Service          *Service    `json:"service,omitempty"`
+	// +optional
+	Service *Service `json:"service,omitempty"`
+	// +optional
 	ServiceInterface *ServiceIfc `json:"serviceInterface,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="(has(self.reference) && !has(self.matchLabels)) || (!has(self.reference) && has(self.matchLabels))", message="either reference or matchLabels must be specified"
 type Service struct {
-	// +kubebuilder:validation:Required
-	InterfaceName string            `json:"interface"`
-	Reference     *ObjectRef        `json:"reference,omitempty"`
-	MatchLabels   map[string]string `json:"matchLabels,omitempty"`
-	IPAM          *IPAM             `json:"ipam,omitempty"`
+	// Interface name
+	// +required
+	InterfaceName string `json:"interface"`
+	// TODO: What is this field supposed to be?
+	// +optional
+	Reference *ObjectRef `json:"reference,omitempty"`
+	// MatchLabels is a map of string keys and values that are used to select
+	// an object.
+	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:MaxProperties=50
+	// +optional
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+	// IPAM defines the IPAM configuration
+	// +optional
+	IPAM *IPAM `json:"ipam,omitempty"`
 }
 
+// ServiceIfc defines the service interface configuration
+// +kubebuilder:validation:XValidation:rule="(has(self.reference) && !has(self.matchLabels)) || (!has(self.reference) && has(self.matchLabels))", message="either reference or matchLabels must be specified"
 type ServiceIfc struct {
-	Reference   *ObjectRef        `json:"reference,omitempty"`
+	// TODO: What is this field supposed to be?
+	// +optional
+	Reference *ObjectRef `json:"reference,omitempty"`
+	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:MaxProperties=50
+	// +optional
 	MatchLabels map[string]string `json:"matchLabels,omitempty"`
 }
 
+// IPAM defines the IPAM configuration
+// +kubebuilder:validation:XValidation:rule="(has(self.reference) && !has(self.matchLabels)) || (!has(self.reference) && has(self.matchLabels))", message="either reference or matchLabels must be specified"
 type IPAM struct {
-	Reference       *ObjectRef        `json:"reference,omitempty"`
-	MatchLabels     map[string]string `json:"matchLabels,omitempty"`
-	DefaultGateway  bool              `json:"defaultGateway,omitempty"`
-	SetDefaultRoute bool              `json:"setDefaultRoute,omitempty"`
+	// +optional
+	Reference *ObjectRef `json:"reference,omitempty"`
+	// +kubebuilder:validation:MinProperties=1
+	// +kubebuilder:validation:MaxProperties=50
+	// +optional
+	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+	// +optional
+	DefaultGateway *bool `json:"defaultGateway,omitempty"`
+	// +optional
+	SetDefaultRoute *bool `json:"setDefaultRoute,omitempty"`
 }
 
 type ObjectRef struct {
-	Namespace string `json:"namespace,omitempty"`
-	Name      string `json:"name,omitempty"`
+	// Namespace of the object
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +optional
+	Namespace *string `json:"namespace,omitempty"`
+	// Name of the object
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=253
+	// +required
+	Name string `json:"name"`
 }
 
 // ServiceChainStatus defines the observed state of ServiceChain

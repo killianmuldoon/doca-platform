@@ -100,14 +100,17 @@ spec:
               template:
                 properties:
                   metadata:
+                    description: ObjectMeta holds metadata like labels and annotations.
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
+                        description: Annotations is a map of string keys and values.
                         type: object
                       labels:
                         additionalProperties:
                           type: string
+                        description: Labels is a map of string keys and values.
                         type: object
                     type: object
                   spec:
@@ -115,8 +118,9 @@ spec:
                       of ServiceInterfaceSet
                     properties:
                       nodeSelector:
-                        description: Select the Nodes with specific labels, ServiceInterface
-                          CRs will be created only for these Nodes
+                        description: |-
+                          Select the Nodes with specific labels, ServiceInterface CRs will be
+                          created only for these Nodes
                         properties:
                           matchExpressions:
                             description: matchExpressions is a list of label selector
@@ -162,21 +166,27 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                       template:
+                        description: Template holds the template for the erviceInterfaceSpec
                         properties:
                           metadata:
+                            description: ObjectMeta holds metadata like labels and
+                              annotations.
                             properties:
                               annotations:
                                 additionalProperties:
                                   type: string
+                                description: Annotations is a map of string keys and
+                                  values.
                                 type: object
                               labels:
                                 additionalProperties:
                                   type: string
+                                description: Labels is a map of string keys and values.
                                 type: object
                             type: object
                           spec:
-                            description: ServiceInterfaceSpec defines the desired
-                              state of ServiceInterface
+                            description: ServiceInterfaceSpec is the spec for the
+                              ServiceInterfaceSpec
                             properties:
                               interfaceName:
                                 description: The interface name
@@ -198,6 +208,7 @@ spec:
                                 description: The PF definition
                                 properties:
                                   pfID:
+                                    description: The PF ID
                                     type: integer
                                 required:
                                 - pfID
@@ -206,10 +217,15 @@ spec:
                                 description: The VF definition
                                 properties:
                                   parentInterfaceRef:
+                                    description: |-
+                                      The parent interface reference
+                                      TODO: Figure out what this field is supposed to be
                                     type: string
                                   pfID:
+                                    description: The PF ID
                                     type: integer
                                   vfID:
+                                    description: The VF ID
                                     type: integer
                                 required:
                                 - parentInterfaceRef
@@ -220,8 +236,12 @@ spec:
                                 description: The VLAN definition
                                 properties:
                                   parentInterfaceRef:
+                                    description: |-
+                                      The parent interface reference
+                                      TODO: Figure out what this field is supposed to be
                                     type: string
                                   vlanID:
+                                    description: The VLAN ID
                                     type: integer
                                 required:
                                 - parentInterfaceRef
@@ -230,6 +250,11 @@ spec:
                             required:
                             - interfaceType
                             type: object
+                            x-kubernetes-validations:
+                            - message: vlan, pf, vf must have corresponding fields
+                              rule: (self.interfaceType == 'vlan' && has(self.vlan))
+                                || (self.interfaceType == 'pf' && has(self.pf)) ||
+                                (self.interfaceType == 'vf' && has(self.vf))
                         required:
                         - spec
                         type: object

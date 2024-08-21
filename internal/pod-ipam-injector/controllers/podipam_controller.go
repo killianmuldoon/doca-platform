@@ -174,7 +174,7 @@ func (r *PodIpamReconciler) getServicesFromChain(ctx context.Context, ifcToSvc m
 		return fmt.Errorf("No Service Chain for Node found. Requeing")
 	}
 	for _, serviceChain := range scList.Items {
-		if serviceChain.Spec.Node == node {
+		if *serviceChain.Spec.Node == node {
 			for _, sw := range serviceChain.Spec.Switches {
 				for _, port := range sw.Ports {
 					if port.Service != nil {
@@ -233,7 +233,7 @@ func (r *PodIpamReconciler) getPoolsConfig(ctx context.Context, ifcToSvc map[str
 
 func (r *PodIpamReconciler) getPoolConfig(ctx context.Context, ipam *sfcv1.IPAM) (*poolConfig, error) {
 	poolCfg := &poolConfig{
-		AssignGW: ipam.DefaultGateway,
+		AssignGW: *ipam.DefaultGateway,
 	}
 	var pool, poolType string
 	var err error
@@ -255,7 +255,7 @@ func (r *PodIpamReconciler) getPoolConfig(ctx context.Context, ipam *sfcv1.IPAM)
 
 func (r *PodIpamReconciler) getPoolByRef(ctx context.Context, ipam *sfcv1.IPAM) (string, string, error) {
 	ipPool := &nvipamv1.IPPool{}
-	err := r.Client.Get(ctx, client.ObjectKey{Namespace: ipam.Reference.Namespace,
+	err := r.Client.Get(ctx, client.ObjectKey{Namespace: *ipam.Reference.Namespace,
 		Name: ipam.Reference.Name}, ipPool)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
@@ -268,14 +268,14 @@ func (r *PodIpamReconciler) getPoolByRef(ctx context.Context, ipam *sfcv1.IPAM) 
 	}
 	//IPPool not found, check CIDRPool
 	cidrPool := &nvipamv1.CIDRPool{}
-	err = r.Client.Get(ctx, client.ObjectKey{Namespace: ipam.Reference.Namespace,
+	err = r.Client.Get(ctx, client.ObjectKey{Namespace: *ipam.Reference.Namespace,
 		Name: ipam.Reference.Name}, cidrPool)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return "", "", err
 		}
 		// No IpPool/CidrPool found requeuing
-		return "", "", fmt.Errorf("No IPPool or CidrPool found for Ref %s/%s", ipam.Reference.Namespace, ipam.Reference.Name)
+		return "", "", fmt.Errorf("no IPPool or CidrPool found for Ref %s/%s", *ipam.Reference.Namespace, ipam.Reference.Name)
 	} else {
 		// cidrPool found
 		return ipam.Reference.Name, strings.ToLower(nvipamv1.CIDRPoolKind), nil

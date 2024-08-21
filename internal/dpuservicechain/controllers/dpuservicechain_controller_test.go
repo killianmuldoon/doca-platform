@@ -412,9 +412,6 @@ func getTestServiceChainSpec() *sfcv1.ServiceChainSpec {
 			{
 				Ports: []sfcv1.Port{
 					{
-						Service: &sfcv1.Service{
-							InterfaceName: "head-iface",
-						},
 						ServiceInterface: &sfcv1.ServiceIfc{
 							Reference: &sfcv1.ObjectRef{
 								Name: "p0",

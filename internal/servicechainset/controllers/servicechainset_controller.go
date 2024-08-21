@@ -27,6 +27,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -114,7 +115,7 @@ func (r *ServiceChainSetReconciler) getChildMap(ctx context.Context, set client.
 	}
 	for i := range serviceChainList.Items {
 		sc := serviceChainList.Items[i]
-		serviceChainMap[sc.Spec.Node] = &sc
+		serviceChainMap[*sc.Spec.Node] = &sc
 	}
 	return serviceChainMap, nil
 }
@@ -158,7 +159,7 @@ func (r *ServiceChainSetReconciler) createOrUpdateChild(ctx context.Context, set
 			OwnerReferences: []metav1.OwnerReference{*owner},
 		},
 		Spec: sfcv1.ServiceChainSpec{
-			Node:     nodeName,
+			Node:     ptr.To(nodeName),
 			Switches: switches,
 		},
 	}

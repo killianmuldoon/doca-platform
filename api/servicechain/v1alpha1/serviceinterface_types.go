@@ -21,35 +21,58 @@ import (
 )
 
 // ServiceInterfaceSpec defines the desired state of ServiceInterface
+// +kubebuilder:validation:XValidation:rule="(self.interfaceType == 'vlan' && has(self.vlan)) || (self.interfaceType == 'pf' && has(self.pf)) || (self.interfaceType == 'vf' && has(self.vf))", message="vlan, pf, vf must have corresponding fields"
 type ServiceInterfaceSpec struct {
-
 	// Node where this interface exists
-	Node string `json:"node,omitempty"`
-	// +kubebuilder:validation:Enum={"vlan", "physical", "pf", "vf", "ovn"}
+	// +optional
+	Node *string `json:"node,omitempty"`
 	// The interface type ("vlan", "physical", "pf", "vf", "ovn")
+	// +kubebuilder:validation:Enum={"vlan", "physical", "pf", "vf", "ovn"}
+	// +required
 	InterfaceType string `json:"interfaceType"`
 	// The interface name
-	InterfaceName string `json:"interfaceName,omitempty"`
+	// +optional
+	InterfaceName *string `json:"interfaceName,omitempty"`
 	// The VLAN definition
+	// +optional
 	Vlan *VLAN `json:"vlan,omitempty"`
 	// The VF definition
+	// +optional
 	VF *VF `json:"vf,omitempty"`
 	// The PF definition
+	// +optional
 	PF *PF `json:"pf,omitempty"`
 }
 
+// VLAN defines the VLAN configuration
 type VLAN struct {
-	VlanID             int    `json:"vlanID"`
+	// The VLAN ID
+	// +required
+	VlanID int `json:"vlanID"`
+	// The parent interface reference
+	// TODO: Figure out what this field is supposed to be
+	// +required
 	ParentInterfaceRef string `json:"parentInterfaceRef"`
 }
 
+// VF defines the VF configuration
 type VF struct {
-	VFID               int    `json:"vfID"`
-	PFID               int    `json:"pfID"`
+	// The VF ID
+	// +required
+	VFID int `json:"vfID"`
+	// The PF ID
+	// +required
+	PFID int `json:"pfID"`
+	// The parent interface reference
+	// TODO: Figure out what this field is supposed to be
+	// +required
 	ParentInterfaceRef string `json:"parentInterfaceRef"`
 }
 
+// PF defines the PF configuration
 type PF struct {
+	// The PF ID
+	// +required
 	ID int `json:"pfID"`
 }
 

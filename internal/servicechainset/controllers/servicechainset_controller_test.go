@@ -137,9 +137,6 @@ var _ = Describe("ServiceChainSet Controller", func() {
 					{
 						Ports: []sfcv1.Port{
 							{
-								Service: &sfcv1.Service{
-									InterfaceName: "head-iface",
-								},
 								ServiceInterface: &sfcv1.ServiceIfc{
 									Reference: &sfcv1.ObjectRef{
 										Name: "p0",
@@ -212,9 +209,6 @@ func getTestServiceChainSpec() *sfcv1.ServiceChainSpec {
 			{
 				Ports: []sfcv1.Port{
 					{
-						Service: &sfcv1.Service{
-							InterfaceName: "head-iface",
-						},
 						ServiceInterface: &sfcv1.ServiceIfc{
 							Reference: &sfcv1.ObjectRef{
 								Name: "p0",
@@ -244,7 +238,7 @@ func assertServiceChainList(ctx context.Context, g Gomega, nodeCount int, cleanu
 		serviceChain := sc
 		*cleanupObjects = append(*cleanupObjects, &serviceChain)
 		assertServiceChain(g, &sc, testSpec)
-		nodeMap[sc.Spec.Node] = true
+		nodeMap[*sc.Spec.Node] = true
 	}
 	g.ExpectWithOffset(1, nodeMap).To(HaveLen(nodeCount))
 }
@@ -253,10 +247,10 @@ func assertServiceChain(g Gomega, sc *sfcv1.ServiceChain, testSpec *sfcv1.Servic
 	specCopy := testSpec.DeepCopy()
 	node := sc.Spec.Node
 	specCopy.Node = node
-	specCopy.Switches[0].Ports[0].ServiceInterface.Reference.Name = specCopy.Switches[0].Ports[0].ServiceInterface.Reference.Name + "-" + node
+	specCopy.Switches[0].Ports[0].ServiceInterface.Reference.Name = specCopy.Switches[0].Ports[0].ServiceInterface.Reference.Name + "-" + *node
 	g.ExpectWithOffset(2, sc.Spec).To(Equal(*specCopy))
-	g.ExpectWithOffset(2, node).NotTo(BeEmpty())
-	g.ExpectWithOffset(2, sc.Name).To(Equal(resourceName + "-" + node))
+	g.ExpectWithOffset(2, *node).NotTo(BeEmpty())
+	g.ExpectWithOffset(2, sc.Name).To(Equal(resourceName + "-" + *node))
 	g.ExpectWithOffset(2, sc.Labels[ServiceChainSetNameLabel]).To(Equal(resourceName))
 	g.ExpectWithOffset(2, sc.Labels[ServiceChainSetNamespaceLabel]).To(Equal(defaultNS))
 	g.ExpectWithOffset(2, sc.OwnerReferences).To(HaveLen(1))

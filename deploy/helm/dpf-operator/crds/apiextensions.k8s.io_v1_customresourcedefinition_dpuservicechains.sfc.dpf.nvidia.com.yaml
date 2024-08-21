@@ -90,14 +90,17 @@ spec:
               template:
                 properties:
                   metadata:
+                    description: ObjectMeta holds metadata like labels and annotations.
                     properties:
                       annotations:
                         additionalProperties:
                           type: string
+                        description: Annotations is a map of string keys and values.
                         type: object
                       labels:
                         additionalProperties:
                           type: string
+                        description: Labels is a map of string keys and values.
                         type: object
                     type: object
                   spec:
@@ -105,8 +108,9 @@ spec:
                       ServiceChainSet
                     properties:
                       nodeSelector:
-                        description: Select the Nodes with specific labels, ServiceChain
-                          CRs will be created only for these Nodes
+                        description: |-
+                          Select the Nodes with specific labels, ServiceChain CRs will be created
+                          only for these Nodes
                         properties:
                           matchExpressions:
                             description: matchExpressions is a list of label selector
@@ -152,21 +156,27 @@ spec:
                         type: object
                         x-kubernetes-map-type: atomic
                       template:
+                        description: ServiceChainSpecTemplate holds the template for
+                          the ServiceChainSpec
                         properties:
                           metadata:
+                            description: ObjectMeta holds metadata like labels and
+                              annotations.
                             properties:
                               annotations:
                                 additionalProperties:
                                   type: string
+                                description: Annotations is a map of string keys and
+                                  values.
                                 type: object
                               labels:
                                 additionalProperties:
                                   type: string
+                                description: Labels is a map of string keys and values.
                                 type: object
                             type: object
                           spec:
-                            description: ServiceChainSpec defines the desired state
-                              of ServiceChain
+                            description: ServiceChainSpec is the spec for the ServiceChainSpec
                             properties:
                               node:
                                 description: Node where this ServiceChain applies
@@ -176,65 +186,137 @@ spec:
                                 description: The switches of the ServiceChain, order
                                   is significant
                                 items:
+                                  description: Switch defines the switch configuration
                                   properties:
                                     ports:
+                                      description: Ports of the switch
                                       items:
+                                        description: Port defines the port configuration
                                         properties:
                                           service:
                                             properties:
                                               interface:
+                                                description: Interface name
                                                 type: string
                                               ipam:
+                                                description: IPAM defines the IPAM
+                                                  configuration
                                                 properties:
                                                   defaultGateway:
                                                     type: boolean
                                                   matchLabels:
                                                     additionalProperties:
                                                       type: string
+                                                    maxProperties: 50
+                                                    minProperties: 1
                                                     type: object
                                                   reference:
                                                     properties:
                                                       name:
+                                                        description: Name of the object
+                                                        maxLength: 253
+                                                        minLength: 1
                                                         type: string
                                                       namespace:
+                                                        description: Namespace of
+                                                          the object
+                                                        maxLength: 253
+                                                        minLength: 1
                                                         type: string
+                                                    required:
+                                                    - name
                                                     type: object
                                                   setDefaultRoute:
                                                     type: boolean
                                                 type: object
+                                                x-kubernetes-validations:
+                                                - message: either reference or matchLabels
+                                                    must be specified
+                                                  rule: (has(self.reference) && !has(self.matchLabels))
+                                                    || (!has(self.reference) && has(self.matchLabels))
                                               matchLabels:
                                                 additionalProperties:
                                                   type: string
+                                                description: |-
+                                                  MatchLabels is a map of string keys and values that are used to select
+                                                  an object.
+                                                maxProperties: 50
+                                                minProperties: 1
                                                 type: object
                                               reference:
+                                                description: 'TODO: What is this field
+                                                  supposed to be?'
                                                 properties:
                                                   name:
+                                                    description: Name of the object
+                                                    maxLength: 253
+                                                    minLength: 1
                                                     type: string
                                                   namespace:
+                                                    description: Namespace of the
+                                                      object
+                                                    maxLength: 253
+                                                    minLength: 1
                                                     type: string
+                                                required:
+                                                - name
                                                 type: object
                                             required:
                                             - interface
                                             type: object
+                                            x-kubernetes-validations:
+                                            - message: either reference or matchLabels
+                                                must be specified
+                                              rule: (has(self.reference) && !has(self.matchLabels))
+                                                || (!has(self.reference) && has(self.matchLabels))
                                           serviceInterface:
+                                            description: ServiceIfc defines the service
+                                              interface configuration
                                             properties:
                                               matchLabels:
                                                 additionalProperties:
                                                   type: string
+                                                maxProperties: 50
+                                                minProperties: 1
                                                 type: object
                                               reference:
+                                                description: 'TODO: What is this field
+                                                  supposed to be?'
                                                 properties:
                                                   name:
+                                                    description: Name of the object
+                                                    maxLength: 253
+                                                    minLength: 1
                                                     type: string
                                                   namespace:
+                                                    description: Namespace of the
+                                                      object
+                                                    maxLength: 253
+                                                    minLength: 1
                                                     type: string
+                                                required:
+                                                - name
                                                 type: object
                                             type: object
+                                            x-kubernetes-validations:
+                                            - message: either reference or matchLabels
+                                                must be specified
+                                              rule: (has(self.reference) && !has(self.matchLabels))
+                                                || (!has(self.reference) && has(self.matchLabels))
                                         type: object
+                                        x-kubernetes-validations:
+                                        - message: either service or serviceInterface
+                                            must be specified
+                                          rule: (has(self.service) && !has(self.serviceInterface))
+                                            || (!has(self.service) && has(self.serviceInterface))
+                                      maxItems: 50
+                                      minItems: 1
                                       type: array
                                   required:
                                   - ports
                                   type: object
+                                maxItems: 50
+                                minItems: 1
                                 type: array
                             required:
                             - switches
