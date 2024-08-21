@@ -42,7 +42,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	machineryruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -112,19 +111,6 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}
 			// TODO: This cleanup isn't good enough to clean the system correctly. Need to ensure the DPFOperatorConfig is cleaned up first.
 			By("cleaning up objects created during the test", func() {
-				// Explicitly remove finalizers from provisioning objects as deletion is not implemented.
-				for _, kind := range []string{"bfb", "dpu", "dpuset"} {
-					obj := &unstructured.Unstructured{}
-					obj.SetKind(kind)
-					obj.SetAPIVersion("provisioning.dpf.nvidia.com/v1alpha1")
-					obj.SetName("provisioning-object")
-					obj.SetNamespace(dpfOperatorSystemNamespace)
-					if err := testClient.Patch(ctx, obj, client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`))); err != nil {
-						GinkgoLogr.Error(err, "failed to patch finalizers for the ")
-					}
-					cleanupObjs = append(cleanupObjs, obj)
-				}
-
 				for _, object := range cleanupObjs {
 					if err := testClient.Delete(ctx, object); err != nil && !apierrors.IsNotFound(err) {
 						Expect(err).ToNot(HaveOccurred())
@@ -244,6 +230,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(yaml.Unmarshal(data, bfb)).To(Succeed())
 				g.Expect(testClient.Create(ctx, bfb)).To(Succeed())
+				cleanupObjs = append(cleanupObjs, bfb)
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 
 			dpuClusters, err := controlplane.GetDPFClusters(ctx, testClient)
@@ -259,6 +246,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					dpuset.Spec.DpuTemplate.Spec.Cluster.Name = cluster.Name
 					dpuset.Spec.DpuTemplate.Spec.Cluster.NameSpace = cluster.Namespace
 					g.Expect(testClient.Create(ctx, dpuset)).To(Succeed())
+					cleanupObjs = append(cleanupObjs, dpuset)
 				}
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 
@@ -276,7 +264,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					By(fmt.Sprintf("Expected number of nodes %d to equal %d", len(nodes.Items), numNodes))
 					g.Expect(nodes.Items).To(HaveLen(numNodes))
 				}
-			}).WithTimeout(30 * time.Minute).Should(Succeed())
+			}).WithTimeout(30 * time.Minute).WithPolling(120 * time.Second).Should(Succeed())
 		})
 
 		It("ensure the system DPUServices are created", func() {

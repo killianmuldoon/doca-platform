@@ -26,6 +26,8 @@ type DpuPhase string
 
 // These are the valid statuses of DPU.
 const (
+	DPUFinalizer = "provisioning.dpf.nvidia.com/dpu-protection"
+
 	// DPU CR is created by DPUSet.
 	DPUInitializing DpuPhase = "Initializing"
 	// In DPUNodeEffect state, the controller will handle the node effect provided by the user.

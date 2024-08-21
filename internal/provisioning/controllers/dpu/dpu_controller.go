@@ -25,6 +25,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
+	"github.com/fluxcd/pkg/runtime/patch"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -33,6 +34,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -81,6 +83,20 @@ func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 		logger.Error(err, "Failed to get node", "Node", dpu.Spec.NodeName)
 		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to get node")
+	}
+
+	// Add finalizer if not set and DPU is not currently deleting.
+	if !controllerutil.ContainsFinalizer(dpu, provisioningdpfv1alpha1.DPUFinalizer) && dpu.DeletionTimestamp.IsZero() {
+		patcher, err := patch.NewHelper(dpu, r.Client)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "failed to init patcher for DPU finalizer")
+		}
+		logger.Info("Adding finalizer")
+		controllerutil.AddFinalizer(dpu, provisioningdpfv1alpha1.DPUFinalizer)
+		err = patcher.Patch(ctx, dpu)
+		if err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
+		}
 	}
 
 	currentState := state.GetDPUState(dpu)

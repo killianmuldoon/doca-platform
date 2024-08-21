@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -112,7 +113,7 @@ func (st *dpuDeletingState) Handle(ctx context.Context, client client.Client, _ 
 			}
 		}
 		if len(objects) == 0 {
-			st.dpu.Finalizers = nil
+			controllerutil.RemoveFinalizer(st.dpu, provisioningdpfv1alpha1.DPUFinalizer)
 			if err := client.Update(ctx, st.dpu); err != nil {
 				return *state, err
 			}

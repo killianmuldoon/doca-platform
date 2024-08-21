@@ -32,10 +32,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-const (
-	DPUFinalizer = "provisioning.dpf.nvidia.com/dpu-protection"
-)
-
 // log is for logging in this package.
 var dpulog = logf.Log.WithName("dpu-resource")
 
@@ -56,19 +52,6 @@ func (r *Dpu) Default() {
 	if r.Spec.NodeEffect == nil {
 		r.Spec.NodeEffect = &NodeEffect{
 			NoEffect: true,
-		}
-	}
-
-	// add finalizer
-	if r.Status.Phase == "" {
-		found := false
-		for _, f := range r.Finalizers {
-			if f == DPUFinalizer {
-				found = true
-			}
-		}
-		if !found {
-			r.Finalizers = append(r.Finalizers, DPUFinalizer)
 		}
 	}
 }
