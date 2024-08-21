@@ -188,12 +188,12 @@ e2e-dpf-standalone:
     # artifacts are not correctly delete when gitlab restarts jobs.
     - rm -rf artifacts
     - ./hack/scripts/ci_helm_docker_login.sh
-    - docker run --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone:cd9a866f -e ansible_password=$ANSIBLE_PASSWORD -e reset_confirmation=true -u root reset.yml
+    - docker run --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone:latest -e ansible_password=$ANSIBLE_PASSWORD -u root reset.yml
     - make test-env-dpf-standalone
   script:
     - make test-e2e
   after_script:
-    - docker run --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone:cd9a866f -e ansible_password=$ANSIBLE_PASSWORD -e reset_confirmation=true -u root reset.yml
+    - docker run --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone:latest -e ansible_password=$ANSIBLE_PASSWORD -u root reset.yml
 
 release:
   interruptible: false
