@@ -19,7 +19,6 @@ This guide will cover:
 - [NMState Operator](https://docs.openshift.com/container-platform/4.15/networking/k8s_nmstate/k8s-nmstate-about-the-k8s-nmstate-operator.html)
 - [Node Feature Discovery](https://kubernetes-sigs.github.io/node-feature-discovery/stable/get-started/index.html) version v0.15.2+
 - [Kamaji Tenant Control Plane](https://kamaji.clastix.io/concepts/#tenant-control-plane)
-- [Node Maintenance](https://github.com/medik8s/node-maintenance-operator)
 
 #### DPU Configuration
 DPF uses SRIOV to setup communication channel between DPU and host. The port p0/p1 of DPU should be connected to the switch and ensure it is `up`. PF0VF0 is reserved for ovn-kubernetes management and PF0VF1 is reserved for host-dpu communication channel. So, those 2 VFs must be excluded from sriov operator policy for kubernetes resources.
@@ -40,11 +39,6 @@ Refer to [kamaji-installation](./kamaji-installation.md) for instructions on man
 DPF uses [Node Feature Discovery](https://kubernetes-sigs.github.io/node-feature-discovery/stable/get-started/index.html) to detect when a node contains a DPU and label it with for DPU containing its device ID and PCI address. 
 
 Refer to [node-feature-discovery-installation](./node-feature-discovery.md) for instructions on manipulating `node-feature-discovery` on OCP.
-
-#### Node Maintenance
-DPF uses [Node Maintenance](https://github.com/medik8s/node-maintenance-operator) to drain the host if user request it.
-
-Refer to [node-maintenance-installation](./node-maintenance.md) for instructions on installing `node-maintenance` on OCP.
 
 ----
 

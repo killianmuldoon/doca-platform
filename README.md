@@ -8,6 +8,9 @@ DPF manages DPUs installed in nodes that are part of a Kuberntes cluster.
 - **Target cluster**: A Kubernetes cluster on which DPF is installed.
 - **DPU Cluster**: A Kubernetes cluster in which each node is a DPU.
 
+## Quick start
+The quickest way to get up and running with DPF is to follow the [cloud deployment guide](./docs/dev/cloud-dev-setup.md)
+
 ## Hardware
 DPF enables NVIDIA [Bluefield DPUs](https://www.nvidia.com/en-gb/networking/products/data-processing-unit/). These PCI devices are installed in servers and handle network traffic through network ports. Bluefield DPUs have arm64 CPUs and runs a standard Linux OS.
 
