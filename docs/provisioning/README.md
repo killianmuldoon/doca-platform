@@ -16,7 +16,6 @@ This guide will cover:
 ### Prerequisites
 #### Dependent Software
 - [Cert manager](https://github.com/cert-manager/cert-manager) version v1.14.2+
-- [NMState Operator](https://docs.openshift.com/container-platform/4.15/networking/k8s_nmstate/k8s-nmstate-about-the-k8s-nmstate-operator.html)
 - [Node Feature Discovery](https://kubernetes-sigs.github.io/node-feature-discovery/stable/get-started/index.html) version v0.15.2+
 - [Kamaji Tenant Control Plane](https://kamaji.clastix.io/concepts/#tenant-control-plane)
 

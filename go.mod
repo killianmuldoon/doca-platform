@@ -9,7 +9,6 @@ require (
 	github.com/fluxcd/pkg/runtime v0.47.1
 	github.com/google/go-cmp v0.6.0
 	github.com/medik8s/node-maintenance-operator v0.17.0
-	github.com/nmstate/kubernetes-nmstate/api v0.0.0-20240724090508-085e77ddd99a
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
 	github.com/openconfig/gnoi v0.4.1

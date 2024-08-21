@@ -727,12 +727,6 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-  - nmstate.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
-- apiGroups:
   - nodemaintenance.medik8s.io
   resources:
   - '*'

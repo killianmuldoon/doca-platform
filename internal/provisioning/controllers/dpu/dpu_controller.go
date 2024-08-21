@@ -57,7 +57,6 @@ type DpuReconciler struct {
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;delete
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=events,verbs=patch;update;delete;create
-//+kubebuilder:rbac:groups="nmstate.io",resources=*,verbs=*
 //+kubebuilder:rbac:groups="nodemaintenance.medik8s.io",resources=*,verbs=*
 //+kubebuilder:rbac:groups="cert-manager.io",resources=*,verbs=*
 

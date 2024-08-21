@@ -30,9 +30,6 @@ import (
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	nodeMaintenancev1beta1 "github.com/medik8s/node-maintenance-operator/api/v1beta1"
-	nmstatev1 "github.com/nmstate/kubernetes-nmstate/api/v1"
-	nmstatev1alpha1 "github.com/nmstate/kubernetes-nmstate/api/v1alpha1"
-	nmstatev1beta1 "github.com/nmstate/kubernetes-nmstate/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -53,10 +50,6 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(provisioningdpfv1alpha1.AddToScheme(scheme))
-
-	utilruntime.Must(nmstatev1.AddToScheme(scheme))
-	utilruntime.Must(nmstatev1beta1.AddToScheme(scheme))
-	utilruntime.Must(nmstatev1alpha1.AddToScheme(scheme))
 
 	utilruntime.Must(nodeMaintenancev1beta1.AddToScheme(scheme))
 	utilruntime.Must(certmanagerv1.AddToScheme(scheme))
