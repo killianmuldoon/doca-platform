@@ -56,7 +56,7 @@ var _ webhook.Defaulter = &Bfb{}
 func (r *Bfb) Default() {
 	bfblog.V(4).Info("default", "name", r.Name)
 	if r.Spec.FileName == "" {
-		r.Spec.FileName = fmt.Sprintf("%s-%s-%s", r.Namespace, r.Name, BFBFileNameExtension)
+		r.Spec.FileName = fmt.Sprintf("%s-%s%s", r.Namespace, r.Name, BFBFileNameExtension)
 	}
 }
 
