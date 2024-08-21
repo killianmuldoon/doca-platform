@@ -423,7 +423,7 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningdp
 					},
 				},
 			},
-			ImagePullSecrets: []corev1.LocalObjectReference{{Name: option.ImagePullSecret}},
+			ImagePullSecrets: option.ImagePullSecrets,
 			Volumes: []corev1.Volume{
 				{
 					Name: "server-volume",

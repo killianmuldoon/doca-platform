@@ -222,9 +222,8 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			vars := Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName:        bfbVolumeName,
-					ImagePullSecretForDMSAndHostNetwork: "secret",
-					DHCP:                                "192.168.1.1",
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					DHCP:                         "192.168.1.1",
 				},
 			}
 			err := tt.inventory.ParseAll()
@@ -281,9 +280,8 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			name: "Generate all manifests",
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName:        bfbVolumeName,
-					ImagePullSecretForDMSAndHostNetwork: "secret",
-					DHCP:                                "192.168.1.1",
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					DHCP:                         "192.168.1.1",
 				},
 			},
 			wantErr:         false,
@@ -293,9 +291,8 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			name: "Disable multus manifests",
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName:        bfbVolumeName,
-					ImagePullSecretForDMSAndHostNetwork: "secret",
-					DHCP:                                "192.168.1.1",
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"multus": true,
@@ -308,9 +305,8 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			name: "Disable sriovDevicePlugin manifests",
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName:        bfbVolumeName,
-					ImagePullSecretForDMSAndHostNetwork: "secret",
-					DHCP:                                "192.168.1.1",
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"sriovDevicePlugin": true,
@@ -323,9 +319,8 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			name: "Disable flannel manifests",
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName:        bfbVolumeName,
-					ImagePullSecretForDMSAndHostNetwork: "secret",
-					DHCP:                                "192.168.1.1",
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"flannel": true,
@@ -338,9 +333,8 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			name: "Disable nvidia-k8s-ipam manifests",
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName:        bfbVolumeName,
-					ImagePullSecretForDMSAndHostNetwork: "secret",
-					DHCP:                                "192.168.1.1",
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"nvidia-k8s-ipam": true,
@@ -353,9 +347,8 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			name: "Disable DPFProvisioningController manifests",
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName:        bfbVolumeName,
-					ImagePullSecretForDMSAndHostNetwork: "secret",
-					DHCP:                                "192.168.1.1",
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"DPFProvisioningController": true,
@@ -368,9 +361,8 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			name: "Disable DPUServiceController manifests",
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName:        bfbVolumeName,
-					ImagePullSecretForDMSAndHostNetwork: "secret",
-					DHCP:                                "192.168.1.1",
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"DPUServiceController": true,
@@ -383,9 +375,8 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			name: "Disable ovs-cni manifests",
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName:        bfbVolumeName,
-					ImagePullSecretForDMSAndHostNetwork: "secret",
-					DHCP:                                "192.168.1.1",
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"ovs-cni": true,
@@ -398,9 +389,8 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			name: "Disable sfc-controller manifests",
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName:        bfbVolumeName,
-					ImagePullSecretForDMSAndHostNetwork: "secret",
-					DHCP:                                "192.168.1.1",
+					BFBPersistentVolumeClaimName: bfbVolumeName,
+					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"sfc-controller": true,

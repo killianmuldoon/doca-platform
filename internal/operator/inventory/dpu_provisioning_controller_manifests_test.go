@@ -187,21 +187,8 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 	t.Run("fail if empty pvc", func(t *testing.T) {
 		vars := Variables{
 			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName:        " ",
-				ImagePullSecretForDMSAndHostNetwork: "secret",
-				DHCP:                                "192.168.1.1",
-			},
-		}
-		_, err := provCtrl.GenerateManifests(vars)
-		NewGomegaWithT(t).Expect(err).To(HaveOccurred())
-	})
-
-	t.Run("fail if empty imagePullSecret", func(t *testing.T) {
-		vars := Variables{
-			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName:        "pvc",
-				ImagePullSecretForDMSAndHostNetwork: " ",
-				DHCP:                                "192.168.1.1",
+				BFBPersistentVolumeClaimName: " ",
+				DHCP:                         "192.168.1.1",
 			},
 		}
 		_, err := provCtrl.GenerateManifests(vars)
@@ -211,8 +198,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 	t.Run("fail if empty dhcp", func(t *testing.T) {
 		vars := Variables{
 			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName:        "pvc",
-				ImagePullSecretForDMSAndHostNetwork: "secret",
+				BFBPersistentVolumeClaimName: "pvc",
 			},
 		}
 		_, err := provCtrl.GenerateManifests(vars)
@@ -222,9 +208,8 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 	t.Run("fail if invalid dhcp", func(t *testing.T) {
 		vars := Variables{
 			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName:        "pvc",
-				ImagePullSecretForDMSAndHostNetwork: "secret",
-				DHCP:                                "invalid ip",
+				BFBPersistentVolumeClaimName: "pvc",
+				DHCP:                         "invalid ip",
 			},
 		}
 		_, err := provCtrl.GenerateManifests(vars)
@@ -237,9 +222,8 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		vars := Variables{
 			Namespace: testNS,
 			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName:        "pvc",
-				ImagePullSecretForDMSAndHostNetwork: "some-secret",
-				DHCP:                                "192.168.1.1",
+				BFBPersistentVolumeClaimName: "pvc",
+				DHCP:                         "192.168.1.1",
 			},
 		}
 		objs, err := provCtrl.GenerateManifests(vars)
@@ -316,20 +300,18 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 	t.Run("test field modification", func(t *testing.T) {
 		g := NewGomegaWithT(t)
 		expectedPVC := "foo-test-pvc"
-		expectedImagePullSecret := "foo-test-image-pull-secret"
+		expectedImagePullSecret1 := "foo-test-image-pull-secret"
 		expectedImagePullSecret2 := "foo-test-image-pull-secret-2"
-		expectedImagePullSecret3 := "foo-test-image-pull-secret-3"
 		expectedDHCP := "192.169.1.1"
 		expectedDmsTimeout := 20
 		vars := Variables{
 			Namespace: "foo",
 			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName:        expectedPVC,
-				ImagePullSecretForDMSAndHostNetwork: expectedImagePullSecret,
-				DHCP:                                expectedDHCP,
-				DMSTimeout:                          &expectedDmsTimeout,
+				BFBPersistentVolumeClaimName: expectedPVC,
+				DHCP:                         expectedDHCP,
+				DMSTimeout:                   &expectedDmsTimeout,
 			},
-			ImagePullSecrets: []string{expectedImagePullSecret2, expectedImagePullSecret3},
+			ImagePullSecrets: []string{expectedImagePullSecret1, expectedImagePullSecret2},
 		}
 		generatedObjs, err := provCtrl.GenerateManifests(vars)
 		g.Expect(err).NotTo(HaveOccurred())
@@ -365,8 +347,8 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		// * ensure that the expected modifications have been made to the deployment.
 		g.Expect(gotDeployment).NotTo(BeNil())
 		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets).To(HaveLen(2))
-		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets[0].Name).To(Equal(expectedImagePullSecret2))
-		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets[1].Name).To(Equal(expectedImagePullSecret3))
+		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets[0].Name).To(Equal(expectedImagePullSecret1))
+		g.Expect(gotDeployment.Spec.Template.Spec.ImagePullSecrets[1].Name).To(Equal(expectedImagePullSecret2))
 		// * check bfb pvc
 		g.Expect(gotDeployment.Spec.Template.Spec.Volumes).To(HaveLen(2))
 		g.Expect(gotDeployment.Spec.Template.Spec.Volumes[1].PersistentVolumeClaim).NotTo(BeNil())
@@ -387,9 +369,9 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			"--zap-log-level=3",
 			"--dms-image=example.com/dms-server:v0.1.0",
 			"--hostnetwork-image=example.com/hostnetworksetup:v0.1.0",
-			fmt.Sprintf("--image-pull-secret=%s", expectedImagePullSecret),
 			fmt.Sprintf("--bfb-pvc=%s", expectedPVC),
 			fmt.Sprintf("--dhcp=%s", expectedDHCP),
+			fmt.Sprintf("--image-pull-secrets=%s", strings.Join([]string{expectedImagePullSecret1, expectedImagePullSecret2}, ",")),
 			fmt.Sprintf("--dms-timeout=%d", expectedDmsTimeout),
 		}
 		g.Expect(gotDeployment.Spec.Template.Spec.Containers).To(HaveLen(1))

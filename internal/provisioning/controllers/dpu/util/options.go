@@ -19,6 +19,8 @@ package util
 import (
 	"sync"
 	"time"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 var OsInstallTaskMap sync.Map
@@ -27,7 +29,7 @@ type DPUOptions struct {
 	DMSImageWithTag          string
 	HostnetworkImageWithTag  string
 	PrarprouterdImageWithTag string
-	ImagePullSecret          string
+	ImagePullSecrets         []corev1.LocalObjectReference
 	BfbPvc                   string
 	DHCP                     string
 	DMSTimeout               int

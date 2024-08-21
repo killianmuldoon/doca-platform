@@ -43,10 +43,9 @@ type Variables struct {
 }
 
 type DPFProvisioningVariables struct {
-	BFBPersistentVolumeClaimName        string
-	ImagePullSecretForDMSAndHostNetwork string
-	DHCP                                string
-	DMSTimeout                          *int
+	BFBPersistentVolumeClaimName string
+	DHCP                         string
+	DMSTimeout                   *int
 }
 
 // SystemComponents holds kubernetes object manifests to be deployed by the operator.

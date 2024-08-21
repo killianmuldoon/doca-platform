@@ -97,9 +97,7 @@ func (p *provisioningControllerObjects) GenerateManifests(vars Variables) ([]cli
 	}
 
 	// check vars
-	if strings.TrimSpace(vars.DPFProvisioningController.ImagePullSecretForDMSAndHostNetwork) == "" {
-		return nil, fmt.Errorf("DPFProvisioningController ImagePullSecretForDMSAndHostNetwork can not be empty")
-	}
+	// TODO: These should be validated in the DPFOperatorConfig API before reaching here and these validations should match those in the API.
 	if strings.TrimSpace(vars.DPFProvisioningController.BFBPersistentVolumeClaimName) == "" {
 		return nil, fmt.Errorf("DPFProvisioningController empty BFBPersistentVolumeClaimName")
 	}
@@ -249,7 +247,10 @@ func (p *provisioningControllerObjects) setImagePullSecrets(deploy *appsv1.Deplo
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
 	}
-	return p.setFlags(c, fmt.Sprintf("--image-pull-secret=%s", vars.DPFProvisioningController.ImagePullSecretForDMSAndHostNetwork))
+	if len(vars.ImagePullSecrets) == 0 {
+		return nil
+	}
+	return p.setFlags(c, fmt.Sprintf("--image-pull-secrets=%s", strings.Join(vars.ImagePullSecrets, ",")))
 }
 
 func (p *provisioningControllerObjects) setDHCP(deploy *appsv1.Deployment, vars Variables) error {

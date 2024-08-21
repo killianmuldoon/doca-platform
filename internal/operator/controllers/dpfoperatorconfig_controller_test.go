@@ -118,9 +118,8 @@ func TestDPFOperatorConfigReconciler_Conditions(t *testing.T) {
 			// This secret name is wrong - this prevents ImagePullSecretsReconciled from becoming true.
 			ImagePullSecrets: []string{"wrong-secret-name"},
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
-				BFBPersistentVolumeClaimName:        "{\"school\":\"EFG\", \"standard\": \"2\", \"name\": \"abc\", \"city\": \"miami\"}'",
-				ImagePullSecretForDMSAndHostNetwork: "secret-name",
-				DHCPServerAddress:                   "192.168.1.1",
+				BFBPersistentVolumeClaimName: "{\"school\":\"EFG\", \"standard\": \"2\", \"name\": \"abc\", \"city\": \"miami\"}'",
+				DHCPServerAddress:            "192.168.1.1",
 			},
 		},
 	}
@@ -223,9 +222,8 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 				Paused: ptr.To(true),
 			},
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
-				BFBPersistentVolumeClaimName:        "foo-pvc",
-				ImagePullSecretForDMSAndHostNetwork: "foo-image-pull-secret",
-				DHCPServerAddress:                   "192.168.1.1",
+				BFBPersistentVolumeClaimName: "foo-pvc",
+				DHCPServerAddress:            "192.168.1.1",
 			},
 		},
 	}

@@ -19,6 +19,7 @@ package main
 import (
 	"flag"
 	"os"
+	"strings"
 	"time"
 
 	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
@@ -32,6 +33,7 @@ import (
 	nmstatev1 "github.com/nmstate/kubernetes-nmstate/api/v1"
 	nmstatev1alpha1 "github.com/nmstate/kubernetes-nmstate/api/v1alpha1"
 	nmstatev1beta1 "github.com/nmstate/kubernetes-nmstate/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -67,7 +69,7 @@ func main() {
 	var probeAddr string
 	var dmsImage string
 	var hostnetworkImage string
-	var imagePullSecret string
+	var imagePullSecrets string
 	var bfbPVC string
 	var dhcp string
 	var dmsTimeout int
@@ -80,7 +82,7 @@ func main() {
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.StringVar(&dmsImage, "dms-image", "", "The image for DMS pod.")
 	flag.StringVar(&hostnetworkImage, "hostnetwork-image", "", "The image for DMS pod.")
-	flag.StringVar(&imagePullSecret, "image-pull-secret", "", "The image pull secret for pulling DMS image.")
+	flag.StringVar(&imagePullSecrets, "image-pull-secrets", "", "The image pull secrets for pods deployed by this controller.")
 	flag.StringVar(&bfbPVC, "bfb-pvc", "", "The pvc to storage bfb.")
 	flag.StringVar(&dhcp, "dhcp", "", "The DHCP server address.")
 	flag.IntVar(&dmsTimeout, "dms-timeout", 900, "The max timeout execution in seconds of a command if not responding, 0 is unlimited.")
@@ -118,14 +120,21 @@ func main() {
 		os.Exit(1)
 	}
 
+	// imagePullSecrets should be a comma-joined list of the names of imagePullSecrets.
+	imagePullSecretsReferences := []corev1.LocalObjectReference{}
+	secretList := strings.Split(imagePullSecrets, ",")
+	for _, secret := range secretList {
+		imagePullSecretsReferences = append(imagePullSecretsReferences, corev1.LocalObjectReference{Name: secret})
+	}
+
 	dpuOptions := util.DPUOptions{
 		DMSImageWithTag:         dmsImage,
 		HostnetworkImageWithTag: hostnetworkImage,
-		ImagePullSecret:         imagePullSecret,
 		BfbPvc:                  bfbPVC,
 		DHCP:                    dhcp,
 		DMSTimeout:              dmsTimeout,
 		DMSPodTimeout:           dmsPodTimeout,
+		ImagePullSecrets:        imagePullSecretsReferences,
 	}
 	setupLog.Info("DPU", "options", dpuOptions)
 	if err = (&dpu.DpuReconciler{
