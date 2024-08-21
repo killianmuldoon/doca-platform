@@ -28,9 +28,11 @@ if [ -z "$GROUP_ACCESS_TOKEN" ]; then
     log_and_exit "All GROUP_ACCESS_TOKEN variable is required"
 fi
 
+GITLAB_RUNNER_USER="${GITLAB_RUNNER_USER:-"gitlab-runner"}"
+
 ## GLOBAL VARS
 GROUP_ID="151554"
-SHELL_TAG_LIST="type/shell,e2e,release"
+SHELL_TAG_LIST="${SHELL_TAG_LIST:-"type/shell,e2e,release"}"
 DOCKER_TAG_LIST="type/docker"
 
 ## Install JQ for json parsing
@@ -69,7 +71,7 @@ sudo usermod -aG docker gitlab-runner || log_and_exit "Failed to add gitlab-runn
 ## Install Go
 sudo wget https://go.dev/dl/go1.22.3.linux-amd64.tar.gz > /dev/null || log_and_exit "Failed to download Go"
 sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.22.3.linux-amd64.tar.gz || log_and_exit "Failed to extract Go archive"
-echo 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/local/bin:/usr/local/go/bin"' | sudo tee /gitlab-runner/.bashrc > /dev/null || log_and_exit "Failed to set Go path for gitlab-runner"
+echo 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin:/usr/local/go/bin"' | sudo tee /etc/environment > /dev/null || log_and_exit "Failed to set Go path for gitlab-runner"
 
 ## Enable Docker building with qemu for multi-arch
 sudo docker run --privileged --rm tonistiigi/binfmt --install all > /dev/null || log_and_exit "Failed to enable Docker building with qemu"

@@ -405,6 +405,11 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 	# Deploy Kamaji as the underlying control plane provider.
 	$Q $(HELM) upgrade --set image.pullPolicy=IfNotPresent --set cfssl.image.tag=v1.6.5 --install kamaji $(KAMAJI)
 
+.PHONY: test-env-dpf-standalone
+test-env-dpf-standalone:
+	# Run the setup script.
+	echo "Running the provisioning script."
+	$(CURDIR)/hack/scripts/e2e-provision-standalone-cluster.sh
 
 OPERATOR_NAMESPACE ?= dpf-operator-system
 
@@ -851,6 +856,9 @@ docker-build-dummydpuservice: ## Build docker images for the dummydpuservice
 
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the docker images for all DOCKER_BUILD_TARGETS.
+
+.PHONY: docker-push-dpf-system
+docker-push-dpf-system: ## This is a no-op to allow using DOCKER_BUILD_TARGETS.
 
 .PHONY: docker-push-sfc-controller
 docker-push-sfc-controller:

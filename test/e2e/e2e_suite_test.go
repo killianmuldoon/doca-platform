@@ -21,10 +21,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
@@ -46,6 +48,30 @@ var (
 
 func init() {
 	flag.StringVar(&testKubeconfig, "e2e.testKubeconfig", "", "path to the testKubeconfig file")
+	getEnvVariables()
+}
+
+// These variables can be set from the environment when running the DPF tests.
+var (
+	// numNodes can be overwritten by setting DPF_E2E_NUM_DPU_NODES in the environment.
+	// This tells the test how many Kubernetes nodes to expect in the DPU Cluster.
+	numNodes = 0
+	// deployKamajiControlPlane can be overwritten by setting DPF_E2E_NUM_DPU_NODES in the environment.
+	// This decides whether the e2e test should deploy the tenant control plane.
+	deployKamajiControlPlane = true
+)
+
+func getEnvVariables() {
+	if nodes, found := os.LookupEnv("DPF_E2E_NUM_DPU_NODES"); found {
+		var err error
+		numNodes, err = strconv.Atoi(nodes)
+		if err != nil {
+			panic(err)
+		}
+	}
+	if _, found := os.LookupEnv("DPF_E2E_DISABLE_DEPLOY_KAMAJI_TENANTCONTROLPLANE"); found {
+		deployKamajiControlPlane = false
+	}
 }
 
 var (
@@ -67,6 +93,7 @@ func TestE2E(t *testing.T) {
 	Expect(operatorv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(argov1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(sfcv1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(provisioningv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(nvipamv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	s := scheme.Scheme
 

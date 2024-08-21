@@ -28,10 +28,13 @@ import (
 	"strings"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
+	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -139,10 +142,18 @@ func (c *Cluster) run(ctx context.Context) error {
 	// You can add entries here for resources that are not part of the inventory. Inventory resources are collected
 	// automatically.
 	resourcesToCollect := []schema.GroupVersionKind{
-		{Group: "", Version: "v1", Kind: "Pod"},    // Pods
-		{Group: "", Version: "v1", Kind: "Node"},   // Nodes
-		{Group: "", Version: "v1", Kind: "Secret"}, // Secrets
-		argov1.ApplicationSchemaGroupVersionKind,   // ArgoCD Applications
+		corev1.SchemeGroupVersion.WithKind("Pod"),    // Pods
+		corev1.SchemeGroupVersion.WithKind("Node"),   // Nodes
+		corev1.SchemeGroupVersion.WithKind("Secret"), // Secrets
+		corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"),
+		appsv1.SchemeGroupVersion.WithKind("DaemonSet"), // DaemonSet
+		argov1.ApplicationSchemaGroupVersionKind,        // ArgoApplications
+		operatorv1.DPFOperatorConfigGroupVersionKind,    // DPFOperatorConfig
+		provisioningv1.GroupVersion.WithKind("Dpu"),     // DPU
+		provisioningv1.GroupVersion.WithKind("DpuSet"),  // DPUSet
+		provisioningv1.GroupVersion.WithKind("Bfb"),     // BFB
+
+		controlplanemeta.TenantControlPlaneGVK, // Kamaji control plane
 	}
 	namespacesToCollectEvents := []string{
 		"dpf-operator-system",

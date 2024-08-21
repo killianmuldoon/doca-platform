@@ -153,6 +153,48 @@ e2e:
     - make test-cache-images
     - make clean-test-env
 
+e2e-dpf-standalone:
+  stage: test
+  needs: [ ]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST_FULL == "true"
+      when: always
+  variables:
+    # The helm bundles and operator-sdk require a remote repository in the e2e environment.
+    REGISTRY: nvcr.io/nvstaging/mellanox
+    # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
+    ARTIFACTS: $CI_PROJECT_DIR/artifacts
+    ANSIBLE_PASSWORD: $TMP_ANSIBLE_PASSWORD
+    DPF_E2E_NUM_DPU_NODES: 1
+    # Disable deploying the Kamaji control plane in the test. DPF Standalone deploys its own Kamaji TenantControlPlane.
+    DPF_E2E_DISABLE_DEPLOY_KAMAJI_TENANTCONTROLPLANE: "true"
+  tags:
+    - dpf/dpu
+  cache:
+    key: e2e
+    untracked: true
+    when: always
+    paths:
+      - hack/tools/bin
+      - hack/repos
+  artifacts:
+    when: always
+    paths:
+      - artifacts/*
+  before_script:
+    # artifacts are not correctly delete when gitlab restarts jobs.
+    - rm -rf artifacts
+    - ./hack/scripts/ci_helm_docker_login.sh
+    - docker run --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone:cd9a866f -e ansible_password=$ANSIBLE_PASSWORD -e reset_confirmation=true -u root reset.yml
+    - make test-env-dpf-standalone
+  script:
+    - make test-e2e
+  after_script:
+    - docker run --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone:cd9a866f -e ansible_password=$ANSIBLE_PASSWORD -e reset_confirmation=true -u root reset.yml
+
 release:
   interruptible: false
   stage: build

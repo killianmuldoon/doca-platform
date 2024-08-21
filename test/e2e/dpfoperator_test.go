@@ -26,6 +26,7 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
@@ -37,11 +38,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	machineryruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -54,6 +57,7 @@ var (
 	testObjectsPath            = "../objects/"
 	numClusters                = 1
 	dpfOperatorSystemNamespace = "dpf-operator-system"
+	argoCDInstanceLabel        = "argocd.argoproj.io/instance"
 )
 
 //nolint:dupl
@@ -69,7 +73,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 	dpuServiceIPAMWithIPPoolName := "switched-application"
 	dpuServiceIPAMWithCIDRPoolName := "routed-application"
 	dpuServiceIPAMNamespace := "test-3"
-	dpfProvisioningControllerPVCName := "dpf-provisioning-volume"
+	dpfProvisioningControllerPVCName := "bfb-pvc"
 
 	imagePullSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -88,7 +92,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				BFBPersistentVolumeClaimName: dpfProvisioningControllerPVCName,
 				// Note: This is the same imagePullSecret as exists in the top-level config.
 				ImagePullSecretForDMSAndHostNetwork: imagePullSecret.Name,
-				DHCPServerAddress:                   "8.8.8.8",
+				// Note: This is hardcoded to work with the implementation in DPF Standalone.
+				DHCPServerAddress: "10.33.33.254",
 			},
 			ImagePullSecrets: []string{
 				imagePullSecret.Name,
@@ -139,42 +144,6 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 		})
 
-		It("create underlying DPU clusters for test", func() {
-			for i := 0; i < numClusters; i++ {
-				clusterNamespace := fmt.Sprintf("dpu-%d-", i)
-				clusterName := fmt.Sprintf("dpu-cluster-%d", i)
-				// Create the namespace.
-				// Note: we use a randomized namespace here for test isolation.
-				ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: clusterNamespace}}
-				Expect(testClient.Create(ctx, ns)).To(Succeed())
-				cleanupObjs = append(cleanupObjs, ns)
-				// Read the TenantControlPlane from file and create it.
-				// Note: This process doesn't cover all the places in the file the name should be set.
-				data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpu-control-plane.yaml"))
-				Expect(err).ToNot(HaveOccurred())
-				controlPlane := &unstructured.Unstructured{}
-				Expect(yaml.Unmarshal(data, controlPlane)).To(Succeed())
-				controlPlane.SetName(clusterName)
-				controlPlane.SetNamespace(ns.Name)
-				Expect(testClient.Create(ctx, controlPlane)).To(Succeed())
-				cleanupObjs = append(cleanupObjs, controlPlane)
-			}
-			Eventually(func(g Gomega) {
-				clusters := &unstructured.UnstructuredList{}
-				clusters.SetGroupVersionKind(controlplanemeta.TenantControlPlaneGVK)
-				g.Expect(testClient.List(ctx, clusters)).To(Succeed())
-				g.Expect(clusters.Items).To(HaveLen(numClusters))
-				for _, cluster := range clusters.Items {
-					// Note: ControlPlane readiness here is picked using a well-known path.
-					// TODO: Make an equivalent check part of the control plane package.
-					status, found, err := unstructured.NestedString(cluster.UnstructuredContent(), "status", "kubernetesResources", "version", "status")
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(found).To(BeTrue())
-					g.Expect(status).To(Equal("Ready"))
-				}
-			}).WithTimeout(300 * time.Second).Should(Succeed())
-		})
-
 		It("create the PersistentVolumeClaim for the DPF Provisioning controller", func() {
 			data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpf-provisioning-pvc.yaml"))
 			Expect(err).ToNot(HaveOccurred())
@@ -182,17 +151,16 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Expect(yaml.Unmarshal(data, pvc)).To(Succeed())
 			pvc.SetName(dpfProvisioningControllerPVCName)
 			pvc.SetNamespace(dpfOperatorSystemNamespace)
+			// If there are real nodes we need to allocate storage for the volume.
+			if numNodes > 0 {
+				pvc.Spec.VolumeMode = ptr.To(corev1.PersistentVolumeFilesystem)
+				pvc.Spec.Resources.Requests = corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse("10Gi"),
+				}
+				pvc.Spec.StorageClassName = ptr.To("local-path")
+			}
 			Expect(testClient.Create(ctx, pvc)).To(Succeed())
 			cleanupObjs = append(cleanupObjs, pvc)
-		})
-
-		It("wait for the created PersistentVolumeClaim related to the DPF Provisioning controller to be bound", func() {
-			Eventually(func(g Gomega) bool {
-				key := client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: dpfProvisioningControllerPVCName}
-				pvc := &corev1.PersistentVolumeClaim{}
-				Expect(client.IgnoreAlreadyExists(testClient.Get(ctx, key, pvc))).To(Succeed())
-				return pvc.Status.Phase == corev1.ClaimBound
-			}).WithTimeout(30 * time.Second).Should(BeTrue())
 		})
 
 		It("create the imagePullSecret for the DPF OperatorConfig", func() {
@@ -202,6 +170,45 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}
 			cleanupObjs = append(cleanupObjs, imagePullSecret)
 		})
+
+		if deployKamajiControlPlane {
+			It("create underlying DPU clusters for test", func() {
+				for i := 0; i < numClusters; i++ {
+					clusterName := fmt.Sprintf("dpu-cplane-tenant%d", i+1)
+					clusterNamespace := fmt.Sprintf("dpu-cplane-tenant%d", i+1)
+					// Create the namespace.
+					ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: clusterNamespace}}
+					Expect(testClient.Create(ctx, ns)).To(Succeed())
+					cleanupObjs = append(cleanupObjs, ns)
+					// Read the TenantControlPlane from file and create it.
+					// Note: This process doesn't cover all the places in the file the name should be set.
+					data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpu-control-plane.yaml"))
+					Expect(err).ToNot(HaveOccurred())
+					controlPlane := &unstructured.Unstructured{}
+					Expect(yaml.Unmarshal(data, controlPlane)).To(Succeed())
+					controlPlane.SetName(clusterName)
+					controlPlane.SetNamespace(ns.Name)
+
+					By(fmt.Sprintf("Creating DPU Cluster %s/%s", controlPlane.GetNamespace(), controlPlane.GetName()))
+					Expect(testClient.Create(ctx, controlPlane)).To(Succeed())
+					cleanupObjs = append(cleanupObjs, controlPlane)
+				}
+				Eventually(func(g Gomega) {
+					clusters := &unstructured.UnstructuredList{}
+					clusters.SetGroupVersionKind(controlplanemeta.TenantControlPlaneGVK)
+					g.Expect(testClient.List(ctx, clusters)).To(Succeed())
+					g.Expect(clusters.Items).To(HaveLen(numClusters))
+					for _, cluster := range clusters.Items {
+						// Note: ControlPlane readiness here is picked using a well-known path.
+						// TODO: Make an equivalent check part of the control plane package.
+						status, found, err := unstructured.NestedString(cluster.UnstructuredContent(), "status", "kubernetesResources", "version", "status")
+						g.Expect(err).NotTo(HaveOccurred())
+						g.Expect(found).To(BeTrue())
+						g.Expect(status).To(Equal("Ready"))
+					}
+				}).WithTimeout(300 * time.Second).Should(Succeed())
+			})
+		}
 
 		It("create the DPFOperatorConfig for the system", func() {
 			Expect(testClient.Create(ctx, config)).To(Succeed())
@@ -228,23 +235,51 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}).WithTimeout(300 * time.Second).Should(Succeed())
 		})
 
-		It("ensure the DPF Provisioning objects can be created", func() {
+		It("create the provisioning objects", func() {
 			Eventually(func(g Gomega) {
-				// This is a smoke test to ensure the webhook of the DPF Provisioning controller is running.
-				// Attempt to create each of BFB, DPU and DPUSet.
-				for _, kind := range []string{"bfb", "dpu", "dpuset"} {
-					obj := &unstructured.Unstructured{}
-					obj.SetKind(kind)
-					obj.SetAPIVersion("provisioning.dpf.nvidia.com/v1alpha1")
-					obj.SetName("provisioning-object")
-					obj.SetNamespace(dpfOperatorSystemNamespace)
-					g.Expect(testClient.Create(ctx, obj)).To(Succeed())
-					cleanupObjs = append(cleanupObjs, obj)
+				bfb := &provisioningv1.Bfb{}
+				// Read the BFB object and create it.
+				By("creating the BFB")
+				data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/bfb.yaml"))
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(yaml.Unmarshal(data, bfb)).To(Succeed())
+				g.Expect(testClient.Create(ctx, bfb)).To(Succeed())
+			}).WithTimeout(10 * time.Second).Should(Succeed())
+
+			dpuClusters, err := controlplane.GetDPFClusters(ctx, testClient)
+			Expect(err).ToNot(HaveOccurred())
+
+			Eventually(func(g Gomega) {
+				for _, cluster := range dpuClusters {
+					data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpuset.yaml"))
+					g.Expect(err).ToNot(HaveOccurred())
+					dpuset := &provisioningv1.DpuSet{}
+					Expect(yaml.Unmarshal(data, dpuset)).To(Succeed())
+					By(fmt.Sprintf("Creating the DPUSet for cluster %s/%s", cluster.Name, cluster.Namespace))
+					dpuset.Spec.DpuTemplate.Spec.Cluster.Name = cluster.Name
+					dpuset.Spec.DpuTemplate.Spec.Cluster.NameSpace = cluster.Namespace
+					g.Expect(testClient.Create(ctx, dpuset)).To(Succeed())
 				}
 			}).WithTimeout(60 * time.Second).Should(Succeed())
+
+			By(fmt.Sprintf("checking that the number of nodes is equal to %d", numNodes))
+			Eventually(func(g Gomega) {
+				// If we're not expecting any nodes in the cluster return with success.
+				if numNodes == 0 {
+					return
+				}
+				for i := range dpuClusters {
+					nodes := &corev1.NodeList{}
+					dpuClient, err := dpuClusters[i].NewClient(ctx, testClient)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(dpuClient.List(ctx, nodes)).To(Succeed())
+					By(fmt.Sprintf("Expected number of nodes %d to equal %d", len(nodes.Items), numNodes))
+					g.Expect(nodes.Items).To(HaveLen(numNodes))
+				}
+			}).WithTimeout(30 * time.Minute).Should(Succeed())
 		})
 
-		It("ensure the system DPUServices are created and mirrored to the tenant clusters", func() {
+		It("ensure the system DPUServices are created", func() {
 			Eventually(func(g Gomega) {
 				dpuServices := &dpuservicev1.DPUServiceList{}
 				g.Expect(testClient.List(ctx, dpuServices)).To(Succeed())
@@ -262,34 +297,39 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				g.Expect(found).To(HaveKey("nvidia-k8s-ipam"))
 				g.Expect(found).To(HaveKey("ovs-cni"))
 				g.Expect(found).To(HaveKey("sfc-controller"))
-
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 
+			By("Checking that DPUService objects have been mirrored to the DPUClusters")
+			dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(func(g Gomega) {
-				dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
-				g.Expect(err).ToNot(HaveOccurred())
 				for i := range dpuControlPlanes {
 					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
 					g.Expect(err).ToNot(HaveOccurred())
 					deployments := appsv1.DeploymentList{}
-					g.Expect(dpuClient.List(ctx, &deployments, client.HasLabels{"argocd.argoproj.io/instance"})).To(Succeed())
+					g.Expect(dpuClient.List(ctx, &deployments, client.HasLabels{argoCDInstanceLabel})).To(Succeed())
 					found := map[string]bool{}
 					for i := range deployments.Items {
-						found[deployments.Items[i].GetLabels()["argocd.argoproj.io/instance"]] = true
+						g.Expect(deployments.Items[i].GetLabels()).To(HaveKey(argoCDInstanceLabel))
+						g.Expect(deployments.Items[i].GetLabels()[argoCDInstanceLabel]).NotTo(Equal(""))
+						found[deployments.Items[i].GetLabels()[argoCDInstanceLabel]] = true
 					}
 					daemonsets := appsv1.DaemonSetList{}
-					g.Expect(dpuClient.List(ctx, &daemonsets, client.HasLabels{"argocd.argoproj.io/instance"})).To(Succeed())
+					g.Expect(dpuClient.List(ctx, &daemonsets, client.HasLabels{argoCDInstanceLabel})).To(Succeed())
 					for i := range daemonsets.Items {
-						found[daemonsets.Items[i].GetLabels()["argocd.argoproj.io/instance"]] = true
+						g.Expect(daemonsets.Items[i].GetLabels()).To(HaveKey(argoCDInstanceLabel))
+						g.Expect(daemonsets.Items[i].GetLabels()[argoCDInstanceLabel]).NotTo(Equal(""))
+						found[daemonsets.Items[i].GetLabels()[argoCDInstanceLabel]] = true
 					}
 
 					// Expect each of the following to have been created by the operator.
-					// These are labels of the appv1 type - e.g. DaemonSet or Deployment on the DPU cluster.
+					// These are labels on the appv1 type - e.g. DaemonSet or Deployment on the DPU cluster.
 					g.Expect(found).To(HaveLen(7))
 					g.Expect(found).To(HaveKey(ContainSubstring("multus")))
 					g.Expect(found).To(HaveKey(ContainSubstring("sriov-device-plugin")))
 					g.Expect(found).To(HaveKey(ContainSubstring("flannel")))
 					g.Expect(found).To(HaveKey(ContainSubstring("servicefunctionchainset-controller")))
+					// Note: The NVIPAM DPUService contains both a Daemonset and a Deployment - but this is overwritten in the map.
 					g.Expect(found).To(HaveKey(ContainSubstring("nvidia-k8s-ipam")))
 					g.Expect(found).To(HaveKey(ContainSubstring("ovs-cni")))
 					g.Expect(found).To(HaveKey(ContainSubstring("sfc-controller")))
@@ -587,10 +627,10 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 		It("delete the DPFOperatorConfig and ensure it is deleted", func() {
 			// Check that all deployments and DPUServices are deleted.
-			Expect(testClient.Delete(ctx, config)).To(Succeed())
 			Eventually(func(g Gomega) {
+				g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, config))).To(Succeed())
 				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(config), config))).To(BeTrue())
-			}).WithTimeout(300 * time.Second).Should(Succeed())
+			}).WithTimeout(600 * time.Second).Should(Succeed())
 		})
 	})
 })

@@ -1,0 +1,28 @@
+apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+kind: DpuSet
+metadata:
+  name: dpuset-1
+  namespace: dpf-operator-system
+spec:
+  nodeSelector:
+    matchLabels:
+      feature.node.kubernetes.io/dpu-enabled: "true"
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 10%
+    type: RollingUpdate
+  dpuTemplate:
+    annotations:
+      nvidia.com/dpuOperator-override-powercycle-command: "skip"
+    spec:
+      dpuFlavor: dpf-provisioning-hbn-ovn
+      BFB:
+        bfb: "bf-bundle-2.7.0"
+      nodeEffect:
+        taint:
+          key: "dpu"
+          value: "provisioning"
+          effect: NoSchedule
+      k8s_cluster:
+        name: dpu-cplane-tenant1
+        namespace: dpu-cplane-tenant1
