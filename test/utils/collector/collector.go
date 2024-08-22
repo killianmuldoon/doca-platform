@@ -36,6 +36,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -170,7 +171,14 @@ func (c *Cluster) run(ctx context.Context) error {
 	resourcesToCollect = slices.Compact(resourcesToCollect)
 
 	for _, resource := range resourcesToCollect {
-		err := c.dumpResource(ctx, resource)
+		gvkExists, err := verifyGVKExists(c.client, resource)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("error verifying GVK: %v", err))
+		}
+		if !gvkExists {
+			continue
+		}
+		err = c.dumpResource(ctx, resource)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("error dumping %vs %w", resource.Kind, err))
 		}
@@ -188,6 +196,21 @@ func (c *Cluster) run(ctx context.Context) error {
 		}
 	}
 	return kerrors.NewAggregate(errs)
+}
+
+func verifyGVKExists(c client.Client, gvk schema.GroupVersionKind) (bool, error) {
+	mapper := c.RESTMapper()
+
+	// Try to map the GVK to a resource.
+	_, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
+	if err != nil {
+		if meta.IsNoMatchError(err) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	return true, nil
 }
 
 // getDPFOperatorInventoryGVKs returns the GVKs that are part of the inventory which DPF Operator is using to deploy
