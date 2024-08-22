@@ -20,7 +20,7 @@ import (
 	"context"
 	"reflect"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/state"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
@@ -64,7 +64,7 @@ func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	logger := log.FromContext(ctx)
 	logger.V(4).Info("Reconcile", "dpu", req.Name)
 
-	dpu := &provisioningdpfv1alpha1.Dpu{}
+	dpu := &provisioningv1.Dpu{}
 	if err := r.Get(ctx, req.NamespacedName, dpu); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -85,13 +85,13 @@ func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	// Add finalizer if not set and DPU is not currently deleting.
-	if !controllerutil.ContainsFinalizer(dpu, provisioningdpfv1alpha1.DPUFinalizer) && dpu.DeletionTimestamp.IsZero() {
+	if !controllerutil.ContainsFinalizer(dpu, provisioningv1.DPUFinalizer) && dpu.DeletionTimestamp.IsZero() {
 		patcher, err := patch.NewHelper(dpu, r.Client)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrap(err, "failed to init patcher for DPU finalizer")
 		}
 		logger.Info("Adding finalizer")
-		controllerutil.AddFinalizer(dpu, provisioningdpfv1alpha1.DPUFinalizer)
+		controllerutil.AddFinalizer(dpu, provisioningv1.DPUFinalizer)
 		err = patcher.Patch(ctx, dpu)
 		if err != nil {
 			return ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
@@ -111,7 +111,7 @@ func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			logger.Error(err, "Failed to update DPU", "DPU", dpu)
 			return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to update Dpu")
 		}
-	} else if nextState.Phase != provisioningdpfv1alpha1.DPUError {
+	} else if nextState.Phase != provisioningv1.DPUError {
 		// TODO: move the state checking in state machine
 		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, nil
 	}
@@ -122,6 +122,6 @@ func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 // SetupWithManager sets up the controller with the Manager.
 func (r *DpuReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&provisioningdpfv1alpha1.Dpu{}).
+		For(&provisioningv1.Dpu{}).
 		Complete(r)
 }

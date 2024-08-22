@@ -19,19 +19,19 @@ package state
 import (
 	"context"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type bfbErrorState struct {
-	bfb *provisioningdpfv1alpha1.Bfb
+	bfb *provisioningv1.Bfb
 }
 
-func (st *bfbErrorState) Handle(ctx context.Context, _ client.Client) (provisioningdpfv1alpha1.BfbStatus, error) {
+func (st *bfbErrorState) Handle(ctx context.Context, _ client.Client) (provisioningv1.BfbStatus, error) {
 	state := st.bfb.Status.DeepCopy()
 	if isDeleting(st.bfb) {
-		state.Phase = provisioningdpfv1alpha1.BfbDeleting
+		state.Phase = provisioningv1.BfbDeleting
 		return *state, nil
 	}
 	return *state, nil

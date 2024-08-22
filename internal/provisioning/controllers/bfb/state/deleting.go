@@ -21,7 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	butil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/bfb/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
@@ -29,10 +29,10 @@ import (
 )
 
 type bfbDeletingState struct {
-	bfb *provisioningdpfv1alpha1.Bfb
+	bfb *provisioningv1.Bfb
 }
 
-func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client) (provisioningdpfv1alpha1.BfbStatus, error) {
+func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BfbStatus, error) {
 	state := st.bfb.Status.DeepCopy()
 	// make sure the bfb task is deleted from the downloading task map
 	bfbtaskName := cutil.GenerateBFBTaskName(*st.bfb)

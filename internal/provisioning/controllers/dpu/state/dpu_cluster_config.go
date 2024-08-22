@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
@@ -31,15 +31,15 @@ import (
 )
 
 type dpuClusterConfig struct {
-	dpu *provisioningdpfv1alpha1.Dpu
+	dpu *provisioningv1.Dpu
 }
 
-func (st *dpuClusterConfig) Handle(ctx context.Context, client crclient.Client, _ dutil.DPUOptions) (provisioningdpfv1alpha1.DpuStatus, error) {
+func (st *dpuClusterConfig) Handle(ctx context.Context, client crclient.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
 	logger := log.FromContext(ctx)
 
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
-		state.Phase = provisioningdpfv1alpha1.DPUDeleting
+		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
@@ -69,7 +69,7 @@ func (st *dpuClusterConfig) Handle(ctx context.Context, client crclient.Client, 
 
 	logger.V(3).Info(fmt.Sprintf("DPU %s joined Kamaji Cluster", dpuName))
 
-	state.Phase = provisioningdpfv1alpha1.DPUReady
-	util.SetDPUCondition(state, util.DPUCondition(provisioningdpfv1alpha1.DPUCondReady, "", "cluster configured"))
+	state.Phase = provisioningv1.DPUReady
+	util.SetDPUCondition(state, util.DPUCondition(provisioningv1.DPUCondReady, "", "cluster configured"))
 	return *state, nil
 }

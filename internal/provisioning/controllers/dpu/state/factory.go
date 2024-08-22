@@ -19,55 +19,55 @@ package state
 import (
 	"context"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type State interface {
-	Handle(ctx context.Context, client client.Client, option util.DPUOptions) (provisioningdpfv1alpha1.DpuStatus, error)
+	Handle(ctx context.Context, client client.Client, option util.DPUOptions) (provisioningv1.DpuStatus, error)
 }
 
-func GetDPUState(dpu *provisioningdpfv1alpha1.Dpu) State {
+func GetDPUState(dpu *provisioningv1.Dpu) State {
 	switch dpu.Status.Phase {
-	case provisioningdpfv1alpha1.DPUInitializing:
+	case provisioningv1.DPUInitializing:
 		return &dpuInitializingState{
 			dpu,
 		}
-	case provisioningdpfv1alpha1.DPUNodeEffect:
+	case provisioningv1.DPUNodeEffect:
 		return &dpuNodeEffectState{
 			dpu,
 		}
-	case provisioningdpfv1alpha1.DPUPending:
+	case provisioningv1.DPUPending:
 		return &dpuPendingState{
 			dpu,
 		}
-	case provisioningdpfv1alpha1.DPUDMSDeployment:
+	case provisioningv1.DPUDMSDeployment:
 		return &dmsDeploymentState{
 			dpu,
 		}
-	case provisioningdpfv1alpha1.DPUOSInstalling:
+	case provisioningv1.DPUOSInstalling:
 		return &dpuOSInstallingState{
 			dpu,
 		}
-	case provisioningdpfv1alpha1.DPUReady:
+	case provisioningv1.DPUReady:
 		return &dpuReadyState{
 			dpu,
 		}
-	case provisioningdpfv1alpha1.DPUError:
+	case provisioningv1.DPUError:
 		return &dpuErrorState{
 			dpu,
 		}
-	case provisioningdpfv1alpha1.DPUDeleting:
+	case provisioningv1.DPUDeleting:
 		return &dpuDeletingState{
 			dpu,
 		}
-	case provisioningdpfv1alpha1.DPURebooting:
+	case provisioningv1.DPURebooting:
 		return &dpuRebootingState{
 			dpu,
 		}
-	case provisioningdpfv1alpha1.DPUClusterConfig:
+	case provisioningv1.DPUClusterConfig:
 		return &dpuClusterConfig{
 			dpu,
 		}
@@ -78,6 +78,6 @@ func GetDPUState(dpu *provisioningdpfv1alpha1.Dpu) State {
 	}
 }
 
-func isDeleting(dpu *provisioningdpfv1alpha1.Dpu) bool {
+func isDeleting(dpu *provisioningv1.Dpu) bool {
 	return !dpu.DeletionTimestamp.IsZero()
 }

@@ -19,34 +19,34 @@ package state
 import (
 	"context"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type State interface {
-	Handle(ctx context.Context, client client.Client) (provisioningdpfv1alpha1.BfbStatus, error)
+	Handle(ctx context.Context, client client.Client) (provisioningv1.BfbStatus, error)
 }
 
-func GetBfbState(bfb *provisioningdpfv1alpha1.Bfb) State {
+func GetBfbState(bfb *provisioningv1.Bfb) State {
 	switch bfb.Status.Phase {
-	case provisioningdpfv1alpha1.BfbInitializing:
+	case provisioningv1.BfbInitializing:
 		return &bfbInitializingState{
 			bfb,
 		}
-	case provisioningdpfv1alpha1.BfbDownloading:
+	case provisioningv1.BfbDownloading:
 		return &bfbDownloadingState{
 			bfb,
 		}
-	case provisioningdpfv1alpha1.BfbReady:
+	case provisioningv1.BfbReady:
 		return &bfbReadyState{
 			bfb,
 		}
-	case provisioningdpfv1alpha1.BfbDeleting:
+	case provisioningv1.BfbDeleting:
 		return &bfbDeletingState{
 			bfb,
 		}
-	case provisioningdpfv1alpha1.BfbError:
+	case provisioningv1.BfbError:
 		return &bfbErrorState{
 			bfb,
 		}
@@ -57,6 +57,6 @@ func GetBfbState(bfb *provisioningdpfv1alpha1.Bfb) State {
 	}
 }
 
-func isDeleting(bfb *provisioningdpfv1alpha1.Bfb) bool {
+func isDeleting(bfb *provisioningv1.Bfb) bool {
 	return !bfb.DeletionTimestamp.IsZero()
 }

@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
@@ -224,7 +224,7 @@ func createRootCaCert(ctx context.Context, client client.Client, name string, na
 	return nil
 }
 
-func getNumOfVFsFromFlavor(flavor *provisioningdpfv1alpha1.DPUFlavor) (string, bool) {
+func getNumOfVFsFromFlavor(flavor *provisioningv1.DPUFlavor) (string, bool) {
 	regex := regexp.MustCompile(`^NUM_OF_VFS=([0-9]+)`)
 	for _, nvconfig := range flavor.Spec.NVConfig {
 		for _, parmeter := range nvconfig.Parameters {
@@ -237,7 +237,7 @@ func getNumOfVFsFromFlavor(flavor *provisioningdpfv1alpha1.DPUFlavor) (string, b
 	return "", false
 }
 
-func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningdpfv1alpha1.Dpu, option dutil.DPUOptions) error {
+func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1.Dpu, option dutil.DPUOptions) error {
 	logger := log.FromContext(ctx)
 	dmsPodName := cutil.GenerateDMSPodName(dpu.Name)
 
@@ -270,7 +270,7 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningdp
 	dmsServerIssuerName := cutil.GenerateDMSServerIssuerName(dpu.Name)
 
 	owner := metav1.NewControllerRef(dpu,
-		provisioningdpfv1alpha1.GroupVersion.WithKind("Dpu"))
+		provisioningv1.GroupVersion.WithKind("Dpu"))
 
 	// Define the Server Issuer using the Self-Signed Issuer
 	if err := createIssuer(ctx, client, dmsServerIssuerName, dpu.Namespace, caSecretName, owner); err != nil {
@@ -335,7 +335,7 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningdp
 	}
 
 	num_of_vfs := NumofVFDefaultValue
-	flavor := &provisioningdpfv1alpha1.DPUFlavor{}
+	flavor := &provisioningv1.DPUFlavor{}
 	if err := client.Get(ctx, types.NamespacedName{
 		Namespace: dpu.Namespace,
 		Name:      dpu.Spec.DPUFlavor,

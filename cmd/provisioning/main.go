@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/bfb"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
@@ -49,7 +49,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(provisioningdpfv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(provisioningv1.AddToScheme(scheme))
 
 	utilruntime.Must(nodeMaintenancev1beta1.AddToScheme(scheme))
 	utilruntime.Must(certmanagerv1.AddToScheme(scheme))
@@ -155,19 +155,19 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Bfb")
 		os.Exit(1)
 	}
-	if err = (&provisioningdpfv1alpha1.Bfb{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&provisioningv1.Bfb{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Bfb")
 		os.Exit(1)
 	}
-	if err = (&provisioningdpfv1alpha1.Dpu{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&provisioningv1.Dpu{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "Dpu")
 		os.Exit(1)
 	}
-	if err = (&provisioningdpfv1alpha1.DpuSet{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&provisioningv1.DpuSet{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DpuSet")
 		os.Exit(1)
 	}
-	if err = (&provisioningdpfv1alpha1.DPUFlavor{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&provisioningv1.DPUFlavor{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DPUFlavor")
 		os.Exit(1)
 	}

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"time"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/dms"
@@ -39,14 +39,14 @@ const (
 )
 
 type dmsDeploymentState struct {
-	dpu *provisioningdpfv1alpha1.Dpu
+	dpu *provisioningv1.Dpu
 }
 
-func (st *dmsDeploymentState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningdpfv1alpha1.DpuStatus, error) {
+func (st *dmsDeploymentState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
 	logger := log.FromContext(ctx)
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
-		state.Phase = provisioningdpfv1alpha1.DPUDeleting
+		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 	dmsPodName := cutil.GenerateDMSPodName(st.dpu.Name)
@@ -62,7 +62,7 @@ func (st *dmsDeploymentState) Handle(ctx context.Context, client client.Client, 
 			if err == nil {
 				return *state, nil
 			}
-			cond := cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondDMSRunning, errorOccurredReason, err.Error())
+			cond := cutil.DPUCondition(provisioningv1.DPUCondDMSRunning, errorOccurredReason, err.Error())
 			cond.Status = metav1.ConditionFalse
 			cutil.SetDPUCondition(state, cond)
 			return *state, err
@@ -75,8 +75,8 @@ func (st *dmsDeploymentState) Handle(ctx context.Context, client client.Client, 
 	}
 	switch pod.Status.Phase {
 	case corev1.PodRunning:
-		state.Phase = provisioningdpfv1alpha1.DPUOSInstalling
-		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondDMSRunning, "", ""))
+		state.Phase = provisioningv1.DPUOSInstalling
+		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondDMSRunning, "", ""))
 	case corev1.PodFailed:
 		return handleDMSPodFailure(state, "DMSPodFailed", "DMS Pod Failed")
 	default:
@@ -92,10 +92,10 @@ func isTimeout(pod *corev1.Pod, timeoutDuration time.Duration) bool {
 	return time.Since(pod.CreationTimestamp.Time) > timeoutDuration
 }
 
-func handleDMSPodFailure(state *provisioningdpfv1alpha1.DpuStatus, reason string, message string) (provisioningdpfv1alpha1.DpuStatus, error) {
-	cond := cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondDMSRunning, reason, message)
+func handleDMSPodFailure(state *provisioningv1.DpuStatus, reason string, message string) (provisioningv1.DpuStatus, error) {
+	cond := cutil.DPUCondition(provisioningv1.DPUCondDMSRunning, reason, message)
 	cond.Status = metav1.ConditionFalse
 	cutil.SetDPUCondition(state, cond)
-	state.Phase = provisioningdpfv1alpha1.DPUError
+	state.Phase = provisioningv1.DPUError
 	return *state, fmt.Errorf("%s", message)
 }

@@ -19,7 +19,7 @@ package state
 import (
 	"context"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -28,18 +28,18 @@ import (
 )
 
 type bfbInitializingState struct {
-	bfb *provisioningdpfv1alpha1.Bfb
+	bfb *provisioningv1.Bfb
 }
 
-func (st *bfbInitializingState) Handle(ctx context.Context, client client.Client) (provisioningdpfv1alpha1.BfbStatus, error) {
+func (st *bfbInitializingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BfbStatus, error) {
 	state := st.bfb.Status.DeepCopy()
 	if isDeleting(st.bfb) {
-		state.Phase = provisioningdpfv1alpha1.BfbDeleting
+		state.Phase = provisioningv1.BfbDeleting
 		return *state, nil
 	}
 
 	if state.Phase == "" {
-		state.Phase = provisioningdpfv1alpha1.BfbInitializing
+		state.Phase = provisioningv1.BfbInitializing
 		return *state, nil
 	}
 
@@ -59,6 +59,6 @@ func (st *bfbInitializingState) Handle(ctx context.Context, client client.Client
 		}
 	}
 
-	state.Phase = provisioningdpfv1alpha1.BfbDownloading
+	state.Phase = provisioningv1.BfbDownloading
 	return *state, nil
 }

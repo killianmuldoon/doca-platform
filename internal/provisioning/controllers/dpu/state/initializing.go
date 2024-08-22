@@ -19,7 +19,7 @@ package state
 import (
 	"context"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
@@ -27,17 +27,17 @@ import (
 )
 
 type dpuInitializingState struct {
-	dpu *provisioningdpfv1alpha1.Dpu
+	dpu *provisioningv1.Dpu
 }
 
-func (st *dpuInitializingState) Handle(ctx context.Context, _ client.Client, _ dutil.DPUOptions) (provisioningdpfv1alpha1.DpuStatus, error) {
+func (st *dpuInitializingState) Handle(ctx context.Context, _ client.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
-		state.Phase = provisioningdpfv1alpha1.DPUDeleting
+		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
-	state.Phase = provisioningdpfv1alpha1.DPUNodeEffect
-	cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondInitialized, "", ""))
+	state.Phase = provisioningv1.DPUNodeEffect
+	cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondInitialized, "", ""))
 	return *state, nil
 }

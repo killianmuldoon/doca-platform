@@ -20,25 +20,25 @@ import (
 	"context"
 	"os"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type bfbReadyState struct {
-	bfb *provisioningdpfv1alpha1.Bfb
+	bfb *provisioningv1.Bfb
 }
 
-func (st *bfbReadyState) Handle(ctx context.Context, _ client.Client) (provisioningdpfv1alpha1.BfbStatus, error) {
+func (st *bfbReadyState) Handle(ctx context.Context, _ client.Client) (provisioningv1.BfbStatus, error) {
 	state := st.bfb.Status.DeepCopy()
 	if isDeleting(st.bfb) {
-		state.Phase = provisioningdpfv1alpha1.BfbDeleting
+		state.Phase = provisioningv1.BfbDeleting
 		return *state, nil
 	}
 
 	if exist, err := checkingBFBFile(*st.bfb); !exist {
-		state.Phase = provisioningdpfv1alpha1.BfbDownloading
+		state.Phase = provisioningv1.BfbDownloading
 		return *state, err
 	}
 
@@ -46,7 +46,7 @@ func (st *bfbReadyState) Handle(ctx context.Context, _ client.Client) (provision
 }
 
 // check whether BFB file exist
-func checkingBFBFile(bfb provisioningdpfv1alpha1.Bfb) (bool, error) {
+func checkingBFBFile(bfb provisioningv1.Bfb) (bool, error) {
 	fullFileName := cutil.GenerateBFBFilePath(bfb.Spec.FileName)
 	if _, err := os.Stat(fullFileName); err != nil {
 		return false, err

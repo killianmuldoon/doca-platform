@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -65,7 +65,7 @@ const (
 	ClusterConfigNamespace = "kube-system"
 )
 
-func GenerateBFBTaskName(bfb provisioningdpfv1alpha1.Bfb) string {
+func GenerateBFBTaskName(bfb provisioningv1.Bfb) string {
 	return fmt.Sprintf("%s-%s", bfb.Namespace, bfb.Name)
 }
 
@@ -246,7 +246,7 @@ func GetObjects(client crclient.Client, objects []crclient.Object) (existObjects
 	return existObjects, nil
 }
 
-func GetDPUCondition(status *provisioningdpfv1alpha1.DpuStatus, conditionType string) (int, *metav1.Condition) {
+func GetDPUCondition(status *provisioningv1.DpuStatus, conditionType string) (int, *metav1.Condition) {
 	if status == nil {
 		return -1, nil
 	}
@@ -262,7 +262,7 @@ func GetDPUCondition(status *provisioningdpfv1alpha1.DpuStatus, conditionType st
 	return -1, nil
 }
 
-func DPUCondition(condType provisioningdpfv1alpha1.DPUConditionType, reason, message string) *metav1.Condition {
+func DPUCondition(condType provisioningv1.DPUConditionType, reason, message string) *metav1.Condition {
 	cond := &metav1.Condition{
 		Type:    condType.String(),
 		Status:  metav1.ConditionTrue,
@@ -276,7 +276,7 @@ func DPUCondition(condType provisioningdpfv1alpha1.DPUConditionType, reason, mes
 	return cond
 }
 
-func SetDPUCondition(status *provisioningdpfv1alpha1.DpuStatus, condition *metav1.Condition) bool {
+func SetDPUCondition(status *provisioningv1.DpuStatus, condition *metav1.Condition) bool {
 	condition.LastTransitionTime = metav1.Now()
 	// Try to find this condition.
 	conditionIndex, oldCondition := GetDPUCondition(status, condition.Type)
@@ -370,7 +370,7 @@ func ReplaceDaemonSetPodNodeNameNodeAffinity(affinity *corev1.Affinity, nodename
 	return affinity
 }
 
-func GeneratePodToleration(nodeEffect provisioningdpfv1alpha1.NodeEffect) []corev1.Toleration {
+func GeneratePodToleration(nodeEffect provisioningv1.NodeEffect) []corev1.Toleration {
 	tolerations := []corev1.Toleration{
 		{
 			Key:      TolerationNotReadyKey,

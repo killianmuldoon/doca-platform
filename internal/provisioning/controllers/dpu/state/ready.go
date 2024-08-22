@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/dms"
@@ -35,23 +35,23 @@ import (
 )
 
 type dpuReadyState struct {
-	dpu *provisioningdpfv1alpha1.Dpu
+	dpu *provisioningv1.Dpu
 }
 
-func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningdpfv1alpha1.DpuStatus, error) {
+func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
-		state.Phase = provisioningdpfv1alpha1.DPUDeleting
+		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
 	if err := healthyCheck(ctx, st.dpu, client, option); err != nil {
-		state.Phase = provisioningdpfv1alpha1.DPUError
+		state.Phase = provisioningv1.DPUError
 		updateFalseDPUCondReady(state, "DPUNodeNotReady", err.Error())
 	}
 
 	if err := HandleNodeEffect(ctx, client, *st.dpu.Spec.NodeEffect, st.dpu.Spec.NodeName, st.dpu.Namespace); err != nil {
-		state.Phase = provisioningdpfv1alpha1.DPUError
+		state.Phase = provisioningv1.DPUError
 		updateFalseDPUCondReady(state, "NodeEffectError", err.Error())
 		return *state, err
 	}
@@ -61,7 +61,7 @@ func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, optio
 		Name:      st.dpu.Name,
 	}
 
-	dpu := provisioningdpfv1alpha1.Dpu{}
+	dpu := provisioningv1.Dpu{}
 	if err := client.Get(ctx, nn, &dpu); err != nil {
 		updateFalseDPUCondReady(state, "DPUGetError", err.Error())
 		return *state, err
@@ -88,14 +88,14 @@ func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, optio
 		updateFalseDPUCondReady(state, "DPUNodeNotReady", fmt.Errorf("kamaji Node %s is not Ready", node).Error())
 		return *state, err
 	} else {
-		cond := cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondReady, "DPUNodeReady", "")
+		cond := cutil.DPUCondition(provisioningv1.DPUCondReady, "DPUNodeReady", "")
 		cutil.SetDPUCondition(state, cond)
 		return *state, nil
 	}
 }
 
 // Check if the DMS pod exist, if not, restore the missing pod
-func healthyCheck(ctx context.Context, dpu *provisioningdpfv1alpha1.Dpu, client client.Client, option dutil.DPUOptions) error {
+func healthyCheck(ctx context.Context, dpu *provisioningv1.Dpu, client client.Client, option dutil.DPUOptions) error {
 	nn := types.NamespacedName{
 		Namespace: dpu.Namespace,
 		Name:      cutil.GenerateDMSPodName(dpu.Name),
@@ -110,13 +110,13 @@ func healthyCheck(ctx context.Context, dpu *provisioningdpfv1alpha1.Dpu, client 
 	return nil
 }
 
-func updateFalseDPUCondReady(status *provisioningdpfv1alpha1.DpuStatus, reason string, message string) {
-	cond := cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondReady, reason, message)
+func updateFalseDPUCondReady(status *provisioningv1.DpuStatus, reason string, message string) {
+	cond := cutil.DPUCondition(provisioningv1.DPUCondReady, reason, message)
 	cond.Status = metav1.ConditionFalse
 	cutil.SetDPUCondition(status, cond)
 }
 
-func HandleNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect provisioningdpfv1alpha1.NodeEffect, nodeName string, namespace string) error {
+func HandleNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect provisioningv1.NodeEffect, nodeName string, namespace string) error {
 	logger := log.FromContext(ctx)
 	if nodeEffect.NoEffect {
 		return nil

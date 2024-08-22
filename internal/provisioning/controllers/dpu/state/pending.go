@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
@@ -31,14 +31,14 @@ import (
 )
 
 type dpuPendingState struct {
-	dpu *provisioningdpfv1alpha1.Dpu
+	dpu *provisioningv1.Dpu
 }
 
-func (st *dpuPendingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningdpfv1alpha1.DpuStatus, error) {
+func (st *dpuPendingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
 	logger := log.FromContext(ctx)
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
-		state.Phase = provisioningdpfv1alpha1.DPUDeleting
+		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
@@ -46,22 +46,22 @@ func (st *dpuPendingState) Handle(ctx context.Context, client client.Client, _ d
 		Namespace: st.dpu.Namespace,
 		Name:      st.dpu.Spec.BFB,
 	}
-	bfb := &provisioningdpfv1alpha1.Bfb{}
+	bfb := &provisioningv1.Bfb{}
 	if err := client.Get(ctx, nn, bfb); err != nil {
 		logger.Error(err, fmt.Sprintf("get bfb %s failed", nn.String()))
-		cond := cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondBFBReady, "GetBFBFailed", err.Error())
+		cond := cutil.DPUCondition(provisioningv1.DPUCondBFBReady, "GetBFBFailed", err.Error())
 		cond.Status = metav1.ConditionFalse
 		cutil.SetDPUCondition(state, cond)
 		return *state, err
 	}
 
 	// checking whether bfb is ready
-	if bfb.Status.Phase != provisioningdpfv1alpha1.BfbReady {
+	if bfb.Status.Phase != provisioningv1.BfbReady {
 		return *state, nil
 	}
 
-	state.Phase = provisioningdpfv1alpha1.DPUDMSDeployment
-	cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondBFBReady, "", ""))
+	state.Phase = provisioningv1.DPUDMSDeployment
+	cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondBFBReady, "", ""))
 
 	return *state, nil
 }

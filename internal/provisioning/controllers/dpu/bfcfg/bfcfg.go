@@ -25,7 +25,7 @@ import (
 	"strings"
 	"text/template"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
 	"github.com/Masterminds/sprig/v3"
 )
@@ -57,7 +57,7 @@ type BFCFGWriteFile struct {
 	Permissions string
 }
 
-func Generate(flavor *provisioningdpfv1alpha1.DPUFlavor, dpuName, joinCmd string) ([]byte, error) {
+func Generate(flavor *provisioningv1.DPUFlavor, dpuName, joinCmd string) ([]byte, error) {
 	config := &BFCFGData{
 		KUBEADM_JOIN:     joinCmd,
 		HOSTNAME:         dpuName,
@@ -76,7 +76,7 @@ func Generate(flavor *provisioningdpfv1alpha1.DPUFlavor, dpuName, joinCmd string
 		config.ConfigFiles = append(config.ConfigFiles, BFCFGWriteFile{
 			Path:        f.Path,
 			Permissions: f.Permissions,
-			IsAppend:    f.Operation == provisioningdpfv1alpha1.FileAppend,
+			IsAppend:    f.Operation == provisioningv1.FileAppend,
 			Content:     f.Raw,
 		})
 	}
@@ -93,7 +93,7 @@ func Generate(flavor *provisioningdpfv1alpha1.DPUFlavor, dpuName, joinCmd string
 	return buf.Bytes(), nil
 }
 
-func bfcfgParams(flavor *provisioningdpfv1alpha1.DPUFlavor) ([]string, string) {
+func bfcfgParams(flavor *provisioningv1.DPUFlavor) ([]string, string) {
 	var ret []string
 	var passwd string
 	for _, param := range flavor.Spec.BFCfgParameters {
@@ -118,7 +118,7 @@ func bfcfgParams(flavor *provisioningdpfv1alpha1.DPUFlavor) ([]string, string) {
 	return ret, passwd
 }
 
-func getPFTotalSFFromFlavor(flavor *provisioningdpfv1alpha1.DPUFlavor) (int, bool) {
+func getPFTotalSFFromFlavor(flavor *provisioningv1.DPUFlavor) (int, bool) {
 	regex := regexp.MustCompile(`^PF_TOTAL_SF=([0-9]+)`)
 	for _, nvconfig := range flavor.Spec.NVConfig {
 		for _, parmeter := range nvconfig.Parameters {

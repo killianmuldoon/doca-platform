@@ -22,7 +22,7 @@ import (
 	"os"
 	"strings"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/powercycle"
 
@@ -68,7 +68,7 @@ func (r *DpuSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	var err error
 	logger.V(4).Info("Reconcile", "dpuset", req.Name)
 
-	dpuSet := &provisioningdpfv1alpha1.DpuSet{}
+	dpuSet := &provisioningv1.DpuSet{}
 	if err := r.Get(ctx, req.NamespacedName, dpuSet); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -149,12 +149,12 @@ func (r *DpuSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	switch dpuSet.Spec.Strategy.Type {
-	case provisioningdpfv1alpha1.RecreateStrategyType:
+	case provisioningv1.RecreateStrategyType:
 		if err := r.rolloutRecreate(ctx, dpuSet, dpuMap); err != nil {
 			logger.Error(err, "Failed to rollout Dpu", "DPUSet", dpuSet)
 			return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to rollout Dpu")
 		}
-	case provisioningdpfv1alpha1.RollingUpdateStrategyType:
+	case provisioningv1.RollingUpdateStrategyType:
 		if err := r.rolloutRolling(ctx, dpuSet, dpuMap, len(nodeMap)); err != nil {
 			logger.Error(err, "Failed to rollout Dpu", "DPUSet", dpuSet)
 			return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to rollout Dpu")
@@ -172,19 +172,19 @@ func (r *DpuSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 // SetupWithManager sets up the controller with the Manager.
 func (r *DpuSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&provisioningdpfv1alpha1.DpuSet{}).
-		Owns(&provisioningdpfv1alpha1.Dpu{}).
+		For(&provisioningv1.DpuSet{}).
+		Owns(&provisioningv1.Dpu{}).
 		Watches(&corev1.Node{},
 			handler.EnqueueRequestsFromMapFunc(r.nodeToDpuSetReq),
 			builder.WithPredicates(predicate.LabelChangedPredicate{})).
-		Watches(&provisioningdpfv1alpha1.DPUFlavor{},
+		Watches(&provisioningv1.DPUFlavor{},
 			handler.EnqueueRequestsFromMapFunc(r.flavorToDpuSeqReq)).
 		Complete(r)
 }
 
 func (r *DpuSetReconciler) nodeToDpuSetReq(ctx context.Context, resource client.Object) []reconcile.Request {
 	requests := make([]reconcile.Request, 0)
-	dpuSetList := &provisioningdpfv1alpha1.DpuSetList{}
+	dpuSetList := &provisioningv1.DpuSetList{}
 	if err := r.List(ctx, dpuSetList); err == nil {
 		for _, item := range dpuSetList.Items {
 			requests = append(requests, reconcile.Request{
@@ -198,8 +198,8 @@ func (r *DpuSetReconciler) nodeToDpuSetReq(ctx context.Context, resource client.
 }
 
 func (r *DpuSetReconciler) flavorToDpuSeqReq(ctx context.Context, resource client.Object) []reconcile.Request {
-	flavor := resource.(*provisioningdpfv1alpha1.DPUFlavor)
-	dpuSetList := &provisioningdpfv1alpha1.DpuSetList{}
+	flavor := resource.(*provisioningv1.DPUFlavor)
+	dpuSetList := &provisioningv1.DpuSetList{}
 	if err := r.List(ctx, dpuSetList); err != nil {
 		return nil
 	}
@@ -247,9 +247,9 @@ func (r *DpuSetReconciler) getNodeMap(ctx context.Context, nselector *metav1.Lab
 	return nodeMap, nil
 }
 
-func (r *DpuSetReconciler) getDpusMap(ctx context.Context, dpuSet *provisioningdpfv1alpha1.DpuSet) (map[string]provisioningdpfv1alpha1.Dpu, error) {
-	dpuMap := make(map[string]provisioningdpfv1alpha1.Dpu)
-	dpuList := &provisioningdpfv1alpha1.DpuList{}
+func (r *DpuSetReconciler) getDpusMap(ctx context.Context, dpuSet *provisioningv1.DpuSet) (map[string]provisioningv1.Dpu, error) {
+	dpuMap := make(map[string]provisioningv1.Dpu)
+	dpuList := &provisioningv1.DpuList{}
 	if err := r.List(ctx, dpuList, client.MatchingLabels{
 		cutil.DpuSetNameLabel:      dpuSet.Name,
 		cutil.DpuSetNamespaceLabel: dpuSet.Namespace,
@@ -262,8 +262,8 @@ func (r *DpuSetReconciler) getDpusMap(ctx context.Context, dpuSet *provisioningd
 	return dpuMap, nil
 }
 
-func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningdpfv1alpha1.DpuSet,
-	node corev1.Node) (*provisioningdpfv1alpha1.Dpu, error) {
+func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningv1.DpuSet,
+	node corev1.Node) (*provisioningv1.Dpu, error) {
 	logger := log.FromContext(ctx)
 
 	labels := map[string]string{cutil.DpuSetNameLabel: dpuSet.Name, cutil.DpuSetNamespaceLabel: dpuSet.Namespace}
@@ -296,9 +296,9 @@ func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningdp
 
 	dpuName := fmt.Sprintf("%s-%s", strings.ToLower(node.Name), labels[cutil.DpuPCIAddressLabel])
 	owner := metav1.NewControllerRef(dpuSet,
-		provisioningdpfv1alpha1.GroupVersion.WithKind("DpuSet"))
+		provisioningv1.GroupVersion.WithKind("DpuSet"))
 
-	dpu := &provisioningdpfv1alpha1.Dpu{
+	dpu := &provisioningv1.Dpu{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            dpuName,
 			Namespace:       dpuSet.Namespace,
@@ -306,7 +306,7 @@ func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningdp
 			Annotations:     make(map[string]string),
 			OwnerReferences: []metav1.OwnerReference{*owner},
 		},
-		Spec: provisioningdpfv1alpha1.DpuSpec{
+		Spec: provisioningv1.DpuSpec{
 			NodeName:   node.Name,
 			BFB:        dpuSet.Spec.DpuTemplate.Spec.Bfb.BFBName,
 			NodeEffect: dpuSet.Spec.DpuTemplate.Spec.NodeEffect,
@@ -328,8 +328,8 @@ func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningdp
 	return dpu, nil
 }
 
-func (r *DpuSetReconciler) rolloutRecreate(ctx context.Context, dpuSet *provisioningdpfv1alpha1.DpuSet,
-	dpuMap map[string]provisioningdpfv1alpha1.Dpu) error {
+func (r *DpuSetReconciler) rolloutRecreate(ctx context.Context, dpuSet *provisioningv1.DpuSet,
+	dpuMap map[string]provisioningv1.Dpu) error {
 	for _, dpu := range dpuMap {
 		if needUpdate(*dpuSet, dpu) {
 			if err := r.Delete(ctx, &dpu); err != nil {
@@ -340,8 +340,8 @@ func (r *DpuSetReconciler) rolloutRecreate(ctx context.Context, dpuSet *provisio
 	return nil
 }
 
-func (r *DpuSetReconciler) rolloutRolling(ctx context.Context, dpuSet *provisioningdpfv1alpha1.DpuSet,
-	dpuMap map[string]provisioningdpfv1alpha1.Dpu, total int) error {
+func (r *DpuSetReconciler) rolloutRolling(ctx context.Context, dpuSet *provisioningv1.DpuSet,
+	dpuMap map[string]provisioningv1.Dpu, total int) error {
 	scaledValue, err := intstr.GetScaledValueFromIntOrPercent(intstr.ValueOrDefault(
 		dpuSet.Spec.Strategy.RollingUpdate.MaxUnavailable, intstr.FromInt(0)), total, true)
 	if err != nil {
@@ -381,47 +381,47 @@ func (r *DpuSetReconciler) rolloutRolling(ctx context.Context, dpuSet *provision
 	return nil
 }
 
-func isUnavailable(dpu *provisioningdpfv1alpha1.Dpu) bool {
-	_, cond := cutil.GetDPUCondition(&dpu.Status, provisioningdpfv1alpha1.DPUCondReady.String())
+func isUnavailable(dpu *provisioningv1.Dpu) bool {
+	_, cond := cutil.GetDPUCondition(&dpu.Status, provisioningv1.DPUCondReady.String())
 	return cond == nil || cond.Status == metav1.ConditionFalse
 }
 
 // TODO: check more informations
-func needUpdate(dpuSet provisioningdpfv1alpha1.DpuSet, dpu provisioningdpfv1alpha1.Dpu) bool {
+func needUpdate(dpuSet provisioningv1.DpuSet, dpu provisioningv1.Dpu) bool {
 	return dpu.Spec.BFB != dpuSet.Spec.DpuTemplate.Spec.Bfb.BFBName || dpu.Spec.DPUFlavor != dpuSet.Spec.DpuTemplate.Spec.DPUFlavor
 }
 
-func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningdpfv1alpha1.DpuSet,
-	dpuMap map[string]provisioningdpfv1alpha1.Dpu, client client.Client) error {
-	dpuStatistics := make(map[provisioningdpfv1alpha1.DpuPhase]int)
+func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningv1.DpuSet,
+	dpuMap map[string]provisioningv1.Dpu, client client.Client) error {
+	dpuStatistics := make(map[provisioningv1.DpuPhase]int)
 	for _, dpu := range dpuMap {
 		switch dpu.Status.Phase {
 		case "":
-			dpuStatistics[provisioningdpfv1alpha1.DPUInitializing]++
+			dpuStatistics[provisioningv1.DPUInitializing]++
 
-		case provisioningdpfv1alpha1.DPUInitializing:
-			dpuStatistics[provisioningdpfv1alpha1.DPUInitializing]++
+		case provisioningv1.DPUInitializing:
+			dpuStatistics[provisioningv1.DPUInitializing]++
 
-		case provisioningdpfv1alpha1.DPUPending:
-			dpuStatistics[provisioningdpfv1alpha1.DPUPending]++
+		case provisioningv1.DPUPending:
+			dpuStatistics[provisioningv1.DPUPending]++
 
-		case provisioningdpfv1alpha1.DPUDMSDeployment:
-			dpuStatistics[provisioningdpfv1alpha1.DPUDMSDeployment]++
+		case provisioningv1.DPUDMSDeployment:
+			dpuStatistics[provisioningv1.DPUDMSDeployment]++
 
-		case provisioningdpfv1alpha1.DPUOSInstalling:
-			dpuStatistics[provisioningdpfv1alpha1.DPUOSInstalling]++
+		case provisioningv1.DPUOSInstalling:
+			dpuStatistics[provisioningv1.DPUOSInstalling]++
 
-		case provisioningdpfv1alpha1.DPUClusterConfig:
-			dpuStatistics[provisioningdpfv1alpha1.DPUClusterConfig]++
+		case provisioningv1.DPUClusterConfig:
+			dpuStatistics[provisioningv1.DPUClusterConfig]++
 
-		case provisioningdpfv1alpha1.DPUReady:
-			dpuStatistics[provisioningdpfv1alpha1.DPUReady]++
+		case provisioningv1.DPUReady:
+			dpuStatistics[provisioningv1.DPUReady]++
 
-		case provisioningdpfv1alpha1.DPUError:
-			dpuStatistics[provisioningdpfv1alpha1.DPUError]++
+		case provisioningv1.DPUError:
+			dpuStatistics[provisioningv1.DPUError]++
 
-		case provisioningdpfv1alpha1.DPUDeleting:
-			dpuStatistics[provisioningdpfv1alpha1.DPUDeleting]++
+		case provisioningv1.DPUDeleting:
+			dpuStatistics[provisioningv1.DPUDeleting]++
 		}
 	}
 
@@ -450,7 +450,7 @@ func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningdpfv1alpha1.Dpu
 	return nil
 }
 
-func (r *DpuSetReconciler) createDPUClusterKubeConfig(ctx context.Context, dpuSet *provisioningdpfv1alpha1.DpuSet) error {
+func (r *DpuSetReconciler) createDPUClusterKubeConfig(ctx context.Context, dpuSet *provisioningv1.DpuSet) error {
 	kubeConfigFile := cutil.GenerateKubeConfigFileName(dpuSet.Name, dpuSet.Namespace)
 	if _, err := os.Stat(kubeConfigFile); err == nil {
 		return nil
@@ -475,7 +475,7 @@ func (r *DpuSetReconciler) createDPUClusterKubeConfig(ctx context.Context, dpuSe
 	return nil
 }
 
-func (r *DpuSetReconciler) finalizeDPUSet(ctx context.Context, dpuSet *provisioningdpfv1alpha1.DpuSet) error {
+func (r *DpuSetReconciler) finalizeDPUSet(ctx context.Context, dpuSet *provisioningv1.DpuSet) error {
 	kubeConfigFile := cutil.GenerateKubeConfigFileName(dpuSet.Name, dpuSet.Namespace)
 	if _, err := os.Stat(kubeConfigFile); err == nil {
 		err := os.Remove(kubeConfigFile)

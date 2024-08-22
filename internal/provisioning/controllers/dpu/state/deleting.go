@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"os"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
@@ -35,10 +35,10 @@ import (
 )
 
 type dpuDeletingState struct {
-	dpu *provisioningdpfv1alpha1.Dpu
+	dpu *provisioningv1.Dpu
 }
 
-func (st *dpuDeletingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningdpfv1alpha1.DpuStatus, error) {
+func (st *dpuDeletingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
 	logger := log.FromContext(ctx)
 	state := st.dpu.Status.DeepCopy()
 
@@ -107,7 +107,7 @@ func (st *dpuDeletingState) Handle(ctx context.Context, client client.Client, _ 
 			}
 		}
 		if len(objects) == 0 {
-			controllerutil.RemoveFinalizer(st.dpu, provisioningdpfv1alpha1.DPUFinalizer)
+			controllerutil.RemoveFinalizer(st.dpu, provisioningv1.DPUFinalizer)
 			if err := client.Update(ctx, st.dpu); err != nil {
 				return *state, err
 			}

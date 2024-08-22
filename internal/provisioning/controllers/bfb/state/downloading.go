@@ -24,7 +24,7 @@ import (
 	"net/http"
 	"os"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	butil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/bfb/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/future"
@@ -34,10 +34,10 @@ import (
 )
 
 type bfbDownloadingState struct {
-	bfb *provisioningdpfv1alpha1.Bfb
+	bfb *provisioningv1.Bfb
 }
 
-func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client) (provisioningdpfv1alpha1.BfbStatus, error) {
+func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BfbStatus, error) {
 	logger := log.FromContext(ctx)
 	state := st.bfb.Status.DeepCopy()
 	bfbTaskName := cutil.GenerateBFBTaskName(*st.bfb)
@@ -50,16 +50,16 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 			butil.DownloadingTaskMap.Delete(bfbTaskName)
 			butil.DownloadingTaskMap.Delete(bfbTaskName + "cancel")
 		}
-		state.Phase = provisioningdpfv1alpha1.BfbDeleting
+		state.Phase = provisioningv1.BfbDeleting
 		return *state, nil
 	}
 
 	exist, err := IsBfbExist(ctx, st.bfb.Spec.FileName)
 	if err != nil {
-		state.Phase = provisioningdpfv1alpha1.BfbError
+		state.Phase = provisioningv1.BfbError
 		return *state, err
 	} else if exist {
-		state.Phase = provisioningdpfv1alpha1.BfbReady
+		state.Phase = provisioningv1.BfbReady
 		return *state, nil
 	}
 
@@ -77,13 +77,13 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 			} else {
 				logger.Error(md5err, "Failed to get md5sum")
 			}
-			state.Phase = provisioningdpfv1alpha1.BfbReady
+			state.Phase = provisioningv1.BfbReady
 			return *state, nil
 		} else if errors.Is(err, context.Canceled) {
-			state.Phase = provisioningdpfv1alpha1.BfbDeleting
+			state.Phase = provisioningv1.BfbDeleting
 			return *state, nil
 		} else {
-			state.Phase = provisioningdpfv1alpha1.BfbError
+			state.Phase = provisioningv1.BfbError
 			return *state, err
 		}
 	} else {

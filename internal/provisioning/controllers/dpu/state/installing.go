@@ -29,7 +29,7 @@ import (
 	"strings"
 	"time"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/bfcfg"
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
@@ -77,7 +77,7 @@ type BFCfgWriteFile struct {
 }
 
 type dpuOSInstallingState struct {
-	dpu *provisioningdpfv1alpha1.Dpu
+	dpu *provisioningv1.Dpu
 }
 
 type ExecuteResult struct {
@@ -85,13 +85,13 @@ type ExecuteResult struct {
 	Err      error
 }
 
-func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningdpfv1alpha1.DpuStatus, error) {
+func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
 	logger := log.FromContext(ctx)
 	dmsTaskName := generateDMSTaskName(st.dpu)
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
 		dutil.OsInstallTaskMap.Delete(dmsTaskName)
-		state.Phase = provisioningdpfv1alpha1.DPUDeleting
+		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
@@ -100,7 +100,7 @@ func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client
 		Namespace: st.dpu.Namespace,
 		Name:      st.dpu.Spec.BFB,
 	}
-	bfb := &provisioningdpfv1alpha1.Bfb{}
+	bfb := &provisioningv1.Bfb{}
 	if err := client.Get(ctx, nn, bfb); err != nil {
 		if apierrors.IsNotFound(err) {
 			// BFB does not exist, dpu keeps in installing state.
@@ -115,9 +115,9 @@ func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client
 		if result.GetState() == future.Ready {
 			dutil.OsInstallTaskMap.Delete(dmsTaskName)
 			if _, err := result.GetResult(); err == nil {
-				return updateState(state, provisioningdpfv1alpha1.DPURebooting, "DPU is rebooting"), nil
+				return updateState(state, provisioningv1.DPURebooting, "DPU is rebooting"), nil
 			} else {
-				return updateState(state, provisioningdpfv1alpha1.DPUError, err.Error()), err
+				return updateState(state, provisioningv1.DPUError, err.Error()), err
 			}
 		}
 	} else {
@@ -127,10 +127,10 @@ func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client
 	return *state, nil
 }
 
-func updateState(state *provisioningdpfv1alpha1.DpuStatus, phase provisioningdpfv1alpha1.DpuPhase, message string) provisioningdpfv1alpha1.DpuStatus {
+func updateState(state *provisioningv1.DpuStatus, phase provisioningv1.DpuPhase, message string) provisioningv1.DpuStatus {
 	state.Phase = phase
-	cond := cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondOSInstalled, "", message)
-	if phase == provisioningdpfv1alpha1.DPUError {
+	cond := cutil.DPUCondition(provisioningv1.DPUCondOSInstalled, "", message)
+	if phase == provisioningv1.DPUError {
 		cond.Status = metav1.ConditionFalse
 		cond.Reason = "InstallationFailed"
 	}
@@ -138,7 +138,7 @@ func updateState(state *provisioningdpfv1alpha1.DpuStatus, phase provisioningdpf
 	return *state
 }
 
-func createGRPCConnection(ctx context.Context, client client.Client, dpu *provisioningdpfv1alpha1.Dpu) (*grpc.ClientConn, error) {
+func createGRPCConnection(ctx context.Context, client client.Client, dpu *provisioningv1.Dpu) (*grpc.ClientConn, error) {
 	nn := types.NamespacedName{
 		Namespace: dpu.Namespace,
 		Name:      cutil.GenerateDMSPodName(dpu.Name),
@@ -216,7 +216,7 @@ func createGRPCConnection(ctx context.Context, client client.Client, dpu *provis
 	return conn, nil
 }
 
-func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningdpfv1alpha1.Dpu, bfb *provisioningdpfv1alpha1.Bfb) {
+func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningv1.Dpu, bfb *provisioningv1.Bfb) {
 	dmsTaskName := generateDMSTaskName(dpu)
 	dmsTask := future.New(func() (any, error) {
 		logger := log.FromContext(ctx)
@@ -250,7 +250,7 @@ func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningdpfv
 			logger.V(3).Info(fmt.Sprintf("DMS %s Performed InstallOperation %v", dmsTaskName, response))
 		}
 
-		flavor := &provisioningdpfv1alpha1.DPUFlavor{}
+		flavor := &provisioningv1.DPUFlavor{}
 		if err := client.Get(ctx, types.NamespacedName{
 			Namespace: dpu.Namespace,
 			Name:      dpu.Spec.DPUFlavor,
@@ -378,11 +378,11 @@ func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningdpfv
 	dutil.OsInstallTaskMap.Store(dmsTaskName, dmsTask)
 }
 
-func generateDMSTaskName(dpu *provisioningdpfv1alpha1.Dpu) string {
+func generateDMSTaskName(dpu *provisioningv1.Dpu) string {
 	return fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)
 }
 
-func generateBFConfig(ctx context.Context, dpu *provisioningdpfv1alpha1.Dpu, flavor *provisioningdpfv1alpha1.DPUFlavor) (string, error) {
+func generateBFConfig(ctx context.Context, dpu *provisioningv1.Dpu, flavor *provisioningv1.DPUFlavor) (string, error) {
 	logger := log.FromContext(ctx)
 	var dpusetName, dpusetNamespace string
 	var ok bool

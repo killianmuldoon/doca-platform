@@ -20,7 +20,7 @@ import (
 	"context"
 	"reflect"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/bfb/state"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
@@ -54,7 +54,7 @@ func (r *BfbReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	logger := log.FromContext(ctx)
 	logger.V(4).Info("Reconcile", "BFB", req.Name)
 
-	bfb := &provisioningdpfv1alpha1.Bfb{}
+	bfb := &provisioningv1.Bfb{}
 	if err := r.Get(ctx, req.NamespacedName, bfb); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -76,7 +76,7 @@ func (r *BfbReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			logger.Error(err, "Failed to update BFB", "BFB", bfb)
 			return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to update BFB")
 		}
-	} else if nextState.Phase != provisioningdpfv1alpha1.BfbError {
+	} else if nextState.Phase != provisioningv1.BfbError {
 		// requeue if bfb is not in error state
 		// TODO: move the state checking in state machine
 		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, nil
@@ -88,6 +88,6 @@ func (r *BfbReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 func (r *BfbReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	//r.downloadManager = queue.NewPool(int(r.BfbOptions.WorkerNum), queue.WithFn(handler.HandleDownloadTask))
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&provisioningdpfv1alpha1.Bfb{}).
+		For(&provisioningv1.Bfb{}).
 		Complete(r)
 }

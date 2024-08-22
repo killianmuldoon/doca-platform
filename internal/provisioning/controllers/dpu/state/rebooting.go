@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"strings"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 	gutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
@@ -35,15 +35,15 @@ import (
 )
 
 type dpuRebootingState struct {
-	dpu *provisioningdpfv1alpha1.Dpu
+	dpu *provisioningv1.Dpu
 }
 
-func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningdpfv1alpha1.DpuStatus, error) {
+func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
 	logger := log.FromContext(ctx)
 
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
-		state.Phase = provisioningdpfv1alpha1.DPUDeleting
+		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
@@ -52,15 +52,15 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 		Name:      st.dpu.Name,
 	}
 
-	dpu := provisioningdpfv1alpha1.Dpu{}
+	dpu := provisioningv1.Dpu{}
 	if err := client.Get(ctx, nn, &dpu); err != nil {
 		return *state, err
 	}
 
-	_, cond := gutil.GetDPUCondition(state, provisioningdpfv1alpha1.DPUCondOSInstalled.String())
+	_, cond := gutil.GetDPUCondition(state, provisioningv1.DPUCondOSInstalled.String())
 	if cond == nil || cond.Status != metav1.ConditionTrue {
-		err := fmt.Errorf("trying to reboot the host before %s", provisioningdpfv1alpha1.DPUCondOSInstalled.String())
-		c := gutil.DPUCondition(provisioningdpfv1alpha1.DPUCondRebooted, "InvalidState", err.Error())
+		err := fmt.Errorf("trying to reboot the host before %s", provisioningv1.DPUCondOSInstalled.String())
+		c := gutil.DPUCondition(provisioningv1.DPUCondRebooted, "InvalidState", err.Error())
 		c.Status = metav1.ConditionFalse
 		gutil.SetDPUCondition(state, c)
 		return *state, err
@@ -77,8 +77,8 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 
 	// If the pod is available after rebooting, move to next phase
 	if duration > uptime {
-		state.Phase = provisioningdpfv1alpha1.DPUClusterConfig
-		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondRebooted, "", ""))
+		state.Phase = provisioningv1.DPUClusterConfig
+		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondRebooted, "", ""))
 		return *state, nil
 	}
 
@@ -93,13 +93,13 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 	// Note: skipping the powercycle may cause issues with the firmware installation and configuration.
 	if cmd == powercycle.Skip {
 		logger.Info("Warning not rebooting: this may cause issues with DPU firmware installation and configuration")
-		state.Phase = provisioningdpfv1alpha1.DPUClusterConfig
-		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondRebooted, "", ""))
+		state.Phase = provisioningv1.DPUClusterConfig
+		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondRebooted, "", ""))
 		return *state, nil
 	}
 	if cmd == "" {
 		logger.Info("waiting for manual power cycle")
-		c := gutil.DPUCondition(provisioningdpfv1alpha1.DPUCondRebooted, "WaitingForManualPowerCycle", "")
+		c := gutil.DPUCondition(provisioningv1.DPUCondRebooted, "WaitingForManualPowerCycle", "")
 		c.Status = metav1.ConditionFalse
 		gutil.SetDPUCondition(state, c)
 		return *state, nil

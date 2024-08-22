@@ -20,7 +20,7 @@ import (
 	"context"
 	"fmt"
 
-	provisioningdpfv1alpha1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
@@ -34,14 +34,14 @@ import (
 )
 
 type dpuNodeEffectState struct {
-	dpu *provisioningdpfv1alpha1.Dpu
+	dpu *provisioningv1.Dpu
 }
 
-func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningdpfv1alpha1.DpuStatus, error) {
+func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
 	logger := log.FromContext(ctx)
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
-		state.Phase = provisioningdpfv1alpha1.DPUDeleting
+		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
@@ -49,8 +49,8 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 
 	if nodeEffect.NoEffect {
 		logger.V(3).Info("NodeEffect is set to No Effect")
-		state.Phase = provisioningdpfv1alpha1.DPUPending
-		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondNodeEffectReady, "", ""))
+		state.Phase = provisioningv1.DPUPending
+		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
 		return *state, nil
 	}
 
@@ -106,16 +106,16 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 				err = createNodeMaintenance(ctx, client, nodeName, st.dpu.Namespace)
 				if err == nil {
 					logger.V(3).Info("Successfully created NodeMaintenance CR", "node", nodeName, "NodeMaintanence", maintenance)
-					state.Phase = provisioningdpfv1alpha1.DPUPending
-					cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondNodeEffectReady, "", ""))
+					state.Phase = provisioningv1.DPUPending
+					cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
 					return *state, nil
 				}
 				logger.V(3).Info("Error creating NodeMaintenance CR", "node", nodeName, "NodeMaintanence", maintenance, "error", err)
 			} else {
 				logger.V(3).Info("Error getting NodeMaintenance CR", "node", nodeName, "NodeMaintanence", maintenance, "error", err)
 			}
-			state.Phase = provisioningdpfv1alpha1.DPUError
-			cond := cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondNodeEffectReady, "", "")
+			state.Phase = provisioningv1.DPUError
+			cond := cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", "")
 			cond.Status = metav1.ConditionFalse
 			cond.Reason = errorOccurredReason
 			cond.Message = err.Error()
@@ -130,8 +130,8 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 		}
 	}
 
-	state.Phase = provisioningdpfv1alpha1.DPUPending
-	cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningdpfv1alpha1.DPUCondNodeEffectReady, "", ""))
+	state.Phase = provisioningv1.DPUPending
+	cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
 
 	return *state, nil
 }
