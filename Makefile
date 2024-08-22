@@ -386,7 +386,7 @@ test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUB
 	# Create a minikube cluster to host the test.
 	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
 
-	$(KUBECTL) create namespace dpf-operator-system
+	$(KUBECTL) get namespace dpf-operator-system || $(KUBECTL) create namespace dpf-operator-system
 
 	# Create secrets required for using artefacts if required.
 	$(CURDIR)/hack/scripts/create-artefact-secrets.sh
@@ -410,7 +410,7 @@ OPERATOR_NAMESPACE ?= dpf-operator-system
 
 .PHONY: test-deploy-operator-helm
 test-deploy-operator-helm: $(HELM) ## Deploy the DPF Operator using helm
-	$(HELM) install --create-namespace --namespace $(OPERATOR_NAMESPACE) --set image=$(DPF_SYSTEM_IMAGE):$(TAG) --set imagePullSecrets[0].name=dpf-pull-secret dpf-operator $(OPERATOR_HELM_CHART)
+	$(HELM) upgrade --install --create-namespace --namespace $(OPERATOR_NAMESPACE) --set image=$(DPF_SYSTEM_IMAGE):$(TAG) --set imagePullSecrets[0].name=dpf-pull-secret dpf-operator $(OPERATOR_HELM_CHART)
 
 OLM_VERSION ?= v0.28.0
 OPERATOR_REGISTRY_VERSION ?= v1.43.1

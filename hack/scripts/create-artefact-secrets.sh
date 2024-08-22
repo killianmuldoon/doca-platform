@@ -29,7 +29,9 @@ fi
 
 REGISTRY_SERVER=$(echo $REGISTRY | cut -d'/' -f1)
 
-## Create a pull secret to be used for images in Kubernetes
+## Create a pull secret to be used for images in Kubernetes.
+## Ensure the script is idempotent, allowing safe re-execution even if the secret already exists.
+kubectl -n dpf-operator-system delete secret dpf-pull-secret --ignore-not-found
 kubectl -n dpf-operator-system create secret docker-registry dpf-pull-secret --docker-server=$REGISTRY_SERVER --docker-username="\$oauthtoken" --docker-password=$IMAGE_PULL_KEY
 
 ## Create a pull secret to be used by ArgoCD for pulling helm charts

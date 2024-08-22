@@ -28,7 +28,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -66,6 +68,32 @@ func CleanupAndWait(ctx context.Context, c client.Client, objs ...client.Object)
 		}
 	}
 	return kerrors.NewAggregate(errs)
+}
+
+// CleanupWithLabelAndWait creates a list ob objects with certain labels and deletes them. After deletion, it waits to be removed.
+func CleanupWithLabelAndWait(ctx context.Context, c client.Client, labelSelector labels.Selector, resources ...client.ObjectList) error {
+	var deleteObjs []client.Object
+
+	for _, list := range resources {
+		if err := c.List(context.Background(), list, &client.ListOptions{LabelSelector: labelSelector}); err != nil {
+			return err
+		}
+
+		items, err := meta.ExtractList(list)
+		if err != nil {
+			return err
+		}
+
+		for _, item := range items {
+			obj, ok := item.(client.Object)
+			if !ok {
+				return err
+			}
+			deleteObjs = append(deleteObjs, obj)
+		}
+	}
+
+	return CleanupAndWait(ctx, c, deleteObjs...)
 }
 
 // CreateResourceIfNotExist creates a resource if it doesn't exist

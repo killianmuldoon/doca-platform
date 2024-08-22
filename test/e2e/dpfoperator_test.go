@@ -31,6 +31,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils/collector"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,6 +42,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/labels"
 	machineryruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/ptr"
@@ -57,6 +59,24 @@ var (
 	numClusters                = 1
 	dpfOperatorSystemNamespace = "dpf-operator-system"
 	argoCDInstanceLabel        = "argocd.argoproj.io/instance"
+
+	// Labels and resources targeted for cleanup before running our e2e tests.
+	// This cleanup is typically handled by cleanupObjs, but if an e2e test fails, the standard cleanup may not be executed.
+	cleanupLabels     = map[string]string{"dpf-operator-e2e-test-cleanup": "true"}
+	labelSelector     = labels.SelectorFromSet(cleanupLabels)
+	resourcesToDelete = []client.ObjectList{
+		&provisioningv1.DpuList{},
+		&provisioningv1.DpuSetList{},
+		&provisioningv1.BfbList{},
+		&sfcv1.DPUServiceIPAMList{},
+		&sfcv1.DPUServiceChainList{},
+		&sfcv1.DPUServiceInterfaceList{},
+		&dpuservicev1.DPUServiceList{},
+		&operatorv1.DPFOperatorConfigList{},
+		&appsv1.DeploymentList{},
+		&corev1.PersistentVolumeClaimList{},
+		&corev1.NamespaceList{},
+	}
 )
 
 //nolint:dupl
@@ -78,6 +98,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pullSecretName,
 			Namespace: "dpf-operator-system",
+			Labels:    cleanupLabels,
 		},
 	}
 	// The DPFOperatorConfig for the test.
@@ -85,6 +106,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "dpfoperatorconfig",
 			Namespace: dpfOperatorSystemNamespace,
+			Labels:    cleanupLabels,
 		},
 		Spec: operatorv1.DPFOperatorConfigSpec{
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
@@ -99,7 +121,12 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 	}
 
 	Context("DPF Operator initialization", func() {
-		var cleanupObjs []client.Object
+		BeforeAll(func() {
+			By("cleaning up objects created during recent tests", func() {
+				Expect(utils.CleanupWithLabelAndWait(ctx, testClient, labelSelector, resourcesToDelete...)).To(Succeed())
+			})
+		})
+
 		AfterAll(func() {
 			By("collecting resources and logs for the clusters")
 			err := collectResourcesAndLogs(ctx)
@@ -107,13 +134,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				// Don't fail the test if the log collector fails - just print the errors.
 				GinkgoLogr.Error(err, "failed to collect resources and logs for the clusters")
 			}
-			// TODO: This cleanup isn't good enough to clean the system correctly. Need to ensure the DPFOperatorConfig is cleaned up first.
 			By("cleaning up objects created during the test", func() {
-				for _, object := range cleanupObjs {
-					if err := testClient.Delete(ctx, object); err != nil && !apierrors.IsNotFound(err) {
-						Expect(err).ToNot(HaveOccurred())
-					}
-				}
+				Expect(utils.CleanupWithLabelAndWait(ctx, testClient, labelSelector, resourcesToDelete...)).To(Succeed())
 			})
 		})
 
@@ -135,6 +157,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Expect(yaml.Unmarshal(data, pvc)).To(Succeed())
 			pvc.SetName(dpfProvisioningControllerPVCName)
 			pvc.SetNamespace(dpfOperatorSystemNamespace)
+			pvc.SetLabels(cleanupLabels)
 			// If there are real nodes we need to allocate storage for the volume.
 			if numNodes > 0 {
 				pvc.Spec.VolumeMode = ptr.To(corev1.PersistentVolumeFilesystem)
@@ -144,7 +167,6 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				pvc.Spec.StorageClassName = ptr.To("local-path")
 			}
 			Expect(testClient.Create(ctx, pvc)).To(Succeed())
-			cleanupObjs = append(cleanupObjs, pvc)
 		})
 
 		It("create the imagePullSecret for the DPF OperatorConfig", func() {
@@ -152,7 +174,6 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			if err != nil && !apierrors.IsAlreadyExists(err) {
 				Expect(err).ToNot(HaveOccurred())
 			}
-			cleanupObjs = append(cleanupObjs, imagePullSecret)
 		})
 
 		if deployKamajiControlPlane {
@@ -162,8 +183,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					clusterNamespace := fmt.Sprintf("dpu-cplane-tenant%d", i+1)
 					// Create the namespace.
 					ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: clusterNamespace}}
+					ns.SetLabels(cleanupLabels)
 					Expect(testClient.Create(ctx, ns)).To(Succeed())
-					cleanupObjs = append(cleanupObjs, ns)
 					// Read the TenantControlPlane from file and create it.
 					// Note: This process doesn't cover all the places in the file the name should be set.
 					data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpu-control-plane.yaml"))
@@ -172,10 +193,10 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					Expect(yaml.Unmarshal(data, controlPlane)).To(Succeed())
 					controlPlane.SetName(clusterName)
 					controlPlane.SetNamespace(ns.Name)
+					controlPlane.SetLabels(cleanupLabels)
 
 					By(fmt.Sprintf("Creating DPU Cluster %s/%s", controlPlane.GetNamespace(), controlPlane.GetName()))
 					Expect(testClient.Create(ctx, controlPlane)).To(Succeed())
-					cleanupObjs = append(cleanupObjs, controlPlane)
 				}
 				Eventually(func(g Gomega) {
 					clusters := &unstructured.UnstructuredList{}
@@ -196,7 +217,6 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 		It("create the DPFOperatorConfig for the system", func() {
 			Expect(testClient.Create(ctx, config)).To(Succeed())
-			cleanupObjs = append(cleanupObjs, config)
 		})
 
 		It("ensure the DPF controllers are running and ready", func() {
@@ -227,8 +247,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/bfb.yaml"))
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(yaml.Unmarshal(data, bfb)).To(Succeed())
+				bfb.SetLabels(cleanupLabels)
 				g.Expect(testClient.Create(ctx, bfb)).To(Succeed())
-				cleanupObjs = append(cleanupObjs, bfb)
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 
 			dpuClusters, err := controlplane.GetDPFClusters(ctx, testClient)
@@ -243,8 +263,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					By(fmt.Sprintf("Creating the DPUSet for cluster %s/%s", cluster.Name, cluster.Namespace))
 					dpuset.Spec.DpuTemplate.Spec.Cluster.Name = cluster.Name
 					dpuset.Spec.DpuTemplate.Spec.Cluster.NameSpace = cluster.Namespace
+					dpuset.SetLabels(cleanupLabels)
 					g.Expect(testClient.Create(ctx, dpuset)).To(Succeed())
-					cleanupObjs = append(cleanupObjs, dpuset)
 				}
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 
@@ -326,8 +346,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		It("create DPUServiceInterface and check that it is mirrored to each cluster", func() {
 			By("create test namespace")
 			testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceInterfaceNamespace}}
+			testNS.SetLabels(cleanupLabels)
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
-			cleanupObjs = append(cleanupObjs, testNS)
 			By("create DPUServiceInterface")
 			data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuserviceinterface.yaml"))
 			Expect(err).ToNot(HaveOccurred())
@@ -335,8 +355,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Expect(yaml.Unmarshal(data, dpuServiceInterface)).To(Succeed())
 			dpuServiceInterface.SetName(dpuServiceInterfaceName)
 			dpuServiceInterface.SetNamespace(dpuServiceInterfaceNamespace)
+			dpuServiceInterface.SetLabels(cleanupLabels)
 			Expect(testClient.Create(ctx, dpuServiceInterface)).To(Succeed())
-			cleanupObjs = append(cleanupObjs, dpuServiceInterface)
 			By("verify ServiceInterfaceSet is created in DPF clusters")
 			Eventually(func(g Gomega) {
 				dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
@@ -353,8 +373,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		It("create DPUServiceChain and check that it is mirrored to each cluster", func() {
 			By("create test namespace")
 			testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceChainNamespace}}
+			testNS.SetLabels(cleanupLabels)
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
-			cleanupObjs = append(cleanupObjs, testNS)
 			By("create DPUServiceChain")
 			data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuservicechain.yaml"))
 			Expect(err).ToNot(HaveOccurred())
@@ -362,8 +382,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Expect(yaml.Unmarshal(data, dpuServiceChain)).To(Succeed())
 			dpuServiceChain.SetName(dpuServiceChainName)
 			dpuServiceChain.SetNamespace(dpuServiceChainNamespace)
+			dpuServiceChain.SetLabels(cleanupLabels)
 			Expect(testClient.Create(ctx, dpuServiceChain)).To(Succeed())
-			cleanupObjs = append(cleanupObjs, dpuServiceChain)
 			By("verify ServiceChainSet is created in DPF clusters")
 			Eventually(func(g Gomega) {
 				dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
@@ -407,15 +427,15 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			By("create a DPUService to be deployed on the DPUCluster")
 			// Create DPUCluster DPUService and check it's correctly reconciled.
 			dpuService := getDPUService(dpuServiceNamespace, dpuServiceName, false)
+			dpuService.SetLabels(cleanupLabels)
 			Expect(testClient.Create(ctx, dpuService)).To(Succeed())
-			cleanupObjs = append(cleanupObjs, dpuService)
 
 			By("create a DPUService to be deployed on the host cluster")
 			// Create a host DPUService and check it's correctly reconciled
 			// Read the DPUService from file and create it.
 			hostDPUService := getDPUService(dpuServiceNamespace, hostDPUServiceName, true)
+			hostDPUService.SetLabels(cleanupLabels)
 			Expect(testClient.Create(ctx, hostDPUService)).To(Succeed())
-			cleanupObjs = append(cleanupObjs, hostDPUService)
 
 			By("verify DPUServices and deployments are created")
 			Eventually(func(g Gomega) {
@@ -483,8 +503,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		It("create an invalid DPUServiceIPAM and ensure that the webhook rejects the request", func() {
 			By("creating the DPUServiceIPAM Namespace")
 			testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceIPAMNamespace}}
+			testNS.SetLabels(cleanupLabels)
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
-			cleanupObjs = append(cleanupObjs, testNS)
 
 			By("creating the invalid DPUServiceIPAM CR")
 			dpuServiceIPAM := &sfcv1.DPUServiceIPAM{
@@ -494,7 +514,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				},
 			}
 			dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
-
+			dpuServiceIPAM.SetLabels(cleanupLabels)
 			err := testClient.Create(ctx, dpuServiceIPAM)
 			Expect(err).To(HaveOccurred())
 			Expect(apierrors.IsBadRequest(err)).To(BeTrue())
@@ -509,8 +529,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Expect(yaml.Unmarshal(data, dpuServiceIPAM)).To(Succeed())
 			dpuServiceIPAM.SetName(dpuServiceIPAMWithIPPoolName)
 			dpuServiceIPAM.SetNamespace(dpuServiceIPAMNamespace)
+			dpuServiceIPAM.SetLabels(cleanupLabels)
 			Expect(testClient.Create(ctx, dpuServiceIPAM)).To(Succeed())
-			cleanupObjs = append(cleanupObjs, dpuServiceIPAM)
 
 			By("checking that NVIPAM IPPool CR is created in the DPU clusters")
 			Eventually(func(g Gomega) {
@@ -564,8 +584,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Expect(yaml.Unmarshal(data, dpuServiceIPAM)).To(Succeed())
 			dpuServiceIPAM.SetName(dpuServiceIPAMWithCIDRPoolName)
 			dpuServiceIPAM.SetNamespace(dpuServiceIPAMNamespace)
+			dpuServiceIPAM.SetLabels(cleanupLabels)
 			Expect(testClient.Create(ctx, dpuServiceIPAM)).To(Succeed())
-			cleanupObjs = append(cleanupObjs, dpuServiceIPAM)
 
 			By("checking that NVIPAM CIDRPool CR is created in the DPU clusters")
 			Eventually(func(g Gomega) {
@@ -609,6 +629,28 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					g.Expect(cidrPools.Items).To(BeEmpty())
 				}
 			}).WithTimeout(180 * time.Second).Should(Succeed())
+		})
+
+		It("delete DPUs, DPUSets and BFBs and ensure they are deleted", func() {
+			dpuset := &provisioningv1.DpuSet{}
+			data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpuset.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(yaml.Unmarshal(data, dpuset)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, dpuset))).To(Succeed())
+				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(dpuset), dpuset))).To(BeTrue())
+			}).WithTimeout(10 * time.Second).Should(Succeed())
+
+			bfb := &provisioningv1.Bfb{}
+			data, err = os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/bfb.yaml"))
+			Expect(err).ToNot(HaveOccurred())
+			Expect(yaml.Unmarshal(data, bfb)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, bfb))).To(Succeed())
+				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(bfb), bfb))).To(BeTrue())
+			}).WithTimeout(10 * time.Second).Should(Succeed())
 		})
 
 		It("delete the DPFOperatorConfig and ensure it is deleted", func() {

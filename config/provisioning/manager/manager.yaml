@@ -74,7 +74,6 @@ spec:
         - --leader-elect
         image: controller
         name: manager
-        imagePullPolicy: Always
         securityContext:
           privileged: true
           capabilities:

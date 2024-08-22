@@ -938,7 +938,6 @@ spec:
         command:
         - /provisioning
         image: example.com/dpf-system:v0.1.0
-        imagePullPolicy: Always
         livenessProbe:
           httpGet:
             path: /healthz
