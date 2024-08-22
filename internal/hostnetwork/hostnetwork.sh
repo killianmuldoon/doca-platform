@@ -106,35 +106,32 @@ if [[ -z "${num_of_vfs}" ]]; then
   export num_of_vfs=16
 fi
 
-while true; do
-    p0="${device_pci_address}.0"
-    pf_device_p0=$(get_net_devices_from_pci ${p0})
 
-    create_VFs ${pf_device_p0}
+p0="${device_pci_address}.0"
+pf_device_p0=$(get_net_devices_from_pci ${p0})
 
-    p1="${device_pci_address}.1"
-    pf_device_p1=$(get_net_devices_from_pci ${p0})
-    if [ -d "${pci_sys_dir}/${p1}" ]; then
-        deviceID=$(cat ${pci_sys_dir}/${p1}/device)
-        for dpu_device in "${dpu_device_list[@]}"; do
-            if [ "${dpu_device}" = "${deviceID}" ]; then
-                create_VFs ${pf_device_p1}
-                break
-            fi
-        done
-    fi
+create_VFs ${pf_device_p0}
 
-    bridge_check
+p1="${device_pci_address}.1"
+pf_device_p1=$(get_net_devices_from_pci ${p1})
+if [ -d "${pci_sys_dir}/${p1}" ]; then
+    deviceID=$(cat ${pci_sys_dir}/${p1}/device)
+    for dpu_device in "${dpu_device_list[@]}"; do
+        if [ "${dpu_device}" = "${deviceID}" ]; then
+            create_VFs ${pf_device_p1}
+            break
+        fi
+    done
+fi
 
-    # Add VF1 of the PF device to the bridge
-    add_vf_to_bridge ${pf_device_p0}
+bridge_check
 
-    # Configure the interface pf0vf2 for the 2nd Comm channel for SFC
-    configure_interface_pf0vf2 ${pf_device_p0}
+# Add VF1 of the PF device to the bridge
+add_vf_to_bridge ${pf_device_p0}
 
-    sysctl -w net.ipv4.ip_forward=1
-    iptables -I FORWARD -i ${bridge_name} -j ACCEPT
-    iptables -I FORWARD -o ${bridge_name} -j ACCEPT
+# Configure the interface pf0vf2 for the 2nd Comm channel for SFC
+configure_interface_pf0vf2 ${pf_device_p0}
 
-    sleep 5
-done
+sysctl -w net.ipv4.ip_forward=1
+iptables -I FORWARD -i ${bridge_name} -j ACCEPT
+iptables -I FORWARD -o ${bridge_name} -j ACCEPT
