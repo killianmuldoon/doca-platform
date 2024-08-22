@@ -52,15 +52,16 @@ const (
 	DMSImageFolder   string = "/bfb-folder"
 )
 
-func getPCIAddrFromLabel(labels map[string]string) (string, error) {
+func getPCIAddrFromLabel(labels map[string]string, removePrefix bool) (string, error) {
 	// the value of pci address from the node label likes: 0000_4b_00
 	if pci_address, ok := labels[cutil.DpuPCIAddressLabel]; ok {
-		// remove 0000- prefix
-		underscoreIndex := strings.Index(pci_address, "-")
-		if underscoreIndex != -1 {
-			pci_address = pci_address[underscoreIndex+1:]
+		if removePrefix {
+			// remove 0000- prefix
+			underscoreIndex := strings.Index(pci_address, "-")
+			if underscoreIndex != -1 {
+				pci_address = pci_address[underscoreIndex+1:]
+			}
 		}
-
 		// replace - to :
 		result := strings.ReplaceAll(pci_address, "-", ":")
 		// 4b:00
@@ -326,7 +327,8 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningdp
 		return err
 	}
 
-	pci_address, err := getPCIAddrFromLabel(dpu.Labels)
+	removePrefix := true
+	pci_address, err := getPCIAddrFromLabel(dpu.Labels, removePrefix)
 	if err != nil {
 		logger.Error(err, "Failed to get pci address from node label", "dms", err)
 		return err
@@ -348,6 +350,13 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningdp
 	logger.V(3).Info(fmt.Sprintf("create %s DMS pod", dmsPodName))
 	dmsCommand := fmt.Sprintf("./rshim.sh && %s -bind_address %s:%s -v 99 -auth cert -ca /etc/ssl/certs/server/ca.crt -key /etc/ssl/certs/server/tls.key -cert /etc/ssl/certs/server/tls.crt -password %s -username %s -image_folder %s -target_pci %s -exec_timeout %d",
 		dmsPath, nodeInternalIP, ContainerPortStr, password, username, DMSImageFolder, pci_address, option.DMSTimeout)
+
+	removePrefix = false
+	pci_address, err = getPCIAddrFromLabel(dpu.Labels, removePrefix)
+	if err != nil {
+		logger.Error(err, "Failed to get pci address from node label", "dms", err)
+		return err
+	}
 
 	hostPathType := corev1.HostPathDirectory
 	pod := &corev1.Pod{
