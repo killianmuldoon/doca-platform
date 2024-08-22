@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -32,6 +33,7 @@ type serviceSetReconciler interface {
 	createOrUpdateChild(context.Context, client.Object, string) error
 }
 
+//nolint:unparam
 func reconcileSet(ctx context.Context, set client.Object, k8sClient client.Client,
 	selector *metav1.LabelSelector, reconciler serviceSetReconciler) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
@@ -99,4 +101,19 @@ func getNodeList(ctx context.Context, k8sClient client.Client, selector *metav1.
 	}
 
 	return nodeList, nil
+}
+
+//nolint:unparam
+func reconcileDelete(ctx context.Context, set client.Object, k8sClient client.Client,
+	reconciler serviceSetReconciler, finalizerStr string) (ctrl.Result, error) {
+	log := log.FromContext(ctx)
+	log.Info("Reconciling delete")
+	if err := deleteSet(ctx, set, k8sClient, reconciler); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	log.Info("Removing finalizer")
+	controllerutil.RemoveFinalizer(set, finalizerStr)
+
+	return ctrl.Result{}, nil
 }

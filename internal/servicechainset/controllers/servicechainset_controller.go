@@ -22,11 +22,13 @@ import (
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 
+	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -61,7 +63,8 @@ const (
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 
-func (r *ServiceChainSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+//nolint:dupl
+func (r *ServiceChainSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := log.FromContext(ctx)
 	log.Info("Reconciling")
 	scs := &sfcv1.ServiceChainSet{}
@@ -72,36 +75,31 @@ func (r *ServiceChainSetReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 		return ctrl.Result{}, err
 	}
+	patcher := patch.NewSerialPatcher(scs, r.Client)
+
+	// Defer a patch call to always patch the object when Reconcile exits.
+	defer func() {
+
+		log.Info("Patching")
+		if err := patcher.Patch(ctx, scs,
+			patch.WithFieldOwner(serviceChainSetControllerName),
+		); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
 
 	if !scs.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, scs)
+		return reconcileDelete(ctx, scs, r.Client, r, sfcv1.ServiceChainSetFinalizer)
 	}
 
 	// Add finalizer if not set.
 	if !controllerutil.ContainsFinalizer(scs, sfcv1.ServiceChainSetFinalizer) {
+		log.Info("Adding finalizer")
 		controllerutil.AddFinalizer(scs, sfcv1.ServiceChainSetFinalizer)
-		if err := r.Update(ctx, scs); err != nil {
-			return ctrl.Result{}, err
-		}
+		return ctrl.Result{}, nil
 	}
 
 	return reconcileSet(ctx, scs, r.Client, scs.Spec.NodeSelector, r)
-}
-
-func (r *ServiceChainSetReconciler) reconcileDelete(ctx context.Context, scs *sfcv1.ServiceChainSet) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
-	log.Info("Reconciling delete")
-	if err := deleteSet(ctx, scs, r.Client, r); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	log.Info("Removing finalizer")
-	controllerutil.RemoveFinalizer(scs, sfcv1.ServiceChainSetFinalizer)
-	if err := r.Client.Update(ctx, scs); err != nil {
-		return ctrl.Result{}, err
-	}
-
-	return ctrl.Result{}, nil
 }
 
 func (r *ServiceChainSetReconciler) getChildMap(ctx context.Context, set client.Object) (map[string]client.Object, error) {

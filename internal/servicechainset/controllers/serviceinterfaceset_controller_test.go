@@ -26,6 +26,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -160,6 +161,32 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			}, timeout*30, interval).Should(Succeed())
 			By("Delete ServiceInterfaceSet Spec")
 			Expect(testClient.Delete(ctx, &sfcv1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
+		})
+		It("should successfully delete the ServiceInterfaceSet", func() {
+			By("Creating ServiceInterfaceSet, with Node Selector")
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, &metav1.LabelSelector{
+				MatchLabels: map[string]string{"role": "firewall"}}))
+
+			By("Creating 2 nodes")
+			labels := map[string]string{"role": "firewall"}
+			cleanupObjects = append(cleanupObjects, createNode(ctx, "node1", labels))
+			cleanupObjects = append(cleanupObjects, createNode(ctx, "node2", labels))
+
+			By("Reconciling the created resource, 2 nodes, 2 matches")
+			Eventually(func(g Gomega) {
+				assertServiceInterfaceList(ctx, g, 2, &cleanupObjects, getTestServiceInterfaceSpec())
+			}, timeout*30, interval).Should(Succeed())
+
+			By("Deleting ServiceInterfaceSet")
+			sis := cleanupObjects[0].(*sfcv1.ServiceInterfaceSet)
+			Expect(testClient.Delete(ctx, sis)).NotTo(HaveOccurred())
+
+			By("Verifying ServiceInterfaceSet is deleted")
+			Eventually(func(g Gomega) {
+				sis := cleanupObjects[0].(*sfcv1.ServiceInterfaceSet)
+				err := testClient.Get(ctx, client.ObjectKeyFromObject(sis), sis)
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}, timeout*30, interval).Should(Succeed())
 		})
 	})
 })

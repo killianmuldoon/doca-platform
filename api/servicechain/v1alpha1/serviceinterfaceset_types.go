@@ -20,8 +20,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// ServiceInterfaceSetKind is the kind of the ServiceInterfaceSet
-const ServiceInterfaceSetKind = "ServiceInterfaceSet"
+const (
+	// ServiceInterfaceSetKind is the kind of the ServiceInterfaceSet in string format.
+	ServiceInterfaceSetKind = "ServiceInterfaceSet"
+	// ServiceInterfaceSetFinalizer is set on a ServiceInterfaceSet when it is first handled by
+	// the controller, and removed when this object is deleted.
+	ServiceInterfaceSetFinalizer = "dpf.nvidia.com/serviceinterfaceset"
+)
 
 var (
 	// ServiceInterfaceSetGroupVersionKind is the GroupVersionKind of the ServiceInterfaceSet

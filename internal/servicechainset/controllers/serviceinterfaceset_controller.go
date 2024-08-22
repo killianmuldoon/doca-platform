@@ -22,15 +22,18 @@ import (
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 
+	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -60,7 +63,9 @@ type ServiceInterfaceSetReconciler struct {
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
-func (r *ServiceInterfaceSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+//
+//nolint:dupl
+func (r *ServiceInterfaceSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := log.FromContext(ctx)
 	log.Info("Reconciling")
 	sis := &sfcv1.ServiceInterfaceSet{}
@@ -71,10 +76,31 @@ func (r *ServiceInterfaceSetReconciler) Reconcile(ctx context.Context, req ctrl.
 		}
 		return ctrl.Result{}, err
 	}
+
+	patcher := patch.NewSerialPatcher(sis, r.Client)
+
+	// Defer a patch call to always patch the object when Reconcile exits.
+	defer func() {
+
+		log.Info("Patching")
+		if err := patcher.Patch(ctx, sis,
+			patch.WithFieldOwner(serviceInterfaceSetControllerName),
+		); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+	}()
+
 	if !sis.ObjectMeta.DeletionTimestamp.IsZero() {
-		// Return early, the object is deleting.
+		return reconcileDelete(ctx, sis, r.Client, r, sfcv1.ServiceInterfaceSetFinalizer)
+	}
+
+	// Add finalizer if not set.
+	if !controllerutil.ContainsFinalizer(sis, sfcv1.ServiceInterfaceSetFinalizer) {
+		log.Info("Adding finalizer")
+		controllerutil.AddFinalizer(sis, sfcv1.ServiceInterfaceSetFinalizer)
 		return ctrl.Result{}, nil
 	}
+
 	return reconcileSet(ctx, sis, r.Client, sis.Spec.NodeSelector, r)
 }
 
