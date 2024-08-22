@@ -18,13 +18,9 @@ package v1alpha1
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"strings"
 
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -69,33 +65,12 @@ var _ webhook.Validator = &Bfb{}
 func (r *Bfb) ValidateCreate() (admission.Warnings, error) {
 	bfblog.V(4).Info("validate create", "name", r.Name)
 
-	if !strings.HasSuffix(r.Spec.FileName, BFBFileNameExtension) {
-		return nil, apierrors.NewForbidden(schema.GroupResource{Group: "provisioning.dpf.nvidia.com", Resource: "Bfb"},
-			r.Name,
-			fmt.Errorf("filename must ends with %s", BFBFileNameExtension))
-	}
-
 	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *Bfb) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	bfblog.V(4).Info("validate update", "name", r.Name)
-
-	oldBfb, _ := old.(*Bfb)
-	var err error
-	if r.Spec.FileName != oldBfb.Spec.FileName {
-		err = errors.New("file_name is immutable field")
-	} else if r.Spec.BFCFG != oldBfb.Spec.BFCFG {
-		err = errors.New("bf_cfg is immutable field")
-	} else if r.Spec.URL != oldBfb.Spec.URL {
-		err = errors.New("url is immutable field")
-	}
-	if err != nil {
-		return nil, apierrors.NewForbidden(schema.GroupResource{Group: "provisioning.dpf.nvidia.com", Resource: "Bfb"},
-			r.Name,
-			err)
-	}
 
 	return nil, nil
 }
