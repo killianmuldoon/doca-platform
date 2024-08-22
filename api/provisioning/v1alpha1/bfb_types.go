@@ -20,8 +20,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// BfbPhase is a label for the condition of a DPU at the current time.
-// +enum
+// BfbPhase describes current state of Bfb CR.
+// Only one of the following state may be specified.
+// Default is Initializing.
+// +kubebuilder:validation:Enum=Initializing;Downloading;Ready;Deleting;Error
 type BfbPhase string
 
 // These are the valid statuses of Bfb.
@@ -40,16 +42,33 @@ const (
 	BfbError BfbPhase = "Error"
 )
 
-// BfbSpec defines the desired state of Bfb
+// BfbSpec defines the content of Bfb
+// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 type BfbSpec struct {
+	// Specifies bfb file name on the volume or
+	// use CRD name in case it is omitted.
+	// +kubebuilder:validation:Pattern=`.+\.(bfb)$`
+	// +optional
 	FileName string `json:"file_name,omitempty"`
-	URL      string `json:"url"`
-	BFCFG    string `json:"bf_cfg,omitempty"`
+
+	// The url of the bfb image to download.
+	// +kubebuilder:validation:Pattern=`.+\.(bfb)$`
+	// +required
+	URL string `json:"url"`
+
+	// Describes the bf.cfg config map which will be used for bfb installation,
+	// it is passed to DMS on each BFB installation call,
+	// It overwites default bf.cfg and must contain relevant DPF logic.
+	// +optional
+	BFCFG string `json:"bf_cfg,omitempty"`
 }
 
 // BfbStatus defines the observed state of Bfb
 type BfbStatus struct {
-	Phase BfbPhase `json:"phase,omitempty"`
+	// The current state of Bfb.
+	// +kubebuilder:default=Initializing
+	// +required
+	Phase BfbPhase `json:"phase"`
 }
 
 //+kubebuilder:object:root=true
