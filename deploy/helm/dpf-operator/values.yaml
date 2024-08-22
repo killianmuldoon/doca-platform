@@ -1,4 +1,4 @@
-## argo-cd and node feature discovery are installed as dependencies and configured here.
+## argo-cd, node-feature-discovery and kube-state-metrics are installed as dependencies and configured here.
 argo-cd:
   enabled: true
   dex:
@@ -7,6 +7,8 @@ argo-cd:
     enabled: false
 node-feature-discovery:
   enabled: true
+kube-state-metrics:
+  enabled: false
 
 controllerManager:
   containerSecurityContext:

@@ -208,6 +208,7 @@ generate-manifests-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVSUBST) $(HELM) 
 	## Update the helm dependencies for the chart.
 	$(HELM) repo add argo https://argoproj.github.io/argo-helm
 	$(HELM) repo add nfd https://kubernetes-sigs.github.io/node-feature-discovery/charts
+	$(HELM) repo add prometheus https://prometheus-community.github.io/helm-charts
 	$(HELM) dependency build $(OPERATOR_HELM_CHART)
 
 
@@ -329,7 +330,7 @@ generate-operator-bundle: $(OPERATOR_SDK) $(HELM) generate-manifests-operator ##
 	# First template the actual manifests to include using helm.
 	mkdir -p hack/charts/dpf-operator/
 	$(HELM) template --namespace $(OPERATOR_NAMESPACE) --set image=$(DPF_SYSTEM_IMAGE):$(TAG) $(OPERATOR_HELM_CHART) \
-	--set argo-cd.enabled=false --set node-feature-discovery.enabled=false \
+	--set argo-cd.enabled=false --set node-feature-discovery.enabled=false --set kube-state-metrics.enabled=false \
 	--set templateOperatorBundle=true > hack/charts/dpf-operator/manifests.yaml
 	# Next generate the operator bundle.
     # Note we need to explicitly set stdin to null using < /dev/null.

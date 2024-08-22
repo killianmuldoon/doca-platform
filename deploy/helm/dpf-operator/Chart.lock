@@ -5,5 +5,8 @@ dependencies:
 - name: node-feature-discovery
   repository: https://kubernetes-sigs.github.io/node-feature-discovery/charts
   version: 0.16.4
-digest: sha256:cb43f04fba399b7956b458735b7d8b2b9a6c8e8f96c6a8be7b4bb30653a92775
-generated: "2024-08-15T14:51:15.947871+01:00"
+- name: kube-state-metrics
+  repository: https://prometheus-community.github.io/helm-charts
+  version: 5.25.1
+digest: sha256:9284ccab18b89036d80738a0d110f39b6ed7fe94bbaf217246bc5f1a03976abf
+generated: "2024-08-20T21:00:06.471555+02:00"
