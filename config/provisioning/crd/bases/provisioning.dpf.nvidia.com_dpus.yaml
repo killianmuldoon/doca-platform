@@ -40,12 +40,14 @@ spec:
             description: DpuSpec defines the desired state of Dpu
             properties:
               bfb:
+                description: Specifies name of the bfb CR to use for this DPU
                 type: string
               dpuFlavor:
                 description: DPUFlavor is the name of the DPUFlavor that will be used
                   to deploy the DPU.
                 type: string
               k8s_cluster:
+                description: Specifies details on the K8S cluster to join
                 properties:
                   name:
                     type: string
@@ -59,7 +61,13 @@ spec:
                 - name
                 - namespace
                 type: object
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               nodeEffect:
+                default:
+                  no_effect: true
+                description: Specifies how changes to the DPU should affect the Node
                 properties:
                   custom_label:
                     additionalProperties:
@@ -98,9 +106,17 @@ spec:
                     type: object
                 type: object
               nodeName:
+                description: Specifies Node this DPU belongs to
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               pci_address:
+                description: The PCI device related DPU
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
             required:
             - bfb
             - dpuFlavor
@@ -197,10 +213,23 @@ spec:
                 type: string
               phase:
                 description: high-level summary of where the DPU is in its lifecycle
+                enum:
+                - Initializing
+                - Node Effect
+                - Pending
+                - DMSDeployment
+                - OS Installing
+                - DPU Cluster Config
+                - Ready
+                - Error
+                - Deleting
+                - Rebooting
                 type: string
               required_reset:
                 description: whether require reset of DPU
                 type: boolean
+            required:
+            - phase
             type: object
         type: object
     served: true
