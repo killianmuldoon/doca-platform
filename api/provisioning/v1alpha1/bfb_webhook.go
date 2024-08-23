@@ -32,7 +32,6 @@ import (
 )
 
 const (
-	BFBFinalizer         = "provisioning.dpf.nvidia.com/bfb-protection"
 	BFBFileNameExtension = ".bfb"
 )
 
@@ -58,19 +57,6 @@ func (r *Bfb) Default() {
 	bfblog.V(4).Info("default", "name", r.Name)
 	if r.Spec.FileName == "" {
 		r.Spec.FileName = fmt.Sprintf("%s-%s-%s", r.Namespace, r.Name, BFBFileNameExtension)
-	}
-
-	// add finalizer
-	if r.Status.Phase == "" {
-		found := false
-		for _, f := range r.Finalizers {
-			if f == BFBFinalizer {
-				found = true
-			}
-		}
-		if !found {
-			r.Finalizers = append(r.Finalizers, BFBFinalizer)
-		}
 	}
 }
 

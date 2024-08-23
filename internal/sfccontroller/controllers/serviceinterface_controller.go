@@ -240,10 +240,9 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if err != nil {
 			log.Info("Failed to add finalizer")
 			return ctrl.Result{}, err
-		} else {
-			log.Info("Added finalizer")
-			return ctrl.Result{}, nil
 		}
+		log.Info("Added finalizer")
+		return ctrl.Result{}, nil
 	}
 
 	return ctrl.Result{}, nil

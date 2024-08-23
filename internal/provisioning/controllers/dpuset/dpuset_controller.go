@@ -39,6 +39,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -48,7 +49,6 @@ import (
 const (
 	// controller name that will be used when
 	DpuSetControllerName = "dpuset"
-	DpuSetFinalizer      = "provisioning.dpf.nvidia.com/dpuset-protection"
 )
 
 // DpuSetReconciler reconciles a DpuSet object
@@ -65,7 +65,6 @@ type DpuSetReconciler struct {
 
 func (r *DpuSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	var err error
 	logger.V(4).Info("Reconcile", "dpuset", req.Name)
 
 	dpuSet := &provisioningv1.DpuSet{}
@@ -77,28 +76,34 @@ func (r *DpuSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to get DpuSet")
 	}
 
-	if dpuSet.DeletionTimestamp != nil {
-		if err := r.finalizeDPUSet(ctx, dpuSet); err != nil {
-			logger.Error(err, "Failed to finalize DPUSet", "DPUSet", dpuSet)
-			return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to finalize DPUSet")
-		}
+	if !dpuSet.DeletionTimestamp.IsZero() {
+		return r.reconcileDelete(ctx, dpuSet)
+	}
 
+	return r.reconcile(ctx, dpuSet)
+}
+
+func (r *DpuSetReconciler) reconcileDelete(ctx context.Context, dpuSet *provisioningv1.DpuSet) (ctrl.Result, error) {
+	logger := log.FromContext(ctx)
+	if err := r.finalizeDPUSet(ctx, dpuSet); err != nil {
+		logger.Error(err, "Failed to finalize DPUSet", "DPUSet", dpuSet)
+		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to finalize DPUSet")
+	}
+
+	return ctrl.Result{}, nil
+}
+
+func (r *DpuSetReconciler) reconcile(ctx context.Context, dpuSet *provisioningv1.DpuSet) (ctrl.Result, error) {
+	var err error
+	logger := log.FromContext(ctx)
+
+	// Add finalizer if not set.
+	if !controllerutil.ContainsFinalizer(dpuSet, provisioningv1.DpuSetFinalizer) {
+		controllerutil.AddFinalizer(dpuSet, provisioningv1.DpuSetFinalizer)
+		if err := r.Client.Update(ctx, dpuSet); err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "failed to add DPUSet finalizer")
+		}
 		return ctrl.Result{}, nil
-	} else {
-		found := false
-		for _, f := range dpuSet.Finalizers {
-			if f == DpuSetFinalizer {
-				found = true
-			}
-		}
-		if !found {
-			dpuSet.Finalizers = append(dpuSet.Finalizers, DpuSetFinalizer)
-			if err := r.Update(ctx, dpuSet); err != nil {
-				logger.Error(err, "Failed to setup DPUSet finalizer", "DPUSet", dpuSet)
-				return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to setup DPUSet finalizer")
-			}
-			return ctrl.Result{}, nil
-		}
 	}
 
 	if err := r.createDPUClusterKubeConfig(ctx, dpuSet); err != nil {
@@ -486,7 +491,7 @@ func (r *DpuSetReconciler) finalizeDPUSet(ctx context.Context, dpuSet *provision
 		return err
 	}
 
-	dpuSet.Finalizers = nil
+	controllerutil.RemoveFinalizer(dpuSet, provisioningv1.DpuSetFinalizer)
 	if err := r.Client.Update(ctx, dpuSet); err != nil {
 		return err
 	}

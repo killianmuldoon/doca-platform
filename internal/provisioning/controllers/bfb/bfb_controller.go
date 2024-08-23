@@ -30,13 +30,13 @@ import (
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
 	// controller name that will be used when reporting events
 	BfbControllerName = "bfb"
-	BFBFinalizer      = "provisioning.dpf.nvidia.com/bfb-protection"
 )
 
 // BfbReconciler reconciles a Bfb object
@@ -61,6 +61,15 @@ func (r *BfbReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 		logger.Error(err, "Failed to get BFB", "BFB", bfb)
 		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to get BFB")
+	}
+
+	// Add finalizer if not set.
+	if !controllerutil.ContainsFinalizer(bfb, provisioningv1.BFBFinalizer) && bfb.DeletionTimestamp.IsZero() {
+		controllerutil.AddFinalizer(bfb, provisioningv1.BFBFinalizer)
+		if err := r.Client.Update(ctx, bfb); err != nil {
+			return ctrl.Result{}, errors.Wrap(err, "failed to add BFB finalizer")
+		}
+		return ctrl.Result{}, nil
 	}
 
 	currentState := state.GetBfbState(bfb)

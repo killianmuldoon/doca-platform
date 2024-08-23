@@ -26,6 +26,8 @@ import (
 type StrategyType string
 
 const (
+	DpuSetFinalizer = "provisioning.dpf.nvidia.com/dpuset-protection"
+
 	// Delete all the existing DPUs before creating new ones.
 	RecreateStrategyType StrategyType = "Recreate"
 

@@ -26,6 +26,7 @@ import (
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type bfbDeletingState struct {
@@ -49,7 +50,7 @@ func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client) (p
 		return *state, err
 	}
 
-	st.bfb.Finalizers = nil
+	controllerutil.RemoveFinalizer(st.bfb, provisioningv1.BFBFinalizer)
 	if err := client.Update(ctx, st.bfb); err != nil {
 		return *state, err
 	}
