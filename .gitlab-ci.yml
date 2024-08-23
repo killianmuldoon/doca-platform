@@ -144,13 +144,15 @@ e2e:
     - ./hack/scripts/ci_helm_docker_login.sh
     # artifacts are not correctly delete when gitlab restarts jobs.
     - rm -rf artifacts
+    # empty the minikube image cache
+    - rm -rf  ~/.minikube/cache/images/*
+    - rm -f ~/.minikube/config/config.json
     - make clean-test-env generate test-release-e2e-quick test-env-e2e
   script:
     - make test-deploy-operator-helm
     - make test-e2e
   after_script:
     - ./hack/scripts/slack-notification.sh
-    - make test-cache-images
     - make clean-test-env
 
 e2e-dpf-standalone:

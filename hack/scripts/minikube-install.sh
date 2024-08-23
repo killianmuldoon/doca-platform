@@ -69,8 +69,6 @@ MINIKUBE_ARGS="${MINIKUBE_ARGS:-"\
   --kubernetes-version $MINIKUBE_KUBERNETES_VERSION \
   --registry-mirror="$MINIKUBE_DOCKER_MIRROR" \
   --preload=true \
-  --cache-images=true \
-  --addons registry \
   --addons metallb"}"
 
 MINIKUBE_EXTRA_ARGS="${MINIKUBE_EXTRA_ARGS:-""}"
@@ -108,6 +106,11 @@ data:
       protocol: layer2
       addresses: [${MINIKUBE_LB_RANGE}]
 EOF
+
+## Install cert-manager
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml \
+	&& echo "Waiting for cert-manager deployment to be ready." \
+	&& kubectl -n cert-manager rollout status deploy cert-manager-webhook --timeout=180s
 
 ## Set environment variables to use the Minikube VM docker build for
 if [[ "$USE_MINIKUBE_DOCKER" == "true" ]]; then
