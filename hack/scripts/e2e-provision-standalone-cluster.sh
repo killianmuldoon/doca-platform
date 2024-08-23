@@ -39,11 +39,12 @@ mkdir -p /bfb-images
 cp /auto/sw_mc_soc_release/doca_dpu/doca_2.7.0/GA/bfbs/qp/bf-bundle*ubuntu-22.04_unsigned.bfb /bfb-images
 
 # Run DPF Standalone from https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-standalone
-docker run --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone:latest \
+docker run --pull=always --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone:latest \
     -u root \
     -e ansible_password=$ANSIBLE_PASSWORD \
     -e ngc_key=$NGC_API_KEY \
-    -e operator_version=v0.1.0-latest \
     -e '{"deploy_dpf_bfb_pvc": false}' \
+    -e '{"deploy_dpf_create_node_feature_rule": false}' \
+    -e '{"deploy_dpf_operator_chart": false}' \
     -e '{"deploy_dpf_create_operator_config": false}' \
     install.yml

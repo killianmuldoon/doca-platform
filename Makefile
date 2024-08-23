@@ -375,13 +375,17 @@ test-report: envtest gotestsum ## Run tests and generate a junit style report
 	$(GOTESTSUM) --junitfile junit.xml --raw-command cat junit.stdout
 	exit $$(cat junit.exitcode)
 
-TEST_CLUSTER_NAME := dpf-test
-test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUBST) ## Setup a Kubernetes environment to run tests.
+.PHONY: test-release-e2e-quick
+test-release-e2e-quick: # Build images required for the quick DPF e2e test.
 	# Build and push the dpuservice, provisioning, operator and operator-bundle images.
-	$(MAKE) docker-build-dpf-system docker-push-dpf-system
+    # The quick test will only run on amd64 nodes.
+	$(MAKE) docker-build-dpf-system-for-amd64 docker-push-dpf-system-for-amd64
 
 	# Build and push all the helm charts
 	$(MAKE) helm-package-all helm-push-all
+
+TEST_CLUSTER_NAME := dpf-test
+test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUBST) ## Setup a Kubernetes environment to run tests.
 
 	# Create a minikube cluster to host the test.
 	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
