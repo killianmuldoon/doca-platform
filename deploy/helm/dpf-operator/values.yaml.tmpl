@@ -9,6 +9,14 @@ node-feature-discovery:
   enabled: true
 kube-state-metrics:
   enabled: false
+prometheus:
+  enabled: false
+  # We have to disable kube-state-metrics that is a dependency from Prometheus.
+  # Adding KSM manually has the benefit that we can only enable KSM, without Prometheus.
+  kube-state-metrics:
+    enabled: false
+grafana:
+  enabled: false
 
 controllerManager:
   containerSecurityContext:

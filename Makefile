@@ -209,6 +209,7 @@ generate-manifests-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVSUBST) $(HELM) 
 	$(HELM) repo add argo https://argoproj.github.io/argo-helm
 	$(HELM) repo add nfd https://kubernetes-sigs.github.io/node-feature-discovery/charts
 	$(HELM) repo add prometheus https://prometheus-community.github.io/helm-charts
+	$(HELM) repo add grafana https://grafana.github.io/helm-charts
 	$(HELM) dependency build $(OPERATOR_HELM_CHART)
 
 
@@ -329,9 +330,14 @@ generate-manifests-ovs-cni: $(ENVSUBST) ## Generate values for OVS helm chart.
 generate-operator-bundle: $(OPERATOR_SDK) $(HELM) generate-manifests-operator ## Generate bundle manifests and metadata, then validate generated files.
 	# First template the actual manifests to include using helm.
 	mkdir -p hack/charts/dpf-operator/
-	$(HELM) template --namespace $(OPERATOR_NAMESPACE) --set image=$(DPF_SYSTEM_IMAGE):$(TAG) $(OPERATOR_HELM_CHART) \
-	--set argo-cd.enabled=false --set node-feature-discovery.enabled=false --set kube-state-metrics.enabled=false \
-	--set templateOperatorBundle=true > hack/charts/dpf-operator/manifests.yaml
+	$(HELM) template --namespace $(OPERATOR_NAMESPACE) \
+		--set image=$(DPF_SYSTEM_IMAGE):$(TAG) $(OPERATOR_HELM_CHART) \
+		--set argo-cd.enabled=false \
+		--set node-feature-discovery.enabled=false \
+		--set kube-state-metrics.enabled=false \
+		--set grafana.enabled=false \
+		--set prometheus.enabled=false \
+		--set templateOperatorBundle=true > hack/charts/dpf-operator/manifests.yaml
 	# Next generate the operator bundle.
     # Note we need to explicitly set stdin to null using < /dev/null.
 	$(OPERATOR_SDK) generate bundle \
@@ -411,10 +417,19 @@ test-env-dpf-standalone:
 	$(CURDIR)/hack/scripts/e2e-provision-standalone-cluster.sh
 
 OPERATOR_NAMESPACE ?= dpf-operator-system
+DEPLOY_KSM ?= false
+DEPLOY_GRAFANA ?= false
+DEPLOY_PROMETHEUS ?= false
 
 .PHONY: test-deploy-operator-helm
 test-deploy-operator-helm: $(HELM) ## Deploy the DPF Operator using helm
-	$(HELM) upgrade --install --create-namespace --namespace $(OPERATOR_NAMESPACE) --set image=$(DPF_SYSTEM_IMAGE):$(TAG) --set imagePullSecrets[0].name=dpf-pull-secret dpf-operator $(OPERATOR_HELM_CHART)
+	$(HELM) upgrade --install --create-namespace --namespace $(OPERATOR_NAMESPACE) \
+		--set image=$(DPF_SYSTEM_IMAGE):$(TAG) \
+		--set imagePullSecrets[0].name=dpf-pull-secret \
+		--set kube-state-metrics.enabled=$(DEPLOY_KSM) \
+		--set grafana.enabled=$(DEPLOY_GRAFANA) \
+		--set prometheus.enabled=$(DEPLOY_PROMETHEUS) \
+		dpf-operator $(OPERATOR_HELM_CHART)
 
 OLM_VERSION ?= v0.28.0
 OPERATOR_REGISTRY_VERSION ?= v1.43.1
