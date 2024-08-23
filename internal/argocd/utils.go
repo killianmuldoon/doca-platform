@@ -31,6 +31,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+const ArgoApplicationFinalizer = "resources-finalizer.argocd.argoproj.io"
+
 func NewAppProject(namespace, name string, clusters []types.NamespacedName) *argov1.AppProject {
 	project := argov1.AppProject{
 		TypeMeta: metav1.TypeMeta{
@@ -78,7 +80,7 @@ func NewAppProject(namespace, name string, clusters []types.NamespacedName) *arg
 	return &project
 }
 
-func NewApplication(namespace, projectName string, cluster types.NamespacedName, dpuService *dpuservicev1.DPUService, values *runtime.RawExtension) *argov1.Application {
+func NewApplication(namespace, projectName string, dpuService *dpuservicev1.DPUService, values *runtime.RawExtension, clusterName string) *argov1.Application {
 	return &argov1.Application{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       argoapplication.ApplicationKind,
@@ -86,17 +88,17 @@ func NewApplication(namespace, projectName string, cluster types.NamespacedName,
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			// TODO: Revisit this naming.
-			Name:      fmt.Sprintf("%v-%v", cluster.Name, dpuService.Name),
+			Name:      fmt.Sprintf("%v-%v", clusterName, dpuService.Name),
 			Namespace: namespace,
 			// TODO: Consider adding labels for the Application.
 			Labels: map[string]string{
-				controlplanemeta.DPFClusterLabelKey:      cluster.Name,
+				controlplanemeta.DPFClusterLabelKey:      clusterName,
 				dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
 				dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
 				operatorv1.DPFComponentLabelKey:          "dpuservice-manager",
 			},
 			// This finalizer is what enables cascading deletion in ArgoCD.
-			Finalizers:  []string{"resources-finalizer.argocd.argoproj.io"},
+			Finalizers:  []string{ArgoApplicationFinalizer},
 			Annotations: nil,
 		},
 		Spec: argov1.ApplicationSpec{
@@ -118,7 +120,7 @@ func NewApplication(namespace, projectName string, cluster types.NamespacedName,
 			},
 			Destination: argov1.ApplicationDestination{
 				// TODO: We should ensure cluster names are unique.
-				Name: cluster.Name,
+				Name: clusterName,
 				// TODO: Either all resources have namespace defined or else they're deployed to the default namespace. Reconsider this.
 				Namespace: dpuService.Namespace,
 			},

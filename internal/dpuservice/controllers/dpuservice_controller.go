@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -236,7 +237,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationPrereqsReconciled)
 
 	// Update the ArgoApplication for all target clusters.
-	if err = r.reconcileApplication(ctx, argoCDNamespace, clusters, dpuService); err != nil {
+	if err = r.reconcileApplication(ctx, clusters, dpuService); err != nil {
 		message := fmt.Sprintf("Unable to reconcile Applications: %v", err)
 		conditions.AddFalse(
 			dpuService,
@@ -450,28 +451,48 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, argoCDNa
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, argoCDNamespace string, clusters []controlplane.DPFCluster, dpuService *dpuservicev1.DPUService) error {
-	log := ctrllog.FromContext(ctx)
+func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, clusters []controlplane.DPFCluster, dpuService *dpuservicev1.DPUService) error {
+	project := getProjectName(dpuService)
+	if project == dpuAppProjectName {
+		for _, cluster := range clusters {
+			if err := r.ensureApplication(ctx, dpuService, cluster.Name); err != nil {
+				return err
+			}
+		}
+	} else {
+		return r.ensureApplication(ctx, dpuService, "in-cluster")
+	}
+	return nil
+}
 
+func (r *DPUServiceReconciler) ensureApplication(ctx context.Context, dpuService *dpuservicev1.DPUService, applicationName string) error {
+	log := ctrllog.FromContext(ctx)
 	project := getProjectName(dpuService)
 	values, err := argoCDValuesFromDPUService(dpuService)
 	if err != nil {
 		return err
 	}
-	if project == dpuAppProjectName {
-		for _, cluster := range clusters {
-			clusterKey := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name}
-			argoApplication := argocd.NewApplication(argoCDNamespace, project, clusterKey, dpuService, values)
 
-			log.Info("Patching Application", "Application", klog.KObj(argoApplication))
-			if err := r.Client.Patch(ctx, argoApplication, client.Apply, applyPatchOptions...); err != nil {
-				return err
-			}
+	argoApplication := argocd.NewApplication(argoCDNamespace, project, dpuService, values, applicationName)
+	gotArgoApplication := &argov1.Application{}
+
+	// If Application does not exist, create it. Otherwise, patch the object.
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(argoApplication), gotArgoApplication); apierrors.IsNotFound(err) {
+		log.Info("Creating Application", "Application", klog.KObj(argoApplication))
+		if err := r.Client.Create(ctx, argoApplication); err != nil {
+			return err
 		}
 	} else {
-		argoApplication := argocd.NewApplication(argoCDNamespace, project, types.NamespacedName{Namespace: "*", Name: "in-cluster"}, dpuService, values)
-		log.Info("Patching Application", "Application", klog.KObj(argoApplication))
-		if err := r.Client.Patch(ctx, argoApplication, client.Apply, applyPatchOptions...); err != nil {
+		// Return early if the spec has not changed.
+		if reflect.DeepEqual(gotArgoApplication.Spec, argoApplication.Spec) {
+			return nil
+		}
+
+		// Copy spec to the original object and update it.
+		gotArgoApplication.Spec = argoApplication.Spec
+
+		log.Info("Updating Application", "Application", klog.KObj(gotArgoApplication))
+		if err := r.Client.Update(ctx, gotArgoApplication); err != nil {
 			return err
 		}
 	}
