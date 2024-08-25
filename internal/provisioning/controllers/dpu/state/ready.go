@@ -24,6 +24,7 @@ import (
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/dms"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/hostnetwork"
 
 	nodeMaintenancev1beta1 "github.com/medik8s/node-maintenance-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -104,6 +105,18 @@ func healthyCheck(ctx context.Context, dpu *provisioningv1.Dpu, client client.Cl
 	if err := client.Get(ctx, nn, dmsPod); err != nil {
 		if apierrors.IsNotFound(err) {
 			return dms.CreateDMSPod(ctx, client, dpu, option)
+		}
+		return err
+	}
+
+	nn = types.NamespacedName{
+		Namespace: dpu.Namespace,
+		Name:      cutil.GenerateHostnetworkPodName(dpu.Name),
+	}
+	hostnetworkPod := &corev1.Pod{}
+	if err := client.Get(ctx, nn, hostnetworkPod); err != nil {
+		if apierrors.IsNotFound(err) {
+			return hostnetwork.CreateHostNetworkSetupPod(ctx, client, dpu, option)
 		}
 		return err
 	}

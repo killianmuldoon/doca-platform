@@ -19,8 +19,6 @@ package dms
 import (
 	"context"
 	"fmt"
-	"regexp"
-	"strings"
 	"time"
 
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
@@ -51,25 +49,6 @@ const (
 	ContainerPortStr string = "9339"
 	DMSImageFolder   string = "/bfb-folder"
 )
-
-func getPCIAddrFromLabel(labels map[string]string, removePrefix bool) (string, error) {
-	// the value of pci address from the node label likes: 0000_4b_00
-	if pci_address, ok := labels[cutil.DpuPCIAddressLabel]; ok {
-		if removePrefix {
-			// remove 0000- prefix
-			underscoreIndex := strings.Index(pci_address, "-")
-			if underscoreIndex != -1 {
-				pci_address = pci_address[underscoreIndex+1:]
-			}
-		}
-		// replace - to :
-		result := strings.ReplaceAll(pci_address, "-", ":")
-		// 4b:00
-		return result, nil
-	}
-
-	return "", fmt.Errorf("not found pci address")
-}
 
 func createIssuer(ctx context.Context, client client.Client, name string, namespace string, secretName string, owner *metav1.OwnerReference) error {
 	issuer := &certmanagerv1.Issuer{
@@ -224,19 +203,6 @@ func createRootCaCert(ctx context.Context, client client.Client, name string, na
 	return nil
 }
 
-func getNumOfVFsFromFlavor(flavor *provisioningv1.DPUFlavor) (string, bool) {
-	regex := regexp.MustCompile(`^NUM_OF_VFS=([0-9]+)`)
-	for _, nvconfig := range flavor.Spec.NVConfig {
-		for _, parmeter := range nvconfig.Parameters {
-			matches := regex.FindStringSubmatch(parmeter)
-			if len(matches) == 2 {
-				return matches[1], true
-			}
-		}
-	}
-	return "", false
-}
-
 func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1.Dpu, option dutil.DPUOptions) error {
 	logger := log.FromContext(ctx)
 	dmsPodName := cutil.GenerateDMSPodName(dpu.Name)
@@ -328,35 +294,15 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 	}
 
 	removePrefix := true
-	pci_address, err := getPCIAddrFromLabel(dpu.Labels, removePrefix)
+	pci_address, err := cutil.GetPCIAddrFromLabel(dpu.Labels, removePrefix)
 	if err != nil {
 		logger.Error(err, "Failed to get pci address from node label", "dms", err)
 		return err
-	}
-
-	num_of_vfs := NumofVFDefaultValue
-	flavor := &provisioningv1.DPUFlavor{}
-	if err := client.Get(ctx, types.NamespacedName{
-		Namespace: dpu.Namespace,
-		Name:      dpu.Spec.DPUFlavor,
-	}, flavor); err != nil {
-		return err
-	}
-
-	if num, ok := getNumOfVFsFromFlavor(flavor); ok {
-		num_of_vfs = num
 	}
 
 	logger.V(3).Info(fmt.Sprintf("create %s DMS pod", dmsPodName))
 	dmsCommand := fmt.Sprintf("./rshim.sh && %s -bind_address %s:%s -v 99 -auth cert -ca /etc/ssl/certs/server/ca.crt -key /etc/ssl/certs/server/tls.key -cert /etc/ssl/certs/server/tls.crt -password %s -username %s -image_folder %s -target_pci %s -exec_timeout %d",
 		dmsPath, nodeInternalIP, ContainerPortStr, password, username, DMSImageFolder, pci_address, option.DMSTimeout)
-
-	removePrefix = false
-	pci_address, err = getPCIAddrFromLabel(dpu.Labels, removePrefix)
-	if err != nil {
-		logger.Error(err, "Failed to get pci address from node label", "dms", err)
-		return err
-	}
 
 	hostPathType := corev1.HostPathDirectory
 	pod := &corev1.Pod{
@@ -367,37 +313,6 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 		},
 		Spec: corev1.PodSpec{
 			HostNetwork: true,
-			InitContainers: []corev1.Container{
-				{
-					Name:            "hostnetwork",
-					Image:           option.HostnetworkImageWithTag,
-					ImagePullPolicy: corev1.PullAlways,
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "dev",
-							MountPath: "/dev",
-						},
-					},
-					SecurityContext: &corev1.SecurityContext{
-						Privileged: &[]bool{true}[0],
-					},
-					Env: []corev1.EnvVar{
-						{
-							Name:  "device_pci_address",
-							Value: pci_address,
-						},
-						{
-							Name:  "num_of_vfs",
-							Value: num_of_vfs,
-						},
-					},
-
-					Command: []string{"/bin/bash", "-c", "--"},
-					Args: []string{
-						"hostnetwork.sh",
-					},
-				},
-			},
 			Containers: []corev1.Container{
 				{
 					Name:            "dms",

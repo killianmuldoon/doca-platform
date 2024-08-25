@@ -108,6 +108,10 @@ func GenerateCASecretName(dpuNamespace string) string {
 	return fmt.Sprintf("%s-%s", dpuNamespace, "ca-secret")
 }
 
+func GenerateHostnetworkPodName(dpuName string) string {
+	return fmt.Sprintf("%s-%s", dpuName, "hostnetwork")
+}
+
 func GenerateDMSServerSecretName(dpuName string) string {
 	return fmt.Sprintf("%s-%s", dpuName, "server-secret")
 }
@@ -168,6 +172,25 @@ func RemoteExec(ns, name, container, cmd string) (string, error) {
 	}
 
 	return out_buf.String(), nil
+}
+
+func GetPCIAddrFromLabel(labels map[string]string, removePrefix bool) (string, error) {
+	// the value of pci address from the node label likes: 0000_4b_00
+	if pci_address, ok := labels[DpuPCIAddressLabel]; ok {
+		if removePrefix {
+			// remove 0000- prefix
+			underscoreIndex := strings.Index(pci_address, "-")
+			if underscoreIndex != -1 {
+				pci_address = pci_address[underscoreIndex+1:]
+			}
+		}
+		// replace - to :
+		result := strings.ReplaceAll(pci_address, "-", ":")
+		// 4b:00
+		return result, nil
+	}
+
+	return "", fmt.Errorf("not found pci address")
 }
 
 func RetrieveK8sClientUsingKubeConfig(ctx context.Context, client crclient.Client, namespace string, name string) (crclient.Client, error) {
