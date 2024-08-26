@@ -49,11 +49,11 @@ spec:
                 description: |-
                   Specifies bfb file name on the volume or
                   use CRD name in case it is omitted.
-                pattern: .+\.(bfb)$
+                pattern: .+\.bfb$
                 type: string
               url:
                 description: The url of the bfb image to download.
-                pattern: .+\.(bfb)$
+                pattern: ^(http|https)://.+\.bfb$
                 type: string
             required:
             - url

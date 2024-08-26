@@ -110,10 +110,30 @@ var _ = Describe("Bfb", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("spec.url is invalid (not *.bfb)", func() {
+		It("spec.url validation", func() {
 			obj := createObj("obj-5")
 			obj.Spec.URL = "http://example.com/dummy.tar"
 			err := k8sClient.Create(ctx, obj)
+			Expect(err).To(HaveOccurred())
+
+			obj = createObj("obj-5-0")
+			obj.Spec.URL = "http://8.8.8.8/dummy.bfb"
+			err = k8sClient.Create(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+
+			obj = createObj("obj-5-1")
+			obj.Spec.URL = "https://example.com/dummy.bfb"
+			err = k8sClient.Create(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+
+			obj = createObj("obj-5-2")
+			obj.Spec.URL = "https://8.8.8.8/dummy.bfb"
+			err = k8sClient.Create(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+
+			obj = createObj("obj-5-3")
+			obj.Spec.URL = "example.com/dummy.bfb"
+			err = k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
 

@@ -47,12 +47,12 @@ const (
 type BfbSpec struct {
 	// Specifies bfb file name on the volume or
 	// use CRD name in case it is omitted.
-	// +kubebuilder:validation:Pattern=`.+\.(bfb)$`
+	// +kubebuilder:validation:Pattern=`.+\.bfb$`
 	// +optional
 	FileName string `json:"file_name,omitempty"`
 
 	// The url of the bfb image to download.
-	// +kubebuilder:validation:Pattern=`.+\.(bfb)$`
+	// +kubebuilder:validation:Pattern=`^(http|https)://.+\.bfb$`
 	// +required
 	URL string `json:"url"`
 

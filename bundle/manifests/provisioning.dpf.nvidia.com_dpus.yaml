@@ -78,7 +78,7 @@ spec:
                   rule: self == oldSelf
               nodeEffect:
                 default:
-                  no_effect: true
+                  drain: true
                 description: Specifies how changes to the DPU should affect the Node
                 properties:
                   custom_label:

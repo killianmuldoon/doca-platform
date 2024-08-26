@@ -105,7 +105,7 @@ var _ = Describe("Dpu", func() {
 			obj_fetched := &Dpu{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.NodeEffect.NoEffect).To(BeTrue())
+			Expect(obj_fetched.Spec.NodeEffect.Drain).To(BeTrue())
 		})
 
 		It("spec.nodeName is immutable", func() {
