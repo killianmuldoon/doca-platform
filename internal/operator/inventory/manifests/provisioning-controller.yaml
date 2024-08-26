@@ -50,24 +50,45 @@ spec:
           metadata:
             type: object
           spec:
-            description: BfbSpec defines the desired state of Bfb
+            description: BfbSpec defines the content of Bfb
             properties:
               bf_cfg:
+                description: |-
+                  Describes the bf.cfg config map which will be used for bfb installation,
+                  it is passed to DMS on each BFB installation call,
+                  It overwites default bf.cfg and must contain relevant DPF logic.
                 type: string
               file_name:
+                description: |-
+                  Specifies bfb file name on the volume or
+                  use CRD name in case it is omitted.
+                pattern: .+\.(bfb)$
                 type: string
               url:
+                description: The url of the bfb image to download.
+                pattern: .+\.(bfb)$
                 type: string
             required:
             - url
             type: object
+            x-kubernetes-validations:
+            - message: Value is immutable
+              rule: self == oldSelf
           status:
             description: BfbStatus defines the observed state of Bfb
             properties:
               phase:
-                description: BfbPhase is a label for the condition of a DPU at the
-                  current time.
+                default: Initializing
+                description: The current state of Bfb.
+                enum:
+                - Initializing
+                - Downloading
+                - Ready
+                - Deleting
+                - Error
                 type: string
+            required:
+            - phase
             type: object
         type: object
     served: true
@@ -114,6 +135,7 @@ spec:
           metadata:
             type: object
           spec:
+            description: DPUFlavorSpec defines the content of DPUFlavor
             properties:
               bfcfgParameters:
                 items:
@@ -246,12 +268,14 @@ spec:
             description: DpuSpec defines the desired state of Dpu
             properties:
               bfb:
+                description: Specifies name of the bfb CR to use for this DPU
                 type: string
               dpuFlavor:
                 description: DPUFlavor is the name of the DPUFlavor that will be used
                   to deploy the DPU.
                 type: string
               k8s_cluster:
+                description: Specifies details on the K8S cluster to join
                 properties:
                   name:
                     type: string
@@ -265,7 +289,13 @@ spec:
                 - name
                 - namespace
                 type: object
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               nodeEffect:
+                default:
+                  no_effect: true
+                description: Specifies how changes to the DPU should affect the Node
                 properties:
                   custom_label:
                     additionalProperties:
@@ -304,9 +334,17 @@ spec:
                     type: object
                 type: object
               nodeName:
+                description: Specifies Node this DPU belongs to
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               pci_address:
+                description: The PCI device related DPU
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
             required:
             - bfb
             - dpuFlavor
@@ -403,10 +441,23 @@ spec:
                 type: string
               phase:
                 description: high-level summary of where the DPU is in its lifecycle
+                enum:
+                - Initializing
+                - Node Effect
+                - Pending
+                - DMSDeployment
+                - OS Installing
+                - DPU Cluster Config
+                - Ready
+                - Error
+                - Deleting
+                - Rebooting
                 type: string
               required_reset:
                 description: whether require reset of DPU
                 type: boolean
+            required:
+            - phase
             type: object
         type: object
     served: true
@@ -597,8 +648,11 @@ spec:
                         x-kubernetes-int-or-string: true
                     type: object
                   type:
-                    description: Can be "Recreate" or "RollingUpdate". Default is
-                      RollingUpdate.
+                    default: Recreate
+                    description: Can be "Recreate" or "RollingUpdate".
+                    enum:
+                    - Recreate
+                    - RollingUpdate
                     type: string
                 type: object
             type: object

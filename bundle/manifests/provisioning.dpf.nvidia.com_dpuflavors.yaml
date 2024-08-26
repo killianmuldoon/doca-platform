@@ -39,6 +39,7 @@ spec:
           metadata:
             type: object
           spec:
+            description: DPUFlavorSpec defines the content of DPUFlavor
             properties:
               bfcfgParameters:
                 items:
