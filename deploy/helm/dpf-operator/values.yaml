@@ -1,31 +1,19 @@
-## argo-cd, node-feature-discovery and kube-state-metrics are installed as dependencies and configured here.
-argo-cd:
-  enabled: true
-  dex:
-    enabled: false
-  notifications:
-    enabled: false
-node-feature-discovery:
-  enabled: true
-kube-state-metrics:
-  enabled: false
-prometheus:
-  enabled: false
-  # We have to disable kube-state-metrics that is a dependency from Prometheus.
-  # Adding KSM manually has the benefit that we can only enable KSM, without Prometheus.
-  kube-state-metrics:
-    enabled: false
-grafana:
-  enabled: false
-  datasources:
-    datasources.yaml:
-      apiVersion: 1
-      datasources:
-      - name: prometheus
-        type: prometheus
-        url: http://dpf-operator-prometheus-server
-        access: proxy
-        isDefault: true
+## dpf-operator configuration.
+controllerManager:
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+  image:
+    repository: example.com/dpf-system
+    tag: v0.1.0
+  replicas: 1
+  serviceAccount:
+    annotations: {}
+imagePullSecrets: []
+
+## kamaji configuration.
 kamaji-etcd:
   enabled: true
   datastore:
@@ -44,18 +32,60 @@ kamaji:
     image:
       tag: v1.6.5
 
-
-
-controllerManager:
-  containerSecurityContext:
-    allowPrivilegeEscalation: false
-    capabilities:
-      drop:
-      - ALL
-  image:
-    repository: example.com/dpf-system
-    tag: v0.1.0
-  replicas: 1
-  serviceAccount:
-    annotations: {}
-imagePullSecrets: []
+## installed dependencies except for kamaji.
+argo-cd:
+  enabled: true
+  dex:
+    enabled: false
+  notifications:
+    enabled: false
+node-feature-discovery:
+  enabled: true
+prometheus:
+  enabled: false
+  # We have to disable kube-state-metrics that is a dependency from Prometheus.
+  # Adding KSM manually has the benefit that we can only enable KSM, without Prometheus.
+  kube-state-metrics:
+    enabled: false
+grafana:
+  enabled: false
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: prometheus
+          type: prometheus
+          url: http://dpf-operator-prometheus-server
+          access: proxy
+          isDefault: true
+kube-state-metrics:
+  enabled: false
+  extraArgs:
+    - --custom-resource-state-config-file=/etc/customresourcestate/config.yaml
+  volumes:
+    - configMap:
+        defaultMode: 420
+        name: customresourcestate-config
+      name: customresourcestate-config
+  volumeMounts:
+    - mountPath: /etc/customresourcestate
+      name: customresourcestate-config
+      readOnly: true
+  rbac:
+    extraRules:
+      - apiGroups: ["svc.dpf.nvidia.com", "operator.dpf.nvidia.com", "sfc.dpf.nvidia.com"]
+        resources:
+          - dpuservices
+          - dpuservices/status
+          - dpfoperatorconfigs
+          - dpfoperatorconfigs/status
+          - dpuservicechains
+          - dpuservicechains/status
+          - dpuserviceinterfaces
+          - dpuserviceinterfaces/status
+          - dpuserviceipams
+          - dpuserviceipams/status
+        verbs: ["list", "watch"]
+      - apiGroups: ["apiextensions.k8s.io"]
+        resources: ["customresourcedefinitions"]
+        verbs: ["list", "watch"]
