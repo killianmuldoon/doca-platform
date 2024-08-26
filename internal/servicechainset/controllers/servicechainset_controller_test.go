@@ -181,9 +181,74 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			}, timeout*30, interval).Should(Succeed())
 		})
 	})
+	Context("Validating ServiceChainSet creation", func() {
+		var cleanupObjects []client.Object
+		BeforeEach(func() {
+			cleanupObjects = []client.Object{}
+		})
+		AfterEach(func() {
+			By("Cleaning up the objects")
+			Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
+		})
+		It("should successfully create the ServiceChainSet with port service interface", func() {
+			By("creating ServiceInterfaceSet, with Node Selector")
+			cleanupObjects = append(cleanupObjects, createServiceChainSetWithServiceInterface(ctx,
+				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, false))
+		})
+		It("should successfully create the ServiceChainSet with port service interface and references", func() {
+			By("creating ServiceInterfaceSet, with Node Selector")
+			cleanupObjects = append(cleanupObjects, createServiceChainSetWithServiceInterface(ctx,
+				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, true))
+		})
+		It("should successfully create the ServiceChainSet with port service", func() {
+			By("creating ServiceInterfaceSet, with Node Selector")
+			cleanupObjects = append(cleanupObjects, createServiceChainSetWithService(ctx,
+				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, false))
+		})
+		It("should successfully create the ServiceChainSet with port service and references", func() {
+			By("creating ServiceInterfaceSet, with Node Selector")
+			cleanupObjects = append(cleanupObjects, createServiceChainSetWithService(ctx,
+				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, true))
+		})
+		It("should fail to create the ServiceChainSet with invalid spec", func() {
+			By("creating ServiceInterfaceSet, with Node Selector")
+			createInvalidServiceChainSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}})
+		})
+	})
 })
 
 func createServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelector) *sfcv1.ServiceChainSet {
+	scs := serviceChainSet(labelSelector)
+	scs.Spec.Template.Spec = *getTestServiceChainSpec()
+
+	Expect(testClient.Create(ctx, scs)).NotTo(HaveOccurred())
+	return scs
+}
+
+func createServiceChainSetWithService(ctx context.Context, labelSelector *metav1.LabelSelector, ref bool) *sfcv1.ServiceChainSet {
+	scs := serviceChainSet(labelSelector)
+	scs.Spec.Template.Spec = *getTestServiceChainSpecWithService(ref)
+
+	Expect(testClient.Create(ctx, scs)).NotTo(HaveOccurred())
+	return scs
+}
+
+func createServiceChainSetWithServiceInterface(ctx context.Context, labelSelector *metav1.LabelSelector, ref bool) *sfcv1.ServiceChainSet {
+	scs := serviceChainSet(labelSelector)
+	scs.Spec.Template.Spec = *getTestServiceChainSpecWithServiceInterface(ref)
+
+	Expect(testClient.Create(ctx, scs)).NotTo(HaveOccurred())
+	return scs
+}
+
+func createInvalidServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelector) {
+	scs := serviceChainSet(labelSelector)
+	scs.Spec.Template.Spec = *getInvalidTestServiceChainSpec()
+
+	Expect(testClient.Create(ctx, scs)).To(HaveOccurred())
+}
+
+func serviceChainSet(labelSelector *metav1.LabelSelector) *sfcv1.ServiceChainSet {
 	scs := &sfcv1.ServiceChainSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      resourceName,
@@ -192,14 +257,12 @@ func createServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelec
 		Spec: sfcv1.ServiceChainSetSpec{
 			NodeSelector: labelSelector,
 			Template: sfcv1.ServiceChainSpecTemplate{
-				Spec: *getTestServiceChainSpec(),
 				ObjectMeta: sfcv1.ObjectMeta{
 					Labels: testutils.GetTestLabels(),
 				},
 			},
 		},
 	}
-	Expect(testClient.Create(ctx, scs)).NotTo(HaveOccurred())
 	return scs
 }
 
@@ -213,6 +276,92 @@ func getTestServiceChainSpec() *sfcv1.ServiceChainSpec {
 							Reference: &sfcv1.ObjectRef{
 								Name: "p0",
 							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func getTestServiceChainSpecWithService(ref bool) *sfcv1.ServiceChainSpec {
+	var (
+		reference   *sfcv1.ObjectRef
+		matchLabels map[string]string
+	)
+	if ref {
+		reference = &sfcv1.ObjectRef{
+			Name: "p0",
+		}
+	} else {
+		matchLabels = map[string]string{"role": "firewall"}
+	}
+
+	return &sfcv1.ServiceChainSpec{
+		Switches: []sfcv1.Switch{
+			{
+				Ports: []sfcv1.Port{
+					{
+						Service: &sfcv1.Service{
+							InterfaceName: "eth0",
+							Reference:     reference,
+							MatchLabels:   matchLabels,
+							IPAM: &sfcv1.IPAM{
+								Reference:   reference,
+								MatchLabels: matchLabels,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func getInvalidTestServiceChainSpec() *sfcv1.ServiceChainSpec {
+	return &sfcv1.ServiceChainSpec{
+		Switches: []sfcv1.Switch{
+			{
+				Ports: []sfcv1.Port{
+					{
+						Service: &sfcv1.Service{
+							InterfaceName: "eth0",
+							Reference: &sfcv1.ObjectRef{
+								Name: "p0",
+							},
+						},
+						ServiceInterface: &sfcv1.ServiceIfc{
+							Reference: &sfcv1.ObjectRef{
+								Name: "p0",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func getTestServiceChainSpecWithServiceInterface(ref bool) *sfcv1.ServiceChainSpec {
+	var (
+		reference   *sfcv1.ObjectRef
+		matchLabels map[string]string
+	)
+	if ref {
+		reference = &sfcv1.ObjectRef{
+			Name: "p0",
+		}
+	} else {
+		matchLabels = map[string]string{"role": "firewall"}
+	}
+	return &sfcv1.ServiceChainSpec{
+		Switches: []sfcv1.Switch{
+			{
+				Ports: []sfcv1.Port{
+					{
+						ServiceInterface: &sfcv1.ServiceIfc{
+							Reference:   reference,
+							MatchLabels: matchLabels,
 						},
 					},
 				},

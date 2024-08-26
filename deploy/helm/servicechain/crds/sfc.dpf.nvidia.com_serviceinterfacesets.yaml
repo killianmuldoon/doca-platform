@@ -181,10 +181,13 @@ spec:
                     - interfaceType
                     type: object
                     x-kubernetes-validations:
-                    - message: vlan, pf, vf must have corresponding fields
+                    - message: '`for interfaceType=vlan, vlan must be set; for interfaceType=pf,
+                        pf must be set; for interfaceType=vf, vf must be set; for
+                        interfaceType=physical, interfaceName must be set'
                       rule: (self.interfaceType == 'vlan' && has(self.vlan)) || (self.interfaceType
                         == 'pf' && has(self.pf)) || (self.interfaceType == 'vf' &&
-                        has(self.vf))
+                        has(self.vf)) || (self.interfaceType == 'physical' && has(self.interfaceName))
+                        || (self.interfaceType == 'ovn')
                 required:
                 - spec
                 type: object
