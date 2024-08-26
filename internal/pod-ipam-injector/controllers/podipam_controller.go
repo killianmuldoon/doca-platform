@@ -232,8 +232,10 @@ func (r *PodIpamReconciler) getPoolsConfig(ctx context.Context, ifcToSvc map[str
 }
 
 func (r *PodIpamReconciler) getPoolConfig(ctx context.Context, ipam *sfcv1.IPAM) (*poolConfig, error) {
-	poolCfg := &poolConfig{
-		AssignGW: *ipam.DefaultGateway,
+	poolCfg := &poolConfig{}
+
+	if ipam.DefaultGateway != nil {
+		poolCfg.AssignGW = *ipam.DefaultGateway
 	}
 	var pool, poolType string
 	var err error

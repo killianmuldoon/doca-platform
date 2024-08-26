@@ -69,6 +69,11 @@ func main() {
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
 
+	// validate required env variables
+	if os.Getenv("SFC_NODE_NAME") == "" {
+		setupLog.Error(nil, "SFC_NODE_NAME environment variable must be set")
+	}
+
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
 	// prevent from being vulnerable to the HTTP/2 Stream Cancelation and

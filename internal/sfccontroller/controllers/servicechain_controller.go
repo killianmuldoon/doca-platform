@@ -32,7 +32,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -250,7 +249,10 @@ func getInterface(ctx context.Context, k8sClient client.Client, matchingLabels m
 	}
 	var port string
 	for _, intf := range interfaceList.Items {
-		if intf.Spec.Node != ptr.To(os.Getenv("SFC_NODE_NAME")) {
+		if intf.Spec.Node == nil {
+			continue
+		}
+		if *intf.Spec.Node != os.Getenv("SFC_NODE_NAME") {
 			err = errors.New("Skipped different name. Interface not found")
 			continue
 		}
@@ -300,10 +302,14 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	}
 
 	node := os.Getenv("SFC_NODE_NAME")
-	if sc.Spec.Node != ptr.To(node) {
+	if sc.Spec.Node == nil {
+		log.Info("sc.Spec.Node: not set, skip the object")
+		return ctrl.Result{}, nil
+	}
+	if *sc.Spec.Node != node {
 		// this object was not intended for this nodes
 		// skip
-		log.Info("sc.Spec.Node: %s != node: %s", sc.Spec.Node, node)
+		log.Info(fmt.Sprintf("sc.Spec.Node: %s != node: %s", *sc.Spec.Node, node))
 		return ctrl.Result{}, nil
 	}
 
