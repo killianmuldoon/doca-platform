@@ -444,6 +444,7 @@ test-install-operator-lifecycle-manager:
 	curl -L $(OLM_DOWNLOAD_URL)/$(OLM_VERSION)/crds.yaml -o $(OLM_DIR)/crds.yaml
 	curl -L $(OLM_DOWNLOAD_URL)/$(OLM_VERSION)/olm.yaml -o $(OLM_DIR)/olm.yaml
 
+
 	# Operator SDK always installs the `latest` image for the configmap-operator. We need to replace that for this installation.
 	$Q sed -i 's/configmap-operator-registry:latest/configmap-operator-registry:$(OLM_VERSION)/g' $(OLM_DIR)/olm.yaml
 
@@ -554,10 +555,9 @@ release: generate ## Build and push helm and container images for release.
 
 GO_GCFLAGS ?= ""
 GO_LDFLAGS ?= "-extldflags '-static'"
-BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS) $(HOST_ARCH_BUILD_TARGETS)
+BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
 DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset
-DPU_ARCH_BUILD_TARGETS ?= dpucniprovisioner ipallocator
-HOST_ARCH_BUILD_TARGETS ?=  hostcniprovisioner ovnkubernetes-operator
+DPU_ARCH_BUILD_TARGETS ?= ipallocator
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
 # The BUNDLE_VERSION is the same as the TAG but the first character is stripped. This is used to strip a leading `v` which is invalid for Bundle versions.
@@ -616,7 +616,7 @@ binary-ipallocator: ## Build the IP allocator binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ipallocator gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/ipallocator
 
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
-HOST_ARCH_DOCKER_BUILD_TARGETS=$(HOST_ARCH_BUILD_TARGETS) ovnkubernetes-dpu ovnkubernetes-non-dpu operator-bundle hostnetwork dms  ovnkubernetes-operator
+HOST_ARCH_DOCKER_BUILD_TARGETS=operator-bundle hostnetwork dms
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn hbn-sidecar ovs-cni ipallocator
 MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system
 
@@ -930,7 +930,7 @@ docker-push-dummydpuservice: ## Push the docker image for dummydpuservice
 	docker push $(DUMMYDPUSERVICE_IMAGE):$(TAG)
 
 # helm charts
-HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam ovs-cni sfc-controller ovnkubernetes-operator operator hbn-dpuservice
+HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam ovs-cni sfc-controller operator hbn-dpuservice
 HELM_REGISTRY ?= oci://$(REGISTRY)
 
 # metadata for the operator helm chart
