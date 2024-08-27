@@ -56,9 +56,6 @@ var (
 	// numNodes can be overwritten by setting DPF_E2E_NUM_DPU_NODES in the environment.
 	// This tells the test how many Kubernetes nodes to expect in the DPU Cluster.
 	numNodes = 0
-	// deployKamajiControlPlane can be overwritten by setting DPF_E2E_NUM_DPU_NODES in the environment.
-	// This decides whether the e2e test should deploy the tenant control plane.
-	deployKamajiControlPlane = true
 	// skipCleanup indicates whether to skip the cleanup of resources created during the e2e test run.
 	// When set to true, resources will not be removed after the test completes.
 	skipCleanup = false
@@ -70,13 +67,6 @@ func getEnvVariables() {
 		numNodes, err = strconv.Atoi(nodes)
 		if err != nil {
 			panic(err)
-		}
-	}
-	if v, found := os.LookupEnv("DPF_E2E_DISABLE_DEPLOY_KAMAJI_TENANTCONTROLPLANE"); found {
-		var err error
-		deployKamajiControlPlane, err = strconv.ParseBool(v)
-		if err != nil {
-			panic(fmt.Errorf("string must be a bool: %v", err))
 		}
 	}
 	if v, found := os.LookupEnv("E2E_SKIP_CLEANUP"); found {

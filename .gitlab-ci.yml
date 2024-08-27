@@ -172,8 +172,6 @@ e2e-dpf-standalone:
     ANSIBLE_PASSWORD: $TMP_ANSIBLE_PASSWORD
     IMAGE_PULL_KEY: $GITLAB_REGISTRY_TOKEN
     DPF_E2E_NUM_DPU_NODES: 1
-    # Disable deploying the Kamaji control plane in the test. DPF Standalone deploys its own Kamaji TenantControlPlane.
-    DPF_E2E_DISABLE_DEPLOY_KAMAJI_TENANTCONTROLPLANE: "true"
     PIPELINE_NAME: "Periodic e2e dpf-standalone tests"
   tags:
     - dpf/dpu
