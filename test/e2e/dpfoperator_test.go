@@ -134,6 +134,9 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				// Don't fail the test if the log collector fails - just print the errors.
 				GinkgoLogr.Error(err, "failed to collect resources and logs for the clusters")
 			}
+			if skipCleanup {
+				return
+			}
 			By("cleaning up objects created during the test", func() {
 				Expect(utils.CleanupWithLabelAndWait(ctx, testClient, labelSelector, resourcesToDelete...)).To(Succeed())
 			})
@@ -398,6 +401,9 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		})
 
 		It("delete the DPUServiceChain & DPUServiceInterface and check that the Sets are cleaned up", func() {
+			if skipCleanup {
+				Skip("Skip cleanup resources")
+			}
 			dsi := &sfcv1.DPUServiceInterface{}
 			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceInterfaceNamespace, Name: dpuServiceInterfaceName}, dsi)).To(Succeed())
 			Expect(testClient.Delete(ctx, dsi)).To(Succeed())
@@ -469,6 +475,9 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		})
 
 		It("delete the DPUServices and check that the applications are cleaned up", func() {
+			if skipCleanup {
+				Skip("Skip cleanup resources")
+			}
 			By("delete the DPUServices")
 			svc := &dpuservicev1.DPUService{}
 			// Delete the DPUCluster DPUService.
@@ -553,6 +562,9 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		})
 
 		It("delete the DPUServiceIPAM with subnet split per node configuration and check NVIPAM IPPool is deleted in each cluster", func() {
+			if skipCleanup {
+				Skip("Skip cleanup resources")
+			}
 			By("deleting the DPUServiceIPAM")
 			dpuServiceIPAM := &sfcv1.DPUServiceIPAM{}
 			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceIPAMNamespace, Name: dpuServiceIPAMWithIPPoolName}, dpuServiceIPAM)).To(Succeed())
@@ -608,6 +620,9 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		})
 
 		It("delete the DPUServiceIPAM with cidr split in subnet per node configuration and check NVIPAM CIDRPool is deleted in each cluster", func() {
+			if skipCleanup {
+				Skip("Skip cleanup resources")
+			}
 			By("deleting the DPUServiceIPAM")
 			dpuServiceIPAM := &sfcv1.DPUServiceIPAM{}
 			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceIPAMNamespace, Name: dpuServiceIPAMWithCIDRPoolName}, dpuServiceIPAM)).To(Succeed())
@@ -632,6 +647,9 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		})
 
 		It("delete DPUs, DPUSets and BFBs and ensure they are deleted", func() {
+			if skipCleanup {
+				Skip("Skip cleanup resources")
+			}
 			dpuset := &provisioningv1.DpuSet{}
 			data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpuset.yaml"))
 			Expect(err).ToNot(HaveOccurred())
@@ -654,6 +672,9 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		})
 
 		It("delete the DPFOperatorConfig and ensure it is deleted", func() {
+			if skipCleanup {
+				Skip("Skip cleanup resources")
+			}
 			// Check that all deployments and DPUServices are deleted.
 			Eventually(func(g Gomega) {
 				g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, config))).To(Succeed())
