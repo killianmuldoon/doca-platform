@@ -174,7 +174,7 @@ e2e-dpf-standalone:
     DPF_E2E_NUM_DPU_NODES: 1
     # Disable deploying the Kamaji control plane in the test. DPF Standalone deploys its own Kamaji TenantControlPlane.
     DPF_E2E_DISABLE_DEPLOY_KAMAJI_TENANTCONTROLPLANE: "true"
-    CI_PIPELINE_NAME: "Periodic e2e dpf-standalone tests"
+    PIPELINE_NAME: "Periodic e2e dpf-standalone tests"
   tags:
     - dpf/dpu
   cache:

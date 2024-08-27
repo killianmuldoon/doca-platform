@@ -21,6 +21,7 @@ set -o pipefail
 set -o errexit
 
 E2E_TEST="${E2E_TEST:-""}"
+PIPELINE_NAME="${PIPELINE_NAME:-"${CI_PIPELINE_NAME}"}"
 
 ## Ignore if the pipeline is not from a schedule or not from a "push" - i.e. when a new commit is added to main.
 if [[ "$CI_PIPELINE_SOURCE" != "schedule" && "$CI_PIPELINE_SOURCE" != "push" ]]; then
@@ -34,7 +35,7 @@ if [[ "$CI_JOB_STATUS" == "success" ]]; then
   exit 0
 fi
 
-notification_message="Pipeline ${CI_PIPELINE_NAME} has failed.\n\nDetails: ${CI_PIPELINE_URL}"
+notification_message="Pipeline ${PIPELINE_NAME} has failed.\n\nDetails: ${CI_PIPELINE_URL}"
 
 if [ "$E2E_TEST" == "true" ]; then
   notification_message="${notification_message}\n\nArtifacts download:\ncurl -L -o ${CI_JOB_ID}.zip --header \\\"PRIVATE-TOKEN: \$GITLAB_API_TOKEN\\\" https://gitlab-master.nvidia.com/api/v4/jobs/${CI_JOB_ID}/artifacts && unzip -d ${CI_JOB_ID} ${CI_JOB_ID}.zip && rm ${CI_JOB_ID}.zip"
