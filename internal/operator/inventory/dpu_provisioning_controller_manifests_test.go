@@ -363,8 +363,6 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		}
 		g.Expect(container).NotTo(BeNil())
 		expectedArgs := []string{
-			"--health-probe-bind-address=:8081",
-			"--metrics-bind-address=127.0.0.1:8080",
 			"--leader-elect",
 			"--zap-log-level=3",
 			"--dms-image=example.com/dms-server:v0.1.0",

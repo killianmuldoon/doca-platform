@@ -11,8 +11,6 @@ spec:
       containers:
       - name: manager
         args:
-        - "--health-probe-bind-address=:8081"
-        - "--metrics-bind-address=127.0.0.1:8080"
         - "--leader-elect"
         - "--zap-log-level=3"
         - --dms-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server:latest
