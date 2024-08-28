@@ -1,6 +1,6 @@
 - groupVersionKind:
-    group: sfc.dpf.nvidia.com
-    kind: DPUServiceChain
+    group: operator.dpf.nvidia.com
+    kind: DPFOperatorConfig
     version: v1alpha1
   labelsFromPath:
     name:
@@ -12,10 +12,20 @@
     uid:
       - metadata
       - uid
-  metricNamePrefix: dpuservicechain
+  metricNamePrefix: dpfoperatorconfig
   metrics:
+    - name: paused
+      help: Whether the DPU is paused and any of its resources will not be processed by the controllers.
+      each:
+        type: Gauge
+        gauge:
+          nilIsZero: true
+          labelsFromPath:
+            chart_version:
+              - spec
+              - paused
     - name: status_conditions
-      help: The condition of a DPUServiceChain.
+      help: The condition of a DPFOperatorConfig.
       each:
         stateSet:
           labelName: status
@@ -33,9 +43,10 @@
             - status
         type: StateSet
     - name: status_condition_last_transition_time
-      help: The condition last transition time of a DPUServiceInterface.
+      help: The condition last transition time of a DPFOperatorConfig.
       each:
         gauge:
+          nilIsZero: true
           labelsFromPath:
             type:
               - type

@@ -80,6 +80,7 @@
       help: The condition last transition time of a DPUServiceInterface.
       each:
         gauge:
+          nilIsZero: true
           labelsFromPath:
             type:
               - type

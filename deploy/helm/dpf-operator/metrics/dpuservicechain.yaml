@@ -1,6 +1,6 @@
 - groupVersionKind:
-    group: svc.dpf.nvidia.com
-    kind: DPUService
+    group: sfc.dpf.nvidia.com
+    kind: DPUServiceChain
     version: v1alpha1
   labelsFromPath:
     name:
@@ -12,20 +12,10 @@
     uid:
       - metadata
       - uid
-  metricNamePrefix: dpuservice
+  metricNamePrefix: dpuservicechain
   metrics:
-    - name: info
-      help: Information about a DPU Service.
-      each:
-        type: Info
-        info:
-          labelsFromPath:
-            chart_version:
-              - spec
-              - source
-              - version
     - name: status_conditions
-      help: The condition of a DPUService.
+      help: The condition of a DPUServiceChain.
       each:
         stateSet:
           labelName: status
@@ -43,9 +33,10 @@
             - status
         type: StateSet
     - name: status_condition_last_transition_time
-      help: The condition last transition time of a DPUService.
+      help: The condition last transition time of a DPUServiceInterface.
       each:
         gauge:
+          nilIsZero: true
           labelsFromPath:
             type:
               - type

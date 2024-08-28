@@ -66,6 +66,7 @@
       help: The condition last transition time of a DPUServiceIPAM.
       each:
         gauge:
+          nilIsZero: true
           labelsFromPath:
             type:
               - type

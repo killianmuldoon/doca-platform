@@ -1,0 +1,31 @@
+- groupVersionKind:
+    group: provisioning.dpf.nvidia.com
+    kind: Bfb
+    version: v1alpha1
+  labelsFromPath:
+    name:
+      - metadata
+      - name
+    namespace:
+      - metadata
+      - namespace
+    uid:
+      - metadata
+      - uid
+  metricNamePrefix: bfb
+  metrics:
+    - name: status_phase
+      help: The BFBs current phase.
+      each:
+        stateSet:
+          labelName: phase
+          list:
+            - Initializing
+            - Downloading
+            - Ready
+            - Deleting
+            - Error
+          path:
+            - status
+            - phase
+        type: StateSet

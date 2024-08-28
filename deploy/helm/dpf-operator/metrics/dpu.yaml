@@ -1,0 +1,84 @@
+- groupVersionKind:
+    group: provisioning.dpf.nvidia.com
+    kind: Dpu
+    version: v1alpha1
+  labelsFromPath:
+    name:
+      - metadata
+      - name
+    namespace:
+      - metadata
+      - namespace
+    uid:
+      - metadata
+      - uid
+  metricNamePrefix: dpu
+  metrics:
+    - name: info
+      help: Information about a DPU.
+      each:
+        type: Info
+        info:
+          labelsFromPath:
+            bfb_version:
+              - status
+              - bfb_version
+            pci_device:
+              - status
+              - pci_device
+            required_reset:
+              - status
+              - required_reset
+            firmware:
+              - status
+              - firmware
+    - name: status_phase
+      help: The DPUs current phase.
+      each:
+        stateSet:
+          labelName: phase
+          list:
+            - Initializing
+            - Node Effect
+            - Pending
+            - DMSDeployment
+            - OS Installing
+            - DPU Cluster Config
+          path:
+            - status
+            - phase
+        type: StateSet
+    - name: status_conditions
+      help: The condition of a DPU.
+      each:
+        stateSet:
+          labelName: status
+          labelsFromPath:
+            type:
+              - type
+          list:
+            - 'True'
+            - 'False'
+            - Unknown
+          path:
+            - status
+            - conditions
+          valueFrom:
+            - status
+        type: StateSet
+    - name: status_condition_last_transition_time
+      help: The condition last transition time of a DPUService.
+      each:
+        gauge:
+          nilIsZero: true
+          labelsFromPath:
+            type:
+              - type
+            status:
+              - status
+          path:
+            - status
+            - conditions
+          valueFrom:
+            - lastTransitionTime
+        type: Gauge
