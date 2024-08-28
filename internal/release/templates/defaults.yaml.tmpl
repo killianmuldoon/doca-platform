@@ -1,4 +1,9 @@
-customOVNKubernetesDPUImage: ${OVNKUBERNETES_DPU_IMAGE}:${TAG}
-customOVNKubernetesNonDPUImage: ${OVNKUBERNETES_NON_DPU_IMAGE}:${TAG}
+## Images built as part of the DPF release.
 dmsImage: ${DMS_IMAGE}:${TAG}
 hostNetworkSetupImage: ${HOSTNETWORK_IMAGE}:${TAG}
+dpfSystemImage: ${DPF_SYSTEM_IMAGE}:${TAG}
+sfcControllerImage: ${SFC_CONTROLLER_IMAGE}:${TAG}
+ipAllocatorImage: ${IPALLOCATOR_IMAGE}:${TAG}
+## These images are no longer published with the DPF release process. They should only be used from the demo release tag.
+customOVNKubernetesDPUImage: ${OVNKUBERNETES_DPU_IMAGE}:${TAG}
+customOVNKubernetesNonDPUImage: ${OVNKUBERNETES_NON_DPU_IMAGE}:${TAG}

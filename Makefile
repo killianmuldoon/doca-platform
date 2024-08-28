@@ -657,7 +657,7 @@ HOSTCNIPROVISIONER_IMAGE_NAME ?= host-cni-provisioner
 HOSTCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(HOSTCNIPROVISIONER_IMAGE_NAME)
 
 IPALLOCATOR_IMAGE_NAME ?= ip-allocator
-IPALLOCATOR_IMAGE ?= $(REGISTRY)/$(IPALLOCATOR_IMAGE_NAME)
+export IPALLOCATOR_IMAGE ?= $(REGISTRY)/$(IPALLOCATOR_IMAGE_NAME)
 
 OPERATOR_BUNDLE_NAME ?= dpf-operator-bundle
 OPERATOR_BUNDLE_REGISTRY ?= $(REGISTRY)
@@ -751,6 +751,7 @@ docker-build-hostcniprovisioner: docker-build-base-image-systemd ## Build docker
 		. \
 		-t $(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
+# TODO: This image should be part of a DPF Utils image.
 .PHONY: docker-build-ipallocator
 docker-build-ipallocator: ## Build docker image for the IP Allocator
 	# Base image can't be distroless because of the readiness probe that is using cat which doesn't exist in distroless
