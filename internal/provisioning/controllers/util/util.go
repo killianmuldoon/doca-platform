@@ -44,25 +44,28 @@ import (
 )
 
 const (
-	RequeueInterval            = 5 * time.Second
-	BFBBaseDir                 = "bfb"
-	CFGExtension               = ".cfg"
-	DpuSetNameLabel            = "provisioning.dpf.nvidia.com/dpuset-name"
-	DpuSetNamespaceLabel       = "provisioning.dpf.nvidia.com/dpuset-namespace"
-	DpuPCIAddress              = "dpu-pciAddress"
-	DpuPFName                  = "dpu-pf-name"
-	DpuPCIAddressLabel         = "provisioning.dpf.nvidia.com/dpu-pciAddress"
-	DpuPFNameLabel             = "provisioning.dpf.nvidia.com/dpu-pf-name"
-	DpuHostIPLabel             = "provisioning.dpf.nvidia.com/dpu-host-ip"
-	TolerationNotReadyKey      = "node.kubernetes.io/not-ready"
-	TolerationUnreachableyKey  = "node.kubernetes.io/unreachable"
-	TolerationNodeDrainKey     = "medik8s.io/drain"
-	TolerationUnschedulableKey = "node.kubernetes.io/unschedulable"
+	RequeueInterval                 = 5 * time.Second
+	BFBBaseDir                      = "bfb"
+	CFGExtension                    = ".cfg"
+	DpuSetNameLabel                 = "provisioning.dpf.nvidia.com/dpuset-name"
+	DpuSetNamespaceLabel            = "provisioning.dpf.nvidia.com/dpuset-namespace"
+	DpuPCIAddress                   = "dpu-pciAddress"
+	DpuPFName                       = "dpu-pf-name"
+	DpuPCIAddressLabel              = "provisioning.dpf.nvidia.com/dpu-pciAddress"
+	DpuPFNameLabel                  = "provisioning.dpf.nvidia.com/dpu-pf-name"
+	DpuHostIPLabel                  = "provisioning.dpf.nvidia.com/dpu-host-ip"
+	TolerationNotReadyKey           = "node.kubernetes.io/not-ready"
+	TolerationUnreachableyKey       = "node.kubernetes.io/unreachable"
+	TolerationNodeDrainKey          = "medik8s.io/drain"
+	TolerationUnschedulableKey      = "node.kubernetes.io/unschedulable"
+	NodeMaintenanceDrainStatusSleep = 5 * time.Second
 	// clusterConfigConfigMapName is the name of the ConfigMap that contains the cluster configuration in
 	// OpenShift.
 	ClusterConfigConfigMapName = "cluster-config-v1"
 	// clusterConfigNamespace is the Namespace where the OpenShift cluster configuration ConfigMap exists.
-	ClusterConfigNamespace = "kube-system"
+	ClusterConfigNamespace     = "kube-system"
+	NodeMaintenanceRequastorID = "dpf.nvidia.com"
+	ProvisioningGroupName      = "provisioning.dpf.nvidia.com"
 )
 
 func GenerateBFBTaskName(bfb provisioningv1.Bfb) string {

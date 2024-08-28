@@ -24,9 +24,10 @@ import (
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
-	nodeMaintenancev1beta1 "github.com/medik8s/node-maintenance-operator/api/v1beta1"
+	nvidiaNodeMaintenancev1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -99,28 +100,31 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 			Namespace: st.dpu.Namespace,
 			Name:      nodeName,
 		}
-		maintenance := &nodeMaintenancev1beta1.NodeMaintenance{}
+		maintenance := &nvidiaNodeMaintenancev1.NodeMaintenance{}
 		if err := client.Get(ctx, maintenanceNN, maintenance); err != nil {
 			if apierrors.IsNotFound(err) {
 				logger.V(3).Info("NodeMaintenance CR not found, creating new NodeMaintenance CR", "node", nodeName)
-				err = createNodeMaintenance(ctx, client, nodeName, st.dpu.Namespace)
-				if err == nil {
-					logger.V(3).Info("Successfully created NodeMaintenance CR", "node", nodeName, "NodeMaintanence", maintenance)
-					state.Phase = provisioningv1.DPUPending
-					cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
-					return *state, nil
+				if err = createNodeMaintenance(ctx, client, nodeName, st.dpu.Namespace); err != nil {
+					logger.V(3).Info("Error creating NodeMaintenance CR", "node", nodeName, "NodeMaintanence", maintenance, "error", err)
+					setDPUCondNodeEffectReady(state, metav1.ConditionFalse, errorOccurredReason, err.Error())
+					state.Phase = provisioningv1.DPUError
+					return *state, err
 				}
-				logger.V(3).Info("Error creating NodeMaintenance CR", "node", nodeName, "NodeMaintanence", maintenance, "error", err)
 			} else {
 				logger.V(3).Info("Error getting NodeMaintenance CR", "node", nodeName, "NodeMaintanence", maintenance, "error", err)
+				setDPUCondNodeEffectReady(state, metav1.ConditionFalse, errorOccurredReason, err.Error())
+				state.Phase = provisioningv1.DPUError
+				return *state, err
 			}
+		}
+		if done, err := checkNodeMaintenanceProgress(ctx, client, nodeName, st.dpu.Namespace); err != nil {
+			setDPUCondNodeEffectReady(state, metav1.ConditionFalse, errorOccurredReason, err.Error())
 			state.Phase = provisioningv1.DPUError
-			cond := cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", "")
-			cond.Status = metav1.ConditionFalse
-			cond.Reason = errorOccurredReason
-			cond.Message = err.Error()
-			cutil.SetDPUCondition(state, cond)
 			return *state, err
+		} else if done {
+			state.Phase = provisioningv1.DPUPending
+			cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
+			return *state, nil
 		}
 	}
 
@@ -137,18 +141,50 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 }
 
 func createNodeMaintenance(ctx context.Context, client client.Client, nodeName string, namespace string) error {
-	newMaintenance := &nodeMaintenancev1beta1.NodeMaintenance{
+	logger := log.FromContext(ctx)
+	nodeMaintenance := &nvidiaNodeMaintenancev1.NodeMaintenance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nodeName,
 			Namespace: namespace,
 		},
-		Spec: nodeMaintenancev1beta1.NodeMaintenanceSpec{
-			NodeName: nodeName,
-			Reason:   "DPU provisioning",
+		Spec: nvidiaNodeMaintenancev1.NodeMaintenanceSpec{
+			RequestorID:          cutil.NodeMaintenanceRequastorID,
+			NodeName:             nodeName,
+			DrainSpec:            &nvidiaNodeMaintenancev1.DrainSpec{Force: true, DeleteEmptyDir: true},
+			AdditionalRequestors: []string{cutil.ProvisioningGroupName},
 		},
 	}
-	if err := client.Create(ctx, newMaintenance); err != nil {
+	if err := client.Create(ctx, nodeMaintenance); err != nil {
 		return err
 	}
+	logger.V(3).Info("Successfully created NodeMaintenance CR", "node", nodeName, "NodeMaintanence", nodeMaintenance)
 	return nil
+}
+
+func checkNodeMaintenanceProgress(ctx context.Context, client client.Client, nodeName string, namespace string) (bool, error) {
+	logger := log.FromContext(ctx)
+	maintenanceNN := types.NamespacedName{
+		Namespace: namespace,
+		Name:      nodeName,
+	}
+	nodeMaintenance := &nvidiaNodeMaintenancev1.NodeMaintenance{}
+	if err := client.Get(ctx, maintenanceNN, nodeMaintenance); err != nil {
+		logger.V(3).Info("Failed to get NodeMaintenance CR", "node", nodeName, "NodeMaintanence", nodeMaintenance, "error", err)
+		return false, err
+	}
+	condition := meta.FindStatusCondition(nodeMaintenance.Status.Conditions, nvidiaNodeMaintenancev1.ConditionTypeReady)
+	if condition.Status == metav1.ConditionTrue {
+		logger.V(3).Info("NodeMaintenance succeeded", "node", nodeName, "NodeMaintenance", nodeMaintenance, "reason", condition.Reason)
+		return true, nil
+	}
+	logger.V(3).Info("Node Maintenance in progress", "node", nodeName, "state", condition.Reason, "Drain Progress", nodeMaintenance.Status.Drain)
+	return false, nil
+}
+
+func setDPUCondNodeEffectReady(state *provisioningv1.DpuStatus, status metav1.ConditionStatus, reason, message string) {
+	cond := cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", "")
+	cond.Status = status
+	cond.Reason = reason
+	cond.Message = message
+	cutil.SetDPUCondition(state, cond)
 }

@@ -26,7 +26,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/dms"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/hostnetwork"
 
-	nodeMaintenancev1beta1 "github.com/medik8s/node-maintenance-operator/api/v1beta1"
+	nvidiaNodeMaintenancev1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -167,24 +167,15 @@ func HandleNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect p
 			Namespace: namespace,
 			Name:      nodeName,
 		}
-		maintenance := &nodeMaintenancev1beta1.NodeMaintenance{}
+		maintenance := &nvidiaNodeMaintenancev1.NodeMaintenance{}
 		if err := k8sClient.Get(ctx, maintenanceNN, maintenance); err != nil {
 			if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("Error getting NodeMaintenance %v", maintenance)
 			}
 		}
-		switch maintenance.Status.Phase {
-		case nodeMaintenancev1beta1.MaintenanceRunning:
-			break
-		case nodeMaintenancev1beta1.MaintenanceSucceeded:
-			logger.V(3).Info("NodeMaintenance succeeded, deleting NodeMaintenance CR", "node", nodeName, "NodeMaintanence", maintenance)
-			if err := cutil.DeleteObject(k8sClient, maintenance); err != nil {
-				logger.V(3).Info("Error deleting NodeMaintenance CR", "node", nodeName, "NodeMaintanence", maintenance, "error", err)
-				return err
-			}
-		case nodeMaintenancev1beta1.MaintenanceFailed:
-			logger.V(3).Info("NodeMaintenance failed", "node", nodeName, "NodeMaintanence", maintenance)
-			return fmt.Errorf("NodeMaintenance %v failed", maintenance)
+		if err := cutil.DeleteObject(k8sClient, maintenance); err != nil {
+			logger.V(3).Info("Error deleting NodeMaintenance CR", "node", nodeName, "error", err)
+			return err
 		}
 	}
 	return nil
