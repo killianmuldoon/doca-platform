@@ -9,7 +9,7 @@ ARG TARGETARCH
 
 # kubeadm is required to create join tokens for DPU nodes.
 # TODO: Remove this in favor of using a client-go call for a join token.
-RUN wget https://cdn.dl.k8s.io/release/v1.29.3/bin/linux/${TARGETARCH}/kubeadm && chmod +x kubeadm
+RUN wget https://cdn.dl.k8s.io/release/v1.31.0/bin/linux/${TARGETARCH}/kubeadm && chmod +x kubeadm
 RUN mkdir -p /kubeconfig
 
 # 2) Builder stage builds go binaries.
