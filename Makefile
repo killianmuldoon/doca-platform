@@ -344,6 +344,10 @@ generate-operator-bundle: $(OPERATOR_SDK) $(HELM) generate-manifests-operator ##
 		--set grafana.enabled=false \
 		--set prometheus.enabled=false \
 		--set templateOperatorBundle=true > hack/charts/dpf-operator/manifests.yaml
+
+	# Then clean the bundle directory to have a proper diff.
+	rm bundle/manifests/*
+
 	# Next generate the operator bundle.
     # Note we need to explicitly set stdin to null using < /dev/null.
 	$(OPERATOR_SDK) generate bundle \
