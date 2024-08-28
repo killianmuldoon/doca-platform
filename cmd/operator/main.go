@@ -35,6 +35,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -67,7 +68,7 @@ var (
 	metricsAddr              string
 	enableLeaderElection     bool
 	probeAddr                string
-	secureMetrics            bool
+	insecureMetrics          bool
 	enableHTTP2              bool
 	configSingletonNamespace string
 	configSingletonName      string
@@ -79,8 +80,8 @@ func initFlags() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&secureMetrics, "metrics-secure", false,
-		"If set the metrics endpoint is served securely")
+	flag.BoolVar(&insecureMetrics, "insecure-metrics", false,
+		"If set the metrics endpoint is served insecure without AuthN/AuthZ.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.StringVar(&configSingletonNamespace, "config-namespace",
@@ -88,6 +89,10 @@ func initFlags() {
 	flag.StringVar(&configSingletonName, "config-name",
 		operatorcontroller.DefaultDPFOperatorConfigSingletonName, "The name of the DPFOperatorConfig the operator will reconcile")
 }
+
+// Add RBAC for the metrics endpoint.
+// +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
+// +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
 
 func main() {
 	initFlags()
@@ -119,13 +124,19 @@ func main() {
 		TLSOpts: tlsOpts,
 	})
 
+	metricsOpts := metricsserver.Options{
+		BindAddress:    metricsAddr,
+		SecureServing:  true,
+		FilterProvider: filters.WithAuthenticationAndAuthorization,
+	}
+	if insecureMetrics {
+		metricsOpts.SecureServing = false
+		metricsOpts.FilterProvider = nil
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
-		Metrics: metricsserver.Options{
-			BindAddress:   metricsAddr,
-			SecureServing: secureMetrics,
-			TLSOpts:       tlsOpts,
-		},
+		Scheme:                 scheme,
+		Metrics:                metricsOpts,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,

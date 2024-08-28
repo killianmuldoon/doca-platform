@@ -60,5 +60,9 @@ spec:
             port: 8081
           initialDelaySeconds: 5
           periodSeconds: 10
+        ports:
+          - containerPort: 8080
+            name: metrics
+            protocol: TCP
       serviceAccountName: controller-manager
       terminationGracePeriodSeconds: 10

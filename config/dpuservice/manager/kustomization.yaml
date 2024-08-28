@@ -6,5 +6,3 @@ images:
 - name: controller
   newName: example.com/dpf-system
   newTag: v0.1.0
-patchesStrategicMerge:
-- prometheus_scrape_config.yaml

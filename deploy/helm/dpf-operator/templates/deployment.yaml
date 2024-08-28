@@ -24,9 +24,6 @@ spec:
       {{- include "dpf-operator.selectorLabels" . | nindent 8 }}
       annotations:
         kubectl.kubernetes.io/default-container: manager
-        prometheus.io/scrape: "true"
-        prometheus.io/path: /metrics
-        prometheus.io/port: "8080"
     spec:
       affinity:
         nodeAffinity:
@@ -59,6 +56,10 @@ spec:
         resources: {}
         securityContext: {{- toYaml .Values.controllerManager.containerSecurityContext
           | nindent 10 }}
+        ports:
+        - containerPort: 8080
+          name: metrics
+          protocol: TCP
       imagePullSecrets: {{ .Values.imagePullSecrets | default list | toJson }}
       serviceAccountName: dpf-operator-controller-manager
       terminationGracePeriodSeconds: 10

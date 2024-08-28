@@ -2,8 +2,8 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: customresourcestate-config
-  namespace: dpf-operator-system
+  name: dpf-operator-customresourcestate-config
+  namespace: {{ .Release.Namespace }}
 data:
   config.yaml: |
     kind: CustomResourceStateMetrics

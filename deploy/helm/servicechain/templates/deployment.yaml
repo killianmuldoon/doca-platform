@@ -21,9 +21,6 @@ spec:
       {{- include "servicechain.selectorLabels" . | nindent 8 }}
       annotations:
         kubectl.kubernetes.io/default-container: manager
-        prometheus.io/scrape: "true"
-        prometheus.io/path: /metrics
-        prometheus.io/port: "8080"
     spec:
       containers:
       - args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}

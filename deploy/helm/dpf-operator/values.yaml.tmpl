@@ -13,6 +13,16 @@ controllerManager:
     annotations: {}
 imagePullSecrets: []
 
+## installed dependencies except for kamaji.
+argo-cd:
+  enabled: true
+  dex:
+    enabled: false
+  notifications:
+    enabled: false
+node-feature-discovery:
+  enabled: true
+
 ## kamaji configuration.
 kamaji-etcd:
   enabled: true
@@ -32,21 +42,43 @@ kamaji:
     image:
       tag: v1.6.5
 
-## installed dependencies except for kamaji.
-argo-cd:
-  enabled: true
-  dex:
-    enabled: false
-  notifications:
-    enabled: false
-node-feature-discovery:
-  enabled: true
+## prometheus configuration.
 prometheus:
   enabled: false
+  alertmanager:
+    enabled: false
+  prometheus-node-exporter:
+    enabled: false
+  prometheus-pushgateway:
+    enabled: false
   # We have to disable kube-state-metrics that is a dependency from Prometheus.
   # Adding KSM manually has the benefit that we can only enable KSM, without Prometheus.
   kube-state-metrics:
     enabled: false
+  # Scrape metrics from deployed providers
+  extraScrapeConfigs: |
+    - job_name: 'doca-platform-foundation'
+      # 15s is a bit often for production but helps to get metrics quicker for development.
+      scrape_interval: 15s
+      metrics_path: /metrics
+      scheme: https
+      authorization:
+        type: Bearer
+        credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+      tls_config:
+        ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        insecure_skip_verify: true
+      kubernetes_sd_configs:
+        - role: pod
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_label_dpf_nvidia_com_component]
+          action: keep
+          regex: ".*-controller-manager"
+        - source_labels: [__meta_kubernetes_pod_container_port_name]
+          action: keep
+          regex: metrics
+
+## grafana configuration
 grafana:
   enabled: false
   datasources:
@@ -58,6 +90,8 @@ grafana:
           url: http://dpf-operator-prometheus-server
           access: proxy
           isDefault: true
+
+## kube-state-metrics configuration
 kube-state-metrics:
   enabled: false
   extraArgs:
@@ -65,7 +99,7 @@ kube-state-metrics:
   volumes:
     - configMap:
         defaultMode: 420
-        name: customresourcestate-config
+        name: dpf-operator-customresourcestate-config
       name: customresourcestate-config
   volumeMounts:
     - mountPath: /etc/customresourcestate

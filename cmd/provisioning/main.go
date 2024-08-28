@@ -38,6 +38,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -57,10 +58,14 @@ func init() {
 	//+kubebuilder:scaffold:scheme
 }
 
+// Add RBAC for the metrics endpoint.
+// +kubebuilder:rbac:groups=authentication.k8s.io,resources=tokenreviews,verbs=create
+// +kubebuilder:rbac:groups=authorization.k8s.io,resources=subjectaccessreviews,verbs=create
+
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
-	var secureMetrics bool
+	var insecureMetrics bool
 	var enableHTTP2 bool
 	var probeAddr string
 	var dmsImage string
@@ -76,8 +81,8 @@ func main() {
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&secureMetrics, "metrics-secure", false,
-		"If set the metrics endpoint is served securely")
+	flag.BoolVar(&insecureMetrics, "insecure-metrics", false,
+		"If set the metrics endpoint is served insecure without AuthN/AuthZ.")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.StringVar(&dmsImage, "dms-image", "", "The image for DMS pod.")
@@ -116,13 +121,19 @@ func main() {
 		TLSOpts: tlsOpts,
 	})
 
+	metricsOpts := metricsserver.Options{
+		BindAddress:    metricsAddr,
+		SecureServing:  true,
+		FilterProvider: filters.WithAuthenticationAndAuthorization,
+	}
+	if insecureMetrics {
+		metricsOpts.SecureServing = false
+		metricsOpts.FilterProvider = nil
+	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme: scheme,
-		Metrics: metricsserver.Options{
-			BindAddress:   metricsAddr,
-			SecureServing: secureMetrics,
-			TLSOpts:       tlsOpts,
-		},
+		Scheme:                 scheme,
+		Metrics:                metricsOpts,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,

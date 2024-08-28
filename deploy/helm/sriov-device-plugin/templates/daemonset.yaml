@@ -43,6 +43,10 @@ spec:
           name: config-volume
         - mountPath: /var/run/k8s.cni.cncf.io/devinfo/dp
           name: device-info
+        ports:
+          - containerPort: 8080
+            name: metrics
+            protocol: TCP
       hostNetwork: true
       imagePullSecrets: {{ .Values.imagePullSecrets | default list | toJson }}
       serviceAccountName: sriov-device-plugin

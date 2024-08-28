@@ -20,10 +20,6 @@ spec:
         tier: node
         app: sfc-controller-node
         name: sfc-controller-node
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/path: /metrics
-        prometheus.io/port: "8080"
     spec:
       tolerations:
         - key: node-role.kubernetes.io/master
@@ -81,6 +77,10 @@ spec:
           }}
         securityContext: {{- toYaml .Values.controllerManager.manager.containerSecurityContext
           | nindent 10 }}
+        ports:
+          - containerPort: 8080
+            name: metrics
+            protocol: TCP
       imagePullSecrets: {{ .Values.imagePullSecrets | default list | toJson }}
       terminationGracePeriodSeconds: 10
       volumes:
