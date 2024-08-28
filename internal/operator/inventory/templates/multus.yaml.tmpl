@@ -4,7 +4,8 @@ metadata:
   name: multus
   namespace: dpf-operator-system
 spec:
-  source:
-    repoURL: ${REGISTRY}
-    chart: ${MULTUS_HELM_CHART_NAME}-chart
-    version: ${TAG}
+  helmChart:
+    source:
+      repoURL: ${REGISTRY}
+      chart: ${MULTUS_HELM_CHART_NAME}-chart
+      version: ${TAG}

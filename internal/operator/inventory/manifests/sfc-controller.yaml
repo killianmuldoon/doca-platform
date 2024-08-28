@@ -4,7 +4,8 @@ metadata:
   name: sfc-controller
   namespace: dpf-operator-system
 spec:
-  source:
-    repoURL: example.com
-    chart: sfc-controller-chart
-    version: v0.1.0
+  helmChart:
+    source:
+      repoURL: example.com
+      chart: sfc-controller-chart
+      version: v0.1.0

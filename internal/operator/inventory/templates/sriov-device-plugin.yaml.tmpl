@@ -4,7 +4,8 @@ metadata:
   name: sriov-device-plugin
   namespace: dpf-operator-system
 spec:
-  source:
-    repoURL: ${REGISTRY}
-    chart: ${SRIOV_DP_HELM_CHART_NAME}-chart
-    version: ${TAG}
+  helmChart:
+    source:
+      repoURL: ${REGISTRY}
+      chart: ${SRIOV_DP_HELM_CHART_NAME}-chart
+      version: ${TAG}

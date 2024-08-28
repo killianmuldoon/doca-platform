@@ -63,8 +63,10 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			in: &dpuservicev1.DPUService{
 				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
 				Spec: dpuservicev1.DPUServiceSpec{
-					Values: &runtime.RawExtension{
-						Raw: initialValuesData,
+					HelmChart: dpuservicev1.HelmChart{
+						Values: &runtime.RawExtension{
+							Raw: initialValuesData,
+						},
 					},
 				},
 			},
@@ -72,8 +74,10 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			want: &dpuservicev1.DPUService{
 				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
 				Spec: dpuservicev1.DPUServiceSpec{
-					Values: &runtime.RawExtension{
-						Raw: initialValuesData,
+					HelmChart: dpuservicev1.HelmChart{
+						Values: &runtime.RawExtension{
+							Raw: initialValuesData,
+						},
 					},
 				},
 			},
@@ -84,8 +88,10 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			in: &dpuservicev1.DPUService{
 				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
 				Spec: dpuservicev1.DPUServiceSpec{
-					Values: &runtime.RawExtension{
-						Raw: initialValuesData,
+					HelmChart: dpuservicev1.HelmChart{
+						Values: &runtime.RawExtension{
+							Raw: initialValuesData,
+						},
 					},
 				},
 			},
@@ -93,8 +99,10 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			want: &dpuservicev1.DPUService{
 				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
 				Spec: dpuservicev1.DPUServiceSpec{
-					Values: &runtime.RawExtension{
-						Raw: initialValuesDataAfterMerge,
+					HelmChart: dpuservicev1.HelmChart{
+						Values: &runtime.RawExtension{
+							Raw: initialValuesDataAfterMerge,
+						},
 					},
 				},
 			},

@@ -258,11 +258,11 @@ func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuser
 				continue
 			}
 			// Check the helm fields are set as expected.
-			g.Expect(app.Spec.Source.Chart).To(Equal(service.Spec.Source.Chart))
-			g.Expect(app.Spec.Source.Path).To(Equal(service.Spec.Source.Path))
-			g.Expect(app.Spec.Source.RepoURL).To(Equal(service.Spec.Source.RepoURL))
-			g.Expect(app.Spec.Source.TargetRevision).To(Equal(service.Spec.Source.Version))
-			g.Expect(app.Spec.Source.Helm.ReleaseName).To(Equal(service.Spec.Source.ReleaseName))
+			g.Expect(app.Spec.Source.Chart).To(Equal(service.Spec.HelmChart.Source.Chart))
+			g.Expect(app.Spec.Source.Path).To(Equal(service.Spec.HelmChart.Source.Path))
+			g.Expect(app.Spec.Source.RepoURL).To(Equal(service.Spec.HelmChart.Source.RepoURL))
+			g.Expect(app.Spec.Source.TargetRevision).To(Equal(service.Spec.HelmChart.Source.Version))
+			g.Expect(app.Spec.Source.Helm.ReleaseName).To(Equal(service.Spec.HelmChart.Source.ReleaseName))
 
 			// If the DPUService doesn't define a ServiceDaemonSet the below assertions are not applicable.
 			if service.Spec.ServiceDaemonSet == nil {
@@ -290,12 +290,12 @@ func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuser
 			Expect(appService.UpdateStrategy).To(Equal(service.Spec.ServiceDaemonSet.UpdateStrategy))
 
 			// If this field is unset skip this assertion.
-			if service.Spec.Values == nil {
+			if service.Spec.HelmChart.Values == nil {
 				continue
 			}
 
 			// Expect every value passed in the service spec `.values` to be set in the application helm valuesObject.
-			g.Expect(json.Unmarshal(service.Spec.Values.Raw, &serviceValuesMap)).To(Succeed())
+			g.Expect(json.Unmarshal(service.Spec.HelmChart.Values.Raw, &serviceValuesMap)).To(Succeed())
 			for k, v := range serviceValuesMap {
 				g.Expect(appValuesMap).To(HaveKeyWithValue(k, v))
 			}
@@ -307,21 +307,23 @@ func getMinimalDPUServices(testNamespace string) []*dpuservicev1.DPUService {
 	return []*dpuservicev1.DPUService{
 		{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one", Namespace: testNamespace},
 			Spec: dpuservicev1.DPUServiceSpec{
-				Source: dpuservicev1.ApplicationSource{
-					RepoURL:     "repository.com",
-					Version:     "v1.1",
-					Chart:       "first-chart",
-					ReleaseName: "release-one",
-				},
-				ServiceID: ptr.To("service-one"),
-				Values: &runtime.RawExtension{
-					Object: &unstructured.Unstructured{
-						Object: map[string]interface{}{
-							"value": "one",
-							"other": "two",
+				HelmChart: dpuservicev1.HelmChart{
+					Source: dpuservicev1.ApplicationSource{
+						RepoURL:     "repository.com",
+						Version:     "v1.1",
+						Chart:       "first-chart",
+						ReleaseName: "release-one",
+					},
+					Values: &runtime.RawExtension{
+						Object: &unstructured.Unstructured{
+							Object: map[string]interface{}{
+								"value": "one",
+								"other": "two",
+							},
 						},
 					},
 				},
+				ServiceID: ptr.To("service-one"),
 				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 					NodeSelector: &corev1.NodeSelector{
 						NodeSelectorTerms: []corev1.NodeSelectorTerm{

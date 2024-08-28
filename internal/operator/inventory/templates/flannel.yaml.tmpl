@@ -4,9 +4,10 @@ metadata:
   name: flannel
   namespace: dpf-operator-system
 spec:
-  source:
-    repoURL: ${REGISTRY}
-    chart: ${FLANNEL_HELM_CHART_NAME}
-    version: ${FLANNEL_VERSION}
-  values:
-    podCidr: "10.36.0.0/16"
+  helmChart:
+    source:
+      repoURL: ${REGISTRY}
+      chart: ${FLANNEL_HELM_CHART_NAME}
+      version: ${FLANNEL_VERSION}
+    values:
+      podCidr: "10.36.0.0/16"

@@ -523,8 +523,8 @@ func argoCDValuesFromDPUService(dpuService *dpuservicev1.DPUService) (*runtime.R
 
 	// Marshal the ServiceDaemonSet and other values to map[string]interface to combine them.
 	var otherValues, serviceDaemonSetValues map[string]interface{}
-	if service.Spec.Values != nil {
-		if err := json.Unmarshal(service.Spec.Values.Raw, &otherValues); err != nil {
+	if service.Spec.HelmChart.Values != nil {
+		if err := json.Unmarshal(service.Spec.HelmChart.Values.Raw, &otherValues); err != nil {
 			return nil, err
 		}
 	}

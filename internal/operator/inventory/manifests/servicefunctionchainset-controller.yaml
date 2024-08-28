@@ -4,7 +4,8 @@ metadata:
   name: servicefunctionchainset-controller
   namespace: dpf-operator-system
 spec:
-  source:
-    repoURL: example.com
-    chart: servicechain-chart
-    version: v0.1.0
+  helmChart:
+    source:
+      repoURL: example.com
+      chart: servicechain-chart
+      version: v0.1.0

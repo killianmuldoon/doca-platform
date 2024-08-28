@@ -22,6 +22,7 @@
           labelsFromPath:
             chart_version:
               - spec
+              - helmChart
               - source
               - version
     - name: status_conditions

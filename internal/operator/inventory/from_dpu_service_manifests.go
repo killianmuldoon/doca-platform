@@ -99,8 +99,8 @@ func dpuServiceAddValueEdit(key string, value interface{}) StructuredEdit {
 			return fmt.Errorf("unexpected object kind %s. expected DPUService", obj.GetObjectKind().GroupVersionKind())
 		}
 
-		if dpuService.Spec.Values == nil {
-			dpuService.Spec.Values = &runtime.RawExtension{
+		if dpuService.Spec.HelmChart.Values == nil {
+			dpuService.Spec.HelmChart.Values = &runtime.RawExtension{
 				Object: &unstructured.Unstructured{Object: map[string]interface{}{
 					key: value,
 				},
@@ -109,13 +109,13 @@ func dpuServiceAddValueEdit(key string, value interface{}) StructuredEdit {
 			return nil
 		}
 		currentValues := map[string]interface{}{}
-		err := json.Unmarshal(dpuService.Spec.Values.Raw, &currentValues)
+		err := json.Unmarshal(dpuService.Spec.HelmChart.Values.Raw, &currentValues)
 		if err != nil {
 			return fmt.Errorf("error merging values in DPUService manifests")
 		}
 		currentValues[key] = value
-		dpuService.Spec.Values.Object = &unstructured.Unstructured{Object: currentValues}
-		dpuService.Spec.Values.Raw = nil
+		dpuService.Spec.HelmChart.Values.Object = &unstructured.Unstructured{Object: currentValues}
+		dpuService.Spec.HelmChart.Values.Raw = nil
 		return nil
 	}
 }

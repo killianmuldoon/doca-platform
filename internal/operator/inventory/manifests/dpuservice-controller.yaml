@@ -58,6 +58,43 @@ spec:
                 description: DeployInCluster indicates if the DPUService Helm Chart
                   will be deployed on the Host cluster. Default to false.
                 type: boolean
+              helmChart:
+                description: HelmChart reflects the Helm related configuration
+                properties:
+                  source:
+                    description: Source specifies information about the Helm chart
+                    properties:
+                      chart:
+                        description: Chart is the name of the helm chart.
+                        type: string
+                      path:
+                        description: Path is the location of the chart inside the
+                          repo.
+                        type: string
+                      releaseName:
+                        description: ReleaseName is the name to give to the release
+                          generate from the DPUService.
+                        type: string
+                      repoURL:
+                        description: |-
+                          TODO: This currently allows deploying a helm chart either from a helm repo. This should be validated as such.
+                          RepoURL is the URL to the repository that contains the application helm chart.
+                        type: string
+                      version:
+                        description: Version is a semver tag for the Chart's version.
+                        type: string
+                    required:
+                    - repoURL
+                    - version
+                    type: object
+                  values:
+                    description: Values specifies Helm values to be passed to Helm
+                      template, defined as a map. This takes precedence over Values.
+                    type: object
+                    x-kubernetes-preserve-unknown-fields: true
+                required:
+                - source
+                type: object
               serviceDaemonSet:
                 properties:
                   annotations:
@@ -235,37 +272,8 @@ spec:
                 type: object
               serviceID:
                 type: string
-              source:
-                properties:
-                  chart:
-                    description: Chart is the name of the helm chart.
-                    type: string
-                  path:
-                    description: Path is the location of the chart inside the repo.
-                    type: string
-                  releaseName:
-                    description: ReleaseName is the name to give to the release generate
-                      from the DPUService.
-                    type: string
-                  repoURL:
-                    description: |-
-                      TODO: This currently allows deploying a helm chart either from a helm repo. This should be validated as such.
-                      RepoURL is the URL to the repository that contains the application helm chart.
-                    type: string
-                  version:
-                    description: Version is a semver tag for the Chart's version.
-                    type: string
-                required:
-                - repoURL
-                - version
-                type: object
-              values:
-                description: Values specifies Helm values to be passed to helm template,
-                  defined as a map. This takes precedence over Values.
-                type: object
-                x-kubernetes-preserve-unknown-fields: true
             required:
-            - source
+            - helmChart
             type: object
           status:
             description: DPUServiceStatus defines the observed state of DPUService

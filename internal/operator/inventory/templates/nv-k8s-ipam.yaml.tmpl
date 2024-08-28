@@ -4,7 +4,8 @@ metadata:
   name: nvidia-k8s-ipam
   namespace: dpf-operator-system
 spec:
-  source:
-    repoURL: ${REGISTRY}
-    chart: ${NVIDIA_K8S_IPAM_HELM_CHART_NAME}-chart
-    version: ${TAG}
+  helmChart:
+    source:
+      repoURL: ${REGISTRY}
+      chart: ${NVIDIA_K8S_IPAM_HELM_CHART_NAME}-chart
+      version: ${TAG}

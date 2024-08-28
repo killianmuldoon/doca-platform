@@ -4,7 +4,8 @@ metadata:
   name: ovs-cni
   namespace: dpf-operator-system
 spec:
-  source:
-    repoURL: ${REGISTRY}
-    chart: ${OVS_CNI_HELM_CHART_NAME}-chart
-    version: ${TAG}
+  helmChart:
+    source:
+      repoURL: ${REGISTRY}
+      chart: ${OVS_CNI_HELM_CHART_NAME}-chart
+      version: ${TAG}

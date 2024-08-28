@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 )
 
 //+kubebuilder:object:root=true
@@ -50,7 +49,7 @@ type DPUServiceConfigurationSpec struct {
 // ServiceConfiguration contains fields that are configured on the generated DPUService.
 type ServiceConfiguration struct {
 	// HelmChart reflects the Helm related configuration
-	HelmChart DPUServiceConfigurationHelmChart `json:"helmChart"`
+	HelmChart HelmChart `json:"helmChart"`
 	// ServiceDaemonSet contains settings related to the underlying DaemonSet that is part of the Helm chart
 	// +optional
 	ServiceDaemonSet DPUServiceConfigurationServiceDaemonSetValues `json:"serviceDaemonSet,omitempty"`
@@ -58,16 +57,6 @@ type ServiceConfiguration struct {
 	// DeployInCluster indicates if the DPUService Helm Chart will be deployed on the Host cluster. Default to false.
 	// +optional
 	DeployInCluster *bool `json:"deployInCluster,omitempty"`
-}
-
-// DPUServiceConfigurationHelmChart reflects the helm related configuration
-type DPUServiceConfigurationHelmChart struct {
-	// Source specifies information about the Helm chart
-	Source ApplicationSource `json:"source"`
-	// Values specifies Helm values to be passed to Helm template, defined as a map. This takes precedence over Values.
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +optional
-	Values *runtime.RawExtension `json:"values,omitempty"`
 }
 
 // DPUServiceConfigurationServiceDaemonSet reflects the Helm related configuration

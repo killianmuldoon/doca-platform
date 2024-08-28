@@ -73,18 +73,25 @@ type DPUService struct {
 
 // DPUServiceSpec defines the desired state of DPUService
 type DPUServiceSpec struct {
-	Source ApplicationSource `json:"source"`
+	// HelmChart reflects the Helm related configuration
+	HelmChart HelmChart `json:"helmChart"`
 	// +optional
 	ServiceID *string `json:"serviceID,omitempty"`
-	// Values specifies Helm values to be passed to helm template, defined as a map. This takes precedence over Values.
-	// +kubebuilder:pruning:PreserveUnknownFields
-	// +optional
-	Values *runtime.RawExtension `json:"values,omitempty"`
 	// +optional
 	ServiceDaemonSet *ServiceDaemonSetValues `json:"serviceDaemonSet,omitempty"`
 	// DeployInCluster indicates if the DPUService Helm Chart will be deployed on the Host cluster. Default to false.
 	// +optional
 	DeployInCluster *bool `json:"deployInCluster,omitempty"`
+}
+
+// HelmChart reflects the helm related configuration
+type HelmChart struct {
+	// Source specifies information about the Helm chart
+	Source ApplicationSource `json:"source"`
+	// Values specifies Helm values to be passed to Helm template, defined as a map. This takes precedence over Values.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +optional
+	Values *runtime.RawExtension `json:"values,omitempty"`
 }
 
 type ApplicationSource struct {

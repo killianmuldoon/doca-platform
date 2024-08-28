@@ -4,10 +4,11 @@ metadata:
   name: dummydpuservice
   namespace: dummydpuservice
 spec:
-  source:
-    repoURL: nvidia.com/dpf
-    version: v0.1.0
-    chart: dummydpuservice-chart
+  helmChart:
+    source:
+      repoURL: nvidia.com/dpf
+      version: v0.1.0
+      chart: dummydpuservice-chart
   serviceID: dummydpuservice
   serviceDaemonSet:
     nodeSelector:
