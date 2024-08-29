@@ -19,6 +19,7 @@ package webhooks
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/ovnkubernetesoperator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/ovnkubernetesoperator/consts"
@@ -139,6 +140,11 @@ func (webhook *NetworkInjector) isScheduledToControlPlane(ctx context.Context, p
 				for _, expression := range term.MatchExpressions {
 					if _, ok := controlPlaneNodeLabels[expression.Key]; ok {
 						if expression.Operator == corev1.NodeSelectorOpExists {
+							return true, nil
+						}
+
+						if expression.Operator == corev1.NodeSelectorOpIn &&
+							slices.Contains(expression.Values, "") {
 							return true, nil
 						}
 					}

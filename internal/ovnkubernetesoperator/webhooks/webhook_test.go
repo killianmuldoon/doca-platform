@@ -74,7 +74,7 @@ func TestNetworkInjector_Default(t *testing.T) {
 		},
 	}
 
-	controlPlaneMatchExpressions := []corev1.NodeSelectorTerm{
+	controlPlaneMatchExpressionsExists := []corev1.NodeSelectorTerm{
 		{
 			MatchExpressions: []corev1.NodeSelectorRequirement{
 				{
@@ -84,6 +84,23 @@ func TestNetworkInjector_Default(t *testing.T) {
 				{
 					Key:      "node-role.kubernetes.io/control-plane",
 					Operator: corev1.NodeSelectorOpExists,
+				},
+			},
+		},
+	}
+
+	controlPlaneMatchExpressionsIn := []corev1.NodeSelectorTerm{
+		{
+			MatchExpressions: []corev1.NodeSelectorRequirement{
+				{
+					Key:      "node-role.kubernetes.io/master",
+					Operator: corev1.NodeSelectorOpIn,
+					Values:   []string{""},
+				},
+				{
+					Key:      "node-role.kubernetes.io/control-plane",
+					Operator: corev1.NodeSelectorOpIn,
+					Values:   []string{""},
 				},
 			},
 		},
@@ -111,8 +128,11 @@ func TestNetworkInjector_Default(t *testing.T) {
 	podWithControlPlaneNodeSelector := basePod.DeepCopy()
 	podWithControlPlaneNodeSelector.Spec.NodeSelector = map[string]string{"node-role.kubernetes.io/master": ""}
 
-	podWithControlPlaneNodeSelectorMatchExpressions := basePod.DeepCopy()
-	setSelectorTerms(podWithControlPlaneNodeSelectorMatchExpressions, controlPlaneMatchExpressions)
+	podWithControlPlaneNodeSelectorMatchExpressionsExists := basePod.DeepCopy()
+	setSelectorTerms(podWithControlPlaneNodeSelectorMatchExpressionsExists, controlPlaneMatchExpressionsExists)
+
+	podWithControlPlaneNodeSelectorMatchExpressionsIn := basePod.DeepCopy()
+	setSelectorTerms(podWithControlPlaneNodeSelectorMatchExpressionsIn, controlPlaneMatchExpressionsIn)
 
 	podWithControlPlaneNodeNameSelectorTerms := basePod.DeepCopy()
 	setSelectorTermsToNodeName(podWithControlPlaneNodeNameSelectorTerms, controlPlaneNodeName)
@@ -151,11 +171,15 @@ func TestNetworkInjector_Default(t *testing.T) {
 			expectedResourceCount: "0",
 		},
 		{
-			name:                  "don't inject resource into pod that explicitly targets a control plane node with NodeSelectorTerms",
-			pod:                   podWithControlPlaneNodeSelectorMatchExpressions,
+			name:                  "don't inject resource into pod that explicitly targets a control plane node with NodeSelectorTerms with Exists operator",
+			pod:                   podWithControlPlaneNodeSelectorMatchExpressionsExists,
 			expectedResourceCount: "0",
 		},
-
+		{
+			name:                  "don't inject resource into pod that explicitly targets a control plane node with NodeSelectorTerms with In operator",
+			pod:                   podWithControlPlaneNodeSelectorMatchExpressionsIn,
+			expectedResourceCount: "0",
+		},
 		{
 			name:                  "inject resource into pod that explicitly targets a worker node with NodeSelectorTerms",
 			pod:                   podWithWorkerNodeSelectorTerms,
