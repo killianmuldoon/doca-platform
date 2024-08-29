@@ -166,6 +166,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&dpuservicecontroller.DPUDeploymentReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "DPUDeployment")
+		os.Exit(1)
+	}
+
 	if err = (&dpuservicechainwebhooks.DPUServiceIPAMValidator{
 		Client: mgr.GetClient(),
 	}).SetupWebhookWithManager(mgr); err != nil {

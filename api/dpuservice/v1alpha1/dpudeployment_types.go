@@ -23,6 +23,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	DPUDeploymentFinalizer = "dpf.nvidia.com/dpudeployment"
+	DPUDeploymentKind      = "DPUDeployment"
+)
+
+var DPUDeploymentGroupVersionKind = GroupVersion.WithKind(DPUDeploymentKind)
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
