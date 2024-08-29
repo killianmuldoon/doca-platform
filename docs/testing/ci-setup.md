@@ -94,8 +94,8 @@ Link to colossus lease:<br>
 - https://colossus.nvidia.com/web/index.html#/schedule
 
 ```shell
-# Should have gitlab group owner permissions for creating a group runner.
-export GROUP_ACCESS_TOKEN="<group_access_token>"
+# Should have permissions for creating a gitlab runner.
+export GITLAB_RUNNER_API_TOKEN="<GITLAB_RUNNER_API_TOKEN>"
 
 # Copy the gitlab_runner.sh script to your machine inside /root directory.
 https://gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/-/blob/main/hack/scripts/gitlab_runner.sh?ref_type=heads

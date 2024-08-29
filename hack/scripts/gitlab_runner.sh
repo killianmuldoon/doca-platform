@@ -24,14 +24,14 @@ log_and_exit() {
 }
 
 ## Check for required variables
-if [ -z "$GROUP_ACCESS_TOKEN" ]; then
-    log_and_exit "All GROUP_ACCESS_TOKEN variable is required"
+if [ -z "$GITLAB_RUNNER_API_TOKEN" ]; then
+    log_and_exit "A GITLAB_RUNNER_API_TOKEN variable is required"
 fi
 
 GITLAB_RUNNER_USER="${GITLAB_RUNNER_USER:-"gitlab-runner"}"
 
 ## GLOBAL VARS
-GROUP_ID="151554"
+PROJECT_ID="112105"
 SHELL_TAG_LIST="${SHELL_TAG_LIST:-"type/shell,e2e,release"}"
 DOCKER_TAG_LIST="type/docker"
 
@@ -96,12 +96,12 @@ sudo gitlab-runner start || log_and_exit "Failed to start gitlab-runner"
 
 ## Register shell runner
 register_token=$(curl --silent --request POST --url "https://gitlab-master.nvidia.com/api/v4/user/runners" \
-  --data "runner_type=group_type" \
-  --data "group_id=$GROUP_ID" \
+  --data "runner_type=project_type" \
+  --data "project_id=$PROJECT_ID" \
   --data "description=$(hostname) - $(hostname -I | awk '{print $1}')" \
   --data "tag_list=$SHELL_TAG_LIST" \
   --data "run_untagged=false" \
-  --header "PRIVATE-TOKEN: $GROUP_ACCESS_TOKEN" | jq -r '.token')
+  --header "PRIVATE-TOKEN: $GITLAB_RUNNER_API_TOKEN" | jq -r '.token')
 
 gitlab-runner register  --non-interactive \
   --url https://gitlab-master.nvidia.com \
@@ -111,12 +111,12 @@ gitlab-runner register  --non-interactive \
 
 ## Register docker runner
 register_token=$(curl --silent --request POST --url "https://gitlab-master.nvidia.com/api/v4/user/runners" \
-  --data "runner_type=group_type" \
-  --data "group_id=$GROUP_ID" \
+  --data "runner_type=project_type" \
+  --data "project_id=$PROJECT_ID" \
   --data "description=$(hostname) - $(hostname -I | awk '{print $1}')" \
   --data "tag_list=$DOCKER_TAG_LIST" \
   --data "run_untagged=true" \
-  --header "PRIVATE-TOKEN: $GROUP_ACCESS_TOKEN" | jq -r '.token')
+  --header "PRIVATE-TOKEN: $GITLAB_RUNNER_API_TOKEN" | jq -r '.token')
 
 gitlab-runner register  --non-interactive \
   --url https://gitlab-master.nvidia.com \
