@@ -97,11 +97,9 @@ Link to colossus lease:<br>
 # Should have permissions for creating a gitlab runner.
 export GITLAB_RUNNER_API_TOKEN="<GITLAB_RUNNER_API_TOKEN>"
 
-# Copy the gitlab_runner.sh script to your machine inside /root directory.
-https://gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/-/blob/main/hack/scripts/gitlab_runner.sh?ref_type=heads
-
-# Grant execution permisson & execute script
-chmod +x gitlab_runner.sh
-./gitlab_runner.sh
-
+# curl and run the gitlab_runner.sh from main
+cat <<EOF | ssh "<ip address of runner>"
+export GITLAB_RUNNER_API_TOKEN=$GITLAB_RUNNER_API_TOKEN
+curl --header "PRIVATE-TOKEN: $GITLAB_RUNNER_API_TOKEN" "https://gitlab-master.nvidia.com/api/v4/projects/112105/repository/files/hack%2Fscripts%2Fgitlab_runner.sh/raw?ref=main" | bash --login
+EOF
 ```
