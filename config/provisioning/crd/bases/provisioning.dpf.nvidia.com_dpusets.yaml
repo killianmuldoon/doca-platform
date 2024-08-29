@@ -181,11 +181,8 @@ spec:
                         x-kubernetes-int-or-string: true
                     type: object
                   type:
-                    default: Recreate
-                    description: Can be "Recreate" or "RollingUpdate".
-                    enum:
-                    - Recreate
-                    - RollingUpdate
+                    description: Can be "Recreate" or "RollingUpdate". Default is
+                      RollingUpdate.
                     type: string
                 type: object
             type: object

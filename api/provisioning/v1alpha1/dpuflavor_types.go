@@ -20,8 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// DPUFlavorSpec defines the content of DPUFlavor
-// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DPUFlavor spec is immutable"
 type DPUFlavorSpec struct {
 	// +optional
 	Grub DPUFlavorGrub `json:"grub,omitempty"`
@@ -40,26 +38,22 @@ type DPUFlavorSpec struct {
 }
 
 type DPUFlavorGrub struct {
-	// +required
 	KernelParameters []string `json:"kernelParameters"`
 }
 
 type DPUFLavorSysctl struct {
-	// +required
 	Parameters []string `json:"parameters"`
 }
 
 type DPUFlavorNVConfig struct {
 	// +optional
-	Device *string `json:"device,omitempty"`
-	// +required
+	Device     *string  `json:"device"`
 	Parameters []string `json:"parameters"`
 	// +optional
 	HostPowerCycleRequired *bool `json:"hostPowerCycleRequired,omitempty"`
 }
 
 type DPUFlavorOVS struct {
-	// +required
 	RawConfigScript string `json:"rawConfigScript"`
 }
 
@@ -72,18 +66,14 @@ const (
 )
 
 type ConfigFile struct {
-	// +required
 	Path string `json:"path"`
 	// +optional
-	Operation DPUFlavorFileOp `json:"operation,omitempty"`
-	// +required
-	Raw string `json:"raw"`
-	// +required
-	Permissions string `json:"permissions"`
+	Operation   DPUFlavorFileOp `json:"operation,omitempty"`
+	Raw         string          `json:"raw"`
+	Permissions string          `json:"permissions"`
 }
 
 type ContainerdConfig struct {
-	// +required
 	RegistryEndpoint string `json:"registryEndpoint"`
 }
 
@@ -94,6 +84,7 @@ type DPUFlavor struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DPUFlavor spec is immutable"
 	Spec DPUFlavorSpec `json:"spec,omitempty"`
 }
 

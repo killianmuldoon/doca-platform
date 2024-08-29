@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"errors"
 	"fmt"
 
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/powercycle"
@@ -47,6 +48,12 @@ var _ webhook.Defaulter = &Dpu{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *Dpu) Default() {
 	dpulog.V(4).Info("default", "name", r.Name)
+
+	if r.Spec.NodeEffect == nil {
+		r.Spec.NodeEffect = &NodeEffect{
+			NoEffect: true,
+		}
+	}
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
@@ -94,10 +101,18 @@ func (r *Dpu) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 
 	oldDpu, _ := old.(*Dpu)
 	var err error
-	nv, nok := r.Annotations[powercycle.OverrideKey]
-	ov, ook := oldDpu.Annotations[powercycle.OverrideKey]
-	if nok != ook || nv != ov {
-		err = fmt.Errorf("value of annotation %s is immutable", powercycle.OverrideKey)
+	if r.Spec.PCIAddress != oldDpu.Spec.PCIAddress {
+		err = errors.New("pci_address is immutable field")
+	} else if r.Spec.NodeName != oldDpu.Spec.NodeName {
+		err = errors.New("nodeName is immutable field")
+	} else if r.Spec.Cluster.Name != oldDpu.Spec.Cluster.Name {
+		err = errors.New("k8s_cluster is immutable field")
+	} else {
+		nv, nok := r.Annotations[powercycle.OverrideKey]
+		ov, ook := oldDpu.Annotations[powercycle.OverrideKey]
+		if nok != ook || nv != ov {
+			err = fmt.Errorf("value of annotation %s is immutable", powercycle.OverrideKey)
+		}
 	}
 
 	if err != nil {
