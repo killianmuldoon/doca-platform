@@ -19,6 +19,557 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.14.0
   labels:
     dpf.nvidia.com/component: dpuservice-controller-manager
+  name: dpudeployments.svc.dpf.nvidia.com
+spec:
+  group: svc.dpf.nvidia.com
+  names:
+    kind: DPUDeployment
+    listKind: DPUDeploymentList
+    plural: dpudeployments
+    singular: dpudeployment
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          DPUDeployment is the Schema for the dpudeployments API. This object connects DPUServices with specific BFBs and
+          DPUServiceChains.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DPUDeploymentSpec defines the desired state of DPUDeployment
+            properties:
+              dpus:
+                description: DPUs contains the DPU related configuration
+                properties:
+                  bfb:
+                    description: |-
+                      BFB is the name of the BFB object to be used in this DPUDeployment. It must be in the same namespace as the
+                      DPUDeployment.
+                    type: string
+                  dpuSets:
+                    description: DPUSets contains configuration for each DPUSet that
+                      is going to be created by the DPUDeployment
+                    items:
+                      description: DPUSet contains configuration for the DPUSet to
+                        be created by the DPUDeployment
+                      properties:
+                        dpuAnnotations:
+                          additionalProperties:
+                            type: string
+                          description: DPUAnnotations is the annotations to be added
+                            to the DPU object created by the DPUSet.
+                          type: object
+                        dpuSelector:
+                          additionalProperties:
+                            type: string
+                          description: |-
+                            DPUSelector defines the DPUs that the DPUSet should target
+                            TODO: Revisit if this one is needed at all or we can use the nodeSelector directly. If it's not the case, drop
+                            this field and the field in the DPUSet. Based on the current implementation, it looks like we could remove it.
+                          type: object
+                        nodeSelector:
+                          description: NodeSelector defines the nodes that the DPUSet
+                            should target
+                          properties:
+                            matchExpressions:
+                              description: matchExpressions is a list of label selector
+                                requirements. The requirements are ANDed.
+                              items:
+                                description: |-
+                                  A label selector requirement is a selector that contains values, a key, and an operator that
+                                  relates the key and values.
+                                properties:
+                                  key:
+                                    description: key is the label key that the selector
+                                      applies to.
+                                    type: string
+                                  operator:
+                                    description: |-
+                                      operator represents a key's relationship to a set of values.
+                                      Valid operators are In, NotIn, Exists and DoesNotExist.
+                                    type: string
+                                  values:
+                                    description: |-
+                                      values is an array of string values. If the operator is In or NotIn,
+                                      the values array must be non-empty. If the operator is Exists or DoesNotExist,
+                                      the values array must be empty. This array is replaced during a strategic
+                                      merge patch.
+                                    items:
+                                      type: string
+                                    type: array
+                                    x-kubernetes-list-type: atomic
+                                required:
+                                - key
+                                - operator
+                                type: object
+                              type: array
+                              x-kubernetes-list-type: atomic
+                            matchLabels:
+                              additionalProperties:
+                                type: string
+                              description: |-
+                                matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+                                map is equivalent to an element of matchExpressions, whose key field is "key", the
+                                operator is "In", and the values array contains only "value". The requirements are ANDed.
+                              type: object
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      type: object
+                    type: array
+                  flavor:
+                    description: |-
+                      Flavor is the name of the DPUFlavor object to be used in this DPUDeployment. It must be in the same namespace as
+                      the DPUDeployment.
+                    type: string
+                required:
+                - bfb
+                - flavor
+                type: object
+              serviceChains:
+                description: ServiceChains contains the configuration related to the
+                  DPUServiceChains that the DPUDeployment creates.
+                items:
+                  description: Switch defines the switch configuration
+                  properties:
+                    ports:
+                      description: Ports of the switch
+                      items:
+                        description: Port defines the port configuration
+                        properties:
+                          service:
+                            properties:
+                              interface:
+                                description: Interface name
+                                type: string
+                              ipam:
+                                description: IPAM defines the IPAM configuration
+                                properties:
+                                  defaultGateway:
+                                    type: boolean
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    maxProperties: 50
+                                    minProperties: 1
+                                    type: object
+                                  reference:
+                                    properties:
+                                      name:
+                                        description: Name of the object
+                                        maxLength: 253
+                                        minLength: 1
+                                        type: string
+                                      namespace:
+                                        description: Namespace of the object
+                                        maxLength: 253
+                                        minLength: 1
+                                        type: string
+                                    required:
+                                    - name
+                                    type: object
+                                  setDefaultRoute:
+                                    type: boolean
+                                type: object
+                                x-kubernetes-validations:
+                                - message: either reference or matchLabels must be
+                                    specified
+                                  rule: (has(self.reference) && !has(self.matchLabels))
+                                    || (!has(self.reference) && has(self.matchLabels))
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                description: |-
+                                  MatchLabels is a map of string keys and values that are used to select
+                                  an object.
+                                maxProperties: 50
+                                minProperties: 1
+                                type: object
+                              reference:
+                                description: 'TODO: What is this field supposed to
+                                  be?'
+                                properties:
+                                  name:
+                                    description: Name of the object
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  namespace:
+                                    description: Namespace of the object
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                            required:
+                            - interface
+                            type: object
+                            x-kubernetes-validations:
+                            - message: either reference or matchLabels must be specified
+                              rule: (has(self.reference) && !has(self.matchLabels))
+                                || (!has(self.reference) && has(self.matchLabels))
+                          serviceInterface:
+                            description: ServiceIfc defines the service interface
+                              configuration
+                            properties:
+                              matchLabels:
+                                additionalProperties:
+                                  type: string
+                                maxProperties: 50
+                                minProperties: 1
+                                type: object
+                              reference:
+                                description: 'TODO: What is this field supposed to
+                                  be?'
+                                properties:
+                                  name:
+                                    description: Name of the object
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                  namespace:
+                                    description: Namespace of the object
+                                    maxLength: 253
+                                    minLength: 1
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                            type: object
+                            x-kubernetes-validations:
+                            - message: either reference or matchLabels must be specified
+                              rule: (has(self.reference) && !has(self.matchLabels))
+                                || (!has(self.reference) && has(self.matchLabels))
+                        type: object
+                        x-kubernetes-validations:
+                        - message: either service or serviceInterface must be specified
+                          rule: (has(self.service) && !has(self.serviceInterface))
+                            || (!has(self.service) && has(self.serviceInterface))
+                      maxItems: 50
+                      minItems: 1
+                      type: array
+                  required:
+                  - ports
+                  type: object
+                maxItems: 50
+                minItems: 1
+                type: array
+              services:
+                additionalProperties:
+                  description: DPUDeploymentServiceConfiguration describes the configuration
+                    of a particular Service
+                  properties:
+                    serviceConfiguration:
+                      description: |-
+                        ServiceConfiguration is the name of the DPUServiceConfiguration object to be used for this Service. It must be
+                        in the same namespace as the DPUDeployment.
+                      type: string
+                    serviceTemplate:
+                      description: |-
+                        ServiceTemplate is the name of the DPUServiceTemplate object to be used for this Service. It must be in the same
+                        namespace as the DPUDeployment.
+                      type: string
+                  required:
+                  - serviceConfiguration
+                  - serviceTemplate
+                  type: object
+                description: |-
+                  Services contains the Service related configuration. The key is the service ID and the value is its
+                  configuration. All underlying objects must specify the same service ID in order to be able to be consumed by the
+                  DPUDeployment.
+                type: object
+              strategy:
+                description: |-
+                  Strategy contains configuration related to the rolling update that the DPUDeployment can do whenever a DPUService
+                  or a DPUSet related setting has changed.
+                properties:
+                  rollingUpdate:
+                    description: RollingUpdate specifies the parameters related to
+                      the rolling update
+                    properties:
+                      maxSurge:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: |-
+                          The maximum number of nodes with an existing available DaemonSet pod that
+                          can have an updated DaemonSet pod during during an update.
+                          Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).
+                          This can not be 0 if MaxUnavailable is 0.
+                          Absolute number is calculated from percentage by rounding up to a minimum of 1.
+                          Default value is 0.
+                          Example: when this is set to 30%, at most 30% of the total number of nodes
+                          that should be running the daemon pod (i.e. status.desiredNumberScheduled)
+                          can have their a new pod created before the old pod is marked as deleted.
+                          The update starts by launching new pods on 30% of nodes. Once an updated
+                          pod is available (Ready for at least minReadySeconds) the old DaemonSet pod
+                          on that node is marked deleted. If the old pod becomes unavailable for any
+                          reason (Ready transitions to false, is evicted, or is drained) an updated
+                          pod is immediatedly created on that node without considering surge limits.
+                          Allowing surge implies the possibility that the resources consumed by the
+                          daemonset on any given node can double if the readiness check fails, and
+                          so resource intensive daemonsets should take into account that they may
+                          cause evictions during disruption.
+                        x-kubernetes-int-or-string: true
+                      maxUnavailable:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: |-
+                          The maximum number of DaemonSet pods that can be unavailable during the
+                          update. Value can be an absolute number (ex: 5) or a percentage of total
+                          number of DaemonSet pods at the start of the update (ex: 10%). Absolute
+                          number is calculated from percentage by rounding up.
+                          This cannot be 0 if MaxSurge is 0
+                          Default value is 1.
+                          Example: when this is set to 30%, at most 30% of the total number of nodes
+                          that should be running the daemon pod (i.e. status.desiredNumberScheduled)
+                          can have their pods stopped for an update at any given time. The update
+                          starts by stopping at most 30% of those DaemonSet pods and then brings
+                          up new DaemonSet pods in their place. Once the new pods are available,
+                          it then proceeds onto other DaemonSet pods, thus ensuring that at least
+                          70% of original number of DaemonSet pods are available at all times during
+                          the update.
+                        x-kubernetes-int-or-string: true
+                    type: object
+                required:
+                - rollingUpdate
+                type: object
+            required:
+            - dpus
+            - serviceChains
+            - services
+            type: object
+          status:
+            description: DPUDeploymentStatus defines the observed state of DPUDeployment
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  labels:
+    dpf.nvidia.com/component: dpuservice-controller-manager
+  name: dpuserviceconfigurations.svc.dpf.nvidia.com
+spec:
+  group: svc.dpf.nvidia.com
+  names:
+    kind: DPUServiceConfiguration
+    listKind: DPUServiceConfigurationList
+    plural: dpuserviceconfigurations
+    singular: dpuserviceconfiguration
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          DPUServiceConfiguration is the Schema for the dpuserviceconfigurations API. This object is intended to be used in
+          conjunction with a DPUDeployment object. This object is the template from which the DPUService will be created. It
+          contains all configuration options from the user to be provided to the service itself via the helm chart values.
+          This object doesn't allow configuration of nodeSelector and resources in purpose as these are delegated to the
+          DPUDeployment and DPUServiceTemplate accordingly.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DPUServiceConfigurationSpec defines the desired state of
+              DPUServiceConfiguration
+            properties:
+              service:
+                description: |-
+                  Service is the name of the DPU service this configuration refers to. It must match .spec.service of a
+                  DPUServiceTemplate object and one of the keys in .spec.services of a DPUDeployment object.
+                type: string
+              serviceConfiguration:
+                description: ServiceConfiguration contains fields that are configured
+                  on the generated DPUService.
+                properties:
+                  deployInCluster:
+                    description: |-
+                      TODO: Add nodeEffect
+                      DeployInCluster indicates if the DPUService Helm Chart will be deployed on the Host cluster. Default to false.
+                    type: boolean
+                  helmChart:
+                    description: HelmChart reflects the Helm related configuration
+                    properties:
+                      source:
+                        description: Source specifies information about the Helm chart
+                        properties:
+                          chart:
+                            description: Chart is the name of the helm chart.
+                            type: string
+                          path:
+                            description: Path is the location of the chart inside
+                              the repo.
+                            type: string
+                          releaseName:
+                            description: ReleaseName is the name to give to the release
+                              generate from the DPUService.
+                            type: string
+                          repoURL:
+                            description: |-
+                              TODO: This currently allows deploying a helm chart either from a helm repo. This should be validated as such.
+                              RepoURL is the URL to the repository that contains the application helm chart.
+                            type: string
+                          version:
+                            description: Version is a semver tag for the Chart's version.
+                            type: string
+                        required:
+                        - repoURL
+                        - version
+                        type: object
+                      values:
+                        description: Values specifies Helm values to be passed to
+                          Helm template, defined as a map. This takes precedence over
+                          Values.
+                        type: object
+                        x-kubernetes-preserve-unknown-fields: true
+                    required:
+                    - source
+                    type: object
+                  serviceDaemonSet:
+                    description: ServiceDaemonSet contains settings related to the
+                      underlying DaemonSet that is part of the Helm chart
+                    properties:
+                      annotations:
+                        additionalProperties:
+                          type: string
+                        description: Annotations specifies annotations which are added
+                          to the ServiceDaemonSet.
+                        type: object
+                      labels:
+                        additionalProperties:
+                          type: string
+                        description: Labels specifies labels which are added to the
+                          ServiceDaemonSet.
+                        type: object
+                      updateStrategy:
+                        description: UpdateStrategy specifies the DeaemonSet update
+                          strategy for the ServiceDaemonset.
+                        properties:
+                          rollingUpdate:
+                            description: |-
+                              Rolling update config params. Present only if type = "RollingUpdate".
+                              ---
+                              TODO: Update this to follow our convention for oneOf, whatever we decide it
+                              to be. Same as Deployment `strategy.rollingUpdate`.
+                              See https://github.com/kubernetes/kubernetes/issues/35345
+                            properties:
+                              maxSurge:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: |-
+                                  The maximum number of nodes with an existing available DaemonSet pod that
+                                  can have an updated DaemonSet pod during during an update.
+                                  Value can be an absolute number (ex: 5) or a percentage of desired pods (ex: 10%).
+                                  This can not be 0 if MaxUnavailable is 0.
+                                  Absolute number is calculated from percentage by rounding up to a minimum of 1.
+                                  Default value is 0.
+                                  Example: when this is set to 30%, at most 30% of the total number of nodes
+                                  that should be running the daemon pod (i.e. status.desiredNumberScheduled)
+                                  can have their a new pod created before the old pod is marked as deleted.
+                                  The update starts by launching new pods on 30% of nodes. Once an updated
+                                  pod is available (Ready for at least minReadySeconds) the old DaemonSet pod
+                                  on that node is marked deleted. If the old pod becomes unavailable for any
+                                  reason (Ready transitions to false, is evicted, or is drained) an updated
+                                  pod is immediatedly created on that node without considering surge limits.
+                                  Allowing surge implies the possibility that the resources consumed by the
+                                  daemonset on any given node can double if the readiness check fails, and
+                                  so resource intensive daemonsets should take into account that they may
+                                  cause evictions during disruption.
+                                x-kubernetes-int-or-string: true
+                              maxUnavailable:
+                                anyOf:
+                                - type: integer
+                                - type: string
+                                description: |-
+                                  The maximum number of DaemonSet pods that can be unavailable during the
+                                  update. Value can be an absolute number (ex: 5) or a percentage of total
+                                  number of DaemonSet pods at the start of the update (ex: 10%). Absolute
+                                  number is calculated from percentage by rounding up.
+                                  This cannot be 0 if MaxSurge is 0
+                                  Default value is 1.
+                                  Example: when this is set to 30%, at most 30% of the total number of nodes
+                                  that should be running the daemon pod (i.e. status.desiredNumberScheduled)
+                                  can have their pods stopped for an update at any given time. The update
+                                  starts by stopping at most 30% of those DaemonSet pods and then brings
+                                  up new DaemonSet pods in their place. Once the new pods are available,
+                                  it then proceeds onto other DaemonSet pods, thus ensuring that at least
+                                  70% of original number of DaemonSet pods are available at all times during
+                                  the update.
+                                x-kubernetes-int-or-string: true
+                            type: object
+                          type:
+                            description: Type of daemon set update. Can be "RollingUpdate"
+                              or "OnDelete". Default is RollingUpdate.
+                            type: string
+                        type: object
+                    type: object
+                required:
+                - helmChart
+                type: object
+            required:
+            - service
+            - serviceConfiguration
+            type: object
+          status:
+            description: DPUServiceConfigurationStatus defines the observed state
+              of DPUServiceConfiguration
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  labels:
+    dpf.nvidia.com/component: dpuservice-controller-manager
   name: dpuservices.svc.dpf.nvidia.com
 spec:
   group: svc.dpf.nvidia.com
@@ -353,6 +904,97 @@ spec:
                   the object the last time it was patched.
                 format: int64
                 type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  labels:
+    dpf.nvidia.com/component: dpuservice-controller-manager
+  name: dpuservicetemplates.svc.dpf.nvidia.com
+spec:
+  group: svc.dpf.nvidia.com
+  names:
+    kind: DPUServiceTemplate
+    listKind: DPUServiceTemplateList
+    plural: dpuservicetemplates
+    singular: dpuservicetemplate
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          DPUServiceTemplate is the Schema for the dpuservicetemplates API. This object is intended to be used in
+          conjunction with a DPUDeployment object. This object is the template from which the DPUService will be created. It
+          contains configuration options related to resources required by the service to be deployed. The rest of the
+          configuration options must be defined in a DPUServiceConfiguration object.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DPUServiceTemplateSpec defines the desired state of DPUServiceTemplate
+            properties:
+              resourceRequirements:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                description: ResourceRequirements contains the overall resources required
+                  by this particular service to run on a single node
+                type: object
+              service:
+                description: |-
+                  Service is the name of the DPU service this configuration refers to. It must match .spec.service of a
+                  DPUServiceConfiguration object and one of the keys in .spec.services of a DPUDeployment object.
+                type: string
+              serviceDaemonSet:
+                description: ServiceDaemonSet contains settings related to the underlying
+                  DaemonSet that is part of the Helm chart
+                properties:
+                  resources:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: Resources specifies the resource limits and requests
+                      for the ServiceDaemonSet.
+                    type: object
+                type: object
+            required:
+            - service
+            type: object
+            x-kubernetes-validations:
+            - message: Spec is immutable
+              rule: self == oldSelf
+          status:
+            description: DPUServiceTemplateStatus defines the observed state of DPUServiceTemplate
             type: object
         type: object
     served: true

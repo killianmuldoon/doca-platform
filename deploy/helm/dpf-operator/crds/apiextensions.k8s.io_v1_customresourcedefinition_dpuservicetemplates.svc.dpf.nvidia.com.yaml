@@ -1,0 +1,90 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.14.0
+  labels:
+    dpf.nvidia.com/component: dpf-operator-controller-manager
+  name: dpuservicetemplates.svc.dpf.nvidia.com
+spec:
+  group: svc.dpf.nvidia.com
+  names:
+    kind: DPUServiceTemplate
+    listKind: DPUServiceTemplateList
+    plural: dpuservicetemplates
+    singular: dpuservicetemplate
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: |-
+          DPUServiceTemplate is the Schema for the dpuservicetemplates API. This object is intended to be used in
+          conjunction with a DPUDeployment object. This object is the template from which the DPUService will be created. It
+          contains configuration options related to resources required by the service to be deployed. The rest of the
+          configuration options must be defined in a DPUServiceConfiguration object.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DPUServiceTemplateSpec defines the desired state of DPUServiceTemplate
+            properties:
+              resourceRequirements:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                description: ResourceRequirements contains the overall resources required
+                  by this particular service to run on a single node
+                type: object
+              service:
+                description: |-
+                  Service is the name of the DPU service this configuration refers to. It must match .spec.service of a
+                  DPUServiceConfiguration object and one of the keys in .spec.services of a DPUDeployment object.
+                type: string
+              serviceDaemonSet:
+                description: ServiceDaemonSet contains settings related to the underlying
+                  DaemonSet that is part of the Helm chart
+                properties:
+                  resources:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: Resources specifies the resource limits and requests
+                      for the ServiceDaemonSet.
+                    type: object
+                type: object
+            required:
+            - service
+            type: object
+            x-kubernetes-validations:
+            - message: Spec is immutable
+              rule: self == oldSelf
+          status:
+            description: DPUServiceTemplateStatus defines the observed state of DPUServiceTemplate
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

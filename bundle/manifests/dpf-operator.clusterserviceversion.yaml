@@ -19,6 +19,9 @@ spec:
     - kind: Bfb
       name: bfbs.provisioning.dpf.nvidia.com
       version: v1alpha1
+    - kind: DPUDeployment
+      name: dpudeployments.svc.dpf.nvidia.com
+      version: v1alpha1
     - kind: DPUFlavor
       name: dpuflavors.provisioning.dpf.nvidia.com
       version: v1alpha1
@@ -28,6 +31,9 @@ spec:
     - kind: DPUServiceChain
       name: dpuservicechains.sfc.dpf.nvidia.com
       version: v1alpha1
+    - kind: DPUServiceConfiguration
+      name: dpuserviceconfigurations.svc.dpf.nvidia.com
+      version: v1alpha1
     - kind: DPUServiceInterface
       name: dpuserviceinterfaces.sfc.dpf.nvidia.com
       version: v1alpha1
@@ -36,6 +42,9 @@ spec:
       version: v1alpha1
     - kind: DPUService
       name: dpuservices.svc.dpf.nvidia.com
+      version: v1alpha1
+    - kind: DPUServiceTemplate
+      name: dpuservicetemplates.svc.dpf.nvidia.com
       version: v1alpha1
     - kind: DpuSet
       name: dpusets.provisioning.dpf.nvidia.com
