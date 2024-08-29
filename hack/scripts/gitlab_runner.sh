@@ -41,8 +41,10 @@ sudo apt-get install -y -qq jq > /dev/null || log_and_exit "Failed to download j
 ## Suspend the ubuntu needrestart from interrupting installs
 export NEEDRESTART_SUSPEND=true
 
-## Add the gitlab-runner user
-sudo useradd -m -d /gitlab-runner gitlab-runner || log_and_exit "Failed to add gitlab-runner user"
+## Add the gitlab-runner user if it does not exist yet.
+if ! id gitlab-runner &>/dev/null; then
+  sudo useradd -m -d /gitlab-runner gitlab-runner || log_and_exit "Failed to add gitlab-runner user"
+fi
 
 ## Install kubectl
 curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" > /dev/null || log_and_exit "Failed to download kubectl"
