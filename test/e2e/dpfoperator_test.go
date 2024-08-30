@@ -111,8 +111,6 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		Spec: operatorv1.DPFOperatorConfigSpec{
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
 				BFBPersistentVolumeClaimName: dpfProvisioningControllerPVCName,
-				// Note: This is hardcoded to work with the implementation in DPF Standalone.
-				DHCPServerAddress: "10.33.33.254",
 			},
 			ImagePullSecrets: []string{
 				imagePullSecret.Name,

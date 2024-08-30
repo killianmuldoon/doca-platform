@@ -188,28 +188,6 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		vars := Variables{
 			DPFProvisioningController: DPFProvisioningVariables{
 				BFBPersistentVolumeClaimName: " ",
-				DHCP:                         "192.168.1.1",
-			},
-		}
-		_, err := provCtrl.GenerateManifests(vars)
-		NewGomegaWithT(t).Expect(err).To(HaveOccurred())
-	})
-
-	t.Run("fail if empty dhcp", func(t *testing.T) {
-		vars := Variables{
-			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName: "pvc",
-			},
-		}
-		_, err := provCtrl.GenerateManifests(vars)
-		NewGomegaWithT(t).Expect(err).To(HaveOccurred())
-	})
-
-	t.Run("fail if invalid dhcp", func(t *testing.T) {
-		vars := Variables{
-			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName: "pvc",
-				DHCP:                         "invalid ip",
 			},
 		}
 		_, err := provCtrl.GenerateManifests(vars)
@@ -223,7 +201,6 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			Namespace: testNS,
 			DPFProvisioningController: DPFProvisioningVariables{
 				BFBPersistentVolumeClaimName: "pvc",
-				DHCP:                         "192.168.1.1",
 			},
 		}
 		objs, err := provCtrl.GenerateManifests(vars)
@@ -302,13 +279,11 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		expectedPVC := "foo-test-pvc"
 		expectedImagePullSecret1 := "foo-test-image-pull-secret"
 		expectedImagePullSecret2 := "foo-test-image-pull-secret-2"
-		expectedDHCP := "192.169.1.1"
 		expectedDmsTimeout := 20
 		vars := Variables{
 			Namespace: "foo",
 			DPFProvisioningController: DPFProvisioningVariables{
 				BFBPersistentVolumeClaimName: expectedPVC,
-				DHCP:                         expectedDHCP,
 				DMSTimeout:                   &expectedDmsTimeout,
 			},
 			ImagePullSecrets: []string{expectedImagePullSecret1, expectedImagePullSecret2},
@@ -368,7 +343,6 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			"--dms-image=example.com/dms-server:v0.1.0",
 			"--hostnetwork-image=example.com/hostnetworksetup:v0.1.0",
 			fmt.Sprintf("--bfb-pvc=%s", expectedPVC),
-			fmt.Sprintf("--dhcp=%s", expectedDHCP),
 			fmt.Sprintf("--image-pull-secrets=%s", strings.Join([]string{expectedImagePullSecret1, expectedImagePullSecret2}, ",")),
 			fmt.Sprintf("--dms-timeout=%d", expectedDmsTimeout),
 		}

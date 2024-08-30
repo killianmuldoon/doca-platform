@@ -119,7 +119,6 @@ func TestDPFOperatorConfigReconciler_Conditions(t *testing.T) {
 			ImagePullSecrets: []string{"wrong-secret-name"},
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
 				BFBPersistentVolumeClaimName: "{\"school\":\"EFG\", \"standard\": \"2\", \"name\": \"abc\", \"city\": \"miami\"}'",
-				DHCPServerAddress:            "192.168.1.1",
 			},
 		},
 	}
@@ -223,7 +222,6 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 			},
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
 				BFBPersistentVolumeClaimName: "foo-pvc",
-				DHCPServerAddress:            "192.168.1.1",
 			},
 		},
 	}

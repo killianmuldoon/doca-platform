@@ -44,7 +44,6 @@ type Variables struct {
 
 type DPFProvisioningVariables struct {
 	BFBPersistentVolumeClaimName string
-	DHCP                         string
 	DMSTimeout                   *int
 }
 

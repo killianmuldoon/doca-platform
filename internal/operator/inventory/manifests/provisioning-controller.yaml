@@ -968,7 +968,6 @@ spec:
         - --dms-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server:latest
         - --hostnetwork-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/hostnetworksetup:v0.1
         - --bfb-pvc=bfb-pvc
-        - --dhcp=10.211.0.124
         command:
         - /provisioning
         image: example.com/dpf-system:v0.1.0

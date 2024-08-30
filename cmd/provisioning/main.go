@@ -72,7 +72,6 @@ func main() {
 	var hostnetworkImage string
 	var imagePullSecrets string
 	var bfbPVC string
-	var dhcp string
 	var dmsTimeout int
 	var dmsPodTimeout time.Duration
 
@@ -89,7 +88,6 @@ func main() {
 	flag.StringVar(&hostnetworkImage, "hostnetwork-image", "", "The image for DMS pod.")
 	flag.StringVar(&imagePullSecrets, "image-pull-secrets", "", "The image pull secrets for pods deployed by this controller.")
 	flag.StringVar(&bfbPVC, "bfb-pvc", "", "The pvc to storage bfb.")
-	flag.StringVar(&dhcp, "dhcp", "", "The DHCP server address.")
 	flag.IntVar(&dmsTimeout, "dms-timeout", 900, "The max timeout execution in seconds of a command if not responding, 0 is unlimited.")
 	flag.DurationVar(&dmsPodTimeout, "dms-pod-timeout", 5*time.Minute, "Timeout for DMS pods")
 
@@ -166,7 +164,6 @@ func main() {
 		DMSImageWithTag:         dmsImage,
 		HostnetworkImageWithTag: hostnetworkImage,
 		BfbPvc:                  bfbPVC,
-		DHCP:                    dhcp,
 		DMSTimeout:              dmsTimeout,
 		DMSPodTimeout:           dmsPodTimeout,
 		ImagePullSecrets:        imagePullSecretsReferences,

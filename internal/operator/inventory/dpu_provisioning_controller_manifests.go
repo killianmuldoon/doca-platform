@@ -20,7 +20,6 @@ import (
 	"context"
 	_ "embed"
 	"fmt"
-	"net"
 	"strings"
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
@@ -101,9 +100,6 @@ func (p *provisioningControllerObjects) GenerateManifests(vars Variables) ([]cli
 	if strings.TrimSpace(vars.DPFProvisioningController.BFBPersistentVolumeClaimName) == "" {
 		return nil, fmt.Errorf("DPFProvisioningController empty BFBPersistentVolumeClaimName")
 	}
-	if ip := net.ParseIP(vars.DPFProvisioningController.DHCP); ip == nil {
-		return nil, fmt.Errorf("DPFProvisioningController invalid DHCP")
-	}
 	if t := vars.DPFProvisioningController.DMSTimeout; t != nil && *t < 0 {
 		return nil, fmt.Errorf("DPFProvisioningController invalid DMSTimeout, must be greater than or equal to 0")
 	}
@@ -146,7 +142,6 @@ func (p *provisioningControllerObjects) dpfProvisioningDeploymentEdit(vars Varia
 			p.setImagePullSecrets,
 			p.setComponentLabel,
 			p.setDefaultImageNames,
-			p.setDHCP,
 			p.setDMSTimeout,
 		}
 		for _, mod := range mods {
@@ -251,14 +246,6 @@ func (p *provisioningControllerObjects) setImagePullSecrets(deploy *appsv1.Deplo
 		return nil
 	}
 	return p.setFlags(c, fmt.Sprintf("--image-pull-secrets=%s", strings.Join(vars.ImagePullSecrets, ",")))
-}
-
-func (p *provisioningControllerObjects) setDHCP(deploy *appsv1.Deployment, vars Variables) error {
-	c := p.getContainer(deploy)
-	if c == nil {
-		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
-	}
-	return p.setFlags(c, fmt.Sprintf("--dhcp=%s", vars.DPFProvisioningController.DHCP))
 }
 
 func (p *provisioningControllerObjects) setDMSTimeout(deploy *appsv1.Deployment, vars Variables) error {

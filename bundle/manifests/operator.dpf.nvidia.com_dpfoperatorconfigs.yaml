@@ -70,17 +70,12 @@ spec:
                     description: BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim
                       used by dpf-provisioning-controller
                     type: string
-                  dhcpServerAddress:
-                    description: DHCPServerAddress is the address of the DHCP server
-                      that allocates IP for DPU
-                    type: string
                   dmsTimeout:
                     description: DMSTimeout is the max time in seconds within which
                       a DMS API must respond, 0 is unlimited
                     type: integer
                 required:
                 - bfbPVCName
-                - dhcpServerAddress
                 type: object
             type: object
           status:

@@ -70,8 +70,6 @@ type DPFOperatorConfigSpec struct {
 type ProvisioningConfiguration struct {
 	// BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim used by dpf-provisioning-controller
 	BFBPersistentVolumeClaimName string `json:"bfbPVCName"`
-	// DHCPServerAddress is the address of the DHCP server that allocates IP for DPU
-	DHCPServerAddress string `json:"dhcpServerAddress"`
 	// DMSTimeout is the max time in seconds within which a DMS API must respond, 0 is unlimited
 	DMSTimeout *int `json:"dmsTimeout,omitempty"`
 }

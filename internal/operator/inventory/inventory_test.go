@@ -223,7 +223,6 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 			vars := Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
 					BFBPersistentVolumeClaimName: bfbVolumeName,
-					DHCP:                         "192.168.1.1",
 				},
 			}
 			err := tt.inventory.ParseAll()
@@ -281,7 +280,6 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
 					BFBPersistentVolumeClaimName: bfbVolumeName,
-					DHCP:                         "192.168.1.1",
 				},
 			},
 			wantErr:         false,
@@ -292,7 +290,6 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
 					BFBPersistentVolumeClaimName: bfbVolumeName,
-					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"multus": true,
@@ -306,7 +303,6 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
 					BFBPersistentVolumeClaimName: bfbVolumeName,
-					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"sriovDevicePlugin": true,
@@ -320,7 +316,6 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
 					BFBPersistentVolumeClaimName: bfbVolumeName,
-					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"flannel": true,
@@ -334,7 +329,6 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
 					BFBPersistentVolumeClaimName: bfbVolumeName,
-					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"nvidia-k8s-ipam": true,
@@ -348,7 +342,6 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
 					BFBPersistentVolumeClaimName: bfbVolumeName,
-					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"DPFProvisioningController": true,
@@ -362,7 +355,6 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
 					BFBPersistentVolumeClaimName: bfbVolumeName,
-					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"DPUServiceController": true,
@@ -376,7 +368,6 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
 					BFBPersistentVolumeClaimName: bfbVolumeName,
-					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"ovs-cni": true,
@@ -390,7 +381,6 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			vars: Variables{
 				DPFProvisioningController: DPFProvisioningVariables{
 					BFBPersistentVolumeClaimName: bfbVolumeName,
-					DHCP:                         "192.168.1.1",
 				},
 				DisableSystemComponents: map[string]bool{
 					"sfc-controller": true,
