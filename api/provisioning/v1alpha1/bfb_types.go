@@ -20,6 +20,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// BfbKind is the kind of the Bfb object
+	BfbKind = "Bfb"
+)
+
+// BfbGroupVersionKind is the GroupVersionKind of the Bfb object
+var BfbGroupVersionKind = GroupVersion.WithKind(BfbKind)
+
 // BfbPhase is a label for the condition of a DPU at the current time.
 // +enum
 type BfbPhase string

@@ -21,6 +21,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// DPUServiceTemplateKind is the kind of the DPUServiceTemplate object
+	DPUServiceTemplateKind = "DPUServiceTemplate"
+)
+
+// DPUServiceTemplateGroupVersionKind is the GroupVersionKind of the DPUServiceTemplate object
+var DPUServiceTemplateGroupVersionKind = GroupVersion.WithKind(DPUServiceTemplateKind)
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 

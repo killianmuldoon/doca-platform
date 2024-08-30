@@ -21,6 +21,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// DPUFlavorKind is the kind of the DPUFlavor object
+	DPUFlavorKind = "DPUFlavor"
+)
+
+// DPUFlavorGroupVersionKind is the GroupVersionKind of the DPUFlavor object
+var DPUFlavorGroupVersionKind = GroupVersion.WithKind(DPUFlavorKind)
+
 type DPUFlavorSpec struct {
 	// +optional
 	Grub DPUFlavorGrub `json:"grub,omitempty"`

@@ -22,6 +22,14 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+const (
+	// DpuSetKind is the kind of the DpuSet object
+	DpuSetKind = "DpuSet"
+)
+
+// DpuSetGroupVersionKind is the GroupVersionKind of the DpuSet object
+var DpuSetGroupVersionKind = GroupVersion.WithKind(DpuSetKind)
+
 // +enum
 type StrategyType string
 

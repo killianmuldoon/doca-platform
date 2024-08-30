@@ -24,6 +24,8 @@ import (
 	"testing"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -59,6 +61,8 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "dpuservice", "crd", "bases"),
+			filepath.Join("..", "..", "..", "config", "servicechainset", "crd", "bases"),
+			filepath.Join("..", "..", "..", "config", "provisioning", "crd", "bases"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "argocd"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "kamaji"),
 		},
@@ -80,6 +84,12 @@ var _ = BeforeSuite(func() {
 	Expect(cfg).NotTo(BeNil())
 
 	err = dpuservicev1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = provisioningv1.AddToScheme(scheme.Scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = sfcv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = argov1.AddToScheme(scheme.Scheme)
