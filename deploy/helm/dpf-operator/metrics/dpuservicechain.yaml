@@ -14,6 +14,15 @@
       - uid
   metricNamePrefix: dpuservicechain
   metrics:
+    - name: info
+      help: Information about a DPUServiceChain. This is a placeholder to get at least one info metric per DPUServiceChain.
+      each:
+        type: Info
+        info:
+          labelsFromPath:
+            name:
+              - metadata
+              - name
     - name: status_conditions
       help: The condition of a DPUServiceChain.
       each:

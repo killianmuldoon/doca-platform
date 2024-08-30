@@ -14,6 +14,20 @@
       - uid
   metricNamePrefix: dpfoperatorconfig
   metrics:
+    - name: info
+      help: Information about a DPFOperatorConfig.
+      each:
+        type: Info
+        info:
+          labelsFromPath:
+            dhcp_server_address:
+              - spec
+              - provisioningConfiguration
+              - dhcpServerAddress
+            dms_timeout:
+              - spec
+              - provisioningConfiguration
+              - dmsTimeout
     - name: paused
       help: Whether the DPU is paused and any of its resources will not be processed by the controllers.
       each:
