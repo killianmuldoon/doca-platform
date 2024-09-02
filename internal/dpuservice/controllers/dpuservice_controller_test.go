@@ -181,13 +181,11 @@ func assertDPUServiceCondition(g Gomega, testClient client.Client, dpuServices [
 				HaveField("Type", string(dpuservicev1.ConditionApplicationPrereqsReconciled)),
 				HaveField("Status", metav1.ConditionTrue),
 				HaveField("Reason", string(conditions.ReasonSuccess)),
-				HaveField("Message", string(conditions.MessageSuccess)),
 			),
 			And(
 				HaveField("Type", string(dpuservicev1.ConditionApplicationsReconciled)),
 				HaveField("Status", metav1.ConditionTrue),
 				HaveField("Reason", string(conditions.ReasonSuccess)),
-				HaveField("Message", string(conditions.MessageSuccess)),
 			),
 			// Argo can not deploy anything on the DPUs during unit tests.
 			And(

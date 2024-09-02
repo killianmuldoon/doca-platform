@@ -63,9 +63,6 @@ const (
 type ConditionMessage string
 
 const (
-	// MessageSuccess is the default success message.
-	MessageSuccess ConditionMessage = "Reconciliation successful"
-
 	MessageNotReadyTemplate = "The following conditions are not ready: %s"
 )
 
@@ -108,7 +105,7 @@ func EnsureConditions(obj GetSet, allConditions []ConditionType) {
 
 // AddTrue adds a condition with Status=True, Reason=Successful and Message=Reconciliation successful.
 func AddTrue(obj GetSet, conditionType ConditionType) {
-	add(obj, metav1.ConditionTrue, conditionType, ReasonSuccess, MessageSuccess)
+	add(obj, metav1.ConditionTrue, conditionType, ReasonSuccess, "")
 }
 
 // AddFalse adds a condition with Status=False, Reason=Pending and a specified message.

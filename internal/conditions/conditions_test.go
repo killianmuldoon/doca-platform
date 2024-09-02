@@ -178,10 +178,9 @@ func TestAddTrueAndFalse(t *testing.T) {
 			addTrue:       true,
 			expectedConditions: []metav1.Condition{
 				{
-					Type:    string(TypeReady),
-					Status:  metav1.ConditionTrue,
-					Reason:  string(ReasonSuccess),
-					Message: string(MessageSuccess),
+					Type:   string(TypeReady),
+					Status: metav1.ConditionTrue,
+					Reason: string(ReasonSuccess),
 				},
 			},
 		},
@@ -201,10 +200,9 @@ func TestAddTrueAndFalse(t *testing.T) {
 			addTrue:       true,
 			expectedConditions: []metav1.Condition{
 				{
-					Type:    string(TypeReady),
-					Status:  metav1.ConditionTrue,
-					Reason:  string(ReasonSuccess),
-					Message: string(MessageSuccess),
+					Type:   string(TypeReady),
+					Status: metav1.ConditionTrue,
+					Reason: string(ReasonSuccess),
 				},
 			},
 		},
@@ -228,10 +226,9 @@ func TestAddTrueAndFalse(t *testing.T) {
 			obj: &MockObject{
 				conditions: []metav1.Condition{
 					{
-						Type:    string(TypeReady),
-						Status:  metav1.ConditionTrue,
-						Reason:  string(ReasonSuccess),
-						Message: string(MessageSuccess),
+						Type:   string(TypeReady),
+						Status: metav1.ConditionTrue,
+						Reason: string(ReasonSuccess),
 					},
 				},
 			},
@@ -296,10 +293,9 @@ func TestSetSummary(t *testing.T) {
 				},
 			},
 			expectedCondition: metav1.Condition{
-				Type:    string(TypeReady),
-				Status:  metav1.ConditionTrue,
-				Reason:  string(ReasonSuccess),
-				Message: string(MessageSuccess),
+				Type:   string(TypeReady),
+				Status: metav1.ConditionTrue,
+				Reason: string(ReasonSuccess),
 			},
 		},
 		{
