@@ -36,6 +36,7 @@ if [ -z "$GITLAB_RUNNER_API_TOKEN" ]; then
 fi
 
 GITLAB_RUNNER_USER="${GITLAB_RUNNER_USER:-"gitlab-runner"}"
+INSTALL_DOCKER="${INSTALL_DOCKER:-"true"}"
 
 ## GLOBAL VARS
 PROJECT_ID="112105"
@@ -50,9 +51,9 @@ sudo apt-get install -y -qq jq > /dev/null || log_and_exit "Failed to download j
 ## Suspend the ubuntu needrestart from interrupting installs
 export NEEDRESTART_SUSPEND=true
 
-## Add the gitlab-runner user if it does not exist yet.
-if ! id gitlab-runner &>/dev/null; then
-  sudo useradd -m -d /gitlab-runner gitlab-runner || log_and_exit "Failed to add gitlab-runner user"
+## Add the "${GITLAB_RUNNER_USER}" if it does not exist yet.
+if ! id "${GITLAB_RUNNER_USER}" &>/dev/null; then
+  sudo useradd -m -d /"${GITLAB_RUNNER_USER}" "${GITLAB_RUNNER_USER}" || log_and_exit "Failed to add gitlab runner user"
 fi
 
 ## Install kubectl
@@ -63,15 +64,17 @@ if ! command -v kubectl &>/dev/null || [[ "$(kubectl version --client -ojson | j
 fi
 
 ## Install docker
-sudo apt-get update > /dev/null || log_and_exit "Failed to update package list"
-sudo apt-get install -y ca-certificates curl apt-transport-https lftp > /dev/null || log_and_exit "Failed to install required packages"
-sudo install -m 0755 -d /etc/apt/keyrings || log_and_exit "Failed to create /etc/apt/keyrings directory"
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc || log_and_exit "Failed to download Docker GPG key"
-sudo chmod a+r /etc/apt/keyrings/docker.asc || log_and_exit "Failed to set permissions on Docker GPG key"
+if [[ "$INSTALL_DOCKER" == "true" ]]; then
+  sudo apt-get update > /dev/null || log_and_exit "Failed to update package list"
+  sudo apt-get install -y ca-certificates curl apt-transport-https lftp > /dev/null || log_and_exit "Failed to install required packages"
+  sudo install -m 0755 -d /etc/apt/keyrings || log_and_exit "Failed to create /etc/apt/keyrings directory"
+  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc || log_and_exit "Failed to download Docker GPG key"
+  sudo chmod a+r /etc/apt/keyrings/docker.asc || log_and_exit "Failed to set permissions on Docker GPG key"
 
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null || log_and_exit "Failed to add Docker repository"
-sudo apt-get update > /dev/null || log_and_exit "Failed to update package list after adding Docker repository"
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin > /dev/null || log_and_exit "Failed to install Docker packages"
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null || log_and_exit "Failed to add Docker repository"
+  sudo apt-get update > /dev/null || log_and_exit "Failed to update package list after adding Docker repository"
+  sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin > /dev/null || log_and_exit "Failed to install Docker packages"
+fi
 
 ## Install helm
 curl https://baltocdn.com/helm/signing.asc | gpg --dearmor | sudo tee /usr/share/keyrings/helm.gpg > /dev/null || log_and_exit "Failed to add helm signing key"
@@ -80,7 +83,7 @@ sudo apt-get update > /dev/null || log_and_exit "Failed to update package list a
 sudo apt-get install -y helm  || log_and_exit "Failed to install helm packages"
 
 ## Add the gitlab runner to the docker group
-sudo usermod -aG docker gitlab-runner || log_and_exit "Failed to add gitlab-runner to docker group"
+sudo usermod -aG docker "${GITLAB_RUNNER_USER}" || log_and_exit "Failed to add gitlab runner user to docker group"
 
 ## Install Go
 if ! command -v go &>/dev/null || [[ "$(go version | awk '{print $3}')" != "go${GO_VERSION}" ]]; then
@@ -97,7 +100,7 @@ sudo sysctl fs.inotify.max_user_watches=1048576 > /dev/null || log_and_exit "Fai
 sudo sysctl fs.inotify.max_user_instances=8192 > /dev/null || log_and_exit "Failed to set fs.inotify.max_user_instances"
 
 ## Delete .bash_logout
-sudo rm -rf /gitlab-runner/.bash_logout > /dev/null || log_and_exit "Failed to delete /gitlab-runner/.bash_logout"
+sudo rm -rf /"${GITLAB_RUNNER_USER}"/.bash_logout > /dev/null || log_and_exit "Failed to delete gitlab-runner $HOME/.bash_logout"
 
 if ! command -v gitlab-runner &>/dev/null || [[ "$(gitlab-runner --version | awk '/Version/{print $2}')" != "${GITLAB_RUNNER_VERSION}" ]]; then
   ## Download the gitlab runner binary
@@ -106,7 +109,7 @@ if ! command -v gitlab-runner &>/dev/null || [[ "$(gitlab-runner --version | awk
 fi
 
 ## Install gitlab runner and register
-sudo gitlab-runner install --user=gitlab-runner --working-directory=/gitlab-runner || log_and_exit "Failed to install gitlab-runner"
+sudo gitlab-runner install --user="${GITLAB_RUNNER_USER}" --working-directory=/gitlab-runner || log_and_exit "Failed to install gitlab-runner"
 sudo gitlab-runner start || log_and_exit "Failed to start gitlab-runner"
 
 ## Runner must be registered in the CI as a shell runner with command from gitlab UI.
