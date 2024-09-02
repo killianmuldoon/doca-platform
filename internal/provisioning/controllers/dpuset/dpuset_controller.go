@@ -73,7 +73,7 @@ func (r *DpuSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "Failed to get DPUSet", "DPUSet", dpuSet)
-		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to get DpuSet")
+		return ctrl.Result{}, errors.Wrap(err, "failed to get DpuSet")
 	}
 
 	if !dpuSet.DeletionTimestamp.IsZero() {
@@ -87,7 +87,7 @@ func (r *DpuSetReconciler) reconcileDelete(ctx context.Context, dpuSet *provisio
 	logger := log.FromContext(ctx)
 	if err := r.finalizeDPUSet(ctx, dpuSet); err != nil {
 		logger.Error(err, "Failed to finalize DPUSet", "DPUSet", dpuSet)
-		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to finalize DPUSet")
+		return ctrl.Result{}, errors.Wrap(err, "failed to finalize DPUSet")
 	}
 
 	return ctrl.Result{}, nil
@@ -108,21 +108,21 @@ func (r *DpuSetReconciler) reconcile(ctx context.Context, dpuSet *provisioningv1
 
 	if err := r.createDPUClusterKubeConfig(ctx, dpuSet); err != nil {
 		logger.Error(err, "Failed to create DPU cluster kubeconfig file", "DPUSet", dpuSet)
-		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to create DPU cluster kubeconfig file")
+		return ctrl.Result{}, errors.Wrap(err, "failed to create DPU cluster kubeconfig file")
 	}
 
 	// Get node map by nodeSelector
 	nodeMap, err := r.getNodeMap(ctx, dpuSet.Spec.NodeSelector, dpuSet.Spec.DpuSelector)
 	if err != nil {
 		logger.Error(err, "Failed to get Node list", "DPUSet", dpuSet)
-		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to get Node list")
+		return ctrl.Result{}, errors.Wrap(err, "failed to get Node list")
 	}
 
 	// Get dpu map which are owned by dpuset
 	dpuMap, err := r.getDpusMap(ctx, dpuSet)
 	if err != nil {
 		logger.Error(err, "Failed to get Dpu list", "DPUSet", dpuSet)
-		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to get Dpu list")
+		return ctrl.Result{}, errors.Wrap(err, "failed to get Dpu list")
 	}
 
 	// create dpu for the node
@@ -130,7 +130,7 @@ func (r *DpuSetReconciler) reconcile(ctx context.Context, dpuSet *provisioningv1
 		if _, ok := dpuMap[nodeName]; !ok {
 			if _, err = r.createDpu(ctx, dpuSet, node); err != nil {
 				logger.Error(err, "Failed to create Dpu", "DPUSet", dpuSet)
-				return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to create Dpu")
+				return ctrl.Result{}, errors.Wrap(err, "failed to create Dpu")
 			}
 		} else {
 			delete(dpuMap, nodeName)
@@ -141,7 +141,7 @@ func (r *DpuSetReconciler) reconcile(ctx context.Context, dpuSet *provisioningv1
 	for nodeName, dpu := range dpuMap {
 		if err := r.Delete(ctx, &dpu); err != nil {
 			logger.Error(err, "Failed to delete Dpu", "DPUSet", dpuSet)
-			return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to delte Dpu")
+			return ctrl.Result{}, errors.Wrap(err, "failed to delete Dpu")
 		}
 		logger.V(3).Info("Dpu is deleted", "nodename", nodeName)
 	}
@@ -150,25 +150,25 @@ func (r *DpuSetReconciler) reconcile(ctx context.Context, dpuSet *provisioningv1
 	dpuMap, err = r.getDpusMap(ctx, dpuSet)
 	if err != nil {
 		logger.Error(err, "Failed to get Dpus", "DPUSet", dpuSet)
-		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to get Dpus")
+		return ctrl.Result{}, errors.Wrap(err, "failed to get Dpus")
 	}
 
 	switch dpuSet.Spec.Strategy.Type {
 	case provisioningv1.RecreateStrategyType:
 		if err := r.rolloutRecreate(ctx, dpuSet, dpuMap); err != nil {
 			logger.Error(err, "Failed to rollout Dpu", "DPUSet", dpuSet)
-			return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to rollout Dpu")
+			return ctrl.Result{}, errors.Wrap(err, "failed to rollout Dpu")
 		}
 	case provisioningv1.RollingUpdateStrategyType:
 		if err := r.rolloutRolling(ctx, dpuSet, dpuMap, len(nodeMap)); err != nil {
 			logger.Error(err, "Failed to rollout Dpu", "DPUSet", dpuSet)
-			return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to rollout Dpu")
+			return ctrl.Result{}, errors.Wrap(err, "failed to rollout Dpu")
 		}
 	}
 
 	if err := updateDPUSetStatus(ctx, dpuSet, dpuMap, r.Client); err != nil {
 		logger.Error(err, "Failed to update DpuSet status", "DPUSet", dpuSet)
-		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to update DPUSet status")
+		return ctrl.Result{}, errors.Wrap(err, "failed to update DPUSet status")
 	}
 
 	return ctrl.Result{}, nil

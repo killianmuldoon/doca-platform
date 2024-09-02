@@ -69,7 +69,7 @@ func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "Failed to get DPU", "DPU", dpu)
-		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to get Dpu")
+		return ctrl.Result{}, errors.Wrap(err, "failed to get Dpu")
 	}
 
 	node := &corev1.Node{}
@@ -80,7 +80,7 @@ func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "Failed to get node", "Node", dpu.Spec.NodeName)
-		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to get node")
+		return ctrl.Result{}, errors.Wrap(err, "failed to get node")
 	}
 
 	// Add finalizer if not set and DPU is not currently deleting.
@@ -103,11 +103,11 @@ func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 		if err := r.Client.Status().Update(ctx, dpu); err != nil {
 			logger.Error(err, "Failed to update DPU", "DPU", dpu)
-			return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to update Dpu")
+			return ctrl.Result{}, errors.Wrap(err, "failed to update Dpu")
 		}
 	} else if nextState.Phase != provisioningv1.DPUError {
 		// TODO: move the state checking in state machine
-		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, nil
+		return ctrl.Result{RequeueAfter: cutil.RequeueInterval}, nil
 	}
 
 	return ctrl.Result{}, nil

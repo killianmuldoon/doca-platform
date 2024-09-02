@@ -60,7 +60,7 @@ func (r *BfbReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "Failed to get BFB", "BFB", bfb)
-		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to get BFB")
+		return ctrl.Result{}, errors.Wrap(err, "failed to get BFB")
 	}
 
 	// Add finalizer if not set.
@@ -83,12 +83,12 @@ func (r *BfbReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		bfb.Status = nextState
 		if err := r.Client.Status().Update(ctx, bfb); err != nil {
 			logger.Error(err, "Failed to update BFB", "BFB", bfb)
-			return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, errors.Wrap(err, "failed to update BFB")
+			return ctrl.Result{}, errors.Wrap(err, "failed to update BFB")
 		}
 	} else if nextState.Phase != provisioningv1.BfbError {
 		// requeue if bfb is not in error state
 		// TODO: move the state checking in state machine
-		return ctrl.Result{Requeue: true, RequeueAfter: cutil.RequeueInterval}, nil
+		return ctrl.Result{RequeueAfter: cutil.RequeueInterval}, nil
 	}
 	return ctrl.Result{}, nil
 }
