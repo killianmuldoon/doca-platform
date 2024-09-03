@@ -21,11 +21,17 @@ variables:
   GITLAB_TOKEN: $CI_TOKEN
   ## This is a read only token for reading from the Gitlab API. Used for triage and slack notification scripts.
   GITLAB_API_TOKEN: $API_READ_TOKEN
+  ## This is a token for pulling from the Gitlab image registry. Should be overwritten if using any other registry.
+  IMAGE_PULL_KEY: $GITLAB_REGISTRY_TOKEN
+  ARTIFACTS: $CI_PROJECT_DIR/artifacts
+  REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/doca-platform-foundation/e2e
+  TAG: v0.1.0-$CI_COMMIT_SHORT_SHA-test
+  GOPATH: $CI_PROJECT_DIR/.gocache
 
 stages:
   - verify
-  - test
   - build
+  - test
   - triage
 
 lint:
@@ -35,7 +41,6 @@ lint:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   variables:
     GOLANGCI_LINT_CACHE: $CI_PROJECT_DIR/.golangci-cache
-    GOPATH: $CI_PROJECT_DIR/.gocache # avoid refetching all the packages golangci-lint requires
     # TODO: Remove this one when bug upstream is fixed. golangci-lint should not rely on GOCACHE and instead use
     # GOLANGCI_LINT_CACHE for all of its caching.
     GOCACHE: $CI_PROJECT_DIR/.gocache/go-build # avoid rebuilding all the artifacts golangci-lint requires
@@ -67,7 +72,8 @@ verify:
   variables:
     BASE_REV: $CI_MERGE_REQUEST_DIFF_BASE_SHA # Used by the verify-copyright target
     COMPARISON_REV: $CI_COMMIT_SHA # Used by the verify-copyright target
-    GOPATH: $CI_PROJECT_DIR/.gocache
+    REGISTRY: example.com
+    TAG: v0.1.0
   cache:
     key: verify
     untracked: true
@@ -90,8 +96,6 @@ test:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_PIPELINE_SOURCE == "schedule" && $UNIT_TEST == "true"
-  variables:
-    GOPATH: $CI_PROJECT_DIR/.gocache
   cache:
     key: test
     untracked: true
@@ -119,14 +123,9 @@ e2e:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST == "true"
   variables:
-    # The helm bundles and operator-sdk require a remote repository in the e2e environment.
-    REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/doca-platform-foundation/e2e
-    IMAGE_PULL_KEY: $GITLAB_REGISTRY_TOKEN
     # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
     MINIKUBE_CNI: flannel
     MINIKUBE_DRIVER: docker
-    ARTIFACTS: $CI_PROJECT_DIR/artifacts
-    TAG: v0.1.0-$CI_COMMIT_SHORT_SHA-test
   tags:
     - e2e
   cache:
@@ -157,20 +156,16 @@ e2e:
 
 e2e-dpf-standalone:
   stage: test
-  needs: [ ]
+  needs: [release]
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-      when: manual
       allow_failure: true
+      when: on_success
     - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST_FULL == "true"
       when: always
   variables:
     # The helm bundles and operator-sdk require a remote repository in the e2e environment.
-    REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/doca-platform-foundation/e2e
-    # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
-    ARTIFACTS: $CI_PROJECT_DIR/artifacts
     ANSIBLE_PASSWORD: $TMP_ANSIBLE_PASSWORD
-    IMAGE_PULL_KEY: $GITLAB_REGISTRY_TOKEN
     DPF_E2E_NUM_DPU_NODES: 1
     PIPELINE_NAME: "Periodic e2e dpf-standalone tests"
   tags:
@@ -194,7 +189,7 @@ e2e-dpf-standalone:
     - make test-env-dpf-standalone
     - ./hack/scripts/create-artefact-secrets.sh
   script:
-    - make release
+    - make generate
     - make test-deploy-operator-helm
     - make test-e2e
   after_script:
@@ -213,14 +208,13 @@ release:
     - if: $CI_PIPELINE_SOURCE == 'push' && $CI_COMMIT_BRANCH == "main"
       when: always
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-      when: manual
+      when: on_success
       allow_failure: true
     - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_RELEASE == "true"
       when: always
   variables:
-    TAG: v0.1.0-$CI_COMMIT_SHORT_SHA
+    PIPELINE_NAME: "release"
     OPERATOR_CHART_TAGS: "$TAG v0.1.0-latest"
-    REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/doca-platform-foundation/e2e
   tags:
     - release
   script:
