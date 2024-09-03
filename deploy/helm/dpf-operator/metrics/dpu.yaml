@@ -14,6 +14,14 @@
       - uid
   metricNamePrefix: dpu
   metrics:
+    - name: created
+      help: Unix creation timestamp.
+      each:
+        gauge:
+          path:
+            - metadata
+            - creationTimestamp
+        type: Gauge
     - name: info
       help: Information about a DPU.
       each:
@@ -26,12 +34,12 @@
             pci_device:
               - status
               - pci_device
-            required_reset:
-              - status
-              - required_reset
             firmware:
               - status
               - firmware
+            node_name:
+              - spec
+              - nodeName
     - name: status_phase
       help: The DPUs current phase.
       each:

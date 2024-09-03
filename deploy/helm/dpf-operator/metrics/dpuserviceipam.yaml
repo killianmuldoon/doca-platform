@@ -14,6 +14,14 @@
       - uid
   metricNamePrefix: dpuserviceipam
   metrics:
+    - name: created
+      help: Unix creation timestamp.
+      each:
+        gauge:
+          path:
+            - metadata
+            - creationTimestamp
+        type: Gauge
     - name: info
       help: Information about a DPU Service IPAM.
       each:
@@ -60,7 +68,7 @@
               - spec
               - ip4Subnet
               - perNodeIPCount
-    - name: status_condition
+    - name: status_conditions
       help: The condition of a DPUServiceIPAM.
       each:
         stateSet:
