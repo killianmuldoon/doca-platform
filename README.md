@@ -41,4 +41,4 @@ DPF's service orchestration controllers manage the installation and lifecycle of
 
 ## Contributing
 
-This repository follows a [contribution guide](docs/CONTRIBUTING.md).
+This repository follows a [contribution guide](CONTRIBUTING.md).
