@@ -23,6 +23,13 @@ rules:
   - ""
   resources:
   - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
+  - ""
+  resources:
+  - events
   - secrets
   verbs:
   - create
@@ -36,6 +43,25 @@ rules:
   - ""
   resources:
   - namespaces
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  - serviceaccounts
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts/token
   verbs:
   - create
 - apiGroups:
@@ -176,6 +202,36 @@ rules:
   resources:
   - dpudeployments/finalizers
   verbs:
+  - update
+- apiGroups:
+  - svc.dpf.nvidia.com
+  resources:
+  - dpuservicecredentialrequests
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - svc.dpf.nvidia.com
+  resources:
+  - dpuservicecredentialrequests/finalizers
+  verbs:
+  - create
+  - delete
+  - get
+  - patch
+  - update
+- apiGroups:
+  - svc.dpf.nvidia.com
+  resources:
+  - dpuservicecredentialrequests/status
+  verbs:
+  - get
+  - patch
   - update
 - apiGroups:
   - svc.dpf.nvidia.com
