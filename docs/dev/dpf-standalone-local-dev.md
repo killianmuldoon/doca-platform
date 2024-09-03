@@ -88,7 +88,21 @@ E2E_SKIP_CLEANUP=true make test-e2e
 ```
 
 ### Provisioning Flow
-To test full provisioning flow, follow steps 1-14 and then follow [DPU Provisioning](https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-standalone#dpu-provisioning)
+To test full provisioning flow, follow steps 1-8. Step 9 command should be:
+
+9. Run dpf-standalone # you will be required to provide the host root password to begin installation
+```
+docker run -ti --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone \
+  -k -K -u root \
+  -e ngc_key=$NGC_API_KEY \
+  -e '{"deploy_dpf_operator_chart": false, "deploy_dpf_bfb_pvc": false, "deploy_dpf_create_node_feature_rule": false, "deploy_dpf_create_operator_config": false, "deploy_test_service": true, "target_host": "<target-host-ip-here>"}' \
+  install.yml
+```
+_Note:_ a host reboot will happen during the provisioning, so it is not possible to provision the local host
+(the host from which the dpf-standalone command is executed). You should use dpf-standalone from another host with
+-e target_host argument.
+
+ Continue with steps 10-14 and then follow [DPU Provisioning](https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-standalone#dpu-provisioning)
 
 ### Test DPU Services
 To test full provisioning flow, follow steps 1-14 and then follow [DPU Services](https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-standalone#deploy-test-service-on-dpu)
