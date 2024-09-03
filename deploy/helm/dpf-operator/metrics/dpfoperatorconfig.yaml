@@ -20,10 +20,9 @@
         type: Info
         info:
           labelsFromPath:
-            dhcp_server_address:
-              - spec
-              - provisioningConfiguration
-              - dhcpServerAddress
+            name:
+              - metadata
+              - name
             dms_timeout:
               - spec
               - provisioningConfiguration
