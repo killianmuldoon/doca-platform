@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
+	"slices"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
@@ -29,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -79,7 +82,6 @@ func (r *DPUDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 		return ctrl.Result{}, err
 	}
-
 	patcher := patch.NewSerialPatcher(dpuDeployment, r.Client)
 
 	// Defer a patch call to always patch the object when Reconcile exits.
@@ -173,16 +175,80 @@ func getDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuser
 }
 
 // reconcileDPUSets reconciles the DPUSets created by the DPUDeployment
+// As part of this flow, we try to find existing DPUSets and update them to match the DPUDeployment spec instead of
+// creating new ones. The reason behind that is so that we can minimize the mutations on DPU objects that impose infra
+// changes (provisioning of BFB) that may be disruptive and take a lot of time.
 func reconcileDPUSets(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment) error {
 	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
-	// TODO: Populate accordingly
-	dpuSet := generateDPUSet(client.ObjectKeyFromObject(dpuDeployment), owner, &dpuservicev1.DPUSet{})
-	patcher := patch.NewSerialPatcher(dpuSet, c)
-	if err := patcher.Patch(ctx, dpuSet, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
-		return fmt.Errorf("error while patching %s %s: %w", dpuSet.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuSet), err)
+
+	// Grab existing DPUSets
+	existingDPUSets := &provisioningv1.DpuSetList{}
+	if err := c.List(ctx,
+		existingDPUSets,
+		client.MatchingLabels{
+			ParentDPUDeploymentNameLabel: dpuDeployment.Name,
+		},
+		client.InNamespace(dpuDeployment.Namespace)); err != nil {
+		return fmt.Errorf("error while listing dpusets : %w", err)
+	}
+
+	// Ignore DPUSets that match already what is defined in the DPUDeployment
+	dpuSetsToBeCreated := make([]dpuservicev1.DPUSet, len(dpuDeployment.Spec.DPUs.DPUSets))
+	copy(dpuSetsToBeCreated, dpuDeployment.Spec.DPUs.DPUSets)
+	for index, dpuSetOption := range dpuDeployment.Spec.DPUs.DPUSets {
+		dpuSet := generateDPUSet(client.ObjectKeyFromObject(dpuDeployment),
+			owner,
+			&dpuSetOption,
+			dpuDeployment.Spec.DPUs.BFB,
+			dpuDeployment.Spec.DPUs.Flavor)
+
+		// In case we found a matching DPUSet, remove the items from the lists
+		if i := equalDPUSetIndex(dpuSet, existingDPUSets.Items); i >= 0 {
+			existingDPUSets.Items = deleteElementOrNil[[]provisioningv1.DpuSet](existingDPUSets.Items, i, i+1)
+			dpuSetsToBeCreated = deleteElementOrNil[[]dpuservicev1.DPUSet](dpuSetsToBeCreated, index, index+1)
+		}
+	}
+
+	// Create or update DPUSets to match what is defined in the DPUDeployment
+	for _, dpuSetOption := range dpuSetsToBeCreated {
+		dpuSet := generateDPUSet(client.ObjectKeyFromObject(dpuDeployment),
+			owner,
+			&dpuSetOption,
+			dpuDeployment.Spec.DPUs.BFB,
+			dpuDeployment.Spec.DPUs.Flavor)
+
+		// Use existing DPUSet instead of creating a new one if it exists.
+		if len(existingDPUSets.Items) > 0 {
+			existingDPUSet := existingDPUSets.Items[0]
+			dpuSet.Name = existingDPUSet.Name
+
+			existingDPUSets.Items = deleteElementOrNil[[]provisioningv1.DpuSet](existingDPUSets.Items, 0, 1)
+		}
+
+		if err := c.Patch(ctx, dpuSet, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
+			return fmt.Errorf("error while patching %s %s: %w", dpuSet.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuSet), err)
+		}
+	}
+
+	// Cleanup the remaining stale DPUSets
+	for _, dpuSet := range existingDPUSets.Items {
+		if err := c.Delete(ctx, &dpuSet); err != nil {
+			return fmt.Errorf("error while deleting %s %s: %w", dpuSet.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuSet), err)
+		}
 	}
 
 	return nil
+}
+
+// equalDPUSetIndex tries to find a DpuSet that matches the expected input from a list and returns the index
+func equalDPUSetIndex(expected *provisioningv1.DpuSet, existing []provisioningv1.DpuSet) int {
+	for i, existingDpuSet := range existing {
+		if reflect.DeepEqual(expected.Spec, existingDpuSet.Spec) &&
+			isMapSubset[string, string](existingDpuSet.Labels, expected.Labels) {
+			return i
+		}
+	}
+	return -1
 }
 
 // reconcileDPUServices reconciles the DPUServices created by the DPUDeployment
@@ -195,17 +261,35 @@ func reconcileDPUServiceChains(ctx context.Context, c client.Client, dpuDeployme
 	return nil
 }
 
-// generateDPUSet generates a DPUSet according to the
-// TODO: Populate accordingly and remove nolint
-//
-//nolint:unparam
-func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName, owner *metav1.OwnerReference, dpuSetSettings *dpuservicev1.DPUSet) *provisioningv1.DpuSet {
+// generateDPUSet generates a DPUSet according to the DPUDeployment
+func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName, owner *metav1.OwnerReference, dpuSetSettings *dpuservicev1.DPUSet, bfb string, dpuFlavor string) *provisioningv1.DpuSet {
 	dpuSet := &provisioningv1.DpuSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dpuDeploymentNamespacedName.Name,
+			// Extremely simplified version of:
+			// https://github.com/kubernetes/apiserver/blob/master/pkg/storage/names/generate.go
+			Name:      fmt.Sprintf("%s-%s", dpuDeploymentNamespacedName.Name, utilrand.String(5)),
 			Namespace: dpuDeploymentNamespacedName.Namespace,
 			Labels: map[string]string{
 				ParentDPUDeploymentNameLabel: dpuDeploymentNamespacedName.Name,
+			},
+		},
+		Spec: provisioningv1.DpuSetSpec{
+			NodeSelector: dpuSetSettings.NodeSelector,
+			DpuSelector:  dpuSetSettings.DPUSelector,
+			Strategy: &provisioningv1.DpuSetStrategy{
+				// TODO: Update to OnDelete when this is implemented
+				Type: provisioningv1.RollingUpdateStrategyType,
+			},
+			DpuTemplate: provisioningv1.DpuTemplate{
+				Annotations: dpuSetSettings.DPUAnnotations,
+				Spec: provisioningv1.DPUSpec{
+					Bfb: provisioningv1.BFBSpec{
+						BFBName: bfb,
+					},
+					DPUFlavor: dpuFlavor,
+				},
+				// TODO: Derive and add k8s_cluster
+				// TODO: Add nodeEffect
 			},
 		},
 	}
@@ -227,4 +311,27 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 	log.Info("Removing finalizer")
 	controllerutil.RemoveFinalizer(dpuDeployment, dpuservicev1.DPUDeploymentFinalizer)
 	return ctrl.Result{}, nil
+}
+
+// deleteElementOrNil deletes an element from a slice or returns nil if this is the last element in the slice
+func deleteElementOrNil[S ~[]E, E any](s S, i, j int) S {
+	if len(s) == 1 {
+		s = nil
+	} else {
+		s = slices.Delete[S](s, i, j)
+	}
+	return s
+}
+
+// isMapSubset returns whether the keys and values of the second map are included in the first map
+func isMapSubset[K, V comparable](one map[K]V, two map[K]V) bool {
+	if len(two) > len(one) {
+		return false
+	}
+	for key, valueTwo := range two {
+		if valueOne, found := one[key]; !found || valueOne != valueTwo {
+			return false
+		}
+	}
+	return true
 }
