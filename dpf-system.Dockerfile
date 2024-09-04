@@ -39,7 +39,7 @@ ENV ARCH=${TARGETARCH}
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    make -j4 binaries-dpf-system
+    make binaries-dpf-system
 
 # 3) Final stage copies artefacts from the builder and dependency stages.
 FROM --platform=linux/${TARGETARCH} ${base_image}
