@@ -882,6 +882,115 @@ var _ = Describe("DPUDeployment Controller", func() {
 				}, true),
 			)
 		})
+
+		Context("When checking reconcileDPUServiceChains()", func() {
+			BeforeEach(func() {
+				By("Creating the dependencies")
+				bfb := getMinimalBFB(testNS.Name)
+				Expect(testClient.Create(ctx, bfb)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
+
+				dpuFlavor := getMinimalDPUFlavor(testNS.Name)
+				Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
+
+				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
+				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+				DeferCleanup(cleanDPUDeploymentDerivatives, testNS.Name)
+			})
+			It("should create the correct DPUServiceChain", func() {
+				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+				dpuDeployment.Spec.ServiceChains = []sfcv1.Switch{
+					{
+						Ports: []sfcv1.Port{
+							{
+								Service: &sfcv1.Service{
+									InterfaceName: "someinterface",
+									Reference: &sfcv1.ObjectRef{
+										Name: "somedpuservice",
+									},
+								},
+							},
+						},
+					},
+					{
+						Ports: []sfcv1.Port{
+							{
+								Service: &sfcv1.Service{
+									InterfaceName: "someotherinterface",
+									Reference: &sfcv1.ObjectRef{
+										Name: "someotherservice",
+									},
+								},
+							},
+						},
+					},
+				}
+				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+				By("checking that correct DPUServiceChain is created")
+				Eventually(func(g Gomega) {
+					gotDPUServiceChainList := &sfcv1.DPUServiceChainList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+					g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
+
+					By("checking the object metadata")
+					obj := gotDPUServiceChainList.Items[0]
+
+					g.Expect(obj.Labels).To(HaveLen(1))
+					g.Expect(obj.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpudeployment-name", "dpudeployment"))
+					g.Expect(obj.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
+
+					By("checking the spec")
+					g.Expect(obj.Spec).To(BeComparableTo(sfcv1.DPUServiceChainSpec{
+						// TODO: Derive and add cluster selector
+						Template: sfcv1.ServiceChainSetSpecTemplate{
+							Spec: sfcv1.ServiceChainSetSpec{
+								// TODO: Figure out what to do with NodeSelector
+								Template: sfcv1.ServiceChainSpecTemplate{
+									Spec: sfcv1.ServiceChainSpec{
+										Switches: []sfcv1.Switch{
+											{
+												Ports: []sfcv1.Port{
+													{
+														Service: &sfcv1.Service{
+															InterfaceName: "someinterface",
+															Reference: &sfcv1.ObjectRef{
+																Name: "somedpuservice",
+															},
+														},
+													},
+												},
+											},
+											{
+												Ports: []sfcv1.Port{
+													{
+														Service: &sfcv1.Service{
+															InterfaceName: "someotherinterface",
+															Reference: &sfcv1.ObjectRef{
+																Name: "someotherservice",
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					))
+				}).WithTimeout(5 * time.Second).Should(Succeed())
+			})
+		})
 	})
 })
 
@@ -986,14 +1095,16 @@ func getMinimalDPUServiceConfiguration(namespace string) *dpuservicev1.DPUServic
 
 // cleanDPUDeploymentDerivatives removes all the objects that a DPUDeployment creates in a particular namespace
 func cleanDPUDeploymentDerivatives(namespace string) {
+	By("Ensuring DPUSets are deleted")
 	dpuSet := &provisioningv1.DpuSet{}
 	Expect(testClient.DeleteAllOf(ctx, dpuSet, client.InNamespace(namespace))).To(Succeed())
 	Eventually(func(g Gomega) {
 		dpuSetList := &provisioningv1.DpuSetList{}
-		g.Expect(testClient.List(ctx, &provisioningv1.DpuSetList{})).To(Succeed())
+		g.Expect(testClient.List(ctx, dpuSetList)).To(Succeed())
 		g.Expect(dpuSetList.Items).To(BeEmpty())
 	}).WithTimeout(30 * time.Second).Should(Succeed())
 
+	By("Ensuring DPUServices are deleted")
 	dpuService := &dpuservicev1.DPUService{}
 	Expect(testClient.DeleteAllOf(ctx, dpuService, client.InNamespace(namespace))).To(Succeed())
 
@@ -1017,6 +1128,15 @@ func cleanDPUDeploymentDerivatives(namespace string) {
 		dpuServiceList := &dpuservicev1.DPUServiceList{}
 		g.Expect(testClient.List(ctx, dpuServiceList)).To(Succeed())
 		g.Expect(dpuServiceList.Items).To(BeEmpty())
+	}).WithTimeout(30 * time.Second).Should(Succeed())
+
+	By("Ensuring DPUServiceChains are deleted")
+	dpuServiceChain := &sfcv1.DPUServiceChain{}
+	Expect(testClient.DeleteAllOf(ctx, dpuServiceChain, client.InNamespace(namespace))).To(Succeed())
+	Eventually(func(g Gomega) {
+		dpuServiceChainList := &sfcv1.DPUServiceChainList{}
+		g.Expect(testClient.List(ctx, dpuServiceChainList)).To(Succeed())
+		g.Expect(dpuServiceChainList.Items).To(BeEmpty())
 	}).WithTimeout(30 * time.Second).Should(Succeed())
 }
 

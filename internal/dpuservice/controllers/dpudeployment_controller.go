@@ -24,6 +24,7 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
@@ -157,8 +158,8 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 		return ctrl.Result{}, fmt.Errorf("error while reconciling the DPUServices: %w", err)
 	}
 
-	if err := reconcileDPUServiceChains(ctx, r.Client, dpuDeployment); err != nil {
-		return ctrl.Result{}, fmt.Errorf("error while reconciling the DPUServiceChains: %w", err)
+	if err := reconcileDPUServiceChain(ctx, r.Client, dpuDeployment); err != nil {
+		return ctrl.Result{}, fmt.Errorf("error while reconciling the DPUServiceChain: %w", err)
 	}
 
 	return ctrl.Result{}, nil
@@ -362,8 +363,16 @@ func reconcileDPUServices(ctx context.Context, c client.Client, dpuDeployment *d
 	return nil
 }
 
-// reconcileDPUServices reconciles the DPUServices created by the DPUDeployment
-func reconcileDPUServiceChains(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment) error {
+// reconcileDPUServiceChain reconciles the DPUServiceChain object created by the DPUDeployment
+func reconcileDPUServiceChain(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment) error {
+	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
+
+	dpuServiceChain := generateDPUServiceChain(client.ObjectKeyFromObject(dpuDeployment), owner, dpuDeployment.Spec.ServiceChains)
+
+	if err := c.Patch(ctx, dpuServiceChain, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
+		return fmt.Errorf("error while patching %s %s: %w", dpuServiceChain.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuServiceChain), err)
+	}
+
 	return nil
 }
 
@@ -451,6 +460,37 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 	dpuService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
 
 	return dpuService
+}
+
+// generateDPUServiceChain generates a DPUServiceChain according to the DPUDeployment
+func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, owner *metav1.OwnerReference, switches []sfcv1.Switch) *sfcv1.DPUServiceChain {
+	dpuServiceChain := &sfcv1.DPUServiceChain{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dpuDeploymentNamespacedName.Name,
+			Namespace: dpuDeploymentNamespacedName.Namespace,
+			Labels: map[string]string{
+				ParentDPUDeploymentNameLabel: dpuDeploymentNamespacedName.Name,
+			},
+		},
+		Spec: sfcv1.DPUServiceChainSpec{
+			// TODO: Derive and add cluster selector
+			Template: sfcv1.ServiceChainSetSpecTemplate{
+				Spec: sfcv1.ServiceChainSetSpec{
+					// TODO: Figure out what to do with NodeSelector
+					Template: sfcv1.ServiceChainSpecTemplate{
+						Spec: sfcv1.ServiceChainSpec{
+							Switches: switches,
+						},
+					},
+				},
+			},
+		},
+	}
+	dpuServiceChain.SetOwnerReferences([]metav1.OwnerReference{*owner})
+	dpuServiceChain.ObjectMeta.ManagedFields = nil
+	dpuServiceChain.SetGroupVersionKind(sfcv1.DPUServiceChainGroupVersionKind)
+
+	return dpuServiceChain
 }
 
 // reconcileDelete handles the deletion reconciliation loop
