@@ -72,6 +72,7 @@ Install the components listed below before proceeding with DPF Operator deployme
 
 - CSI
     .. code-block:: bash
+
         # TODO: Include instructions on picking and customizing a storage class here.
         # TODO: The provisioning controller currently uses an NFS PVC in order to get ReadWriteMany. This should be configurable.
         kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/v0.0.28/deploy/local-path-storage.yaml
