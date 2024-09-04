@@ -26,7 +26,9 @@ import (
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
 	"github.com/fluxcd/pkg/runtime/patch"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -143,6 +145,10 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 		return ctrl.Result{}, fmt.Errorf("error while getting the DPUDeployment dependencies: %w", err)
 	}
 
+	if err := verifyResourceFitting(deps); err != nil {
+		return ctrl.Result{}, fmt.Errorf("error while verifying that resources can fit: %w", err)
+	}
+
 	if err := reconcileDPUSets(ctx, r.Client, dpuDeployment); err != nil {
 		return ctrl.Result{}, fmt.Errorf("error while reconciling the DPUSets: %w", err)
 	}
@@ -156,6 +162,41 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 	}
 
 	return ctrl.Result{}, nil
+}
+
+// verifyResourceFitting verifies that the user provided resources for DPUServices can fit the resources defined in the
+// DPUFlavor
+func verifyResourceFitting(dependencies *dpuDeploymentDependencies) error {
+	totalResources := make(corev1.ResourceList)
+	for k, v := range dependencies.DPUFlavor.Spec.DPUDeploymentResources {
+		totalResources[k] = v
+	}
+
+	for _, dpuServiceTemplate := range dependencies.DPUServiceTemplates {
+		for resourceName, requiredQuantity := range dpuServiceTemplate.Spec.ResourceRequirements {
+			totalResource := resource.Quantity{}
+			if resource, ok := totalResources[resourceName]; ok {
+				totalResource = resource
+			}
+
+			totalResource.Sub(requiredQuantity)
+			totalResources[resourceName] = totalResource
+		}
+	}
+
+	additionalResourcesRequired := []string{}
+	for resourceName, quantity := range totalResources {
+		if quantity.Sign() < 0 {
+			quantity.Neg()
+			additionalResourcesRequired = append(additionalResourcesRequired, fmt.Sprintf("%s: %s", resourceName, quantity.String()))
+		}
+	}
+
+	if len(additionalResourcesRequired) > 0 {
+		return fmt.Errorf("there are not enough resources for DPUServices to fit in this DPUDeployment. Additional resources needed: %v", additionalResourcesRequired)
+	}
+
+	return nil
 }
 
 // getDependencies gets the DPUDeployment dependencies from the Kubernetes API Server.

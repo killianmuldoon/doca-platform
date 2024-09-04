@@ -759,7 +759,128 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}))
 				}).WithTimeout(5 * time.Second).Should(Succeed())
 			})
-
+		})
+		Context("When checking verifyResourceFitting()", func() {
+			DescribeTable("behaves as expected", func(deps *dpuDeploymentDependencies, expectError bool) {
+				err := verifyResourceFitting(deps)
+				if expectError {
+					Expect(err).To(HaveOccurred())
+				} else {
+					Expect(err).ToNot(HaveOccurred())
+				}
+			},
+				Entry("requested resources fit leaving buffer", &dpuDeploymentDependencies{
+					DPUFlavor: &provisioningv1.DPUFlavor{
+						Spec: provisioningv1.DPUFlavorSpec{
+							DPUDeploymentResources: corev1.ResourceList{
+								"cpu":    resource.MustParse("1"),
+								"memory": resource.MustParse("2Gi"),
+							},
+						},
+					},
+					DPUServiceTemplates: map[string]*dpuservicev1.DPUServiceTemplate{
+						"service-1": {
+							Spec: dpuservicev1.DPUServiceTemplateSpec{
+								ResourceRequirements: corev1.ResourceList{
+									"cpu":    resource.MustParse("0.5"),
+									"memory": resource.MustParse("100Mi"),
+								},
+							},
+						},
+						"service-2": {
+							Spec: dpuservicev1.DPUServiceTemplateSpec{
+								ResourceRequirements: corev1.ResourceList{
+									"cpu":    resource.MustParse("0.2"),
+									"memory": resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				}, false),
+				Entry("requested resources fit exactly", &dpuDeploymentDependencies{
+					DPUFlavor: &provisioningv1.DPUFlavor{
+						Spec: provisioningv1.DPUFlavorSpec{
+							DPUDeploymentResources: corev1.ResourceList{
+								"cpu":    resource.MustParse("2"),
+								"memory": resource.MustParse("2Gi"),
+							},
+						},
+					},
+					DPUServiceTemplates: map[string]*dpuservicev1.DPUServiceTemplate{
+						"service-1": {
+							Spec: dpuservicev1.DPUServiceTemplateSpec{
+								ResourceRequirements: corev1.ResourceList{
+									"cpu":    resource.MustParse("1"),
+									"memory": resource.MustParse("1Gi"),
+								},
+							},
+						},
+						"service-2": {
+							Spec: dpuservicev1.DPUServiceTemplateSpec{
+								ResourceRequirements: corev1.ResourceList{
+									"cpu":    resource.MustParse("1"),
+									"memory": resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				}, false),
+				Entry("requested resources don't fit", &dpuDeploymentDependencies{
+					DPUFlavor: &provisioningv1.DPUFlavor{
+						Spec: provisioningv1.DPUFlavorSpec{
+							DPUDeploymentResources: corev1.ResourceList{
+								"cpu":    resource.MustParse("1"),
+								"memory": resource.MustParse("2Gi"),
+							},
+						},
+					},
+					DPUServiceTemplates: map[string]*dpuservicev1.DPUServiceTemplate{
+						"service-1": {
+							Spec: dpuservicev1.DPUServiceTemplateSpec{
+								ResourceRequirements: corev1.ResourceList{
+									"cpu":    resource.MustParse("1"),
+									"memory": resource.MustParse("3Gi"),
+								},
+							},
+						},
+						"service-2": {
+							Spec: dpuservicev1.DPUServiceTemplateSpec{
+								ResourceRequirements: corev1.ResourceList{
+									"cpu":    resource.MustParse("1"),
+									"memory": resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				}, true),
+				Entry("requested resource doesn't exist", &dpuDeploymentDependencies{
+					DPUFlavor: &provisioningv1.DPUFlavor{
+						Spec: provisioningv1.DPUFlavorSpec{
+							DPUDeploymentResources: corev1.ResourceList{
+								"cpu": resource.MustParse("1"),
+							},
+						},
+					},
+					DPUServiceTemplates: map[string]*dpuservicev1.DPUServiceTemplate{
+						"service-1": {
+							Spec: dpuservicev1.DPUServiceTemplateSpec{
+								ResourceRequirements: corev1.ResourceList{
+									"cpu":    resource.MustParse("1"),
+									"memory": resource.MustParse("3Gi"),
+								},
+							},
+						},
+						"service-2": {
+							Spec: dpuservicev1.DPUServiceTemplateSpec{
+								ResourceRequirements: corev1.ResourceList{
+									"cpu":    resource.MustParse("1"),
+									"memory": resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				}, true),
+			)
 		})
 	})
 })
