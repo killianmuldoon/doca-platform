@@ -140,7 +140,7 @@ var _ = Describe("DPUService Controller", func() {
 				for i := range applications.Items {
 					err := testClient.Patch(ctx, &applications.Items[i], client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`)))
 					if err != nil && !apierrors.IsNotFound(err) {
-						g.Expect(err).To(HaveOccurred())
+						g.Expect(err).ToNot(HaveOccurred())
 					}
 				}
 				g.Expect(applications.Items).To(BeEmpty())

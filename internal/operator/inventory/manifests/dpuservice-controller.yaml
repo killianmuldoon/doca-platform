@@ -1271,6 +1271,14 @@ rules:
 - apiGroups:
   - svc.dpf.nvidia.com
   resources:
+  - dpuserviceconfigurations
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - svc.dpf.nvidia.com
+  resources:
   - dpuservicecredentialrequests
   verbs:
   - create
