@@ -12,8 +12,6 @@ spec:
       maxUnavailable: 10%
     type: RollingUpdate
   dpuTemplate:
-    annotations:
-      nvidia.com/dpuOperator-override-powercycle-command: "skip"
     spec:
       dpuFlavor: dpf-provisioning-hbn-ovn
       BFB:
@@ -23,6 +21,7 @@ spec:
           key: "dpu"
           value: "provisioning"
           effect: NoSchedule
+      automaticNodeReboot: true
       k8s_cluster:
         name: dpu-cplane-tenant1
         namespace: dpu-cplane-tenant1

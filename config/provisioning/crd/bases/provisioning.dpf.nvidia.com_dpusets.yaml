@@ -59,6 +59,11 @@ spec:
                           bfb:
                             type: string
                         type: object
+                      automaticNodeReboot:
+                        description: |-
+                          Specifies if the DPU controller should automatically reboot the node on upgrades,
+                          this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic
+                        type: boolean
                       dpuFlavor:
                         type: string
                       k8s_cluster:
@@ -82,7 +87,10 @@ spec:
                               type: string
                             type: object
                           drain:
-                            type: boolean
+                            properties:
+                              automaticNodeReboot:
+                                type: boolean
+                            type: object
                           no_effect:
                             type: boolean
                           taint:

@@ -26,8 +26,10 @@ import (
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 	gutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/powercycle"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/future"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/reboot"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,8 +43,10 @@ type dpuRebootingState struct {
 func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
 	logger := log.FromContext(ctx)
 
+	rebootTaskName := generateRebootTaskName(st.dpu)
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
+		dutil.RebootTaskMap.Delete(rebootTaskName)
 		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
@@ -54,6 +58,15 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 
 	dpu := provisioningv1.Dpu{}
 	if err := client.Get(ctx, nn, &dpu); err != nil {
+		return *state, err
+	}
+
+	nn = types.NamespacedName{
+		Namespace: "",
+		Name:      dpu.Spec.NodeName,
+	}
+	node := &corev1.Node{}
+	if err := client.Get(ctx, nn, node); err != nil {
 		return *state, err
 	}
 
@@ -82,40 +95,75 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 		return *state, nil
 	}
 
-	// Power cycle the host
-	cmd, err := powercycle.GenerateCmd(st.dpu.Annotations)
-	if err != nil {
-		logger.Error(err, "failed to generate ipmitool command")
-		return *state, err
-	}
+	if (dpu.Spec.NodeEffect != nil && dpu.Spec.NodeEffect.Drain != nil && dpu.Spec.NodeEffect.Drain.AutomaticNodeReboot) ||
+		dpu.Spec.AutomaticNodeReboot {
+		cmd, rebootType, err := reboot.GenerateCmd(node.Annotations, dpu.Annotations)
+		if err != nil {
+			logger.Error(err, "failed to generate ipmitool command")
+			return *state, err
+		}
 
-	// Return early and set node to ready if we should skip the powercycle command.
-	// Note: skipping the powercycle may cause issues with the firmware installation and configuration.
-	if cmd == powercycle.Skip {
-		logger.Info("Warning not rebooting: this may cause issues with DPU firmware installation and configuration")
-		state.Phase = provisioningv1.DPUHostNetworkConfiguration
-		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondRebooted, "", ""))
-		return *state, nil
-	}
-	if cmd == "" {
-		logger.Info("waiting for manual power cycle")
-		c := gutil.DPUCondition(provisioningv1.DPUCondRebooted, "WaitingForManualPowerCycle", "")
+		// Return early and set node to ready if we should skip the powercycle/reboot command.
+		// Note: skipping the powercycle/reboot may cause issues with the firmware installation and configuration.
+		if cmd == reboot.Skip {
+			logger.Info("Warning not rebooting: this may cause issues with DPU firmware installation and configuration")
+			state.Phase = provisioningv1.DPUClusterConfig
+			cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondRebooted, "", ""))
+			return *state, nil
+		} else if rebootType == reboot.PowerCycle {
+			logger.Info(fmt.Sprintf("powercycle with command %q", cmd))
+			if _, err := gutil.RemoteExec(st.dpu.Namespace, gutil.GenerateDMSPodName(st.dpu.Name), "", cmd); err != nil {
+				// TODO: broadcast an event
+				return *state, err
+			}
+		} else if rebootType == reboot.WarmReboot {
+			if pci_address, err := cutil.GetPCIAddrFromLabel(dpu.Labels, true); err != nil {
+				logger.Error(err, "Failed to get pci address from node label", "dms", err)
+				return *state, err
+			} else {
+				if dmsTask, ok := dutil.RebootTaskMap.Load(rebootTaskName); ok {
+					result := dmsTask.(*future.Future)
+					if result.GetState() == future.Ready {
+						dutil.RebootTaskMap.Delete(rebootTaskName)
+						if _, err := result.GetResult(); err == nil {
+							cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondRebooted, "", ""))
+							return *state, nil
+						} else {
+							return updateState(state, provisioningv1.DPUError, err.Error()), err
+						}
+					}
+				} else {
+					rebootHandler(ctx, st.dpu, pci_address, cmd)
+				}
+			}
+		}
+	} else {
+		logger.Info("waiting for manual power cycle or reboot")
+		c := gutil.DPUCondition(provisioningv1.DPUCondRebooted, "WaitingForManualPowerCycleOrReboot", "")
 		c.Status = metav1.ConditionFalse
 		gutil.SetDPUCondition(state, c)
 		return *state, nil
 	}
 
-	logger.Info(fmt.Sprintf("powercycle with command %q", cmd))
-	if _, err := HostPowerCycle(st.dpu.Namespace, gutil.GenerateDMSPodName(st.dpu.Name), "", cmd); err != nil {
-		// TODO: broadcast an event
-		return *state, err
-	}
-
 	return *state, nil
 }
 
-func HostPowerCycle(ns, name, container, cmd string) (string, error) {
-	return gutil.RemoteExec(ns, name, container, cmd)
+func rebootHandler(ctx context.Context, dpu *provisioningv1.Dpu, pci_address string, cmd string) {
+	logger := log.FromContext(ctx)
+	rebootTaskName := generateRebootTaskName(dpu)
+	logger.V(3).Info(fmt.Sprintf("BF-SLR for %s", rebootTaskName))
+	bfSLRCmd := fmt.Sprintf("bf-slr.sh %s %s", pci_address, cmd)
+
+	dmsTask := future.New(func() (any, error) {
+		// Shutdown ARM
+		logger.V(3).Info(fmt.Sprintf("Bluefield System-Level-Reset ARM shutdown command: %s for dpu: %s", bfSLRCmd, dpu.Name))
+		if _, err := gutil.RemoteExec(dpu.Namespace, gutil.GenerateDMSPodName(dpu.Name), "", bfSLRCmd); err != nil {
+			logger.Error(err, fmt.Sprintf("Failed to shutdown arm: %v", err))
+			return future.Ready, err
+		}
+		return nil, nil
+	})
+	dutil.RebootTaskMap.Store(rebootTaskName, dmsTask)
 }
 
 func HostUptime(ns, name, container string) (int, error) {
@@ -135,4 +183,8 @@ func HostUptime(ns, name, container string) (int, error) {
 	}
 
 	return int(uptime), nil
+}
+
+func generateRebootTaskName(dpu *provisioningv1.Dpu) string {
+	return fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)
 }

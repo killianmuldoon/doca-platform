@@ -92,7 +92,7 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 			node.Spec.Taints = append(node.Spec.Taints, *nodeEffect.Taint)
 			needUpdate = true
 		}
-	} else if nodeEffect.Drain {
+	} else if nodeEffect.Drain != nil {
 		logger.V(3).Info("NodeEffect is set to Drain", "node", nodeName)
 
 		maintenanceNN := types.NamespacedName{

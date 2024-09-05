@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"errors"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/powercycle"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/reboot"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -88,8 +88,8 @@ func (r *DpuSet) ValidateCreate() (admission.Warnings, error) {
 	if err := ValidateNodeEffect(*r.Spec.DpuTemplate.Spec.NodeEffect); err != nil {
 		errs = append(errs, field.Invalid(newPath.Child("dpu_template.spec.node_effect"), r.Spec.DpuTemplate.Spec.NodeEffect, err.Error()))
 	}
-	if err := powercycle.Validate(r.Spec.DpuTemplate.Annotations); err != nil {
-		errs = append(errs, field.Invalid(newPath.Child("dpu_template.annotations", powercycle.OverrideKey), r.Spec.DpuTemplate.Annotations[powercycle.OverrideKey], err.Error()))
+	if err := reboot.ValidateHostPowerCycleRequire(r.Spec.DpuTemplate.Annotations); err != nil {
+		errs = append(errs, field.Invalid(newPath.Child("dpu_template.annotations", reboot.HostPowerCycleRequireKey), r.Annotations[reboot.HostPowerCycleRequireKey], err.Error()))
 	}
 	if len(errs) != 0 {
 		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpf.nvidia.com", Kind: "DpuSet"},
@@ -112,9 +112,6 @@ func (r *DpuSet) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 
 	if err := ValidateNodeEffect(*r.Spec.DpuTemplate.Spec.NodeEffect); err != nil {
 		errs = append(errs, field.Invalid(newPath.Child("dpu_template.spec.node_effect"), r.Spec.Strategy, err.Error()))
-	}
-	if err := powercycle.Validate(r.Spec.DpuTemplate.Annotations); err != nil {
-		errs = append(errs, field.Invalid(newPath.Child("dpu_template.annotations", powercycle.OverrideKey), r.Spec.DpuTemplate.Annotations[powercycle.OverrideKey], err.Error()))
 	}
 
 	if len(errs) != 0 {
@@ -173,7 +170,7 @@ func ValidateNodeEffect(nodeEffect NodeEffect) error {
 	if len(nodeEffect.CustomLabel) != 0 {
 		count++
 	}
-	if nodeEffect.Drain {
+	if nodeEffect.Drain != nil {
 		count++
 	}
 	if count > 1 {

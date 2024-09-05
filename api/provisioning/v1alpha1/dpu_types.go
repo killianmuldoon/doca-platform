@@ -84,6 +84,10 @@ type DpuSpec struct {
 	Cluster    K8sCluster  `json:"k8s_cluster"`
 	// DPUFlavor is the name of the DPUFlavor that will be used to deploy the DPU.
 	DPUFlavor string `json:"dpuFlavor"`
+	// Specifies if the DPU controller should automatically reboot the node on upgrades,
+	// this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic
+	// +optional
+	AutomaticNodeReboot bool `json:"automaticNodeReboot,omitempty"`
 }
 
 // DpuStatus defines the observed state of DPU

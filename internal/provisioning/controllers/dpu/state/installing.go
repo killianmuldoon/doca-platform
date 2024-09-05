@@ -54,7 +54,7 @@ import (
 
 const (
 	TemplateFile            = "bf.cfg.template"
-	CloudInitDefaultTimeout = 90
+	CloudInitDefaultTimeout = 300
 	MaxBFSize               = 1024 * 16
 	MaxRetryCount           = 10
 )
@@ -335,7 +335,7 @@ func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningv1.D
 						}
 
 						time.Sleep(time.Duration(cloudInitTimeout) * time.Second)
-						logger.V(3).Info(fmt.Sprintf("DMS %s rebooted DPU successfully", dmsTaskName))
+						logger.V(3).Info(fmt.Sprintf("DMS %s install DPU successfully", dmsTaskName))
 
 						/*verifyOp := gos.NewVerifyOperation()
 						if response, err := gnoigo.Execute(ctx, clients, verifyOp); err != nil {

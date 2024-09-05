@@ -24,7 +24,7 @@ import (
 
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/powercycle"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/reboot"
 
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
@@ -312,19 +312,20 @@ func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningv1
 			OwnerReferences: []metav1.OwnerReference{*owner},
 		},
 		Spec: provisioningv1.DpuSpec{
-			NodeName:   node.Name,
-			BFB:        dpuSet.Spec.DpuTemplate.Spec.Bfb.BFBName,
-			NodeEffect: dpuSet.Spec.DpuTemplate.Spec.NodeEffect,
-			Cluster:    dpuSet.Spec.DpuTemplate.Spec.Cluster,
-			DPUFlavor:  dpuSet.Spec.DpuTemplate.Spec.DPUFlavor,
+			NodeName:            node.Name,
+			BFB:                 dpuSet.Spec.DpuTemplate.Spec.Bfb.BFBName,
+			NodeEffect:          dpuSet.Spec.DpuTemplate.Spec.NodeEffect,
+			Cluster:             dpuSet.Spec.DpuTemplate.Spec.Cluster,
+			DPUFlavor:           dpuSet.Spec.DpuTemplate.Spec.DPUFlavor,
+			AutomaticNodeReboot: dpuSet.Spec.DpuTemplate.Spec.AutomaticNodeReboot,
 		},
 	}
 	// do we really need this?
 	for k, v := range dpuSet.Annotations {
 		dpu.Annotations[k] = v
 	}
-	if v, ok := dpuSet.Spec.DpuTemplate.Annotations[powercycle.OverrideKey]; ok {
-		dpu.Annotations[powercycle.OverrideKey] = v
+	if v, ok := dpuSet.Spec.DpuTemplate.Annotations[reboot.HostPowerCycleRequireKey]; ok {
+		dpu.Annotations[reboot.HostPowerCycleRequireKey] = v
 	}
 	if err := r.Create(ctx, dpu); err != nil {
 		return nil, err

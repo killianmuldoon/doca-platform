@@ -260,15 +260,6 @@ spec:
       maxUnavailable: 10%
     type: RollingUpdate
   dpuTemplate:
-    annotations:
-      # This annotation specifies how power cycle will be executed. Supported values are "cycle"(default), "reset, and "":
-      # cycle: power cycle is executed by calling "ipmitool chassis power cycle". 
-      # reset: power cycle is executed by calling "ipmitool chassis power reset".
-      # ""(empty string): instead of executing a power cycle by ourselves, pause and wait for the user to conduct a manual power cycle.
-      # NOTE: There is a difference between "annotation default value" and "empty string as value", for example:
-      # annotation default value: if you don't set this annotation at all, the default value (cycle) will be used.
-      # empty string as value: if you set this annotation with "" (empty string) as its value, we will wait for a manual power cycle conducted by our users
-      nvidia.com/dpuOperator-override-powercycle-command: "cycle"
     spec:
       dpuFlavor: "hbn" 
       BFB:
@@ -278,6 +269,7 @@ spec:
           key: "dpu"
           value: "provisioning"
           effect: NoSchedule
+      automaticNodeReboot: true
       k8s_cluster:
         name: "tenant-00"
         namespace: "tenant-00-ns"

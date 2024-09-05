@@ -24,6 +24,7 @@ import (
 )
 
 var OsInstallTaskMap sync.Map
+var RebootTaskMap sync.Map
 
 type DPUOptions struct {
 	DMSImageWithTag          string

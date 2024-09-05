@@ -51,6 +51,11 @@ spec:
           spec:
             description: DpuSpec defines the desired state of Dpu
             properties:
+              automaticNodeReboot:
+                description: |-
+                  Specifies if the DPU controller should automatically reboot the node on upgrades,
+                  this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic
+                type: boolean
               bfb:
                 type: string
               dpuFlavor:
@@ -78,7 +83,10 @@ spec:
                       type: string
                     type: object
                   drain:
-                    type: boolean
+                    properties:
+                      automaticNodeReboot:
+                        type: boolean
+                    type: object
                   no_effect:
                     type: boolean
                   taint:

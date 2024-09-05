@@ -162,7 +162,7 @@ func HandleNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect p
 		}
 	}
 
-	if nodeEffect.Drain {
+	if nodeEffect.Drain != nil {
 		maintenanceNN := types.NamespacedName{
 			Namespace: namespace,
 			Name:      nodeName,

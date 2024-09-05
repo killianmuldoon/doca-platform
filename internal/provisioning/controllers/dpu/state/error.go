@@ -61,7 +61,7 @@ func RemoveNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect p
 	if err := k8sClient.Get(ctx, nn, node); err != nil {
 		return err
 	}
-	if nodeEffect.Drain {
+	if nodeEffect.Drain != nil {
 		maintenanceNN := types.NamespacedName{
 			Namespace: namespace,
 			Name:      nodeName,

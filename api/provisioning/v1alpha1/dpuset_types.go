@@ -68,6 +68,10 @@ type DPUSpec struct {
 	NodeEffect *NodeEffect `json:"nodeEffect,omitempty"`
 	Cluster    K8sCluster  `json:"k8s_cluster"`
 	DPUFlavor  string      `json:"dpuFlavor"`
+	// Specifies if the DPU controller should automatically reboot the node on upgrades,
+	// this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic
+	// +optional
+	AutomaticNodeReboot bool `json:"automaticNodeReboot,omitempty"`
 }
 type DpuTemplate struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
@@ -78,7 +82,12 @@ type NodeEffect struct {
 	Taint       *corev1.Taint     `json:"taint,omitempty"`
 	NoEffect    bool              `json:"no_effect,omitempty"`
 	CustomLabel map[string]string `json:"custom_label,omitempty"`
-	Drain       bool              `json:"drain,omitempty"`
+	Drain       *Drain            `json:"drain,omitempty"`
+}
+
+type Drain struct {
+	// +optional
+	AutomaticNodeReboot bool `json:"automaticNodeReboot,omitempty"`
 }
 
 // DpuSetSpec defines the desired state of DpuSet

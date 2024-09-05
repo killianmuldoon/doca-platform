@@ -18,9 +18,8 @@ package v1alpha1
 
 import (
 	"errors"
-	"fmt"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/powercycle"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/reboot"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -71,8 +70,8 @@ func (r *Dpu) ValidateCreate() (admission.Warnings, error) {
 	if err := ValidateNodeEffect(*r.Spec.NodeEffect); err != nil {
 		errs = append(errs, field.Invalid(newPath.Child(".node_effect"), r.Spec.NodeEffect, err.Error()))
 	}
-	if err := powercycle.Validate(r.Annotations); err != nil {
-		errs = append(errs, field.Invalid(newPath.Child(".annotations", powercycle.OverrideKey), r.Annotations[powercycle.OverrideKey], err.Error()))
+	if err := reboot.ValidateHostPowerCycleRequire(r.Annotations); err != nil {
+		errs = append(errs, field.Invalid(newPath.Child(".annotations", reboot.HostPowerCycleRequireKey), r.Annotations[reboot.HostPowerCycleRequireKey], err.Error()))
 	}
 
 	if len(errs) != 0 {
@@ -107,12 +106,6 @@ func (r *Dpu) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 		err = errors.New("nodeName is immutable field")
 	} else if r.Spec.Cluster.Name != oldDpu.Spec.Cluster.Name {
 		err = errors.New("k8s_cluster is immutable field")
-	} else {
-		nv, nok := r.Annotations[powercycle.OverrideKey]
-		ov, ook := oldDpu.Annotations[powercycle.OverrideKey]
-		if nok != ook || nv != ov {
-			err = fmt.Errorf("value of annotation %s is immutable", powercycle.OverrideKey)
-		}
 	}
 
 	if err != nil {
