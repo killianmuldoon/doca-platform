@@ -49,7 +49,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 			DeferCleanup(testClient.Delete, ctx, testNS)
 		})
 		It("should successfully reconcile the DPUDeployment", func() {
-			By("Reconciling the created resource")
+			By("reconciling the created resource")
 			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
 			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
@@ -65,7 +65,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 			Expect(testutils.CleanupAndWait(ctx, testClient, dpuDeployment)).To(Succeed())
 		})
 		It("should not create DPUSet, DPUService and DPUServiceChain if any of the dependencies does not exist", func() {
-			By("Reconciling the created resource")
+			By("reconciling the created resource")
 			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
 			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
@@ -84,6 +84,79 @@ var _ = Describe("DPUDeployment Controller", func() {
 				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
 				g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
 			}).WithTimeout(5 * time.Second).Should(Succeed())
+		})
+		It("should cleanup child objects on delete", func() {
+			By("Creating the dependencies")
+			bfb := getMinimalBFB(testNS.Name)
+			Expect(testClient.Create(ctx, bfb)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
+
+			dpuFlavor := getMinimalDPUFlavor(testNS.Name)
+			Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
+
+			dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+			dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+			DeferCleanup(cleanDPUDeploymentDerivatives, testNS.Name)
+
+			By("creating the dpudeployment")
+			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+			dpuDeployment.Spec.DPUs.DPUSets = []dpuservicev1.DPUSet{
+				{
+					NodeSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"nodekey1": "nodevalue1",
+						},
+					},
+					DPUSelector: map[string]string{
+						"dpukey1": "dpuvalue1",
+					},
+					DPUAnnotations: map[string]string{
+						"annotationkey1": "annotationvalue1",
+					},
+				},
+			}
+			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+			By("checking that objects are created")
+			Eventually(func(g Gomega) {
+				gotDPUSetList := &provisioningv1.DpuSetList{}
+				g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
+				g.Expect(gotDPUSetList.Items).To(HaveLen(1))
+
+				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+				g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
+
+				gotDPUServiceChainList := &sfcv1.DPUServiceChainList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+				g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
+			}).WithTimeout(5 * time.Second).Should(Succeed())
+
+			By("deleting the resource")
+			Expect(testClient.Delete(ctx, dpuDeployment)).To(Succeed())
+
+			By("checking that the child resources are removed")
+			Eventually(func(g Gomega) {
+				gotDPUSetList := &provisioningv1.DpuSetList{}
+				g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
+				g.Expect(gotDPUSetList.Items).To(BeEmpty())
+
+				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+				g.Expect(gotDPUServiceList.Items).To(BeEmpty())
+
+				gotDPUServiceChainList := &sfcv1.DPUServiceChainList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+				g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 	})
 	Context("When unit testing individual functions", func() {

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
@@ -494,12 +495,62 @@ func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, o
 }
 
 // reconcileDelete handles the deletion reconciliation loop
-// TODO: Remove nolint if we ever return different result
-//
-//nolint:unparam
 func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeployment *dpuservicev1.DPUDeployment) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling delete")
+
+	for _, obj := range []client.Object{
+		&sfcv1.DPUServiceChain{},
+		&dpuservicev1.DPUService{},
+		&provisioningv1.DpuSet{},
+	} {
+		if err := r.Client.DeleteAllOf(ctx,
+			obj,
+			client.InNamespace(dpuDeployment.Namespace),
+			client.MatchingLabels{
+				ParentDPUDeploymentNameLabel: dpuDeployment.Name,
+			},
+		); err != nil {
+			return ctrl.Result{}, fmt.Errorf("error while removing %T: %w", obj, err)
+		}
+	}
+
+	var dpuServiceChainItems, dpuServiceItems, dpuSetItems int
+	for _, obj := range []client.ObjectList{
+		&sfcv1.DPUServiceChainList{},
+		&dpuservicev1.DPUServiceList{},
+		&provisioningv1.DpuSetList{},
+	} {
+		if err := r.Client.List(ctx,
+			obj,
+			client.InNamespace(dpuDeployment.Namespace),
+			client.MatchingLabels{
+				ParentDPUDeploymentNameLabel: dpuDeployment.Name,
+			},
+		); err != nil {
+			return ctrl.Result{}, fmt.Errorf("error while listing dpuservicechains: %w", err)
+		}
+		switch t := obj.(type) {
+		case *sfcv1.DPUServiceChainList:
+			dpuServiceChainItems += len(obj.(*sfcv1.DPUServiceChainList).Items)
+		case *dpuservicev1.DPUServiceList:
+			dpuServiceItems += len(obj.(*dpuservicev1.DPUServiceList).Items)
+		case *provisioningv1.DpuSetList:
+			dpuSetItems += len(obj.(*provisioningv1.DpuSetList).Items)
+		default:
+			panic(fmt.Sprintf("type %v not handled", t))
+		}
+	}
+
+	existingObjs := dpuServiceChainItems + dpuServiceItems + dpuSetItems
+	if existingObjs > 0 {
+		log.Info(fmt.Sprintf("There are still %d child objects that are not completely deleted, requeueing before removing the finalizer.", existingObjs),
+			"dpuservicechains", dpuServiceChainItems,
+			"dpuservices", dpuServiceItems,
+			"dpusets", dpuSetItems,
+		)
+		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+	}
 
 	log.Info("Removing finalizer")
 	controllerutil.RemoveFinalizer(dpuDeployment, dpuservicev1.DPUDeploymentFinalizer)
