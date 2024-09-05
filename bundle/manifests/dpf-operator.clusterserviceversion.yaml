@@ -34,6 +34,9 @@ spec:
     - kind: DPUServiceConfiguration
       name: dpuserviceconfigurations.svc.dpf.nvidia.com
       version: v1alpha1
+    - kind: DPUServiceCredentialRequest
+      name: dpuservicecredentialrequests.svc.dpf.nvidia.com
+      version: v1alpha1
     - kind: DPUServiceInterface
       name: dpuserviceinterfaces.sfc.dpf.nvidia.com
       version: v1alpha1
