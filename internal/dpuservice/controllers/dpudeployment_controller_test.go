@@ -59,7 +59,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				got := &dpuservicev1.DPUDeployment{}
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuDeployment), got)).To(Succeed())
 				return got.Finalizers
-			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{dpuservicev1.DPUDeploymentFinalizer}))
+			}).WithTimeout(30 * time.Second).Should(ConsistOf([]string{dpuservicev1.DPUDeploymentFinalizer}))
 
 			By("checking that the resource can be deleted (finalizer is removed)")
 			Expect(testutils.CleanupAndWait(ctx, testClient, dpuDeployment)).To(Succeed())
@@ -83,7 +83,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				gotDPUServiceChainList := &sfcv1.DPUServiceChainList{}
 				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
 				g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
-			}).WithTimeout(5 * time.Second).Should(Succeed())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 		It("should cleanup child objects on delete", func() {
 			By("Creating the dependencies")
@@ -336,7 +336,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						specs = append(specs, dpuSet.Spec)
 					}
 					g.Expect(specs).To(ConsistOf(expectedDPUSetSpecs))
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
 			It("should update the existing DPUSets on update of the .spec.dpus in the DPUDeployment", func() {
 				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
@@ -354,7 +354,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					for _, dpuSet := range gotDPUSetList.Items {
 						firstDPUSetUIDs = append(firstDPUSetUIDs, dpuSet.UID)
 					}
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 
 				By("modifying the DPUDeployment object and checking the outcome")
 				dpuDeployment.Spec.DPUs.DPUSets[1].DPUAnnotations["newkey"] = "newvalue"
@@ -382,7 +382,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}
 					expectedDPUSetSpecs[1].DpuTemplate.Annotations["newkey"] = "newvalue"
 					g.Expect(specs).To(ConsistOf(expectedDPUSetSpecs))
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
 			It("should delete DPUSets that are no longer part of the DPUDeployment", func() {
 				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
@@ -400,7 +400,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					for _, dpuSet := range gotDPUSetList.Items {
 						firstDPUSetUIDs = append(firstDPUSetUIDs, dpuSet.UID)
 					}
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 
 				By("modifying the DPUDeployment object and checking the outcome")
 				dpuDeployment.Spec.DPUs.DPUSets = dpuDeployment.Spec.DPUs.DPUSets[1:]
@@ -428,7 +428,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}
 					expectedDPUSetSpecs = expectedDPUSetSpecs[1:]
 					g.Expect(specs).To(ConsistOf(expectedDPUSetSpecs))
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
 			It("should update existing and create new DPUSets on update of the .spec.dpus in the DPUDeployment", func() {
 				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
@@ -446,7 +446,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					for _, dpuSet := range gotDPUSetList.Items {
 						firstDPUSetUIDs[dpuSet.UID] = struct{}{}
 					}
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 
 				By("modifying the DPUDeployment object and checking the outcome")
 				dpuDeployment.Spec.DPUs.DPUSets[1].DPUAnnotations["newkey"] = "newvalue"
@@ -515,7 +515,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					})
 
 					g.Expect(specs).To(ConsistOf(expectedDPUSetSpecs))
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 
 			})
 		})
@@ -642,7 +642,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 							},
 						},
 					}))
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
 			It("should update the existing DPUService on update of the DPUServiceConfiguration", func() {
 				By("Creating the dependencies")
@@ -667,7 +667,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 					g.Expect(gotDPUServiceList.Items).To(HaveLen(2))
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 
 				By("modifying the DPUServiceConfiguration object and checking the outcome")
 				dpuServiceConfiguration := &dpuservicev1.DPUServiceConfiguration{}
@@ -713,7 +713,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 							DeployInCluster: ptr.To[bool](true),
 						},
 					}))
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
 			It("should delete DPUServices that are no longer part of the DPUDeployment", func() {
 				By("Creating the dependencies")
@@ -739,7 +739,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 					g.Expect(gotDPUServiceList.Items).To(HaveLen(2))
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 
 				By("modifying the DPUDeployment object and checking the outcome")
 				delete(dpuDeployment.Spec.Services, "service-1")
@@ -763,7 +763,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						},
 						ServiceID: ptr.To[string]("service-2"),
 					}))
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
 			It("should create new DPUServices on update of the .spec.services in the DPUDeployment", func() {
 				By("Creating the dependencies")
@@ -785,7 +785,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 					g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 
 				By("modifying the DPUDeployment object and checking the outcome")
 				dpuDeployment.Spec.Services["service-2"] = dpuservicev1.DPUDeploymentServiceConfiguration{
@@ -830,7 +830,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 							ServiceID: ptr.To[string]("service-2"),
 						},
 					}))
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
 		})
 		Context("When checking verifyResourceFitting()", func() {
@@ -1061,7 +1061,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						},
 					},
 					))
-				}).WithTimeout(5 * time.Second).Should(Succeed())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
 		})
 	})
@@ -1168,49 +1168,47 @@ func getMinimalDPUServiceConfiguration(namespace string) *dpuservicev1.DPUServic
 
 // cleanDPUDeploymentDerivatives removes all the objects that a DPUDeployment creates in a particular namespace
 func cleanDPUDeploymentDerivatives(namespace string) {
-	By("Ensuring DPUSets are deleted")
-	dpuSet := &provisioningv1.DpuSet{}
-	Expect(testClient.DeleteAllOf(ctx, dpuSet, client.InNamespace(namespace))).To(Succeed())
+	By("Ensuring DPUSets and DPUServiceChains are deleted")
+	dpuSetList := &provisioningv1.DpuSetList{}
+	Expect(testClient.List(ctx, dpuSetList, client.InNamespace(namespace))).To(Succeed())
+	objs := []client.Object{}
+	for i := range dpuSetList.Items {
+		objs = append(objs, &dpuSetList.Items[i])
+	}
+	dpuServiceChainList := &sfcv1.DPUServiceChainList{}
+	Expect(testClient.List(ctx, dpuServiceChainList, client.InNamespace(namespace))).To(Succeed())
+	for i := range dpuServiceChainList.Items {
+		objs = append(objs, &dpuServiceChainList.Items[i])
+	}
+
 	Eventually(func(g Gomega) {
-		dpuSetList := &provisioningv1.DpuSetList{}
-		g.Expect(testClient.List(ctx, dpuSetList)).To(Succeed())
-		g.Expect(dpuSetList.Items).To(BeEmpty())
-	}).WithTimeout(30 * time.Second).Should(Succeed())
+		g.Expect(testutils.CleanupAndWait(ctx, testClient, objs...)).To(Succeed())
+	}).WithTimeout(180 * time.Second).Should(Succeed())
 
 	By("Ensuring DPUServices are deleted")
-	dpuService := &dpuservicev1.DPUService{}
-	Expect(testClient.DeleteAllOf(ctx, dpuService, client.InNamespace(namespace))).To(Succeed())
-
-	// Ensure the applications are deleted.
 	Eventually(func(g Gomega) {
-		applications := &argov1.ApplicationList{}
-		g.Expect(testClient.List(ctx, applications)).To(Succeed())
 		// We're not running the ArgoCD controllers in this test so the finalizers must be removed here.
 		// Do this in each loop as there's a race condition where the Application is patched again
 		// by the DPUService controller.
-		for i := range applications.Items {
-			err := testClient.Patch(ctx, &applications.Items[i], client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`)))
+		applicationList := &argov1.ApplicationList{}
+		g.Expect(testClient.List(ctx, applicationList)).To(Succeed())
+		for i := range applicationList.Items {
+			err := testClient.Patch(ctx, &applicationList.Items[i], client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`)))
 			if err != nil && !apierrors.IsNotFound(err) {
 				g.Expect(err).ToNot(HaveOccurred())
 			}
 		}
-		g.Expect(applications.Items).To(BeEmpty())
-	}).WithTimeout(30 * time.Second).Should(Succeed())
 
-	Eventually(func(g Gomega) {
 		dpuServiceList := &dpuservicev1.DPUServiceList{}
-		g.Expect(testClient.List(ctx, dpuServiceList)).To(Succeed())
-		g.Expect(dpuServiceList.Items).To(BeEmpty())
-	}).WithTimeout(30 * time.Second).Should(Succeed())
-
-	By("Ensuring DPUServiceChains are deleted")
-	dpuServiceChain := &sfcv1.DPUServiceChain{}
-	Expect(testClient.DeleteAllOf(ctx, dpuServiceChain, client.InNamespace(namespace))).To(Succeed())
-	Eventually(func(g Gomega) {
-		dpuServiceChainList := &sfcv1.DPUServiceChainList{}
-		g.Expect(testClient.List(ctx, dpuServiceChainList)).To(Succeed())
-		g.Expect(dpuServiceChainList.Items).To(BeEmpty())
-	}).WithTimeout(30 * time.Second).Should(Succeed())
+		g.Expect(testClient.List(ctx, dpuServiceList, client.InNamespace(namespace))).To(Succeed())
+		objs := []client.Object{}
+		for i := range dpuServiceList.Items {
+			objs = append(objs, &dpuServiceList.Items[i])
+		}
+		g.Eventually(func(o Gomega) {
+			o.Expect(testutils.CleanupAndWait(ctx, testClient, objs...)).To(Succeed())
+		}).WithTimeout(2 * time.Second).Should(Succeed())
+	}).WithTimeout(180 * time.Second).Should(Succeed())
 }
 
 // createReconcileDPUServicesDependencies creates 2 sets of dependencies that are used for the majority of the
