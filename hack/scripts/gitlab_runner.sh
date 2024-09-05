@@ -53,8 +53,11 @@ export NEEDRESTART_SUSPEND=true
 
 ## Add the "${GITLAB_RUNNER_USER}" if it does not exist yet.
 if ! id "${GITLAB_RUNNER_USER}" &>/dev/null; then
-  sudo useradd -m -d /"${GITLAB_RUNNER_USER}" "${GITLAB_RUNNER_USER}" || log_and_exit "Failed to add gitlab runner user"
+  sudo useradd -m -d /gitlab-runner "${GITLAB_RUNNER_USER}" || log_and_exit "Failed to add gitlab runner user"
 fi
+
+## Ensure this directory is always created.
+sudo mkdir -p /gitlab-runner
 
 ## Install kubectl
 LATEST_K8S_VERSION="$(curl -L -s https://dl.k8s.io/release/stable.txt)"
