@@ -1,9 +1,11 @@
-#########################
+=========================
 DOCA Platform Foundations
-#########################
-################
+=========================
+
+----------------
 Deployment Guide
-################
+----------------
+
 Introduction
 ============
 
@@ -21,11 +23,13 @@ Through Kubernetes APIs DPF enables data center administrators to:
 
 Installation
 ============
+
 This is a step-by-step installation guide for the **DOCA Platform Foundations** ("DPF") on vanilla Kubernetes.
 It describes the complete steps required to deploy DPF with examples of basic operations and use cases.
 
 Demo Release Requirements and Known Limitations
 -----------------------------------------------
+
 - Supported platforms: Kubernetes 1.31
 - Supported OS: Ubuntu 24.04
 - The cluster is a clean install with 3 x control plane nodes and no worker nodes
@@ -40,22 +44,27 @@ Demo Release Requirements and Known Limitations
 
 Logical Design
 ==============
+
 A DPF components overview and high level functional blocks diagrams are included in the repository.
 ## TODO: Add system diagrams.
 
 Network Topology
 ================
+
 A DPF reference deployment network diagram and underlay IPs scheme are included in the repository.
 ## TODO: Add network diagrams.
 
 Deployment and Configuration
 ============================
+
 Kubernetes Deployment
 -----------------------------
+
 Install Kubernetes 1.31 on cluster with 3 x control nodes. All nodes should run Ubuntu 24.04.
 
 DPF Prerequisites Deployment
 ----------------------------
+
 Install the components listed below before proceeding with DPF Operator deployment.
 
 - CNI
@@ -129,6 +138,7 @@ Install the components listed below before proceeding with DPF Operator deployme
 
 DPF Deployment
 --------------
+
 DPF Operator Deployment
 ~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -167,7 +177,9 @@ DPF Operator Deployment
     .. code-block:: bash
 
         echo "$NGC_API_KEY" | helm registry login nvcr.io --username \$oauthtoken --password-stdin
-        helm upgrade --install -n dpf-operator-system --set imagePullSecrets\[0\]\.name=dpf-pull-secret dpf-operator oci://nvcr.io/nvstaging/mellanox/dpf-operator --version=v0.1.0-latest
+        helm upgrade --install -n dpf-operator-system --set "imagePullSecrets[0].name=dpf-pull-secret" dpf-operator oci://nvcr.io/nvstaging/mellanox/dpf-operator --version=v0.1.0-latest
+
+    **Note**: You can enable predefined observability via the Helm chart. For more information, see the `observability_guide.rst <observability_guide.rst>`_.
 
     - Verify dpf-operator-controller-manager pod is Running:
 
@@ -229,6 +241,7 @@ DPF Operator Deployment
 
 DPF Operator Configuration
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 - Apply the DPF Operator Configuration using the DPFOperatorConfig CR. Configuration includes a reference to the previously create image pull Secret and the BFB PVC.
 
     .. code-block:: bash
