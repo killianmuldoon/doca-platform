@@ -12,7 +12,7 @@ The solution involves setting up a network bridge with an IP address and connect
              +--------------------------------+  +-------------+
              | Host                           |  | DPU         |
              |        +---------+             |  |             |
-Management---|--OOB---|  br-dpu |--ensXf0vf1--|--|--pf0vf1     |
+Management---|--OOB---|  br-dpu |--ensXf0vf0--|--|--pf0vf0     |
   Network    | uplink +---------+             |  | representor |
              | (No IP)    IP                  |  |             |
              |                                |  |             |

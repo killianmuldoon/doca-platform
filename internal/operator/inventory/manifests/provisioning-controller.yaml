@@ -1307,32 +1307,18 @@ spec:
       set Open_vSwitch . other_config:max-revalidator=5000 -- \
       --if-exists del-br ovsbr1 -- \
       --if-exists del-br ovsbr2 -- \
-      --may-exist add-br br-sfc -- \
-      set bridge br-sfc datapath_type=netdev -- \
-      set bridge br-sfc fail_mode=secure -- \
-      --may-exist add-port br-sfc p0 -- \
-      set Interface p0 type=dpdk
+      --may-exist add-br br-p0 -- \
+      --may-exist set bridge br-p0 datapath_type=netdev -- \
+      --may-exist add-port br-p0 p0 -- \
+      set interface p0 type=dpdk -- \
+      --may-exist add-port br-p0 pf0hpf -- \
+      set interface pf0hpf type=dpdk
 
-      ovs-vsctl --may-exist add-br br-ovn-k8s-ch -- \
-      --may-exist add-br br-kubelet-ch -- \
-      set bridge br-ovn-k8s-ch datapath_type=netdev -- \
-      set bridge br-kubelet-ch datapath_type=netdev
-
-      ovs-vsctl add-port br-kubelet-ch pf0vf1 || true
-      ovs-vsctl add-port br-ovn-k8s-ch pf0vf2 || true
-      ovs-vsctl --may-exist add-port br-kubelet-ch en3f0pf0sf1000 || true
-      ovs-vsctl --may-exist add-port br-ovn-k8s-ch en3f0pf0sf1001 || true
-
-      ovs-vsctl set Interface pf0vf1 type=dpdk -- \
-      set Interface pf0vf2 type=dpdk -- \
-      set Interface en3f0pf0sf1000 type=dpdk -- \
-      set Interface en3f0pf0sf1001 type=dpdk
-
-      ovs-vsctl set Open_vSwitch . external-ids:ovn-bridge-datapath-type=netdev -- \
-      add-br br-ovn -- \
-      set bridge br-ovn datapath_type=netdev -- \
-      add-port br-ovn pf0hpf -- \
-      set Interface pf0hpf type=dpdk
+      ovs-vsctl --may-exist add-br br-comm-ch -- \
+      set bridge br-comm-ch datapath_type=netdev -- \
+      --may-exist add-port br-comm-ch pf0vf0 -- \
+      set interface pf0vf0 type=dpdk
+      timeout 30 dhclient br-comm-ch
 
       systemctl restart openvswitch-switch
 ---
