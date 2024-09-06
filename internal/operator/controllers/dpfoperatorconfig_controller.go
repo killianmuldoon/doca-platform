@@ -74,9 +74,39 @@ type DPFOperatorConfigReconcilerSettings struct {
 	SkipWebhook bool
 }
 
-// This Operator deploys ArgoCD and needs RBAC for all groups, resources and verbs.
-// TODO: Revisit this blanket RBAC.
-//+kubebuilder:rbac:groups=*,resources=*,verbs=*
+// Operator objects
+//+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs/finalizers,verbs=update
+
+// DPUService objects
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices;dpudeployments;dpuservicecredentialrequests;dpuserviceconfigurations,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/status;dpudeployments/status;dpuservicecredentialrequests/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/finalizers;dpudeployments/finalizers;dpuservicecredentialrequests/finalizers,verbs=update
+
+// ServiceFunctionChain
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains;serviceinterfaces;dpuserviceinterfaces;dpuservicechains;dpuserviceipams,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces/status;servicechains/status;dpuservicechains/status;dpuserviceinterfaces/status;dpuserviceipams/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces/finalizers;servicechains/finalizers;dpuservicechains/finalizers;dpuserviceinterfaces/finalizers;dpuserviceipams/finalizers,verbs=update
+
+// Provisioning objects
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets;dpuflavors;bfbs;dpus,verbs=create;delete;get;list;watch;patch;update
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets/status;dpus/status;bfbs/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets/finalizers;bfbs/finalizers;dpus/finalizers;dpuflavors/finalizers,verbs=update
+
+// Kubernetes Objects
+//+kubebuilder:rbac:groups=core,resources=namespaces,verbs=create
+//+kubebuilder:rbac:groups=core,resources=nodes;pods;pods/exec;services;serviceaccounts;serviceaccounts/token;configmaps;persistentvolumeclaims;events;secrets,verbs=get;list;watch;create;patch;update;delete
+//+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps,resources=deployments;daemonsets,verbs=get;list;watch;create;patch;delete
+//+kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations;mutatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete
+
+// External API objects
+//+kubebuilder:rbac:groups=argoproj.io,resources=appprojects;applications,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=nodemaintenance.medik8s.io,resources=*,verbs=*
+//+kubebuilder:rbac:groups=kamaji.clastix.io,resources=tenantcontrolplanes,verbs=get;list;watch
+//+kubebuilder:rbac:groups=cert-manager.io,resources=*,verbs=*
+//+kubebuilder:rbac:groups=nv-ipam.nvidia.com,resources=ippools,verbs=get;list;watch;create;update;patch;delete
 
 // SetupWithManager sets up the controller with the Manager.
 // TODO: consider watching other objects this controller interacts with e.g. pods, secrets with a label selector to speed up reconciliation.

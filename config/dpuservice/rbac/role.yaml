@@ -234,10 +234,6 @@ rules:
   resources:
   - dpuservicecredentialrequests/finalizers
   verbs:
-  - create
-  - delete
-  - get
-  - patch
   - update
 - apiGroups:
   - svc.dpf.nvidia.com
