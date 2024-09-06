@@ -84,7 +84,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 	// TODO: Consolidate all the DPUService* objects in one namespace to illustrate user behavior
 	dpuServiceName := "dpu-01"
 	hostDPUServiceName := "host-dpu-service"
-	dpuServiceNamespace := "default"
+	dpuServiceNamespace := "dpu-test-ns"
 	dpuServiceInterfaceName := "pf0-vf2"
 	dpuServiceInterfaceNamespace := "test"
 	dpuServiceChainName := "svc-chain-test"
@@ -430,6 +430,10 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		})
 
 		It("create a DPUService and check Objects and ImagePullSecrets are mirrored correctly", func() {
+			By("create namespace for DPUService")
+			testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceNamespace}}
+			testNS.SetLabels(cleanupLabels)
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testNS))).To(Succeed())
 			By("create a DPUService to be deployed on the DPUCluster")
 			// Create DPUCluster DPUService and check it's correctly reconciled.
 			dpuService := getDPUService(dpuServiceNamespace, dpuServiceName, false)

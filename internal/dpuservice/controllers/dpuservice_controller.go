@@ -255,8 +255,9 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []controlplane.DPFCluster) error {
 	// Ensure the DPUService namespace exists in target clusters.
 	project := getProjectName(dpuService)
-	if err := r.ensureNamespaces(ctx, clusters, project); err != nil {
-		return fmt.Errorf("Cluster namespaces: %v", err)
+	// TODO: think about how to cleanup the namespace in the DPU.
+	if err := r.ensureNamespaces(ctx, clusters, project, dpuService.GetNamespace()); err != nil {
+		return fmt.Errorf("cluster namespaces: %v", err)
 	}
 
 	// Ensure the Argo secret for each cluster is up-to-date.
@@ -277,21 +278,21 @@ func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, 
 	return nil
 }
 
-func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, clusters []controlplane.DPFCluster, project string) error {
+func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, clusters []controlplane.DPFCluster, project, dpuNamespace string) error {
 	var errs []error
 	if project == dpuAppProjectName {
 		for _, cluster := range clusters {
 			dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
 			if err != nil {
-				errs = append(errs, err)
+				errs = append(errs, fmt.Errorf("get cluster %s: %v", cluster.Name, err))
 			}
-			if err := utils.EnsureNamespace(ctx, dpuClusterClient, argoCDNamespace); err != nil {
-				errs = append(errs, err)
+			if err := utils.EnsureNamespace(ctx, dpuClusterClient, dpuNamespace); err != nil {
+				errs = append(errs, fmt.Errorf("namespace for cluster %s: %v", cluster.Name, err))
 			}
 		}
 	} else {
-		if err := utils.EnsureNamespace(ctx, r.Client, argoCDNamespace); err != nil {
-			return fmt.Errorf("In-Cluster namespace: %v", err)
+		if err := utils.EnsureNamespace(ctx, r.Client, dpuNamespace); err != nil {
+			return fmt.Errorf("in-cluster namespace: %v", err)
 		}
 	}
 	return kerrors.NewAggregate(errs)
