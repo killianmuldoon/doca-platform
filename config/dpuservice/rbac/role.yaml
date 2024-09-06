@@ -8,8 +8,6 @@ rules:
   - ""
   resources:
   - configmaps
-  - events
-  - persistentvolumeclaims
   - secrets
   verbs:
   - create
