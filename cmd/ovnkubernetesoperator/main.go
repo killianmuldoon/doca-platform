@@ -21,6 +21,7 @@ import (
 	"errors"
 	"flag"
 	"os"
+	"time"
 
 	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/ovnkubernetesoperator/v1alpha1"
 	ovnkubernetesoperatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/ovnkubernetesoperator/controllers"
@@ -31,6 +32,7 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -70,6 +72,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var syncPeriod time.Duration
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -82,6 +85,9 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.BoolVar(&enableWebhook, "enable-webhook", true,
 		"Enable the webhook that is handling the network annotation injection for workload pods")
+	flag.DurationVar(&syncPeriod, "sync-period", 10*time.Minute,
+		"The minimum interval at which watched resources are reconciled.")
+
 	opts := zap.Options{
 		Development: true,
 	}
@@ -119,8 +125,11 @@ func main() {
 		},
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "8a3114c5.dpf.nvidia.com",
+		Cache: cache.Options{
+			SyncPeriod: &syncPeriod,
+		},
+		LeaderElection:   enableLeaderElection,
+		LeaderElectionID: "8a3114c5.dpf.nvidia.com",
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
