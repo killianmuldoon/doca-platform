@@ -108,6 +108,14 @@ rules:
   - update
   - watch
 - apiGroups:
+  - operator.dpf.nvidia.com
+  resources:
+  - dpfoperatorconfigs
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
   - sfc.dpf.nvidia.com
   resources:
   - dpuservicechains

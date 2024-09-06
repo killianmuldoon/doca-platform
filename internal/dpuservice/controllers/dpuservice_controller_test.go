@@ -21,10 +21,12 @@ import (
 	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
+	operatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/controllers"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -49,6 +51,7 @@ var _ = Describe("DPUService Controller", func() {
 		BeforeEach(func() {
 			By("creating the namespaces")
 			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+			dpfOperatorConfig := getMinimalDPFOperatorConfig()
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
 			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one"}})).To(Succeed())
 			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two"}})).To(Succeed())
@@ -56,8 +59,9 @@ var _ = Describe("DPUService Controller", func() {
 			Expect(
 				// this namespace can be created multiple times.
 				client.IgnoreAlreadyExists(
-					testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: argoCDNamespace}})),
+					testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpfOperatorConfig.GetNamespace()}})),
 			).To(Succeed())
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, dpfOperatorConfig))).To(Succeed())
 		})
 		AfterEach(func() {
 			By("Cleanup the Namespace and Secrets")
@@ -113,7 +117,7 @@ var _ = Describe("DPUService Controller", func() {
 
 			// Check that the argo AppProject has been created correctly
 			Eventually(func(g Gomega) {
-				assertAppProject(g, testClient, argoCDNamespace, clusters)
+				assertAppProject(g, testClient, operatorcontroller.DefaultDPFOperatorConfigSingletonNamespace, clusters)
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 
 			// Check that the argo Application has been created correctly
@@ -227,6 +231,7 @@ func assertAppProject(g Gomega, testClient client.Client, argoCDNamespace string
 		})
 	}
 	g.Expect(gotDestinations).To(ConsistOf(expectedDestinations))
+	g.Expect(appProject.GetOwnerReferences()[0].Name).To(Equal(operatorcontroller.DefaultDPFOperatorConfigSingletonName))
 
 	// Check that the host argo project has been created.
 	g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: argoCDNamespace, Name: hostAppProjectName}, appProject)).To(Succeed())
@@ -374,10 +379,11 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
 			// Create the DPF System Namespace
-			err := testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: argoCDNamespace}})
+			err := testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: operatorcontroller.DefaultDPFOperatorConfigSingletonNamespace}})
 			if !apierrors.IsAlreadyExists(err) {
 				Expect(err).ToNot(HaveOccurred())
 			}
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, getMinimalDPFOperatorConfig()))).To(Succeed())
 		})
 		AfterEach(func() {
 			By("Cleanup the test Namespace")
@@ -413,7 +419,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
-			err := r.reconcileArgoSecrets(ctx, clusters)
+			err := r.reconcileArgoSecrets(ctx, clusters, getMinimalDPFOperatorConfig().GetNamespace())
 			Expect(err).NotTo(HaveOccurred())
 			secretList := &corev1.SecretList{}
 			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, controlplanemeta.DPFClusterLabelKey})).To(Succeed())
@@ -445,8 +451,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
-
-			err := r.reconcileArgoSecrets(ctx, clusters)
+			err := r.reconcileArgoSecrets(ctx, clusters, getMinimalDPFOperatorConfig().GetNamespace())
 			// Expect an error to be reported.
 			Expect(err).To(HaveOccurred())
 
@@ -481,8 +486,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
-
-			err := r.reconcileArgoSecrets(ctx, clusters)
+			err := r.reconcileArgoSecrets(ctx, clusters, getMinimalDPFOperatorConfig().GetNamespace())
 			// Expect an error to be reported.
 			Expect(err).To(HaveOccurred())
 
@@ -531,3 +535,13 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 		})
 	})
 })
+
+func getMinimalDPFOperatorConfig() *operatorv1.DPFOperatorConfig {
+	return &operatorv1.DPFOperatorConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      operatorcontroller.DefaultDPFOperatorConfigSingletonName,
+			Namespace: operatorcontroller.DefaultDPFOperatorConfigSingletonNamespace,
+		},
+		Spec: operatorv1.DPFOperatorConfigSpec{},
+	}
+}

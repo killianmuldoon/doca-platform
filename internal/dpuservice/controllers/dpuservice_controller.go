@@ -63,8 +63,11 @@ type DPUServiceReconciler struct {
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=create
 // +kubebuilder:rbac:groups=argoproj.io,resources=appprojects;applications,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kamaji.clastix.io,resources=tenantcontrolplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=operator.dpf.nvidia.com,resources=dpfoperatorconfigs,verbs=get;list;watch
 
 const (
+	dpuServiceControllerName = "dpuservice-manager"
+
 	// TODO: These constants don't belong here and should be moved as they're shared with other packages.
 	argoCDSecretLabelKey   = "argocd.argoproj.io/secret-type"
 	argoCDSecretLabelValue = "cluster"
@@ -72,13 +75,6 @@ const (
 	hostAppProjectName     = "doca-platform-project-host"
 
 	dpfServiceIDLabelKey = "sfc.nvidia.com/service"
-	// The ArgoCD namespace will always be the same as that where the reconciler is deployed.
-	// TODO:Figure out a way to make this dynamic while preserving the e2e tests.
-	argoCDNamespace = "dpf-operator-system"
-)
-
-const (
-	dpuServiceControllerName = "dpuservice-manager"
 )
 
 // applyPatchOptions contains options which are passed to every `client.Apply` patch.
@@ -224,7 +220,16 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 		return err
 	}
 
-	if err := r.reconcileApplicationPrereqs(ctx, dpuService, clusters); err != nil {
+	dpfOperatorConfigList := operatorv1.DPFOperatorConfigList{}
+	if err := r.Client.List(ctx, &dpfOperatorConfigList, &client.ListOptions{}); err != nil {
+		return fmt.Errorf("list DPFOperatorConfigs: %w", err)
+	}
+	if len(dpfOperatorConfigList.Items) == 0 || len(dpfOperatorConfigList.Items) > 1 {
+		return fmt.Errorf("exactly one DPFOperatorConfig necessary")
+	}
+	dpfOperatorConfig := &dpfOperatorConfigList.Items[0]
+
+	if err := r.reconcileApplicationPrereqs(ctx, dpuService, clusters, dpfOperatorConfig); err != nil {
 		message := fmt.Sprintf("Unable to reconcile application prereq for %s", err.Error())
 		conditions.AddFalse(
 			dpuService,
@@ -237,7 +242,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationPrereqsReconciled)
 
 	// Update the ArgoApplication for all target clusters.
-	if err = r.reconcileApplication(ctx, clusters, dpuService); err != nil {
+	if err = r.reconcileApplication(ctx, clusters, dpuService, dpfOperatorConfig.GetNamespace()); err != nil {
 		message := fmt.Sprintf("Unable to reconcile Applications: %v", err)
 		conditions.AddFalse(
 			dpuService,
@@ -252,7 +257,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []controlplane.DPFCluster) error {
+func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	// Ensure the DPUService namespace exists in target clusters.
 	project := getProjectName(dpuService)
 	// TODO: think about how to cleanup the namespace in the DPU.
@@ -261,12 +266,12 @@ func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, 
 	}
 
 	// Ensure the Argo secret for each cluster is up-to-date.
-	if err := r.reconcileArgoSecrets(ctx, clusters); err != nil {
+	if err := r.reconcileArgoSecrets(ctx, clusters, dpfOperatorConfig.GetNamespace()); err != nil {
 		return fmt.Errorf("ArgoSecrets: %v", err)
 	}
 
 	//  Ensure the ArgoCD AppProject exists and is up-to-date.
-	if err := r.reconcileAppProject(ctx, argoCDNamespace, clusters); err != nil {
+	if err := r.reconcileAppProject(ctx, clusters, dpfOperatorConfig); err != nil {
 		return fmt.Errorf("AppProject: %v", err)
 	}
 
@@ -299,7 +304,7 @@ func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, clusters []
 }
 
 // reconcileArgoSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
-func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, clusters []controlplane.DPFCluster) error {
+func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, clusters []controlplane.DPFCluster, dpfOperatorConfigNamespace string) error {
 	log := ctrllog.FromContext(ctx)
 
 	var errs []error
@@ -312,7 +317,7 @@ func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, cluster
 			continue
 		}
 		// Template an argoSecret using information from the control plane secret.
-		argoSecret, err := createArgoSecretFromKubeconfig(argoCDNamespace, cluster, adminConfig)
+		argoSecret, err := createArgoSecretFromKubeconfig(dpfOperatorConfigNamespace, cluster, adminConfig)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -427,14 +432,18 @@ func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservi
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, argoCDNamespace string, clusters []controlplane.DPFCluster) error {
+func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	log := ctrllog.FromContext(ctx)
 
 	clusterKeys := []types.NamespacedName{}
 	for i := range clusters {
 		clusterKeys = append(clusterKeys, types.NamespacedName{Namespace: clusters[i].Namespace, Name: clusters[i].Name})
 	}
-	dpuAppProject := argocd.NewAppProject(argoCDNamespace, dpuAppProjectName, clusterKeys)
+	dpuAppProject := argocd.NewAppProject(dpfOperatorConfig.Namespace, dpuAppProjectName, clusterKeys)
+	// Add owner reference AppProject->DPFOperatorConfig to ensure that the AppProject will be deleted with the DPFOperatorConfig.
+	// This ensures that we should have no orphaned ArgoCD AppProjects.
+	owner := metav1.NewControllerRef(dpfOperatorConfig, operatorv1.DPFOperatorConfigGroupVersionKind)
+	dpuAppProject.SetOwnerReferences([]metav1.OwnerReference{*owner})
 
 	log.Info("Patching AppProject for DPU clusters")
 	if err := r.Client.Patch(ctx, dpuAppProject, client.Apply, applyPatchOptions...); err != nil {
@@ -442,7 +451,9 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, argoCDNa
 	}
 
 	inClusterKey := []types.NamespacedName{{Namespace: "*", Name: "in-cluster"}}
-	hostAppProject := argocd.NewAppProject(argoCDNamespace, hostAppProjectName, inClusterKey)
+	hostAppProject := argocd.NewAppProject(dpfOperatorConfig.Namespace, hostAppProjectName, inClusterKey)
+	// Add owner reference, same as above.
+	hostAppProject.SetOwnerReferences([]metav1.OwnerReference{*owner})
 
 	log.Info("Patching AppProject for Host cluster")
 	if err := r.Client.Patch(ctx, hostAppProject, client.Apply, applyPatchOptions...); err != nil {
@@ -452,21 +463,21 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, argoCDNa
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, clusters []controlplane.DPFCluster, dpuService *dpuservicev1.DPUService) error {
+func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, clusters []controlplane.DPFCluster, dpuService *dpuservicev1.DPUService, dpfOperatorConfigNamespace string) error {
 	project := getProjectName(dpuService)
 	if project == dpuAppProjectName {
 		for _, cluster := range clusters {
-			if err := r.ensureApplication(ctx, dpuService, cluster.Name); err != nil {
+			if err := r.ensureApplication(ctx, dpuService, cluster.Name, dpfOperatorConfigNamespace); err != nil {
 				return err
 			}
 		}
 	} else {
-		return r.ensureApplication(ctx, dpuService, "in-cluster")
+		return r.ensureApplication(ctx, dpuService, "in-cluster", dpfOperatorConfigNamespace)
 	}
 	return nil
 }
 
-func (r *DPUServiceReconciler) ensureApplication(ctx context.Context, dpuService *dpuservicev1.DPUService, applicationName string) error {
+func (r *DPUServiceReconciler) ensureApplication(ctx context.Context, dpuService *dpuservicev1.DPUService, applicationName, dpfOperatorConfigNamespace string) error {
 	log := ctrllog.FromContext(ctx)
 	project := getProjectName(dpuService)
 	values, err := argoCDValuesFromDPUService(dpuService)
@@ -474,7 +485,7 @@ func (r *DPUServiceReconciler) ensureApplication(ctx context.Context, dpuService
 		return err
 	}
 
-	argoApplication := argocd.NewApplication(argoCDNamespace, project, dpuService, values, applicationName)
+	argoApplication := argocd.NewApplication(dpfOperatorConfigNamespace, project, dpuService, values, applicationName)
 	gotArgoApplication := &argov1.Application{}
 
 	// If Application does not exist, create it. Otherwise, patch the object.

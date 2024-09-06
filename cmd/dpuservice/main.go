@@ -23,6 +23,7 @@ import (
 	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 	dpuservicecontroller "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/dpuservice/controllers"
@@ -52,6 +53,7 @@ func init() {
 	utilruntime.Must(argov1.AddToScheme(clientgoscheme.Scheme))
 	utilruntime.Must(sfcv1.AddToScheme(clientgoscheme.Scheme))
 	utilruntime.Must(nvipamv1.AddToScheme(clientgoscheme.Scheme))
+	utilruntime.Must(operatorv1.AddToScheme(clientgoscheme.Scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
