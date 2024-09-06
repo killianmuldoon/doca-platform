@@ -485,7 +485,7 @@ clean-test-env: $(MINIKUBE) ## Clean test environment (teardown minikube cluster
 ##@ lint and verify
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter & yamllint
-	$(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) run --timeout 5m
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
