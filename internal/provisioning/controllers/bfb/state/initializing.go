@@ -21,9 +21,6 @@ import (
 
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
-	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -41,22 +38,6 @@ func (st *bfbInitializingState) Handle(ctx context.Context, client client.Client
 	if state.Phase == "" {
 		state.Phase = provisioningv1.BfbInitializing
 		return *state, nil
-	}
-
-	// checking whether bf cfg configmap exist
-	if st.bfb.Spec.BFCFG != "" {
-		nn := types.NamespacedName{
-			Namespace: st.bfb.Namespace,
-			Name:      st.bfb.Spec.BFCFG,
-		}
-		configmap := &corev1.ConfigMap{}
-		if err := client.Get(ctx, nn, configmap); err != nil {
-			if apierrors.IsNotFound(err) {
-				// BF cfg configmap does not exist, bfb keeps in initializing state.
-				return *state, nil
-			}
-			return *state, err
-		}
 	}
 
 	state.Phase = provisioningv1.BfbDownloading

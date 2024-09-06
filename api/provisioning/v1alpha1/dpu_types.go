@@ -20,8 +20,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// DpuPhase is a label for the condition of a DPU at the current time.
-// +enum
+// DpuPhase describes current state of Dpu.
+// Only one of the following state may be specified.
+// Default is Initializing.
+// +kubebuilder:validation:Enum="Initializing";"Node Effect";"Pending";"DMSDeployment";"OS Installing";"DPU Cluster Config";"Ready";"Error";"Deleting";"Rebooting"
 type DpuPhase string
 
 // These are the valid statuses of DPU.
@@ -70,20 +72,45 @@ func (ct DPUConditionType) String() string {
 }
 
 type K8sCluster struct {
-	Name       string            `json:"name"`
-	NameSpace  string            `json:"namespace"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	// +required
+	Name string `json:"name"`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	// +required
+	NameSpace string `json:"namespace"`
+	// +optional
 	NodeLabels map[string]string `json:"node_labels,omitempty"`
 }
 
 // DpuSpec defines the desired state of Dpu
 type DpuSpec struct {
-	NodeName   string      `json:"nodeName"`
-	BFB        string      `json:"bfb"`
-	PCIAddress string      `json:"pci_address,omitempty"`
+	// Specifies Node this DPU belongs to
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	// +required
+	NodeName string `json:"nodeName"`
+
+	// Specifies name of the bfb CR to use for this DPU
+	// +required
+	BFB string `json:"bfb"`
+
+	// The PCI device related DPU
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	// +optional
+	PCIAddress string `json:"pci_address,omitempty"`
+
+	// Specifies how changes to the DPU should affect the Node
+	// +kubebuilder:default={drain: {automaticNodeReboot: true}}
+	// +optional
 	NodeEffect *NodeEffect `json:"nodeEffect,omitempty"`
-	Cluster    K8sCluster  `json:"k8s_cluster"`
+
+	// Specifies details on the K8S cluster to join
+	// +required
+	Cluster K8sCluster `json:"k8s_cluster"`
+
 	// DPUFlavor is the name of the DPUFlavor that will be used to deploy the DPU.
-	DPUFlavor string `json:"dpuFlavor"`
+	// +optional
+	DPUFlavor string `json:"dpuFlavor,omitempty"`
+
 	// Specifies if the DPU controller should automatically reboot the node on upgrades,
 	// this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic
 	// +optional
@@ -93,20 +120,26 @@ type DpuSpec struct {
 // DpuStatus defines the observed state of DPU
 type DpuStatus struct {
 	// high-level summary of where the DPU is in its lifecycle
-	Phase DpuPhase `json:"phase,omitempty"`
+	// +required
+	Phase DpuPhase `json:"phase"`
+
 	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
 
 	// bfb version of this DPU
+	// +optional
 	BFBVersion string `json:"bfb_version,omitempty"`
 
 	// pci device information of this DPU
+	// +optional
 	PCIDevice string `json:"pci_device,omitempty"`
 
 	// whether require reset of DPU
+	// +optional
 	RequiredReset *bool `json:"required_reset,omitempty"`
 
 	// the firmware information of DPU
+	// +optional
 	Firmware Firmware `json:"firmware,omitempty"`
 }
 

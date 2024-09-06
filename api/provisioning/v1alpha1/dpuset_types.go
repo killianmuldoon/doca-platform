@@ -30,7 +30,9 @@ const (
 // DpuSetGroupVersionKind is the GroupVersionKind of the DpuSet object
 var DpuSetGroupVersionKind = GroupVersion.WithKind(DpuSetKind)
 
-// +enum
+// StrategyType describes strategy to use to reprovision existing DPUs.
+// Default is "Recreate".
+// +kubebuilder:validation:Enum=Recreate;RollingUpdate
 type StrategyType string
 
 const (
@@ -44,7 +46,8 @@ const (
 )
 
 type DpuSetStrategy struct {
-	// Can be "Recreate" or "RollingUpdate". Default is RollingUpdate.
+	// Can be "Recreate" or "RollingUpdate".
+	// +kubebuilder:default=Recreate
 	// +optional
 	Type StrategyType `json:"type,omitempty"`
 
@@ -93,20 +96,25 @@ type Drain struct {
 // DpuSetSpec defines the desired state of DpuSet
 type DpuSetSpec struct {
 	// The rolling update strategy to use to updating existing Dpus with new ones.
+	// +optional
 	Strategy *DpuSetStrategy `json:"strategy,omitempty"`
 
 	// Select the Nodes with specific labels
+	// +optional
 	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
 
 	// Select the DPU with specific labels
+	// +optional
 	DpuSelector map[string]string `json:"dpuSelector,omitempty"`
 
 	// Object that describes the DPU that will be created if insufficient replicas are detected
+	// +optional
 	DpuTemplate DpuTemplate `json:"dpuTemplate,omitempty"`
 }
 
 // DpuSetStatus defines the observed state of DpuSet
 type DpuSetStatus struct {
+	// +optional
 	Dpustatistics map[DpuPhase]int `json:"dpuStatistics,omitempty"`
 }
 

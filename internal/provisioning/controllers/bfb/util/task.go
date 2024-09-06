@@ -26,5 +26,4 @@ type BfbTask struct {
 	TaskName string
 	Url      string
 	FileName string
-	Cfg      string
 }

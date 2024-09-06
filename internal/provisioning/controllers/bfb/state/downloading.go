@@ -92,7 +92,6 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 			TaskName: bfbTaskName,
 			Url:      st.bfb.Spec.URL,
 			FileName: st.bfb.Spec.FileName,
-			Cfg:      st.bfb.Spec.BFCFG,
 		}
 		// Create a new context for this download task
 		taskCtx, cancel := context.WithCancel(ctx)

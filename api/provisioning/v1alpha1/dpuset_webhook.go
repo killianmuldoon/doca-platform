@@ -120,12 +120,6 @@ func (r *DpuSet) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 			errs)
 	}
 
-	oldDpuSet, _ := old.(*DpuSet)
-	if r.Spec.DpuTemplate.Spec.Cluster.Name != oldDpuSet.Spec.DpuTemplate.Spec.Cluster.Name {
-		return nil, apierrors.NewForbidden(schema.GroupResource{Group: "provisioning.dpf.nvidia.com", Resource: "DpuSet"},
-			r.Name,
-			errors.New("k8s_cluster is immutable field"))
-	}
 	return nil, nil
 }
 

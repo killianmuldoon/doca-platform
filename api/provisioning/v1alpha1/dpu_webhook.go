@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"errors"
-
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/reboot"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -47,12 +45,6 @@ var _ webhook.Defaulter = &Dpu{}
 // Default implements webhook.Defaulter so a webhook will be registered for the type
 func (r *Dpu) Default() {
 	dpulog.V(4).Info("default", "name", r.Name)
-
-	if r.Spec.NodeEffect == nil {
-		r.Spec.NodeEffect = &NodeEffect{
-			NoEffect: true,
-		}
-	}
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
@@ -96,22 +88,6 @@ func (r *Dpu) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpf.nvidia.com", Kind: "DpuSet"},
 			r.Name,
 			errs)
-	}
-
-	oldDpu, _ := old.(*Dpu)
-	var err error
-	if r.Spec.PCIAddress != oldDpu.Spec.PCIAddress {
-		err = errors.New("pci_address is immutable field")
-	} else if r.Spec.NodeName != oldDpu.Spec.NodeName {
-		err = errors.New("nodeName is immutable field")
-	} else if r.Spec.Cluster.Name != oldDpu.Spec.Cluster.Name {
-		err = errors.New("k8s_cluster is immutable field")
-	}
-
-	if err != nil {
-		return nil, apierrors.NewForbidden(schema.GroupResource{Group: "provisioning.dpf.nvidia.com", Resource: "Dpu"},
-			r.Name,
-			err)
 	}
 
 	return nil, nil

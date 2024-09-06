@@ -29,6 +29,8 @@ const (
 // DPUFlavorGroupVersionKind is the GroupVersionKind of the DPUFlavor object
 var DPUFlavorGroupVersionKind = GroupVersion.WithKind(DPUFlavorKind)
 
+// DPUFlavorSpec defines the content of DPUFlavor
+// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DPUFlavor spec is immutable"
 type DPUFlavorSpec struct {
 	// +optional
 	Grub DPUFlavorGrub `json:"grub,omitempty"`
@@ -57,23 +59,27 @@ type DPUFlavorSpec struct {
 }
 
 type DPUFlavorGrub struct {
-	KernelParameters []string `json:"kernelParameters"`
+	// +optional
+	KernelParameters []string `json:"kernelParameters,omitempty"`
 }
 
 type DPUFLavorSysctl struct {
-	Parameters []string `json:"parameters"`
+	// +optional
+	Parameters []string `json:"parameters,omitempty"`
 }
 
 type DPUFlavorNVConfig struct {
 	// +optional
-	Device     *string  `json:"device"`
-	Parameters []string `json:"parameters"`
+	Device *string `json:"device,omitempty"`
+	// +optional
+	Parameters []string `json:"parameters,omitempty"`
 	// +optional
 	HostPowerCycleRequired *bool `json:"hostPowerCycleRequired,omitempty"`
 }
 
 type DPUFlavorOVS struct {
-	RawConfigScript string `json:"rawConfigScript"`
+	// +optional
+	RawConfigScript string `json:"rawConfigScript,omitempty"`
 }
 
 // +kubebuilder:validation:Enum=override;append
@@ -85,15 +91,19 @@ const (
 )
 
 type ConfigFile struct {
-	Path string `json:"path"`
 	// +optional
-	Operation   DPUFlavorFileOp `json:"operation,omitempty"`
-	Raw         string          `json:"raw"`
-	Permissions string          `json:"permissions"`
+	Path string `json:"path,omitempty"`
+	// +optional
+	Operation DPUFlavorFileOp `json:"operation,omitempty"`
+	// +optional
+	Raw string `json:"raw,omitempty"`
+	// +optional
+	Permissions string `json:"permissions,omitempty"`
 }
 
 type ContainerdConfig struct {
-	RegistryEndpoint string `json:"registryEndpoint"`
+	// +optional
+	RegistryEndpoint string `json:"registryEndpoint,omitempty"`
 }
 
 //+kubebuilder:object:root=true
@@ -102,8 +112,7 @@ type ContainerdConfig struct {
 type DPUFlavor struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DPUFlavor spec is immutable"
+
 	Spec DPUFlavorSpec `json:"spec,omitempty"`
 }
 
