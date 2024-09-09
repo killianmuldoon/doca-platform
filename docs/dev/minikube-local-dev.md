@@ -70,3 +70,12 @@ minikube delete --all --alsologtostderr
 ```
 minikube -p dpf-test addons enable metrics-server
 ```
+3. Machine Doesn't Have Enough Resources To Run Minikube:
+
+Reduce the Resource Demands of Minikube. e.g.,
+```
+export NODE_MEMORY=4g
+export NODE_CPUS=2
+export NODE_DISK=50g
+make test-env-e2e
+```
