@@ -221,6 +221,7 @@ spec:
           verbs:
           - create
           - delete
+          - deletecollection
           - get
           - list
           - patch
@@ -271,6 +272,7 @@ spec:
           verbs:
           - create
           - delete
+          - deletecollection
           - get
           - list
           - patch
@@ -305,9 +307,11 @@ spec:
           - dpuserviceconfigurations
           - dpuservicecredentialrequests
           - dpuservices
+          - dpuservicetemplates
           verbs:
           - create
           - delete
+          - deletecollection
           - get
           - list
           - patch

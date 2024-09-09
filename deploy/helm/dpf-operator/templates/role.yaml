@@ -149,6 +149,7 @@ rules:
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch
@@ -199,6 +200,7 @@ rules:
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch
@@ -233,9 +235,11 @@ rules:
   - dpuserviceconfigurations
   - dpuservicecredentialrequests
   - dpuservices
+  - dpuservicetemplates
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch

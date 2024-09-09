@@ -72,6 +72,9 @@ var (
 		&sfcv1.DPUServiceChainList{},
 		&sfcv1.DPUServiceInterfaceList{},
 		&dpuservicev1.DPUServiceList{},
+		&dpuservicev1.DPUDeploymentList{},
+		&dpuservicev1.DPUServiceConfigurationList{},
+		&dpuservicev1.DPUServiceTemplateList{},
 		&operatorv1.DPFOperatorConfigList{},
 		&appsv1.DeploymentList{},
 		&corev1.PersistentVolumeClaimList{},
@@ -152,10 +155,9 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		})
 
 		It("create the PersistentVolumeClaim for the DPF Provisioning controller", func() {
-			data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpf-provisioning-pvc.yaml"))
-			Expect(err).ToNot(HaveOccurred())
+			pvcUnstructured := getUnstructuredFromFile("infrastructure/dpf-provisioning-pvc.yaml")
 			pvc := &corev1.PersistentVolumeClaim{}
-			Expect(yaml.Unmarshal(data, pvc)).To(Succeed())
+			Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(pvcUnstructured.Object, pvc)).To(Succeed())
 			pvc.SetName(dpfProvisioningControllerPVCName)
 			pvc.SetNamespace(dpfOperatorSystemNamespace)
 			pvc.SetLabels(cleanupLabels)
@@ -187,10 +189,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				Expect(testClient.Create(ctx, ns)).To(Succeed())
 				// Read the TenantControlPlane from file and create it.
 				// Note: This process doesn't cover all the places in the file the name should be set.
-				data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpu-control-plane.yaml"))
-				Expect(err).ToNot(HaveOccurred())
-				controlPlane := &unstructured.Unstructured{}
-				Expect(yaml.Unmarshal(data, controlPlane)).To(Succeed())
+				controlPlane := getUnstructuredFromFile("infrastructure/dpu-control-plane.yaml")
 				controlPlane.SetName(clusterName)
 				controlPlane.SetNamespace(ns.Name)
 				controlPlane.SetLabels(cleanupLabels)
@@ -244,12 +243,9 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 		It("create the provisioning objects", func() {
 			Eventually(func(g Gomega) {
-				bfb := &provisioningv1.Bfb{}
 				// Read the BFB object and create it.
 				By("creating the BFB")
-				data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/bfb.yaml"))
-				g.Expect(err).ToNot(HaveOccurred())
-				g.Expect(yaml.Unmarshal(data, bfb)).To(Succeed())
+				bfb := getUnstructuredFromFile("infrastructure/bfb.yaml")
 				bfb.SetLabels(cleanupLabels)
 				g.Expect(testClient.Create(ctx, bfb)).To(Succeed())
 			}).WithTimeout(10 * time.Second).Should(Succeed())
@@ -259,10 +255,10 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 			Eventually(func(g Gomega) {
 				for _, cluster := range dpuClusters {
-					data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpuset.yaml"))
-					g.Expect(err).ToNot(HaveOccurred())
+					dpusetUnstructured := getUnstructuredFromFile("infrastructure/dpuset.yaml")
 					dpuset := &provisioningv1.DpuSet{}
-					Expect(yaml.Unmarshal(data, dpuset)).To(Succeed())
+					Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpusetUnstructured.Object, dpuset)).To(Succeed())
+
 					By(fmt.Sprintf("Creating the DPUSet for cluster %s/%s", cluster.Name, cluster.Namespace))
 					dpuset.Spec.DpuTemplate.Spec.Cluster.Name = cluster.Name
 					dpuset.Spec.DpuTemplate.Spec.Cluster.NameSpace = cluster.Namespace
@@ -352,10 +348,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			testNS.SetLabels(cleanupLabels)
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
 			By("create DPUServiceInterface")
-			data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuserviceinterface.yaml"))
-			Expect(err).ToNot(HaveOccurred())
-			dpuServiceInterface := &unstructured.Unstructured{}
-			Expect(yaml.Unmarshal(data, dpuServiceInterface)).To(Succeed())
+			dpuServiceInterface := getUnstructuredFromFile("application/dpuserviceinterface.yaml")
 			dpuServiceInterface.SetName(dpuServiceInterfaceName)
 			dpuServiceInterface.SetNamespace(dpuServiceInterfaceNamespace)
 			dpuServiceInterface.SetLabels(cleanupLabels)
@@ -379,10 +372,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			testNS.SetLabels(cleanupLabels)
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
 			By("create DPUServiceChain")
-			data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuservicechain.yaml"))
-			Expect(err).ToNot(HaveOccurred())
-			dpuServiceChain := &unstructured.Unstructured{}
-			Expect(yaml.Unmarshal(data, dpuServiceChain)).To(Succeed())
+			dpuServiceChain := getUnstructuredFromFile("application/dpuservicechain.yaml")
 			dpuServiceChain.SetName(dpuServiceChainName)
 			dpuServiceChain.SetNamespace(dpuServiceChainNamespace)
 			dpuServiceChain.SetLabels(cleanupLabels)
@@ -536,10 +526,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 		It("create a DPUServiceIPAM with subnet split per node configuration and check NVIPAM IPPool is created to each cluster", func() {
 			By("creating the DPUServiceIPAM CR")
-			data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuserviceipam_subnet.yaml"))
-			Expect(err).ToNot(HaveOccurred())
-			dpuServiceIPAM := &unstructured.Unstructured{}
-			Expect(yaml.Unmarshal(data, dpuServiceIPAM)).To(Succeed())
+			dpuServiceIPAM := getUnstructuredFromFile("application/dpuserviceipam_subnet.yaml")
 			dpuServiceIPAM.SetName(dpuServiceIPAMWithIPPoolName)
 			dpuServiceIPAM.SetNamespace(dpuServiceIPAMNamespace)
 			dpuServiceIPAM.SetLabels(cleanupLabels)
@@ -594,10 +581,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 		It("create a DPUServiceIPAM with cidr split in subnet per node configuration and check NVIPAM CIDRPool is created to each cluster", func() {
 			By("creating the DPUServiceIPAM CR")
-			data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuserviceipam_cidr.yaml"))
-			Expect(err).ToNot(HaveOccurred())
-			dpuServiceIPAM := &unstructured.Unstructured{}
-			Expect(yaml.Unmarshal(data, dpuServiceIPAM)).To(Succeed())
+			dpuServiceIPAM := getUnstructuredFromFile("application/dpuserviceipam_cidr.yaml")
 			dpuServiceIPAM.SetName(dpuServiceIPAMWithCIDRPoolName)
 			dpuServiceIPAM.SetNamespace(dpuServiceIPAMNamespace)
 			dpuServiceIPAM.SetLabels(cleanupLabels)
@@ -650,16 +634,101 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}).WithTimeout(180 * time.Second).Should(Succeed())
 		})
 
+		It("create a DPUDeployment with its dependencies and ensure that the underlying objects are created", func() {
+			By("creating the dependencies")
+			dpuServiceTemplate := getUnstructuredFromFile("application/dpuservicetemplate.yaml")
+			dpuServiceTemplate.SetLabels(cleanupLabels)
+			Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+
+			dpuServiceConfiguration := getUnstructuredFromFile("application/dpuserviceconfiguration.yaml")
+			dpuServiceConfiguration.SetLabels(cleanupLabels)
+			Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+
+			By("creating the dpudeployment")
+			dpuDeployment := getUnstructuredFromFile("application/dpudeployment.yaml")
+			dpuDeployment.SetLabels(cleanupLabels)
+			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+
+			By("checking that the underlying objects are created")
+			Eventually(func(g Gomega) {
+				gotDPUSetList := &provisioningv1.DpuSetList{}
+				g.Expect(testClient.List(ctx,
+					gotDPUSetList,
+					client.InNamespace(dpuDeployment.GetNamespace()),
+					client.MatchingLabels{
+						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					})).To(Succeed())
+				g.Expect(gotDPUSetList.Items).To(HaveLen(1))
+
+				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx,
+					gotDPUServiceList,
+					client.InNamespace(dpuDeployment.GetNamespace()),
+					client.MatchingLabels{
+						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					})).To(Succeed())
+				g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
+
+				gotDPUServiceChainList := &sfcv1.DPUServiceChainList{}
+				g.Expect(testClient.List(ctx,
+					gotDPUServiceChainList,
+					client.InNamespace(dpuDeployment.GetNamespace()),
+					client.MatchingLabels{
+						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					})).To(Succeed())
+				g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
+			}).WithTimeout(180 * time.Second).Should(Succeed())
+		})
+
+		It("delete the DPUDeployment and ensure the underlying objects are gone", func() {
+			if skipCleanup {
+				Skip("Skip cleanup resources")
+			}
+
+			By("deleting the dpudeployment")
+			dpuDeployment := getUnstructuredFromFile("application/dpudeployment.yaml")
+			Expect(testClient.Delete(ctx, dpuDeployment)).To(Succeed())
+
+			By("checking that the underlying objects are deleted")
+			Eventually(func(g Gomega) {
+				gotDPUSetList := &provisioningv1.DpuSetList{}
+				g.Expect(testClient.List(ctx,
+					gotDPUSetList,
+					client.InNamespace(dpuDeployment.GetNamespace()),
+					client.MatchingLabels{
+						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					})).To(Succeed())
+				g.Expect(gotDPUSetList.Items).To(BeEmpty())
+
+				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx,
+					gotDPUServiceList,
+					client.InNamespace(dpuDeployment.GetNamespace()),
+					client.MatchingLabels{
+						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					})).To(Succeed())
+				g.Expect(gotDPUServiceList.Items).To(BeEmpty())
+
+				gotDPUServiceChainList := &sfcv1.DPUServiceChainList{}
+				g.Expect(testClient.List(ctx,
+					gotDPUServiceChainList,
+					client.InNamespace(dpuDeployment.GetNamespace()),
+					client.MatchingLabels{
+						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					})).To(Succeed())
+				g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
+			}).WithTimeout(180 * time.Second).Should(Succeed())
+		})
+
 		It("delete DPUs, DPUSets and BFBs and ensure they are deleted", func() {
 			if skipCleanup {
 				Skip("Skip cleanup resources")
 			}
 			dpuClusters, err := controlplane.GetDPFClusters(ctx, testClient)
 			Expect(err).ToNot(HaveOccurred())
-			data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/dpuset.yaml"))
-			Expect(err).ToNot(HaveOccurred())
+			dpusetUnstructured := getUnstructuredFromFile("infrastructure/dpuset.yaml")
 			dpuset := &provisioningv1.DpuSet{}
-			Expect(yaml.Unmarshal(data, dpuset)).To(Succeed())
+			Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpusetUnstructured.Object, dpuset)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				for _, cluster := range dpuClusters {
@@ -671,10 +740,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 
 			Eventually(func(g Gomega) {
-				bfb := &provisioningv1.Bfb{}
-				data, err := os.ReadFile(filepath.Join(testObjectsPath, "infrastructure/bfb.yaml"))
-				Expect(err).ToNot(HaveOccurred())
-				Expect(yaml.Unmarshal(data, bfb)).To(Succeed())
+				bfb := getUnstructuredFromFile("infrastructure/bfb.yaml")
 
 				g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, bfb))).To(Succeed())
 				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(bfb), bfb))).To(BeTrue())
@@ -697,11 +763,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 func getDPUService(namespace, name string, host bool) *unstructured.Unstructured {
 	// Create a host DPUService and check it's correctly reconciled
 	// Read the DPUService from file and create it.
-	data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuservice.yaml"))
-	Expect(err).ToNot(HaveOccurred())
-	svc := &unstructured.Unstructured{}
-	// Create DPUCluster DPUService and check it's correctly reconciled.
-	Expect(yaml.Unmarshal(data, svc)).To(Succeed())
+	svc := getUnstructuredFromFile("application/dpuservice.yaml")
 	svc.SetName(name)
 	svc.SetNamespace(namespace)
 
@@ -729,4 +791,12 @@ func collectResourcesAndLogs(ctx context.Context) error {
 	clusters, err := collector.GetClusterCollectors(ctx, testClient, artifactsPath, inventoryManifestsPath, restConfig)
 	Expect(err).NotTo(HaveOccurred())
 	return collector.New(clusters).Run(ctx)
+}
+
+func getUnstructuredFromFile(path string) *unstructured.Unstructured {
+	data, err := os.ReadFile(filepath.Join(testObjectsPath, path))
+	Expect(err).ToNot(HaveOccurred())
+	obj := &unstructured.Unstructured{}
+	Expect(yaml.Unmarshal(data, obj)).To(Succeed())
+	return obj
 }

@@ -1401,12 +1401,35 @@ rules:
   - list
   - watch
 - apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs
+  - dpuflavors
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - dpusets
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - sfc.dpf.nvidia.com
   resources:
   - dpuservicechains
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch
@@ -1498,6 +1521,7 @@ rules:
   - svc.dpf.nvidia.com
   resources:
   - dpuserviceconfigurations
+  - dpuservicetemplates
   verbs:
   - get
   - list
@@ -1535,6 +1559,7 @@ rules:
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch

@@ -1,0 +1,11 @@
+apiVersion: svc.dpf.nvidia.com/v1alpha1
+kind: DPUServiceTemplate
+metadata:
+  name: dpudeployment-example-servicetemplate
+  namespace: dpf-operator-system
+spec:
+  service: "example"
+  serviceDaemonSet:
+    resources:
+      cpu: 1
+      mem: 1Gi

@@ -1,0 +1,18 @@
+apiVersion: svc.dpf.nvidia.com/v1alpha1
+kind: DPUServiceConfiguration
+metadata:
+  name: dpudeployment-example-serviceconfiguration
+  namespace: dpf-operator-system
+spec:
+  service: "example"
+  serviceConfiguration:
+    helmChart:
+      source:
+        repoURL: https://github.com/argoproj/argocd-example-apps
+        path: helm-guestbook
+        version: HEAD
+    serviceDaemonSet:
+      labels:
+        labelKey: labelVal
+      annotations:
+        annKey: annVal

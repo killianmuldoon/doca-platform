@@ -53,7 +53,13 @@ const (
 
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpudeployments,verbs=get;list;watch;update;patch
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpudeployments/finalizers,verbs=update
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceconfigurations,verbs=get;list;watch
+
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=bfbs;dpuflavors,verbs=get;list;watch
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceconfigurations;dpuservicetemplates,verbs=get;list;watch
+
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets,verbs=get;list;watch;create;update;patch;delete;deletecollection
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuservicechains,verbs=get;list;watch;create;update;patch;delete;deletecollection
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices,verbs=get;list;watch;create;update;patch;delete;deletecollection
 
 // DPUDeploymentReconciler reconciles a DPUDeployment object
 type DPUDeploymentReconciler struct {

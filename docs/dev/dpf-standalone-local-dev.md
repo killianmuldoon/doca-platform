@@ -22,9 +22,13 @@ export TAG=v0.1.0-$(git rev-parse --short HEAD)-$USER-test
 ```
 make generate
 ```
-4. Build images required for the quick DPF e2e test.
+4. Build images required for the DPF e2e test.
 ```
 make test-release-e2e-quick
+
+# If you plan to run the e2e testing suite with the full provisioning flow (see documentation below), you will need to
+# create a full release instead:
+make release
 ```
 5. SSH to local machine
 6. Export NGC API Key
@@ -75,6 +79,8 @@ make test-deploy-operator-helm
 To run DPF e2e tests:
 15. Export dpf-standalone-e2e testing vars
 ```
+# This indicates whether the full provisioning flow should be validated. If you set it, you need to make a full release
+# before executing the tests.
 export DPF_E2E_NUM_DPU_NODES=1
 ```
 16. Run e2e tests
