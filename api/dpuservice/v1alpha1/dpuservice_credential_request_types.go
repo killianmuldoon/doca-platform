@@ -36,6 +36,7 @@ const (
 	// ConditionServiceAccountReconciled is the condition type that indicates that the
 	// service account is ready.
 	ConditionServiceAccountReconciled conditions.ConditionType = "ServiceAccountReconciled"
+
 	// ConditionSecretReconciled is the condition type that indicates that the secret
 	// is ready.
 	ConditionSecretReconciled conditions.ConditionType = "SecretReconciled"

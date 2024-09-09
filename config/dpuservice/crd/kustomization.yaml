@@ -4,4 +4,3 @@ resources:
 - bases/svc.dpf.nvidia.com_dpuservicetemplates.yaml
 - bases/svc.dpf.nvidia.com_dpudeployments.yaml
 - bases/svc.dpf.nvidia.com_dpuservicecredentialrequests.yaml
-
