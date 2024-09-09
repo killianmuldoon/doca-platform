@@ -23,7 +23,7 @@ import (
 // DpuPhase describes current state of Dpu.
 // Only one of the following state may be specified.
 // Default is Initializing.
-// +kubebuilder:validation:Enum="Initializing";"Node Effect";"Pending";"DMSDeployment";"OS Installing";"DPU Cluster Config";"Ready";"Error";"Deleting";"Rebooting"
+// +kubebuilder:validation:Enum="Initializing";"Node Effect";"Pending";"DMSDeployment";"OS Installing";"DPU Cluster Config";"Host Network Configuration";"Ready";"Error";"Deleting";"Rebooting"
 type DpuPhase string
 
 // These are the valid statuses of DPU.

@@ -231,6 +231,7 @@ spec:
                 - DMSDeployment
                 - OS Installing
                 - DPU Cluster Config
+                - Host Network Configuration
                 - Ready
                 - Error
                 - Deleting
