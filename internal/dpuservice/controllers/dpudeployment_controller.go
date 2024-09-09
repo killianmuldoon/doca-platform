@@ -61,6 +61,10 @@ type DPUDeploymentReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// reconcileDeleteRequeueDuration is the duration after the controller will try to reconcile again a DPUDeployment which
+// is marked for deletion. This is a variable so that we can speed up testing.
+var dpuDeploymentReconcileDeleteRequeueDuration = 10 * time.Second
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPUDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
@@ -549,7 +553,7 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 			"dpuservices", dpuServiceItems,
 			"dpusets", dpuSetItems,
 		)
-		return ctrl.Result{RequeueAfter: 10 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: dpuDeploymentReconcileDeleteRequeueDuration}, nil
 	}
 
 	log.Info("Removing finalizer")

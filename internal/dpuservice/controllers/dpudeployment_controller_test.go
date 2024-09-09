@@ -22,7 +22,6 @@ import (
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
-	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
 
 	"github.com/fluxcd/pkg/runtime/patch"
@@ -30,7 +29,6 @@ import (
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -40,6 +38,18 @@ import (
 
 //nolint:goconst
 var _ = Describe("DPUDeployment Controller", func() {
+	defaultDisableArgoCDFinalizer := disableArgoCDFinalizer
+	defaultDPUDeploymentReconcileDeleteRequeueDuration := dpuDeploymentReconcileDeleteRequeueDuration
+	BeforeEach(func() {
+		DeferCleanup(func() {
+			disableArgoCDFinalizer = defaultDisableArgoCDFinalizer
+			dpuDeploymentReconcileDeleteRequeueDuration = defaultDPUDeploymentReconcileDeleteRequeueDuration
+		})
+
+		// These are modified to speed up the testing suite and also simplify the deletion logic
+		disableArgoCDFinalizer = true
+		dpuDeploymentReconcileDeleteRequeueDuration = 1 * time.Second
+	})
 	Context("When reconciling a resource", func() {
 		var testNS *corev1.Namespace
 		BeforeEach(func() {
@@ -83,7 +93,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				gotDPUServiceChainList := &sfcv1.DPUServiceChainList{}
 				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
 				g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
-			}).WithTimeout(30 * time.Second).Should(Succeed())
+			}).WithTimeout(5 * time.Second).Should(Succeed())
 		})
 		It("should cleanup child objects on delete", func() {
 			By("Creating the dependencies")
@@ -1168,7 +1178,7 @@ func getMinimalDPUServiceConfiguration(namespace string) *dpuservicev1.DPUServic
 
 // cleanDPUDeploymentDerivatives removes all the objects that a DPUDeployment creates in a particular namespace
 func cleanDPUDeploymentDerivatives(namespace string) {
-	By("Ensuring DPUSets and DPUServiceChains are deleted")
+	By("Ensuring DPUSets, DPUServiceChains and DPUServices are deleted")
 	dpuSetList := &provisioningv1.DpuSetList{}
 	Expect(testClient.List(ctx, dpuSetList, client.InNamespace(namespace))).To(Succeed())
 	objs := []client.Object{}
@@ -1180,34 +1190,14 @@ func cleanDPUDeploymentDerivatives(namespace string) {
 	for i := range dpuServiceChainList.Items {
 		objs = append(objs, &dpuServiceChainList.Items[i])
 	}
+	dpuServiceList := &dpuservicev1.DPUServiceList{}
+	Expect(testClient.List(ctx, dpuServiceList, client.InNamespace(namespace))).To(Succeed())
+	for i := range dpuServiceList.Items {
+		objs = append(objs, &dpuServiceList.Items[i])
+	}
 
 	Eventually(func(g Gomega) {
 		g.Expect(testutils.CleanupAndWait(ctx, testClient, objs...)).To(Succeed())
-	}).WithTimeout(180 * time.Second).Should(Succeed())
-
-	By("Ensuring DPUServices are deleted")
-	Eventually(func(g Gomega) {
-		// We're not running the ArgoCD controllers in this test so the finalizers must be removed here.
-		// Do this in each loop as there's a race condition where the Application is patched again
-		// by the DPUService controller.
-		applicationList := &argov1.ApplicationList{}
-		g.Expect(testClient.List(ctx, applicationList)).To(Succeed())
-		for i := range applicationList.Items {
-			err := testClient.Patch(ctx, &applicationList.Items[i], client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`)))
-			if err != nil && !apierrors.IsNotFound(err) {
-				g.Expect(err).ToNot(HaveOccurred())
-			}
-		}
-
-		dpuServiceList := &dpuservicev1.DPUServiceList{}
-		g.Expect(testClient.List(ctx, dpuServiceList, client.InNamespace(namespace))).To(Succeed())
-		objs := []client.Object{}
-		for i := range dpuServiceList.Items {
-			objs = append(objs, &dpuServiceList.Items[i])
-		}
-		g.Eventually(func(o Gomega) {
-			o.Expect(testutils.CleanupAndWait(ctx, testClient, objs...)).To(Succeed())
-		}).WithTimeout(2 * time.Second).Should(Succeed())
 	}).WithTimeout(180 * time.Second).Should(Succeed())
 }
 

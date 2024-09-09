@@ -56,6 +56,10 @@ type DPUServiceReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+// disableArgoCDFinalizer disables the addition of the ArgoCD Finalizer to the Application to make tests faster and
+// less complex
+var disableArgoCDFinalizer bool
+
 // +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/finalizers,verbs=update
@@ -485,7 +489,7 @@ func (r *DPUServiceReconciler) ensureApplication(ctx context.Context, dpuService
 		return err
 	}
 
-	argoApplication := argocd.NewApplication(dpfOperatorConfigNamespace, project, dpuService, values, applicationName)
+	argoApplication := argocd.NewApplication(dpfOperatorConfigNamespace, project, dpuService, values, applicationName, !disableArgoCDFinalizer)
 	gotArgoApplication := &argov1.Application{}
 
 	// If Application does not exist, create it. Otherwise, patch the object.

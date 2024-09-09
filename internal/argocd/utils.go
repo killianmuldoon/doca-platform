@@ -80,8 +80,8 @@ func NewAppProject(namespace, name string, clusters []types.NamespacedName) *arg
 	return &project
 }
 
-func NewApplication(namespace, projectName string, dpuService *dpuservicev1.DPUService, values *runtime.RawExtension, clusterName string) *argov1.Application {
-	return &argov1.Application{
+func NewApplication(namespace, projectName string, dpuService *dpuservicev1.DPUService, values *runtime.RawExtension, clusterName string, addFinalizer bool) *argov1.Application {
+	app := &argov1.Application{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       argoapplication.ApplicationKind,
 			APIVersion: fmt.Sprintf("%v/%v", argoapplication.Group, argoapplication.Version),
@@ -97,8 +97,7 @@ func NewApplication(namespace, projectName string, dpuService *dpuservicev1.DPUS
 				dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
 				operatorv1.DPFComponentLabelKey:          "dpuservice-manager",
 			},
-			// This finalizer is what enables cascading deletion in ArgoCD.
-			Finalizers:  []string{ArgoApplicationFinalizer},
+
 			Annotations: nil,
 		},
 		Spec: argov1.ApplicationSpec{
@@ -127,4 +126,9 @@ func NewApplication(namespace, projectName string, dpuService *dpuservicev1.DPUS
 			Project: projectName,
 		},
 	}
+	if addFinalizer {
+		// This finalizer is what enables cascading deletion in ArgoCD.
+		app.ObjectMeta.Finalizers = []string{ArgoApplicationFinalizer}
+	}
+	return app
 }
