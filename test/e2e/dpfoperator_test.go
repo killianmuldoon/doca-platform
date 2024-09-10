@@ -87,7 +87,10 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 	// TODO: Consolidate all the DPUService* objects in one namespace to illustrate user behavior
 	dpuServiceName := "dpu-01"
 	hostDPUServiceName := "host-dpu-service"
+	hostDPUServiceCredentialRequestName := "host-dpu-credential-request"
 	dpuServiceNamespace := "dpu-test-ns"
+	dpuServiceCredentialRequestName := "dpu-01-credential-request"
+	dpuServiceCredentialRequestNamespace := "dpucr-test-ns"
 	dpuServiceInterfaceName := "pf0-vf2"
 	dpuServiceInterfaceNamespace := "test"
 	dpuServiceChainName := "svc-chain-test"
@@ -503,6 +506,46 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}).WithTimeout(300 * time.Second).Should(Succeed())
 		})
 
+		It("create a DPUServiceCredentialRequest and check that the credentials are created", func() {
+			By("create namespace for DPUServiceCredentialRequest")
+			testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceCredentialRequestNamespace}}
+			testNS.SetLabels(cleanupLabels)
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testNS))).To(Succeed())
+
+			By("create a DPUServiceCredentialRequest targeting the DPUCluster")
+			dcr := getDPUServiceCredentialRequest(dpuServiceCredentialRequestNamespace, dpuServiceCredentialRequestName, "dpu-cplane-tenant1")
+			dcr.SetLabels(cleanupLabels)
+			Expect(testClient.Create(ctx, dcr)).To(Succeed())
+
+			By("create a DPUServiceCredentialRequest targeting the host cluster")
+			hostDsr := getDPUServiceCredentialRequest(dpuServiceCredentialRequestNamespace, hostDPUServiceCredentialRequestName, "")
+			hostDsr.SetLabels(cleanupLabels)
+			Expect(testClient.Create(ctx, hostDsr)).To(Succeed())
+
+			By("verify reconciled DPUServiceCredentialRequest for DPUCluster")
+			Eventually(func(g Gomega) {
+				assertDPUServiceCredentialRequest(g, testClient, dcr, false)
+			}).WithTimeout(300 * time.Second).Should(Succeed())
+
+			By("verify reconciled DPUServiceCredentialRequest for host cluster")
+			Eventually(func(g Gomega) {
+				assertDPUServiceCredentialRequest(g, testClient, hostDsr, true)
+			}).WithTimeout(600 * time.Second).Should(Succeed())
+		})
+
+		It("delete the DPUServiceCredentialRequest and check that the credentials are deleted", func() {
+			if skipCleanup {
+				Skip("Skip cleanup resources")
+			}
+			By("delete the DPUServiceCredentialRequest")
+			dcr := &dpuservicev1.DPUServiceCredentialRequest{}
+			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceCredentialRequestNamespace, Name: dpuServiceCredentialRequestName}, dcr)).To(Succeed())
+			Expect(testClient.Delete(ctx, dcr)).To(Succeed())
+
+			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceCredentialRequestNamespace, Name: hostDPUServiceCredentialRequestName}, dcr)).To(Succeed())
+			Expect(testClient.Delete(ctx, dcr)).To(Succeed())
+		})
+
 		It("create an invalid DPUServiceIPAM and ensure that the webhook rejects the request", func() {
 			By("creating the DPUServiceIPAM Namespace")
 			testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceIPAMNamespace}}
@@ -781,6 +824,21 @@ func getDPUService(namespace, name string, host bool) *unstructured.Unstructured
 	return svc
 }
 
+func getDPUServiceCredentialRequest(namespace, name, targetClusterName string) *dpuservicev1.DPUServiceCredentialRequest {
+	data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuservicecredentialrequest.yaml"))
+	Expect(err).ToNot(HaveOccurred())
+	dcr := &dpuservicev1.DPUServiceCredentialRequest{}
+	Expect(yaml.Unmarshal(data, dcr)).To(Succeed())
+	dcr.SetName(name)
+	dcr.SetNamespace(namespace)
+
+	// This annotation is what defines a host DPUService.
+	if targetClusterName != "" {
+		dcr.Spec.TargetClusterName = ptr.To(targetClusterName)
+	}
+	return dcr
+}
+
 func collectResourcesAndLogs(ctx context.Context) error {
 	// Get the path to place artifacts in
 	_, basePath, _, _ := runtime.Caller(0)
@@ -799,4 +857,24 @@ func getUnstructuredFromFile(path string) *unstructured.Unstructured {
 	obj := &unstructured.Unstructured{}
 	Expect(yaml.Unmarshal(data, obj)).To(Succeed())
 	return obj
+}
+
+func assertDPUServiceCredentialRequest(g Gomega, testClient client.Client, dcr *dpuservicev1.DPUServiceCredentialRequest, host bool) {
+	gotDsr := &dpuservicev1.DPUServiceCredentialRequest{}
+	g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dcr), gotDsr)).To(Succeed())
+	g.Expect(gotDsr.Finalizers).To(ConsistOf([]string{dpuservicev1.DPUServiceCredentialRequestFinalizer}))
+	g.Expect(gotDsr.Status.ServiceAccount).NotTo(BeNil())
+	g.Expect(*gotDsr.Status.ServiceAccount).To(Equal(dcr.Spec.ServiceAccount.String()))
+	g.Expect(gotDsr.Status.ExpirationTimestamp.Time).To(BeTemporally("~", time.Now().Add(time.Hour), time.Minute))
+	g.Expect(gotDsr.Status.IssuedAt).NotTo(BeNil())
+	if gotDsr.Spec.Duration != nil {
+		iat := gotDsr.Status.ExpirationTimestamp.Time.Add(-1 * gotDsr.Spec.Duration.Duration)
+		g.Expect(gotDsr.Status.IssuedAt.Time).To(BeTemporally("~", iat, time.Minute))
+	}
+
+	if host {
+		g.Expect(gotDsr.Status.TargetClusterName).To(BeNil())
+	} else {
+		g.Expect(gotDsr.Status.TargetClusterName).To(Equal(dcr.Spec.TargetClusterName))
+	}
 }
