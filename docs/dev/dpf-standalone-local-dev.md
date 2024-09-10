@@ -31,10 +31,16 @@ make test-release-e2e-quick
 make release
 ```
 5. SSH to local machine
-6. Export NGC API Key
+6. Export Variables
 ```
 export NGC_API_KEY=<NGC_API_KEY>
+export REGISTRY=gitlab-master.nvidia.com:5005/doca-platform-foundation/doca-platform-foundation/e2e
+export IMAGE_PULL_KEY=<GITLAB_API_TOKEN>
+export TAG=v0.1.0-$(git rev-parse --short HEAD)-$USER-test
 ```
+_Note:_
+NGC API Key can be generated from org.ngc.nvidia.com/setup
+
 7. docker login to NGC Catalog # can use podman as well
 ```
 echo "$NGC_API_KEY" | docker login --username \$oauthtoken --password-stdin nvcr.io
@@ -60,7 +66,7 @@ mkdir -p /bfb-images
 ```
 11. Copy a BFB file from DOCA Release dir to local /bfb-images dir. For example:
 ```
-cp /auto/sw_mc_soc_release/doca_dpu/doca_2.7.0/GA/bfbs/qp/bf-bundle*ubuntu-22.04_unsigned.bfb /bfb-images
+cp /auto/sw_mc_soc_release/doca_dpu/doca_2.7.0/GA/bfbs/qp/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_prod.bfb /bfb-images
 ```
 12. On the target machine - Go to your local dev project git repo
 ```
@@ -94,20 +100,36 @@ E2E_SKIP_CLEANUP=true make test-e2e
 ```
 
 ### Provisioning Flow
-To test full provisioning flow, follow steps 1-8. Step 9 command should be:
+To test full provisioning flow, follow steps 1-8.
 
+_Notes:_
+
+1. a host reboot will happen during the provisioning, so it is not possible to provision the local host
+(the host from which the dpf-standalone command is executed). You should use dpf-standalone from another host with
+-e target_host argument.
+2. BFB file name and URL can change based on your DPU instance - Production or Development.
+
+#### Use Latest Image From Remote Registry
 9. Run dpf-standalone # you will be required to provide the host root password to begin installation
 ```
 docker run -ti --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone \
   -k -K -u root \
   -e ngc_key=$NGC_API_KEY \
-  -e '{"deploy_dpf_operator_chart": false, "deploy_dpf_bfb_pvc": false, "deploy_dpf_create_node_feature_rule": false, "deploy_dpf_create_operator_config": false, "deploy_test_service": true, "target_host": "<target-host-ip-here>"}' \
+  -e '{"test_service_bfb_file_name": "bf-bundle-2.7.0-33_24.04_ubuntu-22.04_prod.bfb", "test_service_bfb_download_url": "http://nbu-nfs.mellanox.com/auto/sw_mc_soc_release/doca_dpu/doca_2.7.0/GA/bfbs/pk", "deploy_test_service": true, "target_host": "<target-host-ip-here>"}' \
   install.yml
 ```
-_Note:_ a host reboot will happen during the provisioning, so it is not possible to provision the local host
-(the host from which the dpf-standalone command is executed). You should use dpf-standalone from another host with
--e target_host argument.
 
+This command will run the entire provisioning flow. No further steps are needed.
+
+#### Use Local Image
+9. Run dpf-standalone # you will be required to provide the host root password to begin installation
+```
+docker run -ti --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone \
+  -k -K -u root \
+  -e ngc_key=$NGC_API_KEY \
+  -e '{"deploy_dpf_operator_chart": false, "deploy_dpf_bfb_pvc": false, "target_host": "<target-host-ip-here>"}' \
+  install.yml
+```
  Continue with steps 10-14 and then follow [DPU Provisioning](https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-standalone#dpu-provisioning)
 
 ### Test DPU Services
