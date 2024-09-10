@@ -431,7 +431,8 @@ DEPLOY_PROMETHEUS ?= false
 .PHONY: test-deploy-operator-helm
 test-deploy-operator-helm: $(HELM) ## Deploy the DPF Operator using helm
 	$(HELM) upgrade --install --create-namespace --namespace $(OPERATOR_NAMESPACE) \
-		--set image=$(DPF_SYSTEM_IMAGE):$(TAG) \
+		--set controllerManager.image.repository=$(DPF_SYSTEM_IMAGE)\
+		--set controllerManager.image.tag=$(TAG) \
 		--set imagePullSecrets[0].name=dpf-pull-secret \
 		--set kube-state-metrics.enabled=$(DEPLOY_KSM) \
 		--set grafana.enabled=$(DEPLOY_GRAFANA) \
