@@ -18,8 +18,6 @@ spec:
             operator: In
             values:
               - dpu
-    resources:
-      nvidia.com/dpu: 1
     updateStrategy:
       type: RollingUpdate
       rollingUpdate:

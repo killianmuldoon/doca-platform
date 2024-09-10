@@ -570,14 +570,12 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
 				dpuServiceTemplate.Name = "service-1"
 				dpuServiceTemplate.Spec.Service = "service-1"
-				dpuServiceTemplate.Spec.ServiceDaemonSet.Resources = corev1.ResourceList{"cpu": resource.MustParse("1"), "mem": resource.MustParse("1Gi")}
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
 				dpuServiceTemplate = getMinimalDPUServiceTemplate(testNS.Name)
 				dpuServiceTemplate.Name = "service-2"
 				dpuServiceTemplate.Spec.Service = "service-2"
-				dpuServiceTemplate.Spec.ServiceDaemonSet.Resources = corev1.ResourceList{"cpu": resource.MustParse("2"), "mem": resource.MustParse("2Gi")}
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
@@ -628,7 +626,6 @@ var _ = Describe("DPUDeployment Controller", func() {
 								Labels:         map[string]string{"labelkey1": "labelval1"},
 								Annotations:    map[string]string{"annkey1": "annval1"},
 								UpdateStrategy: &appsv1.DaemonSetUpdateStrategy{Type: appsv1.OnDeleteDaemonSetStrategyType},
-								Resources:      corev1.ResourceList{"cpu": resource.MustParse("1"), "mem": resource.MustParse("1Gi")},
 							},
 							DeployInCluster: ptr.To[bool](true),
 						},
@@ -648,7 +645,6 @@ var _ = Describe("DPUDeployment Controller", func() {
 								UpdateStrategy: &appsv1.DaemonSetUpdateStrategy{
 									Type: appsv1.RollingUpdateDaemonSetStrategyType,
 								},
-								Resources: corev1.ResourceList{"cpu": resource.MustParse("2"), "mem": resource.MustParse("2Gi")},
 							},
 						},
 					}))

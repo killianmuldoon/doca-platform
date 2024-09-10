@@ -354,7 +354,6 @@ func reconcileDPUServices(ctx context.Context, c client.Client, dpuDeployment *d
 			owner,
 			dpuServiceName,
 			dependencies.DPUServiceConfigurations[dpuServiceName],
-			dependencies.DPUServiceTemplates[dpuServiceName],
 		)
 
 		if err := c.Patch(ctx, dpuService, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
@@ -436,7 +435,6 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 	owner *metav1.OwnerReference,
 	name string,
 	serviceConfig *dpuservicev1.DPUServiceConfiguration,
-	serviceTemplate *dpuservicev1.DPUServiceTemplate,
 ) *dpuservicev1.DPUService {
 	dpuService := &dpuservicev1.DPUService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -455,13 +453,11 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 
 	if serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Labels != nil ||
 		serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations != nil ||
-		serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.UpdateStrategy != nil ||
-		serviceTemplate.Spec.ServiceDaemonSet.Resources != nil {
+		serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.UpdateStrategy != nil {
 		dpuService.Spec.ServiceDaemonSet = &dpuservicev1.ServiceDaemonSetValues{
 			Labels:         serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Labels,
 			Annotations:    serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations,
 			UpdateStrategy: serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.UpdateStrategy,
-			Resources:      serviceTemplate.Spec.ServiceDaemonSet.Resources,
 			// TODO: Figure out what to do with NodeSelector
 		}
 	}

@@ -50,19 +50,9 @@ type DPUServiceTemplateSpec struct {
 	// Service is the name of the DPU service this configuration refers to. It must match .spec.service of a
 	// DPUServiceConfiguration object and one of the keys in .spec.services of a DPUDeployment object.
 	Service string `json:"service"`
-	// ServiceDaemonSet contains settings related to the underlying DaemonSet that is part of the Helm chart
-	// +optional
-	ServiceDaemonSet DPUServiceTemplateServiceDaemonSetValues `json:"serviceDaemonSet,omitempty"`
 	// ResourceRequirements contains the overall resources required by this particular service to run on a single node
 	// +optional
 	ResourceRequirements corev1.ResourceList `json:"resourceRequirements,omitempty"`
-}
-
-// DPUServiceTemplateServiceDaemonSet reflects the Helm related configuration
-type DPUServiceTemplateServiceDaemonSetValues struct {
-	// Resources specifies the resource limits and requests for the ServiceDaemonSet.
-	// +optional
-	Resources corev1.ResourceList `json:"resources,omitempty"`
 }
 
 // DPUServiceTemplateStatus defines the observed state of DPUServiceTemplate

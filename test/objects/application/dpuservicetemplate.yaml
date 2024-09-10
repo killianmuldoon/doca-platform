@@ -5,7 +5,3 @@ metadata:
   namespace: dpf-operator-system
 spec:
   service: "example"
-  serviceDaemonSet:
-    resources:
-      cpu: 1
-      mem: 1Gi

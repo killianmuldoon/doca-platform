@@ -114,8 +114,6 @@ type ApplicationSource struct {
 type ServiceDaemonSetValues struct {
 	// NodeSelector specifies which Nodes to deploy the ServiceDaemonSet to.
 	NodeSelector *corev1.NodeSelector `json:"nodeSelector,omitempty"`
-	// Resources specifies the resource limits and requests for the ServiceDaemonSet.
-	Resources corev1.ResourceList `json:"resources,omitempty"`
 	// UpdateStrategy specifies the DeaemonSet update strategy for the ServiceDaemonset.
 	UpdateStrategy *appsv1.DaemonSetUpdateStrategy `json:"updateStrategy,omitempty"`
 	// Labels specifies labels which are added to the ServiceDaemonSet.

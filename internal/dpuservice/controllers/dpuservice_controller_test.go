@@ -34,7 +34,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -287,7 +286,6 @@ func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuser
 				Expect(appService.Labels).To(HaveKeyWithValue(k, v))
 			}
 			Expect(appService.Labels).To(HaveKeyWithValue(dpfServiceIDLabelKey, *service.Spec.ServiceID))
-			Expect(appService.Resources).To(Equal(service.Spec.ServiceDaemonSet.Resources))
 			Expect(appService.Annotations).To(Equal(service.Spec.ServiceDaemonSet.Annotations))
 			Expect(appService.NodeSelector).To(Equal(service.Spec.ServiceDaemonSet.NodeSelector))
 			Expect(appService.UpdateStrategy).To(Equal(service.Spec.ServiceDaemonSet.UpdateStrategy))
@@ -339,9 +337,6 @@ func getMinimalDPUServices(testNamespace string) []*dpuservicev1.DPUService {
 								},
 							},
 						},
-					},
-					Resources: corev1.ResourceList{
-						"cpu": *resource.NewQuantity(5, resource.DecimalSI),
 					},
 					UpdateStrategy: &appsv1.DaemonSetUpdateStrategy{
 						Type: appsv1.RollingUpdateDaemonSetStrategyType,
