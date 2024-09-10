@@ -18,6 +18,7 @@ package v1alpha1
 
 import (
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 
 	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -29,6 +30,42 @@ const (
 )
 
 var DPUDeploymentGroupVersionKind = GroupVersion.WithKind(DPUDeploymentKind)
+
+// Status related variables
+const (
+	ConditionPreReqsReady               conditions.ConditionType = "PrerequisitesReady"
+	ConditionResourceFittingReady       conditions.ConditionType = "ResourceFittingReady"
+	ConditionDPUSetsReconciled          conditions.ConditionType = "DpuSetsReconciled"
+	ConditionDPUSetsReady               conditions.ConditionType = "DpuSetsReady"
+	ConditionDPUServicesReconciled      conditions.ConditionType = "DPUServicesReconciled"
+	ConditionDPUServicesReady           conditions.ConditionType = "DPUServicesReady"
+	ConditionDPUServiceChainsReconciled conditions.ConditionType = "DPUServiceChainsReconciled"
+	ConditionDPUServiceChainsReady      conditions.ConditionType = "DPUServiceChainsReady"
+)
+
+var (
+	DPUDeploymentConditions = []conditions.ConditionType{
+		conditions.TypeReady,
+		ConditionPreReqsReady,
+		ConditionResourceFittingReady,
+		ConditionDPUSetsReconciled,
+		ConditionDPUSetsReady,
+		ConditionDPUServicesReconciled,
+		ConditionDPUServicesReady,
+		ConditionDPUServiceChainsReconciled,
+		ConditionDPUServiceChainsReady,
+	}
+)
+
+var _ conditions.GetSet = &DPUDeployment{}
+
+func (c *DPUDeployment) GetConditions() []metav1.Condition {
+	return c.Status.Conditions
+}
+
+func (c *DPUDeployment) SetConditions(conditions []metav1.Condition) {
+	c.Status.Conditions = conditions
+}
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
@@ -107,7 +144,12 @@ type Strategy struct {
 }
 
 // DPUDeploymentStatus defines the observed state of DPUDeployment
-type DPUDeploymentStatus struct{}
+type DPUDeploymentStatus struct {
+	// Conditions reflect the status of the object
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// ObservedGeneration records the Generation observed on the object the last time it was patched.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+}
 
 //+kubebuilder:object:root=true
 

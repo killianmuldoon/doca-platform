@@ -21,18 +21,22 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
@@ -53,6 +57,7 @@ const (
 
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpudeployments,verbs=get;list;watch;update;patch
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpudeployments/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpudeployments/status,verbs=get;update;patch
 
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=bfbs;dpuflavors,verbs=get;list;watch
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceconfigurations;dpuservicetemplates,verbs=get;list;watch
@@ -125,12 +130,21 @@ func (r *DPUDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	// Defer a patch call to always patch the object when Reconcile exits.
 	defer func() {
 		log.Info("Patching")
+
+		if err := r.updateSummary(ctx, dpuDeployment); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+
 		if err := patcher.Patch(ctx, dpuDeployment,
 			patch.WithFieldOwner(dpuDeploymentControllerName),
+			patch.WithStatusObservedGeneration{},
+			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(dpuservicev1.DPUDeploymentConditions)},
 		); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
+
+	conditions.EnsureConditions(dpuDeployment, dpuservicev1.DPUDeploymentConditions)
 
 	// Handle deletion reconciliation loop.
 	if !dpuDeployment.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -154,24 +168,62 @@ func (r *DPUDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *dpuservicev1.DPUDeployment) (ctrl.Result, error) {
 	deps, err := getDependencies(ctx, r.Client, dpuDeployment)
 	if err != nil {
+		conditions.AddFalse(
+			dpuDeployment,
+			dpuservicev1.ConditionPreReqsReady,
+			conditions.ReasonPending,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
 		return ctrl.Result{}, fmt.Errorf("error while getting the DPUDeployment dependencies: %w", err)
 	}
+	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionPreReqsReady)
 
 	if err := verifyResourceFitting(deps); err != nil {
+		conditions.AddFalse(
+			dpuDeployment,
+			dpuservicev1.ConditionResourceFittingReady,
+			// We add failure as state here because we need the user to create new DPUFlavor or DPUServiceTemplate
+			// (which are immutable) to fit the resources and update the DPUDeployment accordingly. The system won't
+			// be able to recover on its own if it's in that state.
+			conditions.ReasonFailure,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
 		return ctrl.Result{}, fmt.Errorf("error while verifying that resources can fit: %w", err)
 	}
+	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionResourceFittingReady)
 
 	if err := reconcileDPUSets(ctx, r.Client, dpuDeployment); err != nil {
+		conditions.AddFalse(
+			dpuDeployment,
+			dpuservicev1.ConditionDPUSetsReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
 		return ctrl.Result{}, fmt.Errorf("error while reconciling the DPUSets: %w", err)
 	}
+	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUSetsReconciled)
 
 	if err := reconcileDPUServices(ctx, r.Client, dpuDeployment, deps); err != nil {
+		conditions.AddFalse(
+			dpuDeployment,
+			dpuservicev1.ConditionDPUServicesReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
 		return ctrl.Result{}, fmt.Errorf("error while reconciling the DPUServices: %w", err)
 	}
+	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServicesReconciled)
 
 	if err := reconcileDPUServiceChain(ctx, r.Client, dpuDeployment); err != nil {
+		conditions.AddFalse(
+			dpuDeployment,
+			dpuservicev1.ConditionDPUServiceChainsReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
 		return ctrl.Result{}, fmt.Errorf("error while reconciling the DPUServiceChain: %w", err)
 	}
+	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServiceChainsReconciled)
 
 	return ctrl.Result{}, nil
 }
@@ -522,10 +574,10 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 	}
 
 	var dpuServiceChainItems, dpuServiceItems, dpuSetItems int
-	for _, obj := range []client.ObjectList{
-		&sfcv1.DPUServiceChainList{},
-		&dpuservicev1.DPUServiceList{},
-		&provisioningv1.DpuSetList{},
+	for obj, conditionType := range map[client.ObjectList]conditions.ConditionType{
+		&sfcv1.DPUServiceChainList{}:   dpuservicev1.ConditionDPUServiceChainsReconciled,
+		&dpuservicev1.DPUServiceList{}: dpuservicev1.ConditionDPUServicesReconciled,
+		&provisioningv1.DpuSetList{}:   dpuservicev1.ConditionDPUSetsReconciled,
 	} {
 		if err := r.Client.List(ctx,
 			obj,
@@ -539,10 +591,34 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 		switch t := obj.(type) {
 		case *sfcv1.DPUServiceChainList:
 			dpuServiceChainItems += len(obj.(*sfcv1.DPUServiceChainList).Items)
+			if dpuServiceChainItems > 0 {
+				conditions.AddFalse(
+					dpuDeployment,
+					conditionType,
+					conditions.ReasonAwaitingDeletion,
+					conditions.ConditionMessage(fmt.Sprintf("There are still %d DPUServiceChains that are not completely deleted", dpuServiceChainItems)),
+				)
+			}
 		case *dpuservicev1.DPUServiceList:
 			dpuServiceItems += len(obj.(*dpuservicev1.DPUServiceList).Items)
+			if dpuServiceItems > 0 {
+				conditions.AddFalse(
+					dpuDeployment,
+					conditionType,
+					conditions.ReasonAwaitingDeletion,
+					conditions.ConditionMessage(fmt.Sprintf("There are still %d DPUServices that are not completely deleted", dpuServiceItems)),
+				)
+			}
 		case *provisioningv1.DpuSetList:
 			dpuSetItems += len(obj.(*provisioningv1.DpuSetList).Items)
+			if dpuSetItems > 0 {
+				conditions.AddFalse(
+					dpuDeployment,
+					conditionType,
+					conditions.ReasonAwaitingDeletion,
+					conditions.ConditionMessage(fmt.Sprintf("There are still %d DpuSets that are not completely deleted", dpuSetItems)),
+				)
+			}
 		default:
 			panic(fmt.Sprintf("type %v not handled", t))
 		}
@@ -561,6 +637,111 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 	log.Info("Removing finalizer")
 	controllerutil.RemoveFinalizer(dpuDeployment, dpuservicev1.DPUDeploymentFinalizer)
 	return ctrl.Result{}, nil
+}
+
+// updateSummary updates the status field of the DPUDeployment
+func (r *DPUDeploymentReconciler) updateSummary(ctx context.Context, dpuDeployment *dpuservicev1.DPUDeployment) error {
+	defer conditions.SetSummary(dpuDeployment)
+
+	for objGVK, conditionType := range map[schema.GroupVersionKind]conditions.ConditionType{
+		// TODO: Fix for DpuSet since it has different status
+		// "DpuSetList":          dpuservicev1.ConditionDPUSetsReady,
+		sfcv1.GroupVersion.WithKind(sfcv1.DPUServiceChainListKind):          dpuservicev1.ConditionDPUServiceChainsReady,
+		dpuservicev1.GroupVersion.WithKind(dpuservicev1.DPUServiceListKind): dpuservicev1.ConditionDPUServicesReady,
+	} {
+		objs := &unstructured.UnstructuredList{}
+		objs.SetGroupVersionKind(objGVK)
+		if err := r.Client.List(ctx,
+			objs,
+			client.MatchingLabels{
+				ParentDPUDeploymentNameLabel: dpuDeployment.Name,
+			},
+			client.InNamespace(dpuDeployment.Namespace),
+		); err != nil {
+			return fmt.Errorf("error while listing objects: %w", err)
+		}
+
+		unreadyObjs, err := getNotReadyObjects(objs)
+		if err != nil {
+			conditions.AddFalse(
+				dpuDeployment,
+				conditionType,
+				conditions.ReasonPending,
+				conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+			)
+			return err
+		}
+
+		if len(unreadyObjs) > 0 {
+			conditions.AddFalse(
+				dpuDeployment,
+				conditionType,
+				conditions.ReasonPending,
+				conditions.ConditionMessage(fmt.Sprintf("Objects not ready: %s", strings.Join(func() []string {
+					out := []string{}
+					for _, o := range unreadyObjs {
+						out = append(out, o.String())
+					}
+					return out
+				}(), ","))),
+			)
+		} else {
+			conditions.AddTrue(dpuDeployment, conditionType)
+		}
+
+	}
+
+	// TODO: Remove. This is just to ensure that the overall gets to ready
+	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUSetsReady)
+	return nil
+}
+
+// getNotReadyObjects returns a list of objects from a given list that are not in Ready state. This function
+// works under the assumption that these objects implement the standard DPF conditions.
+func getNotReadyObjects(objs *unstructured.UnstructuredList) ([]types.NamespacedName, error) {
+	unreadyObjs := []types.NamespacedName{}
+	for _, o := range objs.Items {
+		conds, exists, err := unstructured.NestedSlice(o.Object, "status", "conditions")
+		if err != nil {
+			return nil, err
+		}
+
+		if !exists || len(conds) == 0 {
+			unreadyObjs = append(unreadyObjs, types.NamespacedName{Name: o.GetName(), Namespace: o.GetNamespace()})
+			continue
+		}
+
+		var isReady bool
+		for _, condition := range conds {
+			c := condition.(map[string]interface{})
+			conditionType, exists, err := unstructured.NestedString(c, "type")
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
+				continue
+			}
+			if conditionType != string(conditions.TypeReady) {
+				continue
+			}
+
+			conditionStatus, exists, err := unstructured.NestedString(c, "status")
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
+				continue
+			}
+
+			isReady = conditionStatus == string(metav1.ConditionTrue)
+		}
+
+		if !isReady {
+			unreadyObjs = append(unreadyObjs, types.NamespacedName{Name: o.GetName(), Namespace: o.GetNamespace()})
+		}
+	}
+
+	return unreadyObjs, nil
 }
 
 // deleteElementOrNil deletes an element from a slice or returns nil if this is the last element in the slice

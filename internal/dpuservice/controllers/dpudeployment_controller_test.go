@@ -22,7 +22,9 @@ import (
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils/informer"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	. "github.com/onsi/ginkgo/v2"
@@ -38,16 +40,16 @@ import (
 
 //nolint:goconst
 var _ = Describe("DPUDeployment Controller", func() {
-	defaultDisableArgoCDFinalizer := disableArgoCDFinalizer
+	defaultPauseDPUServiceReconciler := pauseDPUServiceReconciler
 	defaultDPUDeploymentReconcileDeleteRequeueDuration := dpuDeploymentReconcileDeleteRequeueDuration
 	BeforeEach(func() {
 		DeferCleanup(func() {
-			disableArgoCDFinalizer = defaultDisableArgoCDFinalizer
+			pauseDPUServiceReconciler = defaultPauseDPUServiceReconciler
 			dpuDeploymentReconcileDeleteRequeueDuration = defaultDPUDeploymentReconcileDeleteRequeueDuration
 		})
 
 		// These are modified to speed up the testing suite and also simplify the deletion logic
-		disableArgoCDFinalizer = true
+		pauseDPUServiceReconciler = true
 		dpuDeploymentReconcileDeleteRequeueDuration = 1 * time.Second
 	})
 	Context("When reconciling a resource", func() {
@@ -1069,6 +1071,480 @@ var _ = Describe("DPUDeployment Controller", func() {
 					))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
+		})
+	})
+	Context("When checking the status transitions", func() {
+		var testNS *corev1.Namespace
+		var i *informer.TestInformer
+		BeforeEach(func() {
+			By("Creating the namespaces")
+			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+			Expect(testClient.Create(ctx, testNS)).To(Succeed())
+			DeferCleanup(testClient.Delete, ctx, testNS)
+
+			By("Creating the informer infrastructure for DPUDeployment")
+			i = informer.NewInformer(cfg, dpuservicev1.DPUDeploymentGroupVersionKind, testNS.Name, "dpudeployments")
+			DeferCleanup(i.Cleanup)
+			go i.Run()
+
+			DeferCleanup(cleanDPUDeploymentDerivatives, testNS.Name)
+		})
+		It("DPUDeployment has all the conditions with Pending Reason at start of the reconciliation loop", func() {
+			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
+				oldObj := &dpuservicev1.DPUDeployment{}
+				newObj := &dpuservicev1.DPUDeployment{}
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
+
+				g.Expect(oldObj.Status.Conditions).To(BeEmpty())
+				g.Expect(newObj.Status.Conditions).ToNot(BeEmpty())
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionPreReqsReady)),
+					HaveField("Status", metav1.ConditionUnknown),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionResourceFittingReady)),
+					HaveField("Status", metav1.ConditionUnknown),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUSetsReconciled)),
+					HaveField("Status", metav1.ConditionUnknown),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServicesReconciled)),
+					HaveField("Status", metav1.ConditionUnknown),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServiceChainsReconciled)),
+					HaveField("Status", metav1.ConditionUnknown),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+
+				// We have success at the following conditions because there is no object in the cluster to watch on
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUSetsReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServicesReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServiceChainsReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+			))
+		})
+		It("DPUDeployment has all *Reconciled conditions with Success Reason at the end of a successful reconciliation loop but *Ready with Pending reason on underlying object not ready", func() {
+			By("Creating the dependencies")
+			bfb := getMinimalBFB(testNS.Name)
+			Expect(testClient.Create(ctx, bfb)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
+
+			dpuFlavor := getMinimalDPUFlavor(testNS.Name)
+			Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
+
+			dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+			dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+			By("Creating the DPUDeployment")
+			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+			By("Checking the conditions")
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
+				oldObj := &dpuservicev1.DPUDeployment{}
+				newObj := &dpuservicev1.DPUDeployment{}
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
+
+				g.Expect(oldObj.Status.Conditions).To(ContainElement(
+					And(
+						HaveField("Type", string(dpuservicev1.ConditionPreReqsReady)),
+						HaveField("Status", metav1.ConditionUnknown),
+						HaveField("Reason", string(conditions.ReasonPending)),
+					),
+				))
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionPreReqsReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionResourceFittingReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUSetsReconciled)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServicesReconciled)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServiceChainsReconciled)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+
+				// This one is always true because we don't watch on the DPUSet status yet. See code for reasoning.
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUSetsReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServicesReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServiceChainsReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+			))
+		})
+		It("DPUDeployment has all conditions with Success Reason at the end of a successful reconciliation loop and underlying object ready", func() {
+			By("Creating the dependencies")
+			bfb := getMinimalBFB(testNS.Name)
+			Expect(testClient.Create(ctx, bfb)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
+
+			dpuFlavor := getMinimalDPUFlavor(testNS.Name)
+			Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
+
+			dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+			dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+			By("Creating the DPUDeployment")
+			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+			By("Updating the status of the underlying dependencies")
+			Eventually(func(g Gomega) {
+				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+				g.Expect(gotDPUServiceList.Items).ToNot(BeEmpty())
+				for _, dpuService := range gotDPUServiceList.Items {
+					dpuService.Status.Conditions = []metav1.Condition{
+						{
+							Type:               string(conditions.TypeReady),
+							Status:             metav1.ConditionTrue,
+							Reason:             string(conditions.ReasonSuccess),
+							LastTransitionTime: metav1.NewTime(time.Now()),
+						},
+					}
+					dpuService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
+					dpuService.SetManagedFields(nil)
+					g.Expect(testClient.Status().Patch(ctx, &dpuService, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+				}
+
+				gotDPUServiceChainList := &sfcv1.DPUServiceChainList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+				g.Expect(gotDPUServiceChainList.Items).ToNot(BeEmpty())
+				for _, dpuServiceChain := range gotDPUServiceChainList.Items {
+					dpuServiceChain.Status.Conditions = []metav1.Condition{
+						{
+							Type:               string(conditions.TypeReady),
+							Status:             metav1.ConditionTrue,
+							Reason:             string(conditions.ReasonSuccess),
+							LastTransitionTime: metav1.NewTime(time.Now()),
+						},
+					}
+					dpuServiceChain.SetGroupVersionKind(sfcv1.DPUServiceChainGroupVersionKind)
+					dpuServiceChain.SetManagedFields(nil)
+					g.Expect(testClient.Status().Patch(ctx, &dpuServiceChain, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+				}
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			By("Checking the conditions")
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
+				oldObj := &dpuservicev1.DPUDeployment{}
+				newObj := &dpuservicev1.DPUDeployment{}
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionPreReqsReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionResourceFittingReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUSetsReconciled)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServicesReconciled)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServiceChainsReconciled)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+
+				// This one is always true because we don't watch on the DPUSet status yet. See code for reasoning.
+				// Also, we don't create one DPUSet with the minimal DPUDeployment.
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUSetsReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServicesReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServiceChainsReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+			))
+		})
+		It("DPUDeployment has condition ResourceFittingReady with Failed Reason when the resources of the underlying DPUServices can't fit the selected DPUs", func() {
+			By("Creating the dependencies")
+			bfb := getMinimalBFB(testNS.Name)
+			Expect(testClient.Create(ctx, bfb)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
+
+			dpuFlavor := getMinimalDPUFlavor(testNS.Name)
+			dpuFlavor.Spec.DPUDeploymentResources = make(corev1.ResourceList)
+			dpuFlavor.Spec.DPUDeploymentResources["cpu"] = resource.MustParse("5")
+			Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
+
+			dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+			dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+			dpuServiceTemplate.Spec.ResourceRequirements = make(corev1.ResourceList)
+			dpuServiceTemplate.Spec.ResourceRequirements["cpu"] = resource.MustParse("6")
+			Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+			By("Creating the DPUDeployment")
+			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+			By("Checking the conditions")
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
+				oldObj := &dpuservicev1.DPUDeployment{}
+				newObj := &dpuservicev1.DPUDeployment{}
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
+
+				g.Expect(oldObj.Status.Conditions).To(ContainElement(
+					And(
+						HaveField("Type", string(dpuservicev1.ConditionPreReqsReady)),
+						HaveField("Status", metav1.ConditionUnknown),
+						HaveField("Reason", string(conditions.ReasonPending)),
+					),
+				))
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ContainElement(
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionResourceFittingReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonFailure)),
+				),
+			))
+		})
+		It("DPUDeployment has condition PrerequisitesReady with Error Reason at the end of first reconciliation loop that failed on dependencies", func() {
+			// Add DPUDeployment
+			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
+				oldObj := &dpuservicev1.DPUDeployment{}
+				newObj := &dpuservicev1.DPUDeployment{}
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
+
+				g.Expect(oldObj.Status.Conditions).To(ContainElement(
+					And(
+						HaveField("Type", string(dpuservicev1.ConditionPreReqsReady)),
+						HaveField("Status", metav1.ConditionUnknown),
+						HaveField("Reason", string(conditions.ReasonPending)),
+					),
+				))
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ContainElement(
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionPreReqsReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+			))
+		})
+		It("DPUDeployment has condition Deleting with AwaitingDeletion Reason when there are still objects in the cluster", func() {
+			By("Creating the dependencies")
+			bfb := getMinimalBFB(testNS.Name)
+			Expect(testClient.Create(ctx, bfb)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
+
+			dpuFlavor := getMinimalDPUFlavor(testNS.Name)
+			Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
+
+			dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+			dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+			By("Creating the DPUDeployment")
+			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+			By("Checking that the underlying resources are created and adding fake finalizer")
+			Eventually(func(g Gomega) {
+				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+				g.Expect(gotDPUServiceList.Items).ToNot(BeEmpty())
+				for _, dpuService := range gotDPUServiceList.Items {
+					dpuService.SetFinalizers([]string{"test.dpf.nvidia.com/test"})
+					dpuService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
+					dpuService.SetManagedFields(nil)
+					g.Expect(testClient.Patch(ctx, &dpuService, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+				}
+
+				gotDPUServiceChainList := &sfcv1.DPUServiceChainList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+				g.Expect(gotDPUServiceChainList.Items).ToNot(BeEmpty())
+				for _, dpuServiceChain := range gotDPUServiceChainList.Items {
+					dpuServiceChain.SetFinalizers([]string{"test.dpf.nvidia.com/test"})
+					dpuServiceChain.SetGroupVersionKind(sfcv1.DPUServiceChainGroupVersionKind)
+					dpuServiceChain.SetManagedFields(nil)
+					g.Expect(testClient.Patch(ctx, &dpuServiceChain, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+				}
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			By("Deleting the DPUDeployment")
+			Expect(testClient.Delete(ctx, dpuDeployment)).To(Succeed())
+
+			By("Checking the conditions")
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
+				oldObj := &dpuservicev1.DPUDeployment{}
+				newObj := &dpuservicev1.DPUDeployment{}
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ContainElements(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServicesReconciled)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
+					HaveField("Message", ContainSubstring("1")),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServiceChainsReconciled)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
+					HaveField("Message", ContainSubstring("1")),
+				),
+			))
+
+			By("Removing finalizer from the underlying object to ensure deletion")
+			Eventually(func(g Gomega) {
+				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+				for _, dpuService := range gotDPUServiceList.Items {
+					dpuService.SetFinalizers([]string{})
+					dpuService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
+					dpuService.SetManagedFields(nil)
+					g.Expect(testClient.Patch(ctx, &dpuService, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+				}
+
+				gotDPUServiceChainList := &sfcv1.DPUServiceChainList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+				for _, dpuServiceChain := range gotDPUServiceChainList.Items {
+					dpuServiceChain.SetFinalizers([]string{})
+					dpuServiceChain.SetGroupVersionKind(sfcv1.DPUServiceChainGroupVersionKind)
+					dpuServiceChain.SetManagedFields(nil)
+					g.Expect(testClient.Patch(ctx, &dpuServiceChain, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+				}
+			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 	})
 })

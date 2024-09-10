@@ -56,9 +56,9 @@ type DPUServiceReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// disableArgoCDFinalizer disables the addition of the ArgoCD Finalizer to the Application to make tests faster and
-// less complex
-var disableArgoCDFinalizer bool
+// pauseDPUServiceReconciler pauses the DPUService Reconciler by doing noop reconciliation loops. This is helpful to
+// make tests faster and less complex
+var pauseDPUServiceReconciler bool
 
 // +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/status,verbs=get;update;patch
@@ -102,6 +102,11 @@ func (r *DPUServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // Reconcile reconciles changes in a DPUService.
 func (r *DPUServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrllog.FromContext(ctx)
+	if pauseDPUServiceReconciler {
+		log.Info("noop reconciliation")
+		return ctrl.Result{}, nil
+	}
+
 	log.Info("Reconciling")
 	dpuService := &dpuservicev1.DPUService{}
 	if err := r.Client.Get(ctx, req.NamespacedName, dpuService); err != nil {
@@ -489,7 +494,7 @@ func (r *DPUServiceReconciler) ensureApplication(ctx context.Context, dpuService
 		return err
 	}
 
-	argoApplication := argocd.NewApplication(dpfOperatorConfigNamespace, project, dpuService, values, applicationName, !disableArgoCDFinalizer)
+	argoApplication := argocd.NewApplication(dpfOperatorConfigNamespace, project, dpuService, values, applicationName)
 	gotArgoApplication := &argov1.Application{}
 
 	// If Application does not exist, create it. Otherwise, patch the object.

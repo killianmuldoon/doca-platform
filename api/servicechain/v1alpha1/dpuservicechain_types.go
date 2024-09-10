@@ -26,6 +26,7 @@ import (
 const (
 	DPUServiceChainFinalizer = "sfc.dpf.nvidia.com/dpuservicechain"
 	DPUServiceChainKind      = "DPUServiceChain"
+	DPUServiceChainListKind  = "DPUServiceChainList"
 )
 
 var DPUServiceChainGroupVersionKind = GroupVersion.WithKind(DPUServiceChainKind)
