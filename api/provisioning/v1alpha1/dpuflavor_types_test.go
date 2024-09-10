@@ -348,7 +348,7 @@ spec:
     permissions: "0755"
 `)
 			obj := &DPUFlavor{}
-			err := yaml.Unmarshal(yml, obj)
+			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
@@ -363,7 +363,7 @@ metadata:
   namespace: default
 `)
 			obj := &DPUFlavor{}
-			err := yaml.Unmarshal(yml, obj)
+			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())

@@ -201,10 +201,9 @@ metadata:
 spec:
   file_name: "bf-bundle-2.7.0-33.bfb"
   url: "http://bfb-server.dpf-operator-system/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_unsigned.bfb"
-  bf_cfg: ""
 `)
 			obj := &Bfb{}
-			err := yaml.Unmarshal(yml, obj)
+			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
@@ -221,7 +220,7 @@ spec:
   url: "http://bfb-server.dpf-operator-system/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_unsigned.bfb"
 `)
 			obj := &Bfb{}
-			err := yaml.Unmarshal(yml, obj)
+			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
@@ -236,7 +235,7 @@ metadata:
   namespace: default
 `)
 			obj := &Bfb{}
-			err := yaml.Unmarshal(yml, obj)
+			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
@@ -253,7 +252,7 @@ spec:
   url: ""
 `)
 			obj := &Bfb{}
-			err := yaml.Unmarshal(yml, obj)
+			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())

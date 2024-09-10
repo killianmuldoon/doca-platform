@@ -129,8 +129,6 @@ metadata:
   namespace: default
 spec:
   nodeSelector:
-  matchLabels:
-    feature.node.kubernetes.io/dpu-enabled: "true"
   strategy:
     rollingUpdate:
       maxUnavailable: 10%
@@ -154,7 +152,7 @@ spec:
           "dpf.node.dpu/role": "worker"
 `)
 			obj := &DpuSet{}
-			err := yaml.Unmarshal(yml, obj)
+			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
@@ -169,7 +167,7 @@ metadata:
   namespace: default
 `)
 			obj := &DpuSet{}
-			err := yaml.Unmarshal(yml, obj)
+			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
