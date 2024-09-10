@@ -258,5 +258,18 @@ spec:
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
+
+		It("status.phase default", func() {
+			obj := createObj("obj-14")
+			obj.Spec.URL = DefaultURL
+			err := k8sClient.Create(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(obj.Status.Phase).To(BeEquivalentTo(BfbInitializing))
+
+			obj_fetched := &Bfb{}
+			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(obj_fetched.Status.Phase).To(BeEquivalentTo(BfbInitializing))
+		})
 	})
 })

@@ -81,7 +81,10 @@ type Bfb struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   BfbSpec   `json:"spec,omitempty"`
+	Spec BfbSpec `json:"spec,omitempty"`
+
+	// +kubebuilder:default={phase: Initializing}
+	// +optional
 	Status BfbStatus `json:"status,omitempty"`
 }
 

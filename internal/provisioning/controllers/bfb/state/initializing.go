@@ -35,11 +35,6 @@ func (st *bfbInitializingState) Handle(ctx context.Context, client client.Client
 		return *state, nil
 	}
 
-	if state.Phase == "" {
-		state.Phase = provisioningv1.BfbInitializing
-		return *state, nil
-	}
-
 	state.Phase = provisioningv1.BfbDownloading
 	return *state, nil
 }
