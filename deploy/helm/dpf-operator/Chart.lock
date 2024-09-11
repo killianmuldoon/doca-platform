@@ -20,5 +20,8 @@ dependencies:
 - name: kamaji
   repository: https://clastix.github.io/charts
   version: 1.0.0
-digest: sha256:4d0bfcfd99ceeaf607fdfde712ffb29672f9d65f4c0a8fa7dbfcffa240f69183
-generated: "2024-08-25T18:08:01.347014741+03:00"
+- name: maintenance-operator-chart
+  repository: oci://ghcr.io/mellanox
+  version: 0.1.0
+digest: sha256:1136af367b16260c5a979e22e531656ab95512ff132176ad3f46e27b9588668d
+generated: "2024-09-10T10:28:20.457675967+03:00"

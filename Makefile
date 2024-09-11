@@ -342,6 +342,7 @@ generate-operator-bundle: helm operator-sdk generate-manifests-operator ## Gener
 		--set kamaji-etcd.enabled=false \
 		--set grafana.enabled=false \
 		--set prometheus.enabled=false \
+		--set maintenance-operator-chart.enabled=false \
 		--set templateOperatorBundle=true > hack/charts/dpf-operator/manifests.yaml
 
 	# Then clean the bundle directory to have a proper diff.
@@ -426,6 +427,7 @@ OPERATOR_NAMESPACE ?= dpf-operator-system
 DEPLOY_KSM ?= false
 DEPLOY_GRAFANA ?= false
 DEPLOY_PROMETHEUS ?= false
+DEPLOY_MAINTENANCE_OPERATOR ?= false
 
 .PHONY: test-deploy-operator-helm
 test-deploy-operator-helm: helm ## Deploy the DPF Operator using helm
@@ -436,6 +438,7 @@ test-deploy-operator-helm: helm ## Deploy the DPF Operator using helm
 		--set kube-state-metrics.enabled=$(DEPLOY_KSM) \
 		--set grafana.enabled=$(DEPLOY_GRAFANA) \
 		--set prometheus.enabled=$(DEPLOY_PROMETHEUS) \
+		--set maintenance-operator-chart.enabled=$(DEPLOY_MAINTENANCE_OPERATOR) \
 		dpf-operator $(OPERATOR_HELM_CHART)
 
 OLM_VERSION ?= v0.28.0

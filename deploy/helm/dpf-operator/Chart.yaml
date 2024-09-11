@@ -33,4 +33,7 @@ dependencies:
     version: "1.0.0"
     repository: "https://clastix.github.io/charts"
     condition: kamaji.enabled
-
+  - name: maintenance-operator-chart
+    version: "0.1.0"
+    condition: maintenance-operator-chart.enabled
+    repository: oci://ghcr.io/mellanox
