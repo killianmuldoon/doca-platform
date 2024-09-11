@@ -33,6 +33,13 @@ const (
 )
 
 const (
+	// SecretTypeKubeconfig is the type of the secret that will be created.
+	SecretTypeKubeconfig = "kubeconfig"
+	// SecretTypeTokenFile is the type of the secret that will be created.
+	SecretTypeTokenFile = "tokenFile"
+)
+
+const (
 	// ConditionServiceAccountReconciled is the condition type that indicates that the
 	// service account is ready.
 	ConditionServiceAccountReconciled conditions.ConditionType = "ServiceAccountReconciled"
@@ -79,7 +86,14 @@ type DPUServiceCredentialRequestSpec struct {
 	TargetClusterName *string `json:"targetClusterName,omitempty"`
 
 	// Type is the type of the secret that will be created.
-	// +kubebuilder:validation:Enum=kubeconfig;
+	// The supported types are `kubeconfig` and `tokenFile`.
+	// If `kubeconfig` is selected, the secret will contain a kubeconfig file,
+	// that can be used to access the cluster.
+	// If `tokenFile` is selected, the secret will contain a token file and serveral
+	// environment variables that can be used to access the cluster. It can be used
+	// with https://github.com/kubernetes/client-go/blob/v11.0.0/rest/config.go#L52
+	// to create a client that will hanle file rotation.
+	// +kubebuilder:validation:Enum=kubeconfig;tokenFile
 	// +required
 	Type string `json:"type"`
 

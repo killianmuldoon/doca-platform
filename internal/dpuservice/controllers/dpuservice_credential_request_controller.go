@@ -19,9 +19,12 @@ package controllers
 import (
 	"context"
 	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
@@ -280,12 +283,20 @@ func (r *DPUServiceCredentialRequestReconciler) reconcileSecret(ctx context.Cont
 
 	// if we have a token, create a kubeconfig from it
 	if token != "" {
-		data, err := r.createKubeconfigWithToken(ctx, obj, cluster, token)
-		if err != nil {
-			return err
-		}
-		config = map[string][]byte{
-			"kubeconfig": data,
+		var err error
+		switch obj.Spec.Type {
+		case dpuservicev1.SecretTypeKubeconfig:
+			config, err = r.createKubeconfigWithToken(ctx, obj, cluster, token)
+			if err != nil {
+				return err
+			}
+		case dpuservicev1.SecretTypeTokenFile:
+			config, err = r.createTokenFileWithToken(ctx, cluster, token)
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("unsupported secret type: %v", obj.Spec.Type)
 		}
 	}
 
@@ -321,30 +332,10 @@ func (r *DPUServiceCredentialRequestReconciler) getCluster(ctx context.Context, 
 }
 
 // createKubeconfigWithToken creates a kubeconfig with the given token.
-func (r *DPUServiceCredentialRequestReconciler) createKubeconfigWithToken(ctx context.Context, obj *dpuservicev1.DPUServiceCredentialRequest, cluster *controlplane.DPFCluster, token string) ([]byte, error) {
-	var (
-		clusterName string
-		server      string
-		caData      []byte
-	)
-	if cluster != nil {
-		kubeConfig, err := cluster.GetKubeconfig(ctx, r.Client)
-		if err != nil {
-			return nil, fmt.Errorf("error while getting kubeconfig for cluster %v: %w", cluster.Name, err)
-		}
-		// retrieve cluster related info from kubeConfig
-		clusterName = kubeConfig.Clusters[0].Name
-		server = kubeConfig.Clusters[0].Cluster.Server
-		caData = kubeConfig.Clusters[0].Cluster.CertificateAuthorityData
-	} else {
-		// retrieve CA from the current pod SA
-		caBytes, url, err := getClusterAccessData()
-		if err != nil {
-			return nil, fmt.Errorf("error while getting CA from the current pod: %w", err)
-		}
-		clusterName = "incluster"
-		server = url
-		caData = caBytes
+func (r *DPUServiceCredentialRequestReconciler) createKubeconfigWithToken(ctx context.Context, obj *dpuservicev1.DPUServiceCredentialRequest, cluster *controlplane.DPFCluster, token string) (map[string][]byte, error) {
+	clusterName, server, caData, err := r.getClusterAccessData(ctx, cluster)
+	if err != nil {
+		return nil, err
 	}
 
 	// context and user are the same as the ServiceAccount name
@@ -372,7 +363,63 @@ func (r *DPUServiceCredentialRequestReconciler) createKubeconfigWithToken(ctx co
 		return nil, fmt.Errorf("error while writing kubeconfig: %w", err)
 	}
 
-	return data, nil
+	return map[string][]byte{
+		"kubeconfig": data,
+	}, nil
+}
+
+// createTokenFileWithToken creates a token file with the given token.
+func (r *DPUServiceCredentialRequestReconciler) createTokenFileWithToken(ctx context.Context, cluster *controlplane.DPFCluster, token string) (map[string][]byte, error) {
+	_, server, caData, err := r.getClusterAccessData(ctx, cluster)
+	if err != nil {
+		return nil, err
+	}
+
+	var (
+		host, port string
+	)
+	if strings.Contains(server, ":") {
+		u, err := url.Parse(server)
+		if err != nil {
+			return nil, fmt.Errorf("error while splitting server address: %w", err)
+		}
+		host, port = u.Hostname(), u.Port()
+	}
+
+	return map[string][]byte{
+		"KUBERNETES_SERVICE_HOST": []byte(host),
+		"KUBERNETES_SERVICE_PORT": []byte(port),
+		"KUBERNETES_CA_DATA":      []byte(base64.StdEncoding.EncodeToString(caData)),
+		"TOKEN_FILE":              []byte(token),
+	}, nil
+}
+
+func (r *DPUServiceCredentialRequestReconciler) getClusterAccessData(ctx context.Context, cluster *controlplane.DPFCluster) (string, string, []byte, error) {
+	var (
+		clusterName string
+		server      string
+		caData      []byte
+	)
+
+	if cluster != nil {
+		kubeConfig, err := cluster.GetKubeconfig(ctx, r.Client)
+		if err != nil {
+			return "", "", nil, fmt.Errorf("error while getting kubeconfig for cluster %v: %w", cluster.Name, err)
+		}
+
+		clusterName = kubeConfig.Clusters[0].Name
+		server = kubeConfig.Clusters[0].Cluster.Server
+		caData = kubeConfig.Clusters[0].Cluster.CertificateAuthorityData
+	} else {
+		caBytes, url, err := getLocalClusterAccessData()
+		if err != nil {
+			return "", "", nil, fmt.Errorf("error while getting CA from the current pod: %w", err)
+		}
+		clusterName = "incluster"
+		server = url
+		caData = caBytes
+	}
+	return clusterName, server, caData, nil
 }
 
 // patchSecret creates a secret with the given config.
@@ -507,10 +554,10 @@ func (r *DPUServiceCredentialRequestReconciler) deleteSecret(ctx context.Context
 	return data, nil
 }
 
-// getClusterAccessData returns the CA data and the server URL for the current cluster.
+// getLocalClusterAccessData returns the CA data and the server URL for the current cluster.
 // It relies on the CA being mounted in the pod at /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
 // and the KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT environment variables being set.
-func getClusterAccessData() ([]byte, string, error) {
+func getLocalClusterAccessData() ([]byte, string, error) {
 	rootCAFile := "/var/run/secrets/kubernetes.io/serviceaccount/ca.crt"
 	rootCAs := x509.NewCertPool()
 	caBytes, err := os.ReadFile(rootCAFile)
