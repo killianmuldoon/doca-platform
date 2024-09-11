@@ -82,6 +82,10 @@ type IPV4Network struct {
 	Exclusions []string `json:"exclusions,omitempty"`
 	// Allocations describes the subnets that should be assigned in each DPU node.
 	Allocations map[string]string `json:"allocations,omitempty"`
+	// if true, add gateway as default gateway in the routes list
+	DefaultGateway bool `json:"defautGateway,omitempty"`
+	// static routes list using the gateway specified in the spec.
+	Routes []Route `json:"routes,omitempty"`
 }
 
 // IPV4Subnet describes the configuration relevant to splitting a subnet to a subnet block per node (i.e. same gateway
@@ -94,6 +98,16 @@ type IPV4Subnet struct {
 	Gateway string `json:"gateway"`
 	// PerNodeIPCount is the number of IPs that should be allocated per node.
 	PerNodeIPCount int `json:"perNodeIPCount"`
+	// if true, add gateway as default gateway in the routes list
+	DefaultGateway bool `json:"defautGateway,omitempty"`
+	// static routes list using the gateway specified in the spec.
+	Routes []Route `json:"routes,omitempty"`
+}
+
+// Route contains static route parameters
+type Route struct {
+	// The destination of the route, in CIDR notation
+	Dst string `json:"dst"`
 }
 
 // DPUServiceIPAMStatus defines the observed state of DPUServiceIPAM

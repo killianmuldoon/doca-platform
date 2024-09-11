@@ -285,6 +285,10 @@ func reconcileCIDRPoolMode(ctx context.Context, c client.Client, dpuServiceIPAM 
 
 // generateIPPool generates an IPPool object for the given dpuServiceIPAM
 func generateIPPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.IPPool {
+	routes := make([]nvipamv1.Route, 0, len(dpuServiceIPAM.Spec.IPV4Subnet.Routes))
+	for _, route := range dpuServiceIPAM.Spec.IPV4Subnet.Routes {
+		routes = append(routes, nvipamv1.Route{Dst: route.Dst})
+	}
 	pool := &nvipamv1.IPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpuServiceIPAM.Name,
@@ -299,6 +303,8 @@ func generateIPPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.IPPool {
 			PerNodeBlockSize: dpuServiceIPAM.Spec.IPV4Subnet.PerNodeIPCount,
 			Gateway:          dpuServiceIPAM.Spec.IPV4Subnet.Gateway,
 			NodeSelector:     dpuServiceIPAM.Spec.NodeSelector,
+			DefaultGateway:   dpuServiceIPAM.Spec.IPV4Subnet.DefaultGateway,
+			Routes:           routes,
 		},
 	}
 	pool.ObjectMeta.ManagedFields = nil
@@ -318,6 +324,11 @@ func generateCIDRPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.CIDRPool {
 		allocations = append(allocations, nvipamv1.CIDRPoolStaticAllocation{NodeName: node, Prefix: prefix})
 	}
 
+	routes := make([]nvipamv1.Route, 0, len(dpuServiceIPAM.Spec.IPV4Network.Routes))
+	for _, route := range dpuServiceIPAM.Spec.IPV4Network.Routes {
+		routes = append(routes, nvipamv1.Route{Dst: route.Dst})
+	}
+
 	pool := &nvipamv1.CIDRPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpuServiceIPAM.Name,
@@ -334,6 +345,8 @@ func generateCIDRPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.CIDRPool {
 			NodeSelector:         dpuServiceIPAM.Spec.NodeSelector,
 			Exclusions:           exclusions,
 			StaticAllocations:    allocations,
+			DefaultGateway:       dpuServiceIPAM.Spec.IPV4Network.DefaultGateway,
+			Routes:               routes,
 		},
 	}
 	pool.ObjectMeta.ManagedFields = nil

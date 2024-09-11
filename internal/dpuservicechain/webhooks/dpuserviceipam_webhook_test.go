@@ -112,6 +112,24 @@ var _ = Describe("DPUServiceIPAM Validating Webhook", func() {
 			ipam.Spec.IPV4Subnet = nil
 			return ipam
 		}(), false),
+		Entry("bad route - dest not a valid cidr", func() *sfcv1.DPUServiceIPAM {
+			ipam := getFullyPopulatedDPUServiceIPAM()
+			ipam.Spec.IPV4Subnet = nil
+			ipam.Spec.IPV4Network.Routes[0].Dst = "not-a-cidr"
+			return ipam
+		}(), true),
+		Entry("invalid route - default gateway true", func() *sfcv1.DPUServiceIPAM {
+			ipam := getFullyPopulatedDPUServiceIPAM()
+			ipam.Spec.IPV4Subnet = nil
+			ipam.Spec.IPV4Network.Routes[0].Dst = ipv4DefaultRoute
+			return ipam
+		}(), true),
+		Entry("invalid route - not same family", func() *sfcv1.DPUServiceIPAM {
+			ipam := getFullyPopulatedDPUServiceIPAM()
+			ipam.Spec.IPV4Subnet = nil
+			ipam.Spec.IPV4Network.Routes[0].Dst = "2001:db8:3333:4444::0/64"
+			return ipam
+		}(), true),
 	)
 
 	DescribeTable("Validates the .spec.ipv4Subnet correctly", func(ipam *sfcv1.DPUServiceIPAM, expectError bool) {
@@ -145,6 +163,24 @@ var _ = Describe("DPUServiceIPAM Validating Webhook", func() {
 			ipam.Spec.IPV4Network = nil
 			return ipam
 		}(), false),
+		Entry("bad route - dest not a valid cidr", func() *sfcv1.DPUServiceIPAM {
+			ipam := getFullyPopulatedDPUServiceIPAM()
+			ipam.Spec.IPV4Network = nil
+			ipam.Spec.IPV4Subnet.Routes[0].Dst = "not-a-cidr"
+			return ipam
+		}(), true),
+		Entry("invalid route - default gateway true", func() *sfcv1.DPUServiceIPAM {
+			ipam := getFullyPopulatedDPUServiceIPAM()
+			ipam.Spec.IPV4Network = nil
+			ipam.Spec.IPV4Subnet.Routes[0].Dst = ipv4DefaultRoute
+			return ipam
+		}(), true),
+		Entry("invalid route - not same family", func() *sfcv1.DPUServiceIPAM {
+			ipam := getFullyPopulatedDPUServiceIPAM()
+			ipam.Spec.IPV4Network = nil
+			ipam.Spec.IPV4Subnet.Routes[0].Dst = "2011:db8:3333:4444::0/64"
+			return ipam
+		}(), true),
 	)
 })
 
@@ -167,11 +203,15 @@ func getFullyPopulatedDPUServiceIPAM() *sfcv1.DPUServiceIPAM {
 					"dpu-node-1": "192.168.1.0/24",
 					"dpu-node-2": "192.168.2.0/24",
 				},
+				DefaultGateway: true,
+				Routes:         []sfcv1.Route{{Dst: "5.5.5.0/16"}},
 			},
 			IPV4Subnet: &sfcv1.IPV4Subnet{
 				Subnet:         "192.168.0.0/20",
 				Gateway:        "192.168.0.1",
 				PerNodeIPCount: 256,
+				DefaultGateway: true,
+				Routes:         []sfcv1.Route{{Dst: "5.5.5.0/16"}},
 			},
 		},
 	}

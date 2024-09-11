@@ -97,6 +97,10 @@ spec:
                     description: Allocations describes the subnets that should be
                       assigned in each DPU node.
                     type: object
+                  defautGateway:
+                    description: if true, add gateway as default gateway in the routes
+                      list
+                    type: boolean
                   exclusions:
                     description: Exclusions is a list of IPs that should be excluded
                       when splitting the CIDR into subnets per node.
@@ -117,6 +121,19 @@ spec:
                       be allocated per node.
                     format: int32
                     type: integer
+                  routes:
+                    description: static routes list using the gateway specified in
+                      the spec.
+                    items:
+                      description: Route contains static route parameters
+                      properties:
+                        dst:
+                          description: The destination of the route, in CIDR notation
+                          type: string
+                      required:
+                      - dst
+                      type: object
+                    type: array
                 required:
                 - gatewayIndex
                 - network
@@ -127,6 +144,10 @@ spec:
                   IPV4Subnet is the configuration related to splitting a subnet into blocks per node. In this setup, there is a
                   single gateway.
                 properties:
+                  defautGateway:
+                    description: if true, add gateway as default gateway in the routes
+                      list
+                    type: boolean
                   gateway:
                     description: Gateway is the IP in the subnet that should be the
                       gateway of the subnet.
@@ -135,6 +156,19 @@ spec:
                     description: PerNodeIPCount is the number of IPs that should be
                       allocated per node.
                     type: integer
+                  routes:
+                    description: static routes list using the gateway specified in
+                      the spec.
+                    items:
+                      description: Route contains static route parameters
+                      properties:
+                        dst:
+                          description: The destination of the route, in CIDR notation
+                          type: string
+                      required:
+                      - dst
+                      type: object
+                    type: array
                   subnet:
                     description: |-
                       Subnet is the CIDR from which blocks should be allocated per node

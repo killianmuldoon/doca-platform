@@ -85,6 +85,8 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 				Subnet:         "192.168.0.0/20",
 				Gateway:        "192.168.0.1",
 				PerNodeIPCount: 256,
+				DefaultGateway: true,
+				Routes:         []sfcv1.Route{{Dst: "5.5.5.0/16"}},
 			}
 			dpuServiceIPAM.Spec.NodeSelector = &corev1.NodeSelector{
 				NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -110,6 +112,10 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 				g.Expect(got.Spec.Subnet).To(Equal("192.168.0.0/20"))
 				g.Expect(got.Spec.PerNodeBlockSize).To(Equal(256))
 				g.Expect(got.Spec.Gateway).To(Equal("192.168.0.1"))
+				g.Expect(got.Spec.DefaultGateway).To(BeTrue())
+				g.Expect(got.Spec.Routes).To(ConsistOf([]nvipamv1.Route{
+					{Dst: "5.5.5.0/16"},
+				}))
 				g.Expect(got.Spec.NodeSelector).To(BeComparableTo(&corev1.NodeSelector{
 					NodeSelectorTerms: []corev1.NodeSelectorTerm{
 						{
@@ -179,6 +185,8 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 					"node-1": "192.168.1.0/24",
 					"node-2": "192.168.2.0/24",
 				},
+				DefaultGateway: true,
+				Routes:         []sfcv1.Route{{Dst: "5.5.5.0/16"}},
 			}
 			dpuServiceIPAM.Spec.NodeSelector = &corev1.NodeSelector{
 				NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -211,6 +219,10 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 				g.Expect(got.Spec.StaticAllocations).To(ConsistOf([]nvipamv1.CIDRPoolStaticAllocation{
 					{NodeName: "node-1", Prefix: "192.168.1.0/24"},
 					{NodeName: "node-2", Prefix: "192.168.2.0/24"},
+				}))
+				g.Expect(got.Spec.DefaultGateway).To(BeTrue())
+				g.Expect(got.Spec.Routes).To(ConsistOf([]nvipamv1.Route{
+					{Dst: "5.5.5.0/16"},
 				}))
 				g.Expect(got.Spec.NodeSelector).To(BeComparableTo(&corev1.NodeSelector{
 					NodeSelectorTerms: []corev1.NodeSelectorTerm{

@@ -39,6 +39,11 @@ type DPUServiceIPAMValidator struct {
 	Client client.Reader
 }
 
+const (
+	ipv4DefaultRoute = "0.0.0.0/0"
+	ipv6DefaultRoute = "::/0"
+)
+
 var _ webhook.CustomValidator = &DPUServiceIPAMValidator{}
 
 // +kubebuilder:webhook:path=/validate-sfc-dpf-nvidia-com-v1alpha1-dpuserviceipam,mutating=false,failurePolicy=fail,groups=sfc.dpf.nvidia.com,resources=dpuserviceipams,verbs=create;update,versions=v1alpha1,name=ipam-validator.sfc.dpf.nvidia.com,admissionReviewVersions=v1,sideEffects=None
@@ -151,6 +156,7 @@ func validateDPUServiceIPAMIPV4Network(ipv4Network *sfcv1.IPV4Network) error {
 			errs = append(errs, fmt.Errorf("allocation %s is not part of the network %s", allocation, ipv4Network.Network))
 		}
 	}
+	errs = append(errs, validateRoutes(ipv4Network.Routes, network, ipv4Network.DefaultGateway))
 	return kerrors.NewAggregate(errs)
 }
 
@@ -170,5 +176,45 @@ func validateDPUServiceIPAMIPV4Subnet(ipv4Subnet *sfcv1.IPV4Subnet) error {
 		return fmt.Errorf("gateway %s is not part of subnet %s", ipv4Subnet.Gateway, ipv4Subnet.Subnet)
 	}
 
+	err = validateRoutes(ipv4Subnet.Routes, network, ipv4Subnet.DefaultGateway)
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+// validateRoutes validate routes:
+// - dst is a valid CIDR
+func validateRoutes(routes []sfcv1.Route, network *net.IPNet, defaultGateway bool) error {
+	var errs []error
+	for _, r := range routes {
+		_, routeNet, err := net.ParseCIDR(r.Dst)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("route %s is not a valid subnet", r.Dst))
+		}
+		if routeNet != nil && network != nil {
+			if (routeNet.IP.To4() != nil) != (network.IP.To4() != nil) {
+				errs = append(errs, fmt.Errorf("route %s is not same address family IPv4/IPv6", r.Dst))
+			}
+		}
+		if routeNet != nil && defaultGateway {
+			if isDefaultRoute(routeNet) {
+				errs = append(errs, fmt.Errorf("default route %s is not allowed if 'defaultGateway' is true", r.Dst))
+			}
+		}
+	}
+	return kerrors.NewAggregate(errs)
+}
+
+func isDefaultRoute(ipNet *net.IPNet) bool {
+	// Check if it's IPv4 and matches 0.0.0.0/0
+	if ipNet.IP.To4() != nil && ipNet.String() == ipv4DefaultRoute {
+		return true
+	}
+	// Check if it's IPv6 and matches ::/0
+	if ipNet.IP.To4() == nil && ipNet.String() == ipv6DefaultRoute {
+		return true
+	}
+	return false
 }
