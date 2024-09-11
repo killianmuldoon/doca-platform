@@ -17,7 +17,6 @@ TOOLSDIR ?= $(shell pwd)/hack/tools/bin
 $(TOOLSDIR):
 	@mkdir -p $@
 
-
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.3.0
 CONTROLLER_TOOLS_VERSION ?= v0.14.0
@@ -26,7 +25,10 @@ GOLANGCI_LINT_VERSION ?= v1.58.1
 MOCKGEN_VERSION ?= v0.4.0
 GOTESTSUM_VERSION ?= v1.11.0
 ENVSUBST_VERSION ?= v1.4.2
-
+HELM_VER ?= v3.13.3
+SKAFFOLD_VER ?= v2.10.0
+MINIKUBE_VER ?= v1.33.1
+OPERATOR_SDK_VER ?= v1.35.0
 
 ## Tool Binaries
 KUBECTL ?= kubectl
@@ -37,86 +39,85 @@ GOLANGCI_LINT ?= $(TOOLSDIR)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 MOCKGEN ?= $(TOOLSDIR)/mockgen-$(MOCKGEN_VERSION)
 GOTESTSUM ?= $(TOOLSDIR)/gotestsum-$(GOTESTSUM_VERSION)
 ENVSUBST ?= $(TOOLSDIR)/envsubst-$(ENVSUBST_VERSION)
+HELM ?= $(TOOLSDIR)/helm-$(HELM_VER)
+SKAFFOLD ?= $(TOOLSDIR)/skaffold-$(SKAFFOLD_VER)
+MINIKUBE ?= $(TOOLSDIR)/minikube-$(MINIKUBE_VER)
+OPERATOR_SDK ?= $(TOOLSDIR)/operator-sdk-$(OPERATOR_SDK_VER)
 
 ##@ Tools
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
-$(KUSTOMIZE): $(TOOLSDIR)
+$(KUSTOMIZE): | $(TOOLSDIR)
 	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize/v5,$(KUSTOMIZE_VERSION))
 
 .PHONY: controller-gen
 controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
-$(CONTROLLER_GEN): $(TOOLSDIR)
+$(CONTROLLER_GEN): | $(TOOLSDIR)
 	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen,$(CONTROLLER_TOOLS_VERSION))
 
 .PHONY: envtest
 envtest: $(ENVTEST) ## Download setup-envtest locally if necessary.
-$(ENVTEST): $(TOOLSDIR)
+$(ENVTEST): | $(TOOLSDIR)
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,$(ENVTEST_VERSION))
 
 .PHONY: golangci-lint
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
-$(GOLANGCI_LINT): $(TOOLSDIR)
+$(GOLANGCI_LINT): | $(TOOLSDIR)
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
 
 .PHONY: mockgen
 mockgen: $(MOCKGEN) ## Download mockgen locally if necessary.
-$(MOCKGEN): $(TOOLSDIR)
+$(MOCKGEN): | $(TOOLSDIR)
 	$(call go-install-tool,$(MOCKGEN),go.uber.org/mock/mockgen,${MOCKGEN_VERSION})
 	ln -f $(MOCKGEN) $(abspath $(TOOLSDIR)/mockgen)
 
 # gotestsum is used to generate junit style test reports
 .PHONY: gotestsum
 gotestsum: $(GOTESTSUM) # download gotestsum locally if necessary
-$(GOTESTSUM): $(TOOLSDIR)
+$(GOTESTSUM): | $(TOOLSDIR)
 	$(call go-install-tool,$(GOTESTSUM),gotest.tools/gotestsum,${GOTESTSUM_VERSION})
 
 # envsubst is used to template files with environment variables
 .PHONY: envsubst
-envsubst: $(ENVSUBST) # download gotestsum locally if necessary
-$(ENVSUBST): $(TOOLSDIR)
+envsubst: $(ENVSUBST) # download envsubst locally if necessary
+$(ENVSUBST): | $(TOOLSDIR)
 	$(call go-install-tool,$(ENVSUBST),github.com/a8m/envsubst/cmd/envsubst,${ENVSUBST_VERSION})
 
-
 # helm is used to manage helm deployments and artifacts.
+.PHONY: helm
+helm: $(HELM) ## Download helm locally if necessary.
 GET_HELM = $(TOOLSDIR)/get_helm.sh
-HELM_VER = v3.13.3
-HELM_BIN = helm
-HELM = $(abspath $(TOOLSDIR)/$(HELM_BIN)-$(HELM_VER))
 $(HELM): | $(TOOLSDIR)
 	$Q echo "Installing helm-$(HELM_VER) to $(TOOLSDIR)"
 	$Q curl -fsSL -o $(GET_HELM) https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3
 	$Q chmod +x $(GET_HELM)
 	$Q env HELM_INSTALL_DIR=$(TOOLSDIR) PATH="$(PATH):$(TOOLSDIR)" $(GET_HELM) --no-sudo -v $(HELM_VER)
-	$Q mv $(TOOLSDIR)/$(HELM_BIN) $(TOOLSDIR)/$(HELM_BIN)-$(HELM_VER)
+	$Q mv $(TOOLSDIR)/helm $(TOOLSDIR)/helm-$(HELM_VER)
 	$Q rm -f $(GET_HELM)
 
 
 # skaffold is used to run a debug build of the network operator for dev work.
-SKAFFOLD_VER := v2.10.0
-SKAFFOLD_BIN := skaffold
-SKAFFOLD := $(abspath $(TOOLSDIR)/$(SKAFFOLD_BIN)-$(SKAFFOLD_VER))
+.PHONY: skaffold
+skaffold: $(SKAFFOLD) ## Download skaffold locally if necessary.
 $(SKAFFOLD): | $(TOOLSDIR)
 	$Q echo "Installing skaffold-$(SKAFFOLD_VER) to $(TOOLSDIR)"
 	$Q curl -fsSL https://storage.googleapis.com/skaffold/releases/$(SKAFFOLD_VER)/skaffold-$(OS)-$(ARCH) -o $(SKAFFOLD)
 	$Q chmod +x $(SKAFFOLD)
 
 # minikube is used to set-up a local kubernetes cluster for dev work.
-MINIKUBE_VER := v1.33.1
-MINIKUBE_BIN := minikube
-MINIKUBE := $(abspath $(TOOLSDIR)/$(MINIKUBE_BIN)-$(MINIKUBE_VER))
+.PHONY: minikube
+minikube: $(MINIKUBE) ## Download minikube locally if necessary.
 $(MINIKUBE): | $(TOOLSDIR)
 	$Q echo "Installing minikube-$(MINIKUBE_VER) to $(TOOLSDIR)"
 	$Q curl -fsSL https://storage.googleapis.com/minikube/releases/$(MINIKUBE_VER)/minikube-$(OS)-$(ARCH) -o $(MINIKUBE)
 	$Q chmod +x $(MINIKUBE)
 
 # operator-sdk is used to generate operator-sdk bundles
+.PHONY: operator-sdk
+operator-sdk: $(OPERATOR_SDK) ## Download operator-sdk locally if necessary.
 OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download
-OPERATOR_SDK_BIN = operator-sdk
-OPERATOR_SDK_VER = v1.35.0
-OPERATOR_SDK = $(abspath $(TOOLSDIR)/$(OPERATOR_SDK_BIN)-$(OPERATOR_SDK_VER))
 $(OPERATOR_SDK): | $(TOOLSDIR)
-	$Q echo "Installing $(OPERATOR_SDK_BIN)-$(OPERATOR_SDK_VER) to $(TOOLSDIR)"
+	$Q echo "Installing operator-sdk-$(OPERATOR_SDK_VER) to $(TOOLSDIR)"
 	$Q curl -sSfL $(OPERATOR_SDK_DL_URL)/$(OPERATOR_SDK_VER)/operator-sdk_$(OS)_$(ARCH) -o $(OPERATOR_SDK)
 	$Q chmod +x $(OPERATOR_SDK)
 

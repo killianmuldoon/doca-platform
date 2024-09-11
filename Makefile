@@ -134,7 +134,7 @@ KAMAJI_REPO_NAME=clastix
 KAMAJI_CHART_VERSION=0.15.2
 KAMAJI_CHART_NAME=kamaji
 KAMAJI := $(abspath $(CHARTSDIR)/$(KAMAJI_CHART_NAME)-$(KAMAJI_CHART_VERSION).tgz)
-$(KAMAJI): | $(CHARTSDIR) $(HELM)
+$(KAMAJI): | $(CHARTSDIR) helm
 	$Q $(HELM) repo add $(KAMAJI_REPO_NAME) $(KAMAJI_REPO_URL)
 	$Q $(HELM) repo update
 	$Q $(HELM) pull $(KAMAJI_REPO_NAME)/$(KAMAJI_CHART_NAME) --version $(KAMAJI_CHART_VERSION) -d $(CHARTSDIR)
@@ -181,7 +181,7 @@ generate: ## Run all generate-* targets: generate-modules generate-manifests-* a
 	$(MAKE) generate-mocks generate-modules generate-manifests generate-go-deepcopy generate-operator-bundle
 
 .PHONY: generate-mocks
-generate-mocks: $(MOCKGEN) ## Generate mocks
+generate-mocks: mockgen ## Generate mocks
 	## Add the TOOLSDIR to the path for this command as `mockgen` is called from the $PATH inline in the code.
 	## See go:generate comments for examples.
 	export PATH="$(PATH):$(TOOLSDIR)"; go generate ./...
@@ -191,10 +191,10 @@ generate-modules: ## Run go mod tidy to update go modules
 	go mod tidy
 
 .PHONY: generate-manifests
-generate-manifests: controller-gen kustomize $(addprefix generate-manifests-,$(GENERATE_TARGETS)) ## Run all generate-manifests-* targets
+generate-manifests: $(addprefix generate-manifests-,$(GENERATE_TARGETS)) ## Run all generate-manifests-* targets
 
 .PHONY: generate-manifests-operator
-generate-manifests-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVSUBST) $(HELM) ## Generate manifests e.g. CRD, RBAC. for the operator controller.
+generate-manifests-operator: controller-gen kustomize envsubst helm ## Generate manifests e.g. CRD, RBAC. for the operator controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./deploy/helm/dpf-operator/crds/"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/operator/..." \
@@ -216,9 +216,8 @@ generate-manifests-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVSUBST) $(HELM) 
 	$(HELM) repo add clastix https://clastix.github.io/charts
 	$(HELM) dependency build $(OPERATOR_HELM_CHART)
 
-
 .PHONY: generate-manifests-ovnkubernetes-operator
-generate-manifests-ovnkubernetes-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVSUBST) ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes operator controller.
+generate-manifests-ovnkubernetes-operator: controller-gen kustomize envsubst ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes operator controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/ovnkubernetesoperator/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/ovnkubernetesoperator/..." \
@@ -236,7 +235,7 @@ generate-manifests-ovnkubernetes-operator: $(KUSTOMIZE) $(CONTROLLER_GEN) $(ENVS
 	$(ENVSUBST) < deploy/helm/dpf-ovn-kubernetes-operator/values.yaml.tmpl > deploy/helm/dpf-ovn-kubernetes-operator/values.yaml
 
 .PHONY: generate-manifests-dpuservice
-generate-manifests-dpuservice: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
+generate-manifests-dpuservice: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/dpuservice/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/dpuservice/..." \
@@ -252,21 +251,21 @@ generate-manifests-dpuservice: $(KUSTOMIZE) $(CONTROLLER_GEN) ## Generate manife
 	cd config/dpuservice/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-dpucniprovisioner
-generate-manifests-dpucniprovisioner: $(KUSTOMIZE) ## Generates DPU CNI provisioner manifests
+generate-manifests-dpucniprovisioner: kustomize ## Generates DPU CNI provisioner manifests
 	cd config/dpucniprovisioner/default && $(KUSTOMIZE) edit set image controller=$(DPUCNIPROVISIONER_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-hostcniprovisioner
-generate-manifests-hostcniprovisioner: $(KUSTOMIZE) ## Generates Host CNI provisioner manifests
+generate-manifests-hostcniprovisioner: kustomize ## Generates Host CNI provisioner manifests
 	cd config/hostcniprovisioner/default &&	$(KUSTOMIZE) edit set image controller=$(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-release-defaults
-generate-manifests-release-defaults: $(ENVSUBST) ## Generates manifests that contain the default values that should be used by the operators
+generate-manifests-release-defaults: envsubst ## Generates manifests that contain the default values that should be used by the operators
 	$(ENVSUBST) < ./internal/release/templates/defaults.yaml.tmpl > ./internal/release/manifests/defaults.yaml
 
 TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 .PHONY: generate-manifests-operator-embedded
-generate-manifests-operator-embedded: $(ENVSUBST) generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults ## Generates manifests that are embedded into the operator binary.
+generate-manifests-operator-embedded:kustomize envsubst generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults ## Generates manifests that are embedded into the operator binary.
 	$(KUSTOMIZE) build config/provisioning/default > $(EMBEDDED_MANIFESTS_DIR)/provisioning-controller.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
 	# Substitute environment variables and generate embedded manifests from templates.
@@ -279,12 +278,12 @@ generate-manifests-operator-embedded: $(ENVSUBST) generate-manifests-dpuservice 
 	$(ENVSUBST) < $(TEMPLATES_DIR)/sfc-controller.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/sfc-controller.yaml
 
 .PHONY: generate-manifests-ovnkubernetes-operator-embedded
-generate-manifests-ovnkubernetes-operator-embedded: generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner ## Generates manifests that are embedded into the OVN Kubernetes Operator binary.
+generate-manifests-ovnkubernetes-operator-embedded: kustomize generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner ## Generates manifests that are embedded into the OVN Kubernetes Operator binary.
 	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/ovnkubernetesoperator/controllers/manifests/hostcniprovisioner.yaml
 	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/ovnkubernetesoperator/controllers/manifests/dpucniprovisioner.yaml
 
 .PHONY: generate-manifests-servicechainset
-generate-manifests-servicechainset: $(KUSTOMIZE) $(ENVSUBST) ## Generate manifests e.g. CRD, RBAC. for the servicechainset controller.
+generate-manifests-servicechainset: controller-gen kustomize envsubst ## Generate manifests e.g. CRD, RBAC. for the servicechainset controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/servicechainset/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/servicechainset/..." \
@@ -301,14 +300,14 @@ generate-manifests-servicechainset: $(KUSTOMIZE) $(ENVSUBST) ## Generate manifes
 	$(ENVSUBST) < deploy/helm/servicechain/values.yaml.tmpl > deploy/helm/servicechain/values.yaml
 
 .PHONY: generate-manifests-sfc-controller
-generate-manifests-sfc-controller: generate-manifests-servicechainset $(ENVSUBST)
+generate-manifests-sfc-controller: envsubst generate-manifests-servicechainset
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_servicechains.yaml deploy/helm/sfc-controller/crds/
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/sfc-controller/crds/
 	# Template the image name and tag used in the helm templates.
 	$(ENVSUBST) < deploy/helm/sfc-controller/values.yaml.tmpl > deploy/helm/sfc-controller/values.yaml
 
 .PHONY: generate-manifests-provisioning
-generate-manifests-provisioning: $(KUSTOMIZE) $(ENVTEST) ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
+generate-manifests-provisioning: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/provisioning/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/provisioning/..." \
@@ -323,15 +322,15 @@ generate-manifests-provisioning: $(KUSTOMIZE) $(ENVTEST) ## Generate manifests e
 	cd config/provisioning/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-hbn-dpuservice
-generate-manifests-hbn-dpuservice: $(ENVSUBST)
+generate-manifests-hbn-dpuservice: envsubst
 	$(ENVSUBST) < deploy/dpuservices/hbn/chart/values.yaml.tmpl > deploy/dpuservices/hbn/chart/values.yaml
 
 .PHONY: generate-manifests-ovs-cni
-generate-manifests-ovs-cni: $(ENVSUBST) ## Generate values for OVS helm chart.
+generate-manifests-ovs-cni: envsubst ## Generate values for OVS helm chart.
 	$(ENVSUBST) < deploy/helm/ovs-cni/values.yaml.tmpl > deploy/helm/ovs-cni/values.yaml
 
 .PHONY: generate-operator-bundle
-generate-operator-bundle: $(OPERATOR_SDK) $(HELM) generate-manifests-operator ## Generate bundle manifests and metadata, then validate generated files.
+generate-operator-bundle: helm operator-sdk generate-manifests-operator ## Generate bundle manifests and metadata, then validate generated files.
 	# First template the actual manifests to include using helm.
 	mkdir -p hack/charts/dpf-operator/
 	$(HELM) template --namespace $(OPERATOR_NAMESPACE) \
@@ -363,7 +362,7 @@ generate-operator-bundle: $(OPERATOR_SDK) $(HELM) generate-manifests-operator ##
 	$(OPERATOR_SDK) bundle validate ./bundle
 
 .PHONY: generate-manifests-dummydpuservice
-generate-manifests-dummydpuservice: $(ENVSUBST) ## Generate values for dummydpuservice helm chart.
+generate-manifests-dummydpuservice: envsubst ## Generate values for dummydpuservice helm chart.
 	$(ENVSUBST) < deploy/dpuservices/dummydpuservice/chart/values.yaml.tmpl > deploy/dpuservices/dummydpuservice/chart/values.yaml
 
 .PHONY: clean-generated-yaml
@@ -385,7 +384,7 @@ clean-generated-deepcopy: ## Remove files generated by golang from the mentioned
 test: envtest ## Run tests.
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLSDIR) -p path)" go test $$(go list ./... | grep -v /e2e) $(GO_TEST_ARGS)
 
-.PHONY: test-report $(GOTESTSUM)
+.PHONY: test-report
 test-report: envtest gotestsum ## Run tests and generate a junit style report
 	set +o errexit; KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLSDIR) -p path)" go test -count 1 -race -json $$(go list ./... | grep -v /e2e) > junit.stdout; echo $$? > junit.exitcode;
 	$(GOTESTSUM) --junitfile junit.xml --raw-command cat junit.stdout
@@ -401,7 +400,7 @@ test-release-e2e-quick: # Build images required for the quick DPF e2e test.
 	$(MAKE) helm-package-all helm-push-all
 
 TEST_CLUSTER_NAME := dpf-test
-test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(MINIKUBE) $(ENVSUBST) ## Setup a Kubernetes environment to run tests.
+test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) minikube ## Setup a Kubernetes environment to run tests.
 
 	# Create a minikube cluster to host the test.
 	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
@@ -429,7 +428,7 @@ DEPLOY_GRAFANA ?= false
 DEPLOY_PROMETHEUS ?= false
 
 .PHONY: test-deploy-operator-helm
-test-deploy-operator-helm: $(HELM) ## Deploy the DPF Operator using helm
+test-deploy-operator-helm: helm ## Deploy the DPF Operator using helm
 	$(HELM) upgrade --install --create-namespace --namespace $(OPERATOR_NAMESPACE) \
 		--set controllerManager.image.repository=$(DPF_SYSTEM_IMAGE)\
 		--set controllerManager.image.tag=$(TAG) \
@@ -462,7 +461,7 @@ test-install-operator-lifecycle-manager:
 
 OPERATOR_SDK_RUN_BUNDLE_EXTRA_ARGS ?= ""
 .PHONY: test-deploy-operator-operator-sdk
-test-deploy-operator-operator-sdk: $(KUSTOMIZE) test-install-operator-lifecycle-manager ## Deploy the DPF Operator using operator-sdk
+test-deploy-operator-operator-sdk: operator-sdk kustomize test-install-operator-lifecycle-manager ## Deploy the DPF Operator using operator-sdk
 	# Create the namespace for the operator to be installed.
 	$(KUBECTL) create namespace $(OPERATOR_NAMESPACE)
 	# TODO: This flow does not work on MacOS dues to some issue pulling images. Should be enabled to make local testing equivalent to CI.
@@ -470,7 +469,7 @@ test-deploy-operator-operator-sdk: $(KUSTOMIZE) test-install-operator-lifecycle-
 
 ARTIFACTS_DIR ?= $(shell pwd)/artifacts
 .PHONY: test-cache-images
-test-cache-images: $(MINIKUBE) ## Add images to the minikube cache based on the artifacts directory created in e2e.
+test-cache-images: minikube ## Add images to the minikube cache based on the artifacts directory created in e2e.
 	# Run a script which will cache images which were pulled in the test run to the minikube cache.
 	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) ARTIFACTS_DIR=${ARTIFACTS_DIR} $(CURDIR)/hack/scripts/add-images-to-minikube-cache.sh
 
@@ -480,7 +479,7 @@ test-e2e: ## Run e2e tests
 	go test -timeout 0 ./test/e2e/ -v -ginkgo.v
 
 .PHONY: clean-test-env
-clean-test-env: $(MINIKUBE) ## Clean test environment (teardown minikube cluster)
+clean-test-env: minikube ## Clean test environment (teardown minikube cluster)
 	$(MINIKUBE) delete -p $(TEST_CLUSTER_NAME)
 
 ##@ lint and verify
@@ -506,38 +505,38 @@ verify-copyright: ## Verify copyrights for project files
 	$Q $(CURDIR)/hack/scripts/copyright-validation.sh
 
 .PHONY: lint-helm
-lint-helm: $(HELM) lint-helm-servicechainset lint-helm-multus lint-helm-sriov-dp lint-helm-nvidia-k8s-ipam lint-helm-ovs-cni lint-helm-sfc-controller lint-helm-ovnkubernetes-operator lint-helm-dummydpuservice
+lint-helm: lint-helm-servicechainset lint-helm-multus lint-helm-sriov-dp lint-helm-nvidia-k8s-ipam lint-helm-ovs-cni lint-helm-sfc-controller lint-helm-ovnkubernetes-operator lint-helm-dummydpuservice
 
 .PHONY: lint-helm-servicechainset
-lint-helm-servicechainset: $(HELM) ## Run helm lint for servicechainset chart
+lint-helm-servicechainset: helm ## Run helm lint for servicechainset chart
 	$Q $(HELM) lint $(SERVICECHAIN_CONTROLLER_HELM_CHART)
 
 .PHONY: lint-helm-multus
-lint-helm-multus: $(HELM) ## Run helm lint for multus chart
+lint-helm-multus: helm ## Run helm lint for multus chart
 	$Q $(HELM) lint $(MULTUS_HELM_CHART)
 
 .PHONY: lint-helm-sriov-dp
-lint-helm-sriov-dp: $(HELM) ## Run helm lint for sriov device plugin chart
+lint-helm-sriov-dp: helm ## Run helm lint for sriov device plugin chart
 	$Q $(HELM) lint $(SRIOV_DP_HELM_CHART)
 
 .PHONY: lint-helm-nvidia-k8s-ipam
-lint-helm-nvidia-k8s-ipam: $(HELM) ## Run helm lint for nvidia-k8s-ipam chart
+lint-helm-nvidia-k8s-ipam: helm ## Run helm lint for nvidia-k8s-ipam chart
 	$Q $(HELM) lint $(NVIDIA_K8S_IPAM_HELM_CHART)
 
 .PHONY: lint-helm-ovs-cni
-lint-helm-ovs-cni: $(HELM) ## Run helm lint for ovs-cni chart
+lint-helm-ovs-cni: helm ## Run helm lint for ovs-cni chart
 	$Q $(HELM) lint $(OVS_CNI_HELM_CHART)
 
 .PHONY: lint-helm-sfc-controller
-lint-helm-sfc-controller: $(HELM) ## Run helm lint for sfc controller chart
+lint-helm-sfc-controller: helm ## Run helm lint for sfc controller chart
 	$Q $(HELM) lint $(SFC_CONTOLLER_HELM_CHART)
 
 .PHONY: lint-helm-ovnkubernetes-operator
-lint-helm-ovnkubernetes-operator: $(HELM) ## Run helm lint for OVN Kubernetes Operator chart
+lint-helm-ovnkubernetes-operator: helm ## Run helm lint for OVN Kubernetes Operator chart
 	$Q $(HELM) lint $(DPFOVNKUBERNETESOPERATOR_HELM_CHART)
 
 .PHONY: lint-helm-dummydpuservice
-lint-helm-dummydpuservice: $(HELM) ## Run helm lint for dummydpuservice chart
+lint-helm-dummydpuservice: helm ## Run helm lint for dummydpuservice chart
 	$Q $(HELM) lint $(DUMMYDPUSERVICE_HELM_CHART)
 
 ##@ Release
@@ -996,114 +995,114 @@ DUMMYDPUSERVICE_HELM_CHART ?= $(DPUSERVICESDIR)/dummydpuservice/chart
 helm-package-all: $(addprefix helm-package-,$(HELM_TARGETS))  ## Package the helm charts for all components.
 
 .PHONY: helm-package-servicechain-controller
-helm-package-servicechain-controller: $(CHARTSDIR) $(HELM) ## Package helm chart for service chain controller
+helm-package-servicechain-controller: $(CHARTSDIR) helm ## Package helm chart for service chain controller
 	$(HELM) package $(SERVICECHAIN_CONTROLLER_HELM_CHART) --version $(SERVICECHAIN_CONTROLLER_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-multus
-helm-package-multus: $(CHARTSDIR) $(HELM) ## Package helm chart for multus CNIs
+helm-package-multus: $(CHARTSDIR) helm ## Package helm chart for multus CNIs
 	$(HELM) package $(MULTUS_HELM_CHART) --version $(MULTUS_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-sriov-device-plugin
-helm-package-sriov-device-plugin: $(CHARTSDIR) $(HELM) ## Package helm chart for sriov-network-device-plugin
+helm-package-sriov-device-plugin: $(CHARTSDIR) helm ## Package helm chart for sriov-network-device-plugin
 	$(HELM) package $(SRIOV_DP_HELM_CHART) --version $(SRIOV_DP_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-nvidia-k8s-ipam
-helm-package-nvidia-k8s-ipam: $(CHARTSDIR) $(HELM) ## Package helm chart for nvidia-k8s-ipam
+helm-package-nvidia-k8s-ipam: $(CHARTSDIR) helm ## Package helm chart for nvidia-k8s-ipam
 	$(HELM) package $(NVIDIA_K8S_IPAM_HELM_CHART) --version $(NVIDIA_K8S_IPAM_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-flannel
-helm-package-flannel: $(CHARTSDIR) $(HELM) ## Package helm chart for flannel CNI
+helm-package-flannel: $(CHARTSDIR) helm ## Package helm chart for flannel CNI
 	$Q curl -v -fSsL https://github.com/flannel-io/flannel/releases/download/$(FLANNEL_VERSION)/flannel.tgz -o $(FLANNEL_HELM_CHART)
 
 .PHONY: helm-package-ovs-cni
-helm-package-ovs-cni: $(CHARTSDIR) $(HELM) ## Package helm chart for OVS CNI
+helm-package-ovs-cni: $(CHARTSDIR) helm ## Package helm chart for OVS CNI
 	$(HELM) package $(OVS_CNI_HELM_CHART) --version $(OVS_CNI_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-sfc-controller
-helm-package-sfc-controller: $(CHARTSDIR) $(HELM) ## Package helm chart for SFC controller
+helm-package-sfc-controller: $(CHARTSDIR) helm ## Package helm chart for SFC controller
 	$(HELM) package $(SFC_CONTOLLER_HELM_CHART) --version $(SFC_CONTOLLER_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 OPERATOR_CHART_TAGS ?=$(TAG)
 .PHONY: helm-package-operator
-helm-package-operator: $(CHARTSDIR) $(HELM) ## Package helm chart for DPF Operator
+helm-package-operator: $(CHARTSDIR) helm ## Package helm chart for DPF Operator
 	for tag in $(OPERATOR_CHART_TAGS); do \
 		$(HELM) package $(OPERATOR_HELM_CHART) --version $$tag --destination $(CHARTSDIR); \
 	done
 
 .PHONY: helm-package-ovnkubernetes-operator
-helm-package-ovnkubernetes-operator: $(CHARTSDIR) $(HELM) ## Package helm chart for OVN Kubernetes Operator
+helm-package-ovnkubernetes-operator: $(CHARTSDIR) helm ## Package helm chart for OVN Kubernetes Operator
 	$(HELM) package $(DPFOVNKUBERNETESOPERATOR_HELM_CHART) --version $(DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-hbn-dpuservice
-helm-package-hbn-dpuservice: $(DPUSERVICESDIR) $(HELM) generate-manifests-hbn-dpuservice ## Package helm chart for HBN
+helm-package-hbn-dpuservice: $(DPUSERVICESDIR) helm generate-manifests-hbn-dpuservice ## Package helm chart for HBN
 	$(HELM) package $(HBN_HELM_CHART) --version $(HBN_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-dummydpuservice
-helm-package-dummydpuservice: $(DPUSERVICESDIR) $(HELM) generate-manifests-dummydpuservice ## Package helm chart for dummydpuservice
+helm-package-dummydpuservice: $(DPUSERVICESDIR) helm generate-manifests-dummydpuservice ## Package helm chart for dummydpuservice
 	$(HELM) package $(DUMMYDPUSERVICE_HELM_CHART) --version $(TAG) --destination $(CHARTSDIR)
 
 .PHONY: helm-push-all
 helm-push-all: $(addprefix helm-push-,$(HELM_TARGETS))  ## Push the helm charts for all components.
 
 .PHONY: helm-push-operator
-helm-push-operator: $(CHARTSDIR) ## Push helm chart for dpf-operator
+helm-push-operator: $(CHARTSDIR) helm ## Push helm chart for dpf-operator
 	for tag in $(OPERATOR_CHART_TAGS); do \
-		$(HELM) push  $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)-$$tag.tgz $(HELM_REGISTRY); \
+		$(HELM) push $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)-$$tag.tgz $(HELM_REGISTRY); \
 	done
 
 .PHONY: helm-push-servicechain-controller
-helm-push-servicechain-controller: $(CHARTSDIR) ## Push helm chart for service chain controller
+helm-push-servicechain-controller: $(CHARTSDIR) helm ## Push helm chart for service chain controller
 	$(HELM) push $(CHARTSDIR)/$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME)-chart-$(SERVICECHAIN_CONTROLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-multus
-helm-push-multus: $(CHARTSDIR) ## Push helm chart for multus CNI
+helm-push-multus: $(CHARTSDIR) helm ## Push helm chart for multus CNI
 	$(HELM) push $(CHARTSDIR)/$(MULTUS_HELM_CHART_NAME)-chart-$(MULTUS_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-sriov-device-plugin
-helm-push-sriov-device-plugin: $(CHARTSDIR) ## Push helm chart for sriov-network-device-plugin
+helm-push-sriov-device-plugin: $(CHARTSDIR) helm ## Push helm chart for sriov-network-device-plugin
 	$(HELM) push $(CHARTSDIR)/$(SRIOV_DP_HELM_CHART_NAME)-chart-$(SRIOV_DP_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-nvidia-k8s-ipam
-helm-push-nvidia-k8s-ipam: $(CHARTSDIR) ## Push helm chart for nvidia-k8s-ipam
+helm-push-nvidia-k8s-ipam: $(CHARTSDIR) helm ## Push helm chart for nvidia-k8s-ipam
 	$(HELM) push $(CHARTSDIR)/$(NVIDIA_K8S_IPAM_HELM_CHART_NAME)-chart-$(NVIDIA_K8S_IPAM_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-flannel
-helm-push-flannel: $(CHARTSDIR) ## Push helm chart for flannel CNI
+helm-push-flannel: $(CHARTSDIR) helm ## Push helm chart for flannel CNI
 	$(HELM) push $(CHARTSDIR)/$(FLANNEL_HELM_CHART_NAME)-$(FLANNEL_VERSION).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-ovs-cni
-helm-push-ovs-cni: $(CHARTSDIR) ## Push helm chart for OVS CNI
+helm-push-ovs-cni: $(CHARTSDIR) helm ## Push helm chart for OVS CNI
 	$(HELM) push $(CHARTSDIR)/$(OVS_CNI_HELM_CHART_NAME)-chart-$(OVS_CNI_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-sfc-controller
-helm-push-sfc-controller: $(CHARTSDIR) ## Push helm chart for sfc-controller
+helm-push-sfc-controller: $(CHARTSDIR) helm ## Push helm chart for sfc-controller
 	$(HELM) push $(CHARTSDIR)/$(SFC_CONTOLLER_HELM_CHART_NAME)-chart-$(SFC_CONTOLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-ovnkubernetes-operator
-helm-push-ovnkubernetes-operator: $(CHARTSDIR) ## Push helm chart for DPF OVN Kubernetes Operator
+helm-push-ovnkubernetes-operator: $(CHARTSDIR) helm ## Push helm chart for DPF OVN Kubernetes Operator
 	$(HELM) push $(CHARTSDIR)/$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME)-chart-$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-hbn-dpuservice
-helm-push-hbn-dpuservice: $(CHARTSDIR) ## Push helm chart for HBN
+helm-push-hbn-dpuservice: $(CHARTSDIR) helm ## Push helm chart for HBN
 	$(HELM) push $(CHARTSDIR)/$(HBN_HELM_CHART_NAME)-chart-$(TAG).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-dummydpuservice
-helm-push-dummydpuservice: $(CHARTSDIR) ## Push helm chart for HBN
+helm-push-dummydpuservice: $(CHARTSDIR) helm ## Push helm chart for HBN
 	$(HELM) push $(CHARTSDIR)/$(DUMMYDPUSERVICE_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
 
 ##@ Development Environment
 
 DEV_CLUSTER_NAME ?= dpf-dev
-dev-minikube: $(MINIKUBE) ## Create a minikube cluster for development.
+dev-minikube: minikube ## Create a minikube cluster for development.
 	CLUSTER_NAME=$(DEV_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
 
-clean-dev-env: $(MINIKUBE)
+clean-dev-env: minikube
 	$(MINIKUBE) delete -p $(DEV_CLUSTER_NAME)
 
-clean-minikube: $(MINIKUBE)  ## Delete the development minikube cluster.
+clean-minikube: minikube  ## Delete the development minikube cluster.
 	$(MINIKUBE) delete -p $(DEV_CLUSTER_NAME)
 
-dev-prereqs-dpuservice: $(KUSTOMIZE) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(HELM) $(KAMAJI) ## Install pre-requisites for dpuservice controller on minikube dev cluster
+dev-prereqs-dpuservice: kustomize helm $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(KAMAJI) ## Install pre-requisites for dpuservice controller on minikube dev cluster
 	# Deploy the dpuservice CRD
 	$(KUSTOMIZE) build config/dpuservice/crd | $(KUBECTL) apply -f -
 
@@ -1115,15 +1114,14 @@ dev-prereqs-dpuservice: $(KUSTOMIZE) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(HELM)
 	$Q $(KUBECTL) create namespace argocd --dry-run=client -o yaml | $(KUBECTL) apply -f - && $(KUBECTL) apply -f $(ARGOCD_YAML)
 
 SKAFFOLD_REGISTRY=localhost:5000
-dev-dpuservice: $(MINIKUBE) $(SKAFFOLD) ## Deploy dpuservice controller to dev cluster using skaffold
+dev-dpuservice: minikube skaffold kustomize ## Deploy dpuservice controller to dev cluster using skaffold
 	# Use minikube for docker build and deployment and run skaffold
 	$(SKAFFOLD) debug -p dpuservice --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
 
-dev-operator:  $(MINIKUBE) $(SKAFFOLD) generate-manifests-operator-embedded ## Deploy operator controller to dev cluster using skaffold
+dev-operator: minikube skaffold kustomize generate-manifests-operator-embedded ## Deploy operator controller to dev cluster using skaffold
 	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false --cleanup=false
 
-dev-ovnkubernetes-operator:  $(MINIKUBE) $(SKAFFOLD) generate-manifests-ovnkubernetes-operator-embedded ## Deploy operator controller to dev cluster using skaffold
+dev-ovnkubernetes-operator: minikube skaffold kustomize generate-manifests-ovnkubernetes-operator-embedded ## Deploy operator controller to dev cluster using skaffold
 	# Ensure the manager's kustomization has the correct image name and has not been changed by generation.
 	git restore config/ovnkubernetesoperator/manager/kustomization.yaml
 	$(SKAFFOLD) debug -p ovnkubernetes-operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
-
