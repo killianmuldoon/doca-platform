@@ -332,14 +332,12 @@ func SetDPUCondition(status *provisioningv1.DpuStatus, condition *metav1.Conditi
 func ComputeMD5(filePath string) (string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Println(err)
 		return "", err
 	}
 	defer file.Close() //nolint: errcheck
 
 	hash := md5.New()
 	if _, err := io.Copy(hash, file); err != nil {
-		fmt.Println(err)
 		return "", err
 	}
 
