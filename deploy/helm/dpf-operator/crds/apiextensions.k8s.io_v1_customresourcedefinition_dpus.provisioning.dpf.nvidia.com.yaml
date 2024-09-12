@@ -146,6 +146,8 @@ spec:
             - nodeName
             type: object
           status:
+            default:
+              phase: Initializing
             description: DpuStatus defines the observed state of DPU
             properties:
               bfb_version:
@@ -221,7 +223,8 @@ spec:
                 description: pci device information of this DPU
                 type: string
               phase:
-                description: high-level summary of where the DPU is in its lifecycle
+                default: Initializing
+                description: The current state of Dpu.
                 enum:
                 - Initializing
                 - Node Effect

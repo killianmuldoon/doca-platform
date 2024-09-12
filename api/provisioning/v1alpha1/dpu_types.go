@@ -119,7 +119,8 @@ type DpuSpec struct {
 
 // DpuStatus defines the observed state of DPU
 type DpuStatus struct {
-	// high-level summary of where the DPU is in its lifecycle
+	// The current state of Dpu.
+	// +kubebuilder:default=Initializing
 	// +required
 	Phase DpuPhase `json:"phase"`
 
@@ -157,7 +158,10 @@ type Dpu struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   DpuSpec   `json:"spec,omitempty"`
+	Spec DpuSpec `json:"spec,omitempty"`
+
+	// +kubebuilder:default={phase: Initializing}
+	// +optional
 	Status DpuStatus `json:"status,omitempty"`
 }
 

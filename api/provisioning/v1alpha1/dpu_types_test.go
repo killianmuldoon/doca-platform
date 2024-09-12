@@ -212,5 +212,17 @@ metadata:
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 		})
+
+		It("status.phase default", func() {
+			obj := createObj("obj-10")
+			err := k8sClient.Create(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(obj.Status.Phase).To(BeEquivalentTo(DPUInitializing))
+
+			obj_fetched := &Dpu{}
+			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(obj_fetched.Status.Phase).To(BeEquivalentTo(DPUInitializing))
+		})
 	})
 })
