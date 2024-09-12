@@ -82,7 +82,7 @@ func (r *DpuSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return r.reconcileDelete(ctx, dpuSet)
 	}
 
-	return r.reconcile(ctx, dpuSet)
+	return r.Handle(ctx, dpuSet)
 }
 
 func (r *DpuSetReconciler) reconcileDelete(ctx context.Context, dpuSet *provisioningv1.DpuSet) (ctrl.Result, error) {
@@ -95,7 +95,7 @@ func (r *DpuSetReconciler) reconcileDelete(ctx context.Context, dpuSet *provisio
 	return ctrl.Result{}, nil
 }
 
-func (r *DpuSetReconciler) reconcile(ctx context.Context, dpuSet *provisioningv1.DpuSet) (ctrl.Result, error) {
+func (r *DpuSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DpuSet) (ctrl.Result, error) {
 	var err error
 	logger := log.FromContext(ctx)
 
