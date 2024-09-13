@@ -32,7 +32,8 @@ import (
 var _ = Describe("Bfb", func() {
 
 	const (
-		DefaultURL = "http://example.com/dummy.bfb"
+		DefaultObjName = "obj-bfb"
+		DefaultURL     = "http://example.com/dummy.bfb"
 	)
 
 	var getObjKey = func(obj *Bfb) types.NamespacedName {
@@ -65,10 +66,11 @@ var _ = Describe("Bfb", func() {
 		ctx := context.Background()
 
 		It("create and get object", func() {
-			obj := createObj("obj-1")
+			obj := createObj(DefaultObjName)
 			obj.Spec.URL = DefaultURL
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(k8sClient.Delete, ctx, obj)
 
 			obj_fetched := &Bfb{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
@@ -77,7 +79,7 @@ var _ = Describe("Bfb", func() {
 		})
 
 		It("delete object", func() {
-			obj := createObj("obj-2")
+			obj := createObj(DefaultObjName)
 			obj.Spec.URL = DefaultURL
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
@@ -91,10 +93,11 @@ var _ = Describe("Bfb", func() {
 		})
 
 		It("update object", func() {
-			obj := createObj("obj-3")
+			obj := createObj(DefaultObjName)
 			obj.Spec.URL = DefaultURL
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(k8sClient.Delete, ctx, obj)
 
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
@@ -106,33 +109,36 @@ var _ = Describe("Bfb", func() {
 		})
 
 		It("spec.url is mandatory", func() {
-			obj := createObj("obj-4")
+			obj := createObj(DefaultObjName)
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("spec.url validation", func() {
-			obj := createObj("obj-5")
+			obj := createObj("obj-0")
 			obj.Spec.URL = "http://example.com/dummy.tar"
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			obj = createObj("obj-5-0")
+			obj = createObj("obj-1")
 			obj.Spec.URL = "http://8.8.8.8/dummy.bfb"
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj = createObj("obj-5-1")
+			obj = createObj("obj-2")
 			obj.Spec.URL = "https://example.com/dummy.bfb"
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj = createObj("obj-5-2")
+			obj = createObj("obj-3")
 			obj.Spec.URL = "https://8.8.8.8/dummy.bfb"
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj = createObj("obj-5-3")
+			obj = createObj("obj-4")
 			obj.Spec.URL = "example.com/dummy.bfb"
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
@@ -141,10 +147,11 @@ var _ = Describe("Bfb", func() {
 		It("spec.url is immutable", func() {
 			ref_value := DefaultURL
 
-			obj := createObj("obj-6")
+			obj := createObj(DefaultObjName)
 			obj.Spec.URL = ref_value
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(k8sClient.Delete, ctx, obj)
 
 			obj.Spec.URL = "http://example.com/dummy_clone.bfb"
 			err = k8sClient.Update(ctx, obj)
@@ -157,29 +164,56 @@ var _ = Describe("Bfb", func() {
 		})
 
 		It("spec.file_name default", func() {
-			obj := createObj("obj-7")
+			obj := createObj(DefaultObjName)
 			obj.Spec.URL = DefaultURL
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj.Spec.FileName).To(BeEquivalentTo(obj.Namespace + "-" + obj.Name + ".bfb"))
+			DeferCleanup(k8sClient.Delete, ctx, obj)
 		})
 
-		It("spec.file_name is invalid (not *.bfb)", func() {
-			obj := createObj("obj-8")
-			obj.Spec.FileName = "dummy.tar"
+		It("spec.file_name is validation", func() {
+			obj := createObj(DefaultObjName)
+			obj.Spec.FileName = "dummy_NAME-1.2.3.bfb"
 			obj.Spec.URL = DefaultURL
 			err := k8sClient.Create(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(k8sClient.Delete, ctx, obj)
+
+			obj = createObj(DefaultObjName)
+			obj.Spec.FileName = "dummy.tar"
+			obj.Spec.URL = DefaultURL
+			err = k8sClient.Create(ctx, obj)
+			Expect(err).To(HaveOccurred())
+
+			obj = createObj(DefaultObjName)
+			obj.Spec.FileName = " dummy.bfb"
+			obj.Spec.URL = DefaultURL
+			err = k8sClient.Create(ctx, obj)
+			Expect(err).To(HaveOccurred())
+
+			obj = createObj(DefaultObjName)
+			obj.Spec.FileName = "/dummy.bfb"
+			obj.Spec.URL = DefaultURL
+			err = k8sClient.Create(ctx, obj)
+			Expect(err).To(HaveOccurred())
+
+			obj = createObj(DefaultObjName)
+			obj.Spec.FileName = "dummy with spaces.bfb"
+			obj.Spec.URL = DefaultURL
+			err = k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
 
 		It("spec.file_name is immutable", func() {
 			ref_value := "dummy.bfb"
 
-			obj := createObj("obj-9")
+			obj := createObj(DefaultObjName)
 			obj.Spec.FileName = ref_value
 			obj.Spec.URL = DefaultURL
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(k8sClient.Delete, ctx, obj)
 
 			obj.Spec.FileName = "dummy_clone.bfb"
 			err = k8sClient.Update(ctx, obj)
@@ -196,7 +230,7 @@ var _ = Describe("Bfb", func() {
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
 kind: Bfb
 metadata:
-  name: obj-10
+  name: obj-bfb
   namespace: default
 spec:
   file_name: "bf-bundle-2.7.0-33.bfb"
@@ -207,6 +241,7 @@ spec:
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(k8sClient.Delete, ctx, obj)
 		})
 
 		It("create from yaml minimal", func() {
@@ -214,7 +249,7 @@ spec:
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
 kind: Bfb
 metadata:
-  name: obj-11
+  name: obj-bfb
   namespace: default
 spec:
   url: "http://bfb-server.dpf-operator-system/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_unsigned.bfb"
@@ -224,6 +259,7 @@ spec:
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(k8sClient.Delete, ctx, obj)
 		})
 
 		It("create from yaml validation issue (w/o url)", func() {
@@ -231,7 +267,7 @@ spec:
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
 kind: Bfb
 metadata:
-  name: obj-12
+  name: obj-bfb
   namespace: default
 `)
 			obj := &Bfb{}
@@ -246,7 +282,7 @@ metadata:
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
 kind: Bfb
 metadata:
-  name: obj-13
+  name: obj-bfb
   namespace: default
 spec:
   url: ""
@@ -259,11 +295,12 @@ spec:
 		})
 
 		It("status.phase default", func() {
-			obj := createObj("obj-14")
+			obj := createObj(DefaultObjName)
 			obj.Spec.URL = DefaultURL
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj.Status.Phase).To(BeEquivalentTo(BfbInitializing))
+			DeferCleanup(k8sClient.Delete, ctx, obj)
 
 			obj_fetched := &Bfb{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
