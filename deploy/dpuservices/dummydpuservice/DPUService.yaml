@@ -9,6 +9,9 @@ spec:
       repoURL: nvidia.com/dpf
       version: v0.1.0
       chart: dummydpuservice-chart
+    values:
+      resources:
+        nvidia.com/bf_sf: 1
   serviceID: dummydpuservice
   serviceDaemonSet:
     nodeSelector:
