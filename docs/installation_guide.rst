@@ -93,24 +93,37 @@ Install the components listed below before proceeding with DPF Operator deployme
 
         # TODO: Decide if SRIOV CNI is to be used for the October release.
 
-- DPF Operator namespace and storage
-    - A dedicated Namespace for the DPF Operator and shared NFS-backed storage for DPU images.
+
+DPF Deployment
+--------------
+
+DPF Operator Deployment
+~~~~~~~~~~~~~~~~~~~~~~~
+
+- Create the DPF Operator namespace
+    .. code-block:: bash
+
+        kubectl create ns dpf-operator-system
+
+
+- Create a PersistentVolume and PersistentVolumeClaim for the provisioning controller.
     - A PersistentVolumeClaim and PersistentVolume to use for BFB creation.
         # TODO: Update this section with instructions on how to bring your own CSI to DPF.
 
     .. code-block:: bash
 
-        kubectl create ns dpf-operator-system
+        # TODO: Users must supply their own NFS Server configuration.
+        export IP_ADDRESS_FOR_NFS_SERVER=XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
     .. code-block:: bash
 
-        # TODO: Users must supply their own NFS Server configuration.
         cat <<EOF | kubectl apply -f -
         apiVersion: v1
         kind: PersistentVolume
         metadata:
           name: bfb-pv
         spec:
+          storageClassName: nfs
           capacity:
             storage: 10Gi
           volumeMode: Filesystem
@@ -127,6 +140,7 @@ Install the components listed below before proceeding with DPF Operator deployme
           name: bfb-pvc
           namespace: dpf-operator-system
         spec:
+          storageClassName: nfs
           accessModes:
           - ReadWriteMany
           resources:
@@ -134,13 +148,6 @@ Install the components listed below before proceeding with DPF Operator deployme
               storage: 10Gi
           volumeMode: Filesystem
         EOF
-
-
-DPF Deployment
---------------
-
-DPF Operator Deployment
-~~~~~~~~~~~~~~~~~~~~~~~
 
 - Export your NGC API key
 
@@ -172,7 +179,7 @@ DPF Operator Deployment
         EOF
 
 
-- Deploy the DPF Operator bundle
+- Deploy the DPF Operator
 
     .. code-block:: bash
 
@@ -261,6 +268,39 @@ DPF Operator Configuration
 
     - Verify DPF controllers and services are running:
 
-    .. code-block:: console
+    .. code-block:: bash
 
         kubectl get -n dpf-operator-system pod,dpuservices
+
+Deletion and clean up
+============
+
+The following steps clean up the full DPF System. These steps do not include cleanup of prerequisites such as CSI and CNI.
+
+- Delete the DPF System:
+    .. code-block:: bash
+
+        kubectl delete -n dpf-operator-system dpfoperatorconfig dpfoperatorconfig
+
+- Delete the tenant control plane
+    .. code-block:: bash
+
+        kubectl delete tenantcontrolplane -n dpu-cplane-tenant1  dpu-cplane-tenant1
+        kubectl delete ns dpu-cplane-tenant1
+
+- Delete the DPF Operator:
+    .. code-block:: bash
+
+        ## NOTE: This command may need to be run more than once if it fails.
+        helm delete -n dpf-operator-system dpf-operator
+
+- Delete the DPF namespace:
+    .. code-block:: bash
+
+        kubectl delete ns dpf-operator-system
+
+- Delete the persistent volume:
+    .. code-block:: bash
+
+        kubectl delete pv bfb-pv
+
