@@ -5,3 +5,8 @@ metadata:
   namespace: dpf-operator-system
 spec:
   service: "example"
+  helmChart:
+    source:
+      repoURL: https://github.com/argoproj/argocd-example-apps
+      path: helm-guestbook
+      version: HEAD

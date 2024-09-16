@@ -40,7 +40,6 @@ type DPUServiceTemplate struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="Spec is immutable"
 	Spec   DPUServiceTemplateSpec   `json:"spec,omitempty"`
 	Status DPUServiceTemplateStatus `json:"status,omitempty"`
 }
@@ -49,7 +48,14 @@ type DPUServiceTemplate struct {
 type DPUServiceTemplateSpec struct {
 	// Service is the name of the DPU service this configuration refers to. It must match .spec.service of a
 	// DPUServiceConfiguration object and one of the keys in .spec.services of a DPUDeployment object.
+	// +required
 	Service string `json:"service"`
+	// HelmChart reflects the Helm related configuration. The user is supposed to configure the values that are static
+	// across any DPUServiceConfiguration used with this DPUServiceTemplate in a DPUDeployment. These values act as a
+	// baseline and are merged with values specified in the DPUServiceConfiguration. In case of conflict, the
+	// DPUServiceConfiguration values take precedence.
+	// +required
+	HelmChart HelmChart `json:"helmChart"`
 	// ResourceRequirements contains the overall resources required by this particular service to run on a single node
 	// +optional
 	ResourceRequirements corev1.ResourceList `json:"resourceRequirements,omitempty"`

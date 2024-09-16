@@ -406,6 +406,7 @@ func reconcileDPUServices(ctx context.Context, c client.Client, dpuDeployment *d
 			owner,
 			dpuServiceName,
 			dependencies.DPUServiceConfigurations[dpuServiceName],
+			dependencies.DPUServiceTemplates[dpuServiceName],
 		)
 
 		if err := c.Patch(ctx, dpuService, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
@@ -487,6 +488,7 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 	owner *metav1.OwnerReference,
 	name string,
 	serviceConfig *dpuservicev1.DPUServiceConfiguration,
+	serviceTemplate *dpuservicev1.DPUServiceTemplate,
 ) *dpuservicev1.DPUService {
 	dpuService := &dpuservicev1.DPUService{
 		ObjectMeta: metav1.ObjectMeta{
@@ -497,19 +499,21 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 			},
 		},
 		Spec: dpuservicev1.DPUServiceSpec{
-			HelmChart:       serviceConfig.Spec.ServiceConfiguration.HelmChart,
+			HelmChart: dpuservicev1.HelmChart{
+				Source: serviceTemplate.Spec.HelmChart.Source,
+				// TODO: Implement merge logic between values provided by DPUServiceConfiguration and DPUServiceTemplate
+				Values: serviceConfig.Spec.ServiceConfiguration.HelmChart.Values,
+			},
 			ServiceID:       ptr.To[string](name),
 			DeployInCluster: serviceConfig.Spec.ServiceConfiguration.DeployInCluster,
 		},
 	}
 
 	if serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Labels != nil ||
-		serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations != nil ||
-		serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.UpdateStrategy != nil {
+		serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations != nil {
 		dpuService.Spec.ServiceDaemonSet = &dpuservicev1.ServiceDaemonSetValues{
-			Labels:         serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Labels,
-			Annotations:    serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations,
-			UpdateStrategy: serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.UpdateStrategy,
+			Labels:      serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Labels,
+			Annotations: serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations,
 			// TODO: Figure out what to do with NodeSelector
 		}
 	}

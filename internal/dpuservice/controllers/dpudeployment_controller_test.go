@@ -29,7 +29,6 @@ import (
 	"github.com/fluxcd/pkg/runtime/patch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -553,7 +552,6 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations["annkey1"] = "annval1"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = make(map[string]string)
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels["labelkey1"] = "labelval1"
-				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.UpdateStrategy = &appsv1.DaemonSetUpdateStrategy{Type: appsv1.OnDeleteDaemonSetStrategyType}
 				dpuServiceConfiguration.Spec.ServiceConfiguration.DeployInCluster = ptr.To[bool](true)
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
@@ -565,7 +563,6 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations["annkey2"] = "annval2"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = make(map[string]string)
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels["labelkey2"] = "labelval2"
-				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.UpdateStrategy = &appsv1.DaemonSetUpdateStrategy{Type: appsv1.RollingUpdateDaemonSetStrategyType}
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
@@ -625,9 +622,8 @@ var _ = Describe("DPUDeployment Controller", func() {
 							},
 							ServiceID: ptr.To[string]("service-1"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
-								Labels:         map[string]string{"labelkey1": "labelval1"},
-								Annotations:    map[string]string{"annkey1": "annval1"},
-								UpdateStrategy: &appsv1.DaemonSetUpdateStrategy{Type: appsv1.OnDeleteDaemonSetStrategyType},
+								Labels:      map[string]string{"labelkey1": "labelval1"},
+								Annotations: map[string]string{"annkey1": "annval1"},
 							},
 							DeployInCluster: ptr.To[bool](true),
 						},
@@ -644,9 +640,6 @@ var _ = Describe("DPUDeployment Controller", func() {
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels:      map[string]string{"labelkey2": "labelval2"},
 								Annotations: map[string]string{"annkey2": "annval2"},
-								UpdateStrategy: &appsv1.DaemonSetUpdateStrategy{
-									Type: appsv1.RollingUpdateDaemonSetStrategyType,
-								},
 							},
 						},
 					}))
@@ -1622,6 +1615,14 @@ func getMinimalDPUServiceTemplate(namespace string) *dpuservicev1.DPUServiceTemp
 		},
 		Spec: dpuservicev1.DPUServiceTemplateSpec{
 			Service: "someservice",
+			HelmChart: dpuservicev1.HelmChart{
+				Source: dpuservicev1.ApplicationSource{
+					RepoURL: "someurl",
+					Path:    "somepath",
+					Version: "someversion",
+					Chart:   "somechart",
+				},
+			},
 		},
 	}
 }
@@ -1634,16 +1635,6 @@ func getMinimalDPUServiceConfiguration(namespace string) *dpuservicev1.DPUServic
 		},
 		Spec: dpuservicev1.DPUServiceConfigurationSpec{
 			Service: "someservice",
-			ServiceConfiguration: dpuservicev1.ServiceConfiguration{
-				HelmChart: dpuservicev1.HelmChart{
-					Source: dpuservicev1.ApplicationSource{
-						RepoURL: "someurl",
-						Path:    "somepath",
-						Version: "someversion",
-						Chart:   "somechart",
-					},
-				},
-			},
 		},
 	}
 }

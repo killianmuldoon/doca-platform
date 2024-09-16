@@ -17,8 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -49,15 +49,21 @@ type DPUServiceConfiguration struct {
 type DPUServiceConfigurationSpec struct {
 	// Service is the name of the DPU service this configuration refers to. It must match .spec.service of a
 	// DPUServiceTemplate object and one of the keys in .spec.services of a DPUDeployment object.
+	// +required
 	Service string `json:"service"`
 	// ServiceConfiguration contains fields that are configured on the generated DPUService.
-	ServiceConfiguration ServiceConfiguration `json:"serviceConfiguration"`
+	// +optional
+	ServiceConfiguration ServiceConfiguration `json:"serviceConfiguration,omitempty"`
 }
 
 // ServiceConfiguration contains fields that are configured on the generated DPUService.
 type ServiceConfiguration struct {
-	// HelmChart reflects the Helm related configuration
-	HelmChart HelmChart `json:"helmChart"`
+	// HelmChart reflects the Helm related configuration. The user is supposed to configure values specific to that
+	// DPUServiceConfiguration used in a DPUDeployment and should not specify values that could be shared across multiple
+	// DPUDeployments using different DPUServiceConfigurations. These values are merged with values specified in the
+	// DPUServiceTemplate. In case of conflict, the DPUServiceConfiguration values take precedence.
+	// +optional
+	HelmChart ServiceConfigurationHelmChart `json:"helmChart,omitempty"`
 	// ServiceDaemonSet contains settings related to the underlying DaemonSet that is part of the Helm chart
 	// +optional
 	ServiceDaemonSet DPUServiceConfigurationServiceDaemonSetValues `json:"serviceDaemonSet,omitempty"`
@@ -65,6 +71,14 @@ type ServiceConfiguration struct {
 	// DeployInCluster indicates if the DPUService Helm Chart will be deployed on the Host cluster. Default to false.
 	// +optional
 	DeployInCluster *bool `json:"deployInCluster,omitempty"`
+}
+
+// HelmChart reflects the helm related configuration
+type ServiceConfigurationHelmChart struct {
+	// Values specifies Helm values to be passed to Helm template, defined as a map. This takes precedence over Values.
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// +optional
+	Values *runtime.RawExtension `json:"values,omitempty"`
 }
 
 // DPUServiceConfigurationServiceDaemonSet reflects the Helm related configuration
@@ -75,9 +89,6 @@ type DPUServiceConfigurationServiceDaemonSetValues struct {
 	// Annotations specifies annotations which are added to the ServiceDaemonSet.
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
-	// UpdateStrategy specifies the DeaemonSet update strategy for the ServiceDaemonset.
-	// +optional
-	UpdateStrategy *appsv1.DaemonSetUpdateStrategy `json:"updateStrategy,omitempty"`
 }
 
 // DPUServiceConfigurationStatus defines the observed state of DPUServiceConfiguration
