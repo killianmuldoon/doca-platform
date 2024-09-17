@@ -71,14 +71,10 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 		}
 	}
 
-	needUpdate := false
 	if len(nodeEffect.CustomLabel) != 0 {
 		logger.V(3).Info("NodeEffect is set to Custom Label", "node", nodeName)
-		for k, v := range nodeEffect.CustomLabel {
-			if _, ok := node.Labels[k]; !ok {
-				node.Labels[k] = v
-				needUpdate = true
-			}
+		if err := cutil.AddLabelsToNode(ctx, client, node, nodeEffect.CustomLabel); err != nil {
+			return *state, err
 		}
 	} else if nodeEffect.Taint != nil {
 		logger.V(3).Info("NodeEffect is set to Taint", "node", nodeName)
@@ -91,7 +87,9 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 		}
 		if !taintExist {
 			node.Spec.Taints = append(node.Spec.Taints, *nodeEffect.Taint)
-			needUpdate = true
+			if err := client.Update(ctx, node); err != nil {
+				return *state, err
+			}
 		}
 	} else if nodeEffect.Drain != nil {
 		logger.V(3).Info("NodeEffect is set to Drain", "node", nodeName)
@@ -125,12 +123,6 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 			state.Phase = provisioningv1.DPUPending
 			cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
 			return *state, nil
-		}
-	}
-
-	if needUpdate {
-		if err := client.Update(ctx, node); err != nil {
-			return *state, err
 		}
 	}
 
