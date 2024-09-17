@@ -202,10 +202,15 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	node := os.Getenv("SFC_NODE_NAME")
 
+	if serviceInterface.Spec.Node == nil {
+		log.Info("si.Spec.Node: not set, skip the object")
+		return ctrl.Result{}, nil
+	}
+
 	if *serviceInterface.Spec.Node != node {
 		// this object was not intended for this nodes
 		// skip
-		log.Info("serviceInterface.Spec.Node: %s != node: %s", serviceInterface.Spec.Node, node)
+		log.Info("serviceInterface.Spec.Node: %s != node: %s", *serviceInterface.Spec.Node, node)
 		return ctrl.Result{}, nil
 	}
 
