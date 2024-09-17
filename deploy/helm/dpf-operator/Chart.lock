@@ -22,6 +22,6 @@ dependencies:
   version: 1.0.0
 - name: maintenance-operator-chart
   repository: oci://ghcr.io/mellanox
-  version: 0.1.0
-digest: sha256:1136af367b16260c5a979e22e531656ab95512ff132176ad3f46e27b9588668d
-generated: "2024-09-10T10:28:20.457675967+03:00"
+  version: 0.1.1
+digest: sha256:71ad85fbdf55c206aafcdfe10f480c3ed949bfc7f6133afe8a725459ab30392e
+generated: "2024-09-17T11:59:51.158065754+03:00"
