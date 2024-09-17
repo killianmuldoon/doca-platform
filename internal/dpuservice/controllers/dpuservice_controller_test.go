@@ -531,6 +531,62 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 	})
 })
 
+var _ = Describe("unit test DPUService functions", func() {
+	Context("When testing argoCDValuesFromDPUService", func() {
+		DescribeTable("behaves as expected", func(serviceID *string, values string, serviceDaemonSetValues *dpuservicev1.ServiceDaemonSetValues, expectedValues string) {
+			dpuService := &dpuservicev1.DPUService{
+				Spec: dpuservicev1.DPUServiceSpec{
+					ServiceID: serviceID,
+					HelmChart: dpuservicev1.HelmChart{
+						Values: &runtime.RawExtension{Raw: []byte(values)},
+					},
+					ServiceDaemonSet: serviceDaemonSetValues,
+				},
+			}
+
+			o, err := argoCDValuesFromDPUService(dpuService)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(o.Raw).To(Equal([]byte(expectedValues)))
+		},
+			Entry("no values no servicedaemonset",
+				ptr.To[string]("someservice"),
+				`{}`,
+				nil,
+				`{"serviceDaemonSet":{"labels":{"sfc.nvidia.com/service":"someservice"}}}`,
+			),
+			Entry("values but no serviceDaemonSet specified",
+				ptr.To[string]("someservice"),
+				`{"key":"value"}`,
+				nil,
+				`{"key":"value","serviceDaemonSet":{"labels":{"sfc.nvidia.com/service":"someservice"}}}`,
+			),
+			Entry("values with serviceDaemonSet specified",
+				ptr.To[string]("someservice"),
+				`{"key":"value"}`,
+				&dpuservicev1.ServiceDaemonSetValues{
+					Annotations: map[string]string{
+						"some": "annotation",
+					},
+				},
+				`{"key":"value","serviceDaemonSet":{"annotations":{"some":"annotation"},"labels":{"sfc.nvidia.com/service":"someservice"}}}`,
+			),
+			Entry("values that have serviceDaemonSet overrides with serviceDaemonSet specified",
+				ptr.To[string]("someservice"),
+				`{"serviceDaemonSet":{"annotations":{"diff":"annotation"},"labels":{"some":"label"},"updateStrategy":{"type":"RollingUpdate"}}}`,
+				&dpuservicev1.ServiceDaemonSetValues{
+					Annotations: map[string]string{
+						"some": "annotation",
+					},
+					UpdateStrategy: &appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.OnDeleteDaemonSetStrategyType,
+					},
+				},
+				`{"serviceDaemonSet":{"annotations":{"diff":"annotation","some":"annotation"},"labels":{"sfc.nvidia.com/service":"someservice","some":"label"},"updateStrategy":{"type":"OnDelete"}}}`,
+			),
+		)
+	})
+})
+
 func getMinimalDPFOperatorConfig() *operatorv1.DPFOperatorConfig {
 	return &operatorv1.DPFOperatorConfig{
 		ObjectMeta: metav1.ObjectMeta{

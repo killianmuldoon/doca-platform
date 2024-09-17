@@ -32,6 +32,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
+	dpuserviceutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/dpuservice/utils"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 
 	"github.com/fluxcd/pkg/runtime/patch"
@@ -559,13 +560,13 @@ func argoCDValuesFromDPUService(dpuService *dpuservicev1.DPUService) (*runtime.R
 	if err := json.Unmarshal(dsValuesData, &serviceDaemonSetValues); err != nil {
 		return nil, err
 	}
-	// Set the serviceDaemonSet values in the combined values.
-	combinedValues := map[string]interface{}{}
-	combinedValues["serviceDaemonSet"] = serviceDaemonSetValues
-	// Add all keys from other values to the ServiceDaemonSet values.
-	for k, v := range otherValues {
-		combinedValues[k] = v
+
+	serviceDaemonSetValuesWithKey := map[string]interface{}{
+		"serviceDaemonSet": serviceDaemonSetValues,
 	}
+
+	// Combine values
+	combinedValues := dpuserviceutils.MergeMaps(serviceDaemonSetValuesWithKey, otherValues)
 
 	data, err := json.Marshal(combinedValues)
 	if err != nil {
