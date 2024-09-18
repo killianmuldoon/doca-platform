@@ -33,9 +33,7 @@ import (
 )
 
 const (
-	svcIfcSetName     = "svc-if-set"
-	vlanInterface     = "vlan"
-	physicalInterface = "physical"
+	svcIfcSetName = "svc-if-set"
 )
 
 //nolint:dupl
@@ -140,7 +138,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			sis := &sfcv1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}}
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(sis), sis)).NotTo(HaveOccurred())
 			updatedSpec := &sfcv1.ServiceInterfaceSpec{
-				InterfaceType: "vlan",
+				InterfaceType: sfcv1.InterfaceTypeVLAN,
 				InterfaceName: ptr.To("eth1.100"),
 				Vlan: &sfcv1.VLAN{
 					VlanID:             100,
@@ -204,39 +202,48 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		It("should successfully create the ServiceInterfaceSet with vlan interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
-				MatchLabels: map[string]string{"role": "firewall"}}, vlanInterface))
+				MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeVLAN))
 		})
 		It("should successfully create the ServiceInterfaceSet with pf interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
-				MatchLabels: map[string]string{"role": "firewall"}}, "pf"))
+				MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypePF))
 		})
 		It("should successfully create the ServiceInterfaceSet with vf interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
-				MatchLabels: map[string]string{"role": "firewall"}}, "vf"))
+				MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeVF))
 		})
 		It("should successfully create the ServiceInterfaceSet with physical interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
-				MatchLabels: map[string]string{"role": "firewall"}}, physicalInterface))
+				MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypePhysical))
 		})
 		It("should successfully create the ServiceInterfaceSet with ovn interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
-				MatchLabels: map[string]string{"role": "firewall"}}, "ovn"))
+				MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeOVN))
 		})
+		It("should successfully create the ServiceInterfaceSet with service interface", func() {
+			By("creating ServiceInterfaceSet, with Node Selector")
+			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
+				MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeService))
+		})
+
 		It("should fail to create the ServiceInterfaceSet with missing vlan interface", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, vlanInterface)
+			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeVLAN)
 		})
 		It("should fail to create the ServiceInterfaceSet with missing pf interface", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, "pf")
+			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypePF)
 		})
 		It("should fail to create the ServiceInterfaceSet with missing vf interface", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, "vf")
+			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeVF)
 		})
 		It("should fail to create the ServiceInterfaceSet with missing physical interface", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, physicalInterface)
+			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypePhysical)
+		})
+		It("should fail to create the ServiceInterfaceSet with missing service definition", func() {
+			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeService)
 		})
 	})
 })
@@ -317,7 +324,7 @@ func serviceInterfaceSpec(labelSelector *metav1.LabelSelector) *sfcv1.ServiceInt
 
 func getTestServiceInterfaceSpec() *sfcv1.ServiceInterfaceSpec {
 	return &sfcv1.ServiceInterfaceSpec{
-		InterfaceType: "vf",
+		InterfaceType: sfcv1.InterfaceTypeVF,
 		InterfaceName: ptr.To("enp33s0f0np0v0"),
 		Vlan: &sfcv1.VLAN{
 			VlanID:             102,
@@ -337,30 +344,37 @@ func getTestServiceInterfaceSpec() *sfcv1.ServiceInterfaceSpec {
 func getTypedTestServiceInterfaceSpec(typ string) sfcv1.ServiceInterfaceSpec {
 	sfc := sfcv1.ServiceInterfaceSpec{}
 	switch typ {
-	case vlanInterface:
-		sfc.InterfaceType = "vlan"
+	case sfcv1.InterfaceTypeVLAN:
+		sfc.InterfaceType = sfcv1.InterfaceTypeVLAN
 		sfc.InterfaceName = ptr.To("eth1.100")
 		sfc.Vlan = &sfcv1.VLAN{
 			VlanID:             102,
 			ParentInterfaceRef: "p0",
 		}
-	case "pf":
-		sfc.InterfaceType = "pf"
+	case sfcv1.InterfaceTypePF:
+		sfc.InterfaceType = sfcv1.InterfaceTypePF
 		sfc.PF = &sfcv1.PF{
 			ID: 3,
 		}
-	case "vf":
-		sfc.InterfaceType = "vf"
+	case sfcv1.InterfaceTypeVF:
+		sfc.InterfaceType = sfcv1.InterfaceTypeVF
 		sfc.VF = &sfcv1.VF{
 			VFID:               0,
 			PFID:               1,
 			ParentInterfaceRef: "p0",
 		}
-	case physicalInterface:
-		sfc.InterfaceType = "physical"
+	case sfcv1.InterfaceTypePhysical:
+		sfc.InterfaceType = sfcv1.InterfaceTypePhysical
 		sfc.InterfaceName = ptr.To("enp33s0f0np0v0")
-	case "ovn":
-		sfc.InterfaceType = "ovn"
+	case sfcv1.InterfaceTypeOVN:
+		sfc.InterfaceType = sfcv1.InterfaceTypeOVN
+	case sfcv1.InterfaceTypeService:
+		sfc.InterfaceType = sfcv1.InterfaceTypeService
+		sfc.InterfaceName = ptr.To("net1")
+		sfc.Service = &sfcv1.ServiceDef{
+			ServiceID:   "awsome-firewall",
+			NetworkName: "mybrsfc",
+		}
 	}
 
 	return sfc
@@ -369,14 +383,16 @@ func getTypedTestServiceInterfaceSpec(typ string) sfcv1.ServiceInterfaceSpec {
 func getInvalidTestServiceInterfaceSpec(typ string) sfcv1.ServiceInterfaceSpec {
 	sfc := getTypedTestServiceInterfaceSpec(typ)
 	switch typ {
-	case vlanInterface:
+	case sfcv1.InterfaceTypeVLAN:
 		sfc.Vlan = nil
-	case "pf":
+	case sfcv1.InterfaceTypePF:
 		sfc.PF = nil
-	case "vf":
+	case sfcv1.InterfaceTypeVF:
 		sfc.VF = nil
-	case physicalInterface:
+	case sfcv1.InterfaceTypePhysical:
 		sfc.InterfaceName = nil
+	case sfcv1.InterfaceTypeService:
+		sfc.Service = nil
 	}
 	return sfc
 }

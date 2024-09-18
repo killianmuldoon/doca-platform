@@ -395,7 +395,7 @@ func createDPUServiceInterface(ctx context.Context, name string, namespace strin
 
 func getTestServiceInterfaceSpec() *sfcv1.ServiceInterfaceSpec {
 	return &sfcv1.ServiceInterfaceSpec{
-		InterfaceType: "vf",
+		InterfaceType: sfcv1.InterfaceTypeVF,
 		InterfaceName: ptr.To("enp33s0f0np0v0"),
 		Vlan: &sfcv1.VLAN{
 			VlanID:             102,

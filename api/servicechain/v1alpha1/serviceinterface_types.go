@@ -20,14 +20,29 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// InterfaceTypeVLAN is the vlan interface type
+	InterfaceTypeVLAN = "vlan"
+	// InterfaceTypePhysical is the physical interface type
+	InterfaceTypePhysical = "physical"
+	// InterfaceTypePF is the pf interface type
+	InterfaceTypePF = "pf"
+	// InterfaceTypeVF is the vf interface type
+	InterfaceTypeVF = "vf"
+	// InterfaceTypeOVN is the ovn interface type
+	InterfaceTypeOVN = "ovn"
+	// InterfaceTypeService is the service interface type
+	InterfaceTypeService = "service"
+)
+
 // ServiceInterfaceSpec defines the desired state of ServiceInterface
-// +kubebuilder:validation:XValidation:rule="(self.interfaceType == 'vlan' && has(self.vlan)) || (self.interfaceType == 'pf' && has(self.pf)) || (self.interfaceType == 'vf' && has(self.vf)) || (self.interfaceType == 'physical' && has(self.interfaceName)) || (self.interfaceType == 'ovn')", message="`for interfaceType=vlan, vlan must be set; for interfaceType=pf, pf must be set; for interfaceType=vf, vf must be set; for interfaceType=physical, interfaceName must be set"
+// +kubebuilder:validation:XValidation:rule="(self.interfaceType == 'vlan' && has(self.vlan)) || (self.interfaceType == 'pf' && has(self.pf)) || (self.interfaceType == 'vf' && has(self.vf)) || (self.interfaceType == 'physical' && has(self.interfaceName)) || (self.interfaceType == 'service' && has(self.service)) || (self.interfaceType == 'ovn')", message="`for interfaceType=vlan, vlan must be set; for interfaceType=pf, pf must be set; for interfaceType=vf, vf must be set; for interfaceType=physical, interfaceName must be set; for interfaceType=service, service must be set`"
 type ServiceInterfaceSpec struct {
 	// Node where this interface exists
 	// +optional
 	Node *string `json:"node,omitempty"`
-	// The interface type ("vlan", "physical", "pf", "vf", "ovn")
-	// +kubebuilder:validation:Enum={"vlan", "physical", "pf", "vf", "ovn"}
+	// The interface type ("vlan", "physical", "pf", "vf", "ovn", "service")
+	// +kubebuilder:validation:Enum={"vlan", "physical", "pf", "vf", "ovn", "service"}
 	// +required
 	InterfaceType string `json:"interfaceType"`
 	// The interface name
@@ -42,6 +57,19 @@ type ServiceInterfaceSpec struct {
 	// The PF definition
 	// +optional
 	PF *PF `json:"pf,omitempty"`
+	// The Service definition
+	// +optional
+	Service *ServiceDef `json:"service,omitempty"`
+}
+
+// ServiceDef Identifes the service and network for the ServiceInterface
+type ServiceDef struct {
+	// ServiceID is the DPU Service Identifier
+	// +required
+	ServiceID string `json:"serviceID"`
+	// NetworkName is the Network Attachment Definition name in the same namespace of the ServiceInterface
+	// +optional
+	NetworkName string `json:"networkName,omitempty"`
 }
 
 // VLAN defines the VLAN configuration

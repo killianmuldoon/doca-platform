@@ -97,19 +97,19 @@ func AddPatchPort(portName string, brA string, brB string, metadata string) erro
 func FigureOutName(ctx context.Context, serviceInterface *sfcv1.ServiceInterface) string {
 	log := log.FromContext(ctx)
 	portName := ""
-	if serviceInterface.Spec.InterfaceType == "physical" {
+	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypePhysical {
 		log.Info("matched on physical")
 		portName = *serviceInterface.Spec.InterfaceName
 	}
-	if serviceInterface.Spec.InterfaceType == "pf" {
+	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypePF {
 		log.Info("matched on pf")
 		portName = fmt.Sprintf("pf%dhpf", serviceInterface.Spec.PF.ID)
 	}
-	if serviceInterface.Spec.InterfaceType == "vf" {
+	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypeVF {
 		log.Info("matched on vf")
 		portName = fmt.Sprintf("pf%dvf%d", serviceInterface.Spec.VF.PFID, serviceInterface.Spec.VF.VFID)
 	}
-	if serviceInterface.Spec.InterfaceType == "vlan" {
+	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypeVLAN {
 		log.Info("matched on vlan skipping")
 		// TODO for MVP it is out of scope
 		// revisit this once we do not have collisions on patches.
@@ -121,7 +121,7 @@ func FigureOutName(ctx context.Context, serviceInterface *sfcv1.ServiceInterface
 func AddInterfacesToOvs(ctx context.Context, serviceInterface *sfcv1.ServiceInterface, metadata string) error {
 	log := log.FromContext(ctx)
 
-	if serviceInterface.Spec.InterfaceType == "ovn" {
+	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypeOVN {
 		log.Info("matched on ovn")
 		err := AddPatchPort("patch", "br-ovn", "br-sfc", metadata)
 		if err != nil {
@@ -148,7 +148,7 @@ func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *sfcv1.Servic
 	log := log.FromContext(ctx)
 	log.Info("DeleteInterfacesFromOvs")
 
-	if serviceInterface.Spec.InterfaceType == "ovn" {
+	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypeOVN {
 		log.Info("matched on ovn")
 		// match on ovs-cni naming
 		portBrA := "puplinkbrovn"
@@ -166,7 +166,7 @@ func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *sfcv1.Servic
 		return nil
 	}
 
-	if serviceInterface.Spec.InterfaceType == "physical" {
+	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypePhysical {
 		log.Info("Ignoring delete on physical interfaces.")
 		return nil
 	}

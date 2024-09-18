@@ -54,13 +54,15 @@ spec:
                 description: The interface name
                 type: string
               interfaceType:
-                description: The interface type ("vlan", "physical", "pf", "vf", "ovn")
+                description: The interface type ("vlan", "physical", "pf", "vf", "ovn",
+                  "service")
                 enum:
                 - vlan
                 - physical
                 - pf
                 - vf
                 - ovn
+                - service
                 type: string
               node:
                 description: Node where this interface exists
@@ -73,6 +75,19 @@ spec:
                     type: integer
                 required:
                 - pfID
+                type: object
+              service:
+                description: The Service definition
+                properties:
+                  networkName:
+                    description: NetworkName is the Network Attachment Definition
+                      name in the same namespace of the ServiceInterface
+                    type: string
+                  serviceID:
+                    description: ServiceID is the DPU Service Identifier
+                    type: string
+                required:
+                - serviceID
                 type: object
               vf:
                 description: The VF definition
@@ -110,11 +125,13 @@ spec:
             x-kubernetes-validations:
             - message: '`for interfaceType=vlan, vlan must be set; for interfaceType=pf,
                 pf must be set; for interfaceType=vf, vf must be set; for interfaceType=physical,
-                interfaceName must be set'
+                interfaceName must be set; for interfaceType=service, service must
+                be set`'
               rule: (self.interfaceType == 'vlan' && has(self.vlan)) || (self.interfaceType
                 == 'pf' && has(self.pf)) || (self.interfaceType == 'vf' && has(self.vf))
                 || (self.interfaceType == 'physical' && has(self.interfaceName)) ||
-                (self.interfaceType == 'ovn')
+                (self.interfaceType == 'service' && has(self.service)) || (self.interfaceType
+                == 'ovn')
           status:
             description: ServiceInterfaceStatus defines the observed state of ServiceInterface
             type: object
