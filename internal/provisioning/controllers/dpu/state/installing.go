@@ -36,6 +36,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/dms"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/future"
 
+	"github.com/openconfig/gnmi/proto/gnmi"
 	ospb "github.com/openconfig/gnoi/os"
 	"github.com/openconfig/gnoi/system"
 	tpb "github.com/openconfig/gnoi/types"
@@ -229,6 +230,15 @@ func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningv1.D
 		}
 		defer conn.Close() //nolint: errcheck
 		clients := gnoigo.NewClients(conn)
+		gnmiClient := gnmi.NewGNMIClient(conn)
+
+		modeRequest := setModeRequest()
+		if resp, err := gnmiClient.Set(ctx, modeRequest); err == nil {
+			logger.V(3).Info(fmt.Sprintf("Set DPU mode to DPU %s successfully, %v", dpu.Name, resp.String()))
+		} else {
+			logger.Error(err, "failed set DPU mode", "DPU", dpu.Name)
+			return future.Ready, err
+		}
 
 		logger.V(3).Info(fmt.Sprintf("TLS Connection established between DPU controller to DMS %s", dmsTaskName))
 
@@ -433,4 +443,24 @@ func generateJoinCommand(dpuSetName, dpusetNamespace string) (string, error) {
 func computeBFBMD5InDms(ns, name, container, filepath string) (string, error) {
 	md5CMD := fmt.Sprintf("md5sum %s", filepath)
 	return cutil.RemoteExec(ns, name, container, md5CMD)
+}
+
+func setModeRequest() *gnmi.SetRequest {
+	return &gnmi.SetRequest{
+		Update: []*gnmi.Update{
+			{
+				Path: &gnmi.Path{
+					Elem: []*gnmi.PathElem{
+						{Name: "nvidia"},
+						{Name: "mode"},
+						{Name: "config"},
+						{Name: "mode"},
+					},
+				},
+				Val: &gnmi.TypedValue{
+					Value: &gnmi.TypedValue_StringVal{StringVal: "DPU"},
+				},
+			},
+		},
+	}
 }

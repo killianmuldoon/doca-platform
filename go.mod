@@ -11,6 +11,7 @@ require (
 	github.com/medik8s/node-maintenance-operator v0.17.0
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1
+	github.com/openconfig/gnmi v0.10.0
 	github.com/openconfig/gnoi v0.4.1
 	github.com/openconfig/gnoigo v0.0.0-20240320202954-ebd033e3542c
 	github.com/pkg/errors v0.9.1
