@@ -90,7 +90,8 @@ func TestE2E(t *testing.T) {
 	g := NewWithT(t)
 	defer GinkgoRecover()
 	var err error
-	fmt.Fprintf(GinkgoWriter, "Starting dpf-operator suite\n")
+	_, err = fmt.Fprintf(GinkgoWriter, "Starting dpf-operator suite\n")
+	Expect(err).ToNot(HaveOccurred())
 	ctrl.SetLogger(klog.Background())
 
 	Expect(dpuservicev1.AddToScheme(scheme.Scheme)).To(Succeed())

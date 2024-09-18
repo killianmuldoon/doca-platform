@@ -209,7 +209,6 @@ func getBrSFCNetworks(ctx context.Context, pod *corev1.Pod) ([]*multustypes.Netw
 		return nil, err
 	}
 	for _, net := range networks {
-		net := net
 		if net.Name == bridgeSfcNAD {
 			sfcNets = append(sfcNets, net)
 		}

@@ -7,7 +7,7 @@ linters:
   enable:
     - dupl
     - errcheck
-    - exportloopref
+    - copyloopvar
     - gci
     - ginkgolinter
     - goconst
