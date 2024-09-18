@@ -58,9 +58,8 @@ shutdown_timeout = 0
     - Kubectl
     - Gitlab shell runner as a systemd service with a non-root user that is a member of the docker group
     - A go version matching the version in the go.mod
-    - Run the docker container from https://github.com/tonistiigi/binfmt to install necessary dependencies for building arm images.
     - Secrets for any registry the release runner is required to push artifacts to e.g. harbour, nvstaging
-    -
+    
 The config.toml for the e2e runner is located at /etc/gitlab-runner/config.toml by default. It looks like:
 ```toml
 concurrent = 1

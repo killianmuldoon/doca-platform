@@ -95,9 +95,6 @@ if ! command -v go &>/dev/null || [[ "$(go version | awk '{print $3}')" != "go${
   echo 'PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/local/bin:/usr/local/go/bin"' | sudo tee /etc/environment > /dev/null || log_and_exit "Failed to set Go path for gitlab-runner"
 fi
 
-## Enable Docker building with qemu for multi-arch
-sudo docker run --privileged --rm tonistiigi/binfmt --install all > /dev/null || log_and_exit "Failed to enable Docker building with qemu"
-
 ## Set the inotify limits for the host
 sudo sysctl fs.inotify.max_user_watches=1048576 > /dev/null || log_and_exit "Failed to set fs.inotify.max_user_watches"
 sudo sysctl fs.inotify.max_user_instances=8192 > /dev/null || log_and_exit "Failed to set fs.inotify.max_user_instances"

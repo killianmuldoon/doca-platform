@@ -217,6 +217,8 @@ release:
     OPERATOR_CHART_TAGS: "$TAG v0.1.0-latest"
   tags:
     - release
+  before_script:
+    - docker run --privileged --rm tonistiigi/binfmt:qemu-v8.1.5 --install all
   script:
     - ./hack/scripts/ci_helm_docker_login.sh
     - timeout 30m make release
