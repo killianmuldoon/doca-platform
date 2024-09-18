@@ -5,6 +5,33 @@ metadata:
   name: dpf-operator-manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - events
+  - nodes
+  - persistentvolumeclaims
+  - pods
+  - pods/exec
+  - secrets
+  - serviceaccounts
+  - serviceaccounts/token
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - create
+- apiGroups:
   - admissionregistration.k8s.io
   resources:
   - mutatingwebhookconfigurations
@@ -61,33 +88,6 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-  - ""
-  resources:
-  - configmaps
-  - events
-  - nodes
-  - persistentvolumeclaims
-  - pods
-  - pods/exec
-  - secrets
-  - serviceaccounts
-  - serviceaccounts/token
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - create
-- apiGroups:
   - kamaji.clastix.io
   resources:
   - tenantcontrolplanes
@@ -96,9 +96,10 @@ rules:
   - list
   - watch
 - apiGroups:
-  - nodemaintenance.medik8s.io
+  - maintenance.nvidia.com
   resources:
-  - '*'
+  - nodemaintenances
+  - nodemaintenances/status
   verbs:
   - '*'
 - apiGroups:

@@ -16,7 +16,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.3
   labels:
     dpf.nvidia.com/component: dpuservice-controller-manager
   name: dpudeployments.svc.dpf.nvidia.com
@@ -82,7 +82,6 @@ spec:
                             type: string
                           description: |-
                             DPUSelector defines the DPUs that the DPUSet should target
-                            TODO: Revisit if this one is needed at all or we can use the nodeSelector directly. If it's not the case, drop
                             this field and the field in the DPUSet. Based on the current implementation, it looks like we could remove it.
                           type: object
                         nodeSelector:
@@ -203,8 +202,6 @@ spec:
                                 minProperties: 1
                                 type: object
                               reference:
-                                description: 'TODO: What is this field supposed to
-                                  be?'
                                 properties:
                                   name:
                                     description: Name of the object
@@ -237,8 +234,6 @@ spec:
                                 minProperties: 1
                                 type: object
                               reference:
-                                description: 'TODO: What is this field supposed to
-                                  be?'
                                 properties:
                                   name:
                                     description: Name of the object
@@ -364,16 +359,8 @@ spec:
               conditions:
                 description: Conditions reflect the status of the object
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -414,12 +401,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -447,7 +429,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.3
   labels:
     dpf.nvidia.com/component: dpuservice-controller-manager
   name: dpuserviceconfigurations.svc.dpf.nvidia.com
@@ -501,9 +483,8 @@ spec:
                   on the generated DPUService.
                 properties:
                   deployInCluster:
-                    description: |-
-                      TODO: Add nodeEffect
-                      DeployInCluster indicates if the DPUService Helm Chart will be deployed on the Host cluster. Default to false.
+                    description: DeployInCluster indicates if the DPUService Helm
+                      Chart will be deployed on the Host cluster. Default to false.
                     type: boolean
                   helmChart:
                     description: |-
@@ -554,7 +535,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.3
   labels:
     dpf.nvidia.com/component: dpuservice-controller-manager
   name: dpuservicecredentialrequests.svc.dpf.nvidia.com
@@ -681,16 +662,8 @@ spec:
               conditions:
                 description: Conditions defines current service state.
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -731,12 +704,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -783,7 +751,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.3
   labels:
     dpf.nvidia.com/component: dpuservice-controller-manager
   name: dpuservices.svc.dpf.nvidia.com
@@ -843,9 +811,8 @@ spec:
                           generate from the DPUService.
                         type: string
                       repoURL:
-                        description: |-
-                          TODO: This currently allows deploying a helm chart either from a helm repo. This should be validated as such.
-                          RepoURL is the URL to the repository that contains the application helm chart.
+                        description: RepoURL is the URL to the repository that contains
+                          the application helm chart.
                         type: string
                       version:
                         description: Version is a semver tag for the Chart's version.
@@ -969,12 +936,8 @@ spec:
                       for the ServiceDaemonset.
                     properties:
                       rollingUpdate:
-                        description: |-
-                          Rolling update config params. Present only if type = "RollingUpdate".
-                          ---
-                          TODO: Update this to follow our convention for oneOf, whatever we decide it
-                          to be. Same as Deployment `strategy.rollingUpdate`.
-                          See https://github.com/kubernetes/kubernetes/issues/35345
+                        description: Rolling update config params. Present only if
+                          type = "RollingUpdate".
                         properties:
                           maxSurge:
                             anyOf:
@@ -1038,16 +1001,8 @@ spec:
               conditions:
                 description: Conditions defines current service state.
                 items:
-                  description: "Condition contains details for one aspect of the current
-                    state of this API Resource.\n---\nThis struct is intended for
-                    direct use as an array at the field path .status.conditions.  For
-                    example,\n\n\n\ttype FooStatus struct{\n\t    // Represents the
-                    observations of a foo's current state.\n\t    // Known .status.conditions.type
-                    are: \"Available\", \"Progressing\", and \"Degraded\"\n\t    //
-                    +patchMergeKey=type\n\t    // +patchStrategy=merge\n\t    // +listType=map\n\t
-                    \   // +listMapKey=type\n\t    Conditions []metav1.Condition `json:\"conditions,omitempty\"
-                    patchStrategy:\"merge\" patchMergeKey:\"type\" protobuf:\"bytes,1,rep,name=conditions\"`\n\n\n\t
-                    \   // other fields\n\t}"
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
                   properties:
                     lastTransitionTime:
                       description: |-
@@ -1088,12 +1043,7 @@ spec:
                       - Unknown
                       type: string
                     type:
-                      description: |-
-                        type of condition in CamelCase or in foo.example.com/CamelCase.
-                        ---
-                        Many .condition.type values are consistent across resources like Available, but because arbitrary conditions can be
-                        useful (see .node.status.conditions), the ability to deconflict is important.
-                        The regex it matches is (dns1123SubdomainFmt/)?(qualifiedNameFmt)
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
                       maxLength: 316
                       pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
                       type: string
@@ -1121,7 +1071,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.3
   labels:
     dpf.nvidia.com/component: dpuservice-controller-manager
   name: dpuservicetemplates.svc.dpf.nvidia.com
@@ -1185,9 +1135,8 @@ spec:
                           generate from the DPUService.
                         type: string
                       repoURL:
-                        description: |-
-                          TODO: This currently allows deploying a helm chart either from a helm repo. This should be validated as such.
-                          RepoURL is the URL to the repository that contains the application helm chart.
+                        description: RepoURL is the URL to the repository that contains
+                          the application helm chart.
                         type: string
                       version:
                         description: Version is a semver tag for the Chart's version.
@@ -1303,44 +1252,7 @@ rules:
   - ""
   resources:
   - configmaps
-  - secrets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - events
-  verbs:
-  - create
-  - patch
-- apiGroups:
-  - ""
-  resources:
-  - events
-  - secrets
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - create
-- apiGroups:
-  - ""
-  resources:
   - secrets
   - serviceaccounts
   verbs:
@@ -1354,6 +1266,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - namespaces
   - serviceaccounts/token
   verbs:
   - create
@@ -1449,12 +1362,16 @@ rules:
   - sfc.dpf.nvidia.com
   resources:
   - dpuservicechains/finalizers
+  - dpuserviceinterfaces/finalizers
+  - dpuserviceipams/finalizers
   verbs:
   - update
 - apiGroups:
   - sfc.dpf.nvidia.com
   resources:
   - dpuservicechains/status
+  - dpuserviceinterfaces/status
+  - dpuserviceipams/status
   verbs:
   - get
   - patch
@@ -1463,31 +1380,6 @@ rules:
   - sfc.dpf.nvidia.com
   resources:
   - dpuserviceinterfaces
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - sfc.dpf.nvidia.com
-  resources:
-  - dpuserviceinterfaces/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - sfc.dpf.nvidia.com
-  resources:
-  - dpuserviceinterfaces/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - sfc.dpf.nvidia.com
-  resources:
   - dpuserviceipams
   verbs:
   - create
@@ -1497,20 +1389,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - sfc.dpf.nvidia.com
-  resources:
-  - dpuserviceipams/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - sfc.dpf.nvidia.com
-  resources:
-  - dpuserviceipams/status
-  verbs:
-  - get
-  - patch
-  - update
 - apiGroups:
   - svc.dpf.nvidia.com
   resources:
@@ -1525,12 +1403,16 @@ rules:
   - svc.dpf.nvidia.com
   resources:
   - dpudeployments/finalizers
+  - dpuservicecredentialrequests/finalizers
+  - dpuservices/finalizers
   verbs:
   - update
 - apiGroups:
   - svc.dpf.nvidia.com
   resources:
   - dpudeployments/status
+  - dpuservicecredentialrequests/status
+  - dpuservices/status
   verbs:
   - get
   - patch
@@ -1559,20 +1441,6 @@ rules:
 - apiGroups:
   - svc.dpf.nvidia.com
   resources:
-  - dpuservicecredentialrequests/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - svc.dpf.nvidia.com
-  resources:
-  - dpuservicecredentialrequests/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - svc.dpf.nvidia.com
-  resources:
   - dpuservices
   verbs:
   - create
@@ -1583,20 +1451,6 @@ rules:
   - patch
   - update
   - watch
-- apiGroups:
-  - svc.dpf.nvidia.com
-  resources:
-  - dpuservices/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - svc.dpf.nvidia.com
-  resources:
-  - dpuservices/status
-  verbs:
-  - get
-  - patch
-  - update
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding

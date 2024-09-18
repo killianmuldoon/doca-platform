@@ -29,8 +29,8 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpuset"
 
+	maintenancev1alpha1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	nodeMaintenancev1beta1 "github.com/medik8s/node-maintenance-operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -54,7 +54,7 @@ func init() {
 
 	utilruntime.Must(provisioningv1.AddToScheme(scheme))
 
-	utilruntime.Must(nodeMaintenancev1beta1.AddToScheme(scheme))
+	utilruntime.Must(maintenancev1alpha1.AddToScheme(scheme))
 	utilruntime.Must(certmanagerv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }

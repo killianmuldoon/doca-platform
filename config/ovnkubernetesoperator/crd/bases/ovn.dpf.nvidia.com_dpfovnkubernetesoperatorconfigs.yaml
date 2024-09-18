@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: dpfovnkubernetesoperatorconfigs.ovn.dpf.nvidia.com
 spec:
   group: ovn.dpf.nvidia.com
@@ -42,9 +42,8 @@ spec:
               of DPFOVNKubernetesOperatorConfig
             properties:
               cidr:
-                description: |-
-                  CIDR is the CIDR that is used by the administrator to calculate the IPs defined in HostIPs and DPUIPs
-                  TODO: Add validator in validating webhook to ensure all the IPs below are part of this CIDR
+                description: CIDR is the CIDR that is used by the administrator to
+                  calculate the IPs defined in HostIPs and DPUIPs
                 type: string
               hosts:
                 description: |-
@@ -57,23 +56,20 @@ spec:
                     working.
                   properties:
                     dpuIP:
-                      description: |-
-                        DPUIP is the IP that will be assigned to the VTEP interface of the DPU.
-                        TODO: Add validator in validating webhook to ensure string is actually net.IPNet
+                      description: DPUIP is the IP that will be assigned to the VTEP
+                        interface of the DPU.
                       type: string
                     gateway:
-                      description: |-
-                        Gateway is the gateway that will be added on the routes related to OVN Kubernetes traffic.
-                        TODO: Add validator in validating webhook to ensure string is actually net.IPNet
+                      description: Gateway is the gateway that will be added on the
+                        routes related to OVN Kubernetes traffic.
                       type: string
                     hostClusterNodeName:
                       description: HostClusterNodeName is the name of the node in
                         the host cluster (OpenShift).
                       type: string
                     hostIP:
-                      description: |-
-                        HostIP is the IP that will be assigned to the PF Representor on each Host.
-                        TODO: Add validator in validating webhook to ensure string is actually net.IPNet
+                      description: HostIP is the IP that will be assigned to the PF
+                        Representor on each Host.
                       type: string
                   required:
                   - dpuIP
@@ -97,9 +93,7 @@ spec:
                         This field is effectively required, but due to backwards compatibility is
                         allowed to be empty. Instances of this type with an empty value here are
                         almost certainly wrong.
-                        TODO: Add other useful fields. apiVersion, kind, uid?
                         More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                        TODO: Drop `kubebuilder:default` when controller-gen doesn't need it https://github.com/kubernetes-sigs/kubebuilder/issues/3896.
                       type: string
                   type: object
                   x-kubernetes-map-type: atomic

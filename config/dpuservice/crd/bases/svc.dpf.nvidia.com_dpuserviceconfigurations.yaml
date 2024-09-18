@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.14.0
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: dpuserviceconfigurations.svc.dpf.nvidia.com
 spec:
   group: svc.dpf.nvidia.com
@@ -55,9 +55,8 @@ spec:
                   on the generated DPUService.
                 properties:
                   deployInCluster:
-                    description: |-
-                      TODO: Add nodeEffect
-                      DeployInCluster indicates if the DPUService Helm Chart will be deployed on the Host cluster. Default to false.
+                    description: DeployInCluster indicates if the DPUService Helm
+                      Chart will be deployed on the Host cluster. Default to false.
                     type: boolean
                   helmChart:
                     description: |-

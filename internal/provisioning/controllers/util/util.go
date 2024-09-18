@@ -56,16 +56,18 @@ const (
 	DpuHostIPLabel                  = "provisioning.dpf.nvidia.com/dpu-host-ip"
 	TolerationNotReadyKey           = "node.kubernetes.io/not-ready"
 	TolerationUnreachableyKey       = "node.kubernetes.io/unreachable"
-	TolerationNodeDrainKey          = "medik8s.io/drain"
 	TolerationUnschedulableKey      = "node.kubernetes.io/unschedulable"
 	NodeMaintenanceDrainStatusSleep = 5 * time.Second
 	// clusterConfigConfigMapName is the name of the ConfigMap that contains the cluster configuration in
 	// OpenShift.
 	ClusterConfigConfigMapName = "cluster-config-v1"
 	// clusterConfigNamespace is the Namespace where the OpenShift cluster configuration ConfigMap exists.
-	ClusterConfigNamespace     = "kube-system"
-	NodeMaintenanceRequastorID = "dpf.nvidia.com"
-	ProvisioningGroupName      = "provisioning.dpf.nvidia.com"
+	ClusterConfigNamespace = "kube-system"
+	// NodeMaintenanceRequestorID is the requestor ID used for NodeMaintenance CRs
+	NodeMaintenanceRequestorID = "dpf.nvidia.com"
+	// ProvisioningGroupName is the provisioning group, used to identify provisioning as
+	// additional Requestors in NodeMaintenance CR.
+	ProvisioningGroupName = "provisioning.dpf.nvidia.com"
 )
 
 func GenerateBFBTaskName(bfb provisioningv1.Bfb) string {
@@ -405,16 +407,6 @@ func GeneratePodToleration(nodeEffect provisioningv1.NodeEffect) []corev1.Tolera
 		},
 		{
 			Key:      TolerationUnreachableyKey,
-			Operator: corev1.TolerationOpExists,
-			Effect:   corev1.TaintEffectNoExecute,
-		},
-		{
-			Key:      TolerationNodeDrainKey,
-			Operator: corev1.TolerationOpExists,
-			Effect:   corev1.TaintEffectNoSchedule,
-		},
-		{
-			Key:      TolerationNodeDrainKey,
 			Operator: corev1.TolerationOpExists,
 			Effect:   corev1.TaintEffectNoExecute,
 		},

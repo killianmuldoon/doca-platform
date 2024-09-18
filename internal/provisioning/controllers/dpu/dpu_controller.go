@@ -56,7 +56,7 @@ type DpuReconciler struct {
 //+kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;delete
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=events,verbs=patch;update;delete;create
-//+kubebuilder:rbac:groups="nodemaintenance.medik8s.io",resources=*,verbs=*
+//+kubebuilder:rbac:groups=maintenance.nvidia.com,resources=nodemaintenances;nodemaintenances/status,verbs=*
 //+kubebuilder:rbac:groups="cert-manager.io",resources=*,verbs=*
 
 func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {

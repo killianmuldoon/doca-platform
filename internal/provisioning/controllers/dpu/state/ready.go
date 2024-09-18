@@ -26,7 +26,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/dms"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/hostnetwork"
 
-	nvidiaNodeMaintenancev1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
+	maintenancev1alpha1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -167,7 +167,7 @@ func HandleNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect p
 			Namespace: namespace,
 			Name:      nodeName,
 		}
-		maintenance := &nvidiaNodeMaintenancev1.NodeMaintenance{}
+		maintenance := &maintenancev1alpha1.NodeMaintenance{}
 		if err := k8sClient.Get(ctx, maintenanceNN, maintenance); err != nil {
 			if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("Error getting NodeMaintenance %v", maintenance)

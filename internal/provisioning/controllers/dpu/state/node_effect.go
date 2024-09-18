@@ -24,7 +24,7 @@ import (
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
-	nvidiaNodeMaintenancev1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
+	maintenancev1alpha1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -100,7 +100,7 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 			Namespace: st.dpu.Namespace,
 			Name:      nodeName,
 		}
-		maintenance := &nvidiaNodeMaintenancev1.NodeMaintenance{}
+		maintenance := &maintenancev1alpha1.NodeMaintenance{}
 		if err := client.Get(ctx, maintenanceNN, maintenance); err != nil {
 			if apierrors.IsNotFound(err) {
 				logger.V(3).Info("NodeMaintenance CR not found, creating new NodeMaintenance CR", "node", nodeName)
@@ -142,15 +142,15 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 
 func createNodeMaintenance(ctx context.Context, client client.Client, nodeName string, namespace string) error {
 	logger := log.FromContext(ctx)
-	nodeMaintenance := &nvidiaNodeMaintenancev1.NodeMaintenance{
+	nodeMaintenance := &maintenancev1alpha1.NodeMaintenance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nodeName,
 			Namespace: namespace,
 		},
-		Spec: nvidiaNodeMaintenancev1.NodeMaintenanceSpec{
-			RequestorID:          cutil.NodeMaintenanceRequastorID,
+		Spec: maintenancev1alpha1.NodeMaintenanceSpec{
+			RequestorID:          cutil.NodeMaintenanceRequestorID,
 			NodeName:             nodeName,
-			DrainSpec:            &nvidiaNodeMaintenancev1.DrainSpec{Force: true, DeleteEmptyDir: true},
+			DrainSpec:            &maintenancev1alpha1.DrainSpec{Force: true, DeleteEmptyDir: true},
 			AdditionalRequestors: []string{cutil.ProvisioningGroupName},
 		},
 	}
@@ -167,12 +167,12 @@ func checkNodeMaintenanceProgress(ctx context.Context, client client.Client, nod
 		Namespace: namespace,
 		Name:      nodeName,
 	}
-	nodeMaintenance := &nvidiaNodeMaintenancev1.NodeMaintenance{}
+	nodeMaintenance := &maintenancev1alpha1.NodeMaintenance{}
 	if err := client.Get(ctx, maintenanceNN, nodeMaintenance); err != nil {
 		logger.V(3).Info("Failed to get NodeMaintenance CR", "node", nodeName, "NodeMaintanence", nodeMaintenance, "error", err)
 		return false, err
 	}
-	condition := meta.FindStatusCondition(nodeMaintenance.Status.Conditions, nvidiaNodeMaintenancev1.ConditionTypeReady)
+	condition := meta.FindStatusCondition(nodeMaintenance.Status.Conditions, maintenancev1alpha1.ConditionTypeReady)
 	if condition.Status == metav1.ConditionTrue {
 		logger.V(3).Info("NodeMaintenance succeeded", "node", nodeName, "NodeMaintenance", nodeMaintenance, "reason", condition.Reason)
 		return true, nil

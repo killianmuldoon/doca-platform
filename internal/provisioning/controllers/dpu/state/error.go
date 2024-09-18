@@ -24,7 +24,7 @@ import (
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
-	nvidiaNodeMaintenancev1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
+	maintenancev1alpha1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -66,7 +66,7 @@ func RemoveNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect p
 			Namespace: namespace,
 			Name:      nodeName,
 		}
-		maintenance := &nvidiaNodeMaintenancev1.NodeMaintenance{}
+		maintenance := &maintenancev1alpha1.NodeMaintenance{}
 		if err := k8sClient.Get(ctx, maintenanceNN, maintenance); err != nil {
 			if apierrors.IsNotFound(err) {
 				return nil

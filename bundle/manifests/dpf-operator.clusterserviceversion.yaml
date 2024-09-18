@@ -77,6 +77,33 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          - events
+          - nodes
+          - persistentvolumeclaims
+          - pods
+          - pods/exec
+          - secrets
+          - serviceaccounts
+          - serviceaccounts/token
+          - services
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - create
+        - apiGroups:
           - admissionregistration.k8s.io
           resources:
           - mutatingwebhookconfigurations
@@ -133,33 +160,6 @@ spec:
           verbs:
           - '*'
         - apiGroups:
-          - ""
-          resources:
-          - configmaps
-          - events
-          - nodes
-          - persistentvolumeclaims
-          - pods
-          - pods/exec
-          - secrets
-          - serviceaccounts
-          - serviceaccounts/token
-          - services
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - namespaces
-          verbs:
-          - create
-        - apiGroups:
           - kamaji.clastix.io
           resources:
           - tenantcontrolplanes
@@ -168,9 +168,10 @@ spec:
           - list
           - watch
         - apiGroups:
-          - nodemaintenance.medik8s.io
+          - maintenance.nvidia.com
           resources:
-          - '*'
+          - nodemaintenances
+          - nodemaintenances/status
           verbs:
           - '*'
         - apiGroups:
