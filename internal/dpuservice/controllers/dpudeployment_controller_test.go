@@ -32,6 +32,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -553,6 +554,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = make(map[string]string)
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels["labelkey1"] = "labelval1"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.DeployInCluster = ptr.To[bool](true)
+				dpuServiceConfiguration.Spec.ServiceConfiguration.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key1":"value1"}`)}
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
@@ -563,18 +565,37 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations["annkey2"] = "annval2"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = make(map[string]string)
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels["labelkey2"] = "labelval2"
+				dpuServiceConfiguration.Spec.ServiceConfiguration.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key2":"value2"}`)}
+				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+				dpuServiceConfiguration = getMinimalDPUServiceConfiguration(testNS.Name)
+				dpuServiceConfiguration.Name = "service-3"
+				dpuServiceConfiguration.Spec.Service = "service-3"
+				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations = make(map[string]string)
+				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations["annkey3"] = "annval3"
+				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = make(map[string]string)
+				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels["labelkey3"] = "labelval3"
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
 				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
 				dpuServiceTemplate.Name = "service-1"
 				dpuServiceTemplate.Spec.Service = "service-1"
+				dpuServiceTemplate.Spec.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key1":"someothervalue"}`)}
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
 				dpuServiceTemplate = getMinimalDPUServiceTemplate(testNS.Name)
 				dpuServiceTemplate.Name = "service-2"
 				dpuServiceTemplate.Spec.Service = "service-2"
+				dpuServiceTemplate.Spec.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key3":"value3"}`)}
+				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+				dpuServiceTemplate = getMinimalDPUServiceTemplate(testNS.Name)
+				dpuServiceTemplate.Name = "service-3"
+				dpuServiceTemplate.Spec.Service = "service-3"
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
@@ -589,6 +610,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 					ServiceTemplate:      "service-2",
 					ServiceConfiguration: "service-2",
 				}
+				dpuDeployment.Spec.Services["service-3"] = dpuservicev1.DPUDeploymentServiceConfiguration{
+					ServiceTemplate:      "service-3",
+					ServiceConfiguration: "service-3",
+				}
 				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
 
@@ -596,7 +621,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Eventually(func(g Gomega) {
 					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
-					g.Expect(gotDPUServiceList.Items).To(HaveLen(2))
+					g.Expect(gotDPUServiceList.Items).To(HaveLen(3))
 
 					By("checking the object metadata")
 					for _, dpuService := range gotDPUServiceList.Items {
@@ -619,6 +644,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Version: "someversion",
 									Chart:   "somechart",
 								},
+								Values: &runtime.RawExtension{Raw: []byte(`{"key1":"value1"}`)},
 							},
 							ServiceID: ptr.To[string]("service-1"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
@@ -635,11 +661,27 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Version: "someversion",
 									Chart:   "somechart",
 								},
+								Values: &runtime.RawExtension{Raw: []byte(`{"key2":"value2","key3":"value3"}`)},
 							},
 							ServiceID: ptr.To[string]("service-2"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels:      map[string]string{"labelkey2": "labelval2"},
 								Annotations: map[string]string{"annkey2": "annval2"},
+							},
+						},
+						{
+							HelmChart: dpuservicev1.HelmChart{
+								Source: dpuservicev1.ApplicationSource{
+									RepoURL: "someurl",
+									Path:    "somepath",
+									Version: "someversion",
+									Chart:   "somechart",
+								},
+							},
+							ServiceID: ptr.To[string]("service-3"),
+							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+								Labels:      map[string]string{"labelkey3": "labelval3"},
+								Annotations: map[string]string{"annkey3": "annval3"},
 							},
 						},
 					}))

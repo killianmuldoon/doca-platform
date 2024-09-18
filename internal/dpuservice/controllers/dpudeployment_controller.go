@@ -28,6 +28,7 @@ import (
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/dpuservice/utils"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
@@ -39,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/json"
 	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -402,12 +404,15 @@ func reconcileDPUServices(ctx context.Context, c client.Client, dpuDeployment *d
 
 	// Create or update DPUServices to match what is defined in the DPUDeployment
 	for dpuServiceName := range dpuDeployment.Spec.Services {
-		dpuService := generateDPUService(client.ObjectKeyFromObject(dpuDeployment),
+		dpuService, err := generateDPUService(client.ObjectKeyFromObject(dpuDeployment),
 			owner,
 			dpuServiceName,
 			dependencies.DPUServiceConfigurations[dpuServiceName],
 			dependencies.DPUServiceTemplates[dpuServiceName],
 		)
+		if err != nil {
+			return fmt.Errorf("error while generating DPUService %s: %w", dpuServiceName, err)
+		}
 
 		if err := c.Patch(ctx, dpuService, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
 			return fmt.Errorf("error while patching %s %s: %w", dpuService.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuService), err)
@@ -489,7 +494,30 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 	name string,
 	serviceConfig *dpuservicev1.DPUServiceConfiguration,
 	serviceTemplate *dpuservicev1.DPUServiceTemplate,
-) *dpuservicev1.DPUService {
+) (*dpuservicev1.DPUService, error) {
+
+	var serviceConfigValues, serviceTemplateValues map[string]interface{}
+	if serviceConfig.Spec.ServiceConfiguration.HelmChart.Values != nil {
+		if err := json.Unmarshal(serviceConfig.Spec.ServiceConfiguration.HelmChart.Values.Raw, &serviceConfigValues); err != nil {
+			return nil, fmt.Errorf("error while unmarshaling serviceConfig values: %w", err)
+		}
+	}
+	if serviceTemplate.Spec.HelmChart.Values != nil {
+		if err := json.Unmarshal(serviceTemplate.Spec.HelmChart.Values.Raw, &serviceTemplateValues); err != nil {
+			return nil, fmt.Errorf("error while unmarshaling serviceTemplate values: %w", err)
+		}
+	}
+
+	mergedValues := utils.MergeMaps(serviceConfigValues, serviceTemplateValues)
+	var mergedValuesRawExtension *runtime.RawExtension
+	if mergedValues != nil {
+		mergedValuesRaw, err := json.Marshal(mergedValues)
+		if err != nil {
+			return nil, fmt.Errorf("error while marshaling merged serviceTemplate and serviceConfig values: %w", err)
+		}
+		mergedValuesRawExtension = &runtime.RawExtension{Raw: mergedValuesRaw}
+	}
+
 	dpuService := &dpuservicev1.DPUService{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", dpuDeploymentNamespacedName.Name, name),
@@ -501,8 +529,7 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 		Spec: dpuservicev1.DPUServiceSpec{
 			HelmChart: dpuservicev1.HelmChart{
 				Source: serviceTemplate.Spec.HelmChart.Source,
-				// TODO: Implement merge logic between values provided by DPUServiceConfiguration and DPUServiceTemplate
-				Values: serviceConfig.Spec.ServiceConfiguration.HelmChart.Values,
+				Values: mergedValuesRawExtension,
 			},
 			ServiceID:       ptr.To[string](name),
 			DeployInCluster: serviceConfig.Spec.ServiceConfiguration.DeployInCluster,
@@ -522,7 +549,7 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 	dpuService.ObjectMeta.ManagedFields = nil
 	dpuService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
 
-	return dpuService
+	return dpuService, nil
 }
 
 // generateDPUServiceChain generates a DPUServiceChain according to the DPUDeployment
