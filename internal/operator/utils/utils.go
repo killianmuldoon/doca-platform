@@ -86,7 +86,7 @@ func UnstructuredToBytes(objs []*unstructured.Unstructured) ([]byte, error) {
 	return out, nil
 }
 
-// EnsureNamespace ensures the namespaces to be created. If it does already exist it will return not an error.
+// EnsureNamespace ensures the namespace exists in the cluster by creating it if it does not exist.
 func EnsureNamespace(ctx context.Context, client client.Client, namespace string) error {
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{

@@ -161,6 +161,12 @@ func (r *ServiceInterfaceSetReconciler) createOrUpdateChild(ctx context.Context,
 			ID: serviceInterfaceSet.Spec.Template.Spec.PF.ID,
 		}
 	}
+	if serviceInterfaceSet.Spec.Template.Spec.Service != nil {
+		sc.Spec.Service = &sfcv1.ServiceDef{
+			ServiceID:   serviceInterfaceSet.Spec.Template.Spec.Service.ServiceID,
+			NetworkName: serviceInterfaceSet.Spec.Template.Spec.Service.NetworkName,
+		}
+	}
 	sc.ObjectMeta.ManagedFields = nil
 	sc.SetGroupVersionKind(sfcv1.GroupVersion.WithKind("ServiceInterface"))
 	if err := r.Client.Patch(ctx, sc, client.Apply, client.ForceOwnership, client.FieldOwner(serviceInterfaceSetControllerName)); err != nil {
