@@ -46,21 +46,29 @@ import (
 
 var _ = Describe("DPUService Controller", func() {
 	Context("When reconciling a resource", func() {
-		var testNS *corev1.Namespace
+		var (
+			testNS     *corev1.Namespace
+			testConfig *operatorv1.DPFOperatorConfig
+		)
 		BeforeEach(func() {
 			By("creating the namespaces")
 			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
-			dpfOperatorConfig := getMinimalDPFOperatorConfig()
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
-			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one"}})).To(Succeed())
-			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two"}})).To(Succeed())
-			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-three"}})).To(Succeed())
-			Expect(
-				// this namespace can be created multiple times.
-				client.IgnoreAlreadyExists(
-					testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpfOperatorConfig.GetNamespace()}})),
-			).To(Succeed())
-			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, dpfOperatorConfig))).To(Succeed())
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one"}}))).To(Succeed())
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two"}}))).To(Succeed())
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-three"}}))).To(Succeed())
+			// Create the DPF System Namespace
+			err := testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: operatorcontroller.DefaultDPFOperatorConfigSingletonNamespace}})
+			if !apierrors.IsAlreadyExists(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+			// Apply and get the DPFOperatorConfig. There is a race condition between the separate test runs why we have to fetch the config.
+			// A real config is necessary to run our reconcileArgoSecrets tests.
+			if testConfig == nil {
+				testConfig = getMinimalDPFOperatorConfig()
+				Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testConfig))).To(Succeed())
+			}
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(testConfig), testConfig)).To(Succeed())
 		})
 		AfterEach(func() {
 			By("Cleanup the Namespace and Secrets")
@@ -212,6 +220,9 @@ func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []controlp
 				g.Expect(s.Data).To(HaveKey(key))
 			}
 		}
+		g.Expect(s.OwnerReferences).To(HaveLen(1))
+		g.Expect(s.OwnerReferences[0].Name).To(Equal(operatorcontroller.DefaultDPFOperatorConfigSingletonName))
+		g.Expect(s.OwnerReferences[0].Kind).To(Equal(operatorv1.DPFOperatorConfigKind))
 		*cleanupObjs = append(*cleanupObjs, s.DeepCopy())
 	}
 }
@@ -220,6 +231,10 @@ func assertAppProject(g Gomega, testClient client.Client, argoCDNamespace string
 	// Check that the DPU cluster argo project has been created.
 	appProject := &argov1.AppProject{}
 	g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: argoCDNamespace, Name: dpuAppProjectName}, appProject)).To(Succeed())
+	g.Expect(appProject.OwnerReferences).To(HaveLen(1))
+	g.Expect(appProject.OwnerReferences[0].Name).To(Equal(operatorcontroller.DefaultDPFOperatorConfigSingletonName))
+	g.Expect(appProject.OwnerReferences[0].Kind).To(Equal(operatorv1.DPFOperatorConfigKind))
+
 	gotDestinations := appProject.Spec.Destinations
 	g.Expect(gotDestinations).To(HaveLen(len(clusters)))
 	expectedDestinations := []argov1.ApplicationDestination{}
@@ -368,7 +383,10 @@ func getMinimalDPUServices(testNamespace string) []*dpuservicev1.DPUService {
 
 var _ = Describe("test DPUService reconciler step-by-step", func() {
 	Context("When reconciling", func() {
-		var testNS *corev1.Namespace
+		var (
+			testConfig *operatorv1.DPFOperatorConfig
+			testNS     *corev1.Namespace
+		)
 		BeforeEach(func() {
 			By("creating the namespaces")
 			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
@@ -378,7 +396,13 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			if !apierrors.IsAlreadyExists(err) {
 				Expect(err).ToNot(HaveOccurred())
 			}
-			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, getMinimalDPFOperatorConfig()))).To(Succeed())
+			// Apply and get the DPFOperatorConfig. There is a race condition between the separate test runs why we have to fetch the config.
+			// A real config is necessary to run our reconcileArgoSecrets tests.
+			if testConfig == nil {
+				testConfig = getMinimalDPFOperatorConfig()
+				Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testConfig))).To(Succeed())
+			}
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(testConfig), testConfig)).To(Succeed())
 		})
 		AfterEach(func() {
 			By("Cleanup the test Namespace")
@@ -414,7 +438,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
-			err := r.reconcileArgoSecrets(ctx, clusters, getMinimalDPFOperatorConfig().GetNamespace())
+			err := r.reconcileArgoSecrets(ctx, clusters, testConfig)
 			Expect(err).NotTo(HaveOccurred())
 			secretList := &corev1.SecretList{}
 			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, controlplanemeta.DPFClusterLabelKey})).To(Succeed())
@@ -446,7 +470,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
-			err := r.reconcileArgoSecrets(ctx, clusters, getMinimalDPFOperatorConfig().GetNamespace())
+			err := r.reconcileArgoSecrets(ctx, clusters, testConfig)
 			// Expect an error to be reported.
 			Expect(err).To(HaveOccurred())
 
@@ -481,7 +505,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
-			err := r.reconcileArgoSecrets(ctx, clusters, getMinimalDPFOperatorConfig().GetNamespace())
+			err := r.reconcileArgoSecrets(ctx, clusters, testConfig)
 			// Expect an error to be reported.
 			Expect(err).To(HaveOccurred())
 

@@ -276,7 +276,7 @@ func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, 
 	}
 
 	// Ensure the Argo secret for each cluster is up-to-date.
-	if err := r.reconcileArgoSecrets(ctx, clusters, dpfOperatorConfig.GetNamespace()); err != nil {
+	if err := r.reconcileArgoSecrets(ctx, clusters, dpfOperatorConfig); err != nil {
 		return fmt.Errorf("ArgoSecrets: %v", err)
 	}
 
@@ -314,24 +314,30 @@ func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, clusters []
 }
 
 // reconcileArgoSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
-func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, clusters []controlplane.DPFCluster, dpfOperatorConfigNamespace string) error {
+func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	log := ctrllog.FromContext(ctx)
 
 	var errs []error
-	for i := range clusters {
-		cluster := clusters[i]
+	for _, cluster := range clusters {
 		// Get the control plane kubeconfig
 		adminConfig, err := cluster.GetKubeconfig(ctx, r.Client)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
+
 		// Template an argoSecret using information from the control plane secret.
-		argoSecret, err := createArgoSecretFromKubeconfig(dpfOperatorConfigNamespace, cluster, adminConfig)
+		argoSecret, err := createArgoSecretFromKubeconfig(adminConfig, dpfOperatorConfig.GetNamespace(), cluster.String())
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
+
+		// Add owner reference ArgoSecret->DPFOperatorConfig to ensure that the Secret will be deleted with the DPFOperatorConfig.
+		// This ensures that we should have no orphaned ArgoCD Secrets.
+		owner := metav1.NewControllerRef(dpfOperatorConfig, operatorv1.DPFOperatorConfigGroupVersionKind)
+		argoSecret.SetOwnerReferences([]metav1.OwnerReference{*owner})
+
 		// Create or patch
 		log.Info("Patching Secrets for DPF clusters")
 		if err := r.Client.Patch(ctx, argoSecret, client.Apply, applyPatchOptions...); err != nil {
@@ -343,7 +349,7 @@ func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, cluster
 }
 
 // createArgoSecretFromKubeconfig generates an ArgoCD cluster secret from the given kubeconfig.
-func createArgoSecretFromKubeconfig(argoCDNamespace string, cluster controlplane.DPFCluster, kubeconfig *kubeconfig.Type) (*corev1.Secret, error) {
+func createArgoSecretFromKubeconfig(kubeconfig *kubeconfig.Type, dpfOperatorConfigNamespace, clusterName string) (*corev1.Secret, error) {
 	clusterConfigName := kubeconfig.Clusters[0].Name
 	clusterConfigServer := kubeconfig.Clusters[0].Cluster.Server
 	secretConfig, err := json.Marshal(config{TlsClientConfig: tlsClientConfig{
@@ -354,11 +360,11 @@ func createArgoSecretFromKubeconfig(argoCDNamespace string, cluster controlplane
 	if err != nil {
 		return nil, err
 	}
-	return createArgoCDSecret(argoCDNamespace, secretConfig, cluster, clusterConfigName, clusterConfigServer), nil
+	return createArgoCDSecret(secretConfig, dpfOperatorConfigNamespace, clusterName, clusterConfigName, clusterConfigServer), nil
 }
 
 // createArgoCDSecret templates an ArgoCD cluster Secret with the passed values.
-func createArgoCDSecret(argoCDNamespace string, secretConfig []byte, cluster controlplane.DPFCluster, clusterConfigName, clusterConfigServer string) *corev1.Secret {
+func createArgoCDSecret(secretConfig []byte, dpfOperatorConfigNamespace, clusterName, clusterConfigName, clusterConfigServer string) *corev1.Secret {
 	return &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -366,11 +372,11 @@ func createArgoCDSecret(argoCDNamespace string, secretConfig []byte, cluster con
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			// The secret name is the cluster name. DPUClusters must have unique names.
-			Name:      cluster.String(),
-			Namespace: argoCDNamespace,
+			Name:      clusterName,
+			Namespace: dpfOperatorConfigNamespace,
 			Labels: map[string]string{
 				argoCDSecretLabelKey:                argoCDSecretLabelValue,
-				controlplanemeta.DPFClusterLabelKey: cluster.String(),
+				controlplanemeta.DPFClusterLabelKey: clusterName,
 				operatorv1.DPFComponentLabelKey:     dpuServiceControllerName,
 			},
 			OwnerReferences: nil,
