@@ -227,6 +227,41 @@ spec:
                             description: ServiceIfc defines the service interface
                               configuration
                             properties:
+                              ipam:
+                                description: IPAM defines the IPAM configuration when
+                                  referencing a serviceInterface of type 'service'
+                                properties:
+                                  defaultGateway:
+                                    type: boolean
+                                  matchLabels:
+                                    additionalProperties:
+                                      type: string
+                                    maxProperties: 50
+                                    minProperties: 1
+                                    type: object
+                                  reference:
+                                    properties:
+                                      name:
+                                        description: Name of the object
+                                        maxLength: 253
+                                        minLength: 1
+                                        type: string
+                                      namespace:
+                                        description: Namespace of the object
+                                        maxLength: 253
+                                        minLength: 1
+                                        type: string
+                                    required:
+                                    - name
+                                    type: object
+                                  setDefaultRoute:
+                                    type: boolean
+                                type: object
+                                x-kubernetes-validations:
+                                - message: either reference or matchLabels must be
+                                    specified
+                                  rule: (has(self.reference) && !has(self.matchLabels))
+                                    || (!has(self.reference) && has(self.matchLabels))
                               matchLabels:
                                 additionalProperties:
                                   type: string

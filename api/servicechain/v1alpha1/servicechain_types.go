@@ -79,6 +79,9 @@ type ServiceIfc struct {
 	// +kubebuilder:validation:MaxProperties=50
 	// +optional
 	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+	// IPAM defines the IPAM configuration when referencing a serviceInterface of type 'service'
+	// +optional
+	IPAM *IPAM `json:"ipam,omitempty"`
 }
 
 // IPAM defines the IPAM configuration
