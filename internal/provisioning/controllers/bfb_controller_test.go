@@ -40,7 +40,6 @@ import (
 // These tests are written in BDD-style using Ginkgo framework. Refer to
 // http://onsi.github.io/ginkgo to learn more.
 var _ = Describe("Bfb", func() {
-
 	const (
 		DefaultNS            = "dpf-provisioning-test"
 		BFBPathFileSize512KB = "/BlueField/BFBs/bf-bundle-dummy-512KB.bfb"

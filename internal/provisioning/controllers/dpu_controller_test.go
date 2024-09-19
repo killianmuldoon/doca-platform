@@ -39,7 +39,6 @@ import (
 // These tests are written in BDD-style using Ginkgo framework. Refer to
 // http://onsi.github.io/ginkgo to learn more.
 var _ = Describe("Dpu", func() {
-
 	const (
 		DefaultNS  = "dpf-provisioning-test"
 		DefaultBfb = "dpf-provisioning-bfb-test"
