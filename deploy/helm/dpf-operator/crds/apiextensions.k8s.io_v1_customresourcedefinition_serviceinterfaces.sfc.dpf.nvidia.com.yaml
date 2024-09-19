@@ -125,13 +125,13 @@ spec:
             x-kubernetes-validations:
             - message: '`for interfaceType=vlan, vlan must be set; for interfaceType=pf,
                 pf must be set; for interfaceType=vf, vf must be set; for interfaceType=physical,
-                interfaceName must be set; for interfaceType=service, service must
-                be set`'
+                interfaceName must be set; for interfaceType=service, service and
+                interfaceName must be set`'
               rule: (self.interfaceType == 'vlan' && has(self.vlan)) || (self.interfaceType
                 == 'pf' && has(self.pf)) || (self.interfaceType == 'vf' && has(self.vf))
                 || (self.interfaceType == 'physical' && has(self.interfaceName)) ||
-                (self.interfaceType == 'service' && has(self.service)) || (self.interfaceType
-                == 'ovn')
+                (self.interfaceType == 'service' && has(self.service) && has(self.interfaceName))
+                || (self.interfaceType == 'ovn')
           status:
             description: ServiceInterfaceStatus defines the observed state of ServiceInterface
             type: object

@@ -36,7 +36,7 @@ const (
 )
 
 // ServiceInterfaceSpec defines the desired state of ServiceInterface
-// +kubebuilder:validation:XValidation:rule="(self.interfaceType == 'vlan' && has(self.vlan)) || (self.interfaceType == 'pf' && has(self.pf)) || (self.interfaceType == 'vf' && has(self.vf)) || (self.interfaceType == 'physical' && has(self.interfaceName)) || (self.interfaceType == 'service' && has(self.service)) || (self.interfaceType == 'ovn')", message="`for interfaceType=vlan, vlan must be set; for interfaceType=pf, pf must be set; for interfaceType=vf, vf must be set; for interfaceType=physical, interfaceName must be set; for interfaceType=service, service must be set`"
+// +kubebuilder:validation:XValidation:rule="(self.interfaceType == 'vlan' && has(self.vlan)) || (self.interfaceType == 'pf' && has(self.pf)) || (self.interfaceType == 'vf' && has(self.vf)) || (self.interfaceType == 'physical' && has(self.interfaceName)) || (self.interfaceType == 'service' && has(self.service) && has(self.interfaceName)) || (self.interfaceType == 'ovn')", message="`for interfaceType=vlan, vlan must be set; for interfaceType=pf, pf must be set; for interfaceType=vf, vf must be set; for interfaceType=physical, interfaceName must be set; for interfaceType=service, service and interfaceName must be set`"
 type ServiceInterfaceSpec struct {
 	// Node where this interface exists
 	// +optional
