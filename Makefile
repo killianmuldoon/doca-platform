@@ -174,7 +174,7 @@ $(OVN_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR) $(OVN_REVISION)
 
 ##@ Development
-GENERATE_TARGETS ?= operator dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded sfc-controller release-defaults hbn-dpuservice ovs-cni dummydpuservice
+GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller operator operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded release-defaults hbn-dpuservice ovs-cni dummydpuservice
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
