@@ -20,9 +20,6 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/networkhelper"
@@ -35,14 +32,10 @@ import (
 )
 
 const (
-	// brInt is the name of the OVN integration bridge
-	brInt = "br-int"
-	// brOVN is the name of the bridge that is used to communicate with OVN. This is the bridge where the rest of the HBN
-	// will connect.
+	// brOVN is the name of the bridge that is used by OVN as the external bridge (br-ex). This is the bridge that is
+	// later connected with br-sfc. In the current OVN IC w/ DPU implementation, the internal port of this bridge acts
+	// as the VTEP.
 	brOVN = "br-ovn"
-
-	// ovsSystemdConfigPath is the configuration file of the openvswitch systemd service
-	ovsSystemdConfigPath = "/etc/default/openvswitch-switch"
 )
 
 type DPUCNIProvisioner struct {
@@ -69,9 +62,6 @@ type DPUCNIProvisioner struct {
 	// its peer nodes when traffic needs to go from one Pod running on worker Node A to another Pod running on control
 	// plane A (and vice versa).
 	hostCIDR *net.IPNet
-
-	// brEx is the name of the OVN external bridge and must match the name of the PF on the host.
-	brEx string
 }
 
 // New creates a DPUCNIProvisioner that can configure the system
@@ -84,7 +74,7 @@ func New(ctx context.Context,
 	gateway net.IP,
 	vtepCIDR *net.IPNet,
 	hostCIDR *net.IPNet,
-	pf0 string) *DPUCNIProvisioner {
+) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
 		ctx:                       ctx,
 		ensureConfigurationTicker: clock.NewTicker(30 * time.Second),
@@ -96,7 +86,6 @@ func New(ctx context.Context,
 		gateway:                   gateway,
 		vtepCIDR:                  vtepCIDR,
 		hostCIDR:                  hostCIDR,
-		brEx:                      pf0,
 	}
 }
 
@@ -117,64 +106,14 @@ func (p *DPUCNIProvisioner) EnsureConfiguration() {
 		case <-p.ctx.Done():
 			return
 		case <-p.ensureConfigurationTicker.C():
-			// We need to ensure that the OVN Management VF is configured in a loop to ensure that when the host
-			// restarts and the VFs are removed and recreated, the VF is configured again so that OVN Kubernetes can
-			// function.
-			err := p.configureOVNManagementVF()
-			if err != nil {
-				klog.Errorf("failed to ensure OVN management VF configuration: %s", err.Error())
-			}
 		}
 	}
 }
 
-// configure runs the provisioning flow without checking existing configuration
+// configure runs the provisioning flow once
 func (p *DPUCNIProvisioner) configure() error {
-	klog.Info("Configuring OVS Daemon")
-	err := p.configureOVSDaemon()
-	if err != nil {
-		return err
-	}
-
-	klog.Info("Cleaning up initial OVS setup")
-	err = p.cleanUpBridges()
-	if err != nil {
-		return err
-	}
-
-	klog.Info("Configuring OVS bridges and ports")
-	// TODO: Create a better data structure for bridges.
-	// TODO: Parse IP for br-int via the interface which will use DHCP.
-	for bridge, controller := range map[string]string{
-		brInt:  "ptcp:8510:169.254.55.1",
-		p.brEx: "ptcp:8511",
-		brOVN:  "",
-	} {
-		err := p.setupOVSBridge(bridge, controller)
-		if err != nil {
-			return err
-		}
-	}
-
-	brExTobrOVNPatchPort, _, err := p.connectOVSBridges(p.brEx, brOVN)
-	if err != nil {
-		return err
-	}
-
 	klog.Info("Configuring system to enable pod to pod on different node connectivity")
-	err = p.configurePodToPodOnDifferentNodeConnectivity(brExTobrOVNPatchPort)
-	if err != nil {
-		return err
-	}
-
-	klog.Info("Configuring system to enable host to service connectivity")
-	err = p.configureHostToServiceConnectivity()
-	if err != nil {
-		return err
-	}
-
-	klog.Info("Configuring VF used for OVN Management")
-	err = p.configureOVNManagementVF()
+	err := p.configurePodToPodOnDifferentNodeConnectivity()
 	if err != nil {
 		return err
 	}
@@ -182,75 +121,16 @@ func (p *DPUCNIProvisioner) configure() error {
 	return nil
 }
 
-// setupOVSBridge creates an OVS bridge tailored to work with OVS-DOCA
-func (p *DPUCNIProvisioner) setupOVSBridge(name string, controller string) error {
-	err := p.ovsClient.AddBridgeIfNotExists(name)
-	if err != nil {
-		return err
-	}
-
-	err = p.ovsClient.SetBridgeDataPathType(name, ovsclient.NetDev)
-	if err != nil {
-		return err
-	}
-
-	if len(controller) == 0 {
-		return nil
-	}
-
-	// This is required so that OVN on the host can access the OVS on the DPU via TCP endpoints
-	return p.ovsClient.SetBridgeController(name, controller)
-}
-
-// connectBridges connects two bridges in OVS using patch ports
-func (p *DPUCNIProvisioner) connectOVSBridges(brA string, brB string) (string, string, error) {
-	portFormat := "%s-to-%s"
-
-	brAPatchPort := fmt.Sprintf(portFormat, brA, brB)
-	brBPatchPort := fmt.Sprintf(portFormat, brB, brA)
-	err := p.addOVSPatchPortWithPeer(brA, brAPatchPort, brBPatchPort)
-	if err != nil {
-		return "", "", err
-	}
-	err = p.addOVSPatchPortWithPeer(brB, brBPatchPort, brAPatchPort)
-	if err != nil {
-		return "", "", err
-	}
-	return brAPatchPort, brBPatchPort, nil
-}
-
-// addPatchPortWithPeer adds a patch port to a bridge and configures a peer for that port
-func (p *DPUCNIProvisioner) addOVSPatchPortWithPeer(bridge string, port string, peer string) error {
-	// TODO: Check for this error and validate expected error, otherwise return error
-	_ = p.ovsClient.AddPortIfNotExists(bridge, port)
-	err := p.ovsClient.SetPortType(port, ovsclient.Patch)
-	if err != nil {
-		return err
-	}
-	return p.ovsClient.SetPatchPortPeer(port, peer)
-}
-
-// configurePodToPodOnDifferentNodeConnectivity configures a VTEP interface and the ovn-encap-ip external ID so that
-// traffic going through the geneve tunnels can function as expected.
-func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkPort string) error {
-	vtep := "vtep0"
-	err := p.ovsClient.AddPortIfNotExists(brOVN, vtep)
-	if err != nil {
-		return err
-	}
-
-	err = p.ovsClient.SetPortType(vtep, ovsclient.Internal)
-	if err != nil {
-		return err
-	}
-
-	err = p.setLinkIPAddressIfNotSet(vtep, p.vtepIPNet)
+// configurePodToPodOnDifferentNodeConnectivity configures the VTEP interface (br-ovn) and the ovn-encap-ip external ID
+// so that traffic going through the geneve tunnels can function as expected.
+func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity() error {
+	err := p.setLinkIPAddressIfNotSet(brOVN, p.vtepIPNet)
 	if err != nil {
 		return fmt.Errorf("error while setting VTEP IP: %w", err)
 	}
-	err = p.networkHelper.SetLinkUp(vtep)
+	err = p.networkHelper.SetLinkUp(brOVN)
 	if err != nil {
-		return fmt.Errorf("error while setting link %s up: %w", vtep, err)
+		return fmt.Errorf("error while setting link %s up: %w", brOVN, err)
 	}
 
 	_, vtepNetwork, err := net.ParseCIDR(p.vtepIPNet.String())
@@ -261,9 +141,9 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 	if vtepNetwork.String() != p.vtepCIDR.String() {
 		// Add route related to traffic that needs to go from one Pod running on worker Node A to another Pod running
 		// on worker Node B.
-		err = p.addRouteIfNotExists(p.vtepCIDR, p.gateway, vtep, nil)
+		err = p.addRouteIfNotExists(p.vtepCIDR, p.gateway, brOVN, nil)
 		if err != nil {
-			return fmt.Errorf("error while adding route %s %s %s: %w", p.vtepCIDR, p.gateway.String(), vtep, err)
+			return fmt.Errorf("error while adding route %s %s %s: %w", p.vtepCIDR, p.gateway.String(), brOVN, err)
 		}
 	}
 
@@ -274,9 +154,9 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 	// which gets a DHCP IP in that CIDR. Given that, we need to set the metric of this route to something very high
 	// so that it's the last preferred route in the route table for that CIDR. The reason for that is this OVS bug that
 	// selects the route with the highest prio as preferred https://redmine.mellanox.com/issues/3871067.
-	err = p.addRouteIfNotExists(p.hostCIDR, p.gateway, vtep, ptr.To[int](10000))
+	err = p.addRouteIfNotExists(p.hostCIDR, p.gateway, brOVN, ptr.To[int](10000))
 	if err != nil {
-		return fmt.Errorf("error while adding route %s %s %s: %w", p.hostCIDR, p.gateway.String(), vtep, err)
+		return fmt.Errorf("error while adding route %s %s %s: %w", p.hostCIDR, p.gateway.String(), brOVN, err)
 	}
 
 	err = p.ovsClient.SetOVNEncapIP(p.vtepIPNet.IP)
@@ -284,8 +164,7 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity(uplinkP
 		return err
 	}
 
-	// This is also needed for pods to access the internet
-	return p.ovsClient.SetBridgeUplinkPort(p.brEx, uplinkPort)
+	return nil
 }
 
 // setLinkIPAddressIfNotSet sets an IP address to a link if it's not already set
@@ -320,126 +199,4 @@ func (p *DPUCNIProvisioner) addRouteIfNotExists(network *net.IPNet, gateway net.
 		return fmt.Errorf("error adding route: %w", err)
 	}
 	return nil
-}
-
-// configureHostToServiceConnectivity configures br-ex so that Service ClusterIP traffic from the host to the DPU finds
-// it's way to the br-int
-func (p *DPUCNIProvisioner) configureHostToServiceConnectivity() error {
-	pfRep := "pf0hpf"
-	err := p.ovsClient.AddPortIfNotExists(p.brEx, pfRep)
-	if err != nil {
-		return err
-	}
-	err = p.ovsClient.SetPortType(pfRep, ovsclient.DPDK)
-	if err != nil {
-		return err
-	}
-	err = p.ovsClient.SetBridgeHostToServicePort(p.brEx, pfRep)
-	if err != nil {
-		return err
-	}
-
-	mac, err := p.networkHelper.GetPFRepMACAddress(pfRep)
-	if err != nil {
-		return err
-	}
-	return p.ovsClient.SetBridgeMAC(p.brEx, mac)
-}
-
-// configureOVNManagementVF configures the VF that is going to be used by OVN Kubernetes for the management
-// (ovn-k8s-mp0_0). We need to do that because OVN Kubernetes will rename the interface on the host, but it won't be
-// able to plug that interface on the OVS since the DPU won't have such interface.
-func (p *DPUCNIProvisioner) configureOVNManagementVF() error {
-	vfRepresentorLinkName := "pf0vf0"
-	expectedLinkName := "ovn-k8s-mp0_0"
-	vfRepresentorLinkExists, err := p.networkHelper.LinkExists(vfRepresentorLinkName)
-	if err != nil {
-		return fmt.Errorf("error while checking whether link %s exists: %w", vfRepresentorLinkName, err)
-	}
-
-	if vfRepresentorLinkExists {
-		err := p.networkHelper.SetLinkDown(vfRepresentorLinkName)
-		if err != nil {
-			return fmt.Errorf("error while setting link %s down: %w", vfRepresentorLinkName, err)
-		}
-
-		err = p.networkHelper.RenameLink(vfRepresentorLinkName, expectedLinkName)
-		if err != nil {
-			return fmt.Errorf("error while renaming link %s to %s: %w", vfRepresentorLinkName, expectedLinkName, err)
-		}
-	}
-
-	err = p.networkHelper.SetLinkUp(expectedLinkName)
-	if err != nil {
-		return fmt.Errorf("error while setting link %s up: %w", expectedLinkName, err)
-	}
-
-	return nil
-}
-
-// configureVFs renames the existing VFs to map the fake environment we have on the host
-//
-//nolint:unused
-func (p *DPUCNIProvisioner) configureVFs() error { panic("unimplemented") }
-
-// cleanUpBridges removes all the relevant bridges
-func (p *DPUCNIProvisioner) cleanUpBridges() error {
-	// Default bridges that exist in freshly installed DPUs. This step is required as we need to plug in the PF later,
-	// see plugOVSUplink(). Without p0 plugged into OVS, adding ports of type DPDK fails.
-	err := p.ovsClient.DeleteBridgeIfExists("ovsbr1")
-	if err != nil {
-		return err
-	}
-	err = p.ovsClient.DeleteBridgeIfExists("ovsbr2")
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// configureOVSDaemon configures the OVS Daemon and triggers a restart of the daemon via systemd
-func (p *DPUCNIProvisioner) configureOVSDaemon() error {
-	configuredNow, err := p.exposeOVSDBOverTCP()
-	if err != nil {
-		return err
-	}
-
-	// Enable OVS DOCA. It requires hugepages which are going to be configured by the provisioning workstream.
-	err = p.ovsClient.SetDOCAInit(true)
-	if err != nil {
-		return err
-	}
-
-	// We avoid restarting OVS because it takes time if the OVS is already configured. We don't check for OVS being
-	// configured in DOCA to avoid extra code for now. It's very unlikely we hit this case.
-	if configuredNow {
-		cmd := p.exec.Command("systemctl", "restart", "openvswitch-switch.service")
-		err = cmd.Run()
-		if err != nil {
-			return fmt.Errorf("error while restarting OVS systemd service: %w", err)
-		}
-	}
-	return nil
-}
-
-// exposeOVSDBOverTCP reconfigures OVS to expose ovs-db via TCP
-func (p *DPUCNIProvisioner) exposeOVSDBOverTCP() (bool, error) {
-	configPath := filepath.Join(p.FileSystemRoot, ovsSystemdConfigPath)
-	content, err := os.ReadFile(configPath)
-	if err != nil {
-		return false, fmt.Errorf("error while reading file %s: %w", configPath, err)
-	}
-
-	var configured bool
-	// TODO: Could do better parsing here but that _should_ be good enough given that the default is that
-	// OVS_CTL_OPTS is not specified.
-	if !strings.Contains(string(content), "--remote=ptcp:8500") {
-		content = append(content, "\nOVS_CTL_OPTS=\"--ovsdb-server-options=--remote=ptcp:8500\""...)
-		err := os.WriteFile(configPath, content, 0644)
-		if err != nil {
-			return false, fmt.Errorf("error while writing file %s: %w", configPath, err)
-		}
-		configured = true
-	}
-	return configured, nil
 }
