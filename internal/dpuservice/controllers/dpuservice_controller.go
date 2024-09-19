@@ -154,9 +154,32 @@ func (r *DPUServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 //nolint:unparam
 func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
-	// TODO: add deletion for Argo Secrets, AppProject and ImagePullSecrets. Also add AwaitingDeletion conditions.
-	log.Info("handling DPUService deletion")
+	log.Info("Handling DPUService deletion")
+	res, err := r.reconcileDeleteApplications(ctx, dpuService)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+	if !res.IsZero() {
+		return res, nil
+	}
 
+	if err := r.reconcileDeleteImagePullSecrets(ctx); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	// Add AwaitingDeletion condition to true. Probably this will never going to apply on the DPUService as it will be
+	// deleted in the next step anyway.
+	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationsReconciled)
+
+	// If there are no associated applications remove the finalizer.
+	log.Info("Removing finalizer")
+	controllerutil.RemoveFinalizer(dpuService, dpuservicev1.DPUServiceFinalizer)
+
+	return ctrl.Result{}, nil
+}
+
+func (r *DPUServiceReconciler) reconcileDeleteApplications(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) {
+	log := ctrllog.FromContext(ctx)
 	applications := &argov1.ApplicationList{}
 	if err := r.Client.List(ctx, applications, client.MatchingLabels{
 		dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
@@ -212,14 +235,63 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 	}
 
-	// Add AwaitingDeletion condition to true. Probably this will never going to apply on the DPUService as it will be
-	// deleted in the next step anyway.
-	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationsReconciled)
-
-	// If there are no associated applications remove the finalizer.
-	log.Info("Removing finalizer")
-	controllerutil.RemoveFinalizer(dpuService, dpuservicev1.DPUServiceFinalizer)
 	return ctrl.Result{}, nil
+}
+
+func (r *DPUServiceReconciler) reconcileDeleteImagePullSecrets(ctx context.Context) error {
+	log := ctrllog.FromContext(ctx)
+
+	// List all DPUServices.
+	dpuServices := &dpuservicev1.DPUServiceList{}
+	if err := r.List(ctx, dpuServices); err != nil {
+		return fmt.Errorf("list DPUServices: %w", err)
+	}
+
+	// If at least 1 DPUService is not in deleting we cannot clean up the ImagePullSecrets.
+	for _, dpuService := range dpuServices.Items {
+		if dpuService.DeletionTimestamp.IsZero() {
+			return nil
+		}
+	}
+
+	log.Info("Cleaning up ImagePullSecrets in all DPU Clusters")
+	clusters, err := controlplane.GetDPFClusters(ctx, r.Client)
+	if err != nil {
+		return err
+	}
+
+	// Delete the secrets in every DPUCluster.
+	var errs []error
+	for _, cluster := range clusters {
+		dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		// First get the secrets with the correct label.
+		secrets := &corev1.SecretList{}
+		err = dpuClusterClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		// Create list for better logging.
+		var secretsNameList []string
+		for _, secret := range secrets.Items {
+			secretNamespaceName := fmt.Sprintf("%s/%s", secret.GetNamespace(), secret.GetName())
+			secretsNameList = append(secretsNameList, secretNamespaceName)
+		}
+
+		log.Info("Deleting ImagePullSecrets", "cluster", cluster.Name, "secrets", secretsNameList)
+		for _, secret := range secrets.Items {
+			if err := dpuClusterClient.Delete(ctx, secret.DeepCopy()); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	return kerrors.NewAggregate(errs)
 }
 
 func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuservicev1.DPUService) error {
@@ -614,13 +686,18 @@ func (r *DPUServiceReconciler) ArgoApplicationToDPUService(ctx context.Context, 
 }
 
 func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, clusters []controlplane.DPFCluster, service *dpuservicev1.DPUService) error {
+	log := ctrllog.FromContext(ctx)
+	log.Info("Patching ImagePullSecrets for DPU clusters")
+
 	// First get the secrets with the correct label.
 	secrets := &corev1.SecretList{}
 	err := r.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})
 	if err != nil {
 		return err
 	}
+
 	secretsToPatch := []*corev1.Secret{}
+	existingSecrets := map[string]bool{}
 	// Copy the spec of the secret to a new secret and set the namespace.
 	for _, secret := range secrets.Items {
 		secretsToPatch = append(secretsToPatch, &corev1.Secret{
@@ -637,16 +714,36 @@ func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, cl
 			Data:      secret.Data,
 			Type:      secret.Type,
 		})
+		existingSecrets[secret.GetName()] = true
 	}
+
 	// Apply the new secret to every DPUCluster.
 	var errs []error
 	for _, cluster := range clusters {
 		dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
 		if err != nil {
 			errs = append(errs, err)
+			continue
 		}
 		for _, secret := range secretsToPatch {
 			if err := dpuClusterClient.Patch(ctx, secret, client.Apply, applyPatchOptions...); err != nil {
+				errs = append(errs, err)
+			}
+		}
+
+		// Cleanup orphaned secrets.
+		inClusterSecrets := &corev1.SecretList{}
+		if err := dpuClusterClient.List(ctx, inClusterSecrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey}); err != nil {
+			return err
+		}
+		for _, secret := range inClusterSecrets.Items {
+			if _, ok := existingSecrets[secret.GetName()]; ok {
+				log.Info("ImagePullSecret still present in cluster", "secret", secret.Name, "cluster", cluster.Name)
+				continue
+			}
+
+			log.Info("Deleting secret in cluster", "secret", secret.Name, "cluster", cluster.Name)
+			if err := dpuClusterClient.Delete(ctx, &secret); err != nil {
 				errs = append(errs, err)
 			}
 		}

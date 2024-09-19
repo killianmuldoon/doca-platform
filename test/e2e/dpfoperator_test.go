@@ -44,6 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	machineryruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -65,16 +66,17 @@ var (
 	cleanupLabels     = map[string]string{"dpf-operator-e2e-test-cleanup": "true"}
 	labelSelector     = labels.SelectorFromSet(cleanupLabels)
 	resourcesToDelete = []client.ObjectList{
-		&provisioningv1.DpuList{},
+		&dpuservicev1.DPUDeploymentList{},
+		&dpuservicev1.DPUServiceCredentialRequestList{},
+		&dpuservicev1.DPUServiceList{},
+		&dpuservicev1.DPUServiceConfigurationList{},
+		&dpuservicev1.DPUServiceTemplateList{},
 		&provisioningv1.DpuSetList{},
+		&provisioningv1.DpuList{},
 		&provisioningv1.BfbList{},
 		&sfcv1.DPUServiceIPAMList{},
 		&sfcv1.DPUServiceChainList{},
 		&sfcv1.DPUServiceInterfaceList{},
-		&dpuservicev1.DPUServiceList{},
-		&dpuservicev1.DPUDeploymentList{},
-		&dpuservicev1.DPUServiceConfigurationList{},
-		&dpuservicev1.DPUServiceTemplateList{},
 		&operatorv1.DPFOperatorConfigList{},
 		&appsv1.DeploymentList{},
 		&corev1.PersistentVolumeClaimList{},
@@ -107,6 +109,13 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Labels:    cleanupLabels,
 		},
 	}
+	imagePullSecretExtra := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pullSecretName + "-extra",
+			Namespace: "dpf-operator-system",
+			Labels:    cleanupLabels,
+		},
+	}
 	// The DPFOperatorConfig for the test.
 	config := &operatorv1.DPFOperatorConfig{
 		ObjectMeta: metav1.ObjectMeta{
@@ -120,6 +129,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			},
 			ImagePullSecrets: []string{
 				imagePullSecret.Name,
+				imagePullSecretExtra.Name,
 			},
 		},
 	}
@@ -176,10 +186,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 		})
 
 		It("create the imagePullSecret for the DPF OperatorConfig", func() {
-			err := testClient.Create(ctx, imagePullSecret)
-			if err != nil && !apierrors.IsAlreadyExists(err) {
-				Expect(err).ToNot(HaveOccurred())
-			}
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, imagePullSecret))).ToNot(HaveOccurred())
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, imagePullSecretExtra))).ToNot(HaveOccurred())
 		})
 
 		It("create underlying DPU clusters for test", func() {
@@ -343,6 +351,29 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					g.Expect(found).To(HaveKey(ContainSubstring("sfc-controller")))
 				}
 			}).WithTimeout(600 * time.Second).Should(Succeed())
+		})
+
+		It("verify that the ImagePullSecrets have been synced correctly and cleaned up", func() {
+			// Verify that we have 2 secrets in the DPU Cluster.
+			verifyImagePullSecretsCount(2)
+
+			// Delete the extra secret.
+			Expect(testClient.Delete(ctx, imagePullSecretExtra)).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				// Patch a DPUService to trigger a reconciliation.
+				err := testClient.Patch(
+					ctx,
+					&dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: "multus", Namespace: "dpf-operator-system"}},
+					client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"labels":{"reconciliation-trigger":"e2e-test"}}}`)),
+				)
+				if err != nil && !apierrors.IsNotFound(err) {
+					Expect(err).ToNot(HaveOccurred())
+				}
+
+				// Verify that we have only 1.
+				verifyImagePullSecretsCount(1)
+			}).WithTimeout(60 * time.Second).Should(Succeed())
 		})
 
 		It("create DPUServiceInterface and check that it is mirrored to each cluster", func() {
@@ -800,6 +831,13 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(config), config))).To(BeTrue())
 			}).WithTimeout(600 * time.Second).Should(Succeed())
 		})
+
+		It("verify that the ImagePullSecrets have been deleted by the controller", func() {
+			if skipCleanup {
+				Skip("Skip cleanup resources")
+			}
+			verifyImagePullSecretsCount(0)
+		})
 	})
 })
 
@@ -877,4 +915,22 @@ func assertDPUServiceCredentialRequest(g Gomega, testClient client.Client, dcr *
 	} else {
 		g.Expect(gotDsr.Status.TargetClusterName).To(Equal(dcr.Spec.TargetClusterName))
 	}
+}
+
+func verifyImagePullSecretsCount(count int) {
+	secrets := &corev1.SecretList{}
+	Expect(testClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})).ToNot(HaveOccurred())
+	Eventually(func(g Gomega) {
+		dpuControlPlanes, err := controlplane.GetDPFClusters(ctx, testClient)
+		g.Expect(err).ToNot(HaveOccurred())
+		for i := range dpuControlPlanes {
+			dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			// Check the imagePullSecrets has been deleted.
+			secrets := &corev1.SecretList{}
+			g.Expect(dpuClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})).To(Succeed())
+			g.Expect(secrets.Items).To(HaveLen(count))
+		}
+	}).WithTimeout(60 * time.Second).Should(Succeed())
 }
