@@ -20,12 +20,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/reboot"
 
+	"github.com/fluxcd/pkg/runtime/patch"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -337,7 +339,9 @@ func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningv1
 func (r *DpuSetReconciler) rolloutRecreate(ctx context.Context, dpuSet *provisioningv1.DpuSet,
 	dpuMap map[string]provisioningv1.Dpu) error {
 	for _, dpu := range dpuMap {
-		if needUpdate(*dpuSet, dpu) {
+		if update, err := r.needUpdate(ctx, *dpuSet, dpu); err != nil {
+			return err
+		} else if update {
 			if err := r.Delete(ctx, &dpu); err != nil {
 				return err
 			}
@@ -370,7 +374,9 @@ func (r *DpuSetReconciler) rolloutRolling(ctx context.Context, dpuSet *provision
 	}
 
 	for _, dpu := range dpuMap {
-		if !needUpdate(*dpuSet, dpu) {
+		if update, err := r.needUpdate(ctx, *dpuSet, dpu); err != nil {
+			return err
+		} else if !update {
 			continue
 		}
 		if isUnavailable(&dpu) {
@@ -393,8 +399,22 @@ func isUnavailable(dpu *provisioningv1.Dpu) bool {
 }
 
 // TODO: check more informations
-func needUpdate(dpuSet provisioningv1.DpuSet, dpu provisioningv1.Dpu) bool {
-	return dpu.Spec.BFB != dpuSet.Spec.DpuTemplate.Spec.Bfb.BFBName || dpu.Spec.DPUFlavor != dpuSet.Spec.DpuTemplate.Spec.DPUFlavor
+func (r *DpuSetReconciler) needUpdate(ctx context.Context, dpuSet provisioningv1.DpuSet, dpu provisioningv1.Dpu) (bool, error) {
+	logger := log.FromContext(ctx)
+	// update dpu node label
+	newLabel := dpuSet.Spec.DpuTemplate.Spec.Cluster.NodeLabels
+	oldLabel := dpu.Spec.Cluster.NodeLabels
+	if !reflect.DeepEqual(newLabel, oldLabel) {
+		patcher := patch.NewSerialPatcher(&dpu, r.Client)
+		dpu.Spec.Cluster.NodeLabels = newLabel
+		if err := patcher.Patch(ctx, &dpu); err != nil {
+			return false, err
+		} else {
+			logger.V(3).Info(fmt.Sprintf("dpu %s label update to %v", dpu.Name, newLabel))
+		}
+	}
+
+	return dpu.Spec.BFB != dpuSet.Spec.DpuTemplate.Spec.Bfb.BFBName || dpu.Spec.DPUFlavor != dpuSet.Spec.DpuTemplate.Spec.DPUFlavor, nil
 }
 
 func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningv1.DpuSet,

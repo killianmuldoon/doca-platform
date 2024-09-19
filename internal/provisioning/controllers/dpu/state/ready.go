@@ -40,6 +40,7 @@ type dpuReadyState struct {
 }
 
 func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
+	logger := log.FromContext(ctx)
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
 		state.Phase = provisioningv1.DPUDeleting
@@ -91,8 +92,22 @@ func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, optio
 	} else {
 		cond := cutil.DPUCondition(provisioningv1.DPUCondReady, "DPUNodeReady", "")
 		cutil.SetDPUCondition(state, cond)
+		if needUpdateNodeLabel(dpu.Spec.Cluster.NodeLabels, node.Labels) {
+			state.Phase = provisioningv1.DPUClusterConfig
+			logger.V(3).Info(fmt.Sprintf("node %s needs to update label", node.Name))
+			return *state, nil
+		}
 		return *state, nil
 	}
+}
+
+func needUpdateNodeLabel(dpulabel map[string]string, nodeLabel map[string]string) bool {
+	for k, v := range dpulabel {
+		if w, ok := nodeLabel[k]; !ok || w != v {
+			return true
+		}
+	}
+	return false
 }
 
 // Check if the DMS pod exist, if not, restore the missing pod
