@@ -49,7 +49,11 @@ func NamespaceEdit(namespace string) UnstructuredEdit {
 			}
 			un.Object = uns
 
+		case ClusterRoleKind:
+			un.SetNamespace("")
+
 		case ClusterRoleBindingKind:
+			un.SetNamespace("")
 			clusterRoleBinding := &rbacv1.ClusterRoleBinding{}
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(un.UnstructuredContent(), clusterRoleBinding); err != nil {
 				return fmt.Errorf("error while converting object to ClusterRoleBinding: %w", err)
@@ -64,6 +68,7 @@ func NamespaceEdit(namespace string) UnstructuredEdit {
 			un.Object = uns
 
 		case MutatingWebhookConfigurationKind:
+			un.SetNamespace("")
 			mutatingWebhookConfiguration := &admissionregistrationv1.MutatingWebhookConfiguration{}
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(un.UnstructuredContent(), mutatingWebhookConfiguration); err != nil {
 				return fmt.Errorf("error while converting object to MutatingWebhookConfiguration: %w", err)
@@ -79,6 +84,7 @@ func NamespaceEdit(namespace string) UnstructuredEdit {
 			handleCertManagerAnnotationNamespace(un, namespace)
 
 		case ValidatingWebhookConfigurationKind:
+			un.SetNamespace("")
 			validatingWebhookConfiguration := &admissionregistrationv1.ValidatingWebhookConfiguration{}
 			if err := runtime.DefaultUnstructuredConverter.FromUnstructured(un.UnstructuredContent(), validatingWebhookConfiguration); err != nil {
 				return fmt.Errorf("error while converting object to ValidatingWebhookConfiguration: %w", err)
@@ -120,6 +126,21 @@ func NamespaceEdit(namespace string) UnstructuredEdit {
 			}
 		}
 
+		return nil
+	}
+}
+
+// LabelsEdit adds the passed labels to the passed object. Labels passed here overwrite any existing label.
+func LabelsEdit(labelsToAdd map[string]string) UnstructuredEdit {
+	return func(un *unstructured.Unstructured) error {
+		labels := un.GetLabels()
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		for k, v := range labelsToAdd {
+			labels[k] = v
+		}
+		un.SetLabels(labelsToAdd)
 		return nil
 	}
 }

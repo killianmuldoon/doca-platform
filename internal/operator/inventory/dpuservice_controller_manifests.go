@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -35,7 +36,7 @@ type dpuServiceControllerObjects struct {
 }
 
 func (d *dpuServiceControllerObjects) Name() string {
-	return "DPUServiceController"
+	return "dpuservice-controller"
 }
 
 // Parse returns typed objects for the DPUService controller deployment.
@@ -63,21 +64,33 @@ func (d *dpuServiceControllerObjects) Parse() error {
 }
 
 // GenerateManifests returns all objects as a list.
-func (d *dpuServiceControllerObjects) GenerateManifests(vars Variables) ([]client.Object, error) {
+func (d *dpuServiceControllerObjects) GenerateManifests(vars Variables, options ...GenerateManifestOption) ([]client.Object, error) {
+	ret := []client.Object{}
 	if _, ok := vars.DisableSystemComponents[d.Name()]; ok {
 		return []client.Object{}, nil
 	}
-
+	opts := &GenerateManifestOptions{}
+	for _, option := range options {
+		option.Apply(opts)
+	}
 	// make a copy of the objects
 	objsCopy := make([]*unstructured.Unstructured, 0, len(d.objects))
 	for i := range d.objects {
 		objsCopy = append(objsCopy, d.objects[i].DeepCopy())
 	}
 
+	applySetID := ApplySetID(vars.Namespace, d)
+	labelsToAdd := map[string]string{operatorv1.DPFComponentLabelKey: d.Name()}
+	// Add the ApplySet label to the manifests unless disabled.
+	if !opts.skipApplySet {
+		labelsToAdd[applysetPartOfLabel] = applySetID
+	}
+
 	// apply edits
 	// TODO: make it generic to not edit every kind one-by-one.
 	if err := NewEdits().
-		AddForAll(NamespaceEdit(vars.Namespace)).
+		AddForAll(NamespaceEdit(vars.Namespace),
+			LabelsEdit(labelsToAdd)).
 		AddForKindS(DeploymentKind, ImagePullSecretsEditForDeploymentEdit(vars.ImagePullSecrets...)).
 		AddForKindS(DeploymentKind, NodeAffinityEdit(&controlPlaneNodeAffinity)).
 		AddForKindS(StatefulSetKind, NodeAffinityEdit(&controlPlaneNodeAffinity)).
@@ -88,8 +101,11 @@ func (d *dpuServiceControllerObjects) GenerateManifests(vars Variables) ([]clien
 		return nil, err
 	}
 
-	// return as Objects
-	ret := make([]client.Object, 0, len(objsCopy))
+	// Add the ApplySet to the manifests if this hasn't been disabled.
+	if !opts.skipApplySet {
+		ret = append(ret, applySetParentForComponent(d, applySetID, vars, applySetInventoryString(objsCopy...)))
+	}
+
 	for i := range objsCopy {
 		ret = append(ret, objsCopy[i])
 	}

@@ -28,7 +28,7 @@ import (
 type Component interface {
 	Name() string
 	Parse() error
-	GenerateManifests(variables Variables) ([]client.Object, error)
+	GenerateManifests(variables Variables, options ...GenerateManifestOption) ([]client.Object, error)
 	// IsReady reports an object and a field in that object which is used to check the ready status of a Component.
 	// Returns an error if the object is not ready.
 	IsReady(ctx context.Context, c client.Client, namespace string) error
@@ -100,7 +100,7 @@ func New() *SystemComponents {
 			data: provisioningControllerData,
 		},
 		ServiceFunctionChainSet: &fromDPUService{
-			name: "serviceFunctionChainSet",
+			name: "servicefunctionchainset",
 			data: serviceChainSetData,
 		},
 		Multus: &fromDPUService{
@@ -108,7 +108,7 @@ func New() *SystemComponents {
 			data: multusData,
 		},
 		SRIOVDevicePlugin: &fromDPUService{
-			name: "sriovDevicePlugin",
+			name: "sriovdeviceplugin",
 			data: sriovDevicePluginData,
 		},
 		Flannel: &fromDPUService{
@@ -168,12 +168,28 @@ func (s *SystemComponents) ParseAll() error {
 	return nil
 }
 
+type GenerateManifestOption interface {
+	Apply(*GenerateManifestOptions)
+}
+
+type GenerateManifestOptions struct {
+	skipApplySet bool
+}
+
+// skipApplySetCreationOption is GenerateManifestOption which skips the creation of the apply set.
+// This option is purely for making testing around manifest generation easier.
+type skipApplySetCreationOption struct{}
+
+func (skipApplySetCreationOption) Apply(o *GenerateManifestOptions) {
+	o.skipApplySet = true
+}
+
 // generateAllManifests returns all Kubernetes objects.
-func (s *SystemComponents) generateAllManifests(variables Variables) ([]client.Object, error) {
+func (s *SystemComponents) generateAllManifests(variables Variables, opts ...GenerateManifestOption) ([]client.Object, error) {
 	out := []client.Object{}
 	var errs []error
 	for _, component := range s.AllComponents() {
-		manifests, err := component.GenerateManifests(variables)
+		manifests, err := component.GenerateManifests(variables, opts...)
 		if err != nil {
 			errs = append(errs, err)
 		}

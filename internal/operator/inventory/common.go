@@ -30,6 +30,10 @@ import (
 // ObjectKind represents different Kind of Kubernetes Objects
 type ObjectKind string
 
+func (o ObjectKind) String() string {
+	return string(o)
+}
+
 const (
 	NamespaceKind                      ObjectKind = "Namespace"
 	CustomResourceDefinitionKind       ObjectKind = "CustomResourceDefinition"
@@ -124,4 +128,15 @@ func deploymentReadyCheck(ctx context.Context, c client.Client, namespace string
 			deployment.GetNamespace(), deployment.GetName(), deployment.Status.ReadyReplicas, deployment.Status.Replicas)
 	}
 	return nil
+}
+
+func isClusterScoped(kind string) bool {
+	clusterScopedKinds := map[string]interface{}{
+		string(ClusterRoleKind):                    nil,
+		string(ClusterRoleBindingKind):             nil,
+		string(MutatingWebhookConfigurationKind):   nil,
+		string(ValidatingWebhookConfigurationKind): nil,
+	}
+	_, ok := clusterScopedKinds[kind]
+	return ok
 }

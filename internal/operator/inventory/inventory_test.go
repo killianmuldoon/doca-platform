@@ -19,9 +19,11 @@ package inventory
 import (
 	"testing"
 
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 
 	. "github.com/onsi/gomega"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestManifests_Parse_Generate_All(t *testing.T) {
@@ -392,16 +394,33 @@ func TestManifests_generateAllManifests(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := i.generateAllManifests(tt.vars)
+			got, err := i.generateAllManifests(tt.vars, skipApplySetCreationOption{})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("generateAllManifests() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			for _, obj := range got {
+
+				// Manifests should not be generated if disabled.
 				if tt.expectedMissing != "" {
 					g.Expect(obj.GetName()).ToNot(ContainSubstring(tt.expectedMissing))
 				}
+
+				// These labels should always be present.
+				g.Expect(hasLabel(obj, operatorv1.DPFComponentLabelKey)).To(BeTrue())
 			}
 		})
 	}
+}
+
+func hasLabel(obj client.Object, label string) bool {
+	if len(obj.GetLabels()) == 0 {
+		return false
+	}
+	for l := range obj.GetLabels() {
+		if l == label {
+			return true
+		}
+	}
+	return false
 }

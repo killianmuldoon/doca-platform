@@ -19,12 +19,14 @@ package controller
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
 
 	. "github.com/onsi/gomega"
@@ -32,6 +34,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
@@ -281,6 +284,57 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 		waitForDPUService(g, config.Namespace, "sfc-controller")
 	})
 
+	t.Run("Delete system components when they are disabled in the DPFOperatorConfig", func(t *testing.T) {
+		// Patch the DPFOperatorConfig to disable multus deployment.
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
+		patch := client.RawPatch(types.MergePatchType, []byte("{\"spec\": {\"overrides\": {\"disableSystemComponents\":[\"multus\"]}}}"))
+		g.Expect(testClient.Patch(ctx, config, patch)).To(Succeed())
+
+		// Expect the DPUService and Provisioning controller managers to be deployed.
+		waitForDeployment(g, config.Namespace, "dpuservice-controller-manager")
+		waitForDeployment(g, config.Namespace, "dpf-provisioning-controller-manager")
+
+		// Check the system components deployed as DPUServices are created as expected.
+		waitForDPUService(g, config.Namespace, "servicefunctionchainset-controller")
+		waitForDPUService(g, config.Namespace, "sriov-device-plugin")
+		waitForDPUService(g, config.Namespace, "flannel")
+		waitForDPUService(g, config.Namespace, "nvidia-k8s-ipam")
+		waitForDPUService(g, config.Namespace, "ovs-cni")
+		waitForDPUService(g, config.Namespace, "sfc-controller")
+		g.Eventually(func(g Gomega) {
+			dpuservices := &dpuservicev1.DPUServiceList{}
+			g.Expect(testClient.List(ctx, dpuservices)).To(Succeed())
+			err := testClient.Get(ctx, client.ObjectKey{
+				Namespace: config.Namespace,
+				Name:      "multus"},
+				&dpuservicev1.DPUService{})
+			g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
+	})
+
+	t.Run("Delete resources when they are removed from the DPFOperator inventory", func(t *testing.T) {
+
+		// Expect the DPUService and Provisioning controller managers to be deployed.
+		waitForDeployment(g, config.Namespace, "dpuservice-controller-manager")
+		waitForDeployment(g, config.Namespace, "dpf-provisioning-controller-manager")
+
+		// Check the system components deployed as DPUServices are created as expected.
+		waitForDPUService(g, config.Namespace, "servicefunctionchainset-controller")
+		waitForDPUService(g, config.Namespace, "sriov-device-plugin")
+		waitForDPUService(g, config.Namespace, "flannel")
+		waitForDPUService(g, config.Namespace, "nvidia-k8s-ipam")
+		waitForDPUService(g, config.Namespace, "ovs-cni")
+		waitForDPUService(g, config.Namespace, "sfc-controller")
+		// Multus should not be deployed.
+		g.Eventually(func(g Gomega) {
+			err := testClient.Get(ctx, client.ObjectKey{
+				Namespace: config.Namespace,
+				Name:      "multus"},
+				&dpuservicev1.DPUService{})
+			g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
+	})
+
 	t.Run("Delete Operator config", func(t *testing.T) {
 		g.Expect(testClient.Delete(ctx, config)).To(Succeed())
 		g.Eventually(func(g Gomega) {
@@ -332,4 +386,119 @@ func verifyPVC(g Gomega, deployment *appsv1.Deployment, expected string) {
 	}
 	g.Expect(bfbPVC).NotTo(BeNil())
 	g.Expect(bfbPVC.ClaimName).To(Equal(expected))
+}
+
+func TestApplySetCreationUpgradeDeletion(t *testing.T) {
+	g := NewWithT(t)
+	ns := "test-generateandpatchobjects"
+	testComponentName := "test-component"
+	objOne := testObject(ns, "obj-one")
+	objTwo := testObject(ns, "obj-two")
+	applySet := testApplySet(ns, inventory.StubComponentWithObjs(testComponentName, []*unstructured.Unstructured{}))
+	vars := inventory.Variables{Namespace: ns}
+	g.Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}})).To(Succeed())
+	t.Run("test component initial creation with two objects", func(t *testing.T) {
+		// TODO: This test calls the reconciler method directly, but the test component is not being reconciled
+		// by other tests and we do not create a DPFOperatorConfig.
+		r := &DPFOperatorConfigReconciler{
+			Inventory: &inventory.SystemComponents{},
+			Client:    testClient,
+			Settings:  &DPFOperatorConfigReconcilerSettings{},
+		}
+
+		component := inventory.StubComponentWithObjs(testComponentName, []*unstructured.Unstructured{objOne, objTwo})
+
+		// This test calls the reconciler method directly, but the test component is not being reconciled
+		// by other tests and we do not create a DPFOperatorConfig.
+		err := r.generateAndPatchObjects(ctx, component, vars)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		// Expect both objects and the ApplySet parent object to be created.
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(objOne), objOne)).To(Succeed())
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(objTwo), objTwo)).To(Succeed())
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(applySet), applySet)).To(Succeed())
+
+		// Expect the inventory annotation to have two items.
+		gknnList, ok := applySet.GetAnnotations()[inventory.ApplySetInventoryAnnotationKey]
+		g.Expect(ok).To(BeTrue())
+		g.Expect(strings.Split(gknnList, ",")).To(HaveLen(2))
+	})
+
+	t.Run("test object is deleted and removed from ApplySet when removed from component inventory", func(t *testing.T) {
+		// TODO: This test calls the reconciler method directly, but the test component is not being reconciled
+		// by other tests and we do not create a DPFOperatorConfig.
+		r := &DPFOperatorConfigReconciler{
+			Inventory: &inventory.SystemComponents{},
+			Client:    testClient,
+			Settings:  &DPFOperatorConfigReconcilerSettings{},
+		}
+
+		component := inventory.StubComponentWithObjs(testComponentName, []*unstructured.Unstructured{
+			// obj-one is deleted here.
+			//objOne,
+			objTwo,
+		})
+
+		// This test calls the reconciler method directly, but the test component is not being reconciled
+		// by other tests and we do not create a DPFOperatorConfig.
+		err := r.generateAndPatchObjects(ctx, component, vars)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		// Expect obj-two and the ApplySet parent object to be created.
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(objTwo), objTwo)).To(Succeed())
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(applySet), applySet)).To(Succeed())
+
+		// Expect obj-one to be deleted.
+		g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(objOne), objOne))).To(BeTrue())
+
+		gknnList, ok := applySet.GetAnnotations()[inventory.ApplySetInventoryAnnotationKey]
+		g.Expect(ok).To(BeTrue())
+		g.Expect(strings.Split(gknnList, ",")).To(HaveLen(1))
+
+	})
+
+	t.Run("test objects and ApplySet when component returns no inventory", func(t *testing.T) {
+		r := &DPFOperatorConfigReconciler{
+			Inventory: &inventory.SystemComponents{},
+			Client:    testClient,
+			Settings:  &DPFOperatorConfigReconcilerSettings{},
+		}
+
+		component := inventory.StubComponentWithObjs(testComponentName, []*unstructured.Unstructured{})
+
+		// This test calls the reconciler method directly, but the test component is not being reconciled
+		// by other tests and we do not create a DPFOperatorConfig.
+		err := r.generateAndPatchObjects(ctx, component, vars)
+		g.Expect(err).NotTo(HaveOccurred())
+
+		// Expect objects to be deleted.
+		g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(objOne), objOne))).To(BeTrue())
+		g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(objTwo), objTwo))).To(BeTrue())
+
+		// Expect the ApplySet to be deleted.
+		g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(applySet), applySet))).To(BeTrue())
+
+	})
+
+}
+
+func testApplySet(namespace string, component inventory.Component) *corev1.Secret {
+	return &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      inventory.ApplySetName(component),
+			Namespace: namespace,
+		},
+	}
+}
+func testObject(namespace, name string) *unstructured.Unstructured {
+	uns := &unstructured.Unstructured{}
+	uns.SetKind("ConfigMap")
+	uns.SetAPIVersion("v1")
+	uns.SetNamespace(namespace)
+	uns.SetName(name)
+	return uns
 }

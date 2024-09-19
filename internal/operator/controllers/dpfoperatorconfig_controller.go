@@ -30,7 +30,9 @@ import (
 	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
@@ -212,6 +214,67 @@ func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperator
 
 	return ctrl.Result{}, nil
 }
+func (r *DPFOperatorConfigReconciler) reconcileImagePullSecrets(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
+	for _, name := range config.Spec.ImagePullSecrets {
+		secret := &corev1.Secret{}
+		if err := r.Client.Get(ctx, client.ObjectKey{Namespace: config.Namespace, Name: name}, secret); err != nil {
+			return err
+		}
+		labels := secret.GetLabels()
+		if labels == nil {
+			labels = map[string]string{}
+		}
+		secret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
+		secret.SetManagedFields(nil)
+		labels[dpuservicev1.DPFImagePullSecretLabelKey] = ""
+		secret.SetLabels(labels)
+		if err := r.Client.Patch(ctx, secret, client.Apply, applyPatchOptions...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// reconcileSystemComponents applies manifests for components which form the DPF system.
+// It deploys the following:
+// 1. DPUService controller
+// 2. DPU provisioning controller
+// 3. ServiceFunctionChainSet controller DPUService
+// 4. SR-IOV device plugin DPUService
+// 5. Multus DPUService
+// 6. Flannel DPUService
+// 7. NVIDIA Kubernetes IPAM
+// 8. OVS CNI
+// 8. SFC Controller
+func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
+	vars := getVariablesFromConfig(config)
+	// TODO: Handle deletion of objects on version upgrade.
+	// Create objects for system components.
+	for _, component := range r.Inventory.AllComponents() {
+		if err := r.generateAndPatchObjects(ctx, component, vars); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func getVariablesFromConfig(config *operatorv1.DPFOperatorConfig) inventory.Variables {
+	disableComponents := make(map[string]bool)
+	if config.Spec.Overrides != nil {
+		for _, item := range config.Spec.Overrides.DisableSystemComponents {
+			disableComponents[item] = true
+		}
+	}
+	return inventory.Variables{
+		Namespace: config.Namespace,
+		DPFProvisioningController: inventory.DPFProvisioningVariables{
+			BFBPersistentVolumeClaimName: config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName,
+			DMSTimeout:                   config.Spec.ProvisioningConfiguration.DMSTimeout,
+		},
+		DisableSystemComponents: disableComponents,
+		ImagePullSecrets:        config.Spec.ImagePullSecrets,
+	}
+}
 
 func (r *DPFOperatorConfigReconciler) updateSystemComponentStatus(ctx context.Context, config *operatorv1.DPFOperatorConfig) {
 	unreadyMessages := []string{}
@@ -237,88 +300,167 @@ func (r *DPFOperatorConfigReconciler) updateSystemComponentStatus(ctx context.Co
 	conditions.AddTrue(config, operatorv1.SystemComponentsReadyCondition)
 }
 
-func getVariablesFromConfig(config *operatorv1.DPFOperatorConfig) inventory.Variables {
-	disableComponents := make(map[string]bool)
-	if config.Spec.Overrides != nil {
-		for _, item := range config.Spec.Overrides.DisableSystemComponents {
-			disableComponents[item] = true
+func (r *DPFOperatorConfigReconciler) generateAndPatchObjects(ctx context.Context, component inventory.Component, vars inventory.Variables) error {
+	objs, err := component.GenerateManifests(vars)
+	if err != nil {
+		return fmt.Errorf("error while generating manifests for object, err: %v", err)
+	}
+
+	var desiredApplySet client.Object
+	for _, obj := range objs {
+		// If the ApplySetParentIDLabel is present and has the correct value this is the ApplySet parent for the component.
+		// Hold back on updating this object until all operations are complete.
+		if id, ok := obj.GetLabels()[inventory.ApplySetParentIDLabel]; ok && (id == inventory.ApplySetID(vars.Namespace, component)) {
+			desiredApplySet = obj
+			continue
+		}
+
+		kind := obj.GetObjectKind().GroupVersionKind().Kind
+		if r.Settings.SkipWebhook && (kind == "ValidatingWebhookConfiguration" || kind == "MutatingWebhookConfiguration") {
+			continue
+		}
+
+		if err = r.Client.Patch(ctx, obj, client.Apply, applyPatchOptions...); err != nil {
+			return fmt.Errorf("error patching %v %v: %w", obj.GetObjectKind().GroupVersionKind().Kind, klog.KObj(obj), err)
 		}
 	}
-	return inventory.Variables{
-		Namespace: config.Namespace,
-		DPFProvisioningController: inventory.DPFProvisioningVariables{
-			BFBPersistentVolumeClaimName: config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName,
-			DMSTimeout:                   config.Spec.ProvisioningConfiguration.DMSTimeout,
-		},
-		DisableSystemComponents: disableComponents,
-		ImagePullSecrets:        config.Spec.ImagePullSecrets,
+
+	// Delete objects that were previously part of the component but have been removed.
+	if err = r.deleteStaleObjects(ctx, vars.Namespace, component, objs); err != nil {
+		return err
 	}
-}
 
-// reconcileSystemComponents applies manifests for components which form the DPF system.
-// It deploys the following:
-// 1. DPUService controller
-// 2. DPU provisioning controller
-// 3. ServiceFunctionChainSet controller DPUService
-// 4. SR-IOV device plugin DPUService
-// 5. Multus DPUService
-// 6. Flannel DPUService
-// 7. NVIDIA Kubernetes IPAM
-// 8. OVS CNI
-// 8. SFC Controller
-func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
-	vars := getVariablesFromConfig(config)
-	// TODO: Handle deletion of objects on version upgrade.
-
-	// Create objects for system components.
-	for _, component := range r.Inventory.AllComponents() {
-		if err := r.generateAndPatchObjects(ctx, component, vars); err != nil {
-			return err
-		}
+	// Update the apply set with the current state of the component.
+	if err = r.updateApplySet(ctx, vars.Namespace, desiredApplySet, component); err != nil {
+		return err
 	}
 
 	return nil
 }
 
-func (r *DPFOperatorConfigReconciler) generateAndPatchObjects(ctx context.Context, manifests inventory.Component, vars inventory.Variables) error {
-	objs, err := manifests.GenerateManifests(vars)
+// deleteStaleObjects compares the current ApplySet to the desired list of objects. It deletes all objects which are in the inventory but not in the desiredObjects.
+func (r *DPFOperatorConfigReconciler) deleteStaleObjects(ctx context.Context, namespace string, component inventory.Component, desiredObjects []client.Object) error {
+	currentInventory, err := r.currentInventoryForComponent(ctx, namespace, component)
 	if err != nil {
-		return fmt.Errorf("error while generating manifests for object, err: %v", err)
+		return err
 	}
-	var errs []error
-	for _, obj := range objs {
-		if kind := obj.GetObjectKind().GroupVersionKind().Kind; r.Settings.SkipWebhook &&
-			(kind == "ValidatingWebhookConfiguration" || kind == "MutatingWebhookConfiguration") {
-			continue
-		}
-		err := r.Client.Patch(ctx, obj, client.Apply, applyPatchOptions...)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("error patching %v %v: %w",
-				obj.GetObjectKind().GroupVersionKind().Kind,
-				klog.KObj(obj),
-				err))
+
+	desiredInventory := gknnSetForObjects(desiredObjects)
+	for _, obj := range currentInventory {
+		// If the object doesn't exist in the desired inventory delete it.
+		if _, ok := desiredInventory[obj]; !ok {
+			gknn, err := inventory.ParseGroupKindNamespaceName(obj)
+			if err != nil {
+				return err
+			}
+			if err := r.deleteByGKNN(ctx, gknn); err != nil {
+				return err
+			}
 		}
 	}
-	return kerrors.NewAggregate(errs)
+	return nil
 }
 
-func (r *DPFOperatorConfigReconciler) reconcileImagePullSecrets(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
-	for _, name := range config.Spec.ImagePullSecrets {
-		secret := &corev1.Secret{}
-		if err := r.Client.Get(ctx, client.ObjectKey{Namespace: config.Namespace, Name: name}, secret); err != nil {
-			return err
+// updateApplySet patches the ApplySet parent with an up to date inventory annotation.
+// If desiredApplySet is nil it ensures the ApplySet parent object is deleted.
+func (r *DPFOperatorConfigReconciler) updateApplySet(ctx context.Context, namespace string, desiredApplySet client.Object, component inventory.Component) error {
+	log := ctrllog.FromContext(ctx)
+	// Delete the ApplySet if it is not part of the inventory.
+	if desiredApplySet == nil {
+		currentApplySet, err := r.getApplySetForComponent(ctx, namespace, component)
+		if err != nil {
+			return client.IgnoreNotFound(err)
 		}
-		labels := secret.GetLabels()
-		if labels == nil {
-			labels = map[string]string{}
+		log.Info("Deleting empty ApplySet parent", klog.KObj(currentApplySet))
+		return client.IgnoreNotFound(r.Client.Delete(ctx, currentApplySet))
+	}
+
+	// Update the applySet to reflect the new inventory.
+	if err := r.Client.Patch(ctx, desiredApplySet, client.Apply, applyPatchOptions...); err != nil {
+		return err
+	}
+	return nil
+}
+
+// currentInventoryForComponent returns a list of all GKNNs which are currently in the ApplySet inventory for the component.
+// If the ApplySet doesn't exist it returns an empty list.
+func (r *DPFOperatorConfigReconciler) currentInventoryForComponent(ctx context.Context, namespace string, component inventory.Component) ([]string, error) {
+	applySet, err := r.getApplySetForComponent(ctx, namespace, component)
+	if err != nil {
+		// If the applySet is not found return an empty list.
+		// This means that the ApplySet is not tracked by the operator because it was never created or has been deleted.
+		if apierrors.IsNotFound(err) {
+			return []string{}, nil
 		}
-		secret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
-		secret.SetManagedFields(nil)
-		labels[dpuservicev1.DPFImagePullSecretLabelKey] = ""
-		secret.SetLabels(labels)
-		if err := r.Client.Patch(ctx, secret, client.Apply, applyPatchOptions...); err != nil {
-			return err
-		}
+		return nil, err
+	}
+	gknnList, ok := applySet.GetAnnotations()[inventory.ApplySetInventoryAnnotationKey]
+	if !ok {
+		return nil, fmt.Errorf("no inventory annotation found on applyset for component %s in namespace %s", component.Name(), namespace)
+	}
+	return strings.Split(gknnList, ","), nil
+}
+
+// getApplySetForComponent returns the ApplySet parent for the passed component.
+func (r *DPFOperatorConfigReconciler) getApplySetForComponent(ctx context.Context, namespace string, component inventory.Component) (client.Object, error) {
+	labels := map[string]string{
+		inventory.ApplySetParentIDLabel: inventory.ApplySetID(namespace, component),
+	}
+	secrets := &corev1.SecretList{}
+	if err := r.List(ctx, secrets, client.InNamespace(namespace), client.MatchingLabels(labels)); err != nil {
+		return nil, err
+	}
+
+	// If there is no secret with the matching label return a NotFound error.
+	if len(secrets.Items) == 0 {
+		return nil, apierrors.NewNotFound(schema.GroupResource{
+			Group:    "",
+			Resource: "Secret",
+		}, inventory.ApplySetName(component))
+	}
+
+	if len(secrets.Items) > 1 {
+		return nil, fmt.Errorf("found multiple ApplySets for component %s in namespace %s: only one allowed", component.Name(), namespace)
+	}
+
+	// Check that the applySet parent contains the correct tooling annotation.
+	if tool, ok := secrets.Items[0].GetAnnotations()[inventory.ApplySetToolingAnnotation]; !ok || tool != inventory.ApplySetToolingAnnotationValue {
+		return nil, fmt.Errorf("applySet must contain the tooling annotation \"%s: %s\". Skipping component %s in namespace %s",
+			inventory.ApplySetToolingAnnotation, inventory.ApplySetToolingAnnotationValue, component.Name(), namespace)
+	}
+	return &secrets.Items[0], nil
+}
+
+// gknnSetForObjects returns a set containing each object in the inventory.
+func gknnSetForObjects(objs []client.Object) map[string]bool {
+	out := map[string]bool{}
+	for _, obj := range objs {
+		s := inventory.GroupKindNamespaceName{
+			Group:     obj.GetObjectKind().GroupVersionKind().Group,
+			Kind:      obj.GetObjectKind().GroupVersionKind().Kind,
+			Namespace: obj.GetNamespace(),
+			Name:      obj.GetName(),
+		}.String()
+		out[s] = true
+	}
+	return out
+}
+
+// deleteByGKNN deletes the object represented by its GKNN. It ignores NotFound errors.
+func (r *DPFOperatorConfigReconciler) deleteByGKNN(ctx context.Context, gknn inventory.GroupKindNamespaceName) error {
+	log := ctrllog.FromContext(ctx)
+	mapping, err := r.Client.RESTMapper().RESTMapping(schema.GroupKind{Group: gknn.Group, Kind: gknn.Kind})
+	if err != nil {
+		return fmt.Errorf("could not find kind for resource in annotation: %w", err)
+	}
+	uns := &unstructured.Unstructured{}
+	uns.SetGroupVersionKind(mapping.GroupVersionKind)
+	uns.SetNamespace(gknn.Namespace)
+	uns.SetName(gknn.Name)
+
+	log.Info("Deleting object", "object", klog.KObj(uns))
+	if err = r.Client.Delete(ctx, uns); client.IgnoreNotFound(err) != nil {
+		return err
 	}
 	return nil
 }

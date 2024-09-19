@@ -50,7 +50,7 @@ type provisioningControllerObjects struct {
 }
 
 func (p *provisioningControllerObjects) Name() string {
-	return "DPFProvisioningController"
+	return "dpf-provisioning-controller"
 }
 
 // Parse returns typed objects for the Provisioning controller deployment.
@@ -90,11 +90,15 @@ func (p *provisioningControllerObjects) Parse() (err error) {
 }
 
 // GenerateManifests applies edits and returns objects
-func (p *provisioningControllerObjects) GenerateManifests(vars Variables) ([]client.Object, error) {
+func (p *provisioningControllerObjects) GenerateManifests(vars Variables, options ...GenerateManifestOption) ([]client.Object, error) {
+	ret := []client.Object{}
 	if _, ok := vars.DisableSystemComponents[p.Name()]; ok {
 		return []client.Object{}, nil
 	}
-
+	opts := &GenerateManifestOptions{}
+	for _, option := range options {
+		option.Apply(opts)
+	}
 	// check vars
 	// TODO: These should be validated in the DPFOperatorConfig API before reaching here and these validations should match those in the API.
 	if strings.TrimSpace(vars.DPFProvisioningController.BFBPersistentVolumeClaimName) == "" {
@@ -110,10 +114,18 @@ func (p *provisioningControllerObjects) GenerateManifests(vars Variables) ([]cli
 		objsCopy = append(objsCopy, p.objects[i].DeepCopy())
 	}
 
+	labelsToAdd := map[string]string{operatorv1.DPFComponentLabelKey: p.Name()}
+	applySetID := ApplySetID(vars.Namespace, p)
+	// Add the ApplySet to the manifests if this hasn't been disabled.
+	if !opts.skipApplySet {
+		labelsToAdd[applysetPartOfLabel] = applySetID
+	}
+
 	// apply edits
 	// TODO: make it generic to not edit every kind one-by-one.
 	if err := NewEdits().
-		AddForAll(NamespaceEdit(vars.Namespace)).
+		AddForAll(NamespaceEdit(vars.Namespace),
+			LabelsEdit(labelsToAdd)).
 		AddForKindS(DeploymentKind, ImagePullSecretsEditForDeploymentEdit(vars.ImagePullSecrets...)).
 		AddForKindS(DeploymentKind, p.dpfProvisioningDeploymentEdit(vars)).
 		AddForKindS(DeploymentKind, NodeAffinityEdit(&controlPlaneNodeAffinity)).
@@ -126,12 +138,13 @@ func (p *provisioningControllerObjects) GenerateManifests(vars Variables) ([]cli
 		return nil, err
 	}
 
-	// return as Objects
-	ret := make([]client.Object, 0, len(objsCopy))
+	// Add the ApplySet to the manifests if this hasn't been disabled.
+	if !opts.skipApplySet {
+		ret = append(ret, applySetParentForComponent(p, applySetID, vars, applySetInventoryString(objsCopy...)))
+	}
 	for i := range objsCopy {
 		ret = append(ret, objsCopy[i])
 	}
-
 	return ret, nil
 }
 

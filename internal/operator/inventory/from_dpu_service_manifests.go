@@ -22,6 +22,7 @@ import (
 	"fmt"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 
@@ -67,7 +68,12 @@ func (f *fromDPUService) Parse() error {
 	return nil
 }
 
-func (f *fromDPUService) GenerateManifests(vars Variables) ([]client.Object, error) {
+func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateManifestOption) ([]client.Object, error) {
+	ret := []client.Object{}
+	opts := &GenerateManifestOptions{}
+	for _, option := range options {
+		option.Apply(opts)
+	}
 	if _, ok := vars.DisableSystemComponents[f.Name()]; ok {
 		return []client.Object{}, nil
 	}
@@ -75,21 +81,31 @@ func (f *fromDPUService) GenerateManifests(vars Variables) ([]client.Object, err
 	// copy object
 	dpuServiceCopy := f.dpuService.DeepCopy()
 
+	labelsToAdd := map[string]string{operatorv1.DPFComponentLabelKey: f.Name()}
+	applySetID := ApplySetID(vars.Namespace, f)
+	// Add the ApplySet labels to the manifests unless disabled.
+	if !opts.skipApplySet {
+		labelsToAdd[applysetPartOfLabel] = applySetID
+	}
 	// apply edits
-	edits := NewEdits().AddForAll(NamespaceEdit(vars.Namespace))
+	edits := NewEdits().AddForAll(
+		NamespaceEdit(vars.Namespace),
+		LabelsEdit(labelsToAdd))
 
 	if vars.ImagePullSecrets != nil {
 		edits.AddForKindS(DPUServiceKind, dpuServiceAddValueEdit("imagePullSecrets", localObjRefsFromStrings(vars.ImagePullSecrets...)))
 	}
 
 	err := edits.Apply([]*unstructured.Unstructured{dpuServiceCopy})
-
 	if err != nil {
 		return nil, err
 	}
 
-	// return as Objects
-	return []client.Object{dpuServiceCopy}, nil
+	// Add the ApplySet to the manifests if this hasn't been disabled.
+	if !opts.skipApplySet {
+		ret = append(ret, applySetParentForComponent(f, applySetID, vars, applySetInventoryString(dpuServiceCopy)))
+	}
+	return append(ret, dpuServiceCopy), nil
 }
 
 func dpuServiceAddValueEdit(key string, value interface{}) StructuredEdit {

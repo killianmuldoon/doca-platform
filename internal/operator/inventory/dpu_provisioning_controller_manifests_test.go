@@ -175,7 +175,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 				provCtrl.Name(): true,
 			},
 		}
-		objs, err := provCtrl.GenerateManifests(vars)
+		objs, err := provCtrl.GenerateManifests(vars, skipApplySetCreationOption{})
 		if err != nil {
 			t.Fatalf("failed to generate manifests: %v", err)
 		}
@@ -190,7 +190,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 				BFBPersistentVolumeClaimName: " ",
 			},
 		}
-		_, err := provCtrl.GenerateManifests(vars)
+		_, err := provCtrl.GenerateManifests(vars, skipApplySetCreationOption{})
 		NewGomegaWithT(t).Expect(err).To(HaveOccurred())
 	})
 
@@ -203,7 +203,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 				BFBPersistentVolumeClaimName: "pvc",
 			},
 		}
-		objs, err := provCtrl.GenerateManifests(vars)
+		objs, err := provCtrl.GenerateManifests(vars, skipApplySetCreationOption{})
 		g.Expect(err).NotTo(HaveOccurred())
 		for _, obj := range objs {
 			// Check the cert manager annotation is updated
@@ -288,15 +288,17 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			},
 			ImagePullSecrets: []string{expectedImagePullSecret1, expectedImagePullSecret2},
 		}
-		generatedObjs, err := provCtrl.GenerateManifests(vars)
+		generatedObjs, err := provCtrl.GenerateManifests(vars, skipApplySetCreationOption{})
 		g.Expect(err).NotTo(HaveOccurred())
 
 		// Expect the CRD and Namespace to have been removed. There are 4 CRDs and 1 Namespace in the manifest file.
 		g.Expect(generatedObjs).To(HaveLen(len(originalObjs) - 5))
 
-		// Expect the namespaces for all of the objects to equal the namespace in variables.
+		// Expect the namespaces for all of the namespace scoped objects to equal the namespace in variables.
 		for _, obj := range generatedObjs {
-			g.Expect(obj.GetNamespace()).To(Equal("foo"))
+			if !isClusterScoped(obj.GetObjectKind().GroupVersionKind().Kind) {
+				g.Expect(obj.GetNamespace()).To(Equal("foo"))
+			}
 		}
 		gotDeployment := &appsv1.Deployment{}
 		for i, obj := range generatedObjs {

@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -34,6 +35,7 @@ import (
 
 func Test_fromDPUService_GenerateManifests(t *testing.T) {
 	g := NewWithT(t)
+	serviceName := "testService"
 	initialValuesObject := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"value-one": "value-again",
@@ -73,6 +75,11 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			vars: Variables{},
 			want: &dpuservicev1.DPUService{
 				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						operatorv1.DPFComponentLabelKey: serviceName,
+					},
+				},
 				Spec: dpuservicev1.DPUServiceSpec{
 					HelmChart: dpuservicev1.HelmChart{
 						Values: &runtime.RawExtension{
@@ -98,6 +105,11 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			vars: imagePullSecretsVars,
 			want: &dpuservicev1.DPUService{
 				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						operatorv1.DPFComponentLabelKey: serviceName,
+					},
+				},
 				Spec: dpuservicev1.DPUServiceSpec{
 					HelmChart: dpuservicev1.HelmChart{
 						Values: &runtime.RawExtension{
@@ -115,10 +127,10 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			g.Expect(err).ToNot(HaveOccurred())
 
 			f := &fromDPUService{
-				name:       "testService",
+				name:       serviceName,
 				dpuService: &unstructured.Unstructured{Object: un},
 			}
-			got, err := f.GenerateManifests(tt.vars)
+			got, err := f.GenerateManifests(tt.vars, skipApplySetCreationOption{})
 			if tt.wantErr {
 				g.Expect(err).To(HaveOccurred())
 			}
@@ -126,7 +138,7 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 				g.Expect(err).NotTo(HaveOccurred())
 			}
 
-			// convert to concere type so we can compare to tt.want
+			// convert to concrete type so we can compare to tt.want
 			gotUnstructured, ok := got[0].(*unstructured.Unstructured)
 			g.Expect(ok).To(BeTrue())
 			gott := &dpuservicev1.DPUService{}

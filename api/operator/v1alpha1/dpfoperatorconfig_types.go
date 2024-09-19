@@ -38,10 +38,8 @@ var (
 )
 
 var (
-	DPFOperatorConfigFinalizer         = "dpf.nvidia.com/dpfoperatorconfig"
-	DPFOperatorConfigNameLabelKey      = "dpf.nvidia.com/dpfoperatorconfig-name"
-	DPFOperatorConfigNamespaceLabelKey = "dpf.nvidia.com/dpfoperatorconfig-namespace"
-	// TODO: Ensure this label is added on all objects created by DPF.
+	DPFOperatorConfigFinalizer = "dpf.nvidia.com/dpfoperatorconfig"
+	// DPFComponentLabelKey is added on all objects created by the DPF Operator.
 	DPFComponentLabelKey = "dpf.nvidia.com/component"
 )
 
