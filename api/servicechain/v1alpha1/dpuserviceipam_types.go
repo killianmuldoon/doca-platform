@@ -83,7 +83,7 @@ type IPV4Network struct {
 	// Allocations describes the subnets that should be assigned in each DPU node.
 	Allocations map[string]string `json:"allocations,omitempty"`
 	// if true, add gateway as default gateway in the routes list
-	DefaultGateway bool `json:"defautGateway,omitempty"`
+	DefaultGateway bool `json:"defaultGateway,omitempty"`
 	// static routes list using the gateway specified in the spec.
 	Routes []Route `json:"routes,omitempty"`
 }
@@ -99,7 +99,7 @@ type IPV4Subnet struct {
 	// PerNodeIPCount is the number of IPs that should be allocated per node.
 	PerNodeIPCount int `json:"perNodeIPCount"`
 	// if true, add gateway as default gateway in the routes list
-	DefaultGateway bool `json:"defautGateway,omitempty"`
+	DefaultGateway bool `json:"defaultGateway,omitempty"`
 	// static routes list using the gateway specified in the spec.
 	Routes []Route `json:"routes,omitempty"`
 }

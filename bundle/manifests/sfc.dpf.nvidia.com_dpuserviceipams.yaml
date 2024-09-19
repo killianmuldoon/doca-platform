@@ -98,7 +98,7 @@ spec:
                     description: Allocations describes the subnets that should be
                       assigned in each DPU node.
                     type: object
-                  defautGateway:
+                  defaultGateway:
                     description: if true, add gateway as default gateway in the routes
                       list
                     type: boolean
@@ -145,7 +145,7 @@ spec:
                   IPV4Subnet is the configuration related to splitting a subnet into blocks per node. In this setup, there is a
                   single gateway.
                 properties:
-                  defautGateway:
+                  defaultGateway:
                     description: if true, add gateway as default gateway in the routes
                       list
                     type: boolean
