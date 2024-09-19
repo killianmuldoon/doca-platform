@@ -40,6 +40,7 @@ const (
 	ValidatingWebhookConfigurationKind ObjectKind = "ValidatingWebhookConfiguration"
 	DeploymentKind                     ObjectKind = "Deployment"
 	StatefulSetKind                    ObjectKind = "StatefulSet"
+	DaemonSetKind                      ObjectKind = "DaemonSet"
 	CertificateKind                    ObjectKind = "Certificate"
 	IssuerKind                         ObjectKind = "Issuer"
 	RoleKind                           ObjectKind = "Role"
@@ -71,6 +72,18 @@ var (
 					},
 				},
 			},
+		},
+	}
+	controlPlaneTolerations = []corev1.Toleration{
+		{
+			Key:      kubernetesNodeRoleMaster,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      kubernetesNodeRoleControlPlane,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
 		},
 	}
 )

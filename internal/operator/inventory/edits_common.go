@@ -154,34 +154,51 @@ func ImagePullSecretsEditForDeploymentEdit(pullSecrets ...string) StructuredEdit
 	}
 }
 
-// NodeAffinityForDeploymentEdit sets NodeAffinity for Deployment objs
-func NodeAffinityForDeploymentEdit(nodeAffinity *corev1.NodeAffinity) StructuredEdit {
+// NodeAffinityEdit sets NodeAffinity for Deployment objs
+func NodeAffinityEdit(nodeAffinity *corev1.NodeAffinity) StructuredEdit {
 	return func(obj client.Object) error {
-		deployment, ok := obj.(*appsv1.Deployment)
-		if !ok {
-			return fmt.Errorf("unexpected object %s. expected Deployment", obj.GetObjectKind().GroupVersionKind())
+		switch o := obj.(type) {
+		case *appsv1.Deployment:
+			if o.Spec.Template.Spec.Affinity == nil {
+				o.Spec.Template.Spec.Affinity = &corev1.Affinity{}
+			}
+			o.Spec.Template.Spec.Affinity.NodeAffinity = nodeAffinity
+		case *appsv1.StatefulSet:
+			if o.Spec.Template.Spec.Affinity == nil {
+				o.Spec.Template.Spec.Affinity = &corev1.Affinity{}
+			}
+			o.Spec.Template.Spec.Affinity.NodeAffinity = nodeAffinity
+		default:
+			return fmt.Errorf("unexpected object %s. expected either Deployment or StatefulSet", obj.GetObjectKind().GroupVersionKind())
 		}
 
-		if deployment.Spec.Template.Spec.Affinity == nil {
-			deployment.Spec.Template.Spec.Affinity = &corev1.Affinity{}
-		}
-		deployment.Spec.Template.Spec.Affinity.NodeAffinity = nodeAffinity
 		return nil
 	}
 }
 
-// NodeAffinityForStatefulSetEdit sets NodeAffinity for Deployment objs
-func NodeAffinityForStatefulSetEdit(nodeAffinity *corev1.NodeAffinity) StructuredEdit {
+// TolerationsEdit sets Tolerations for Deployment objs
+func TolerationsEdit(tolerations []corev1.Toleration) StructuredEdit {
 	return func(obj client.Object) error {
-		sts, ok := obj.(*appsv1.StatefulSet)
-		if !ok {
-			return fmt.Errorf("unexpected object %s. expected Deployment", obj.GetObjectKind().GroupVersionKind())
+		switch o := obj.(type) {
+		case *appsv1.Deployment:
+			if len(o.Spec.Template.Spec.Tolerations) > 0 {
+				tolerations = append(tolerations, o.Spec.Template.Spec.Tolerations...)
+			}
+			o.Spec.Template.Spec.Tolerations = tolerations
+		case *appsv1.DaemonSet:
+			if len(o.Spec.Template.Spec.Tolerations) > 0 {
+				tolerations = append(tolerations, o.Spec.Template.Spec.Tolerations...)
+			}
+			o.Spec.Template.Spec.Tolerations = tolerations
+		case *appsv1.StatefulSet:
+			if len(o.Spec.Template.Spec.Tolerations) > 0 {
+				tolerations = append(tolerations, o.Spec.Template.Spec.Tolerations...)
+			}
+			o.Spec.Template.Spec.Tolerations = tolerations
+		default:
+			return fmt.Errorf("unexpected object %s. expected either Deployment, DaemonSet or StatefulSet", obj.GetObjectKind().GroupVersionKind())
 		}
 
-		if sts.Spec.Template.Spec.Affinity == nil {
-			sts.Spec.Template.Spec.Affinity = &corev1.Affinity{}
-		}
-		sts.Spec.Template.Spec.Affinity.NodeAffinity = nodeAffinity
 		return nil
 	}
 }

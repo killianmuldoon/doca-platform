@@ -35,6 +35,8 @@ spec:
             - matchExpressions:
               - key: node-role.kubernetes.io/control-plane
                 operator: Exists
+      tolerations:
+      {{- toYaml .Values.tolerations | nindent 8 }}
       containers:
       - command:
         - /operator

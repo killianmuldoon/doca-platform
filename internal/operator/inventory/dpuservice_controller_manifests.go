@@ -75,10 +75,15 @@ func (d *dpuServiceControllerObjects) GenerateManifests(vars Variables) ([]clien
 	}
 
 	// apply edits
+	// TODO: make it generic to not edit every kind one-by-one.
 	if err := NewEdits().
 		AddForAll(NamespaceEdit(vars.Namespace)).
 		AddForKindS(DeploymentKind, ImagePullSecretsEditForDeploymentEdit(vars.ImagePullSecrets...)).
-		AddForKindS(DeploymentKind, NodeAffinityForDeploymentEdit(&controlPlaneNodeAffinity)).
+		AddForKindS(DeploymentKind, NodeAffinityEdit(&controlPlaneNodeAffinity)).
+		AddForKindS(StatefulSetKind, NodeAffinityEdit(&controlPlaneNodeAffinity)).
+		AddForKindS(DeploymentKind, TolerationsEdit(controlPlaneTolerations)).
+		AddForKindS(StatefulSetKind, TolerationsEdit(controlPlaneTolerations)).
+		AddForKindS(DaemonSetKind, TolerationsEdit(controlPlaneTolerations)).
 		Apply(objsCopy); err != nil {
 		return nil, err
 	}

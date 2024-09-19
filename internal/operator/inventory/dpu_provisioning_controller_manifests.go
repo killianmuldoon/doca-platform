@@ -111,11 +111,16 @@ func (p *provisioningControllerObjects) GenerateManifests(vars Variables) ([]cli
 	}
 
 	// apply edits
+	// TODO: make it generic to not edit every kind one-by-one.
 	if err := NewEdits().
 		AddForAll(NamespaceEdit(vars.Namespace)).
 		AddForKindS(DeploymentKind, ImagePullSecretsEditForDeploymentEdit(vars.ImagePullSecrets...)).
 		AddForKindS(DeploymentKind, p.dpfProvisioningDeploymentEdit(vars)).
-		AddForKindS(DeploymentKind, NodeAffinityForDeploymentEdit(&controlPlaneNodeAffinity)).
+		AddForKindS(DeploymentKind, NodeAffinityEdit(&controlPlaneNodeAffinity)).
+		AddForKindS(StatefulSetKind, NodeAffinityEdit(&controlPlaneNodeAffinity)).
+		AddForKindS(DeploymentKind, TolerationsEdit(controlPlaneTolerations)).
+		AddForKindS(StatefulSetKind, TolerationsEdit(controlPlaneTolerations)).
+		AddForKindS(DaemonSetKind, TolerationsEdit(controlPlaneTolerations)).
 		AddForKind(ServiceKind, fixupWebhookServiceEdit).
 		Apply(objsCopy); err != nil {
 		return nil, err

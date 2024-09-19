@@ -12,6 +12,13 @@ controllerManager:
   serviceAccount:
     annotations: {}
 imagePullSecrets: []
+tolerations:
+  - key: node-role.kubernetes.io/master
+    operator: Exists
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
 
 ## installed dependencies except for kamaji.
 argo-cd:

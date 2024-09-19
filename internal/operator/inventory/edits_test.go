@@ -134,7 +134,19 @@ var _ = Describe("Test Edits", func() {
 			},
 		}
 
-		Context("NodeAffinityForDeploymentEdit", func() {
+		toleration := corev1.Toleration{
+			Key:      "foo",
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		}
+
+		extraToleration := corev1.Toleration{
+			Key:      "bar",
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		}
+
+		Context("NodeAffinityEdit", func() {
 			var deployment *appsv1.Deployment
 
 			BeforeEach(func() {
@@ -149,7 +161,7 @@ var _ = Describe("Test Edits", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// edit deployment
-				Expect(NewEdits().AddForKindS(DeploymentKind, NodeAffinityForDeploymentEdit(nodeAffinity)).
+				Expect(NewEdits().AddForKindS(DeploymentKind, NodeAffinityEdit(nodeAffinity)).
 					Apply([]*unstructured.Unstructured{deploymentUnstructured})).ToNot(HaveOccurred())
 
 				// check result
@@ -170,7 +182,7 @@ var _ = Describe("Test Edits", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				// edit deployment
-				Expect(NewEdits().AddForKindS(DeploymentKind, NodeAffinityForDeploymentEdit(nodeAffinity)).
+				Expect(NewEdits().AddForKindS(DeploymentKind, NodeAffinityEdit(nodeAffinity)).
 					Apply([]*unstructured.Unstructured{deploymentUnstructured})).ToNot(HaveOccurred())
 				d := &appsv1.Deployment{}
 
@@ -180,50 +192,47 @@ var _ = Describe("Test Edits", func() {
 			})
 		})
 
-		Context("NodeAffinityForStatefulSetEdit", func() {
-			var sts *appsv1.StatefulSet
+		Context("TolerationForDeploymentEdit", func() {
+			var deployment *appsv1.Deployment
 
 			BeforeEach(func() {
-				sts = &appsv1.StatefulSet{TypeMeta: metav1.TypeMeta{Kind: "StatefulSet"}}
+				deployment = &appsv1.Deployment{TypeMeta: metav1.TypeMeta{Kind: "Deployment"}}
 			})
 
-			It("Adds NodeAffinity when not present", func() {
+			It("Adds Toleration when not present", func() {
 				// convert to unstructured
 				var err error
-				stsUnstructured := &unstructured.Unstructured{}
-				stsUnstructured.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
+				deploymentUnstructured := &unstructured.Unstructured{}
+				deploymentUnstructured.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(deployment)
 				Expect(err).ToNot(HaveOccurred())
 
-				// edit StatefulSet
-				Expect(NewEdits().AddForKindS(StatefulSetKind, NodeAffinityForStatefulSetEdit(nodeAffinity)).
-					Apply([]*unstructured.Unstructured{stsUnstructured})).ToNot(HaveOccurred())
+				// edit deployment
+				Expect(NewEdits().AddForKindS(DeploymentKind, TolerationsEdit([]corev1.Toleration{toleration})).
+					Apply([]*unstructured.Unstructured{deploymentUnstructured})).ToNot(HaveOccurred())
 
 				// check result
-				Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(stsUnstructured.UnstructuredContent(), sts)).ToNot(HaveOccurred())
-				Expect(sts.Spec.Template.Spec.Affinity.NodeAffinity).To(Equal(nodeAffinity))
+				Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(deploymentUnstructured.UnstructuredContent(), deployment)).ToNot(HaveOccurred())
+				Expect(deployment.Spec.Template.Spec.Tolerations).To(Equal([]corev1.Toleration{toleration}))
 			})
 
-			It("Replaces NodeAffinity when present", func() {
-				// set some nodeAffinity for StatefulSet
+			It("Append Toleration when present", func() {
+				// set some toleration for deployment
 				var err error
-
-				sts.Spec.Template.Spec.Affinity = &corev1.Affinity{
-					NodeAffinity: otherNodeAffinity,
-				}
+				deployment.Spec.Template.Spec.Tolerations = []corev1.Toleration{extraToleration}
 
 				// convert to unstructured
-				stsUnstructured := &unstructured.Unstructured{}
-				stsUnstructured.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(sts)
+				deploymentUnstructured := &unstructured.Unstructured{}
+				deploymentUnstructured.Object, err = runtime.DefaultUnstructuredConverter.ToUnstructured(deployment)
 				Expect(err).ToNot(HaveOccurred())
 
-				// edit StatefulSet
-				Expect(NewEdits().AddForKindS(StatefulSetKind, NodeAffinityForStatefulSetEdit(nodeAffinity)).
-					Apply([]*unstructured.Unstructured{stsUnstructured})).ToNot(HaveOccurred())
-				d := &appsv1.StatefulSet{}
+				// edit deployment
+				Expect(NewEdits().AddForKindS(DeploymentKind, TolerationsEdit([]corev1.Toleration{toleration})).
+					Apply([]*unstructured.Unstructured{deploymentUnstructured})).ToNot(HaveOccurred())
+				d := &appsv1.Deployment{}
 
 				// check result
-				Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(stsUnstructured.UnstructuredContent(), d)).ToNot(HaveOccurred())
-				Expect(d.Spec.Template.Spec.Affinity.NodeAffinity).To(Equal(nodeAffinity))
+				Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(deploymentUnstructured.UnstructuredContent(), d)).ToNot(HaveOccurred())
+				Expect(d.Spec.Template.Spec.Tolerations).To(Equal([]corev1.Toleration{toleration, extraToleration}))
 			})
 		})
 	})
