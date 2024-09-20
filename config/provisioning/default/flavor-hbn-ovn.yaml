@@ -63,6 +63,13 @@ spec:
       set Interface pf0vf2 type=dpdk -- \
       set Interface en3f0pf0sf1000 type=dpdk -- \
       set Interface en3f0pf0sf1001 type=dpdk
+
+      ovs-vsctl set Open_vSwitch . external-ids:ovn-bridge-datapath-type=netdev -- \
+      add-br br-ovn -- \
+      set bridge br-ovn datapath_type=netdev -- \
+      add-port br-ovn pf0hpf -- \
+      set Interface pf0hpf type=dpdk
+
       systemctl restart openvswitch-switch
   bfcfgParameters:
     - UPDATE_ATF_UEFI=yes
