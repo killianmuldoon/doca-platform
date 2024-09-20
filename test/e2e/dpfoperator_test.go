@@ -44,7 +44,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	machineryruntime "k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -101,7 +100,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 	dpuServiceIPAMWithCIDRPoolName := "routed-application"
 	dpuServiceIPAMNamespace := "test-3"
 	dpfProvisioningControllerPVCName := "bfb-pvc"
-
+	extraPullSecretName := fmt.Sprintf("%s-extra", pullSecretName)
 	imagePullSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pullSecretName,
@@ -111,7 +110,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 	}
 	imagePullSecretExtra := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      pullSecretName + "-extra",
+			Name:      extraPullSecretName,
 			Namespace: "dpf-operator-system",
 			Labels:    cleanupLabels,
 		},
@@ -357,19 +356,23 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			// Verify that we have 2 secrets in the DPU Cluster.
 			verifyImagePullSecretsCount(2)
 
-			// Delete the extra secret.
-			Expect(testClient.Delete(ctx, imagePullSecretExtra)).To(Succeed())
-
 			Eventually(func(g Gomega) {
-				// Patch a DPUService to trigger a reconciliation.
-				err := testClient.Patch(
-					ctx,
-					&dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: "multus", Namespace: "dpf-operator-system"}},
-					client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"labels":{"reconciliation-trigger":"e2e-test"}}}`)),
-				)
-				if err != nil && !apierrors.IsNotFound(err) {
-					Expect(err).ToNot(HaveOccurred())
+				desiredConf := &operatorv1.DPFOperatorConfig{}
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), desiredConf)).To(Succeed())
+				currentConf := desiredConf.DeepCopy()
+
+				// Patch the DPFOperatorConfig to remove the secret. This causes the label to be removed.
+				for i := range desiredConf.Spec.ImagePullSecrets {
+					if desiredConf.Spec.ImagePullSecrets[i] == extraPullSecretName {
+						desiredConf.Spec.ImagePullSecrets = append(desiredConf.Spec.ImagePullSecrets[:i], desiredConf.Spec.ImagePullSecrets[i+1:]...)
+					}
 				}
+				g.Expect(testClient.Patch(ctx, desiredConf, client.MergeFrom(currentConf))).To(Succeed())
+
+				// Patch a DPUService to trigger a reconciliation. The DPUService should clean  this secret up from
+				// clusters to which it was previously mirrored.
+				g.Expect(utils.ForceObjectReconcileWithAnnotation(ctx, testClient,
+					&dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: "multus", Namespace: "dpf-operator-system"}})).To(Succeed())
 
 				// Verify that we have only 1.
 				verifyImagePullSecretsCount(1)
@@ -830,13 +833,6 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, config))).To(Succeed())
 				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(config), config))).To(BeTrue())
 			}).WithTimeout(600 * time.Second).Should(Succeed())
-		})
-
-		It("verify that the ImagePullSecrets have been deleted by the controller", func() {
-			if skipCleanup {
-				Skip("Skip cleanup resources")
-			}
-			verifyImagePullSecretsCount(0)
 		})
 	})
 })

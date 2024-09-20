@@ -28,6 +28,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
 
 	"github.com/fluxcd/pkg/runtime/patch"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -39,6 +40,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -58,7 +60,6 @@ var (
 )
 
 // DPFOperatorConfigReconciler reconciles a DPFOperatorConfig object
-// TODO: Consider creating a constructor
 type DPFOperatorConfigReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
@@ -111,10 +112,11 @@ type DPFOperatorConfigReconcilerSettings struct {
 //+kubebuilder:rbac:groups=nv-ipam.nvidia.com,resources=ippools,verbs=get;list;watch;create;update;patch;delete
 
 // SetupWithManager sets up the controller with the Manager.
-// TODO: consider watching other objects this controller interacts with e.g. pods, secrets with a label selector to speed up reconciliation.
 func (r *DPFOperatorConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1.DPFOperatorConfig{}).
+		Watches(&dpuservicev1.DPUService{}, handler.EnqueueRequestsFromMapFunc(r.DPUServiceToDPFOperatorConfig)).
+		Watches(&appsv1.Deployment{}, handler.EnqueueRequestsFromMapFunc(r.DeploymentToDPFOperatorConfig)).
 		Complete(r)
 }
 
@@ -215,7 +217,12 @@ func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperator
 	return ctrl.Result{}, nil
 }
 func (r *DPFOperatorConfigReconciler) reconcileImagePullSecrets(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
-	for _, name := range config.Spec.ImagePullSecrets {
+	imagePullSecrets := map[string]bool{}
+	for _, imagePullSecret := range config.Spec.ImagePullSecrets {
+		imagePullSecrets[imagePullSecret] = true
+	}
+	// label imagePullSecrets listed in the DPFOperatorConfig
+	for name := range imagePullSecrets {
 		secret := &corev1.Secret{}
 		if err := r.Client.Get(ctx, client.ObjectKey{Namespace: config.Namespace, Name: name}, secret); err != nil {
 			return err
@@ -230,6 +237,28 @@ func (r *DPFOperatorConfigReconciler) reconcileImagePullSecrets(ctx context.Cont
 		secret.SetLabels(labels)
 		if err := r.Client.Patch(ctx, secret, client.Apply, applyPatchOptions...); err != nil {
 			return err
+		}
+	}
+
+	// remove labels from pull secrets which are no longer in the DPFOperatorConfig.
+	secretList := &corev1.SecretList{}
+	if err := r.Client.List(ctx, secretList, client.HasLabels([]string{dpuservicev1.DPFImagePullSecretLabelKey})); err != nil {
+		return err
+	}
+	for _, secret := range secretList.Items {
+		if _, ok := imagePullSecrets[secret.Name]; !ok {
+			labels := secret.GetLabels()
+			if labels == nil {
+				labels = map[string]string{}
+			}
+			secret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
+			secret.SetManagedFields(nil)
+			secret.SetLabels(labels)
+
+			delete(secret.Labels, dpuservicev1.DPFImagePullSecretLabelKey)
+			if err := r.Client.Patch(ctx, &secret, client.Apply, applyPatchOptions...); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -248,7 +277,6 @@ func (r *DPFOperatorConfigReconciler) reconcileImagePullSecrets(ctx context.Cont
 // 9. SFC Controller
 func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
 	vars := getVariablesFromConfig(config)
-	// TODO: Handle deletion of objects on version upgrade.
 	// Create objects for system components.
 	for _, component := range r.Inventory.AllComponents() {
 		if err := r.generateAndPatchObjects(ctx, component, vars); err != nil {
@@ -463,4 +491,38 @@ func (r *DPFOperatorConfigReconciler) deleteByGKNN(ctx context.Context, gknn inv
 		return err
 	}
 	return nil
+}
+
+// DPUServiceToDPFOperatorConfig enqueues a reconcile when an event occurs for system DPUServices.
+func (r *DPFOperatorConfigReconciler) DPUServiceToDPFOperatorConfig(_ context.Context, o client.Object) []ctrl.Request {
+	result := []ctrl.Request{}
+	dpuService, ok := o.(*dpuservicev1.DPUService)
+	if !ok {
+		return result
+	}
+	// Ignore this enqueue function if the singletonNamespaceName is not set. This is done to enable easier testing.
+	if r.Settings.ConfigSingletonNamespaceName == nil {
+		return result
+	}
+	if _, ok = dpuService.GetLabels()[operatorv1.DPFComponentLabelKey]; ok {
+		result = append(result, ctrl.Request{NamespacedName: *r.Settings.ConfigSingletonNamespaceName})
+	}
+	return result
+}
+
+// DeploymentToDPFOperatorConfig enqueues a reconcile when an event occurs for system Deployments.
+func (r *DPFOperatorConfigReconciler) DeploymentToDPFOperatorConfig(ctx context.Context, o client.Object) []ctrl.Request {
+	result := []ctrl.Request{}
+	deployment, ok := o.(*appsv1.Deployment)
+	if !ok {
+		return result
+	}
+	// Ignore this enqueue function if the singletonNamespaceName is not set. This is done to enable easier testing.
+	if r.Settings.ConfigSingletonNamespaceName == nil {
+		return result
+	}
+	if _, ok = deployment.GetLabels()[operatorv1.DPFComponentLabelKey]; ok {
+		result = append(result, ctrl.Request{NamespacedName: *r.Settings.ConfigSingletonNamespaceName})
+	}
+	return result
 }

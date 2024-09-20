@@ -69,10 +69,12 @@ spec:
                   bfbPVCName:
                     description: BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim
                       used by dpf-provisioning-controller
+                    minLength: 1
                     type: string
                   dmsTimeout:
                     description: DMSTimeout is the max time in seconds within which
                       a DMS API must respond, 0 is unlimited
+                    minimum: 1
                     type: integer
                 required:
                 - bfbPVCName

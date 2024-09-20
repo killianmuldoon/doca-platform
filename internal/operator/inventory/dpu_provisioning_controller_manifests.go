@@ -100,7 +100,6 @@ func (p *provisioningControllerObjects) GenerateManifests(vars Variables, option
 		option.Apply(opts)
 	}
 	// check vars
-	// TODO: These should be validated in the DPFOperatorConfig API before reaching here and these validations should match those in the API.
 	if strings.TrimSpace(vars.DPFProvisioningController.BFBPersistentVolumeClaimName) == "" {
 		return nil, fmt.Errorf("DPFProvisioningController empty BFBPersistentVolumeClaimName")
 	}

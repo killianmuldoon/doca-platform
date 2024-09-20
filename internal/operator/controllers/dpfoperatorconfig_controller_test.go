@@ -209,9 +209,12 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 	// Create the namespace for the test.
 	g.Expect(testClient.Create(ctx, testNS)).To(Succeed())
 
+	initialImagePullSecrets := []string{"secret-one", "secret-two"}
+	updatedImagePullSecrets := []string{"secret-two"}
 	// Create the DPF ImagePullSecrets
-	g.Expect(testClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "secret-one", Namespace: testNS.Name}})).To(Succeed())
-	g.Expect(testClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: "secret-two", Namespace: testNS.Name}})).To(Succeed())
+	for _, imagePullSecret := range initialImagePullSecrets {
+		g.Expect(testClient.Create(ctx, &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: imagePullSecret, Namespace: testNS.Name}})).To(Succeed())
+	}
 
 	config := &operatorv1.DPFOperatorConfig{
 		ObjectMeta: metav1.ObjectMeta{
@@ -219,7 +222,7 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 			Namespace: testNS.Name,
 		},
 		Spec: operatorv1.DPFOperatorConfigSpec{
-			ImagePullSecrets: []string{"secret-one", "secret-two"},
+			ImagePullSecrets: initialImagePullSecrets,
 			Overrides: &operatorv1.Overrides{
 				Paused: ptr.To(true),
 			},
@@ -275,13 +278,28 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 		verifyPVC(g, deployment, "foo-pvc")
 
 		// Check the system components deployed as DPUServices are created as expected.
-		waitForDPUService(g, config.Namespace, "servicefunctionchainset-controller")
-		waitForDPUService(g, config.Namespace, "multus")
-		waitForDPUService(g, config.Namespace, "sriov-device-plugin")
-		waitForDPUService(g, config.Namespace, "flannel")
-		waitForDPUService(g, config.Namespace, "nvidia-k8s-ipam")
-		waitForDPUService(g, config.Namespace, "ovs-cni")
-		waitForDPUService(g, config.Namespace, "sfc-controller")
+		waitForDPUService(g, config.Namespace, "servicefunctionchainset-controller", initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "multus", initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "sriov-device-plugin", initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "flannel", initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "nvidia-k8s-ipam", initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "ovs-cni", initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "sfc-controller", initialImagePullSecrets)
+	})
+
+	t.Run("Remove label from Secrets when they are removed from the DPFOperatorConfig", func(t *testing.T) {
+		// Patch the DPFOperatorConfig to remove "secret-one" from the image pull secrets.
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
+		patch := client.MergeFrom(config.DeepCopy())
+		config.Spec.ImagePullSecrets = updatedImagePullSecrets
+		g.Expect(testClient.Patch(ctx, config, patch)).To(Succeed())
+		fmt.Print(config.Namespace)
+		// Expect the label to have been removed from secret-one.
+		g.Eventually(func(g Gomega) {
+			secrets := &corev1.SecretList{}
+			g.Expect(testClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey}, client.InNamespace(testNS.Name))).To(Succeed())
+			g.Expect(secrets.Items).To(HaveLen(1))
+		}).WithTimeout(30 * time.Second).Should(Succeed())
 	})
 
 	t.Run("Delete system components when they are disabled in the DPFOperatorConfig", func(t *testing.T) {
@@ -295,12 +313,12 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 		waitForDeployment(g, config.Namespace, "dpf-provisioning-controller-manager")
 
 		// Check the system components deployed as DPUServices are created as expected.
-		waitForDPUService(g, config.Namespace, "servicefunctionchainset-controller")
-		waitForDPUService(g, config.Namespace, "sriov-device-plugin")
-		waitForDPUService(g, config.Namespace, "flannel")
-		waitForDPUService(g, config.Namespace, "nvidia-k8s-ipam")
-		waitForDPUService(g, config.Namespace, "ovs-cni")
-		waitForDPUService(g, config.Namespace, "sfc-controller")
+		waitForDPUService(g, config.Namespace, "servicefunctionchainset-controller", updatedImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "sriov-device-plugin", updatedImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "flannel", updatedImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "nvidia-k8s-ipam", updatedImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "ovs-cni", updatedImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "sfc-controller", updatedImagePullSecrets)
 		g.Eventually(func(g Gomega) {
 			dpuservices := &dpuservicev1.DPUServiceList{}
 			g.Expect(testClient.List(ctx, dpuservices)).To(Succeed())
@@ -319,12 +337,12 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 		waitForDeployment(g, config.Namespace, "dpf-provisioning-controller-manager")
 
 		// Check the system components deployed as DPUServices are created as expected.
-		waitForDPUService(g, config.Namespace, "servicefunctionchainset-controller")
-		waitForDPUService(g, config.Namespace, "sriov-device-plugin")
-		waitForDPUService(g, config.Namespace, "flannel")
-		waitForDPUService(g, config.Namespace, "nvidia-k8s-ipam")
-		waitForDPUService(g, config.Namespace, "ovs-cni")
-		waitForDPUService(g, config.Namespace, "sfc-controller")
+		waitForDPUService(g, config.Namespace, "servicefunctionchainset-controller", updatedImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "sriov-device-plugin", updatedImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "flannel", updatedImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "nvidia-k8s-ipam", updatedImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "ovs-cni", updatedImagePullSecrets)
+		waitForDPUService(g, config.Namespace, "sfc-controller", updatedImagePullSecrets)
 		// Multus should not be deployed.
 		g.Eventually(func(g Gomega) {
 			err := testClient.Get(ctx, client.ObjectKey{
@@ -344,7 +362,7 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 
 }
 
-func waitForDPUService(g Gomega, ns, name string) {
+func waitForDPUService(g Gomega, ns, name string, imagePullSecrets []string) {
 	dpuservice := &dpuservicev1.DPUService{}
 	g.Eventually(func(g Gomega) {
 		g.Expect(testClient.Get(ctx, client.ObjectKey{
@@ -356,12 +374,12 @@ func waitForDPUService(g Gomega, ns, name string) {
 		g.Expect(result).To(HaveKey("imagePullSecrets"))
 		secrets, ok := result["imagePullSecrets"].([]interface{})
 		g.Expect(ok).To(BeTrue())
-		secretOne, ok := secrets[0].(map[string]interface{})
-		g.Expect(ok).To(BeTrue())
-		secretTwo, ok := secrets[1].(map[string]interface{})
-		g.Expect(ok).To(BeTrue())
-		g.Expect(secretOne["name"]).To(Equal("secret-one"))
-		g.Expect(secretTwo["name"]).To(Equal("secret-two"))
+		g.Expect(secrets).To(HaveLen(len(imagePullSecrets)))
+		for i := range secrets {
+			secret, ok := secrets[i].(map[string]interface{})
+			g.Expect(ok).To(BeTrue())
+			g.Expect(secret["name"]).To(Equal(imagePullSecrets[i]))
+		}
 	}).WithTimeout(30 * time.Second).Should(Succeed())
 }
 
@@ -398,7 +416,7 @@ func TestApplySetCreationUpgradeDeletion(t *testing.T) {
 	vars := inventory.Variables{Namespace: ns}
 	g.Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: ns}})).To(Succeed())
 	t.Run("test component initial creation with two objects", func(t *testing.T) {
-		// TODO: This test calls the reconciler method directly, but the test component is not being reconciled
+		// This test calls the reconciler method directly, but the test component is not being reconciled
 		// by other tests and we do not create a DPFOperatorConfig.
 		r := &DPFOperatorConfigReconciler{
 			Inventory: &inventory.SystemComponents{},
@@ -425,7 +443,7 @@ func TestApplySetCreationUpgradeDeletion(t *testing.T) {
 	})
 
 	t.Run("test object is deleted and removed from ApplySet when removed from component inventory", func(t *testing.T) {
-		// TODO: This test calls the reconciler method directly, but the test component is not being reconciled
+		// This test calls the reconciler method directly, but the test component is not being reconciled
 		// by other tests and we do not create a DPFOperatorConfig.
 		r := &DPFOperatorConfigReconciler{
 			Inventory: &inventory.SystemComponents{},

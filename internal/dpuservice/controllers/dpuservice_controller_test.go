@@ -626,6 +626,10 @@ func getMinimalDPFOperatorConfig() *operatorv1.DPFOperatorConfig {
 			Name:      operatorcontroller.DefaultDPFOperatorConfigSingletonName,
 			Namespace: operatorcontroller.DefaultDPFOperatorConfigSingletonNamespace,
 		},
-		Spec: operatorv1.DPFOperatorConfigSpec{},
+		Spec: operatorv1.DPFOperatorConfigSpec{
+			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
+				BFBPersistentVolumeClaimName: "name",
+			},
+		},
 	}
 }

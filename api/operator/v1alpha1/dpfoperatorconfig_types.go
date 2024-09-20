@@ -67,8 +67,10 @@ type DPFOperatorConfigSpec struct {
 // ProvisioningConfiguration defines dpf-provisioning-controller related configurations
 type ProvisioningConfiguration struct {
 	// BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim used by dpf-provisioning-controller
+	// +kubebuilder:validation:MinLength=1
 	BFBPersistentVolumeClaimName string `json:"bfbPVCName"`
 	// DMSTimeout is the max time in seconds within which a DMS API must respond, 0 is unlimited
+	// +kubebuilder:validation:Minimum=1
 	DMSTimeout *int `json:"dmsTimeout,omitempty"`
 }
 
