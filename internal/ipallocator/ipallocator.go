@@ -27,9 +27,13 @@ import (
 	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/types"
 	types040 "github.com/containernetworking/cni/pkg/types/040"
+	kerrors "k8s.io/apimachinery/pkg/util/errors"
 )
 
-const sharedResultFile = "/tmp/ips/addresses"
+// sharedResultDirectory is the directory where the files with the IP allocations will be written to
+const sharedResultDirectory = "/tmp/ips"
+
+// CNIBinDir is the directory which contains the CNI binaries
 const CNIBinDir = "/opt/cni/bin"
 
 // TODO: Use 1.0.0 after a release is cut that will include https://github.com/containernetworking/cni/pull/1052 so that
@@ -37,7 +41,7 @@ const CNIBinDir = "/opt/cni/bin"
 var netConf = `
 {
 	"cniVersion": "0.4.0",
-	"name": "sidecar",
+	"name": "%s",
 	"type": "nv-ipam",
 	"ipam": {
 		"type": "nv-ipam",
@@ -50,8 +54,6 @@ var netConf = `
 // IPAllocator uses the CNI spec to allocate an IP from NVIPAM
 type NVIPAMIPAllocator struct {
 	cninet       *libcni.CNIConfig
-	poolName     string
-	poolType     string
 	podName      string
 	podNamespace string
 	podUID       string
@@ -60,23 +62,80 @@ type NVIPAMIPAllocator struct {
 	FileSystemRoot string
 }
 
+// NVIPAMIPAllocatorRequest is a struct that contains the fields a request to the IP Allocator can have
+type NVIPAMIPAllocatorRequest struct {
+	// Name is the name of the request. Determines the file the result will be written to.
+	Name string `json:"name"`
+	// PoolName is the name of the NVIPAM pool we should request an IP from
+	PoolName string `json:"poolName"`
+	// PoolType is the type of the NVIPAM pool we should request an IP from. If empty, we defer to the default defined
+	// by NVIPAM.
+	PoolType NVIPAMPoolType `json:"poolType,omitempty"`
+}
+
+// NVIPAMPoolType are the supported NVIPAM pools types
+type NVIPAMPoolType string
+
+const (
+	// PoolTypeIPPool contains string representation for pool type of IPPool
+	PoolTypeIPPool NVIPAMPoolType = "ippool"
+	// PoolTypeCIDRPool contains string representation for pool type of CIDRPool
+	PoolTypeCIDRPool NVIPAMPoolType = "cidrpool"
+)
+
+// NVIPAMIPAllocatorResult is a struct that contains the fields the result of the IP Allocator will write to a file per request
+// for each IP allocated.
+type NVIPAMIPAllocatorResult struct {
+	// IP is the allocated IP in CIDR format
+	IP string `json:"ip"`
+	// Gateway is the gateway of the subnet the IP belongs to
+	Gateway string `json:"gateway"`
+}
+
 // New creates a new IPAllocator that can handle allocation of IPs using the NVIPAM.
-func New(cninet *libcni.CNIConfig, poolName string, poolType string, podName string, podNamespace string, podUID string) *NVIPAMIPAllocator {
+func New(cninet *libcni.CNIConfig, podName string, podNamespace string, podUID string) *NVIPAMIPAllocator {
 	return &NVIPAMIPAllocator{
 		cninet:       cninet,
-		poolName:     poolName,
-		poolType:     poolType,
 		podName:      podName,
 		podNamespace: podNamespace,
 		podUID:       podUID,
 	}
 }
 
-// allocate allocates an IP from the NVIPAM
-func (a *NVIPAMIPAllocator) Allocate(ctx context.Context) error {
-	rt := a.constructRuntimeConf()
+// ParseRequests parses requests from the given input. This input is supposed to be a list of json objects.
+func (a *NVIPAMIPAllocator) ParseRequests(requests string) ([]NVIPAMIPAllocatorRequest, error) {
+	reqs := []NVIPAMIPAllocatorRequest{}
+	if err := json.Unmarshal([]byte(requests), &reqs); err != nil {
+		return nil, fmt.Errorf("error while parsing requests: %w", err)
+	}
 
-	netconf, err := libcni.ConfFromBytes([]byte(fmt.Sprintf(netConf, a.poolName, a.poolType)))
+	if len(reqs) == 0 {
+		return nil, fmt.Errorf("no IP requests specified")
+	}
+
+	var errs []error
+	names := make(map[string]interface{})
+	for _, req := range reqs {
+		if len(req.Name) == 0 {
+			errs = append(errs, fmt.Errorf("name must be specified in %#v", req))
+			continue
+		}
+
+		if _, ok := names[req.Name]; ok {
+			errs = append(errs, fmt.Errorf("name must be unique, but found duplicate %s", req.Name))
+			continue
+		}
+		names[req.Name] = struct{}{}
+	}
+
+	return reqs, kerrors.NewAggregate(errs)
+}
+
+// allocate allocates an IP from the NVIPAM given the input request
+func (a *NVIPAMIPAllocator) Allocate(ctx context.Context, req NVIPAMIPAllocatorRequest) error {
+	rt := a.constructRuntimeConf(req.Name)
+
+	netconf, err := libcni.ConfFromBytes([]byte(fmt.Sprintf(netConf, req.Name, req.PoolName, req.PoolType)))
 	if err != nil {
 		return fmt.Errorf("error while unmarshaling netconf: %w", err)
 	}
@@ -88,7 +147,7 @@ func (a *NVIPAMIPAllocator) Allocate(ctx context.Context) error {
 
 	// CNI already called for this pod
 	if res != nil {
-		if err := a.populateSharedResultFile(res); err != nil {
+		if err := a.populateSharedResultFile(req.Name, res); err != nil {
 			return fmt.Errorf("error while populating file with cache result: %w", err)
 		}
 		return nil
@@ -103,17 +162,17 @@ func (a *NVIPAMIPAllocator) Allocate(ctx context.Context) error {
 		return errors.New("no result, something went wrong")
 	}
 
-	if err := a.populateSharedResultFile(res); err != nil {
+	if err := a.populateSharedResultFile(req.Name, res); err != nil {
 		return fmt.Errorf("error while populating file with CNI ADD result: %w", err)
 	}
 	return nil
 }
 
 // Deallocate deallocates the allocated IP from the NVIPAM
-func (a *NVIPAMIPAllocator) Deallocate(ctx context.Context) error {
-	rt := a.constructRuntimeConf()
+func (a *NVIPAMIPAllocator) Deallocate(ctx context.Context, req NVIPAMIPAllocatorRequest) error {
+	rt := a.constructRuntimeConf(req.Name)
 
-	netconf, err := libcni.ConfFromBytes([]byte(fmt.Sprintf(netConf, a.poolName, a.poolType)))
+	netconf, err := libcni.ConfFromBytes([]byte(fmt.Sprintf(netConf, req.Name, req.PoolName, req.PoolType)))
 	if err != nil {
 		return fmt.Errorf("error while unmarshaling netconf: %w", err)
 	}
@@ -135,14 +194,14 @@ func (a *NVIPAMIPAllocator) Deallocate(ctx context.Context) error {
 	return nil
 }
 
-func (a *NVIPAMIPAllocator) constructRuntimeConf() *libcni.RuntimeConf {
+func (a *NVIPAMIPAllocator) constructRuntimeConf(reqName string) *libcni.RuntimeConf {
 	return &libcni.RuntimeConf{
 		// ContainerID is used by NVIPAM to construct the key for the allocation entry in the local store. We don't need
-		// a real container id.
-		ContainerID: a.podUID,
+		// a real container id. However it should be different per allocation.
+		ContainerID: fmt.Sprintf("%s-%s", a.podUID, reqName),
 		// NetNS is used by NVIPAM to construct the key for the allocation entry in the local store. We don't need a
-		// a real network namespace.
-		NetNS:  a.podUID,
+		// a real network namespace. However it should be different per allocation.
+		NetNS:  fmt.Sprintf("%s-%s", a.podUID, reqName),
 		IfName: "allocator",
 		Args: [][2]string{
 			{"K8S_POD_NAME", a.podName},
@@ -153,27 +212,32 @@ func (a *NVIPAMIPAllocator) constructRuntimeConf() *libcni.RuntimeConf {
 }
 
 // populateSharedResultFile writes the IPs to the path which the consumer will read
-func (a *NVIPAMIPAllocator) populateSharedResultFile(res types.Result) error {
+func (a *NVIPAMIPAllocator) populateSharedResultFile(fileName string, res types.Result) error {
 	res040, ok := res.(*types040.Result)
 	if !ok {
 		return errors.New("error converting result to 0.4.0 result")
 	}
 
-	ips := make([]string, 0, len(res040.IPs))
+	results := make([]NVIPAMIPAllocatorResult, 0, len(res040.IPs))
 	for _, ip := range res040.IPs {
-		ips = append(ips, ip.Address.String())
+		result := NVIPAMIPAllocatorResult{
+			IP:      ip.Address.String(),
+			Gateway: ip.Gateway.String(),
+		}
+		results = append(results, result)
 	}
-	bytes, err := json.Marshal(ips)
+	bytes, err := json.Marshal(results)
 	if err != nil {
 		return err
 	}
 
-	resultFilePath := filepath.Join(a.FileSystemRoot, sharedResultFile)
-	err = os.MkdirAll(filepath.Dir(resultFilePath), 0755)
+	resultDirPath := filepath.Join(a.FileSystemRoot, sharedResultDirectory)
+	err = os.MkdirAll(resultDirPath, 0755)
 	if err != nil {
-		return fmt.Errorf("error while creating dir %s: %w", resultFilePath, err)
+		return fmt.Errorf("error while creating dir %s: %w", resultDirPath, err)
 	}
 
+	resultFilePath := filepath.Join(resultDirPath, fileName)
 	err = os.WriteFile(resultFilePath, bytes, 0644)
 	if err != nil {
 		return fmt.Errorf("error while writing file %s: %w", resultFilePath, err)

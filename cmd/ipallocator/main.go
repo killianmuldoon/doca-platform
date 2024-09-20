@@ -34,11 +34,10 @@ import (
 // requiredEnvVariables are environment variables that the program needs in order to run. Boolean indicates if this env
 // variable should be configured by Kubernetes downward API (easier for user to understand the mistake).
 var requiredEnvVariables = map[string]bool{
-	"POOL":              false,
-	"POOL_TYPE":         false,
-	"K8S_POD_NAME":      true,
-	"K8S_POD_NAMESPACE": true,
-	"K8S_POD_UID":       true,
+	"IP_ALLOCATOR_REQUESTS": true,
+	"K8S_POD_NAME":          true,
+	"K8S_POD_NAMESPACE":     true,
+	"K8S_POD_UID":           true,
 }
 
 type Mode string
@@ -72,20 +71,23 @@ func main() {
 
 	allocator := ipallocator.New(
 		libcni.NewCNIConfig([]string{ipallocator.CNIBinDir}, nil),
-		env["POOL"],
-		env["POOL_TYPE"],
 		env["K8S_POD_NAME"],
 		env["K8S_POD_NAMESPACE"],
 		env["K8S_POD_UID"],
 	)
 
+	reqs, err := allocator.ParseRequests(env["IP_ALLOCATOR_REQUESTS"])
+	if err != nil {
+		klog.Fatalf("error while parsing IP requests: %s", err.Error())
+	}
+
 	switch mode {
 	case Allocator:
-		if err := runInAllocatorMode(allocator); err != nil {
+		if err := runInAllocatorMode(allocator, reqs); err != nil {
 			klog.Fatal(err)
 		}
 	case Deallocator:
-		if err := runInDeallocatorMode(allocator); err != nil {
+		if err := runInDeallocatorMode(allocator, reqs); err != nil {
 			klog.Fatal(err)
 		}
 	}
@@ -106,12 +108,14 @@ func parseMode(mode string) (Mode, error) {
 }
 
 // runInAllocatorMode runs the allocator in Allocator mode
-func runInAllocatorMode(a *ipallocator.NVIPAMIPAllocator) error {
+func runInAllocatorMode(a *ipallocator.NVIPAMIPAllocator, reqs []ipallocator.NVIPAMIPAllocatorRequest) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := a.Allocate(ctx); err != nil {
-		return err
+	for _, req := range reqs {
+		if err := a.Allocate(ctx, req); err != nil {
+			return err
+		}
 	}
 
 	if err := readyz.ReportReady(); err != nil {
@@ -129,13 +133,16 @@ func runInAllocatorMode(a *ipallocator.NVIPAMIPAllocator) error {
 }
 
 // runInDeallocatorMode runs the allocator in Deallocator mode
-func runInDeallocatorMode(a *ipallocator.NVIPAMIPAllocator) error {
+func runInDeallocatorMode(a *ipallocator.NVIPAMIPAllocator, reqs []ipallocator.NVIPAMIPAllocatorRequest) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if err := a.Deallocate(ctx); err != nil {
-		return err
+	for _, req := range reqs {
+		if err := a.Deallocate(ctx, req); err != nil {
+			return err
+		}
 	}
+
 	klog.Info("IP deallocation is done")
 	return nil
 }
