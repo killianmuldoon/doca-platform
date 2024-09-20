@@ -340,142 +340,6 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
-	// Ensure the DPUService namespace exists in target clusters.
-	project := getProjectName(dpuService)
-	// TODO: think about how to cleanup the namespace in the DPU.
-	if err := r.ensureNamespaces(ctx, clusters, project, dpuService.GetNamespace()); err != nil {
-		return fmt.Errorf("cluster namespaces: %v", err)
-	}
-
-	// Ensure the Argo secret for each cluster is up-to-date.
-	if err := r.reconcileArgoSecrets(ctx, clusters, dpfOperatorConfig); err != nil {
-		return fmt.Errorf("ArgoSecrets: %v", err)
-	}
-
-	//  Ensure the ArgoCD AppProject exists and is up-to-date.
-	if err := r.reconcileAppProject(ctx, clusters, dpfOperatorConfig); err != nil {
-		return fmt.Errorf("AppProject: %v", err)
-	}
-
-	// Reconcile the ImagePullSecrets.
-	if err := r.reconcileImagePullSecrets(ctx, clusters, dpuService); err != nil {
-		return fmt.Errorf("ImagePullSecrets: %v", err)
-	}
-
-	return nil
-}
-
-func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, clusters []controlplane.DPFCluster, project, dpuNamespace string) error {
-	var errs []error
-	if project == dpuAppProjectName {
-		for _, cluster := range clusters {
-			dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("get cluster %s: %v", cluster.Name, err))
-			}
-			if err := utils.EnsureNamespace(ctx, dpuClusterClient, dpuNamespace); err != nil {
-				errs = append(errs, fmt.Errorf("namespace for cluster %s: %v", cluster.Name, err))
-			}
-		}
-	} else {
-		if err := utils.EnsureNamespace(ctx, r.Client, dpuNamespace); err != nil {
-			return fmt.Errorf("in-cluster namespace: %v", err)
-		}
-	}
-	return kerrors.NewAggregate(errs)
-}
-
-// reconcileArgoSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
-func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
-	log := ctrllog.FromContext(ctx)
-
-	var errs []error
-	for _, cluster := range clusters {
-		// Get the control plane kubeconfig
-		adminConfig, err := cluster.GetKubeconfig(ctx, r.Client)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		// Template an argoSecret using information from the control plane secret.
-		argoSecret, err := createArgoSecretFromKubeconfig(adminConfig, dpfOperatorConfig.GetNamespace(), cluster.String())
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		// Add owner reference ArgoSecret->DPFOperatorConfig to ensure that the Secret will be deleted with the DPFOperatorConfig.
-		// This ensures that we should have no orphaned ArgoCD Secrets.
-		owner := metav1.NewControllerRef(dpfOperatorConfig, operatorv1.DPFOperatorConfigGroupVersionKind)
-		argoSecret.SetOwnerReferences([]metav1.OwnerReference{*owner})
-
-		// Create or patch
-		log.Info("Patching Secrets for DPF clusters")
-		if err := r.Client.Patch(ctx, argoSecret, client.Apply, applyPatchOptions...); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-	}
-	return kerrors.NewAggregate(errs)
-}
-
-// createArgoSecretFromKubeconfig generates an ArgoCD cluster secret from the given kubeconfig.
-func createArgoSecretFromKubeconfig(kubeconfig *kubeconfig.Type, dpfOperatorConfigNamespace, clusterName string) (*corev1.Secret, error) {
-	clusterConfigName := kubeconfig.Clusters[0].Name
-	clusterConfigServer := kubeconfig.Clusters[0].Cluster.Server
-	secretConfig, err := json.Marshal(config{TlsClientConfig: tlsClientConfig{
-		CaData:   kubeconfig.Clusters[0].Cluster.CertificateAuthorityData,
-		KeyData:  kubeconfig.Users[0].User.ClientKeyData,
-		CertData: kubeconfig.Users[0].User.ClientCertificateData,
-	}})
-	if err != nil {
-		return nil, err
-	}
-	return createArgoCDSecret(secretConfig, dpfOperatorConfigNamespace, clusterName, clusterConfigName, clusterConfigServer), nil
-}
-
-// createArgoCDSecret templates an ArgoCD cluster Secret with the passed values.
-func createArgoCDSecret(secretConfig []byte, dpfOperatorConfigNamespace, clusterName, clusterConfigName, clusterConfigServer string) *corev1.Secret {
-	return &corev1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			// The secret name is the cluster name. DPUClusters must have unique names.
-			Name:      clusterName,
-			Namespace: dpfOperatorConfigNamespace,
-			Labels: map[string]string{
-				argoCDSecretLabelKey:                argoCDSecretLabelValue,
-				controlplanemeta.DPFClusterLabelKey: clusterName,
-				operatorv1.DPFComponentLabelKey:     dpuServiceControllerName,
-			},
-			OwnerReferences: nil,
-			Annotations:     nil,
-		},
-		Type: corev1.SecretTypeOpaque,
-		Data: map[string][]byte{
-			"name":   []byte(clusterConfigName),
-			"server": []byte(clusterConfigServer),
-			"config": secretConfig,
-		},
-	}
-}
-
-// config is used to marshal the config section of the argoCD secret data.
-type config struct {
-	TlsClientConfig tlsClientConfig `json:"tlsClientConfig"`
-}
-
-// tlsClientConfig is used to marshal the tlsClientConfig section of the argoCD secret data.config.
-type tlsClientConfig struct {
-	CaData   []byte `json:"caData,omitempty"`
-	KeyData  []byte `json:"keyData,omitempty"`
-	CertData []byte `json:"certData,omitempty"`
-}
-
 // summary sets the conditions for the sync status of the ArgoCD applications as well as the overall conditions.
 func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservicev1.DPUService) error {
 	defer conditions.SetSummary(dpuService)
@@ -519,6 +383,133 @@ func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservi
 	}
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationsReady)
 	return nil
+}
+
+func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
+	// Ensure the DPUService namespace exists in target clusters.
+	project := getProjectName(dpuService)
+	// TODO: think about how to cleanup the namespace in the DPU.
+	if err := r.ensureNamespaces(ctx, clusters, project, dpuService.GetNamespace()); err != nil {
+		return fmt.Errorf("cluster namespaces: %v", err)
+	}
+
+	// Ensure the Argo secret for each cluster is up-to-date.
+	if err := r.reconcileArgoSecrets(ctx, clusters, dpfOperatorConfig); err != nil {
+		return fmt.Errorf("ArgoSecrets: %v", err)
+	}
+
+	//  Ensure the ArgoCD AppProject exists and is up-to-date.
+	if err := r.reconcileAppProject(ctx, clusters, dpfOperatorConfig); err != nil {
+		return fmt.Errorf("AppProject: %v", err)
+	}
+
+	// Reconcile the ImagePullSecrets.
+	if err := r.reconcileImagePullSecrets(ctx, clusters, dpuService); err != nil {
+		return fmt.Errorf("ImagePullSecrets: %v", err)
+	}
+
+	return nil
+}
+
+// reconcileArgoSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
+func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
+	log := ctrllog.FromContext(ctx)
+
+	var errs []error
+	for _, cluster := range clusters {
+		// Get the control plane kubeconfig
+		adminConfig, err := cluster.GetKubeconfig(ctx, r.Client)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		// Template an argoSecret using information from the control plane secret.
+		argoSecret, err := createArgoSecretFromKubeconfig(adminConfig, dpfOperatorConfig.GetNamespace(), cluster.String())
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		// Add owner reference ArgoSecret->DPFOperatorConfig to ensure that the Secret will be deleted with the DPFOperatorConfig.
+		// This ensures that we should have no orphaned ArgoCD Secrets.
+		owner := metav1.NewControllerRef(dpfOperatorConfig, operatorv1.DPFOperatorConfigGroupVersionKind)
+		argoSecret.SetOwnerReferences([]metav1.OwnerReference{*owner})
+
+		// Create or patch
+		log.Info("Patching Secrets for DPF clusters")
+		if err := r.Client.Patch(ctx, argoSecret, client.Apply, applyPatchOptions...); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+	}
+	return kerrors.NewAggregate(errs)
+}
+
+func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, clusters []controlplane.DPFCluster, service *dpuservicev1.DPUService) error {
+	log := ctrllog.FromContext(ctx)
+	log.Info("Patching ImagePullSecrets for DPU clusters")
+
+	// First get the secrets with the correct label.
+	secrets := &corev1.SecretList{}
+	err := r.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})
+	if err != nil {
+		return err
+	}
+
+	secretsToPatch := []*corev1.Secret{}
+	existingSecrets := map[string]bool{}
+	// Copy the spec of the secret to a new secret and set the namespace.
+	for _, secret := range secrets.Items {
+		secretsToPatch = append(secretsToPatch, &corev1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Secret",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      secret.Name,
+				Namespace: service.Namespace,
+				Labels:    secret.Labels,
+			},
+			Immutable: secret.Immutable,
+			Data:      secret.Data,
+			Type:      secret.Type,
+		})
+		existingSecrets[secret.GetName()] = true
+	}
+
+	// Apply the new secret to every DPUCluster.
+	var errs []error
+	for _, cluster := range clusters {
+		dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		for _, secret := range secretsToPatch {
+			if err := dpuClusterClient.Patch(ctx, secret, client.Apply, applyPatchOptions...); err != nil {
+				errs = append(errs, err)
+			}
+		}
+
+		// Cleanup orphaned secrets.
+		inClusterSecrets := &corev1.SecretList{}
+		if err := dpuClusterClient.List(ctx, inClusterSecrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey}); err != nil {
+			return err
+		}
+		for _, secret := range inClusterSecrets.Items {
+			if _, ok := existingSecrets[secret.GetName()]; ok {
+				log.Info("ImagePullSecret still present in cluster", "secret", secret.Name, "cluster", cluster.Name)
+				continue
+			}
+
+			log.Info("Deleting secret in cluster", "secret", secret.Name, "cluster", cluster.Name)
+			if err := dpuClusterClient.Delete(ctx, &secret); err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	return kerrors.NewAggregate(errs)
 }
 
 func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
@@ -598,6 +589,81 @@ func (r *DPUServiceReconciler) ensureApplication(ctx context.Context, dpuService
 		}
 	}
 	return nil
+}
+
+func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, clusters []controlplane.DPFCluster, project, dpuNamespace string) error {
+	var errs []error
+	if project == dpuAppProjectName {
+		for _, cluster := range clusters {
+			dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("get cluster %s: %v", cluster.Name, err))
+			}
+			if err := utils.EnsureNamespace(ctx, dpuClusterClient, dpuNamespace); err != nil {
+				errs = append(errs, fmt.Errorf("namespace for cluster %s: %v", cluster.Name, err))
+			}
+		}
+	} else {
+		if err := utils.EnsureNamespace(ctx, r.Client, dpuNamespace); err != nil {
+			return fmt.Errorf("in-cluster namespace: %v", err)
+		}
+	}
+	return kerrors.NewAggregate(errs)
+}
+
+// config is used to marshal the config section of the argoCD secret data.
+type config struct {
+	TlsClientConfig tlsClientConfig `json:"tlsClientConfig"`
+}
+
+// tlsClientConfig is used to marshal the tlsClientConfig section of the argoCD secret data.config.
+type tlsClientConfig struct {
+	CaData   []byte `json:"caData,omitempty"`
+	KeyData  []byte `json:"keyData,omitempty"`
+	CertData []byte `json:"certData,omitempty"`
+}
+
+// createArgoSecretFromKubeconfig generates an ArgoCD cluster secret from the given kubeconfig.
+func createArgoSecretFromKubeconfig(kubeconfig *kubeconfig.Type, dpfOperatorConfigNamespace, clusterName string) (*corev1.Secret, error) {
+	clusterConfigName := kubeconfig.Clusters[0].Name
+	clusterConfigServer := kubeconfig.Clusters[0].Cluster.Server
+	secretConfig, err := json.Marshal(config{TlsClientConfig: tlsClientConfig{
+		CaData:   kubeconfig.Clusters[0].Cluster.CertificateAuthorityData,
+		KeyData:  kubeconfig.Users[0].User.ClientKeyData,
+		CertData: kubeconfig.Users[0].User.ClientCertificateData,
+	}})
+	if err != nil {
+		return nil, err
+	}
+	return createArgoCDSecret(secretConfig, dpfOperatorConfigNamespace, clusterName, clusterConfigName, clusterConfigServer), nil
+}
+
+// createArgoCDSecret templates an ArgoCD cluster Secret with the passed values.
+func createArgoCDSecret(secretConfig []byte, dpfOperatorConfigNamespace, clusterName, clusterConfigName, clusterConfigServer string) *corev1.Secret {
+	return &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			// The secret name is the cluster name. DPUClusters must have unique names.
+			Name:      clusterName,
+			Namespace: dpfOperatorConfigNamespace,
+			Labels: map[string]string{
+				argoCDSecretLabelKey:                argoCDSecretLabelValue,
+				controlplanemeta.DPFClusterLabelKey: clusterName,
+				operatorv1.DPFComponentLabelKey:     dpuServiceControllerName,
+			},
+			OwnerReferences: nil,
+			Annotations:     nil,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"name":   []byte(clusterConfigName),
+			"server": []byte(clusterConfigServer),
+			"config": secretConfig,
+		},
+	}
 }
 
 // getProjectName returns the correct project name for the DPUService depending on the cluster it's destined for.
@@ -684,70 +750,4 @@ func (r *DPUServiceReconciler) ArgoApplicationToDPUService(ctx context.Context, 
 			Name:      name,
 		},
 	}}
-}
-
-func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, clusters []controlplane.DPFCluster, service *dpuservicev1.DPUService) error {
-	log := ctrllog.FromContext(ctx)
-	log.Info("Patching ImagePullSecrets for DPU clusters")
-
-	// First get the secrets with the correct label.
-	secrets := &corev1.SecretList{}
-	err := r.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})
-	if err != nil {
-		return err
-	}
-
-	secretsToPatch := []*corev1.Secret{}
-	existingSecrets := map[string]bool{}
-	// Copy the spec of the secret to a new secret and set the namespace.
-	for _, secret := range secrets.Items {
-		secretsToPatch = append(secretsToPatch, &corev1.Secret{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "v1",
-				Kind:       "Secret",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      secret.Name,
-				Namespace: service.Namespace,
-				Labels:    secret.Labels,
-			},
-			Immutable: secret.Immutable,
-			Data:      secret.Data,
-			Type:      secret.Type,
-		})
-		existingSecrets[secret.GetName()] = true
-	}
-
-	// Apply the new secret to every DPUCluster.
-	var errs []error
-	for _, cluster := range clusters {
-		dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		for _, secret := range secretsToPatch {
-			if err := dpuClusterClient.Patch(ctx, secret, client.Apply, applyPatchOptions...); err != nil {
-				errs = append(errs, err)
-			}
-		}
-
-		// Cleanup orphaned secrets.
-		inClusterSecrets := &corev1.SecretList{}
-		if err := dpuClusterClient.List(ctx, inClusterSecrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey}); err != nil {
-			return err
-		}
-		for _, secret := range inClusterSecrets.Items {
-			if _, ok := existingSecrets[secret.GetName()]; ok {
-				log.Info("ImagePullSecret still present in cluster", "secret", secret.Name, "cluster", cluster.Name)
-				continue
-			}
-
-			log.Info("Deleting secret in cluster", "secret", secret.Name, "cluster", cluster.Name)
-			if err := dpuClusterClient.Delete(ctx, &secret); err != nil {
-				errs = append(errs, err)
-			}
-		}
-	}
-	return kerrors.NewAggregate(errs)
 }
