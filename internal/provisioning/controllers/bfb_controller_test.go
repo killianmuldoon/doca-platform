@@ -82,7 +82,7 @@ var _ = Describe("Bfb", func() {
 		symlink = string(os.PathSeparator) + cutil.BFBBaseDir
 		_, err := os.Stat(symlink)
 		if err == nil {
-			AbortSuite("Setup is not suitable. Remove " + symlink + " that is used by test and rerun.")
+			Skip("Setup is not suitable. Remove " + symlink + " that is used by test and rerun.")
 		}
 
 		symlinkTarget, err = os.MkdirTemp(os.TempDir(), "dpf-bfb-*")
@@ -120,7 +120,8 @@ var _ = Describe("Bfb", func() {
 			_, _ = w.Write(data132MB)
 		}
 		mux.HandleFunc(BFBPathFileSize132MB, handler132MB)
-		server = httptest.NewServer(mux)
+		server = httptest.NewUnstartedServer(mux)
+		server.Start()
 		Expect(server).ToNot(BeNil())
 		By("server is listening:" + server.URL)
 	})
@@ -252,8 +253,41 @@ var _ = Describe("Bfb", func() {
 			Eventually(func(g Gomega) provisioningv1.BfbPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Status.Phase
-			}).WithTimeout(30 * time.Second).WithPolling(100 * time.Millisecond).Should(Equal(provisioningv1.BfbReady))
+			}).WithTimeout(30 * time.Second).Should(Equal(provisioningv1.BfbReady))
 			file, err := os.Stat(cutil.GenerateBFBFilePath(obj_fetched.Spec.FileName))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(file.Size()).Should(BeNumerically("==", 512*1024))
+		})
+
+		It("check status (Ready) in case bfb file is cached manually", func() {
+			BfbFileName := cutil.GenerateBFBFilePath(DefaultBFBFileName)
+
+			By("caching bfb file before start")
+			f, err := os.Create(BfbFileName)
+			Expect(err).NotTo(HaveOccurred())
+			file_size, err := f.Write(make([]byte, 512*1024))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(file_size).Should(BeNumerically("==", 512*1024))
+			Expect(f.Close()).To(Succeed())
+			file, err := os.Stat(BfbFileName)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(file.Size()).Should(BeNumerically("==", 512*1024))
+
+			By("creating the obj")
+			obj := createObj("obj-bfb")
+			obj.Spec.URL = server.URL + BFBPathFileSize512KB
+			obj.Spec.FileName = DefaultBFBFileName
+			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
+			DeferCleanup(k8sClient.Delete, ctx, obj)
+
+			obj_fetched := &provisioningv1.Bfb{}
+
+			By("expecting the Status (Ready)")
+			Eventually(func(g Gomega) provisioningv1.BfbPhase {
+				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
+				return obj_fetched.Status.Phase
+			}).WithTimeout(30 * time.Second).Should(Equal(provisioningv1.BfbReady))
+			file, err = os.Stat(BfbFileName)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(file.Size()).Should(BeNumerically("==", 512*1024))
 		})
@@ -282,7 +316,7 @@ var _ = Describe("Bfb", func() {
 			Eventually(func(g Gomega) provisioningv1.BfbPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Status.Phase
-			}).WithTimeout(30 * time.Second).WithPolling(100 * time.Millisecond).Should(Equal(provisioningv1.BfbReady))
+			}).WithTimeout(30 * time.Second).Should(Equal(provisioningv1.BfbReady))
 			file, err := os.Stat(cutil.GenerateBFBFilePath(obj_fetched.Spec.FileName))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(file.Size()).Should(BeNumerically("==", 132*1024*1024))
@@ -327,9 +361,10 @@ var _ = Describe("Bfb", func() {
 			Eventually(func(g Gomega) provisioningv1.BfbPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Status.Phase
-			}).WithTimeout(30 * time.Second).WithPolling(100 * time.Millisecond).Should(Equal(provisioningv1.BfbReady))
-			_, err := os.Stat(cutil.GenerateBFBFilePath(obj_fetched.Spec.FileName))
+			}).WithTimeout(30 * time.Second).Should(Equal(provisioningv1.BfbReady))
+			file, err := os.Stat(cutil.GenerateBFBFilePath(obj_fetched.Spec.FileName))
 			Expect(err).NotTo(HaveOccurred())
+			Expect(file.Size()).Should(BeNumerically("==", 512*1024))
 
 			By("removing cached bfb file")
 			Expect(os.Remove(cutil.GenerateBFBFilePath(obj_fetched.Spec.FileName))).NotTo(HaveOccurred())
@@ -344,9 +379,10 @@ var _ = Describe("Bfb", func() {
 			Eventually(func(g Gomega) provisioningv1.BfbPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Status.Phase
-			}).WithTimeout(30 * time.Second).WithPolling(100 * time.Millisecond).Should(Equal(provisioningv1.BfbReady))
-			_, err = os.Stat(cutil.GenerateBFBFilePath(obj_fetched.Spec.FileName))
+			}).WithTimeout(30 * time.Second).Should(Equal(provisioningv1.BfbReady))
+			file, err = os.Stat(cutil.GenerateBFBFilePath(obj_fetched.Spec.FileName))
 			Expect(err).NotTo(HaveOccurred())
+			Expect(file.Size()).Should(BeNumerically("==", 512*1024))
 		})
 
 		It("remove cached bfb file from Status (Ready) when server is down", func() {
@@ -374,9 +410,10 @@ var _ = Describe("Bfb", func() {
 			Eventually(func(g Gomega) provisioningv1.BfbPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Status.Phase
-			}).WithTimeout(30 * time.Second).WithPolling(100 * time.Millisecond).Should(Equal(provisioningv1.BfbReady))
-			_, err := os.Stat(cutil.GenerateBFBFilePath(obj_fetched.Spec.FileName))
+			}).WithTimeout(30 * time.Second).Should(Equal(provisioningv1.BfbReady))
+			file, err := os.Stat(cutil.GenerateBFBFilePath(obj_fetched.Spec.FileName))
 			Expect(err).NotTo(HaveOccurred())
+			Expect(file.Size()).Should(BeNumerically("==", 512*1024))
 
 			By("stopping server")
 			server.Close()

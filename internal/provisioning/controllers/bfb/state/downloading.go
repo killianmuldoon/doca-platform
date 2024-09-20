@@ -38,10 +38,8 @@ type bfbDownloadingState struct {
 }
 
 func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BfbStatus, error) {
-	logger := log.FromContext(ctx)
 	state := st.bfb.Status.DeepCopy()
 	bfbTaskName := cutil.GenerateBFBTaskName(*st.bfb)
-	bfbFilePath := cutil.GenerateBFBFilePath(st.bfb.Spec.FileName)
 
 	if isDeleting(st.bfb) {
 		// Retrieve and call the cancel function to stop the download
@@ -58,36 +56,29 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 	if err != nil {
 		state.Phase = provisioningv1.BfbError
 		return *state, err
-	} else if exist {
-		state.Phase = provisioningv1.BfbReady
-		return *state, nil
 	}
 
 	if bfbDownloader, ok := butil.DownloadingTaskMap.Load(bfbTaskName); ok {
-		// Check whether downloading is finished
+		// Wait for downloading task completion
 		result := bfbDownloader.(*future.Future)
 		if result.GetState() != future.Ready {
 			return *state, nil
 		}
+		// Remove downloading task context
 		butil.DownloadingTaskMap.Delete(bfbTaskName)
 		butil.DownloadingTaskMap.Delete(bfbTaskName + "cancel")
-		if _, err := result.GetResult(); err == nil {
-			if md5Value, md5err := cutil.ComputeMD5(bfbFilePath); md5err == nil {
-				logger.V(3).Info(fmt.Sprintf("md5sum of %s is %s", st.bfb.Spec.FileName, md5Value))
+		// Check task result
+		if _, err := result.GetResult(); err != nil {
+			if errors.Is(err, context.Canceled) {
+				state.Phase = provisioningv1.BfbDeleting
+				return *state, nil
 			} else {
-				logger.Error(md5err, "Failed to get md5sum")
+				state.Phase = provisioningv1.BfbError
+				return *state, err
 			}
-			state.Phase = provisioningv1.BfbReady
-			return *state, nil
-		} else if errors.Is(err, context.Canceled) {
-			state.Phase = provisioningv1.BfbDeleting
-			return *state, nil
-		} else {
-			state.Phase = provisioningv1.BfbError
-			return *state, err
 		}
-	} else {
-		// Bfb downloading
+	} else if !exist {
+		// Start Bfb downloading task
 		bfbTask := butil.BfbTask{
 			TaskName: bfbTaskName,
 			Url:      st.bfb.Spec.URL,
@@ -99,6 +90,9 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 		butil.DownloadingTaskMap.Store(bfbTaskName+"cancel", cancel)
 		// Start the download with the new context
 		downloadBfb(taskCtx, bfbTask)
+	} else {
+		// There is no related downloading task and Bfb file exists in cache
+		state.Phase = provisioningv1.BfbReady
 	}
 
 	return *state, nil
