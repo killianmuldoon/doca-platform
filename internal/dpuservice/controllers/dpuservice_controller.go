@@ -163,7 +163,7 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 		return res, nil
 	}
 
-	if err := r.reconcileDeleteImagePullSecrets(ctx); err != nil {
+	if err := r.reconcileDeleteImagePullSecrets(ctx, dpuService); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -238,12 +238,13 @@ func (r *DPUServiceReconciler) reconcileDeleteApplications(ctx context.Context, 
 	return ctrl.Result{}, nil
 }
 
-func (r *DPUServiceReconciler) reconcileDeleteImagePullSecrets(ctx context.Context) error {
+// reconcileDeleteImagePullSecrets ensures imagePullSecrets are removed from DPUClusters where no more DPUServices with that namespace are deployed.
+func (r *DPUServiceReconciler) reconcileDeleteImagePullSecrets(ctx context.Context, dpuService *dpuservicev1.DPUService) error {
 	log := ctrllog.FromContext(ctx)
 
 	// List all DPUServices.
 	dpuServices := &dpuservicev1.DPUServiceList{}
-	if err := r.List(ctx, dpuServices); err != nil {
+	if err := r.List(ctx, dpuServices, client.InNamespace(dpuService.GetNamespace())); err != nil {
 		return fmt.Errorf("list DPUServices: %w", err)
 	}
 
@@ -271,7 +272,7 @@ func (r *DPUServiceReconciler) reconcileDeleteImagePullSecrets(ctx context.Conte
 
 		// First get the secrets with the correct label.
 		secrets := &corev1.SecretList{}
-		err = dpuClusterClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})
+		err = dpuClusterClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey}, client.InNamespace(dpuService.GetNamespace()))
 		if err != nil {
 			errs = append(errs, err)
 			continue

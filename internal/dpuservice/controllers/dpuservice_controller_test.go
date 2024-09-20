@@ -551,6 +551,15 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			for _, gotSecret := range gotSecrets.Items {
 				Expect(gotSecret.Name).To(BeElementOf([]string{"dpf-secret-one", "dpf-secret-two"}))
 			}
+
+			// ImagePullSecrets should be cleaned up when all DPUServices have been deleted.
+			Eventually(func(g Gomega) {
+				_, err := r.reconcileDelete(ctx, &dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: cloningNamespace}})
+				g.Expect(err).NotTo(HaveOccurred())
+
+				g.Expect(testClient.List(ctx, gotSecrets, client.InNamespace(cloningNamespace))).To(Succeed())
+				g.Expect(gotSecrets.Items).To(BeEmpty())
+			}).WithTimeout(10 * time.Second).Should(Succeed())
 		})
 	})
 })
