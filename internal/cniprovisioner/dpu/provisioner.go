@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"os"
+	"path/filepath"
 	"time"
 
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/networkhelper"
@@ -39,6 +41,11 @@ const (
 	// later connected with br-sfc. In the current OVN IC w/ DPU implementation, the internal port of this bridge acts
 	// as the VTEP.
 	brOVN = "br-ovn"
+
+	// ovnInputGatewayOptsPath is the path to the file in which kubeovn-controller expects the additional gateway opts
+	ovnInputGatewayOptsPath = "/etc/init-output/ovn_gateway_opts"
+	// ovnInputRouterSubnetPath is the path to the file in which kubeovn-controller expects the Gateway Router Subnet
+	ovnInputRouterSubnetPath = "/etc/init-output/ovn_gateway_router_subnet"
 )
 
 type DPUCNIProvisioner struct {
@@ -132,6 +139,11 @@ func (p *DPUCNIProvisioner) configure() error {
 		return err
 	}
 
+	klog.Info("Writing OVN Kubernetes expected input files")
+	if err := p.writeFilesForOVN(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -222,6 +234,45 @@ func (p *DPUCNIProvisioner) addRouteIfNotExists(network *net.IPNet, gateway net.
 	}
 	if err := p.networkHelper.AddRoute(network, gateway, device, metric); err != nil {
 		return fmt.Errorf("error adding route: %w", err)
+	}
+	return nil
+}
+
+// writeFilesForOVN writes the input files that the ovnkube-controller expects
+func (p *DPUCNIProvisioner) writeFilesForOVN() error {
+	if err := p.writeOVNInputGatewayOptsFile(); err != nil {
+		return fmt.Errorf("error while writing the file OVN expects to find additional gateway options: %w", err)
+	}
+
+	if err := p.writeOVNInputRouterSubnetPath(); err != nil {
+		return fmt.Errorf("error while writing the file OVN expects to find the gateway router subnet: %w", err)
+	}
+
+	return nil
+}
+
+// writeOVNInputGatewayOptsFile writes the file in which kubeovn-controller expects the additional gateway opts
+func (p *DPUCNIProvisioner) writeOVNInputGatewayOptsFile() error {
+	configPath := filepath.Join(p.FileSystemRoot, ovnInputGatewayOptsPath)
+	content := fmt.Sprintf("--gateway-nexthop=%s", p.gateway.String())
+	err := os.WriteFile(configPath, []byte(content), 0644)
+	if err != nil {
+		return fmt.Errorf("error while writing file %s: %w", configPath, err)
+	}
+	return nil
+}
+
+// writeOVNInputRouterSubnetPath writes the file in which kubeovn-controller expects the Gateway Router Subnet
+func (p *DPUCNIProvisioner) writeOVNInputRouterSubnetPath() error {
+	configPath := filepath.Join(p.FileSystemRoot, ovnInputRouterSubnetPath)
+	_, vtepNetwork, err := net.ParseCIDR(p.vtepIPNet.String())
+	if err != nil {
+		return fmt.Errorf("error while parsing network from VTEP IP %s: %w", p.vtepIPNet.String(), err)
+	}
+	content := vtepNetwork.String()
+	err = os.WriteFile(configPath, []byte(content), 0644)
+	if err != nil {
+		return fmt.Errorf("error while writing file %s: %w", configPath, err)
 	}
 	return nil
 }

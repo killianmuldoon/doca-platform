@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"net"
 	"os"
+	"path/filepath"
 	"time"
 
 	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/dpu"
@@ -49,7 +50,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			fakeExec := &kexecTesting.FakeExec{}
 			vtepIPNet, err := netlink.ParseIPNet("192.168.1.1/24")
 			Expect(err).ToNot(HaveOccurred())
-			gateway := net.ParseIP("192.168.1.10/24")
+			gateway := net.ParseIP("192.168.1.10")
 			vtepCIDR, err := netlink.ParseIPNet("192.168.1.0/23")
 			Expect(err).ToNot(HaveOccurred())
 			hostCIDR, err := netlink.ParseIPNet("10.0.100.1/24")
@@ -73,6 +74,10 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			}()
 			Expect(err).NotTo(HaveOccurred())
 			provisioner.FileSystemRoot = tmpDir
+			ovnInputDirPath := filepath.Join(tmpDir, "/etc/init-output")
+			Expect(os.MkdirAll(ovnInputDirPath, 0755)).To(Succeed())
+			ovnInputGatewayOptsFakePath := filepath.Join(ovnInputDirPath, "ovn_gateway_opts")
+			ovnInputRouterSubnetFakePath := filepath.Join(ovnInputDirPath, "ovn_gateway_router_subnet")
 
 			networkhelper.EXPECT().LinkIPAddressExists("br-ovn", vtepIPNet)
 			networkhelper.EXPECT().SetLinkIPAddress("br-ovn", vtepIPNet)
@@ -97,6 +102,14 @@ var _ = Describe("DPU CNI Provisioner", func() {
 
 			err = provisioner.RunOnce()
 			Expect(err).ToNot(HaveOccurred())
+
+			ovnInputGatewayOpts, err := os.ReadFile(ovnInputGatewayOptsFakePath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(ovnInputGatewayOpts)).To(Equal("--gateway-nexthop=192.168.1.10"))
+
+			ovnInputRouterSubnet, err := os.ReadFile(ovnInputRouterSubnetFakePath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(ovnInputRouterSubnet)).To(Equal("192.168.1.0/24"))
 		})
 		It("should configure the system fully when same subnet across DPUs", func() {
 			testCtrl := gomock.NewController(GinkgoT())
@@ -105,7 +118,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			fakeExec := &kexecTesting.FakeExec{}
 			vtepIPNet, err := netlink.ParseIPNet("192.168.1.1/24")
 			Expect(err).ToNot(HaveOccurred())
-			gateway := net.ParseIP("192.168.1.10/24")
+			gateway := net.ParseIP("192.168.1.10")
 			_, vtepCIDR, err := net.ParseCIDR("192.168.1.0/24")
 			Expect(err).ToNot(HaveOccurred())
 			_, hostCIDR, err := net.ParseCIDR("10.0.100.1/24")
@@ -129,6 +142,10 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			}()
 			Expect(err).NotTo(HaveOccurred())
 			provisioner.FileSystemRoot = tmpDir
+			ovnInputDirPath := filepath.Join(tmpDir, "/etc/init-output")
+			Expect(os.MkdirAll(ovnInputDirPath, 0755)).To(Succeed())
+			ovnInputGatewayOptsFakePath := filepath.Join(ovnInputDirPath, "ovn_gateway_opts")
+			ovnInputRouterSubnetFakePath := filepath.Join(ovnInputDirPath, "ovn_gateway_router_subnet")
 
 			Expect(vtepIPNet.String()).To(Equal("192.168.1.1/24"))
 			_, vtepNetwork, _ := net.ParseCIDR(vtepIPNet.String())
@@ -155,6 +172,14 @@ var _ = Describe("DPU CNI Provisioner", func() {
 
 			err = provisioner.RunOnce()
 			Expect(err).ToNot(HaveOccurred())
+
+			ovnInputGatewayOpts, err := os.ReadFile(ovnInputGatewayOptsFakePath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(ovnInputGatewayOpts)).To(Equal("--gateway-nexthop=192.168.1.10"))
+
+			ovnInputRouterSubnet, err := os.ReadFile(ovnInputRouterSubnetFakePath)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(string(ovnInputRouterSubnet)).To(Equal("192.168.1.0/24"))
 		})
 	})
 	Context("When checking for idempotency", func() {
@@ -165,7 +190,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			fakeExec := &kexecTesting.FakeExec{}
 			vtepIPNet, err := netlink.ParseIPNet("192.168.1.1/24")
 			Expect(err).ToNot(HaveOccurred())
-			gateway := net.ParseIP("192.168.1.10/24")
+			gateway := net.ParseIP("192.168.1.10")
 			vtepCIDR, err := netlink.ParseIPNet("192.168.1.0/23")
 			Expect(err).ToNot(HaveOccurred())
 			hostCIDR, err := netlink.ParseIPNet("10.0.100.1/24")
@@ -189,6 +214,8 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			}()
 			Expect(err).NotTo(HaveOccurred())
 			provisioner.FileSystemRoot = tmpDir
+			ovnInputDirPath := filepath.Join(tmpDir, "/etc/init-output")
+			Expect(os.MkdirAll(ovnInputDirPath, 0755)).To(Succeed())
 
 			networkHelperMockAll(networkhelper)
 			ovsClientMockAll(ovsClient)
@@ -206,7 +233,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			fakeExec := &kexecTesting.FakeExec{}
 			vtepIPNet, err := netlink.ParseIPNet("192.168.1.1/24")
 			Expect(err).ToNot(HaveOccurred())
-			gateway := net.ParseIP("192.168.1.10/24")
+			gateway := net.ParseIP("192.168.1.10")
 			vtepCIDR, err := netlink.ParseIPNet("192.168.1.0/23")
 			Expect(err).ToNot(HaveOccurred())
 			hostCIDR, err := netlink.ParseIPNet("10.0.100.1/24")
@@ -230,6 +257,8 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			}()
 			Expect(err).NotTo(HaveOccurred())
 			provisioner.FileSystemRoot = tmpDir
+			ovnInputDirPath := filepath.Join(tmpDir, "/etc/init-output")
+			Expect(os.MkdirAll(ovnInputDirPath, 0755)).To(Succeed())
 
 			By("Checking the first run")
 			networkhelper.EXPECT().LinkIPAddressExists("br-ovn", vtepIPNet)
