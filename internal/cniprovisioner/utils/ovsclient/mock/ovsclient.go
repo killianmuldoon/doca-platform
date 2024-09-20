@@ -197,6 +197,20 @@ func (mr *MockOVSClientMockRecorder) SetDOCAInit(enable any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetDOCAInit", reflect.TypeOf((*MockOVSClient)(nil).SetDOCAInit), enable)
 }
 
+// SetKubernetesHostNodeName mocks base method.
+func (m *MockOVSClient) SetKubernetesHostNodeName(name string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetKubernetesHostNodeName", name)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetKubernetesHostNodeName indicates an expected call of SetKubernetesHostNodeName.
+func (mr *MockOVSClientMockRecorder) SetKubernetesHostNodeName(name any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetKubernetesHostNodeName", reflect.TypeOf((*MockOVSClient)(nil).SetKubernetesHostNodeName), name)
+}
+
 // SetOVNEncapIP mocks base method.
 func (m *MockOVSClient) SetOVNEncapIP(ip net.IP) error {
 	m.ctrl.T.Helper()

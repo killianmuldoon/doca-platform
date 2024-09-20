@@ -128,3 +128,8 @@ func (c *ovsClient) SetOVNEncapIP(ip net.IP) error {
 func (c *ovsClient) SetDOCAInit(enable bool) error {
 	return c.runOVSVsctl("set", "Open_vSwitch", ".", fmt.Sprintf("other_config:doca-init=%t", enable))
 }
+
+// SetKubernetesHostNodeName sets the host-k8s-nodename external ID in the Open_vSwitch table in OVS
+func (c *ovsClient) SetKubernetesHostNodeName(name string) error {
+	return c.runOVSVsctl("set", "Open_vSwitch", ".", fmt.Sprintf("external_ids:host-k8s-nodename=%s", name))
+}

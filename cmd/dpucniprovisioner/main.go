@@ -30,13 +30,21 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/ovsclient"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/readyz"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
 	kexec "k8s.io/utils/exec"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 func main() {
 	klog.Info("Starting DPU CNI Provisioner")
+
+	node := os.Getenv("NODE_NAME")
+	if node == "" {
+		klog.Fatal("NODE_NAME environment variable is not found. This is supposed to be configured via Kubernetes Downward API in production")
+	}
+
 	ovsClient, err := ovsclient.New()
 	if err != nil {
 		klog.Fatal(err)
@@ -44,7 +52,17 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	c := clock.RealClock{}
-	provisioner := dpucniprovisioner.New(ctx, c, ovsClient, networkhelper.New(), kexec.New(), nil, net.IP{}, nil, nil)
+
+	config, err := config.GetConfig()
+	if err != nil {
+		klog.Fatal(err)
+	}
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		klog.Fatal(err)
+	}
+
+	provisioner := dpucniprovisioner.New(ctx, c, ovsClient, networkhelper.New(), kexec.New(), clientset, nil, net.IP{}, nil, nil, node)
 
 	err = provisioner.RunOnce()
 	if err != nil {

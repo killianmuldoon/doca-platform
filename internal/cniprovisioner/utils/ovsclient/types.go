@@ -52,6 +52,8 @@ type OVSClient interface {
 	SetOVNEncapIP(ip net.IP) error
 	// SetDOCAInit sets the doca-init other_config in the Open_vSwitch table in OVS. Requires OVS daemon restart.
 	SetDOCAInit(enable bool) error
+	// SetKubernetesHostNodeName sets the host-k8s-nodename external ID in the Open_vSwitch table in OVS
+	SetKubernetesHostNodeName(name string) error
 }
 
 // BridgeDataPathType represents the various datapath types a bridge can be configured with

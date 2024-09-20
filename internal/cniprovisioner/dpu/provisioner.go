@@ -24,7 +24,10 @@ import (
 
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/networkhelper"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/ovsclient"
+	dpu "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/state"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
 	kexec "k8s.io/utils/exec"
@@ -44,6 +47,7 @@ type DPUCNIProvisioner struct {
 	ovsClient                 ovsclient.OVSClient
 	networkHelper             networkhelper.NetworkHelper
 	exec                      kexec.Interface
+	kubernetesClient          kubernetes.Interface
 
 	// FileSystemRoot controls the file system root. It's used for enabling easier testing of the package. Defaults to
 	// empty.
@@ -62,6 +66,8 @@ type DPUCNIProvisioner struct {
 	// its peer nodes when traffic needs to go from one Pod running on worker Node A to another Pod running on control
 	// plane A (and vice versa).
 	hostCIDR *net.IPNet
+	// dpuHostName is the name of the DPU.
+	dpuHostName string
 }
 
 // New creates a DPUCNIProvisioner that can configure the system
@@ -70,10 +76,12 @@ func New(ctx context.Context,
 	ovsClient ovsclient.OVSClient,
 	networkHelper networkhelper.NetworkHelper,
 	exec kexec.Interface,
+	kubernetesClient kubernetes.Interface,
 	vtepIPNet *net.IPNet,
 	gateway net.IP,
 	vtepCIDR *net.IPNet,
 	hostCIDR *net.IPNet,
+	dpuHostName string,
 ) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
 		ctx:                       ctx,
@@ -81,11 +89,13 @@ func New(ctx context.Context,
 		ovsClient:                 ovsClient,
 		networkHelper:             networkHelper,
 		exec:                      exec,
+		kubernetesClient:          kubernetesClient,
 		FileSystemRoot:            "",
 		vtepIPNet:                 vtepIPNet,
 		gateway:                   gateway,
 		vtepCIDR:                  vtepCIDR,
 		hostCIDR:                  hostCIDR,
+		dpuHostName:               dpuHostName,
 	}
 }
 
@@ -112,24 +122,44 @@ func (p *DPUCNIProvisioner) EnsureConfiguration() {
 
 // configure runs the provisioning flow once
 func (p *DPUCNIProvisioner) configure() error {
+	klog.Info("Configuring Kubernetes host name in OVS")
+	if err := p.findAndSetKubernetesHostNameInOVS(); err != nil {
+		return fmt.Errorf("error while setting the Kubernetes Host Name in OVS: %w", err)
+	}
+
 	klog.Info("Configuring system to enable pod to pod on different node connectivity")
-	err := p.configurePodToPodOnDifferentNodeConnectivity()
-	if err != nil {
+	if err := p.configurePodToPodOnDifferentNodeConnectivity(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
+// findAndSetKubernetesHostNameInOVS discovers and sets the Kubernetes Host Name in OVS
+func (p *DPUCNIProvisioner) findAndSetKubernetesHostNameInOVS() error {
+	nodeClient := p.kubernetesClient.CoreV1().Nodes()
+	n, err := nodeClient.Get(p.ctx, p.dpuHostName, metav1.GetOptions{})
+	if err != nil {
+		return fmt.Errorf("error while getting Kubernetes Node: %w", err)
+	}
+	hostName, ok := n.Labels[dpu.HostNameDPULabelKey]
+	if !ok {
+		return fmt.Errorf("required label %s is not set on node %s in the DPU cluster", dpu.HostNameDPULabelKey, p.dpuHostName)
+	}
+
+	if err := p.ovsClient.SetKubernetesHostNodeName(hostName); err != nil {
+		return fmt.Errorf("error while setting the Kubernetes Host Name in OVS: %w", err)
+	}
+	return nil
+}
+
 // configurePodToPodOnDifferentNodeConnectivity configures the VTEP interface (br-ovn) and the ovn-encap-ip external ID
 // so that traffic going through the geneve tunnels can function as expected.
 func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity() error {
-	err := p.setLinkIPAddressIfNotSet(brOVN, p.vtepIPNet)
-	if err != nil {
+	if err := p.setLinkIPAddressIfNotSet(brOVN, p.vtepIPNet); err != nil {
 		return fmt.Errorf("error while setting VTEP IP: %w", err)
 	}
-	err = p.networkHelper.SetLinkUp(brOVN)
-	if err != nil {
+	if err := p.networkHelper.SetLinkUp(brOVN); err != nil {
 		return fmt.Errorf("error while setting link %s up: %w", brOVN, err)
 	}
 
@@ -141,8 +171,7 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity() error
 	if vtepNetwork.String() != p.vtepCIDR.String() {
 		// Add route related to traffic that needs to go from one Pod running on worker Node A to another Pod running
 		// on worker Node B.
-		err = p.addRouteIfNotExists(p.vtepCIDR, p.gateway, brOVN, nil)
-		if err != nil {
+		if err := p.addRouteIfNotExists(p.vtepCIDR, p.gateway, brOVN, nil); err != nil {
 			return fmt.Errorf("error while adding route %s %s %s: %w", p.vtepCIDR, p.gateway.String(), brOVN, err)
 		}
 	}
@@ -154,14 +183,12 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity() error
 	// which gets a DHCP IP in that CIDR. Given that, we need to set the metric of this route to something very high
 	// so that it's the last preferred route in the route table for that CIDR. The reason for that is this OVS bug that
 	// selects the route with the highest prio as preferred https://redmine.mellanox.com/issues/3871067.
-	err = p.addRouteIfNotExists(p.hostCIDR, p.gateway, brOVN, ptr.To[int](10000))
-	if err != nil {
+	if err := p.addRouteIfNotExists(p.hostCIDR, p.gateway, brOVN, ptr.To[int](10000)); err != nil {
 		return fmt.Errorf("error while adding route %s %s %s: %w", p.hostCIDR, p.gateway.String(), brOVN, err)
 	}
 
-	err = p.ovsClient.SetOVNEncapIP(p.vtepIPNet.IP)
-	if err != nil {
-		return err
+	if err = p.ovsClient.SetOVNEncapIP(p.vtepIPNet.IP); err != nil {
+		return fmt.Errorf("error while setting the OVN Encap IP: %w", err)
 	}
 
 	return nil
@@ -177,8 +204,7 @@ func (p *DPUCNIProvisioner) setLinkIPAddressIfNotSet(link string, ipNet *net.IPN
 		klog.Infof("Link %s has IP %s, skipping configuration", link, ipNet)
 		return nil
 	}
-	err = p.networkHelper.SetLinkIPAddress(link, ipNet)
-	if err != nil {
+	if err := p.networkHelper.SetLinkIPAddress(link, ipNet); err != nil {
 		return fmt.Errorf("error setting IP address: %w", err)
 	}
 	return nil
@@ -194,8 +220,7 @@ func (p *DPUCNIProvisioner) addRouteIfNotExists(network *net.IPNet, gateway net.
 		klog.Infof("Route %s %s %s exists, skipping configuration", network, gateway, device)
 		return nil
 	}
-	err = p.networkHelper.AddRoute(network, gateway, device, metric)
-	if err != nil {
+	if err := p.networkHelper.AddRoute(network, gateway, device, metric); err != nil {
 		return fmt.Errorf("error adding route: %w", err)
 	}
 	return nil
