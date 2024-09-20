@@ -43,7 +43,7 @@ var _ = Describe("Bfb", func() {
 	const (
 		DefaultNS            = "dpf-provisioning-test"
 		BFBPathFileSize512KB = "/BlueField/BFBs/bf-bundle-dummy-512KB.bfb"
-		BFBPathFileSize132MB = "/BlueField/BFBs/bf-bundle-dummy-132MB.bfb"
+		BFBPathFileSize8KB   = "/BlueField/BFBs/bf-bundle-dummy-8KB.bfb"
 		BFBPathFileNotFound  = "/BlueField/BFBs/bf-bundle-dummy-notfound.bfb"
 		DefaultBFBFileName   = "dummy.bfb"
 	)
@@ -74,7 +74,6 @@ var _ = Describe("Bfb", func() {
 	}
 
 	BeforeEach(func() {
-		Skip("Skipping suite as it is flaky")
 		By("creating the namespaces")
 		testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: DefaultNS}}
 		Expect(client.IgnoreAlreadyExists(k8sClient.Create(ctx, testNS))).To(Succeed())
@@ -83,7 +82,7 @@ var _ = Describe("Bfb", func() {
 		symlink = string(os.PathSeparator) + cutil.BFBBaseDir
 		_, err := os.Stat(symlink)
 		if err == nil {
-			Skip("Setup is not suitable. Remove " + symlink + " that is used by test and rerun.")
+			AbortSuite("Setup is not suitable. Remove " + symlink + " that is used by test and rerun.")
 		}
 
 		symlinkTarget, err = os.MkdirTemp(os.TempDir(), "dpf-bfb-*")
@@ -104,7 +103,7 @@ var _ = Describe("Bfb", func() {
 
 		By("creating server for bfb download")
 		data512KB := make([]byte, 512*1024)
-		data132MB := make([]byte, 132*1024*1024)
+		data8KB := make([]byte, 8*1024)
 
 		mux := http.NewServeMux()
 		handler512KB := func(w http.ResponseWriter, r *http.Request) {
@@ -114,13 +113,13 @@ var _ = Describe("Bfb", func() {
 			_, _ = w.Write(data512KB)
 		}
 		mux.HandleFunc(BFBPathFileSize512KB, handler512KB)
-		handler132MB := func(w http.ResponseWriter, r *http.Request) {
+		handler8KB := func(w http.ResponseWriter, r *http.Request) {
 			Expect(r.Method).To(Equal("GET"))
 			w.Header().Set("Content-Type", "application/octet-stream")
 			w.WriteHeader(http.StatusOK)
-			_, _ = w.Write(data132MB)
+			_, _ = w.Write(data8KB)
 		}
-		mux.HandleFunc(BFBPathFileSize132MB, handler132MB)
+		mux.HandleFunc(BFBPathFileSize8KB, handler8KB)
 		server = httptest.NewUnstartedServer(mux)
 		server.Start()
 		Expect(server).ToNot(BeNil())
@@ -296,7 +295,7 @@ var _ = Describe("Bfb", func() {
 		It("cleanup cached file on obj deletion", func() {
 			By("creating the obj")
 			obj := createObj("obj-bfb")
-			obj.Spec.URL = server.URL + BFBPathFileSize132MB
+			obj.Spec.URL = server.URL + BFBPathFileSize8KB
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 
 			obj_fetched := &provisioningv1.Bfb{}
@@ -320,7 +319,7 @@ var _ = Describe("Bfb", func() {
 			}).WithTimeout(30 * time.Second).Should(Equal(provisioningv1.BfbReady))
 			file, err := os.Stat(cutil.GenerateBFBFilePath(obj_fetched.Spec.FileName))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(file.Size()).Should(BeNumerically("==", 132*1024*1024))
+			Expect(file.Size()).Should(BeNumerically("==", 8*1024))
 
 			By("removing obj")
 			Expect(k8sClient.Delete(ctx, obj)).To(Succeed())
