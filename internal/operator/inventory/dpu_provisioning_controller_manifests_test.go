@@ -341,7 +341,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		g.Expect(container).NotTo(BeNil())
 		expectedArgs := []string{
 			"--leader-elect",
-			"--zap-log-level=3",
+			"--v=3",
 			"--dms-image=example.com/dms-server:v0.1.0",
 			"--hostnetwork-image=example.com/hostnetworksetup:v0.1.0",
 			fmt.Sprintf("--bfb-pvc=%s", expectedPVC),

@@ -15,6 +15,7 @@ require (
 	github.com/openconfig/gnoi v0.4.1
 	github.com/openconfig/gnoigo v0.0.0-20240320202954-ebd033e3542c
 	github.com/pkg/errors v0.9.1
+	github.com/spf13/pflag v1.0.5
 	github.com/vishvananda/netlink v1.2.1-beta.2.0.20240304185031-70def89fcbfb
 	go.uber.org/mock v0.4.0
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
@@ -23,6 +24,7 @@ require (
 	k8s.io/api v0.31.0
 	k8s.io/apimachinery v0.31.0
 	k8s.io/client-go v0.31.0
+	k8s.io/component-base v0.31.0
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 	sigs.k8s.io/controller-runtime v0.19.0
@@ -91,7 +93,6 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
 	github.com/vishvananda/netns v0.0.4 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.53.0 // indirect
@@ -122,7 +123,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.31.0 // indirect
 	k8s.io/apiserver v0.31.0 // indirect
-	k8s.io/component-base v0.31.0 // indirect
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20240430033511-f0e62f92d13f // indirect
 	k8s.io/kubelet v0.22.8 // indirect

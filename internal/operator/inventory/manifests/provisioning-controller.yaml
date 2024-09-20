@@ -951,7 +951,7 @@ spec:
       containers:
       - args:
         - --leader-elect
-        - --zap-log-level=3
+        - --v=3
         - --dms-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server:latest
         - --hostnetwork-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/hostnetworksetup:v0.1
         - --bfb-pvc=bfb-pvc
