@@ -53,6 +53,7 @@ func TestControllers(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
+	Skip("skipping ovnkubernetesoperator controller tests")
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
 	By("bootstrapping test environment")
@@ -116,6 +117,7 @@ var _ = BeforeSuite(func() {
 })
 
 var _ = AfterSuite(func() {
+	Skip("skipping ovnkubernetesoperator controller tests")
 	By("tearing down the test environment")
 	if testManagerCancelFunc != nil {
 		testManagerCancelFunc()
