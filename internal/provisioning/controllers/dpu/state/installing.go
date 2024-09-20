@@ -58,6 +58,10 @@ const (
 	CloudInitDefaultTimeout = 300
 	MaxBFSize               = 1024 * 16
 	MaxRetryCount           = 10
+
+	// hostNameDPULabelKey is the label added to the DPU Kubernetes Node that indicates the hostname of the host that
+	// this DPU belongs to.
+	hostNameDPULabelKey = "provisioning.dpf.nvidia.com/host"
 )
 
 type BFConfig struct {
@@ -367,6 +371,7 @@ func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningv1.D
 						// cat /etc/mlnx-release
 						// bf-bundle-2.7.0-33_24.04_ubuntu-22.04_prod
 						dpu.Spec.Cluster.NodeLabels["provisioning.dpf.nvidia.com/DOCA-BFB-version"] = cutil.GenerateBFBVersionFromURL(bfb.Spec.URL)
+						dpu.Spec.Cluster.NodeLabels[hostNameDPULabelKey] = dpu.Spec.NodeName
 						if err := client.Update(ctx, dpu); err != nil {
 							return future.Ready, err
 						}
