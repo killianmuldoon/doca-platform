@@ -6,6 +6,6 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: ${REGISTRY}
+      repoURL: oci://${REGISTRY}
       chart: ${OVS_CNI_HELM_CHART_NAME}-chart
       version: ${TAG}

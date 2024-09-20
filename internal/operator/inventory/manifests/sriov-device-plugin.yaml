@@ -6,6 +6,6 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: example.com
+      repoURL: oci://example.com
       chart: sriov-device-plugin-chart
       version: v0.1.0

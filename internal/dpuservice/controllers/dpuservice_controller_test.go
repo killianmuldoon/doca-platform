@@ -101,6 +101,14 @@ var _ = Describe("DPUService Controller", func() {
 					Namespace: testNS.Name},
 				Spec: dpuservicev1.DPUServiceSpec{
 					DeployInCluster: &deployInCluster,
+					HelmChart: dpuservicev1.HelmChart{
+						Source: dpuservicev1.ApplicationSource{
+							RepoURL:     "oci://repository.com",
+							Version:     "v1.1",
+							Chart:       "first-chart",
+							ReleaseName: "release-one",
+						},
+					},
 				},
 			}
 
@@ -277,7 +285,7 @@ func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuser
 			// Check the helm fields are set as expected.
 			g.Expect(app.Spec.Source.Chart).To(Equal(service.Spec.HelmChart.Source.Chart))
 			g.Expect(app.Spec.Source.Path).To(Equal(service.Spec.HelmChart.Source.Path))
-			g.Expect(app.Spec.Source.RepoURL).To(Equal(service.Spec.HelmChart.Source.RepoURL))
+			g.Expect(app.Spec.Source.RepoURL).To(Equal(service.Spec.HelmChart.Source.GetArgoRepoURL()))
 			g.Expect(app.Spec.Source.TargetRevision).To(Equal(service.Spec.HelmChart.Source.Version))
 			g.Expect(app.Spec.Source.Helm.ReleaseName).To(Equal(service.Spec.HelmChart.Source.ReleaseName))
 
@@ -325,7 +333,7 @@ func getMinimalDPUServices(testNamespace string) []*dpuservicev1.DPUService {
 			Spec: dpuservicev1.DPUServiceSpec{
 				HelmChart: dpuservicev1.HelmChart{
 					Source: dpuservicev1.ApplicationSource{
-						RepoURL:     "repository.com",
+						RepoURL:     "oci://repository.com",
 						Version:     "v1.1",
 						Chart:       "first-chart",
 						ReleaseName: "release-one",
@@ -377,7 +385,19 @@ func getMinimalDPUServices(testNamespace string) []*dpuservicev1.DPUService {
 				},
 			},
 		},
-		{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two", Namespace: testNamespace}},
+		{
+			ObjectMeta: metav1.ObjectMeta{Name: "dpu-two", Namespace: testNamespace},
+			Spec: dpuservicev1.DPUServiceSpec{
+				HelmChart: dpuservicev1.HelmChart{
+					Source: dpuservicev1.ApplicationSource{
+						RepoURL:     "oci://repository.com",
+						Version:     "v1.2",
+						Chart:       "second-chart",
+						ReleaseName: "release-two",
+					},
+				},
+			},
+		},
 	}
 }
 

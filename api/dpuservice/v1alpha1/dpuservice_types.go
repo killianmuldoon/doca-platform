@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
+
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -99,13 +101,16 @@ type HelmChart struct {
 }
 
 type ApplicationSource struct {
-	// TODO: This currently allows deploying a helm chart either from a helm repo. This should be validated as such.
-	// RepoURL is the URL to the repository that contains the application helm chart.
+	// RepoURL specifies the URL to the repository that contains the application Helm chart.
+	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+	// OCI registry or a web-based repository.
+	// +kubebuilder:validation:Pattern=`^(oci://|https://).+$`
 	RepoURL string `json:"repoURL"`
 	// Path is the location of the chart inside the repo.
 	// +optional
 	Path string `json:"path"`
 	// Version is a semver tag for the Chart's version.
+	// +kubebuilder:validation:MinLength=1
 	Version string `json:"version"`
 	// Chart is the name of the helm chart.
 	// +optional
@@ -145,4 +150,8 @@ type DPUServiceList struct {
 
 func init() {
 	SchemeBuilder.Register(&DPUService{}, &DPUServiceList{})
+}
+
+func (a *ApplicationSource) GetArgoRepoURL() string {
+	return strings.TrimPrefix(a.RepoURL, "oci://")
 }

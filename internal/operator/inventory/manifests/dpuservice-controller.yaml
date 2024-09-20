@@ -846,11 +846,15 @@ spec:
                           generate from the DPUService.
                         type: string
                       repoURL:
-                        description: RepoURL is the URL to the repository that contains
-                          the application helm chart.
+                        description: |-
+                          RepoURL specifies the URL to the repository that contains the application Helm chart.
+                          The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+                          OCI registry or a web-based repository.
+                        pattern: ^(oci://|https://).+$
                         type: string
                       version:
                         description: Version is a semver tag for the Chart's version.
+                        minLength: 1
                         type: string
                     required:
                     - repoURL
@@ -1170,11 +1174,15 @@ spec:
                           generate from the DPUService.
                         type: string
                       repoURL:
-                        description: RepoURL is the URL to the repository that contains
-                          the application helm chart.
+                        description: |-
+                          RepoURL specifies the URL to the repository that contains the application Helm chart.
+                          The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+                          OCI registry or a web-based repository.
+                        pattern: ^(oci://|https://).+$
                         type: string
                       version:
                         description: Version is a semver tag for the Chart's version.
+                        minLength: 1
                         type: string
                     required:
                     - repoURL

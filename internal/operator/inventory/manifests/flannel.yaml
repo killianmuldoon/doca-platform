@@ -6,7 +6,7 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: example.com
+      repoURL: oci://example.com
       chart: flannel
       version: v0.25.1
     values:

@@ -6,7 +6,7 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: ${REGISTRY}
+      repoURL: oci://${REGISTRY}
       chart: ${FLANNEL_HELM_CHART_NAME}
       version: ${FLANNEL_VERSION}
     values:

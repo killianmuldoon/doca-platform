@@ -639,7 +639,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							HelmChart: dpuservicev1.HelmChart{
 								Source: dpuservicev1.ApplicationSource{
-									RepoURL: "someurl",
+									RepoURL: "oci://someurl/repo",
 									Path:    "somepath",
 									Version: "someversion",
 									Chart:   "somechart",
@@ -656,7 +656,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							HelmChart: dpuservicev1.HelmChart{
 								Source: dpuservicev1.ApplicationSource{
-									RepoURL: "someurl",
+									RepoURL: "oci://someurl/repo",
 									Path:    "somepath",
 									Version: "someversion",
 									Chart:   "somechart",
@@ -672,7 +672,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							HelmChart: dpuservicev1.HelmChart{
 								Source: dpuservicev1.ApplicationSource{
-									RepoURL: "someurl",
+									RepoURL: "oci://someurl/repo",
 									Path:    "somepath",
 									Version: "someversion",
 									Chart:   "somechart",
@@ -735,7 +735,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							HelmChart: dpuservicev1.HelmChart{
 								Source: dpuservicev1.ApplicationSource{
-									RepoURL: "someurl",
+									RepoURL: "oci://someurl/repo",
 									Path:    "somepath",
 									Version: "someversion",
 									Chart:   "somechart",
@@ -746,7 +746,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							HelmChart: dpuservicev1.HelmChart{
 								Source: dpuservicev1.ApplicationSource{
-									RepoURL: "someurl",
+									RepoURL: "oci://someurl/repo",
 									Path:    "somepath",
 									Version: "someversion",
 									Chart:   "somechart",
@@ -798,7 +798,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					g.Expect(gotDPUServiceList.Items[0].Spec).To(BeComparableTo(dpuservicev1.DPUServiceSpec{
 						HelmChart: dpuservicev1.HelmChart{
 							Source: dpuservicev1.ApplicationSource{
-								RepoURL: "someurl",
+								RepoURL: "oci://someurl/repo",
 								Path:    "somepath",
 								Version: "someversion",
 								Chart:   "somechart",
@@ -853,7 +853,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							HelmChart: dpuservicev1.HelmChart{
 								Source: dpuservicev1.ApplicationSource{
-									RepoURL: "someurl",
+									RepoURL: "oci://someurl/repo",
 									Path:    "somepath",
 									Version: "someversion",
 									Chart:   "somechart",
@@ -864,7 +864,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							HelmChart: dpuservicev1.HelmChart{
 								Source: dpuservicev1.ApplicationSource{
-									RepoURL: "someurl",
+									RepoURL: "oci://someurl/repo",
 									Path:    "somepath",
 									Version: "someversion",
 									Chart:   "somechart",
@@ -1659,7 +1659,7 @@ func getMinimalDPUServiceTemplate(namespace string) *dpuservicev1.DPUServiceTemp
 			Service: "someservice",
 			HelmChart: dpuservicev1.HelmChart{
 				Source: dpuservicev1.ApplicationSource{
-					RepoURL: "someurl",
+					RepoURL: "oci://someurl/repo",
 					Path:    "somepath",
 					Version: "someversion",
 					Chart:   "somechart",

@@ -103,7 +103,7 @@ func NewApplication(namespace, projectName string, dpuService *dpuservicev1.DPUS
 		},
 		Spec: argov1.ApplicationSpec{
 			Source: &argov1.ApplicationSource{
-				RepoURL:        dpuService.Spec.HelmChart.Source.RepoURL,
+				RepoURL:        dpuService.Spec.HelmChart.Source.GetArgoRepoURL(),
 				Chart:          dpuService.Spec.HelmChart.Source.Chart,
 				Path:           dpuService.Spec.HelmChart.Source.Path,
 				TargetRevision: dpuService.Spec.HelmChart.Source.Version,

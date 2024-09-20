@@ -6,6 +6,6 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: example.com
+      repoURL: oci://example.com
       chart: servicechain-chart
       version: v0.1.0
