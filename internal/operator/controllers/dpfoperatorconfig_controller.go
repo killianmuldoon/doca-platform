@@ -245,7 +245,7 @@ func (r *DPFOperatorConfigReconciler) reconcileImagePullSecrets(ctx context.Cont
 // 6. Flannel DPUService
 // 7. NVIDIA Kubernetes IPAM
 // 8. OVS CNI
-// 8. SFC Controller
+// 9. SFC Controller
 func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
 	vars := getVariablesFromConfig(config)
 	// TODO: Handle deletion of objects on version upgrade.

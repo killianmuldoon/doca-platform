@@ -31,7 +31,8 @@ import (
 
 // Apply set implements the Kubernetes ApplySet spec to handle deletion of objects in the Kubernetes API.
 // See https://github.com/kubernetes/enhancements/blob/master/keps/sig-cli/3659-kubectl-apply-prune/README.md
-
+// kubectl's applyset file was used here as a reference implementation and some comments and code are directly copied from there.
+// https://github.com/kubernetes/kubernetes/blob/ae945462fb2d12a4e38d074de8fe77267460624b/staging/src/k8s.io/kubectl/pkg/cmd/apply/applyset.go
 const (
 	// ApplySetToolingAnnotation is the key of the label that indicates which tool is used to manage this ApplySet.
 	// Tooling should refuse to mutate ApplySets belonging to other tools.
