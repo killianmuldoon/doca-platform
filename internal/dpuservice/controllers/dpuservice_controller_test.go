@@ -22,6 +22,7 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
+	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
@@ -47,16 +48,24 @@ import (
 var _ = Describe("DPUService Controller", func() {
 	Context("When reconciling a resource", func() {
 		var (
-			testNS     *corev1.Namespace
-			testConfig *operatorv1.DPFOperatorConfig
+			testNS              *corev1.Namespace
+			testConfig          *operatorv1.DPFOperatorConfig
+			dpuServiceInterface *sfcv1.DPUServiceInterface
+			testDPU1NS          *corev1.Namespace
+			testDPU2NS          *corev1.Namespace
+			testDPU3NS          *corev1.Namespace
+			cleanupObjs         []client.Object
 		)
 		BeforeEach(func() {
 			By("creating the namespaces")
 			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+			testDPU1NS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "dpu-dsr-"}}
+			testDPU2NS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "dpu-dsr-"}}
+			testDPU3NS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "dpu-dsr-"}}
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
-			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one"}}))).To(Succeed())
-			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-two"}}))).To(Succeed())
-			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "dpu-three"}}))).To(Succeed())
+			Expect(testClient.Create(ctx, testDPU1NS)).To(Succeed())
+			Expect(testClient.Create(ctx, testDPU2NS)).To(Succeed())
+			Expect(testClient.Create(ctx, testDPU3NS)).To(Succeed())
 			// Create the DPF System Namespace
 			err := testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: operatorcontroller.DefaultDPFOperatorConfigSingletonNamespace}})
 			if !apierrors.IsAlreadyExists(err) {
@@ -69,21 +78,31 @@ var _ = Describe("DPUService Controller", func() {
 				Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testConfig))).To(Succeed())
 			}
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(testConfig), testConfig)).To(Succeed())
+
+			dpfOperatorConfig := getMinimalDPFOperatorConfig()
+			Expect(
+				// this namespace can be created multiple times.
+				client.IgnoreAlreadyExists(
+					testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpfOperatorConfig.GetNamespace()}})),
+			).To(Succeed())
+
+			dpuServiceInterface = getMinimalDPUServiceInterface(testNS.Name)
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, dpuServiceInterface))).To(Succeed())
+			cleanupObjs = append(cleanupObjs, dpuServiceInterface)
 		})
 		AfterEach(func() {
 			By("Cleanup the Namespace and Secrets")
+			Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjs...)).To(Succeed())
 			Expect(testClient.Delete(ctx, testNS)).To(Succeed())
+			Expect(testClient.Delete(ctx, testDPU1NS)).To(Succeed())
+			Expect(testClient.Delete(ctx, testDPU2NS)).To(Succeed())
+			Expect(testClient.Delete(ctx, testDPU3NS)).To(Succeed())
 		})
 		It("should successfully reconcile the DPUService", func() {
-			cleanupObjs := []client.Object{}
-			defer func() {
-				Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjs...)).To(Succeed())
-			}()
-
 			clusters := []controlplane.DPFCluster{
-				{Namespace: "dpu-one", Name: "cluster-one"},
-				{Namespace: "dpu-two", Name: "cluster-two"},
-				{Namespace: "dpu-three", Name: "cluster-three"},
+				{Namespace: testDPU1NS.Name, Name: "cluster-one"},
+				{Namespace: testDPU2NS.Name, Name: "cluster-two"},
+				{Namespace: testDPU3NS.Name, Name: "cluster-three"},
 			}
 			for i := range clusters {
 				kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(clusters[i], cfg)
@@ -116,10 +135,12 @@ var _ = Describe("DPUService Controller", func() {
 			// Create DPUServices which are reconciled to the DPU clusters.
 			for i := range dpuServices {
 				Expect(testClient.Create(ctx, dpuServices[i])).To(Succeed())
+				cleanupObjs = append(cleanupObjs, dpuServices[i])
 			}
 
 			// Expect a hostDPUService to be reconciled to the host cluster.
 			Expect(testClient.Create(ctx, hostDPUService)).To(Succeed())
+			cleanupObjs = append(cleanupObjs, hostDPUService)
 
 			Eventually(func(g Gomega) {
 				assertDPUService(g, testClient, dpuServices)
@@ -173,6 +194,25 @@ var _ = Describe("DPUService Controller", func() {
 				g.Expect(gotDpuServices.Items).To(BeEmpty())
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 		})
+		It("should successfully create the DPUService with serviceID and interfaces", func() {
+			By("creating the DPUService with serviceID and interfaces")
+			dpuService := getMinimalDPUServices(testNS.Name)
+			Expect(testClient.Create(ctx, dpuService[0])).To(Succeed())
+			cleanupObjs = append(cleanupObjs, dpuService[0])
+		})
+		It("should successfully create the DPUService with serviceID", func() {
+			By("creating the DPUService with serviceID and interfaces")
+			dpuService := getMinimalDPUServices(testNS.Name)
+			dpuService[0].Spec.Interfaces = nil
+			Expect(testClient.Create(ctx, dpuService[0])).To(Succeed())
+			cleanupObjs = append(cleanupObjs, dpuService[0])
+		})
+		It("should fail to create the DPUService without serviceID but with interfaces", func() {
+			By("creating the DPUService with serviceID and interfaces")
+			dpuService := getMinimalDPUServices(testNS.Name)
+			dpuService[0].Spec.ServiceID = nil
+			Expect(testClient.Create(ctx, dpuService[0])).ToNot(Succeed())
+		})
 	})
 })
 
@@ -211,6 +251,11 @@ func assertDPUServiceCondition(g Gomega, testClient client.Client, dpuServices [
 				HaveField("Type", string(dpuservicev1.ConditionApplicationsReady)),
 				HaveField("Status", metav1.ConditionFalse),
 				HaveField("Reason", string(conditions.ReasonPending)),
+			),
+			And(
+				HaveField("Type", string(dpuservicev1.ConditionDPUServiceInterfaceReconciled)),
+				HaveField("Status", metav1.ConditionTrue),
+				HaveField("Reason", string(conditions.ReasonSuccess)),
 			),
 		))
 	}
@@ -329,7 +374,7 @@ func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuser
 
 func getMinimalDPUServices(testNamespace string) []*dpuservicev1.DPUService {
 	return []*dpuservicev1.DPUService{
-		{ObjectMeta: metav1.ObjectMeta{Name: "dpu-one", Namespace: testNamespace},
+		{ObjectMeta: metav1.ObjectMeta{GenerateName: "dpu-one-", Namespace: testNamespace},
 			Spec: dpuservicev1.DPUServiceSpec{
 				HelmChart: dpuservicev1.HelmChart{
 					Source: dpuservicev1.ApplicationSource{
@@ -383,6 +428,7 @@ func getMinimalDPUServices(testNamespace string) []*dpuservicev1.DPUService {
 						"annotation-one": "annotation",
 					},
 				},
+				Interfaces: []string{"dpu-service-interface"},
 			},
 		},
 		{
@@ -649,6 +695,31 @@ func getMinimalDPFOperatorConfig() *operatorv1.DPFOperatorConfig {
 		Spec: operatorv1.DPFOperatorConfigSpec{
 			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
 				BFBPersistentVolumeClaimName: "name",
+			},
+		},
+	}
+}
+
+func getMinimalDPUServiceInterface(namespace string) *sfcv1.DPUServiceInterface {
+	return &sfcv1.DPUServiceInterface{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dpu-service-interface",
+			Namespace: namespace,
+		},
+		Spec: sfcv1.DPUServiceInterfaceSpec{
+			Template: sfcv1.ServiceInterfaceSetSpecTemplate{
+				Spec: sfcv1.ServiceInterfaceSetSpec{
+					Template: sfcv1.ServiceInterfaceSpecTemplate{
+						Spec: sfcv1.ServiceInterfaceSpec{
+							InterfaceType: sfcv1.InterfaceTypeService,
+							InterfaceName: ptr.To("net1"),
+							Service: &sfcv1.ServiceDef{
+								ServiceID:   "service-one",
+								NetworkName: ptr.To("mybrsfc"),
+							},
+						},
+					},
+				},
 			},
 		},
 	}

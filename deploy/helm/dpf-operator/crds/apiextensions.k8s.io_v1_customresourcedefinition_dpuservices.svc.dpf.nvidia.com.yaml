@@ -41,8 +41,9 @@ spec:
             description: DPUServiceSpec defines the desired state of DPUService
             properties:
               deployInCluster:
-                description: DeployInCluster indicates if the DPUService Helm Chart
-                  will be deployed on the Host cluster. Default to false.
+                description: |-
+                  DeployInCluster indicates if the DPUService Helm Chart will be deployed on
+                  the Host cluster. Default to false.
                 type: boolean
               helmChart:
                 description: HelmChart reflects the Helm related configuration
@@ -84,7 +85,18 @@ spec:
                 required:
                 - source
                 type: object
+              interfaces:
+                description: |-
+                  Interfaces specifies the DPUServiceInterface names that the DPUService
+                  uses in the same namespace.
+                items:
+                  type: string
+                maxItems: 50
+                minItems: 1
+                type: array
               serviceDaemonSet:
+                description: ServiceDaemonSet specifies the configuration for the
+                  ServiceDaemonSet.
                 properties:
                   annotations:
                     additionalProperties:
@@ -246,10 +258,16 @@ spec:
                     type: object
                 type: object
               serviceID:
+                description: ServiceID is the ID of the service that the DPUService
+                  is associated with.
                 type: string
             required:
             - helmChart
             type: object
+            x-kubernetes-validations:
+            - message: serviceID must be provided when interfaces are provided
+              rule: (has(self.interfaces) && has(self.serviceID)) || (!has(self.interfaces)
+                && !has(self.serviceID)) || has(self.serviceID)
           status:
             description: DPUServiceStatus defines the observed state of DPUService
             properties:

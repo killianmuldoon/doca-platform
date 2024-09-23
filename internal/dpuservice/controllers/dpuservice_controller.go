@@ -25,6 +25,7 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
+	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
@@ -312,6 +313,13 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	}
 	dpfOperatorConfig := &dpfOperatorConfigList.Items[0]
 
+	if err := r.reconcileInterfaces(ctx, dpuService); err != nil {
+		return err
+	}
+
+	// TODO: Add the condition to the DPUService only if there are annotations to add to the application serviceDeamonSet.
+	conditions.AddTrue(dpuService, dpuservicev1.ConditionDPUServiceInterfaceReconciled)
+
 	if err := r.reconcileApplicationPrereqs(ctx, dpuService, clusters, dpfOperatorConfig); err != nil {
 		message := fmt.Sprintf("Unable to reconcile application prereq for %s", err.Error())
 		conditions.AddFalse(
@@ -338,6 +346,155 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationsReconciled)
 
 	return nil
+}
+
+func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
+	// Ensure the DPUService namespace exists in target clusters.
+	project := getProjectName(dpuService)
+	// TODO: think about how to cleanup the namespace in the DPU.
+	if err := r.ensureNamespaces(ctx, clusters, project, dpuService.GetNamespace()); err != nil {
+		return fmt.Errorf("cluster namespaces: %v", err)
+	}
+
+	// Ensure the Argo secret for each cluster is up-to-date.
+	if err := r.reconcileArgoSecrets(ctx, clusters, dpfOperatorConfig); err != nil {
+		return fmt.Errorf("ArgoSecrets: %v", err)
+	}
+
+	//  Ensure the ArgoCD AppProject exists and is up-to-date.
+	if err := r.reconcileAppProject(ctx, clusters, dpfOperatorConfig); err != nil {
+		return fmt.Errorf("AppProject: %v", err)
+	}
+
+	// Reconcile the ImagePullSecrets.
+	if err := r.reconcileImagePullSecrets(ctx, clusters, dpuService); err != nil {
+		return fmt.Errorf("ImagePullSecrets: %v", err)
+	}
+
+	return nil
+}
+
+// reconcileInterfaces reconciles the DPUServiceInterfaces associated with the DPUService.
+// TODO: Process the DPUServiceInterfaces and return annotations when required.
+func (r *DPUServiceReconciler) reconcileInterfaces(ctx context.Context, dpuService *dpuservicev1.DPUService) error {
+	log := ctrllog.FromContext(ctx)
+	if dpuService.Spec.Interfaces == nil {
+		return nil
+	}
+
+	for _, interfaceName := range dpuService.Spec.Interfaces {
+		dpuServiceInterface := &sfcv1.DPUServiceInterface{}
+		if err := r.Client.Get(ctx, types.NamespacedName{Name: interfaceName, Namespace: dpuService.Namespace}, dpuServiceInterface); err != nil {
+			// Requeue until the DPUServiceInterface is available.
+			conditions.AddFalse(dpuService,
+				dpuservicev1.ConditionDPUServiceInterfaceReconciled,
+				conditions.ReasonError,
+				conditions.ConditionMessage(fmt.Sprintf("failed to get DPUServiceInterface %s: %v", interfaceName, err)))
+			return err
+		}
+
+		// report conflicting ServiceID in DPUServiceInterface
+		if dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service != nil && dpuService.Spec.ServiceID != nil {
+			if dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service.ServiceID != *dpuService.Spec.ServiceID {
+				conditions.AddFalse(dpuService,
+					dpuservicev1.ConditionDPUServiceInterfaceReconciled,
+					conditions.ReasonFailure,
+					conditions.ConditionMessage(fmt.Sprintf("conflicting ServiceID in DPUServiceInterface %s", interfaceName)))
+				return fmt.Errorf("conflicting ServiceID in DPUServiceInterface %s", interfaceName)
+			}
+		}
+
+		inUse, exist := isDPUServiceInterfaceInUse(dpuServiceInterface, dpuService)
+		if inUse {
+			conditions.AddFalse(dpuService,
+				dpuservicev1.ConditionDPUServiceInterfaceReconciled,
+				conditions.ReasonFailure,
+				conditions.ConditionMessage(fmt.Sprintf("dpuServiceInterface %s is in use by another DPUService", interfaceName)))
+			return fmt.Errorf("dpuServiceInterface %s is in use by another DPUService", interfaceName)
+		}
+
+		if !exist {
+			dpuServiceInterface.SetAnnotations(map[string]string{
+				dpuservicev1.DPUServiceInterfaceAnnotationKey: dpuService.Name,
+			})
+		}
+
+		// set serviceID on the DPUServiceInterface if it is not set.
+		if dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service == nil {
+			dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service = &sfcv1.ServiceDef{
+				ServiceID: *dpuService.Spec.ServiceID,
+			}
+		}
+
+		// remove managed fields from the DPUServiceInterface to avoid conflicts with the DPUService.
+		dpuServiceInterface.SetManagedFields(nil)
+		// Set the GroupVersionKind to the DPUServiceInterface.
+		dpuServiceInterface.SetGroupVersionKind(sfcv1.DPUServiceInterfaceGroupVersionKind)
+		if err := r.Client.Patch(ctx, dpuServiceInterface, client.Apply, applyPatchOptions...); err != nil {
+			conditions.AddFalse(dpuService,
+				dpuservicev1.ConditionDPUServiceInterfaceReconciled,
+				conditions.ReasonError,
+				conditions.ConditionMessage(fmt.Sprintf("failed to patch DPUServiceInterface %s: %v", interfaceName, err)))
+			return err
+		}
+	}
+	log.Info("Reconciled DPUServiceInterfaces")
+	return nil
+}
+
+func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, clusters []controlplane.DPFCluster, project, dpuNamespace string) error {
+	var errs []error
+	if project == dpuAppProjectName {
+		for _, cluster := range clusters {
+			dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("get cluster %s: %v", cluster.Name, err))
+			}
+			if err := utils.EnsureNamespace(ctx, dpuClusterClient, dpuNamespace); err != nil {
+				errs = append(errs, fmt.Errorf("namespace for cluster %s: %v", cluster.Name, err))
+			}
+		}
+	} else {
+		if err := utils.EnsureNamespace(ctx, r.Client, dpuNamespace); err != nil {
+			return fmt.Errorf("in-cluster namespace: %v", err)
+		}
+	}
+	return kerrors.NewAggregate(errs)
+}
+
+// reconcileArgoSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
+func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
+	log := ctrllog.FromContext(ctx)
+
+	var errs []error
+	for _, cluster := range clusters {
+		// Get the control plane kubeconfig
+		adminConfig, err := cluster.GetKubeconfig(ctx, r.Client)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		// Template an argoSecret using information from the control plane secret.
+		argoSecret, err := createArgoSecretFromKubeconfig(adminConfig, dpfOperatorConfig.GetNamespace(), cluster.String())
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+
+		// Add owner reference ArgoSecret->DPFOperatorConfig to ensure that the Secret will be deleted with the DPFOperatorConfig.
+		// This ensures that we should have no orphaned ArgoCD Secrets.
+		owner := metav1.NewControllerRef(dpfOperatorConfig, operatorv1.DPFOperatorConfigGroupVersionKind)
+		argoSecret.SetOwnerReferences([]metav1.OwnerReference{*owner})
+
+		// Create or patch
+		log.Info("Patching Secrets for DPF clusters")
+		if err := r.Client.Patch(ctx, argoSecret, client.Apply, applyPatchOptions...); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+	}
+	return kerrors.NewAggregate(errs)
 }
 
 // summary sets the conditions for the sync status of the ArgoCD applications as well as the overall conditions.
@@ -383,67 +540,6 @@ func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservi
 	}
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationsReady)
 	return nil
-}
-
-func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
-	// Ensure the DPUService namespace exists in target clusters.
-	project := getProjectName(dpuService)
-	// TODO: think about how to cleanup the namespace in the DPU.
-	if err := r.ensureNamespaces(ctx, clusters, project, dpuService.GetNamespace()); err != nil {
-		return fmt.Errorf("cluster namespaces: %v", err)
-	}
-
-	// Ensure the Argo secret for each cluster is up-to-date.
-	if err := r.reconcileArgoSecrets(ctx, clusters, dpfOperatorConfig); err != nil {
-		return fmt.Errorf("ArgoSecrets: %v", err)
-	}
-
-	//  Ensure the ArgoCD AppProject exists and is up-to-date.
-	if err := r.reconcileAppProject(ctx, clusters, dpfOperatorConfig); err != nil {
-		return fmt.Errorf("AppProject: %v", err)
-	}
-
-	// Reconcile the ImagePullSecrets.
-	if err := r.reconcileImagePullSecrets(ctx, clusters, dpuService); err != nil {
-		return fmt.Errorf("ImagePullSecrets: %v", err)
-	}
-
-	return nil
-}
-
-// reconcileArgoSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
-func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
-	log := ctrllog.FromContext(ctx)
-
-	var errs []error
-	for _, cluster := range clusters {
-		// Get the control plane kubeconfig
-		adminConfig, err := cluster.GetKubeconfig(ctx, r.Client)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		// Template an argoSecret using information from the control plane secret.
-		argoSecret, err := createArgoSecretFromKubeconfig(adminConfig, dpfOperatorConfig.GetNamespace(), cluster.String())
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-
-		// Add owner reference ArgoSecret->DPFOperatorConfig to ensure that the Secret will be deleted with the DPFOperatorConfig.
-		// This ensures that we should have no orphaned ArgoCD Secrets.
-		owner := metav1.NewControllerRef(dpfOperatorConfig, operatorv1.DPFOperatorConfigGroupVersionKind)
-		argoSecret.SetOwnerReferences([]metav1.OwnerReference{*owner})
-
-		// Create or patch
-		log.Info("Patching Secrets for DPF clusters")
-		if err := r.Client.Patch(ctx, argoSecret, client.Apply, applyPatchOptions...); err != nil {
-			errs = append(errs, err)
-			continue
-		}
-	}
-	return kerrors.NewAggregate(errs)
 }
 
 func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, clusters []controlplane.DPFCluster, service *dpuservicev1.DPUService) error {
@@ -591,26 +687,6 @@ func (r *DPUServiceReconciler) ensureApplication(ctx context.Context, dpuService
 	return nil
 }
 
-func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, clusters []controlplane.DPFCluster, project, dpuNamespace string) error {
-	var errs []error
-	if project == dpuAppProjectName {
-		for _, cluster := range clusters {
-			dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
-			if err != nil {
-				errs = append(errs, fmt.Errorf("get cluster %s: %v", cluster.Name, err))
-			}
-			if err := utils.EnsureNamespace(ctx, dpuClusterClient, dpuNamespace); err != nil {
-				errs = append(errs, fmt.Errorf("namespace for cluster %s: %v", cluster.Name, err))
-			}
-		}
-	} else {
-		if err := utils.EnsureNamespace(ctx, r.Client, dpuNamespace); err != nil {
-			return fmt.Errorf("in-cluster namespace: %v", err)
-		}
-	}
-	return kerrors.NewAggregate(errs)
-}
-
 // config is used to marshal the config section of the argoCD secret data.
 type config struct {
 	TlsClientConfig tlsClientConfig `json:"tlsClientConfig"`
@@ -750,4 +826,21 @@ func (r *DPUServiceReconciler) ArgoApplicationToDPUService(ctx context.Context, 
 			Name:      name,
 		},
 	}}
+}
+
+// isDPUServiceInterfaceInUse checks if the DPUServiceInterface is in use by another DPUService.
+// Returns true if the DPUServiceInterface is in use, and true if the DPUServiceInterface is found.
+func isDPUServiceInterfaceInUse(dpuServiceInterface *sfcv1.DPUServiceInterface, dpuService *dpuservicev1.DPUService) (inUse bool, exist bool) {
+	annotations := dpuServiceInterface.GetAnnotations()
+	if annotations != nil {
+		_, ok := annotations[dpuservicev1.DPUServiceInterfaceAnnotationKey]
+		if ok {
+			exist = true
+		}
+		if ok && annotations[dpuservicev1.DPUServiceInterfaceAnnotationKey] != dpuService.Name {
+			inUse = true
+			return
+		}
+	}
+	return
 }

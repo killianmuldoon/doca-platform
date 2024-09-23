@@ -28,39 +28,62 @@ import (
 )
 
 const (
-	DPUServiceKind              = "DPUService"
-	DPUServiceListKind          = "DPUServiceList"
-	DPUServiceFinalizer         = "dpf.nvidia.com/dpuservice"
-	DPUServiceNameLabelKey      = "dpf.nvidia.com/dpuservice-name"
+	// DPUServiceKind is the kind of the DPUService.
+	DPUServiceKind = "DPUService"
+	// DPUServiceListKind is the kind of the DPUServiceList.
+	DPUServiceListKind = "DPUServiceList"
+	// DPUServiceFinalizer is the finalizer that will be added to the DPUService.
+	DPUServiceFinalizer = "dpf.nvidia.com/dpuservice"
+	// DPUServiceNameLabelKey is the label key that is used to store the name of the DPUService.
+	DPUServiceNameLabelKey = "dpf.nvidia.com/dpuservice-name"
+	// DPUServiceNamespaceLabelKey is the label key that is used to store the namespace of the DPUService.
 	DPUServiceNamespaceLabelKey = "dpf.nvidia.com/dpuservice-namespace"
 
 	// DPFImagePullSecretLabelKey marks a secret as being an ImagePullSecret used by DPF which should be mirrored to DPUClusters.
 	DPFImagePullSecretLabelKey = "dpf.nvidia.com/image-pull-secret"
+
+	// DPUServiceInterfaceAnnotationKey is the annotation key that is used to store
+	// the name of the DPUService that the DPUServiceInterface is consumed by.
+	DPUServiceInterfaceAnnotationKey = "dpf.nvidia.com/consumed-by"
 )
 
 var DPUServiceGroupVersionKind = GroupVersion.WithKind(DPUServiceKind)
 
 const (
+	// ConditionDPUServiceInterfaceReconciled is the condition type that indicates that the
+	// DPUServiceInterface is reconciled.
+	ConditionDPUServiceInterfaceReconciled conditions.ConditionType = "DPUServiceInterfaceReconciled"
+	// ConditionApplicationPrereqsReconciled is the condition type that indicates that the
+	// application prerequisites are reconciled.
 	ConditionApplicationPrereqsReconciled conditions.ConditionType = "ApplicationPrereqsReconciled"
-	ConditionApplicationsReconciled       conditions.ConditionType = "ApplicationsReconciled"
-	ConditionApplicationsReady            conditions.ConditionType = "ApplicationsReady"
+	// ConditionApplicationsReconciled is the condition type that indicates that the
+	// applications are reconciled.
+	ConditionApplicationsReconciled conditions.ConditionType = "ApplicationsReconciled"
+	// ConditionApplicationsReady is the condition type that indicates that the
+	// applications are ready.
+	ConditionApplicationsReady conditions.ConditionType = "ApplicationsReady"
 )
 
 var (
+	// DPUServiceConditions is the list of conditions that the DPUService
+	// can have.
 	Conditions = []conditions.ConditionType{
 		conditions.TypeReady,
 		ConditionApplicationPrereqsReconciled,
 		ConditionApplicationsReconciled,
 		ConditionApplicationsReady,
+		ConditionDPUServiceInterfaceReconciled,
 	}
 )
 
 var _ conditions.GetSet = &DPUService{}
 
+// GetConditions returns the conditions of the DPUService.
 func (c *DPUService) GetConditions() []metav1.Condition {
 	return c.Status.Conditions
 }
 
+// SetConditions sets the conditions of the DPUService.
 func (c *DPUService) SetConditions(conditions []metav1.Condition) {
 	c.Status.Conditions = conditions
 }
@@ -78,64 +101,99 @@ type DPUService struct {
 }
 
 // DPUServiceSpec defines the desired state of DPUService
+// +kubebuilder:validation:XValidation:rule="(has(self.interfaces) && has(self.serviceID)) || (!has(self.interfaces) && !has(self.serviceID)) || has(self.serviceID)", message="serviceID must be provided when interfaces are provided"
 type DPUServiceSpec struct {
 	// HelmChart reflects the Helm related configuration
+	// +required
 	HelmChart HelmChart `json:"helmChart"`
+
+	// ServiceID is the ID of the service that the DPUService is associated with.
 	// +optional
 	ServiceID *string `json:"serviceID,omitempty"`
+
+	// ServiceDaemonSet specifies the configuration for the ServiceDaemonSet.
 	// +optional
 	ServiceDaemonSet *ServiceDaemonSetValues `json:"serviceDaemonSet,omitempty"`
-	// DeployInCluster indicates if the DPUService Helm Chart will be deployed on the Host cluster. Default to false.
+
+	// DeployInCluster indicates if the DPUService Helm Chart will be deployed on
+	// the Host cluster. Default to false.
 	// +optional
 	DeployInCluster *bool `json:"deployInCluster,omitempty"`
+
+	// Interfaces specifies the DPUServiceInterface names that the DPUService
+	// uses in the same namespace.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=50
+	// +optional
+	Interfaces []string `json:"interfaces,omitempty"`
 }
 
 // HelmChart reflects the helm related configuration
 type HelmChart struct {
 	// Source specifies information about the Helm chart
+	// +required
 	Source ApplicationSource `json:"source"`
+
 	// Values specifies Helm values to be passed to Helm template, defined as a map. This takes precedence over Values.
 	// +kubebuilder:pruning:PreserveUnknownFields
 	// +optional
 	Values *runtime.RawExtension `json:"values,omitempty"`
 }
 
+// ApplicationSource specifies the source of the Helm chart.
 type ApplicationSource struct {
 	// RepoURL specifies the URL to the repository that contains the application Helm chart.
 	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
 	// OCI registry or a web-based repository.
 	// +kubebuilder:validation:Pattern=`^(oci://|https://).+$`
+	// +required
 	RepoURL string `json:"repoURL"`
+
 	// Path is the location of the chart inside the repo.
 	// +optional
 	Path string `json:"path"`
+
 	// Version is a semver tag for the Chart's version.
 	// +kubebuilder:validation:MinLength=1
+	// +required
 	Version string `json:"version"`
+
 	// Chart is the name of the helm chart.
 	// +optional
-	Chart string `json:"chart"`
+	Chart string `json:"chart,omitempty"`
+
 	// ReleaseName is the name to give to the release generate from the DPUService.
 	// +optional
 	ReleaseName string `json:"releaseName,omitempty"`
 }
 
+// ServiceDaemonSetValues specifies the configuration for the ServiceDaemonSet.
 type ServiceDaemonSetValues struct {
 	// NodeSelector specifies which Nodes to deploy the ServiceDaemonSet to.
+	// +optional
 	NodeSelector *corev1.NodeSelector `json:"nodeSelector,omitempty"`
+
 	// UpdateStrategy specifies the DeaemonSet update strategy for the ServiceDaemonset.
+	// +optional
 	UpdateStrategy *appsv1.DaemonSetUpdateStrategy `json:"updateStrategy,omitempty"`
+
 	// Labels specifies labels which are added to the ServiceDaemonSet.
+	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
+
 	// Annotations specifies annotations which are added to the ServiceDaemonSet.
+	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // DPUServiceStatus defines the observed state of DPUService
 type DPUServiceStatus struct {
 	// Conditions defines current service state.
+	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
 	// ObservedGeneration records the Generation observed on the object the last time it was patched.
+	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 

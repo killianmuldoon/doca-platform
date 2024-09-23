@@ -61,6 +61,11 @@ type DPUServiceInterfaceSpec struct {
 	Template        ServiceInterfaceSetSpecTemplate `json:"template"`
 }
 
+// GetTemplateSpec returns the spec of the template
+func (s *DPUServiceInterfaceSpec) GetTemplateSpec() *ServiceInterfaceSetSpec {
+	return &s.Template.Spec
+}
+
 type ServiceInterfaceSetSpecTemplate struct {
 	Spec       ServiceInterfaceSetSpec `json:"spec"`
 	ObjectMeta `json:"metadata,omitempty"`

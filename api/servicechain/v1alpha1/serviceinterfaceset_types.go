@@ -44,6 +44,11 @@ type ServiceInterfaceSetSpec struct {
 	Template ServiceInterfaceSpecTemplate `json:"template"`
 }
 
+// GetTemplateSpec returns the ServiceInterfaceSpec from the template
+func (s *ServiceInterfaceSetSpec) GetTemplateSpec() *ServiceInterfaceSpec {
+	return &s.Template.Spec
+}
+
 // ServiceInterfaceSpecTemplate defines the template from which ServiceInterfaceSpecs
 // are created
 type ServiceInterfaceSpecTemplate struct {
