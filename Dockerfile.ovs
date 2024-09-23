@@ -1,5 +1,5 @@
 # Must be ubuntu because of how the linking is taking place for the OVS packages.
-FROM --platform=${TARGETPLATFORM} ubuntu:22.04
+FROM ubuntu:22.04
 
 # Aside from wget and systemd, all the rest are dependencies for the packages we install below. We didn't opt for
 # apt install -y ../<deb> just to ensure we see all dependencies and don't install something from upstream while it should

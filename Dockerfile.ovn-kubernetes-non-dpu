@@ -1,6 +1,6 @@
 ARG base_image
 
-FROM --platform=${TARGETPLATFORM} docker.io/library/golang:1.19 as ovnkubernetes-builder
+FROM docker.io/library/golang:1.19 AS ovnkubernetes-builder
 
 WORKDIR /workspace
 RUN apt update && apt install -y make git
@@ -9,6 +9,6 @@ COPY ${ovn_kubernetes_dir} ovn-kubernetes
 RUN cd ovn-kubernetes/go-controller && \
     make
 
-FROM --platform=${TARGETPLATFORM} ${base_image}
+FROM ${base_image}
 
 COPY --from=ovnkubernetes-builder /workspace/ovn-kubernetes/go-controller/_output/go/bin/ovnkube /usr/bin/ovnkube

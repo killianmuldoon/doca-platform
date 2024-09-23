@@ -702,9 +702,9 @@ docker-build-sfc-controller: docker-build-base-image-ovs ## Build docker images 
 	docker buildx build \
 		--load \
 		--provenance=false \
+		--platform=linux/$(DPU_ARCH) \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(OVS_BASE_IMAGE):$(TAG) \
-		--build-arg target_arch=$(DPU_ARCH) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/sfc-controller \
@@ -716,9 +716,9 @@ docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker imag
 	docker buildx build \
 		--load \
 		--provenance=false \
+		--platform=linux/$(DPU_ARCH) \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(OVS_BASE_IMAGE):$(TAG) \
-		--build-arg target_arch=$(DPU_ARCH) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/dpucniprovisioner \
@@ -731,9 +731,9 @@ docker-build-hostcniprovisioner: docker-build-base-image-systemd ## Build docker
 	docker buildx build \
 		--load \
 		--provenance=false \
+		--platform=linux/$(HOST_ARCH) \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(SYSTEMD_BASE_IMAGE):$(TAG) \
-		--build-arg target_arch=$(HOST_ARCH) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/hostcniprovisioner \
@@ -747,9 +747,9 @@ docker-build-ipallocator: ## Build docker image for the IP Allocator
 	docker buildx build \
 		--load \
 		--provenance=false \
+		--platform=linux/$(ARCH) \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(ALPINE_IMAGE) \
-		--build-arg target_arch=$(ARCH) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/ipallocator \
@@ -831,9 +831,9 @@ docker-build-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-e
 	docker buildx build \
 		--load \
 		--provenance=false \
+		--platform linux/${ARCH} \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
-		--build-arg target_arch=$(ARCH) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/ovnkubernetesoperator \
@@ -881,9 +881,9 @@ docker-build-dummydpuservice: ## Build docker images for the dummydpuservice
 	docker buildx build \
 		--load \
 		--provenance=false \
+		--platform=linux/$(DPU_ARCH) \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
-		--build-arg target_arch=$(DPU_ARCH) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/dummydpuservice \

@@ -1,10 +1,10 @@
 ARG builder_image
 ARG base_image
-ARG target_arch
 
-# Build the manager binary
-FROM ${builder_image} as builder
-ARG target_arch
+# Build the manager binary (no emulation)
+FROM --platform=${BUILDPLATFORM} ${builder_image} AS builder
+ARG TARGETOS
+ARG TARGETARCH
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -23,13 +23,13 @@ ARG gcflags
 ARG ldflags
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
-    CGO_ENABLED=0 GOOS=linux GOARCH=${target_arch} \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
     go build -trimpath \
     -ldflags="${ldflags}"  \
     -gcflags="${gcflags}" \
     -o manager ${package}
 
-FROM --platform=linux/${target_arch} ${base_image}
+FROM ${base_image}
 WORKDIR /
 COPY --from=builder /workspace/manager .
 USER 65532:65532
