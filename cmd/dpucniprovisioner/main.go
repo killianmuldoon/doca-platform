@@ -20,6 +20,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"net"
 	"os"
 	"os/signal"
@@ -29,12 +32,20 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/networkhelper"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/ovsclient"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/readyz"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/ipallocator"
 
+	"github.com/vishvananda/netlink"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
 	kexec "k8s.io/utils/exec"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
+)
+
+const (
+	// vtepIPAllocationFilePath is the path to the file that contains the VTEP IP allocation done by the IP Allocator.
+	// We should ensure that the IP Allocation request name is vtep to have this file created correctly.
+	vtepIPAllocationFilePath = "/tmp/ips/vtep"
 )
 
 func main() {
@@ -43,6 +54,21 @@ func main() {
 	node := os.Getenv("NODE_NAME")
 	if node == "" {
 		klog.Fatal("NODE_NAME environment variable is not found. This is supposed to be configured via Kubernetes Downward API in production")
+	}
+
+	vtepIPNet, gateway, err := getInfoFromVTEPIPAllocation()
+	if err != nil {
+		klog.Fatalf("error while parsing info from the VTEP IP allocation file: %s", err.Error())
+	}
+
+	vtepCIDR, err := getVTEPCIDR()
+	if err != nil {
+		klog.Fatalf("error while parsing VTEP CIDR: %s", err.Error())
+	}
+
+	hostCIDR, err := getHostCIDR()
+	if err != nil {
+		klog.Fatalf("error while parsing Host CIDR %s", err.Error())
 	}
 
 	ovsClient, err := ovsclient.New()
@@ -62,7 +88,7 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	provisioner := dpucniprovisioner.New(ctx, c, ovsClient, networkhelper.New(), kexec.New(), clientset, nil, net.IP{}, nil, nil, node)
+	provisioner := dpucniprovisioner.New(ctx, c, ovsClient, networkhelper.New(), kexec.New(), clientset, vtepIPNet, gateway, vtepCIDR, hostCIDR, node)
 
 	err = provisioner.RunOnce()
 	if err != nil {
@@ -89,4 +115,66 @@ func main() {
 	klog.Info("Received termination signal, terminating.")
 	cancel()
 	wg.Wait()
+}
+
+// getInfoFromVTEPIPAllocation returns the VTEP IP and gateway from a file that contains the VTEP IP allocation done
+// by the IP Allocator component.
+func getInfoFromVTEPIPAllocation() (*net.IPNet, net.IP, error) {
+	content, err := os.ReadFile(vtepIPAllocationFilePath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error while reading file %s: %w", vtepIPAllocationFilePath, err)
+	}
+
+	results := []ipallocator.NVIPAMIPAllocatorResult{}
+	if err := json.Unmarshal(content, &results); err != nil {
+		return nil, nil, fmt.Errorf("error while unmarshalling IP Allocator results: %w", err)
+	}
+
+	if len(results) != 1 {
+		return nil, nil, fmt.Errorf("expecting exactly 1 IP allocation for VTEP")
+	}
+
+	vtepIPRaw := results[0].IP
+	vtepIP, err := netlink.ParseIPNet(vtepIPRaw)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error while parsing VTEP IP to net.IPNet: %w", err)
+	}
+
+	gatewayRaw := results[0].Gateway
+	gateway := net.ParseIP(gatewayRaw)
+	if gateway == nil {
+		return nil, nil, errors.New("error while parsing Gateway IP to net.IP: input is not valid")
+	}
+
+	return vtepIP, gateway, nil
+}
+
+// getVTEPCIDR returns the VTEP CIDR to be used by the provisioner
+func getVTEPCIDR() (*net.IPNet, error) {
+	vtepCIDRRaw := os.Getenv("VTEP_CIDR")
+	if vtepCIDRRaw == "" {
+		return nil, errors.New("required VTEP_CIDR environment variable is not set.")
+	}
+
+	_, vtepCIDR, err := net.ParseCIDR(vtepCIDRRaw)
+	if err != nil {
+		klog.Fatalf("error while parsing VTEP CIDR %s as net.IPNet: %s", vtepCIDRRaw, err.Error())
+	}
+
+	return vtepCIDR, nil
+}
+
+// getHostCIDR returns the Host CIDR to be used by the provisioner
+func getHostCIDR() (*net.IPNet, error) {
+	hostCIDRRaw := os.Getenv("HOST_CIDR")
+	if hostCIDRRaw == "" {
+		return nil, errors.New("required HOST_CIDR environment variable is not set.")
+	}
+
+	_, hostCIDR, err := net.ParseCIDR(hostCIDRRaw)
+	if err != nil {
+		klog.Fatalf("error while parsing Host CIDR %s as net.IPNet: %s", hostCIDRRaw, err.Error())
+	}
+
+	return hostCIDR, nil
 }
