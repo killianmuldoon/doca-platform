@@ -174,7 +174,7 @@ $(OVN_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR) $(OVN_REVISION)
 
 ##@ Development
-GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller operator operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded release-defaults hbn-dpuservice ovs-cni dummydpuservice
+GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller operator operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded release-defaults hbn-dpuservice dummydpuservice
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -248,7 +248,6 @@ generate-manifests-dpuservice: controller-gen kustomize ## Generate manifests e.
 	output:rbac:dir=./config/dpuservice/rbac \
 	output:webhook:dir=./config/dpuservice/webhook \
 	webhook
-	cd config/dpuservice/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-dpucniprovisioner
 generate-manifests-dpucniprovisioner: kustomize ## Generates DPU CNI provisioner manifests
@@ -268,14 +267,6 @@ EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 generate-manifests-operator-embedded:kustomize envsubst generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults ## Generates manifests that are embedded into the operator binary.
 	$(KUSTOMIZE) build config/provisioning/default > $(EMBEDDED_MANIFESTS_DIR)/provisioning-controller.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
-	# Substitute environment variables and generate embedded manifests from templates.
-	$(ENVSUBST) < $(TEMPLATES_DIR)/servicefunctionchainset-controller.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/servicefunctionchainset-controller.yaml
-	$(ENVSUBST) < $(TEMPLATES_DIR)/multus.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/multus.yaml
-	$(ENVSUBST) < $(TEMPLATES_DIR)/sriov-device-plugin.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/sriov-device-plugin.yaml
-	$(ENVSUBST) < $(TEMPLATES_DIR)/flannel.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/flannel.yaml
-	$(ENVSUBST) < $(TEMPLATES_DIR)/nv-k8s-ipam.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/nv-k8s-ipam.yaml
-	$(ENVSUBST) < $(TEMPLATES_DIR)/ovs-cni.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/ovs-cni.yaml
-	$(ENVSUBST) < $(TEMPLATES_DIR)/sfc-controller.yaml.tmpl > $(EMBEDDED_MANIFESTS_DIR)/sfc-controller.yaml
 
 .PHONY: generate-manifests-ovnkubernetes-operator-embedded
 generate-manifests-ovnkubernetes-operator-embedded: kustomize generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner ## Generates manifests that are embedded into the OVN Kubernetes Operator binary.
@@ -294,17 +285,12 @@ generate-manifests-servicechainset: controller-gen kustomize envsubst ## Generat
 	rbac:roleName=manager-role \
 	output:crd:dir=./config/servicechainset/crd/bases \
 	output:rbac:dir=./config/servicechainset/rbac
-	cd config/servicechainset/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
 	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/servicechain/crds/ \;
-	# Template the image name and tag used in the helm templates.
-	$(ENVSUBST) < deploy/helm/servicechain/values.yaml.tmpl > deploy/helm/servicechain/values.yaml
 
 .PHONY: generate-manifests-sfc-controller
 generate-manifests-sfc-controller: envsubst generate-manifests-servicechainset
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_servicechains.yaml deploy/helm/sfc-controller/crds/
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/sfc-controller/crds/
-	# Template the image name and tag used in the helm templates.
-	$(ENVSUBST) < deploy/helm/sfc-controller/values.yaml.tmpl > deploy/helm/sfc-controller/values.yaml
 
 .PHONY: generate-manifests-provisioning
 generate-manifests-provisioning: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
@@ -319,15 +305,10 @@ generate-manifests-provisioning: controller-gen kustomize ## Generate manifests 
 	output:rbac:dir=./config/provisioning/rbac \
 	output:webhook:dir=./config/provisioning/webhook \
 	webhook
-	cd config/provisioning/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-hbn-dpuservice
 generate-manifests-hbn-dpuservice: envsubst
 	$(ENVSUBST) < deploy/dpuservices/hbn/chart/values.yaml.tmpl > deploy/dpuservices/hbn/chart/values.yaml
-
-.PHONY: generate-manifests-ovs-cni
-generate-manifests-ovs-cni: envsubst ## Generate values for OVS helm chart.
-	$(ENVSUBST) < deploy/helm/ovs-cni/values.yaml.tmpl > deploy/helm/ovs-cni/values.yaml
 
 .PHONY: generate-operator-bundle
 generate-operator-bundle: helm operator-sdk generate-manifests-operator ## Generate bundle manifests and metadata, then validate generated files.
@@ -983,8 +964,11 @@ docker-push-dummydpuservice: ## Push the docker image for dummydpuservice
 	docker push $(DUMMYDPUSERVICE_IMAGE):$(TAG)
 
 # helm charts
+
+# By default the helm registry is assumed to be an OCI registry. This variable should be overwritten when using a https helm repository.
+export HELM_REGISTRY ?= oci://$(REGISTRY)
+
 HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam ovs-cni sfc-controller operator hbn-dpuservice
-HELM_REGISTRY ?= oci://$(REGISTRY)
 
 # metadata for the operator helm chart
 OPERATOR_HELM_CHART_NAME ?= dpf-operator

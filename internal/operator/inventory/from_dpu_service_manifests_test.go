@@ -19,10 +19,12 @@ package inventory
 import (
 	"context"
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
 
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
@@ -51,7 +53,10 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 	initialValuesDataAfterMerge, err := json.Marshal(initialValuesObjectAfterMerge)
 	g.Expect(err).NotTo(HaveOccurred())
 
-	imagePullSecretsVars := Variables{ImagePullSecrets: []string{"secret-one", "secret-two"}}
+	defaults := &release.Defaults{}
+	g.Expect(defaults.Parse()).To(Succeed())
+	imagePullSecretsVars := newDefaultVariables(defaults)
+	imagePullSecretsVars.ImagePullSecrets = []string{"secret-one", "secret-two"}
 
 	tests := []struct {
 		name    string
@@ -72,7 +77,7 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 					},
 				},
 			},
-			vars: Variables{},
+			vars: newDefaultVariables(defaults),
 			want: &dpuservicev1.DPUService{
 				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
 				ObjectMeta: metav1.ObjectMeta{
@@ -82,6 +87,12 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 				},
 				Spec: dpuservicev1.DPUServiceSpec{
 					HelmChart: dpuservicev1.HelmChart{
+						Source: dpuservicev1.ApplicationSource{
+							RepoURL: "helmchart.com",
+							Path:    "",
+							Version: "v1",
+							Chart:   "chart",
+						},
 						Values: &runtime.RawExtension{
 							Raw: initialValuesData,
 						},
@@ -112,6 +123,12 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 				},
 				Spec: dpuservicev1.DPUServiceSpec{
 					HelmChart: dpuservicev1.HelmChart{
+						Source: dpuservicev1.ApplicationSource{
+							RepoURL: "helmchart.com",
+							Path:    "",
+							Version: "v1",
+							Chart:   "chart",
+						},
 						Values: &runtime.RawExtension{
 							Raw: initialValuesDataAfterMerge,
 						},
@@ -126,10 +143,12 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			un, err := runtime.DefaultUnstructuredConverter.ToUnstructured(tt.in)
 			g.Expect(err).ToNot(HaveOccurred())
 
+			testServiceName := "testService"
 			f := &fromDPUService{
 				name:       serviceName,
 				dpuService: &unstructured.Unstructured{Object: un},
 			}
+			tt.vars.HelmCharts[testServiceName] = "helmchart.com/chart:v1"
 			got, err := f.GenerateManifests(tt.vars, skipApplySetCreationOption{})
 			if tt.wantErr {
 				g.Expect(err).To(HaveOccurred())
@@ -240,6 +259,49 @@ func Test_fromDPUService_ReadyCheck(t *testing.T) {
 			err := f.IsReady(context.Background(), testClient, dpuService.Namespace)
 			g.Expect(err != nil).To(Equal(tt.wantErr))
 
+		})
+	}
+}
+
+func Test_parseHelmChartString(t *testing.T) {
+
+	tests := []struct {
+		name    string
+		input   string
+		want    *helmChartSource
+		wantErr bool
+	}{
+		{
+			name:  "correctly parse a valid helmChart string",
+			input: "oci://example.com/ovs-cni:v0.1.0",
+			want: &helmChartSource{
+				repo:    "oci://example.com",
+				version: "v0.1.0",
+				chart:   "ovs-cni",
+			},
+			wantErr: false,
+		},
+		{
+			name:    "error if version not present",
+			input:   "oci://example.com/ovs-cni",
+			wantErr: true,
+		},
+		{
+			name:    "error if repo previx",
+			input:   "ovs-cni:v0.1.0",
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseHelmChartString(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseHelmChartString() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseHelmChartString() got = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

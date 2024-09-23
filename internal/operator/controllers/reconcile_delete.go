@@ -41,7 +41,7 @@ import (
 func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling delete")
-	vars := getVariablesFromConfig(dpfOperatorConfig)
+	vars := inventory.VariablesFromDPFOperatorConfig(r.Defaults, dpfOperatorConfig)
 	// also need to ensure argoCD components are deleted.
 
 	log.Info("Ensuring DPF system DPUServices are deleted")

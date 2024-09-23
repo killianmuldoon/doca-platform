@@ -4,6 +4,16 @@ hostNetworkSetupImage: ${HOSTNETWORK_IMAGE}:${TAG}
 dpfSystemImage: ${DPF_SYSTEM_IMAGE}:${TAG}
 sfcControllerImage: ${SFC_CONTROLLER_IMAGE}:${TAG}
 ipAllocatorImage: ${IPALLOCATOR_IMAGE}:${TAG}
+
+## Helm charts built as part of the DPF release.
+flannelHelmChart: ${HELM_REGISTRY}/${FLANNEL_HELM_CHART_NAME}:${FLANNEL_VERSION}
+multusHelmChart: ${HELM_REGISTRY}/${MULTUS_HELM_CHART_NAME}-chart:${TAG}
+sriovDPHelmChart: ${HELM_REGISTRY}/${SRIOV_DP_HELM_CHART_NAME}-chart:${TAG}
+ovsCNIHelmChart: ${HELM_REGISTRY}/${OVS_CNI_HELM_CHART_NAME}-chart:${TAG}
+nvidiaK8sHelmChart: ${HELM_REGISTRY}/${NVIDIA_K8S_IPAM_HELM_CHART_NAME}-chart:${TAG}
+serviceSetControllerHelmChart: ${HELM_REGISTRY}/${SERVICECHAIN_CONTROLLER_HELM_CHART_NAME}-chart:${TAG}
+serviceChainControllerHelmChart: ${HELM_REGISTRY}/${SFC_CONTOLLER_HELM_CHART_NAME}-chart:${TAG}
+
 ## These images are no longer published with the DPF release process. They should only be used from the demo release tag.
 customOVNKubernetesDPUImage: ${OVNKUBERNETES_DPU_IMAGE}:${TAG}
 customOVNKubernetesNonDPUImage: ${OVNKUBERNETES_NON_DPU_IMAGE}:${TAG}

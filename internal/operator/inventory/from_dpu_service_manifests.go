@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
@@ -65,6 +66,7 @@ func (f *fromDPUService) Parse() error {
 	}
 
 	f.dpuService = objects[0]
+
 	return nil
 }
 
@@ -75,7 +77,7 @@ func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateMa
 		option.Apply(opts)
 	}
 	if _, ok := vars.DisableSystemComponents[f.Name()]; ok {
-		return []client.Object{}, nil
+		return nil, nil
 	}
 
 	// copy object
@@ -87,17 +89,23 @@ func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateMa
 	if !opts.skipApplySet {
 		labelsToAdd[applysetPartOfLabel] = applySetID
 	}
+
 	// apply edits
 	edits := NewEdits().AddForAll(
 		NamespaceEdit(vars.Namespace),
 		LabelsEdit(labelsToAdd))
 
+	// Add the helm chart.
+	helmChartString, ok := vars.HelmCharts[f.Name()]
+	if !ok {
+		return []client.Object{}, fmt.Errorf("could not find helm chart source for DPUService %s", f.Name())
+	}
+	edits.AddForKindS(DPUServiceKind, dpuServiceSetHelmChartEdit(helmChartString))
+
 	if vars.ImagePullSecrets != nil {
 		edits.AddForKindS(DPUServiceKind, dpuServiceAddValueEdit("imagePullSecrets", localObjRefsFromStrings(vars.ImagePullSecrets...)))
 	}
-
-	err := edits.Apply([]*unstructured.Unstructured{dpuServiceCopy})
-	if err != nil {
+	if err := edits.Apply([]*unstructured.Unstructured{dpuServiceCopy}); err != nil {
 		return nil, err
 	}
 
@@ -106,6 +114,25 @@ func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateMa
 		ret = append(ret, applySetParentForComponent(f, applySetID, vars, applySetInventoryString(dpuServiceCopy)))
 	}
 	return append(ret, dpuServiceCopy), nil
+}
+
+func dpuServiceSetHelmChartEdit(helmChart string) StructuredEdit {
+	return func(obj client.Object) error {
+		dpuService, ok := obj.(*dpuservicev1.DPUService)
+		if !ok {
+			return fmt.Errorf("unexpected object kind %s. expected DPUService", obj.GetObjectKind().GroupVersionKind())
+		}
+
+		chart, err := parseHelmChartString(helmChart)
+		if err != nil {
+			return fmt.Errorf("failed parsing %s: %w", dpuService.Name, err)
+		}
+
+		dpuService.Spec.HelmChart.Source.Chart = chart.chart
+		dpuService.Spec.HelmChart.Source.RepoURL = chart.repo
+		dpuService.Spec.HelmChart.Source.Version = chart.version
+		return nil
+	}
 }
 
 func dpuServiceAddValueEdit(key string, value interface{}) StructuredEdit {
@@ -147,4 +174,34 @@ func (f *fromDPUService) IsReady(ctx context.Context, c client.Client, namespace
 		return fmt.Errorf("DPUService %s/%s is not ready", obj.Namespace, obj.Name)
 	}
 	return nil
+}
+
+type helmChartSource struct {
+	repo    string
+	chart   string
+	version string
+}
+
+func parseHelmChartString(repoChartVersion string) (*helmChartSource, error) {
+	versionStart := strings.LastIndex(repoChartVersion, ":")
+
+	if versionStart == -1 {
+		return nil, fmt.Errorf("failed to parse helm chart source: invalid format %s", repoChartVersion)
+	}
+	version := repoChartVersion[versionStart+1:]
+
+	repoChart := repoChartVersion[:versionStart]
+	imageStart := strings.LastIndex(repoChart, "/")
+	if imageStart == -1 {
+		return nil, fmt.Errorf("failed to parse helm chart source: invalid format %s", repoChartVersion)
+	}
+
+	image := repoChart[imageStart+1:]
+	repo := repoChart[:imageStart]
+
+	return &helmChartSource{
+		version: version,
+		chart:   image,
+		repo:    repo,
+	}, nil
 }

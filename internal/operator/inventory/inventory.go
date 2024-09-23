@@ -24,6 +24,18 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	FlannelName                = "flannel"
+	ServiceSetControllerName   = "servicefunctionchainset"
+	MultusName                 = "multus"
+	SRIOVDevicePluginName      = "sriovdeviceplugin"
+	OVSCNIName                 = "ovs-cni"
+	NVIPAMName                 = "nvidia-k8s-ipam"
+	SFCControllerName          = "sfc-controller"
+	ProvisioningControllerName = "provisioning-controller"
+	DPUServiceControllerName   = "dpuservice-controller"
+)
+
 // Component describes the responsibilities of an item in the Inventory.
 type Component interface {
 	Name() string
@@ -32,19 +44,6 @@ type Component interface {
 	// IsReady reports an object and a field in that object which is used to check the ready status of a Component.
 	// Returns an error if the object is not ready.
 	IsReady(ctx context.Context, c client.Client, namespace string) error
-}
-
-// Variables contains information required to generate manifests from the inventory.
-type Variables struct {
-	Namespace                 string
-	DPFProvisioningController DPFProvisioningVariables
-	DisableSystemComponents   map[string]bool
-	ImagePullSecrets          []string
-}
-
-type DPFProvisioningVariables struct {
-	BFBPersistentVolumeClaimName string
-	DMSTimeout                   *int
 }
 
 // SystemComponents holds kubernetes object manifests to be deployed by the operator.
@@ -100,31 +99,31 @@ func New() *SystemComponents {
 			data: provisioningControllerData,
 		},
 		ServiceFunctionChainSet: &fromDPUService{
-			name: "servicefunctionchainset",
+			name: ServiceSetControllerName,
 			data: serviceChainSetData,
 		},
 		Multus: &fromDPUService{
-			name: "multus",
+			name: MultusName,
 			data: multusData,
 		},
 		SRIOVDevicePlugin: &fromDPUService{
-			name: "sriovdeviceplugin",
+			name: SRIOVDevicePluginName,
 			data: sriovDevicePluginData,
 		},
 		Flannel: &fromDPUService{
-			name: "flannel",
+			name: FlannelName,
 			data: flannelData,
 		},
 		OvsCni: &fromDPUService{
-			name: "ovs-cni",
+			name: OVSCNIName,
 			data: ovsCniData,
 		},
 		NvIPAM: &fromDPUService{
-			name: "nvidia-k8s-ipam",
+			name: NVIPAMName,
 			data: nvK8sIpamData,
 		},
 		SfcController: &fromDPUService{
-			name: "sfc-controller",
+			name: SFCControllerName,
 			data: sfcControllerData,
 		},
 	}

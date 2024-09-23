@@ -23,6 +23,7 @@ import (
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
 
 	. "github.com/onsi/gomega"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
@@ -162,18 +163,20 @@ func TestDPFProvisioningControllerObjects_Parse(t *testing.T) {
 }
 
 func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
+	g := NewWithT(t)
 	originalObjs, err := utils.BytesToUnstructured(provisioningControllerData)
-	NewGomegaWithT(t).Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(HaveOccurred())
 	provCtrl := provisioningControllerObjects{
 		data: provisioningControllerData,
 	}
-	NewGomegaWithT(t).Expect(provCtrl.Parse()).NotTo(HaveOccurred())
+	g.Expect(provCtrl.Parse()).NotTo(HaveOccurred())
+	defaults := &release.Defaults{}
+	g.Expect(defaults.Parse()).To(Succeed())
 
 	t.Run("no objects if disable is set", func(t *testing.T) {
-		vars := Variables{
-			DisableSystemComponents: map[string]bool{
-				provCtrl.Name(): true,
-			},
+		vars := newDefaultVariables(defaults)
+		vars.DisableSystemComponents = map[string]bool{
+			provCtrl.Name(): true,
 		}
 		objs, err := provCtrl.GenerateManifests(vars, skipApplySetCreationOption{})
 		if err != nil {
@@ -185,10 +188,10 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 	})
 
 	t.Run("fail if empty pvc", func(t *testing.T) {
-		vars := Variables{
-			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName: " ",
-			},
+		vars := newDefaultVariables(defaults)
+
+		vars.DPFProvisioningController = DPFProvisioningVariables{
+			BFBPersistentVolumeClaimName: " ",
 		}
 		_, err := provCtrl.GenerateManifests(vars, skipApplySetCreationOption{})
 		NewGomegaWithT(t).Expect(err).To(HaveOccurred())
@@ -197,11 +200,11 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 	t.Run("test setting namespaces", func(t *testing.T) {
 		g := NewWithT(t)
 		testNS := "foop"
-		vars := Variables{
-			Namespace: testNS,
-			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName: "pvc",
-			},
+		vars := newDefaultVariables(defaults)
+
+		vars.Namespace = testNS
+		vars.DPFProvisioningController = DPFProvisioningVariables{
+			BFBPersistentVolumeClaimName: "pvc",
 		}
 		objs, err := provCtrl.GenerateManifests(vars, skipApplySetCreationOption{})
 		g.Expect(err).NotTo(HaveOccurred())
@@ -275,19 +278,19 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 	// This test is customized for the current Provisioning manifest, internal/operator/inventory/manifests/provisioningctrl.yaml.
 	// These tests should be reviewed every time the manifest is updated
 	t.Run("test field modification", func(t *testing.T) {
+		ns := "namespace-one"
 		g := NewGomegaWithT(t)
-		expectedPVC := "foo-test-pvc"
-		expectedImagePullSecret1 := "foo-test-image-pull-secret"
-		expectedImagePullSecret2 := "foo-test-image-pull-secret-2"
+		expectedPVC := "test-pvc"
+		expectedImagePullSecret1 := "test-image-pull-secret"
+		expectedImagePullSecret2 := "test-image-pull-secret-2"
 		expectedDmsTimeout := 20
-		vars := Variables{
-			Namespace: "foo",
-			DPFProvisioningController: DPFProvisioningVariables{
-				BFBPersistentVolumeClaimName: expectedPVC,
-				DMSTimeout:                   &expectedDmsTimeout,
-			},
-			ImagePullSecrets: []string{expectedImagePullSecret1, expectedImagePullSecret2},
+		vars := newDefaultVariables(defaults)
+		vars.Namespace = ns
+		vars.DPFProvisioningController = DPFProvisioningVariables{
+			BFBPersistentVolumeClaimName: expectedPVC,
+			DMSTimeout:                   &expectedDmsTimeout,
 		}
+		vars.ImagePullSecrets = []string{expectedImagePullSecret1, expectedImagePullSecret2}
 		generatedObjs, err := provCtrl.GenerateManifests(vars, skipApplySetCreationOption{})
 		g.Expect(err).NotTo(HaveOccurred())
 
@@ -297,7 +300,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		// Expect the namespaces for all of the namespace scoped objects to equal the namespace in variables.
 		for _, obj := range generatedObjs {
 			if !isClusterScoped(obj.GetObjectKind().GroupVersionKind().Kind) {
-				g.Expect(obj.GetNamespace()).To(Equal("foo"))
+				g.Expect(obj.GetNamespace()).To(Equal(ns), obj.GetObjectKind().GroupVersionKind().String())
 			}
 		}
 		gotDeployment := &appsv1.Deployment{}

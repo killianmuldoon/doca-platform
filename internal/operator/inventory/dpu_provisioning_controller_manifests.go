@@ -50,7 +50,7 @@ type provisioningControllerObjects struct {
 }
 
 func (p *provisioningControllerObjects) Name() string {
-	return "dpf-provisioning-controller"
+	return ProvisioningControllerName
 }
 
 // Parse returns typed objects for the Provisioning controller deployment.
@@ -324,21 +324,26 @@ func (p *provisioningControllerObjects) parseFlagName(arg string) string {
 	return name
 }
 
-func (p *provisioningControllerObjects) setDefaultImageNames(deployment *appsv1.Deployment, _ Variables) error {
+func (p *provisioningControllerObjects) setDefaultImageNames(deployment *appsv1.Deployment, vars Variables) error {
 	c := p.getContainer(deployment)
 	if c == nil {
 		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
 	}
-	release := release.NewDefaults()
-	err := release.Parse()
+	defaults := release.NewDefaults()
+	err := defaults.Parse()
 	if err != nil {
 		return err
 	}
-	err = p.setFlags(c, fmt.Sprintf("--dms-image=%s", release.DMSImage))
+	imageName, ok := vars.Images[p.Name()]
+	if !ok {
+		return fmt.Errorf("image for %q not found in variables", p.Name())
+	}
+	c.Image = imageName
+	err = p.setFlags(c, fmt.Sprintf("--dms-image=%s", defaults.DMSImage))
 	if err != nil {
 		return err
 	}
-	err = p.setFlags(c, fmt.Sprintf("--hostnetwork-image=%s", release.HostNetworkSetupImage))
+	err = p.setFlags(c, fmt.Sprintf("--hostnetwork-image=%s", defaults.HostNetworkSetupImage))
 	if err != nil {
 		return err
 	}

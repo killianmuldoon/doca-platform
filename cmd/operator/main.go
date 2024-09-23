@@ -27,6 +27,7 @@ import (
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 	operatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/controllers"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
 
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -176,12 +177,17 @@ func main() {
 		setupLog.Error(err, "unable to parse inventory")
 		os.Exit(1)
 	}
-
+	defaults := release.NewDefaults()
+	if err = defaults.Parse(); err != nil {
+		setupLog.Error(err, "unable to parse defaults")
+		os.Exit(1)
+	}
 	if err = (&operatorcontroller.DPFOperatorConfigReconciler{
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),
 		Settings:  getSettings(),
 		Inventory: inventory,
+		Defaults:  defaults,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPFOperatorConfig")
 		os.Exit(1)

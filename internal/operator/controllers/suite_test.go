@@ -29,6 +29,7 @@ import (
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -115,6 +116,11 @@ func TestMain(m *testing.M) {
 	if err := inventory.ParseAll(); err != nil {
 		panic(fmt.Sprintf("Failed to parse inventory: %v", err))
 	}
+
+	defaults := &release.Defaults{}
+	if err := defaults.Parse(); err != nil {
+		panic(fmt.Sprintf("Failed to parse defaults: %v", err))
+	}
 	reconciler = &DPFOperatorConfigReconciler{
 		Client: testClient,
 		Scheme: testManager.GetScheme(),
@@ -122,6 +128,7 @@ func TestMain(m *testing.M) {
 			SkipWebhook: true,
 		},
 		Inventory: inventory,
+		Defaults:  defaults,
 	}
 	if err := reconciler.SetupWithManager(testManager); err != nil {
 		panic(fmt.Sprintf("Failed to setup DPFOperatorConfigReconciler: %v", err))

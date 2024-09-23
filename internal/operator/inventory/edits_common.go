@@ -223,3 +223,19 @@ func TolerationsEdit(tolerations []corev1.Toleration) StructuredEdit {
 		return nil
 	}
 }
+
+func ImageForDeploymentContainerEdit(containerName, imageName string) StructuredEdit {
+	return func(obj client.Object) error {
+		deployment, ok := obj.(*appsv1.Deployment)
+		if !ok {
+			return fmt.Errorf("unexpected object %s. expected Deployment", obj.GetObjectKind().GroupVersionKind())
+		}
+		for i, container := range deployment.Spec.Template.Spec.Containers {
+			if container.Name == containerName {
+				container.Image = imageName
+				deployment.Spec.Template.Spec.Containers[i] = container
+			}
+		}
+		return nil
+	}
+}

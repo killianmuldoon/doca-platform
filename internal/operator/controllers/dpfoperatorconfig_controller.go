@@ -26,6 +26,7 @@ import (
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	appsv1 "k8s.io/api/apps/v1"
@@ -65,6 +66,7 @@ type DPFOperatorConfigReconciler struct {
 	Scheme    *runtime.Scheme
 	Settings  *DPFOperatorConfigReconcilerSettings
 	Inventory *inventory.SystemComponents
+	Defaults  *release.Defaults
 }
 
 // DPFOperatorConfigReconcilerSettings contains settings related to the DPFOperatorConfig.
@@ -276,7 +278,7 @@ func (r *DPFOperatorConfigReconciler) reconcileImagePullSecrets(ctx context.Cont
 // 8. OVS CNI
 // 9. SFC Controller
 func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
-	vars := getVariablesFromConfig(config)
+	vars := inventory.VariablesFromDPFOperatorConfig(r.Defaults, config)
 	// Create objects for system components.
 	for _, component := range r.Inventory.AllComponents() {
 		if err := r.generateAndPatchObjects(ctx, component, vars); err != nil {
@@ -284,24 +286,6 @@ func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Cont
 		}
 	}
 	return nil
-}
-
-func getVariablesFromConfig(config *operatorv1.DPFOperatorConfig) inventory.Variables {
-	disableComponents := make(map[string]bool)
-	if config.Spec.Overrides != nil {
-		for _, item := range config.Spec.Overrides.DisableSystemComponents {
-			disableComponents[item] = true
-		}
-	}
-	return inventory.Variables{
-		Namespace: config.Namespace,
-		DPFProvisioningController: inventory.DPFProvisioningVariables{
-			BFBPersistentVolumeClaimName: config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName,
-			DMSTimeout:                   config.Spec.ProvisioningConfiguration.DMSTimeout,
-		},
-		DisableSystemComponents: disableComponents,
-		ImagePullSecrets:        config.Spec.ImagePullSecrets,
-	}
 }
 
 func (r *DPFOperatorConfigReconciler) updateSystemComponentStatus(ctx context.Context, config *operatorv1.DPFOperatorConfig) {

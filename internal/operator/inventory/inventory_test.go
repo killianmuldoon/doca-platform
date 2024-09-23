@@ -21,6 +21,7 @@ import (
 
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
 
 	. "github.com/onsi/gomega"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -28,6 +29,8 @@ import (
 
 func TestManifests_Parse_Generate_All(t *testing.T) {
 	g := NewGomegaWithT(t)
+	defaults := &release.Defaults{}
+	g.Expect(defaults.Parse()).To(Succeed())
 
 	tests := []struct {
 		name      string
@@ -222,11 +225,12 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			vars := Variables{
-				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName: bfbVolumeName,
-				},
+
+			vars := newDefaultVariables(defaults)
+			vars.DPFProvisioningController = DPFProvisioningVariables{
+				BFBPersistentVolumeClaimName: bfbVolumeName,
 			}
+
 			err := tt.inventory.ParseAll()
 			if tt.wantErr {
 				g.Expect(err).To(HaveOccurred())
@@ -269,132 +273,81 @@ func addUnexpectedKindToObjects(g Gomega, data []byte) []byte {
 
 func TestManifests_generateAllManifests(t *testing.T) {
 	g := NewWithT(t)
+	defaults := release.NewDefaults()
+	g.Expect(defaults.Parse()).To(Succeed())
 	i := New()
 	g.Expect(i.ParseAll()).NotTo(HaveOccurred())
+	vars := newDefaultVariables(defaults)
+	vars.DPFProvisioningController = DPFProvisioningVariables{
+		BFBPersistentVolumeClaimName: bfbVolumeName,
+	}
 	tests := []struct {
-		name            string
-		vars            Variables
-		expectedMissing string
-		wantErr         bool
+		name               string
+		componentToDisable string
+		expectedMissing    string
+		wantErr            bool
 	}{
 		{
-			name: "Generate all manifests",
-			vars: Variables{
-				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName: bfbVolumeName,
-				},
-			},
-			wantErr:         false,
-			expectedMissing: "",
+			name:               "Generate all manifests",
+			componentToDisable: "",
+			wantErr:            false,
+			expectedMissing:    "",
 		},
 		{
-			name: "Disable multus manifests",
-			vars: Variables{
-				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName: bfbVolumeName,
-				},
-				DisableSystemComponents: map[string]bool{
-					"multus": true,
-				},
-			},
-			wantErr:         false,
-			expectedMissing: "multus",
+			name:               "Disable multus manifests",
+			componentToDisable: MultusName,
+			wantErr:            false,
+			expectedMissing:    MultusName,
 		},
 		{
-			name: "Disable sriovDevicePlugin manifests",
-			vars: Variables{
-				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName: bfbVolumeName,
-				},
-				DisableSystemComponents: map[string]bool{
-					"sriovDevicePlugin": true,
-				},
-			},
-			wantErr:         false,
-			expectedMissing: "sriovDevicePlugin",
+			name:               "Disable sriovDevicePlugin manifests",
+			componentToDisable: SRIOVDevicePluginName,
+			wantErr:            false,
+			expectedMissing:    SRIOVDevicePluginName,
 		},
 		{
-			name: "Disable flannel manifests",
-			vars: Variables{
-				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName: bfbVolumeName,
-				},
-				DisableSystemComponents: map[string]bool{
-					"flannel": true,
-				},
-			},
-			wantErr:         false,
-			expectedMissing: "flannel",
+			name:               "Disable flannel manifests",
+			componentToDisable: FlannelName,
+			wantErr:            false,
+			expectedMissing:    FlannelName,
 		},
 		{
-			name: "Disable nvidia-k8s-ipam manifests",
-			vars: Variables{
-				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName: bfbVolumeName,
-				},
-				DisableSystemComponents: map[string]bool{
-					"nvidia-k8s-ipam": true,
-				},
-			},
-			wantErr:         false,
-			expectedMissing: "nvidia-k8s-ipam",
+			name:               "Disable nvidia-k8s-ipam manifests",
+			componentToDisable: NVIPAMName,
+			wantErr:            false,
+			expectedMissing:    NVIPAMName,
 		},
 		{
-			name: "Disable DPFProvisioningController manifests",
-			vars: Variables{
-				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName: bfbVolumeName,
-				},
-				DisableSystemComponents: map[string]bool{
-					"DPFProvisioningController": true,
-				},
-			},
-			wantErr:         false,
-			expectedMissing: "DPFProvisioningController",
+			name:               "Disable DPFProvisioningController manifests",
+			componentToDisable: ProvisioningControllerName,
+			wantErr:            false,
+			expectedMissing:    ProvisioningControllerName,
 		},
 		{
-			name: "Disable DPUServiceController manifests",
-			vars: Variables{
-				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName: bfbVolumeName,
-				},
-				DisableSystemComponents: map[string]bool{
-					"DPUServiceController": true,
-				},
-			},
-			wantErr:         false,
-			expectedMissing: "DPUServiceController",
+			name:               "Disable DPUServiceController manifests",
+			componentToDisable: SRIOVDevicePluginName,
+			wantErr:            false,
+			expectedMissing:    SRIOVDevicePluginName,
 		},
 		{
-			name: "Disable ovs-cni manifests",
-			vars: Variables{
-				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName: bfbVolumeName,
-				},
-				DisableSystemComponents: map[string]bool{
-					"ovs-cni": true,
-				},
-			},
-			wantErr:         false,
-			expectedMissing: "ovs-cni",
+			name:               "Disable ovs-cni manifests",
+			componentToDisable: OVSCNIName,
+			wantErr:            false,
+			expectedMissing:    OVSCNIName,
 		},
 		{
-			name: "Disable sfc-controller manifests",
-			vars: Variables{
-				DPFProvisioningController: DPFProvisioningVariables{
-					BFBPersistentVolumeClaimName: bfbVolumeName,
-				},
-				DisableSystemComponents: map[string]bool{
-					"sfc-controller": true,
-				},
-			},
-			wantErr:         false,
-			expectedMissing: "sfc-controller",
+			name:               "Disable sfc-controller manifests",
+			componentToDisable: SFCControllerName,
+			wantErr:            false,
+			expectedMissing:    SFCControllerName,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := i.generateAllManifests(tt.vars, skipApplySetCreationOption{})
+			vars.DisableSystemComponents = map[string]bool{
+				tt.componentToDisable: true,
+			}
+			got, err := i.generateAllManifests(vars)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("generateAllManifests() error = %v, wantErr %v", err, tt.wantErr)
 				return

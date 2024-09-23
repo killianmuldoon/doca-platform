@@ -28,15 +28,24 @@ var defaultsContent []byte
 
 // Defaults structure contains the default artifacts that the operators should deploy
 type Defaults struct {
+	DMSImage              string `yaml:"dmsImage"`
+	HostNetworkSetupImage string `yaml:"hostNetworkSetupImage"`
+	DPFSystemImage        string `yaml:"dpfSystemImage"`
+
+	FlannelHelmChart                string `yaml:"flannelHelmChart"`
+	MultusHelmChart                 string `yaml:"multusHelmChart"`
+	SriovDPHelmChart                string `yaml:"sriovDPHelmChart"`
+	OVSCNIHelmChart                 string `yaml:"ovsCNIHelmChart"`
+	NvidiaK8sHelmChart              string `yaml:"nvidiaK8sHelmChart"`
+	ServiceSetControllerHelmChart   string `yaml:"serviceSetControllerHelmChart"`
+	ServiceChainControllerHelmChart string `yaml:"serviceChainControllerHelmChart"`
+
 	// CustomOVNKubernetesDPUImage is the default custom OVN Kubernetes image that should be deployed to the DPU
 	// enabled workers.
 	CustomOVNKubernetesDPUImage string `yaml:"customOVNKubernetesDPUImage"`
 	// CustomOVNKubernetesNonDPUImage is the default custom OVN Kubernetes image that should be deployed to the non DPU
 	// nodes.
 	CustomOVNKubernetesNonDPUImage string `yaml:"customOVNKubernetesNonDPUImage"`
-	// dmsImagemage is the DMS image
-	DMSImage              string `yaml:"dmsImage"`
-	HostNetworkSetupImage string `yaml:"hostNetworkSetupImage"`
 }
 
 // Parse parses the defaults from the embedded generated YAML file
@@ -57,6 +66,30 @@ func (d *Defaults) Parse() error {
 	}
 	if len(d.HostNetworkSetupImage) == 0 {
 		return errors.New("hostNetworkSetupImage can't be empty")
+	}
+	if len(d.DPFSystemImage) == 0 {
+		return errors.New("dpsfSystemImage can't be empty")
+	}
+	if len(d.FlannelHelmChart) == 0 {
+		return errors.New("FlannelHelmChart can't be empty")
+	}
+	if len(d.MultusHelmChart) == 0 {
+		return errors.New("multusHelmChart can't be empty")
+	}
+	if len(d.SriovDPHelmChart) == 0 {
+		return errors.New("sriovDPHelmChart can't be empty")
+	}
+	if len(d.OVSCNIHelmChart) == 0 {
+		return errors.New("ovsCNIHelmChart can't be empty")
+	}
+	if len(d.NvidiaK8sHelmChart) == 0 {
+		return errors.New("nvidiaK8sHelmChart can't be empty")
+	}
+	if len(d.ServiceChainControllerHelmChart) == 0 {
+		return errors.New("serviceChainControllerHelmChart can't be empty")
+	}
+	if len(d.ServiceSetControllerHelmChart) == 0 {
+		return errors.New("serviceSetControllerHelmChart can't be empty")
 	}
 	return nil
 }

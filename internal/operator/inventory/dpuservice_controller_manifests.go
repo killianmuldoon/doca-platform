@@ -29,6 +29,10 @@ import (
 
 var _ Component = &dpuServiceControllerObjects{}
 
+const (
+	managerContainerName = "manager"
+)
+
 // dpuServiceControllerObjects contains Kubernetes objects to be created by the DPUService controller.
 type dpuServiceControllerObjects struct {
 	data    []byte
@@ -36,7 +40,7 @@ type dpuServiceControllerObjects struct {
 }
 
 func (d *dpuServiceControllerObjects) Name() string {
-	return "dpuservice-controller"
+	return DPUServiceControllerName
 }
 
 // Parse returns typed objects for the DPUService controller deployment.
@@ -86,6 +90,10 @@ func (d *dpuServiceControllerObjects) GenerateManifests(vars Variables, options 
 		labelsToAdd[applysetPartOfLabel] = applySetID
 	}
 
+	image, ok := vars.Images[d.Name()]
+	if !ok {
+		return nil, fmt.Errorf("could not find image for %s in variables", d.Name())
+	}
 	// apply edits
 	// TODO: make it generic to not edit every kind one-by-one.
 	if err := NewEdits().
@@ -97,6 +105,7 @@ func (d *dpuServiceControllerObjects) GenerateManifests(vars Variables, options 
 		AddForKindS(DeploymentKind, TolerationsEdit(controlPlaneTolerations)).
 		AddForKindS(StatefulSetKind, TolerationsEdit(controlPlaneTolerations)).
 		AddForKindS(DaemonSetKind, TolerationsEdit(controlPlaneTolerations)).
+		AddForKindS(DeploymentKind, ImageForDeploymentContainerEdit(managerContainerName, image)).
 		Apply(objsCopy); err != nil {
 		return nil, err
 	}
