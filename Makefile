@@ -689,7 +689,8 @@ docker-build-dpf-system: $(addprefix docker-build-dpf-system-for-,$(DPF_SYSTEM_A
 
 docker-build-dpf-system-for-%:
 	# Provenance false ensures this target builds an image rather than a manifest when using buildx.
-	docker build \
+	docker buildx build \
+		--load \
 		--provenance=false \
 		--platform=linux/$* \
 		--build-arg builder_image=$(BUILD_IMAGE) \
@@ -717,7 +718,9 @@ docker-create-manifest:
 
 .PHONY: docker-build-sfc-controller
 docker-build-sfc-controller: docker-build-base-image-ovs ## Build docker images for the sfc-controller
-	docker build \
+	docker buildx build \
+		--load \
+		--provenance=false \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(OVS_BASE_IMAGE):$(TAG) \
 		--build-arg target_arch=$(DPU_ARCH) \
@@ -729,7 +732,9 @@ docker-build-sfc-controller: docker-build-base-image-ovs ## Build docker images 
 
 .PHONY: docker-build-dpucniprovisioner
 docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker images for the DPU CNI Provisioner
-	docker build \
+	docker buildx build \
+		--load \
+		--provenance=false \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(OVS_BASE_IMAGE):$(TAG) \
 		--build-arg target_arch=$(DPU_ARCH) \
@@ -742,7 +747,9 @@ docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker imag
 .PHONY: docker-build-hostcniprovisioner
 docker-build-hostcniprovisioner: docker-build-base-image-systemd ## Build docker images for the HOST CNI Provisioner
 	# Base image can't be distroless because of the readiness probe that is using cat which doesn't exist in distroless
-	docker build \
+	docker buildx build \
+		--load \
+		--provenance=false \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(SYSTEMD_BASE_IMAGE):$(TAG) \
 		--build-arg target_arch=$(HOST_ARCH) \
@@ -756,7 +763,9 @@ docker-build-hostcniprovisioner: docker-build-base-image-systemd ## Build docker
 .PHONY: docker-build-ipallocator
 docker-build-ipallocator: ## Build docker image for the IP Allocator
 	# Base image can't be distroless because of the readiness probe that is using cat which doesn't exist in distroless
-	docker build \
+	docker buildx build \
+		--load \
+		--provenance=false \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(ALPINE_IMAGE) \
 		--build-arg target_arch=$(ARCH) \
@@ -770,6 +779,7 @@ docker-build-ipallocator: ## Build docker image for the IP Allocator
 docker-build-base-image-ovs: ## Build base docker image with OVS dependencies
 	docker buildx build \
 		--load \
+		--provenance=false \
 		--platform linux/${DPU_ARCH} \
 		-f Dockerfile.ovs \
 		. \
@@ -779,6 +789,7 @@ docker-build-base-image-ovs: ## Build base docker image with OVS dependencies
 docker-build-base-image-systemd: ## Build base docker image with systemd dependencies
 	docker buildx build \
 		--load \
+		--provenance=false \
 		--platform linux/${HOST_ARCH} \
 		-f Dockerfile.systemd \
 		. \
@@ -789,6 +800,7 @@ docker-build-hbn-sidecar: docker-build-base-image-ovs ## Build HBN sidecar DPU s
 	cd $(HBN_DPUSERVICE_DIR) && \
 	docker buildx build \
 		--load \
+		--provenance=false \
 		--platform linux/${DPU_ARCH} \
 		--build-arg base_image=$(OVS_BASE_IMAGE):$(TAG) \
 		-f Dockerfile.sidecar \
@@ -799,18 +811,20 @@ docker-build-hbn-sidecar: docker-build-base-image-ovs ## Build HBN sidecar DPU s
 docker-build-ovs-cni: $(OVS_CNI_DIR) ## Builds the OVS CNI image
 	cd $(OVS_CNI_DIR) && \
 	$(OVS_CNI_DIR)/hack/get_version.sh > .version && \
-	docker buildx build . \
-	--load \
-	--build-arg goarch=$(DPU_ARCH) \
-	--platform linux/${DPU_ARCH} \
-	-f ./cmd/Dockerfile \
-	-t $(OVS_CNI_IMAGE):${TAG}
-
+	docker buildx build \
+		--load \
+		--provenance=false \
+		--build-arg goarch=$(DPU_ARCH) \
+		--platform linux/${DPU_ARCH} \
+		-f ./cmd/Dockerfile \
+		-t $(OVS_CNI_IMAGE):${TAG} \
+		.
 
 .PHONY: docker-build-ovnkubernetes-dpu
 docker-build-ovnkubernetes-dpu: $(OVNKUBERNETES_DPU_DIR) $(OVN_DIR) ## Builds the custom OVN Kubernetes image that is used for the DPU (worker) nodes
 	docker buildx build \
 		--load \
+		--provenance=false \
 		--platform linux/${HOST_ARCH} \
 		--build-arg base_image=${OVNKUBERNETES_BASE_IMAGE} \
 		--build-arg ovn_dir=$(shell realpath --relative-to $(CURDIR) $(OVN_DIR)) \
@@ -823,6 +837,7 @@ docker-build-ovnkubernetes-dpu: $(OVNKUBERNETES_DPU_DIR) $(OVN_DIR) ## Builds th
 docker-build-ovnkubernetes-non-dpu: $(OVNKUBERNETES_NON_DPU_DIR) ## Builds the custom OVN Kubernetes image that is used for the non DPU (control plane) nodes
 	docker buildx build \
 		--load \
+		--provenance=false \
 		--platform linux/${HOST_ARCH} \
 		--build-arg base_image=${OVNKUBERNETES_BASE_IMAGE} \
 		--build-arg ovn_kubernetes_dir=$(shell realpath --relative-to $(CURDIR) $(OVNKUBERNETES_NON_DPU_DIR)) \
@@ -832,32 +847,59 @@ docker-build-ovnkubernetes-non-dpu: $(OVNKUBERNETES_NON_DPU_DIR) ## Builds the c
 
 .PHONY: docker-build-ovnkubernetes-operator
 docker-build-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-embedded ## Build docker images for the operator-controller
-	docker build \
+	docker buildx build \
+		--load \
+		--provenance=false \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
 		--build-arg target_arch=$(ARCH) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/ovnkubernetesoperator \
-		. \
-		-t $(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
+		-t $(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG) \
+		.
+		
 
 .PHONY: docker-build-hostnetwork
 docker-build-hostnetwork: ## Build docker image with the hostnetwork.
-	docker build --platform linux/${HOST_ARCH} -t $(HOSTNETWORK_IMAGE):$(TAG) . -f Dockerfile.hostnetwork
+	docker buildx build \
+		--load \
+		--provenance=false \
+		--platform linux/${HOST_ARCH} \
+		-t $(HOSTNETWORK_IMAGE):$(TAG) \
+		-f Dockerfile.hostnetwork \
+		.
+		
 
 .PHONY: docker-build-dms
 docker-build-dms: ## Build docker image with the hostnetwork.
-	docker build --platform linux/${HOST_ARCH} -t $(DMS_IMAGE):$(TAG) . -f Dockerfile.dms
+	docker buildx build \
+		--load \
+		--provenance=false \
+		--platform linux/${HOST_ARCH} \
+		-t $(DMS_IMAGE):$(TAG) \
+		-f Dockerfile.dms \
+		.
+		
 
 .PHONY: docker-build-hbn
 docker-build-hbn: ## Build docker image for HBN.
 	## Note this image only ever builds for arm64.
-	cd $(HBN_DPUSERVICE_DIR) && docker build --build-arg hbn_nvcr_tag=$(HBN_NVCR_TAG) -t $(HBN_IMAGE):$(HBN_TAG) . -f Dockerfile
+	cd $(HBN_DPUSERVICE_DIR) && \
+	docker buildx build \
+		--load \
+		--provenance=false \
+		--build-arg hbn_nvcr_tag=$(HBN_NVCR_TAG) \
+		-t $(HBN_IMAGE):$(HBN_TAG) \
+		-f Dockerfile \
+		.
+		
 
 .PHONY: docker-build-dummydpuservice
 docker-build-dummydpuservice: ## Build docker images for the dummydpuservice
-	docker build \
+	docker buildx build \
+		--load \
+		--provenance=false \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
 		--build-arg target_arch=$(DPU_ARCH) \
@@ -916,7 +958,12 @@ docker-push-ovnkubernetes-non-dpu: ## Push the custom OVN Kubernetes image that 
 # TODO: Consider whether this should be part of the docker-build-all- build targets.
 .PHONY: docker-build-operator-bundle # Build the docker image for the Operator bundle. Not included in docker-build-all.
 docker-build-operator-bundle: generate-operator-bundle
-	docker build -f bundle.Dockerfile -t $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION) .
+	docker buildx build \
+		--load \
+		--provenance=false \
+		-f bundle.Dockerfile \
+		-t $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION) \
+		.
 
 # TODO: Consider whether this should be part of the docker-push-all- push targets.
 .PHONY: docker-push-operator-bundle # Push the docker image for the Operator bundle. Not included in docker-build-all.
