@@ -794,6 +794,10 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
 					})).To(Succeed())
 				g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
+
+				// Expect the DPUDeployment to be deleted
+				err := testClient.Get(ctx, client.ObjectKey{Namespace: dpuDeployment.GetNamespace(), Name: dpuDeployment.GetName()}, &dpuservicev1.DPUDeployment{})
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}).WithTimeout(180 * time.Second).Should(Succeed())
 		})
 
