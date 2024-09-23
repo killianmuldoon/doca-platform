@@ -107,7 +107,7 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 		// Note: skipping the powercycle/reboot may cause issues with the firmware installation and configuration.
 		if cmd == reboot.Skip {
 			logger.Info("Warning not rebooting: this may cause issues with DPU firmware installation and configuration")
-			state.Phase = provisioningv1.DPUClusterConfig
+			state.Phase = provisioningv1.DPUHostNetworkConfiguration
 			cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondRebooted, "", ""))
 			return *state, nil
 		} else if rebootType == reboot.PowerCycle {
