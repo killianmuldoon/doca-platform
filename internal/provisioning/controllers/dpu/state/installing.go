@@ -17,13 +17,13 @@ limitations under the License.
 package state
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -247,7 +247,6 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		logger.V(3).Info(fmt.Sprintf("TLS Connection established between DPU controller to DMS %s", dmsTaskName))
 
 		osInstall := gos.NewInstallOperation()
-
 		osInstall.Version(bfb.Spec.FileName)
 		// Open the file at the specified path
 		fullFileName := cutil.GenerateBFBFilePath(bfb.Spec.FileName)
@@ -275,22 +274,15 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: dpu.Spec.Cluster.NameSpace, Name: dpu.Spec.Cluster.Name}, dc); err != nil {
 			return "", fmt.Errorf("failed to get DPUCluster, err: %v", err)
 		}
-		cfgfile, err := generateBFConfig(ctx, dpu, flavor, dc)
-		if err != nil {
-			logger.Error(err, fmt.Sprintf("%s/%s generate bf config failed", dpu.Namespace, dpu.Name))
+		data, err := generateBFConfig(ctx, dpu, flavor, dc)
+		if err != nil || data == nil {
+			logger.Error(err, fmt.Sprintf("failed bf.cfg creation for %s/%s", dpu.Namespace, dpu.Name))
 			return nil, err
 		}
-		config, err := os.Open(cfgfile)
-		if err != nil {
-			logger.Error(err, "failed to open file", "name", cfgfile)
-			return nil, err
-		}
-		defer config.Close() //nolint: errcheck
-		cfg := gos.NewInstallOperation()
-		cfgVersion := path.Base(cfgfile)
-		cfg.Version(cfgVersion)
-		cfg.Reader(config)
-		if response, err := gnoigo.Execute(ctx, gnoiClient, cfg); err != nil {
+		cfgInstall := gos.NewInstallOperation()
+		cfgInstall.Version(dpu.Name)
+		cfgInstall.Reader(bytes.NewReader(data))
+		if response, err := gnoigo.Execute(ctx, gnoiClient, cfgInstall); err != nil {
 			return nil, err
 		} else {
 			logger.V(3).Info(fmt.Sprintf("DMS %s Performed BF configuration %v", dmsTaskName, response))
@@ -306,7 +298,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		activateOp := gos.NewActivateOperation()
 		noReboot := false
 		activateOp.NoReboot(noReboot)
-		activateOp.Version(fmt.Sprintf("%s;%s", bfb.Spec.FileName, cfgVersion))
+		activateOp.Version(fmt.Sprintf("%s;%s", bfb.Spec.FileName, dpu.Name))
 
 		logger.V(3).Info("starting execute activate operation")
 		var response *ospb.ActivateResponse
@@ -402,30 +394,27 @@ func generateDMSTaskName(dpu *provisioningv1.Dpu) string {
 	return fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)
 }
 
-func generateBFConfig(ctx context.Context, dpu *provisioningv1.Dpu, flavor *provisioningv1.DPUFlavor, dc *provisioningv1.DPUCluster) (string, error) {
+func generateBFConfig(ctx context.Context, dpu *provisioningv1.Dpu, flavor *provisioningv1.DPUFlavor, dc *provisioningv1.DPUCluster) ([]byte, error) {
 	logger := log.FromContext(ctx)
 
 	joinCommand, err := generateJoinCommand(dc)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate join command, err: %v", err)
+		return nil, err
 	}
 
 	buf, err := bfcfg.Generate(flavor, dpu.Name, joinCommand)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	logger.V(3).Info(fmt.Sprintf("bf.cfg for %s is: %s", dpu.Name, string(buf)))
-	cfgPath := cutil.GenerateBFConfigPath(dpu.Name)
-	if err := os.WriteFile(cfgPath, buf, 0644); err != nil {
-		return "", err
+	if buf == nil {
+		return nil, fmt.Errorf("failed bf.cfg creation due to buffer issue")
 	}
 	if len(buf) <= MaxBFSize {
-		logger.V(3).Info(fmt.Sprintf("the size of %s is %d", cfgPath, len(buf)))
-	} else {
-		return "", fmt.Errorf("the file size of %s is %d exceeds which the maximum limit(%d)", cfgPath, len(buf), MaxBFSize)
+		return nil, fmt.Errorf("bf.cfg for %s size (%d) exceeds the maximum limit (%d)", dpu.Name, len(buf), MaxBFSize)
 	}
+	logger.V(3).Info(fmt.Sprintf("bf.cfg for %s has len: %d data: %s", dpu.Name, len(buf), string(buf)))
 
-	return cfgPath, nil
+	return buf, nil
 }
 
 func generateJoinCommand(dc *provisioningv1.DPUCluster) (string, error) {

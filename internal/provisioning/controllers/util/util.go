@@ -86,10 +86,6 @@ func GenerateBFBVersionFromURL(bfbUrl string) string {
 	return version
 }
 
-func GenerateBFConfigPath(dpu string) string {
-	return string(os.PathSeparator) + BFBBaseDir + string(os.PathSeparator) + dpu + CFGExtension
-}
-
 func GenerateDMSPodName(dpuName string) string {
 	return fmt.Sprintf("%s-%s", dpuName, "dms")
 }
