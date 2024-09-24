@@ -79,8 +79,6 @@ const (
 	argoCDSecretLabelValue = "cluster"
 	dpuAppProjectName      = "doca-platform-project-dpu"
 	hostAppProjectName     = "doca-platform-project-host"
-
-	dpfServiceIDLabelKey = "sfc.nvidia.com/service"
 )
 
 // applyPatchOptions contains options which are passed to every `client.Apply` patch.
@@ -761,7 +759,7 @@ func argoCDValuesFromDPUService(dpuService *dpuservicev1.DPUService) (*runtime.R
 		service.Spec.ServiceDaemonSet.Labels = map[string]string{}
 	}
 	if dpuService.Spec.ServiceID != nil {
-		service.Spec.ServiceDaemonSet.Labels[dpfServiceIDLabelKey] = *dpuService.Spec.ServiceID
+		service.Spec.ServiceDaemonSet.Labels[dpuservicev1.DPFServiceIDLabelKey] = *dpuService.Spec.ServiceID
 	}
 
 	// Marshal the ServiceDaemonSet and other values to map[string]interface to combine them.

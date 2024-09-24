@@ -353,7 +353,7 @@ func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuser
 			for k, v := range service.Spec.ServiceDaemonSet.Labels {
 				Expect(appService.Labels).To(HaveKeyWithValue(k, v))
 			}
-			Expect(appService.Labels).To(HaveKeyWithValue(dpfServiceIDLabelKey, *service.Spec.ServiceID))
+			Expect(appService.Labels).To(HaveKeyWithValue(dpuservicev1.DPFServiceIDLabelKey, *service.Spec.ServiceID))
 			Expect(appService.Annotations).To(Equal(service.Spec.ServiceDaemonSet.Annotations))
 			Expect(appService.NodeSelector).To(Equal(service.Spec.ServiceDaemonSet.NodeSelector))
 			Expect(appService.UpdateStrategy).To(Equal(service.Spec.ServiceDaemonSet.UpdateStrategy))

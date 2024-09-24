@@ -27,10 +27,12 @@ import (
 	"strings"
 	"time"
 
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -40,13 +42,16 @@ import (
 // ServiceChainReconciler reconciles a ServiceChain object
 type ServiceChainReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	NodeName string
 }
 
 const (
 	ServiceChainNameLabel      = "sfc.dpf.nvidia.com/ServiceChain-name"
 	ServiceChainNamespaceLabel = "sfc.dpf.nvidia.com/ServiceChain-namespace"
 	ServiceChainControllerName = "service-chain-controller"
+
+	podNodeNameKey = "spec.nodeName"
 )
 
 // Hashing function, will be used when adding and removing OpenFlow flows
@@ -104,6 +109,10 @@ func findInterface(condition string) (string, error) {
 	}
 
 	portName := strings.TrimSuffix(output.String(), "\n")
+
+	if portName == "" {
+		return "", fmt.Errorf("could not find ovs interface with external_ids:dpf-id=%s", condition)
+	}
 
 	found, err := checkPortInBrSfc(portName)
 	if err != nil {
@@ -206,81 +215,129 @@ func addFlows(ctx context.Context, flows string) (err error) {
 	return err
 }
 
-// Retrieve pod list base on matching labels
-func getPort(ctx context.Context, k8sClient client.Client, matchingLabels map[string]string, containerIntfName string) (string, error) {
+// getPodWithLabels returns pod in namespace that is scheduled on current node with given labels. if more than one or none matches, error out.
+func (r *ServiceChainReconciler) getPodWithLabels(ctx context.Context, namespace string, lbls map[string]string) (*corev1.Pod, error) {
 	podList := &corev1.PodList{}
-	listOptions := client.MatchingLabels(matchingLabels)
-	var condition string
-	var err error
-	if err = k8sClient.List(ctx, podList, &listOptions); err != nil {
-		return "", err
-	}
-	var port string
-	for _, pod := range podList.Items {
-		if pod.Spec.NodeName != os.Getenv("SFC_NODE_NAME") {
-			err = errors.New("Skipped different name. Pod not found")
-			continue
-		}
-		condition = pod.Namespace + "/" + pod.GetName() + "/" + containerIntfName
-		port, err = findInterface(condition)
-		if err != nil {
-			return "", err
-		}
-		// Consider only first element
-		// TODO add checks for multiple elements and disallow such a configuration
-		if port != "" {
-			return port, nil
-		} else {
-			err = fmt.Errorf("Port with condition %s not found", condition)
-		}
+	listOpts := []client.ListOption{}
+	listOpts = append(listOpts, client.MatchingLabels(lbls))
+	listOpts = append(listOpts, client.MatchingFieldsSelector{Selector: fields.OneTermEqualSelector(podNodeNameKey, r.NodeName)})
+	if namespace != "" {
+		listOpts = append(listOpts, client.InNamespace(namespace))
 	}
 
-	return "", err
+	if err := r.List(ctx, podList, listOpts...); err != nil {
+		return nil, err
+	}
+
+	if len(podList.Items) == 0 {
+		return nil, fmt.Errorf("no pod in namespace(%s) matching labels(%v) on node(%s) found", namespace, lbls, r.NodeName)
+	}
+
+	if len(podList.Items) > 1 {
+		return nil, fmt.Errorf("expected only one pod in namespace(%s) to match labels(%v) on node(%s). found %d",
+			namespace, lbls, r.NodeName, len(podList.Items))
+	}
+
+	return &podList.Items[0], nil
 }
 
-// Retrieve port list base on matching labels
-func getInterface(ctx context.Context, k8sClient client.Client, matchingLabels map[string]string) (string, error) {
-	interfaceList := &sfcv1.ServiceInterfaceList{}
-	listOptions := client.MatchingLabels(matchingLabels)
-	var condition string
-	var err error
-	if err = k8sClient.List(ctx, interfaceList, &listOptions); err != nil {
+// getServiceInterfaceWithLabels returns ServiceInterface in namespace that belongs to current node with given labels. if more than one or none matches, error out.
+func (r *ServiceChainReconciler) getServiceInterfaceWithLabels(ctx context.Context, namespace string, lbls map[string]string) (*sfcv1.ServiceInterface, error) {
+	sil := &sfcv1.ServiceInterfaceList{}
+	listOpts := []client.ListOption{}
+
+	listOpts = append(listOpts, client.MatchingLabels(lbls))
+	if namespace != "" {
+		listOpts = append(listOpts, client.InNamespace(namespace))
+	}
+
+	if err := r.List(ctx, sil, listOpts...); err != nil {
+		return nil, err
+	}
+
+	// filter out serviceInterfaces not on this node
+	matching := make([]*sfcv1.ServiceInterface, 0, len(sil.Items))
+	for i := range sil.Items {
+		if sil.Items[i].Spec.Node == nil ||
+			*sil.Items[i].Spec.Node != r.NodeName {
+			continue
+		}
+		matching = append(matching, &sil.Items[i])
+	}
+
+	if len(matching) == 0 {
+		return nil, fmt.Errorf("no serviceInterface in namespace(%s) matching labels(%v) on node(%s) found", namespace, lbls, r.NodeName)
+	}
+
+	if len(matching) > 1 {
+		return nil, fmt.Errorf("expected only one serviceInterface in namespace(%s) to match labels(%v) on node(%s). found %d",
+			namespace, lbls, r.NodeName, len(sil.Items))
+	}
+
+	return matching[0], nil
+}
+
+// getPortNameForService returns the ovs port name matching the given service
+func (r *ServiceChainReconciler) getPortNameForService(ctx context.Context, namespace string, svc *sfcv1.Service) (string, error) {
+	pod, err := r.getPodWithLabels(ctx, namespace, svc.MatchLabels)
+	if err != nil {
 		return "", err
 	}
-	var port string
-	for _, intf := range interfaceList.Items {
-		if intf.Spec.Node == nil {
-			continue
-		}
-		if *intf.Spec.Node != os.Getenv("SFC_NODE_NAME") {
-			err = errors.New("Skipped different name. Interface not found")
-			continue
-		}
-		condition = intf.Namespace + "/" + intf.GetName()
-		port, err = findInterface(condition)
+
+	condition := pod.Namespace + "/" + pod.Name + "/" + svc.InterfaceName
+	port, err := findInterface(condition)
+	if err != nil {
+		return "", err
+	}
+
+	if port == "" {
+		return "", fmt.Errorf("port with condition %s not found", condition)
+	}
+
+	return port, nil
+}
+
+// getPortNameForServiceInterface returns the ovs port name matching the given service interface
+func (r *ServiceChainReconciler) getPortNameForServiceInterface(ctx context.Context, namespace string, svcIfc *sfcv1.ServiceIfc) (string, error) {
+	si, err := r.getServiceInterfaceWithLabels(ctx, namespace, svcIfc.MatchLabels)
+	if err != nil {
+		return "", err
+	}
+
+	condition := si.Namespace + "/" + si.Name
+	if si.Spec.InterfaceType == sfcv1.InterfaceTypeService {
+		// get pod matching serviceID
+		pod, err := r.getPodWithLabels(ctx, namespace, map[string]string{dpuservicev1.DPFServiceIDLabelKey: si.Spec.Service.ServiceID})
 		if err != nil {
 			return "", err
 		}
-		// Consider only first element
-		// TODO add checks for multiple elements and disallow such a configuration
-		if port != "" {
-			return port, nil
-		} else {
-			err = fmt.Errorf("Interface with condition %s not found", condition)
+		if si.Spec.InterfaceName == nil || *si.Spec.InterfaceName == "" {
+			return "", errors.New("nil or empty interface name for serviceInterface of type service")
 		}
+		// construct condition which identifies ovs port for the interface that is associated
+		// with service and serviceInterface.
+		condition = pod.Namespace + "/" + pod.Name + "/" + *si.Spec.InterfaceName
 	}
 
-	return "", err
+	port, err := findInterface(condition)
+	if err != nil {
+		return "", err
+	}
+
+	if port == "" {
+		return "", fmt.Errorf("port with condition %s not found", condition)
+	}
+
+	return port, nil
 }
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 //+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=ServiceChains,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=ServiceChains/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=ServiceChains/finalizers,verbs=update
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains/finalizers,verbs=update
-//+kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch
+//+kubebuilder:rbac:groups="",resources=nodes;s,verbs=get;list;watch
 
 func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
@@ -301,15 +358,14 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	node := os.Getenv("SFC_NODE_NAME")
 	if sc.Spec.Node == nil {
 		log.Info("sc.Spec.Node: not set, skip the object")
 		return ctrl.Result{}, nil
 	}
-	if *sc.Spec.Node != node {
+	if *sc.Spec.Node != r.NodeName {
 		// this object was not intended for this nodes
 		// skip
-		log.Info(fmt.Sprintf("sc.Spec.Node: %s != node: %s", *sc.Spec.Node, node))
+		log.Info(fmt.Sprintf("sc.Spec.Node: %s != node: %s", *sc.Spec.Node, r.NodeName))
 		return ctrl.Result{}, nil
 	}
 
@@ -321,23 +377,23 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		ports = append(ports, [][]string{{}}...)
 		for _, port := range sw.Ports {
 			if port.Service != nil {
-				servicePort, err := getPort(ctx, r.Client, port.Service.MatchLabels, port.Service.InterfaceName)
-				if servicePort != "" {
-					ports[sw_pos] = append(ports[sw_pos], servicePort)
-				}
+				servicePort, err := r.getPortNameForService(ctx, sc.Namespace, port.Service)
 				if err != nil {
 					log.Error(err, "failed to get port")
 					return ctrl.Result{}, err
 				}
+				if servicePort != "" {
+					ports[sw_pos] = append(ports[sw_pos], servicePort)
+				}
 			}
 			if port.ServiceInterface != nil {
-				intfName, err := getInterface(ctx, r.Client, port.ServiceInterface.MatchLabels)
-				if intfName != "" {
-					ports[sw_pos] = append(ports[sw_pos], intfName)
-				}
+				intfName, err := r.getPortNameForServiceInterface(ctx, sc.Namespace, port.ServiceInterface)
 				if err != nil {
 					log.Error(err, "failed to get interface")
 					return ctrl.Result{}, err
+				}
+				if intfName != "" {
+					ports[sw_pos] = append(ports[sw_pos], intfName)
 				}
 			}
 		}
@@ -415,7 +471,14 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *ServiceChainReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *ServiceChainReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+	err := mgr.GetCache().IndexField(ctx, &corev1.Pod{}, podNodeNameKey, func(o client.Object) []string {
+		return []string{o.(*corev1.Pod).Spec.NodeName}
+	})
+	if err != nil {
+		return err
+	}
+
 	return ctrl.NewControllerManagedBy(mgr).
 		// TODO Match current node and go only if we have a match
 		For(&sfcv1.ServiceChain{}).

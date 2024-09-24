@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os"
 	"os/exec"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
@@ -43,7 +42,8 @@ const (
 // ServiceInterfaceReconciler reconciles a ServiceInterface object
 type ServiceInterfaceReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme   *runtime.Scheme
+	NodeName string
 }
 
 func runOVSVsctl(args ...string) error {
@@ -97,22 +97,24 @@ func AddPatchPort(portName string, brA string, brB string, metadata string) erro
 func FigureOutName(ctx context.Context, serviceInterface *sfcv1.ServiceInterface) string {
 	log := log.FromContext(ctx)
 	portName := ""
-	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypePhysical {
+
+	switch serviceInterface.Spec.InterfaceType {
+	case sfcv1.InterfaceTypePhysical:
 		log.Info("matched on physical")
 		portName = *serviceInterface.Spec.InterfaceName
-	}
-	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypePF {
+	case sfcv1.InterfaceTypePF:
 		log.Info("matched on pf")
 		portName = fmt.Sprintf("pf%dhpf", serviceInterface.Spec.PF.ID)
-	}
-	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypeVF {
+	case sfcv1.InterfaceTypeVF:
 		log.Info("matched on vf")
 		portName = fmt.Sprintf("pf%dvf%d", serviceInterface.Spec.VF.PFID, serviceInterface.Spec.VF.VFID)
-	}
-	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypeVLAN {
+	case sfcv1.InterfaceTypeVLAN:
 		log.Info("matched on vlan skipping")
 		// TODO for MVP it is out of scope
 		// revisit this once we do not have collisions on patches.
+	case sfcv1.InterfaceTypeService:
+		// service interfaces add/remove from ovs is handled part of CNI ADD/DEL flow
+		log.Info("matched on service skipping")
 	}
 
 	return portName
@@ -200,17 +202,15 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return ctrl.Result{}, err
 	}
 
-	node := os.Getenv("SFC_NODE_NAME")
-
 	if serviceInterface.Spec.Node == nil {
 		log.Info("si.Spec.Node: not set, skip the object")
 		return ctrl.Result{}, nil
 	}
 
-	if *serviceInterface.Spec.Node != node {
+	if *serviceInterface.Spec.Node != r.NodeName {
 		// this object was not intended for this nodes
 		// skip
-		log.Info("serviceInterface.Spec.Node: %s != node: %s", *serviceInterface.Spec.Node, node)
+		log.Info("serviceInterface.Spec.Node: %s != node: %s", *serviceInterface.Spec.Node, r.NodeName)
 		return ctrl.Result{}, nil
 	}
 
@@ -233,7 +233,7 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	err := AddInterfacesToOvs(ctx, serviceInterface, req.NamespacedName.String())
 	if err != nil {
-		log.Info("Failed to delete AddInterfacesToOvs")
+		log.Info("Failed to add AddInterfacesToOvs")
 		return ctrl.Result{}, err
 	}
 
