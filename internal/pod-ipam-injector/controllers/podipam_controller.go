@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
 
@@ -30,6 +31,7 @@ import (
 	multustypes "gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -48,11 +50,30 @@ type poolConfig struct {
 	AssignGW bool
 }
 
+type svcPortEntry struct {
+	service    *sfcv1.Service
+	serviceIfc *sfcv1.ServiceIfc
+}
+
+func (s *svcPortEntry) getIPAM() *sfcv1.IPAM {
+	if s.service != nil {
+		return s.service.IPAM
+	}
+
+	if s.serviceIfc != nil {
+		return s.serviceIfc.IPAM
+	}
+
+	return nil
+}
+
 const (
 	bridgeSfcNAD           = "mybrsfc"
 	ipamPoolNamesParam     = "poolNames"
 	podIpamControllerName  = "podIpamcontroller"
 	networkAttachmentAnnot = "k8s.v1.cni.cncf.io/networks"
+
+	reconcileRetryTime = 30 * time.Second
 )
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
@@ -93,38 +114,39 @@ func (r *PodIpamReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		log.Info("Pod without br-sfc network")
 		return ctrl.Result{}, nil
 	}
-	ifcToSvc := make(map[string]*sfcv1.Service)
+	ifcToSvc := make(map[string]*svcPortEntry)
 	for _, net := range sfcNets {
 		// No Interface requested
 		if net.InterfaceRequest == "" {
 			log.Info("Pod with br-sfc network, but without interface requested")
-			return ctrl.Result{}, nil
+			return ctrl.Result{RequeueAfter: reconcileRetryTime}, nil
 		}
 		ifcToSvc[net.InterfaceRequest] = nil
 	}
-	err = r.getServicesFromChain(ctx, ifcToSvc, pod.Spec.NodeName)
+	err = r.getServicesFromChainForPod(ctx, ifcToSvc, pod.Spec.NodeName, pod)
 	if err != nil {
-		log.Error(err, "Fail to get Service from Chain")
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		log.Error(err, "Fail to get Service from Chain, requeue.")
+		return ctrl.Result{RequeueAfter: reconcileRetryTime}, nil
 	}
-	for ifc, svc := range ifcToSvc {
-		if svc == nil {
+	for ifc, spe := range ifcToSvc {
+		if spe == nil {
 			log.Info("No Service definition for requested interface found. Requeing", "interface", ifc)
-			return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+			return ctrl.Result{RequeueAfter: reconcileRetryTime}, nil
 		}
-		if svc.IPAM == nil {
+		ipam := spe.getIPAM()
+		if ipam == nil {
 			log.Info("No IPAM requested for interface", "interface", ifc)
 			continue
 		}
-		if svc.IPAM.Reference == nil && len(svc.IPAM.MatchLabels) < 1 {
-			return ctrl.Result{}, fmt.Errorf("Service IPAM should have Reference or MatchLabels. Interface:%s", ifc)
+		if ipam.Reference == nil && len(ipam.MatchLabels) < 1 {
+			return ctrl.Result{}, fmt.Errorf("service IPAM should have Reference or MatchLabels. Interface:%s", ifc)
 		}
 	}
 
 	ifcToPoolCfg, err := r.getPoolsConfig(ctx, ifcToSvc)
 	if err != nil {
 		// No IpPool/CidrPool found requeuing
-		return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
+		return ctrl.Result{RequeueAfter: reconcileRetryTime}, nil
 	}
 	return r.updatePodAnnotation(ctx, pod, ifcToPoolCfg)
 }
@@ -165,21 +187,43 @@ func (r *PodIpamReconciler) updatePodAnnotation(ctx context.Context, pod *corev1
 	return ctrl.Result{}, r.Client.Patch(ctx, pod, client.Apply, client.ForceOwnership, client.FieldOwner(podIpamControllerName))
 }
 
-func (r *PodIpamReconciler) getServicesFromChain(ctx context.Context, ifcToSvc map[string]*sfcv1.Service, node string) error {
+func (r *PodIpamReconciler) getServicesFromChainForPod(ctx context.Context, ifcToSvc map[string]*svcPortEntry, node string, pod *corev1.Pod) error {
 	scList := &sfcv1.ServiceChainList{}
-	if err := r.Client.List(ctx, scList); err != nil {
+	if err := r.Client.List(ctx, scList, client.InNamespace(pod.Namespace)); err != nil {
 		return err
 	}
 	if len(scList.Items) == 0 {
-		return fmt.Errorf("No Service Chain for Node found. Requeing")
+		return fmt.Errorf("no serviceChains in namespace %s found", pod.Namespace)
 	}
+	//TODO(adrianc): need to re-write the below...
 	for _, serviceChain := range scList.Items {
-		if *serviceChain.Spec.Node == node {
-			for _, sw := range serviceChain.Spec.Switches {
-				for _, port := range sw.Ports {
-					if port.Service != nil {
+		if serviceChain.Spec.Node == nil || *serviceChain.Spec.Node != node {
+			continue
+		}
+
+		for _, sw := range serviceChain.Spec.Switches {
+			for _, port := range sw.Ports {
+				if port.Service != nil {
+					// no support for object reference
+					// we add entry if the pod matched the port service entry labels AND the interface name matches.
+					if podMatchLabels(pod, port.Service.MatchLabels) {
 						if _, ok := ifcToSvc[port.Service.InterfaceName]; ok {
-							ifcToSvc[port.Service.InterfaceName] = port.Service
+							ifcToSvc[port.Service.InterfaceName] = &svcPortEntry{service: port.Service}
+						}
+					}
+
+				} else if port.ServiceInterface != nil {
+					svcIfc, err := r.getServiceInterfaceWithLabels(ctx, node, pod.Namespace, port.ServiceInterface.MatchLabels)
+					if err != nil {
+						return fmt.Errorf("failed to get serviceInterface for chain. %w", err)
+					}
+					if svcIfc.Spec.InterfaceType == sfcv1.InterfaceTypeService {
+						// no support for object reference
+						// we add entry if the pod matched serviceID label AND the interface name matches.
+						if podMatchLabels(pod, map[string]string{dpuservicev1.DPFServiceIDLabelKey: svcIfc.Spec.Service.ServiceID}) {
+							if _, ok := ifcToSvc[*svcIfc.Spec.InterfaceName]; ok {
+								ifcToSvc[*svcIfc.Spec.InterfaceName] = &svcPortEntry{serviceIfc: port.ServiceInterface}
+							}
 						}
 					}
 				}
@@ -187,6 +231,50 @@ func (r *PodIpamReconciler) getServicesFromChain(ctx context.Context, ifcToSvc m
 		}
 	}
 	return nil
+}
+
+// getServiceInterfaceWithLabels returns ServiceInterface in given namespace that belongs to current node with given labels. if more than one or none matches, error out.
+func (r *PodIpamReconciler) getServiceInterfaceWithLabels(ctx context.Context, nodeName string, namespace string, lbls map[string]string) (*sfcv1.ServiceInterface, error) {
+	//TODO(adrianc): this needs to be moved to a common place as we need the same thing in sfc-controller
+	sil := &sfcv1.ServiceInterfaceList{}
+	listOpts := []client.ListOption{}
+	listOpts = append(listOpts, client.MatchingLabelsSelector{Selector: labels.SelectorFromSet(labels.Set(lbls))})
+	if namespace != "" {
+		listOpts = append(listOpts, client.InNamespace(namespace))
+	}
+	if err := r.List(ctx, sil, listOpts...); err != nil {
+		return nil, err
+	}
+
+	// filter out serviceInterfaces not on this node
+	matching := make([]*sfcv1.ServiceInterface, 0, len(sil.Items))
+	for i := range sil.Items {
+		if sil.Items[i].Spec.Node == nil || *sil.Items[i].Spec.Node != nodeName {
+			continue
+		}
+		matching = append(matching, &sil.Items[i])
+	}
+
+	if len(matching) == 0 {
+		return nil, fmt.Errorf("no serviceInterface in namespace(%s) matching labels(%v) on node(%s) found", namespace, lbls, nodeName)
+	}
+
+	if len(matching) > 1 {
+		return nil, fmt.Errorf("expected only one serviceInterface in namespace(%s) to match labels(%v) on node(%s). found %d",
+			namespace, lbls, nodeName, len(sil.Items))
+	}
+
+	return matching[0], nil
+}
+
+// podMatchLabels returns true if non empty lbls match non empty pod.Labels. returns false otherwise
+func podMatchLabels(pod *corev1.Pod, lbls map[string]string) bool {
+	if len(lbls) == 0 || len(pod.Labels) == 0 {
+		return false
+	}
+
+	selector := labels.SelectorFromSet(labels.Set(lbls))
+	return selector.Matches(labels.Set(pod.Labels))
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -216,11 +304,12 @@ func getBrSFCNetworks(ctx context.Context, pod *corev1.Pod) ([]*multustypes.Netw
 	return sfcNets, nil
 }
 
-func (r *PodIpamReconciler) getPoolsConfig(ctx context.Context, ifcToSvc map[string]*sfcv1.Service) (map[string]*poolConfig, error) {
+func (r *PodIpamReconciler) getPoolsConfig(ctx context.Context, ifcToSvc map[string]*svcPortEntry) (map[string]*poolConfig, error) {
 	ifcToPoolCfg := make(map[string]*poolConfig)
-	for ifc, svc := range ifcToSvc {
-		if svc.IPAM != nil {
-			poolCfg, err := r.getPoolConfig(ctx, svc.IPAM)
+	for ifc, spe := range ifcToSvc {
+		ipam := spe.getIPAM()
+		if ipam != nil {
+			poolCfg, err := r.getPoolConfig(ctx, ipam)
 			if err != nil {
 				return nil, err
 			}
@@ -307,5 +396,5 @@ func (r *PodIpamReconciler) getPoolByMatchLabel(ctx context.Context, ipam *sfcv1
 		return cidrPoolList.Items[0].Name, strings.ToLower(nvipamv1.CIDRPoolKind), nil
 	}
 	// No IpPool/CidrPool found requeuing
-	return "", "", fmt.Errorf("No IPPool or CidrPool found for Labels %v", ipam.MatchLabels)
+	return "", "", fmt.Errorf("no IPPool or CidrPool found for Labels %v", ipam.MatchLabels)
 }
