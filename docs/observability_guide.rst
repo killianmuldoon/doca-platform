@@ -43,10 +43,10 @@ options. This can be helpful for testing the monitoring stack. Please don't use 
 
 .. code-block:: bash
 
-    helm -n operator-system \
-      upgrade operator oci://dpf-operator \
+    helm -n dpf-operator-system \
+      upgrade dpf-operator oci://nvcr.io/nvstaging/mellanox/dpf-operator \
       --version=v0.1.0-latest \
-      --values <(helm -n operator-system get values operator) \
+      --values <(helm -n dpf-operator-system get values dpf-operator) \
       --set grafana.enabled=true \
       --set prometheus.enabled=true \
       --set kube-state-metrics.enabled=true
