@@ -37,6 +37,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	testclient "k8s.io/client-go/kubernetes/fake"
 	clock "k8s.io/utils/clock/testing"
+	kexec "k8s.io/utils/exec"
 	kexecTesting "k8s.io/utils/exec/testing"
 	"k8s.io/utils/ptr"
 )
@@ -55,6 +56,8 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			Expect(err).ToNot(HaveOccurred())
 			hostCIDR, err := netlink.ParseIPNet("10.0.100.1/24")
 			Expect(err).ToNot(HaveOccurred())
+			pfIPNet, err := netlink.ParseIPNet("192.168.1.2/24")
+			Expect(err).ToNot(HaveOccurred())
 			fakeNode := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dpu1",
@@ -64,7 +67,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 				},
 			}
 			kubernetesClient := testclient.NewClientset()
-			provisioner := dpucniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, fakeNode.Name)
+			provisioner := dpucniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -79,6 +82,22 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovnInputGatewayOptsFakePath := filepath.Join(ovnInputDirPath, "ovn_gateway_opts")
 			ovnInputRouterSubnetFakePath := filepath.Join(ovnInputDirPath, "ovn_gateway_router_subnet")
 
+			mac, _ := net.ParseMAC("00:00:00:00:00:01")
+			fakeExec.CommandScript = append(fakeExec.CommandScript, kexecTesting.FakeCommandAction(func(cmd string, args ...string) kexec.Cmd {
+				Expect(cmd).To(Equal("dnsmasq"))
+				Expect(args).To(Equal([]string{
+					"--keep-in-foreground",
+					"--port=0",
+					"--log-facility=-",
+					"--interface=br-ovn",
+					"--dhcp-option=option:router,192.168.1.10",
+					"--dhcp-range=192.168.1.0,static",
+					"--dhcp-host=00:00:00:00:00:01,192.168.1.2",
+				}))
+
+				return kexec.New().Command("echo")
+			}))
+
 			networkhelper.EXPECT().LinkIPAddressExists("br-ovn", vtepIPNet)
 			networkhelper.EXPECT().SetLinkIPAddress("br-ovn", vtepIPNet)
 			networkhelper.EXPECT().SetLinkUp("br-ovn")
@@ -86,6 +105,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			networkhelper.EXPECT().AddRoute(vtepCIDR, gateway, "br-ovn", nil)
 			networkhelper.EXPECT().RouteExists(hostCIDR, gateway, "br-ovn")
 			networkhelper.EXPECT().AddRoute(hostCIDR, gateway, "br-ovn", ptr.To[int](10000))
+			networkhelper.EXPECT().GetPFRepMACAddress("pf0hpf").Return(mac, nil)
 
 			ovsClient.EXPECT().SetOVNEncapIP(net.ParseIP("192.168.1.1"))
 			ovsClient.EXPECT().SetKubernetesHostNodeName("host1")
@@ -110,6 +130,8 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovnInputRouterSubnet, err := os.ReadFile(ovnInputRouterSubnetFakePath)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(string(ovnInputRouterSubnet)).To(Equal("192.168.1.0/24"))
+
+			Expect(fakeExec.CommandCalls).To(Equal(1))
 		})
 		It("should configure the system fully when same subnet across DPUs", func() {
 			testCtrl := gomock.NewController(GinkgoT())
@@ -123,6 +145,8 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			Expect(err).ToNot(HaveOccurred())
 			_, hostCIDR, err := net.ParseCIDR("10.0.100.1/24")
 			Expect(err).ToNot(HaveOccurred())
+			pfIPNet, err := netlink.ParseIPNet("192.168.1.2/24")
+			Expect(err).ToNot(HaveOccurred())
 			fakeNode := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dpu1",
@@ -132,7 +156,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 				},
 			}
 			kubernetesClient := testclient.NewClientset()
-			provisioner := dpucniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, fakeNode.Name)
+			provisioner := dpucniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -147,6 +171,22 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovnInputGatewayOptsFakePath := filepath.Join(ovnInputDirPath, "ovn_gateway_opts")
 			ovnInputRouterSubnetFakePath := filepath.Join(ovnInputDirPath, "ovn_gateway_router_subnet")
 
+			mac, _ := net.ParseMAC("00:00:00:00:00:01")
+			fakeExec.CommandScript = append(fakeExec.CommandScript, kexecTesting.FakeCommandAction(func(cmd string, args ...string) kexec.Cmd {
+				Expect(cmd).To(Equal("dnsmasq"))
+				Expect(args).To(Equal([]string{
+					"--keep-in-foreground",
+					"--port=0",
+					"--log-facility=-",
+					"--interface=br-ovn",
+					"--dhcp-option=option:router,192.168.1.10",
+					"--dhcp-range=192.168.1.0,static",
+					"--dhcp-host=00:00:00:00:00:01,192.168.1.2",
+				}))
+
+				return kexec.New().Command("echo")
+			}))
+
 			Expect(vtepIPNet.String()).To(Equal("192.168.1.1/24"))
 			_, vtepNetwork, _ := net.ParseCIDR(vtepIPNet.String())
 			Expect(vtepNetwork.String()).To(Equal("192.168.1.0/24"))
@@ -156,6 +196,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			networkhelper.EXPECT().SetLinkUp("br-ovn")
 			networkhelper.EXPECT().RouteExists(hostCIDR, gateway, "br-ovn")
 			networkhelper.EXPECT().AddRoute(hostCIDR, gateway, "br-ovn", ptr.To[int](10000))
+			networkhelper.EXPECT().GetPFRepMACAddress("pf0hpf").Return(mac, nil)
 
 			ovsClient.EXPECT().SetOVNEncapIP(net.ParseIP("192.168.1.1"))
 			ovsClient.EXPECT().SetKubernetesHostNodeName("host1")
@@ -195,6 +236,8 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			Expect(err).ToNot(HaveOccurred())
 			hostCIDR, err := netlink.ParseIPNet("10.0.100.1/24")
 			Expect(err).ToNot(HaveOccurred())
+			pfIPNet, err := netlink.ParseIPNet("192.168.1.2/24")
+			Expect(err).ToNot(HaveOccurred())
 			fakeNode := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dpu1",
@@ -204,7 +247,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 				},
 			}
 			kubernetesClient := testclient.NewClientset(fakeNode)
-			provisioner := dpucniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, fakeNode.Name)
+			provisioner := dpucniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -216,6 +259,10 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			provisioner.FileSystemRoot = tmpDir
 			ovnInputDirPath := filepath.Join(tmpDir, "/etc/init-output")
 			Expect(os.MkdirAll(ovnInputDirPath, 0755)).To(Succeed())
+
+			fakeExec.CommandScript = append(fakeExec.CommandScript, kexecTesting.FakeCommandAction(func(cmd string, args ...string) kexec.Cmd {
+				return kexec.New().Command("echo")
+			}))
 
 			networkHelperMockAll(networkhelper)
 			ovsClientMockAll(ovsClient)
@@ -238,6 +285,8 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			Expect(err).ToNot(HaveOccurred())
 			hostCIDR, err := netlink.ParseIPNet("10.0.100.1/24")
 			Expect(err).ToNot(HaveOccurred())
+			pfIPNet, err := netlink.ParseIPNet("192.168.1.2/24")
+			Expect(err).ToNot(HaveOccurred())
 			fakeNode := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dpu1",
@@ -247,7 +296,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 				},
 			}
 			kubernetesClient := testclient.NewClientset(fakeNode)
-			provisioner := dpucniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, fakeNode.Name)
+			provisioner := dpucniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -260,6 +309,10 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			ovnInputDirPath := filepath.Join(tmpDir, "/etc/init-output")
 			Expect(os.MkdirAll(ovnInputDirPath, 0755)).To(Succeed())
 
+			fakeExec.CommandScript = append(fakeExec.CommandScript, kexecTesting.FakeCommandAction(func(cmd string, args ...string) kexec.Cmd {
+				return kexec.New().Command("echo")
+			}))
+
 			By("Checking the first run")
 			networkhelper.EXPECT().LinkIPAddressExists("br-ovn", vtepIPNet)
 			networkhelper.EXPECT().SetLinkIPAddress("br-ovn", vtepIPNet)
@@ -268,6 +321,8 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			networkhelper.EXPECT().AddRoute(vtepCIDR, gateway, "br-ovn", nil)
 			networkhelper.EXPECT().RouteExists(hostCIDR, gateway, "br-ovn")
 			networkhelper.EXPECT().AddRoute(hostCIDR, gateway, "br-ovn", ptr.To[int](10000))
+			mac, _ := net.ParseMAC("00:00:00:00:00:01")
+			networkhelper.EXPECT().GetPFRepMACAddress("pf0hpf").Return(mac, nil)
 
 			ovsClient.EXPECT().SetOVNEncapIP(net.ParseIP("192.168.1.1"))
 			ovsClient.EXPECT().SetKubernetesHostNodeName("host1")
@@ -287,12 +342,64 @@ var _ = Describe("DPU CNI Provisioner", func() {
 			err = provisioner.RunOnce()
 			Expect(err).ToNot(HaveOccurred())
 		})
+		It("should not start another dnsmasq if dnsmasq already running", func(ctx context.Context) {
+			testCtrl := gomock.NewController(GinkgoT())
+			ovsClient := ovsclientMock.NewMockOVSClient(testCtrl)
+			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			fakeExec := &kexecTesting.FakeExec{}
+			vtepIPNet, err := netlink.ParseIPNet("192.168.1.1/24")
+			Expect(err).ToNot(HaveOccurred())
+			gateway := net.ParseIP("192.168.1.10")
+			vtepCIDR, err := netlink.ParseIPNet("192.168.1.0/23")
+			Expect(err).ToNot(HaveOccurred())
+			hostCIDR, err := netlink.ParseIPNet("10.0.100.1/24")
+			Expect(err).ToNot(HaveOccurred())
+			pfIPNet, err := netlink.ParseIPNet("192.168.1.2/24")
+			Expect(err).ToNot(HaveOccurred())
+			fakeNode := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dpu1",
+					Labels: map[string]string{
+						"provisioning.dpf.nvidia.com/host": "host1",
+					},
+				},
+			}
+			kubernetesClient := testclient.NewClientset(fakeNode)
+			provisioner := dpucniprovisioner.New(context.Background(), clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name)
+
+			// Prepare Filesystem
+			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
+			defer func() {
+				err := os.RemoveAll(tmpDir)
+				Expect(err).ToNot(HaveOccurred())
+			}()
+			Expect(err).NotTo(HaveOccurred())
+			provisioner.FileSystemRoot = tmpDir
+			ovnInputDirPath := filepath.Join(tmpDir, "/etc/init-output")
+			Expect(os.MkdirAll(ovnInputDirPath, 0755)).To(Succeed())
+
+			fakeExec.CommandScript = append(fakeExec.CommandScript, kexecTesting.FakeCommandAction(func(cmd string, args ...string) kexec.Cmd {
+				return kexec.New().Command("echo")
+			}))
+
+			networkHelperMockAll(networkhelper)
+			ovsClientMockAll(ovsClient)
+
+			err = provisioner.RunOnce()
+			Expect(err).ToNot(HaveOccurred())
+
+			err = provisioner.RunOnce()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(fakeExec.CommandCalls).To(Equal(1))
+		})
+
 	})
 })
 
 // networkHelperMockAll mocks all networkhelper functions. Useful for tests where we don't test the network calls
 func networkHelperMockAll(networkHelper *networkhelperMock.MockNetworkHelper) {
 	networkHelper.EXPECT().AddRoute(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
+	networkHelper.EXPECT().GetPFRepMACAddress(gomock.Any()).AnyTimes()
 	networkHelper.EXPECT().LinkIPAddressExists(gomock.Any(), gomock.Any()).AnyTimes()
 	networkHelper.EXPECT().RouteExists(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	networkHelper.EXPECT().SetLinkIPAddress(gomock.Any(), gomock.Any()).AnyTimes()

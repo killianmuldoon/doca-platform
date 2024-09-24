@@ -46,6 +46,9 @@ const (
 	// vtepIPAllocationFilePath is the path to the file that contains the VTEP IP allocation done by the IP Allocator.
 	// We should ensure that the IP Allocation request name is vtep to have this file created correctly.
 	vtepIPAllocationFilePath = "/tmp/ips/vtep"
+	// pfIPAllocationFilePath is the path to the file that contains the PF IP allocation done by the IP Allocator.
+	// We should ensure that the IP Allocation request name is pf to have this file created correctly.
+	pfIPAllocationFilePath = "/tmp/ips/pf"
 )
 
 func main() {
@@ -59,6 +62,11 @@ func main() {
 	vtepIPNet, gateway, err := getInfoFromVTEPIPAllocation()
 	if err != nil {
 		klog.Fatalf("error while parsing info from the VTEP IP allocation file: %s", err.Error())
+	}
+
+	pfIPNet, err := getPFIP()
+	if err != nil {
+		klog.Fatalf("error while the PF IP from the allocation file: %s", err.Error())
 	}
 
 	vtepCIDR, err := getVTEPCIDR()
@@ -88,7 +96,7 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	provisioner := dpucniprovisioner.New(ctx, c, ovsClient, networkhelper.New(), kexec.New(), clientset, vtepIPNet, gateway, vtepCIDR, hostCIDR, node)
+	provisioner := dpucniprovisioner.New(ctx, c, ovsClient, networkhelper.New(), kexec.New(), clientset, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, node)
 
 	err = provisioner.RunOnce()
 	if err != nil {
@@ -114,6 +122,7 @@ func main() {
 	<-ch
 	klog.Info("Received termination signal, terminating.")
 	cancel()
+	provisioner.Stop()
 	wg.Wait()
 }
 
@@ -147,6 +156,32 @@ func getInfoFromVTEPIPAllocation() (*net.IPNet, net.IP, error) {
 	}
 
 	return vtepIP, gateway, nil
+}
+
+// getPFIP() returns the PF IP from a file that contains the PF IP allocation done by the IP Allocator
+// component.
+func getPFIP() (*net.IPNet, error) {
+	content, err := os.ReadFile(pfIPAllocationFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("error while reading file %s: %w", vtepIPAllocationFilePath, err)
+	}
+
+	results := []ipallocator.NVIPAMIPAllocatorResult{}
+	if err := json.Unmarshal(content, &results); err != nil {
+		return nil, fmt.Errorf("error while unmarshalling IP Allocator results: %w", err)
+	}
+
+	if len(results) != 1 {
+		return nil, fmt.Errorf("expecting exactly 1 IP allocation for PF")
+	}
+
+	pfIPRaw := results[0].IP
+	pfIP, err := netlink.ParseIPNet(pfIPRaw)
+	if err != nil {
+		return nil, fmt.Errorf("error while parsing PF IP to net.IPNet: %w", err)
+	}
+
+	return pfIP, nil
 }
 
 // getVTEPCIDR returns the VTEP CIDR to be used by the provisioner

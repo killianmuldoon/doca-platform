@@ -73,8 +73,13 @@ type DPUCNIProvisioner struct {
 	// its peer nodes when traffic needs to go from one Pod running on worker Node A to another Pod running on control
 	// plane A (and vice versa).
 	hostCIDR *net.IPNet
+	// pfIP is the IP that should be added to the PF on the host
+	pfIP *net.IPNet
 	// dpuHostName is the name of the DPU.
 	dpuHostName string
+
+	// dhcpCmd is the struct that holds information about the DHCP Server process
+	dhcpCmd kexec.Cmd
 }
 
 // New creates a DPUCNIProvisioner that can configure the system
@@ -88,6 +93,7 @@ func New(ctx context.Context,
 	gateway net.IP,
 	vtepCIDR *net.IPNet,
 	hostCIDR *net.IPNet,
+	pfIP *net.IPNet,
 	dpuHostName string,
 ) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
@@ -102,18 +108,29 @@ func New(ctx context.Context,
 		gateway:                   gateway,
 		vtepCIDR:                  vtepCIDR,
 		hostCIDR:                  hostCIDR,
+		pfIP:                      pfIP,
 		dpuHostName:               dpuHostName,
 	}
 }
 
 // RunOnce runs the provisioning flow once and exits
 func (p *DPUCNIProvisioner) RunOnce() error {
-	err := p.configure()
-	if err != nil {
+	if err := p.configure(); err != nil {
 		return err
 	}
 	klog.Info("Configuration complete.")
+	if err := p.startDHCPServer(); err != nil {
+		return fmt.Errorf("error while starting DHCP server: %w", err)
+	}
+	klog.Info("DHCP Server started.")
+
 	return nil
+}
+
+// stop stops the provisioner
+func (p *DPUCNIProvisioner) Stop() {
+	p.dhcpCmd.Stop()
+	klog.Info("Provisioner stopped")
 }
 
 // EnsureConfiguration ensures that particular configuration is in place. This is a blocking function.
@@ -274,5 +291,41 @@ func (p *DPUCNIProvisioner) writeOVNInputRouterSubnetPath() error {
 	if err != nil {
 		return fmt.Errorf("error while writing file %s: %w", configPath, err)
 	}
+	return nil
+}
+
+// startDHCPServer starts a DHCP Server to enable the PF on the host to get an IP.
+func (p *DPUCNIProvisioner) startDHCPServer() error {
+	if p.dhcpCmd != nil {
+		klog.Warning("DHCP Server already running")
+		return nil
+	}
+
+	_, vtepNetwork, err := net.ParseCIDR(p.vtepIPNet.String())
+	if err != nil {
+		return fmt.Errorf("error while parsing network from VTEP IP %s: %w", p.vtepIPNet.String(), err)
+	}
+
+	mac, err := p.networkHelper.GetPFRepMACAddress("pf0hpf")
+	if err != nil {
+		return fmt.Errorf("error while parsing MAC address of the PF on the host: %w", err)
+	}
+
+	cmd := p.exec.Command("dnsmasq",
+		"--keep-in-foreground",
+		"--port=0",         // Disable DNS Server
+		"--log-facility=-", // Log to stderr
+		fmt.Sprintf("--interface=%s", brOVN),
+		fmt.Sprintf("--dhcp-option=option:router,%s", p.gateway.String()),
+		fmt.Sprintf("--dhcp-range=%s,static", vtepNetwork.IP.String()),
+		fmt.Sprintf("--dhcp-host=%s,%s", mac, p.pfIP.IP.String()),
+	)
+	cmd.SetStdout(os.Stdout)
+	cmd.SetStderr(os.Stderr)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("error while starting the DHCP server: %w", err)
+	}
+
+	p.dhcpCmd = cmd
 	return nil
 }
