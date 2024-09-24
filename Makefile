@@ -174,7 +174,7 @@ $(OVN_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR) $(OVN_REVISION)
 
 ##@ Development
-GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller operator operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded release-defaults hbn-dpuservice dummydpuservice
+GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded release-defaults hbn-dpuservice dummydpuservice
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -286,11 +286,19 @@ generate-manifests-servicechainset: controller-gen kustomize envsubst ## Generat
 	output:crd:dir=./config/servicechainset/crd/bases \
 	output:rbac:dir=./config/servicechainset/rbac
 	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/servicechain/crds/ \;
+	$(ENVSUBST) < deploy/helm/servicechain/values.yaml.tmpl > deploy/helm/servicechain/values.yaml
+
 
 .PHONY: generate-manifests-sfc-controller
 generate-manifests-sfc-controller: envsubst generate-manifests-servicechainset
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_servicechains.yaml deploy/helm/sfc-controller/crds/
 	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/sfc-controller/crds/
+	# Template the image name and tag used in the helm templates.
+	$(ENVSUBST) < deploy/helm/sfc-controller/values.yaml.tmpl > deploy/helm/sfc-controller/values.yaml
+
+.PHONY: generate-manifests-ovs-cni
+generate-manifests-ovs-cni: envsubst ## Generate values for OVS helm chart.
+	$(ENVSUBST) < deploy/helm/ovs-cni/values.yaml.tmpl > deploy/helm/ovs-cni/values.yaml
 
 .PHONY: generate-manifests-provisioning
 generate-manifests-provisioning: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
