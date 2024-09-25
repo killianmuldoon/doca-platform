@@ -60,3 +60,5 @@ COPY --chown=${uid} --from=builder /workspace/bin/operator .
 COPY --chown=${uid} --from=builder /workspace/bin/provisioning .
 COPY --chown=${uid} --from=builder /workspace/bin/dpuservice .
 COPY --chown=${uid} --from=builder /workspace/bin/servicechainset .
+COPY --chown=${uid} --from=builder /workspace/bin/nvidia-cluster-manager .
+COPY --chown=${uid} --from=builder /workspace/bin/static-cluster-manager .

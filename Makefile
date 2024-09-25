@@ -174,7 +174,7 @@ $(OVN_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR) $(OVN_REVISION)
 
 ##@ Development
-GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded release-defaults hbn-dpuservice dummydpuservice
+GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded release-defaults hbn-dpuservice dummydpuservice nvidia-cluster-manager static-cluster-manager
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -198,7 +198,10 @@ generate-manifests-operator: controller-gen kustomize envsubst helm ## Generate 
 	$(MAKE) clean-generated-yaml SRC_DIRS="./deploy/helm/dpf-operator/crds/"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/operator/..." \
+	paths="./cmd/nvidia-cluster-manager/..." \
+	paths="./cmd/static-cluster-manager/..." \
 	paths="./internal/operator/..." \
+	paths="./internal/clustermanager/..." \
 	paths="./api/operator/..." \
 	crd:crdVersions=v1 \
 	rbac:roleName="dpf-operator-manager-role" \
@@ -264,9 +267,11 @@ generate-manifests-release-defaults: envsubst ## Generates manifests that contai
 TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 .PHONY: generate-manifests-operator-embedded
-generate-manifests-operator-embedded:kustomize envsubst generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults ## Generates manifests that are embedded into the operator binary.
+generate-manifests-operator-embedded:kustomize envsubst generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults generate-manifests-nvidia-cluster-manager generate-manifests-static-cluster-manager## Generates manifests that are embedded into the operator binary.
 	$(KUSTOMIZE) build config/provisioning/default > $(EMBEDDED_MANIFESTS_DIR)/provisioning-controller.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
+	$(KUSTOMIZE) build config/nvidia-cluster-manager/default > $(EMBEDDED_MANIFESTS_DIR)/nvidia-cluster-manager.yaml
+	$(KUSTOMIZE) build config/static-cluster-manager/default > $(EMBEDDED_MANIFESTS_DIR)/static-cluster-manager.yaml
 
 .PHONY: generate-manifests-ovnkubernetes-operator-embedded
 generate-manifests-ovnkubernetes-operator-embedded: kustomize generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner ## Generates manifests that are embedded into the OVN Kubernetes Operator binary.
@@ -313,6 +318,26 @@ generate-manifests-provisioning: controller-gen kustomize ## Generate manifests 
 	output:rbac:dir=./config/provisioning/rbac \
 	output:webhook:dir=./config/provisioning/webhook \
 	webhook
+
+.PHONY: generate-manifests-nvidia-cluster-manager
+generate-manifests-nvidia-cluster-manager: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
+	$(CONTROLLER_GEN) \
+	paths="./cmd/nvidia-cluster-manager/..." \
+	paths="./internal/clustermanager/controller/..." \
+	paths="./internal/clustermanager/nvidia/..." \
+	rbac:roleName=manager-role \
+	output:rbac:dir=./config/nvidia-cluster-manager/rbac
+	cd config/nvidia-cluster-manager/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
+
+.PHONY: generate-manifests-static-cluster-manager
+generate-manifests-static-cluster-manager: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
+	$(CONTROLLER_GEN) \
+	paths="./cmd/static-cluster-manager/..." \
+	paths="./internal/clustermanager/controller/..." \
+	paths="./internal/clustermanager/static/..." \
+	rbac:roleName=manager-role \
+	output:rbac:dir=./config/static-cluster-manager/rbac
+	cd config/static-cluster-manager/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-hbn-dpuservice
 generate-manifests-hbn-dpuservice: envsubst
@@ -550,7 +575,7 @@ release: generate ## Build and push helm and container images for release.
 GO_GCFLAGS ?= ""
 GO_LDFLAGS ?= "-extldflags '-static'"
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
-DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset
+DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset nvidia-cluster-manager static-cluster-manager
 DPU_ARCH_BUILD_TARGETS ?= ipallocator
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
@@ -580,6 +605,14 @@ binary-operator: ## Build the operator controller binary.
 .PHONY: binary-provisioning
 binary-provisioning: ## Build the provisioning controller binary.
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/provisioning gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/provisioning
+
+.PHONY: binary-nvidia-cluster-manager
+binary-nvidia-cluster-manager: ## Build the nvidia-cluster-manager binary.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/nvidia-cluster-manager gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/nvidia-cluster-manager
+
+.PHONY: binary-static-cluster-manager
+binary-static-cluster-manager: ## Build the static-cluster-manager binary.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/static-cluster-manager gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/static-cluster-manager
 
 .PHONY: binary-dpuservice
 binary-dpuservice: ## Build the dpuservice controller binary.

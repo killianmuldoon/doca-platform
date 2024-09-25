@@ -98,6 +98,188 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.3
+  name: dpuclusters.provisioning.dpf.nvidia.com
+spec:
+  group: provisioning.dpf.nvidia.com
+  names:
+    kind: DPUCluster
+    listKind: DPUClusterList
+    plural: dpuclusters
+    singular: dpucluster
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - description: type of the cluster
+      jsonPath: .spec.type
+      name: Type
+      type: string
+    - description: max amount of nodes
+      jsonPath: .spec.maxNodes
+      name: MaxNodes
+      type: integer
+    - description: Kubernetes control-plane version
+      jsonPath: .spec.version
+      name: Version
+      type: string
+    - description: status of the cluster
+      jsonPath: .status.phase
+      name: Phase
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: DPUCluster is the Schema for the dpuclusters API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DPUClusterSpec defines the desired state of DPUCluster
+            properties:
+              clusterEndpoint:
+                description: ClusterEndpoint contains configurations of the cluster
+                  entry point
+                properties:
+                  keepalived:
+                    description: Keepalived configures the keepalived that will be
+                      deployed for the cluster control-plane
+                    properties:
+                      nodeSelector:
+                        additionalProperties:
+                          type: string
+                        description: NodeSelector specifies the nodes that keepalived
+                          instances should be deployed
+                        type: object
+                      vip:
+                        description: VIP is the virtual IP owned by the keepalived
+                          instances
+                        type: string
+                    required:
+                    - vip
+                    type: object
+                type: object
+              kubeconfig:
+                description: Kubeconfig is the secret that contains the admin kubeconfig
+                type: string
+                x-kubernetes-validations:
+                - message: kubeconfig is immutable
+                  rule: oldSelf==""||self==oldSelf
+              maxNodes:
+                description: MaxNodes is the max amount of node in the cluster
+                type: integer
+                x-kubernetes-validations:
+                - message: maxNode must be in range (0, 1000]
+                  rule: self > 0 && self <= 1000
+              type:
+                pattern: nvidia|static|[^/]+/.*
+                type: string
+              version:
+                description: Version is the K8s control-plane version of the cluster
+                type: string
+            required:
+            - maxNodes
+            - type
+            - version
+            type: object
+          status:
+            description: DPUClusterStatus defines the observed state of DPUCluster
+            properties:
+              conditions:
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              phase:
+                default: Pending
+                enum:
+                - Pending
+                - Creating
+                - Ready
+                - NotReady
+                - Failed
+                type: string
+            required:
+            - phase
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
+    controller-gen.kubebuilder.io/version: v0.16.3
   name: dpuflavors.provisioning.dpf.nvidia.com
 spec:
   group: provisioning.dpf.nvidia.com
@@ -292,12 +474,12 @@ spec:
                     type: string
                     x-kubernetes-validations:
                     - message: Value is immutable
-                      rule: self == oldSelf
+                      rule: oldSelf==""||self==oldSelf
                   namespace:
                     type: string
                     x-kubernetes-validations:
                     - message: Value is immutable
-                      rule: self == oldSelf
+                      rule: oldSelf==""||self==oldSelf
                   node_labels:
                     additionalProperties:
                       type: string
@@ -547,12 +729,12 @@ spec:
                             type: string
                             x-kubernetes-validations:
                             - message: Value is immutable
-                              rule: self == oldSelf
+                              rule: oldSelf==""||self==oldSelf
                           namespace:
                             type: string
                             x-kubernetes-validations:
                             - message: Value is immutable
-                              rule: self == oldSelf
+                              rule: oldSelf==""||self==oldSelf
                           node_labels:
                             additionalProperties:
                               type: string
@@ -825,6 +1007,7 @@ rules:
   - provisioning.dpf.nvidia.com
   resources:
   - bfbs
+  - dpuclusters
   - dpus
   - dpusets
   verbs:
@@ -839,6 +1022,7 @@ rules:
   - provisioning.dpf.nvidia.com
   resources:
   - bfbs/finalizers
+  - dpuclusters/finalizers
   - dpus/finalizers
   - dpusets/finalizers
   verbs:
@@ -847,6 +1031,7 @@ rules:
   - provisioning.dpf.nvidia.com
   resources:
   - bfbs/status
+  - dpuclusters/status
   - dpus/status
   - dpusets/status
   verbs:

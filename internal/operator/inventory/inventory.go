@@ -57,6 +57,8 @@ type SystemComponents struct {
 	OvsCni                  Component
 	Flannel                 Component
 	SfcController           Component
+	NVidiaClusterManager    Component
+	StaticClusterManager    Component
 }
 
 // Embed manifests for Kubernetes objects created by the controller.
@@ -87,6 +89,12 @@ var (
 
 	//go:embed manifests/sfc-controller.yaml
 	sfcControllerData []byte
+
+	//go:embed manifests/nvidia-cluster-manager.yaml
+	nvidiaCMData []byte
+
+	//go:embed manifests/static-cluster-manager.yaml
+	staticCMData []byte
 )
 
 // New returns a new SystemComponents inventory with data preloaded but parsing not completed.
@@ -126,6 +134,8 @@ func New() *SystemComponents {
 			name: SFCControllerName,
 			data: sfcControllerData,
 		},
+		NVidiaClusterManager: NewClusterManagerObjects("nvidia-cluster-manager", nvidiaCMData),
+		StaticClusterManager: NewClusterManagerObjects("static-cluster-manager", staticCMData),
 	}
 }
 
@@ -154,6 +164,8 @@ func (s *SystemComponents) AllComponents() []Component {
 		s.NvIPAM,
 		s.OvsCni,
 		s.SfcController,
+		s.NVidiaClusterManager,
+		s.StaticClusterManager,
 	}
 }
 

@@ -19,6 +19,9 @@ spec:
     - kind: Bfb
       name: bfbs.provisioning.dpf.nvidia.com
       version: v1alpha1
+    - kind: DPUCluster
+      name: dpuclusters.provisioning.dpf.nvidia.com
+      version: v1alpha1
     - kind: DPUDeployment
       name: dpudeployments.svc.dpf.nvidia.com
       version: v1alpha1
@@ -120,6 +123,17 @@ spec:
           - apps
           resources:
           - daemonsets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resources:
           - deployments
           verbs:
           - create
@@ -164,8 +178,12 @@ spec:
           resources:
           - tenantcontrolplanes
           verbs:
+          - create
+          - delete
           - get
           - list
+          - patch
+          - update
           - watch
         - apiGroups:
           - maintenance.nvidia.com
@@ -216,6 +234,7 @@ spec:
           - provisioning.dpf.nvidia.com
           resources:
           - bfbs
+          - dpuclusters
           - dpuflavors
           - dpus
           - dpusets
@@ -232,6 +251,7 @@ spec:
           - provisioning.dpf.nvidia.com
           resources:
           - bfbs/finalizers
+          - dpuclusters/finalizers
           - dpuflavors/finalizers
           - dpus/finalizers
           - dpusets/finalizers
@@ -241,6 +261,7 @@ spec:
           - provisioning.dpf.nvidia.com
           resources:
           - bfbs/status
+          - dpuclusters/status
           - dpus/status
           - dpusets/status
           verbs:

@@ -271,7 +271,11 @@ func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningv1.D
 		}, flavor); err != nil {
 			return nil, err
 		}
-		cfgfile, err := generateBFConfig(ctx, dpu, flavor)
+		dc := &provisioningv1.DPUCluster{}
+		if err := client.Get(ctx, types.NamespacedName{Namespace: dpu.Spec.Cluster.NameSpace, Name: dpu.Spec.Cluster.Name}, dc); err != nil {
+			return "", fmt.Errorf("failed to get DPUCluster, err: %v", err)
+		}
+		cfgfile, err := generateBFConfig(ctx, dpu, flavor, dc)
 		if err != nil {
 			logger.Error(err, fmt.Sprintf("%s/%s generate bf config failed", dpu.Namespace, dpu.Name))
 			return nil, err
@@ -397,22 +401,12 @@ func generateDMSTaskName(dpu *provisioningv1.Dpu) string {
 	return fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)
 }
 
-func generateBFConfig(ctx context.Context, dpu *provisioningv1.Dpu, flavor *provisioningv1.DPUFlavor) (string, error) {
+func generateBFConfig(ctx context.Context, dpu *provisioningv1.Dpu, flavor *provisioningv1.DPUFlavor, dc *provisioningv1.DPUCluster) (string, error) {
 	logger := log.FromContext(ctx)
-	var dpusetName, dpusetNamespace string
-	var ok bool
-	dpusetName, ok = dpu.Labels[cutil.DpuSetNameLabel]
-	if !ok {
-		return "", fmt.Errorf("label %s is empty", cutil.DpuSetNameLabel)
-	}
-	dpusetNamespace, ok = dpu.Labels[cutil.DpuSetNamespaceLabel]
-	if !ok {
-		return "", fmt.Errorf("label %s is empty", cutil.DpuSetNamespaceLabel)
-	}
 
-	joinCommand, err := generateJoinCommand(dpusetName, dpusetNamespace)
+	joinCommand, err := generateJoinCommand(dc)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to generate join command, err: %v", err)
 	}
 
 	buf, err := bfcfg.Generate(flavor, dpu.Name, joinCommand)
@@ -433,13 +427,15 @@ func generateBFConfig(ctx context.Context, dpu *provisioningv1.Dpu, flavor *prov
 	return cfgPath, nil
 }
 
-func generateJoinCommand(dpuSetName, dpusetNamespace string) (string, error) {
-	kubeConfigFile := cutil.GenerateKubeConfigFileName(dpuSetName, dpusetNamespace)
-	kubeconfig := "--kubeconfig=" + kubeConfigFile
-	cmd := exec.Command("kubeadm", "token", "create", "--print-join-command", kubeconfig)
+func generateJoinCommand(dc *provisioningv1.DPUCluster) (string, error) {
+	fp := cutil.AdminKubeConfigPath(*dc)
+	if _, err := os.Stat(fp); err != nil {
+		return "", fmt.Errorf("failed to stat kubeconfig file, err: %v", err)
+	}
+	cmd := exec.Command("kubeadm", "token", "create", "--print-join-command", fmt.Sprintf("--kubeconfig=%s", fp))
 	output, err := cmd.Output()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to run \"kubeadm token create\", err: %v", err)
 	}
 	joinCommand := strings.TrimRight(string(output), "\r\n") + " --v=5"
 	return joinCommand, nil

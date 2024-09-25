@@ -69,12 +69,12 @@ spec:
                     type: string
                     x-kubernetes-validations:
                     - message: Value is immutable
-                      rule: self == oldSelf
+                      rule: oldSelf==""||self==oldSelf
                   namespace:
                     type: string
                     x-kubernetes-validations:
                     - message: Value is immutable
-                      rule: self == oldSelf
+                      rule: oldSelf==""||self==oldSelf
                   node_labels:
                     additionalProperties:
                       type: string

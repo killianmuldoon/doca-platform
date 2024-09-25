@@ -74,6 +74,7 @@ rules:
   - provisioning.dpf.nvidia.com
   resources:
   - bfbs
+  - dpuclusters
   - dpus
   - dpusets
   verbs:
@@ -88,6 +89,7 @@ rules:
   - provisioning.dpf.nvidia.com
   resources:
   - bfbs/finalizers
+  - dpuclusters/finalizers
   - dpus/finalizers
   - dpusets/finalizers
   verbs:
@@ -96,6 +98,7 @@ rules:
   - provisioning.dpf.nvidia.com
   resources:
   - bfbs/status
+  - dpuclusters/status
   - dpus/status
   - dpusets/status
   verbs:

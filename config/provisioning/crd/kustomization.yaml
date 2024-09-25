@@ -6,6 +6,7 @@ resources:
 - bases/provisioning.dpf.nvidia.com_dpusets.yaml
 - bases/provisioning.dpf.nvidia.com_bfbs.yaml
 - bases/provisioning.dpf.nvidia.com_dpuflavors.yaml
+- bases/provisioning.dpf.nvidia.com_dpuclusters.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patches:

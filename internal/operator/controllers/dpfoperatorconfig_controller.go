@@ -95,9 +95,9 @@ type DPFOperatorConfigReconcilerSettings struct {
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces/finalizers;servicechains/finalizers;dpuservicechains/finalizers;dpuserviceinterfaces/finalizers;dpuserviceipams/finalizers,verbs=update
 
 // Provisioning objects
-//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets;dpuflavors;bfbs;dpus,verbs=create;delete;get;list;watch;patch;update;deletecollection
-//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets/status;dpus/status;bfbs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets/finalizers;bfbs/finalizers;dpus/finalizers;dpuflavors/finalizers,verbs=update
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets;dpuflavors;bfbs;dpus;dpuclusters,verbs=create;delete;get;list;watch;patch;update;deletecollection
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets/status;dpus/status;bfbs/status;dpuclusters/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets/finalizers;bfbs/finalizers;dpus/finalizers;dpuflavors/finalizers;dpuclusters/finalizers,verbs=update
 
 // Kubernetes Objects
 //+kubebuilder:rbac:groups=core,resources=namespaces,verbs=create

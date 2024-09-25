@@ -48,6 +48,17 @@ rules:
   - apps
   resources:
   - daemonsets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
   - deployments
   verbs:
   - create
@@ -92,8 +103,12 @@ rules:
   resources:
   - tenantcontrolplanes
   verbs:
+  - create
+  - delete
   - get
   - list
+  - patch
+  - update
   - watch
 - apiGroups:
   - maintenance.nvidia.com
@@ -144,6 +159,7 @@ rules:
   - provisioning.dpf.nvidia.com
   resources:
   - bfbs
+  - dpuclusters
   - dpuflavors
   - dpus
   - dpusets
@@ -160,6 +176,7 @@ rules:
   - provisioning.dpf.nvidia.com
   resources:
   - bfbs/finalizers
+  - dpuclusters/finalizers
   - dpuflavors/finalizers
   - dpus/finalizers
   - dpusets/finalizers
@@ -169,6 +186,7 @@ rules:
   - provisioning.dpf.nvidia.com
   resources:
   - bfbs/status
+  - dpuclusters/status
   - dpus/status
   - dpusets/status
   verbs:

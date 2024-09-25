@@ -26,6 +26,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -33,6 +34,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -86,11 +88,6 @@ func GenerateBFBVersionFromURL(bfbUrl string) string {
 
 func GenerateBFConfigPath(dpu string) string {
 	return string(os.PathSeparator) + BFBBaseDir + string(os.PathSeparator) + dpu + CFGExtension
-}
-
-func GenerateKubeConfigFileName(dpusetName, dpusetNamespace string) string {
-	return string(os.PathSeparator) + "kubeconfig" + string(os.PathSeparator) +
-		fmt.Sprintf("%s-%s%s", dpusetNamespace, dpusetName, ".kubeconfig")
 }
 
 func GenerateDMSPodName(dpuName string) string {
@@ -426,4 +423,39 @@ func GeneratePodToleration(nodeEffect provisioningv1.NodeEffect) []corev1.Tolera
 	}
 
 	return tolerations
+}
+
+func GetNamespacedName(obj metav1.Object) types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: obj.GetNamespace(),
+		Name:      obj.GetName(),
+	}
+}
+
+func IsClusterCreated(conditions []metav1.Condition) bool {
+	cond := meta.FindStatusCondition(conditions, string(provisioningv1.ConditionCreated))
+	if cond == nil {
+		return false
+	}
+	return cond.Status == metav1.ConditionTrue
+}
+
+// todo: merge with DPUCondition()
+func NewCondition(condType string, err error, reason, message string) *metav1.Condition {
+	cond := &metav1.Condition{
+		Type:   condType,
+		Reason: reason,
+	}
+	if err != nil {
+		cond.Status = metav1.ConditionFalse
+		cond.Message = err.Error()
+	} else {
+		cond.Status = metav1.ConditionTrue
+		cond.Message = message
+	}
+	return cond
+}
+
+func AdminKubeConfigPath(dc provisioningv1.DPUCluster) string {
+	return filepath.Join("/kubeconfig", fmt.Sprintf("%s_%s_%s", dc.Name, dc.Namespace, dc.UID))
 }

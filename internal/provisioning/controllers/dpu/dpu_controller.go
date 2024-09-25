@@ -18,6 +18,7 @@ package dpu
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
@@ -34,7 +35,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // controller name that will be used when reporting events
@@ -58,6 +61,9 @@ type DpuReconciler struct {
 //+kubebuilder:rbac:groups="",resources=events,verbs=patch;update;delete;create
 //+kubebuilder:rbac:groups=maintenance.nvidia.com,resources=nodemaintenances;nodemaintenances/status,verbs=*
 //+kubebuilder:rbac:groups="cert-manager.io",resources=*,verbs=*
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpuclusters,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpuclusters/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpuclusters/finalizers,verbs=update
 
 func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -117,5 +123,25 @@ func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 func (r *DpuReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&provisioningv1.Dpu{}).
+		Watches(&provisioningv1.DPUCluster{}, handler.EnqueueRequestsFromMapFunc(r.nonInitializedDPU)).
 		Complete(r)
+}
+
+func (r *DpuReconciler) nonInitializedDPU(ctx context.Context, obj client.Object) []reconcile.Request {
+	var ret []reconcile.Request
+	dc := obj.(*provisioningv1.DPUCluster)
+	if dc.Status.Phase != provisioningv1.PhaseReady {
+		return nil
+	}
+	dpuList := &provisioningv1.DpuList{}
+	if err := r.Client.List(ctx, dpuList); err != nil {
+		log.FromContext(ctx).Error(fmt.Errorf("failed to list DPUs, err: %v", err), "")
+		return nil
+	}
+	for _, dpu := range dpuList.Items {
+		if dpu.Spec.Cluster.Name == "" {
+			ret = append(ret, reconcile.Request{NamespacedName: cutil.GetNamespacedName(&dpu)})
+		}
+	}
+	return ret
 }

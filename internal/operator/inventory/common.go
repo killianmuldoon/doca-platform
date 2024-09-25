@@ -21,6 +21,9 @@ import (
 	"errors"
 	"fmt"
 
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -140,4 +143,94 @@ func isClusterScoped(kind string) bool {
 	}
 	_, ok := clusterScopedKinds[kind]
 	return ok
+}
+
+var _ Component = &simpleDeploymentObjects{}
+
+type simpleDeploymentObjects struct {
+	name       string
+	data       []byte
+	objects    []*unstructured.Unstructured
+	isDisabled func(map[string]bool) bool
+	edit       func([]*unstructured.Unstructured, Variables, map[string]string) error
+}
+
+func (p *simpleDeploymentObjects) Name() string {
+	return p.name
+}
+
+func (p *simpleDeploymentObjects) Parse() (err error) {
+	if p.data == nil {
+		return fmt.Errorf("%s.data can not be empty", p.Name())
+	}
+	objs, err := utils.BytesToUnstructured(p.data)
+	if err != nil {
+		return fmt.Errorf("error while converting %s manifests to objects: %w", p.Name(), err)
+	} else if len(objs) == 0 {
+		return fmt.Errorf("no objects found in %s manifests", p.Name())
+	}
+
+	deploymentFound := false
+	for _, obj := range objs {
+		// Exclude Namespace and CustomResourceDefinition as the operator should not deploy these resources.
+		if obj.GetKind() == string(NamespaceKind) || obj.GetKind() == string(CustomResourceDefinitionKind) {
+			continue
+		}
+		// If the object is the dpf-provisioning-controller-manager Deployment validate it
+		if obj.GetKind() == string(DeploymentKind) {
+			deploymentFound = true
+		}
+		p.objects = append(p.objects, obj)
+	}
+	if !deploymentFound {
+		return fmt.Errorf("error while converting %s manifests to objects: Deployment not found", p.Name())
+	}
+	return nil
+}
+
+func (p *simpleDeploymentObjects) GenerateManifests(vars Variables, options ...GenerateManifestOption) ([]client.Object, error) {
+	if p.isDisabled != nil && p.isDisabled(vars.DisableSystemComponents) {
+		return []client.Object{}, nil
+	}
+
+	opts := &GenerateManifestOptions{}
+	for _, option := range options {
+		option.Apply(opts)
+	}
+
+	// make a copy of the objects
+	objsCopy := make([]*unstructured.Unstructured, 0, len(p.objects))
+	for i := range p.objects {
+		objsCopy = append(objsCopy, p.objects[i].DeepCopy())
+	}
+
+	labelsToAdd := map[string]string{operatorv1.DPFComponentLabelKey: p.Name()}
+	applySetID := ApplySetID(vars.Namespace, p)
+	// Add the ApplySet to the manifests if this hasn't been disabled.
+	if !opts.skipApplySet {
+		labelsToAdd[applysetPartOfLabel] = applySetID
+	}
+
+	// apply edits
+	if p.edit != nil {
+		if err := p.edit(objsCopy, vars, labelsToAdd); err != nil {
+			return nil, err
+		}
+	}
+
+	// return as Objects
+	ret := []client.Object{}
+	if !opts.skipApplySet {
+		ret = append(ret, applySetParentForComponent(p, applySetID, vars, applySetInventoryString(objsCopy...)))
+	}
+
+	for i := range objsCopy {
+		ret = append(ret, objsCopy[i])
+	}
+
+	return ret, nil
+}
+
+func (p *simpleDeploymentObjects) IsReady(ctx context.Context, c client.Client, namespace string) error {
+	return deploymentReadyCheck(ctx, c, namespace, p.objects)
 }

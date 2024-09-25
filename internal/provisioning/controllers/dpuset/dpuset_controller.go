@@ -19,7 +19,6 @@ package dpuset
 import (
 	"context"
 	"fmt"
-	"os"
 	"reflect"
 	"strings"
 
@@ -106,11 +105,6 @@ func (r *DpuSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.Dp
 			return ctrl.Result{}, errors.Wrap(err, "failed to add DPUSet finalizer")
 		}
 		return ctrl.Result{}, nil
-	}
-
-	if err := r.createDPUClusterKubeConfig(ctx, dpuSet); err != nil {
-		logger.Error(err, "Failed to create DPU cluster kubeconfig file", "DPUSet", dpuSet)
-		return ctrl.Result{}, errors.Wrap(err, "failed to create DPU cluster kubeconfig file")
 	}
 
 	// Get node map by nodeSelector
@@ -479,42 +473,7 @@ func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningv1.DpuSet,
 	return nil
 }
 
-func (r *DpuSetReconciler) createDPUClusterKubeConfig(ctx context.Context, dpuSet *provisioningv1.DpuSet) error {
-	kubeConfigFile := cutil.GenerateKubeConfigFileName(dpuSet.Name, dpuSet.Namespace)
-	if _, err := os.Stat(kubeConfigFile); err == nil {
-		return nil
-	} else if os.IsNotExist(err) {
-		nn := types.NamespacedName{
-			Namespace: dpuSet.Spec.DpuTemplate.Spec.Cluster.NameSpace,
-			Name:      fmt.Sprintf("%s-%s", dpuSet.Spec.DpuTemplate.Spec.Cluster.Name, "admin-kubeconfig"),
-		}
-		kubeConfigSecret := &corev1.Secret{}
-		if err := r.Client.Get(ctx, nn, kubeConfigSecret); err != nil {
-			return err
-		}
-
-		kubeconfig := kubeConfigSecret.Data["admin.conf"]
-		if err := os.WriteFile(kubeConfigFile, kubeconfig, 0644); err != nil {
-			return err
-		}
-	} else {
-		return err
-	}
-
-	return nil
-}
-
 func (r *DpuSetReconciler) finalizeDPUSet(ctx context.Context, dpuSet *provisioningv1.DpuSet) error {
-	kubeConfigFile := cutil.GenerateKubeConfigFileName(dpuSet.Name, dpuSet.Namespace)
-	if _, err := os.Stat(kubeConfigFile); err == nil {
-		err := os.Remove(kubeConfigFile)
-		if err != nil {
-			return err
-		}
-	} else if !os.IsNotExist(err) {
-		return err
-	}
-
 	controllerutil.RemoveFinalizer(dpuSet, provisioningv1.DpuSetFinalizer)
 	if err := r.Client.Update(ctx, dpuSet); err != nil {
 		return err

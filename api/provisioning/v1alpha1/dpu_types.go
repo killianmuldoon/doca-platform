@@ -72,10 +72,10 @@ func (ct DPUConditionType) String() string {
 }
 
 type K8sCluster struct {
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	// +kubebuilder:validation:XValidation:rule="oldSelf==\"\"||self==oldSelf", message="Value is immutable"
 	// +required
 	Name string `json:"name"`
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	// +kubebuilder:validation:XValidation:rule="oldSelf==\"\"||self==oldSelf", message="Value is immutable"
 	// +required
 	NameSpace string `json:"namespace"`
 	// +optional
