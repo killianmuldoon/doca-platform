@@ -1392,7 +1392,16 @@ rules:
   verbs:
   - get
   - list
+  - patch
+  - update
   - watch
+- apiGroups:
+  - provisioning.dpf.nvidia.com
+  resources:
+  - bfbs/finalizers
+  - dpuflavors/finalizers
+  verbs:
+  - update
 - apiGroups:
   - provisioning.dpf.nvidia.com
   resources:
@@ -1454,6 +1463,8 @@ rules:
   - svc.dpf.nvidia.com
   resources:
   - dpudeployments
+  - dpuserviceconfigurations
+  - dpuservicetemplates
   verbs:
   - get
   - list
@@ -1478,15 +1489,6 @@ rules:
   - get
   - patch
   - update
-- apiGroups:
-  - svc.dpf.nvidia.com
-  resources:
-  - dpuserviceconfigurations
-  - dpuservicetemplates
-  verbs:
-  - get
-  - list
-  - watch
 - apiGroups:
   - svc.dpf.nvidia.com
   resources:

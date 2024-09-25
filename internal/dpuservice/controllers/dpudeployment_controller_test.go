@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"fmt"
 	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
@@ -33,9 +34,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 //nolint:goconst
@@ -137,6 +140,20 @@ var _ = Describe("DPUDeployment Controller", func() {
 			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
 
+			By("checking that dependencies are marked")
+			Eventually(func(g Gomega) {
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
+				} {
+					g.Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					g.Expect(obj.GetFinalizers()).To(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
+					g.Expect(obj.GetLabels()).To(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+				}
+			}).WithTimeout(5 * time.Second).Should(Succeed())
+
 			By("checking that objects are created")
 			Eventually(func(g Gomega) {
 				gotDPUSetList := &provisioningv1.DpuSetList{}
@@ -169,6 +186,20 @@ var _ = Describe("DPUDeployment Controller", func() {
 				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
 				g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
 			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			By("checking that the dependencies are released")
+			Eventually(func(g Gomega) {
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
+				} {
+					g.Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					g.Expect(obj.GetFinalizers()).ToNot(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
+					g.Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+				}
+			}).WithTimeout(5 * time.Second).Should(Succeed())
 		})
 	})
 	Context("When unit testing individual functions", func() {
@@ -266,6 +297,282 @@ var _ = Describe("DPUDeployment Controller", func() {
 				By("Checking the output of the function")
 				_, err := getDependencies(ctx, testClient, dpuDeployment)
 				Expect(err).To(HaveOccurred())
+			})
+		})
+		Context("When checking updateDependencies()", func() {
+			var (
+				dpuDeployment                *dpuservicev1.DPUDeployment
+				bfb                          *provisioningv1.Bfb
+				extraBFB                     *provisioningv1.Bfb
+				dpuFlavor                    *provisioningv1.DPUFlavor
+				extraDPUFlavor               *provisioningv1.DPUFlavor
+				dpuServiceConfiguration      *dpuservicev1.DPUServiceConfiguration
+				extraDPUServiceConfiguration *dpuservicev1.DPUServiceConfiguration
+				dpuServiceTemplate           *dpuservicev1.DPUServiceTemplate
+				extraDPUServiceTemplate      *dpuservicev1.DPUServiceTemplate
+				objGVK                       map[client.Object]schema.GroupVersionKind
+			)
+			BeforeEach(func() {
+				dpuDeployment = getMinimalDPUDeployment(testNS.Name)
+				By("Creating the dependencies")
+				bfb = getMinimalBFB(testNS.Name)
+				Expect(testClient.Create(ctx, bfb)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
+
+				extraBFB = getMinimalBFB(testNS.Name)
+				extraBFB.Name = "extra-bfb"
+				Expect(testClient.Create(ctx, extraBFB)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, extraBFB)
+
+				dpuFlavor = getMinimalDPUFlavor(testNS.Name)
+				Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
+
+				extraDPUFlavor = getMinimalDPUFlavor(testNS.Name)
+				extraDPUFlavor.Name = "extra-dpuflavor"
+				Expect(testClient.Create(ctx, extraDPUFlavor)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, extraDPUFlavor)
+
+				dpuServiceConfiguration = getMinimalDPUServiceConfiguration(testNS.Name)
+				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+				extraDPUServiceConfiguration = getMinimalDPUServiceConfiguration(testNS.Name)
+				extraDPUServiceConfiguration.Name = "extra-dpuserviceconfiguration"
+				Expect(testClient.Create(ctx, extraDPUServiceConfiguration)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, extraDPUServiceConfiguration)
+
+				dpuServiceTemplate = getMinimalDPUServiceTemplate(testNS.Name)
+				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+				extraDPUServiceTemplate = getMinimalDPUServiceTemplate(testNS.Name)
+				extraDPUServiceTemplate.Name = "extra-dpuservicetemplate"
+				Expect(testClient.Create(ctx, extraDPUServiceTemplate)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, extraDPUServiceTemplate)
+
+				objGVK = map[client.Object]schema.GroupVersionKind{
+					bfb:                          provisioningv1.BfbGroupVersionKind,
+					extraBFB:                     provisioningv1.BfbGroupVersionKind,
+					dpuFlavor:                    provisioningv1.DPUFlavorGroupVersionKind,
+					extraDPUFlavor:               provisioningv1.DPUFlavorGroupVersionKind,
+					dpuServiceConfiguration:      dpuservicev1.DPUServiceConfigurationGroupVersionKind,
+					extraDPUServiceConfiguration: dpuservicev1.DPUServiceConfigurationGroupVersionKind,
+					dpuServiceTemplate:           dpuservicev1.DPUServiceTemplateGroupVersionKind,
+					extraDPUServiceTemplate:      dpuservicev1.DPUServiceTemplateGroupVersionKind,
+				}
+				DeferCleanup(func() {
+					By("Cleaning up the finalizers so that objects can be deleted")
+					for obj := range objGVK {
+						Expect(testClient.Patch(ctx, obj, client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`)))).To(Succeed())
+					}
+				})
+			})
+			It("should mark only the current dependencies", func() {
+				By("Constructing the dependencies object")
+				deps, err := getDependencies(ctx, testClient, dpuDeployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Updating the dependencies")
+				Expect(updateDependencies(ctx, testClient, dpuDeployment, deps)).To(Succeed())
+
+				By("Checking the current dependencies after update")
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
+				} {
+					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					Expect(obj.GetFinalizers()).To(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).To(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+				}
+
+				By("Checking the rest of the objects after update")
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(extraBFB),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(extraDPUFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(extraDPUServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(extraDPUServiceTemplate),
+				} {
+					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					Expect(obj.GetFinalizers()).ToNot(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+				}
+			})
+			It("should clean only the stale dependencies", func() {
+				By("Constructing the dependencies object")
+				deps, err := getDependencies(ctx, testClient, dpuDeployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Updating the dependencies")
+				Expect(updateDependencies(ctx, testClient, dpuDeployment, deps)).To(Succeed())
+
+				By("Checking the current dependencies after update")
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
+				} {
+					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					Expect(obj.GetFinalizers()).To(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).To(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+				}
+
+				By("Checking the rest of the objects after update")
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(extraBFB),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(extraDPUFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(extraDPUServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(extraDPUServiceTemplate),
+				} {
+					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					Expect(obj.GetFinalizers()).ToNot(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+				}
+				By("Updating the DPUDeployment deps")
+				svc := dpuservicev1.DPUDeploymentServiceConfiguration{
+					ServiceTemplate:      extraDPUServiceTemplate.Name,
+					ServiceConfiguration: extraDPUServiceConfiguration.Name,
+				}
+				dpuDeployment.Spec.Services["someservice"] = svc
+				dpuDeployment.Spec.DPUs.BFB = extraBFB.Name
+				dpuDeployment.Spec.DPUs.Flavor = extraDPUFlavor.Name
+
+				By("Constructing the dependencies object")
+				deps, err = getDependencies(ctx, testClient, dpuDeployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Updating the dependencies")
+				Expect(updateDependencies(ctx, testClient, dpuDeployment, deps)).To(Succeed())
+
+				By("Checking the current dependencies after update")
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(extraBFB),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(extraDPUFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(extraDPUServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(extraDPUServiceTemplate),
+				} {
+					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					Expect(obj.GetFinalizers()).To(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).To(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+				}
+
+				By("Checking the rest of the objects after update")
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
+				} {
+					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					Expect(obj.GetFinalizers()).ToNot(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+				}
+			})
+			It("should be able to mark and clean stale dependencies that other controller have applied finalizers and labels to", func() {
+				By("Service side applying the dependencies with finalizers and labels")
+				for obj, gvk := range objGVK {
+					obj.SetFinalizers([]string{"test.io/some-finalizer"})
+					obj.SetLabels(map[string]string{"some": "label"})
+					obj.GetObjectKind().SetGroupVersionKind(gvk)
+					obj.SetManagedFields(nil)
+					Expect(testClient.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+				}
+
+				By("Constructing the dependencies object")
+				deps, err := getDependencies(ctx, testClient, dpuDeployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Updating the dependencies")
+				Expect(updateDependencies(ctx, testClient, dpuDeployment, deps)).To(Succeed())
+
+				By("Checking the current dependencies after update")
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
+				} {
+					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					Expect(obj.GetFinalizers()).To(ContainElements(dpuservicev1.DPUDeploymentFinalizer, "test.io/some-finalizer"), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).To(And(
+						HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name),
+						HaveKeyWithValue("some", "label"),
+					), fmt.Sprintf("%T", obj))
+				}
+
+				By("Checking the rest of the objects after update")
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(extraBFB),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(extraDPUFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(extraDPUServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(extraDPUServiceTemplate),
+				} {
+					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					Expect(obj.GetFinalizers()).ToNot(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
+					Expect(obj.GetFinalizers()).To(ContainElement("test.io/some-finalizer"), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).To(HaveKeyWithValue("some", "label"), fmt.Sprintf("%T", obj))
+				}
+
+				By("Service side applying the dependencies again with finalizers and labels")
+				for obj, gvk := range objGVK {
+					Expect(testClient.Get(ctx, client.ObjectKeyFromObject(obj), obj)).To(Succeed())
+					controllerutil.AddFinalizer(obj, "test.io/some-finalizer")
+					labels := obj.GetLabels()
+					labels["some"] = "label"
+					obj.SetLabels(labels)
+					obj.GetObjectKind().SetGroupVersionKind(gvk)
+					obj.SetManagedFields(nil)
+					Expect(testClient.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+				}
+
+				By("Updating the DPUDeployment deps")
+				svc := dpuservicev1.DPUDeploymentServiceConfiguration{
+					ServiceTemplate:      extraDPUServiceTemplate.Name,
+					ServiceConfiguration: extraDPUServiceConfiguration.Name,
+				}
+				dpuDeployment.Spec.Services["someservice"] = svc
+				dpuDeployment.Spec.DPUs.BFB = extraBFB.Name
+				dpuDeployment.Spec.DPUs.Flavor = extraDPUFlavor.Name
+
+				By("Constructing the dependencies object")
+				deps, err = getDependencies(ctx, testClient, dpuDeployment)
+				Expect(err).ToNot(HaveOccurred())
+
+				By("Updating the dependencies")
+				Expect(updateDependencies(ctx, testClient, dpuDeployment, deps)).To(Succeed())
+
+				By("Checking the current dependencies after update")
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(extraBFB),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(extraDPUFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(extraDPUServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(extraDPUServiceTemplate),
+				} {
+					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					Expect(obj.GetFinalizers()).To(ContainElements(dpuservicev1.DPUDeploymentFinalizer, "test.io/some-finalizer"), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).To(And(
+						HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name),
+						HaveKeyWithValue("some", "label"),
+					), fmt.Sprintf("%T", obj))
+				}
+
+				By("Checking the rest of the objects after update")
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
+				} {
+					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					Expect(obj.GetFinalizers()).ToNot(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
+					Expect(obj.GetFinalizers()).To(ContainElement("test.io/some-finalizer"), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).To(HaveKeyWithValue("some", "label"), fmt.Sprintf("%T", obj))
+				}
 			})
 		})
 		Context("When checking reconcileDPUSets()", func() {

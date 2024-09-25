@@ -55,14 +55,16 @@ const (
 
 	// ParentDPUDeploymentNameLabel contains the name of the DPUDeployment object that owns the resource
 	ParentDPUDeploymentNameLabel = "dpf.nvidia.com/dpudeployment-name"
+	// DependentDPUDeploymentNameLabel contains the name of the DPUDeployment object that relies on this resource
+	DependentDPUDeploymentNameLabel = "dpf.nvidia.com/consumed-by-dpudeployment-name"
 )
 
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpudeployments,verbs=get;list;watch;update;patch
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpudeployments/finalizers,verbs=update
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpudeployments/status,verbs=get;update;patch
-
-//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=bfbs;dpuflavors,verbs=get;list;watch
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceconfigurations;dpuservicetemplates,verbs=get;list;watch
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=bfbs;dpuflavors,verbs=get;list;watch;update;patch
+//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=bfbs/finalizers;dpuflavors/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceconfigurations;dpuservicetemplates,verbs=get;list;watch;update;patch
 
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets,verbs=get;list;watch;create;update;patch;delete;deletecollection
 //+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuservicechains,verbs=get;list;watch;create;update;patch;delete;deletecollection
@@ -168,7 +170,7 @@ func (r *DPUDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 //
 //nolint:unparam
 func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *dpuservicev1.DPUDeployment) (ctrl.Result, error) {
-	deps, err := getDependencies(ctx, r.Client, dpuDeployment)
+	deps, err := prepareDependencies(ctx, r.Client, dpuDeployment)
 	if err != nil {
 		conditions.AddFalse(
 			dpuDeployment,
@@ -176,7 +178,7 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 			conditions.ReasonPending,
 			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
 		)
-		return ctrl.Result{}, fmt.Errorf("error while getting the DPUDeployment dependencies: %w", err)
+		return ctrl.Result{}, fmt.Errorf("error while preparing the DPUDeployment dependencies: %w", err)
 	}
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionPreReqsReady)
 
@@ -228,6 +230,169 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServiceChainsReconciled)
 
 	return ctrl.Result{}, nil
+}
+
+// prepareDependencies prepares the DPUDeployment dependencies and returns them for the rest of the reconciliation loop
+// to take effect
+func prepareDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment) (*dpuDeploymentDependencies, error) {
+	deps, err := getDependencies(ctx, c, dpuDeployment)
+	if err != nil {
+		return nil, fmt.Errorf("error while getting the DPUDeployment dependencies: %w", err)
+	}
+
+	if err := updateDependencies(ctx, c, dpuDeployment, deps); err != nil {
+		return nil, fmt.Errorf("error while marking DPUDeployment dependencies: %w", err)
+	}
+
+	return deps, nil
+}
+
+// updateDependencies marks the dependencies with a label and a finalizer to ensure that they are not deleted until the
+// DPUDeployment is deleted. It also takes care of cleaning up stale dependencies so that they can be removed.
+func updateDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, deps *dpuDeploymentDependencies) error {
+	if err := markAllCurrentDependencies(ctx, c, dpuDeployment, deps); err != nil {
+		return fmt.Errorf("error while marking all current DPUDeployment dependencies: %w", err)
+	}
+
+	if err := cleanAllStaleDependencies(ctx, c, dpuDeployment, deps); err != nil {
+		return fmt.Errorf("error while cleaning up identifiers from all stale DPUDeployment dependencies: %w", err)
+	}
+
+	return nil
+}
+
+// markAllCurrentDependencies marks all the current dependencies with the correct identifiers
+func markAllCurrentDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, deps *dpuDeploymentDependencies) error {
+	patcher := patch.NewSerialPatcher(deps.BFB, c)
+	markDependency(deps.BFB, dpuDeployment)
+
+	if err := patcher.Patch(ctx, deps.BFB, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
+		return fmt.Errorf("error while patching %s %s: %w", deps.BFB.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(deps.BFB), err)
+	}
+
+	patcher = patch.NewSerialPatcher(deps.DPUFlavor, c)
+	markDependency(deps.DPUFlavor, dpuDeployment)
+	if err := patcher.Patch(ctx, deps.DPUFlavor, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
+		return fmt.Errorf("error while patching %s %s: %w", deps.DPUFlavor.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(deps.DPUFlavor), err)
+	}
+
+	for _, serviceConfig := range deps.DPUServiceConfigurations {
+		patcher = patch.NewSerialPatcher(serviceConfig, c)
+		markDependency(serviceConfig, dpuDeployment)
+
+		if err := patcher.Patch(ctx, serviceConfig, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
+			return fmt.Errorf("error while patching %s %s: %w", serviceConfig.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(serviceConfig), err)
+		}
+	}
+	for _, serviceTemplate := range deps.DPUServiceTemplates {
+		patcher = patch.NewSerialPatcher(serviceTemplate, c)
+		markDependency(serviceTemplate, dpuDeployment)
+
+		if err := patcher.Patch(ctx, serviceTemplate, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
+			return fmt.Errorf("error while patching %s %s: %w", serviceTemplate.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(serviceTemplate), err)
+		}
+	}
+	return nil
+}
+
+// cleanAllStaleDependencies cleans all the identifiers from the stale DPUDeployment dependencies
+func cleanAllStaleDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, deps *dpuDeploymentDependencies) error {
+	for _, obj := range []client.ObjectList{
+		&dpuservicev1.DPUServiceConfigurationList{},
+		&dpuservicev1.DPUServiceTemplateList{},
+		&provisioningv1.BfbList{},
+		&provisioningv1.DPUFlavorList{},
+	} {
+		if err := c.List(ctx,
+			obj,
+			client.InNamespace(dpuDeployment.Namespace),
+			client.MatchingLabels{
+				DependentDPUDeploymentNameLabel: dpuDeployment.Name,
+			},
+		); err != nil {
+			return fmt.Errorf("error while listing %T: %w", obj, err)
+		}
+		switch t := obj.(type) {
+		case *dpuservicev1.DPUServiceConfigurationList:
+			objs := obj.(*dpuservicev1.DPUServiceConfigurationList).Items
+			for _, dpuServiceConfiguration := range objs {
+				if currentDPUServiceConfigurationDependency, ok := deps.DPUServiceConfigurations[dpuServiceConfiguration.Spec.Service]; ok {
+					if currentDPUServiceConfigurationDependency.Name == dpuServiceConfiguration.Name {
+						continue
+					}
+				}
+				patcher := patch.NewSerialPatcher(&dpuServiceConfiguration, c)
+				unmarkDependency(&dpuServiceConfiguration)
+
+				if err := patcher.Patch(ctx, &dpuServiceConfiguration, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
+					return fmt.Errorf("error while patching %s %s: %w", dpuServiceConfiguration.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuServiceConfiguration), err)
+				}
+			}
+		case *dpuservicev1.DPUServiceTemplateList:
+			objs := obj.(*dpuservicev1.DPUServiceTemplateList).Items
+			for _, dpuServiceTemplate := range objs {
+				if currentDPUServiceTemplateDependency, ok := deps.DPUServiceTemplates[dpuServiceTemplate.Spec.Service]; ok {
+					if currentDPUServiceTemplateDependency.Name == dpuServiceTemplate.Name {
+						continue
+					}
+				}
+				patcher := patch.NewSerialPatcher(&dpuServiceTemplate, c)
+				unmarkDependency(&dpuServiceTemplate)
+
+				if err := patcher.Patch(ctx, &dpuServiceTemplate, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
+					return fmt.Errorf("error while patching %s %s: %w", dpuServiceTemplate.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuServiceTemplate), err)
+				}
+			}
+		case *provisioningv1.BfbList:
+			objs := obj.(*provisioningv1.BfbList).Items
+			for _, bfb := range objs {
+				if bfb.Name == deps.BFB.Name {
+					continue
+				}
+				patcher := patch.NewSerialPatcher(&bfb, c)
+				unmarkDependency(&bfb)
+
+				if err := patcher.Patch(ctx, &bfb, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
+					return fmt.Errorf("error while patching %s %s: %w", bfb.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&bfb), err)
+				}
+			}
+		case *provisioningv1.DPUFlavorList:
+			objs := obj.(*provisioningv1.DPUFlavorList).Items
+			for _, dpuFlavor := range objs {
+				if dpuFlavor.Name == deps.DPUFlavor.Name {
+					continue
+				}
+				patcher := patch.NewSerialPatcher(&dpuFlavor, c)
+				unmarkDependency(&dpuFlavor)
+
+				if err := patcher.Patch(ctx, &dpuFlavor, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
+					return fmt.Errorf("error while patching %s %s: %w", dpuFlavor.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuFlavor), err)
+				}
+			}
+		default:
+			panic(fmt.Sprintf("type %v not handled", t))
+		}
+	}
+	return nil
+}
+
+// markDependency marks the object as a dependency to the given DPUDeployment
+func markDependency(o client.Object, dpuDeployment *dpuservicev1.DPUDeployment) {
+	controllerutil.AddFinalizer(o, dpuservicev1.DPUDeploymentFinalizer)
+	labels := o.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+	labels[DependentDPUDeploymentNameLabel] = dpuDeployment.Name
+	o.SetLabels(labels)
+}
+
+// unmarkDependency removes the identifiers for a dependency that is no longer referenced in the DPUDeployment
+func unmarkDependency(o client.Object) {
+	controllerutil.RemoveFinalizer(o, dpuservicev1.DPUDeploymentFinalizer)
+	labels := o.GetLabels()
+	delete(labels, DependentDPUDeploymentNameLabel)
+	o.SetLabels(labels)
 }
 
 // verifyResourceFitting verifies that the user provided resources for DPUServices can fit the resources defined in the
@@ -671,9 +836,78 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 		return ctrl.Result{RequeueAfter: dpuDeploymentReconcileDeleteRequeueDuration}, nil
 	}
 
+	if err := releaseAllDependencies(ctx, r.Client, dpuDeployment); err != nil {
+		return ctrl.Result{}, fmt.Errorf("error while releasing dependencies: %w", err)
+	}
+
 	log.Info("Removing finalizer")
 	controllerutil.RemoveFinalizer(dpuDeployment, dpuservicev1.DPUDeploymentFinalizer)
 	return ctrl.Result{}, nil
+}
+
+// releaseAllDependencies unmarks all the dependencies so that they can be deleted if needed
+func releaseAllDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment) error {
+	for _, obj := range []client.ObjectList{
+		&dpuservicev1.DPUServiceConfigurationList{},
+		&dpuservicev1.DPUServiceTemplateList{},
+		&provisioningv1.BfbList{},
+		&provisioningv1.DPUFlavorList{},
+	} {
+		if err := c.List(ctx,
+			obj,
+			client.InNamespace(dpuDeployment.Namespace),
+			client.MatchingLabels{
+				DependentDPUDeploymentNameLabel: dpuDeployment.Name,
+			},
+		); err != nil {
+			return fmt.Errorf("error while listing %T: %w", obj, err)
+		}
+		switch t := obj.(type) {
+		case *dpuservicev1.DPUServiceConfigurationList:
+			objs := obj.(*dpuservicev1.DPUServiceConfigurationList).Items
+			for _, o := range objs {
+				patcher := patch.NewSerialPatcher(&o, c)
+				unmarkDependency(&o)
+
+				if err := patcher.Patch(ctx, &o, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
+					return fmt.Errorf("error while patching %s %s: %w", o.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&o), err)
+				}
+			}
+		case *dpuservicev1.DPUServiceTemplateList:
+			objs := obj.(*dpuservicev1.DPUServiceTemplateList).Items
+			for _, o := range objs {
+				patcher := patch.NewSerialPatcher(&o, c)
+				unmarkDependency(&o)
+
+				if err := patcher.Patch(ctx, &o, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
+					return fmt.Errorf("error while patching %s %s: %w", o.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&o), err)
+				}
+			}
+		case *provisioningv1.BfbList:
+			objs := obj.(*provisioningv1.BfbList).Items
+			for _, o := range objs {
+				patcher := patch.NewSerialPatcher(&o, c)
+				unmarkDependency(&o)
+
+				if err := patcher.Patch(ctx, &o, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
+					return fmt.Errorf("error while patching %s %s: %w", o.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&o), err)
+				}
+			}
+		case *provisioningv1.DPUFlavorList:
+			objs := obj.(*provisioningv1.DPUFlavorList).Items
+			for _, o := range objs {
+				patcher := patch.NewSerialPatcher(&o, c)
+				unmarkDependency(&o)
+
+				if err := patcher.Patch(ctx, &o, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
+					return fmt.Errorf("error while patching %s %s: %w", o.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&o), err)
+				}
+			}
+		default:
+			panic(fmt.Sprintf("type %v not handled", t))
+		}
+	}
+	return nil
 }
 
 // updateSummary updates the status field of the DPUDeployment
