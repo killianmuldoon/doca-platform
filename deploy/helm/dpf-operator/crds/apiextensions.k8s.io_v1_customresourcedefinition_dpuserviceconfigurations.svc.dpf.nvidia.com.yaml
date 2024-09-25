@@ -46,10 +46,11 @@ spec:
             description: DPUServiceConfigurationSpec defines the desired state of
               DPUServiceConfiguration
             properties:
-              service:
+              deploymentServiceName:
                 description: |-
-                  Service is the name of the DPU service this configuration refers to. It must match .spec.service of a
-                  DPUServiceTemplate object and one of the keys in .spec.services of a DPUDeployment object.
+                  DeploymentServiceName is the name of the DPU service this configuration refers to. It must match
+                  .spec.deploymentServiceName of a DPUServiceTemplate object and one of the keys in .spec.services of a
+                  DPUDeployment object.
                 type: string
               serviceConfiguration:
                 description: ServiceConfiguration contains fields that are configured
@@ -92,7 +93,7 @@ spec:
                     type: object
                 type: object
             required:
-            - service
+            - deploymentServiceName
             type: object
           status:
             description: DPUServiceConfigurationStatus defines the observed state

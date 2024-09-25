@@ -84,8 +84,8 @@ type DPUDeployment struct {
 type DPUDeploymentSpec struct {
 	// DPUs contains the DPU related configuration
 	DPUs DPUs `json:"dpus"`
-	// Services contains the Service related configuration. The key is the service ID and the value is its
-	// configuration. All underlying objects must specify the same service ID in order to be able to be consumed by the
+	// Services contains the Service related configuration. The key is the deploymentServiceName and the value is its
+	// configuration. All underlying objects must specify the same deploymentServiceName in order to be able to be consumed by the
 	// DPUDeployment.
 	Services map[string]DPUDeploymentServiceConfiguration `json:"services"`
 	// ServiceChains contains the configuration related to the DPUServiceChains that the DPUDeployment creates.

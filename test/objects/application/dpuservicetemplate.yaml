@@ -4,7 +4,7 @@ metadata:
   name: dpudeployment-example-servicetemplate
   namespace: dpf-operator-system
 spec:
-  service: "example"
+  deploymentServiceName: "example"
   helmChart:
     source:
       repoURL: https://github.com/argoproj/argocd-example-apps

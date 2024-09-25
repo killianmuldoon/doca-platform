@@ -316,7 +316,7 @@ func cleanAllStaleDependencies(ctx context.Context, c client.Client, dpuDeployme
 		case *dpuservicev1.DPUServiceConfigurationList:
 			objs := obj.(*dpuservicev1.DPUServiceConfigurationList).Items
 			for _, dpuServiceConfiguration := range objs {
-				if currentDPUServiceConfigurationDependency, ok := deps.DPUServiceConfigurations[dpuServiceConfiguration.Spec.Service]; ok {
+				if currentDPUServiceConfigurationDependency, ok := deps.DPUServiceConfigurations[dpuServiceConfiguration.Spec.DeploymentServiceName]; ok {
 					if currentDPUServiceConfigurationDependency.Name == dpuServiceConfiguration.Name {
 						continue
 					}
@@ -331,7 +331,7 @@ func cleanAllStaleDependencies(ctx context.Context, c client.Client, dpuDeployme
 		case *dpuservicev1.DPUServiceTemplateList:
 			objs := obj.(*dpuservicev1.DPUServiceTemplateList).Items
 			for _, dpuServiceTemplate := range objs {
-				if currentDPUServiceTemplateDependency, ok := deps.DPUServiceTemplates[dpuServiceTemplate.Spec.Service]; ok {
+				if currentDPUServiceTemplateDependency, ok := deps.DPUServiceTemplates[dpuServiceTemplate.Spec.DeploymentServiceName]; ok {
 					if currentDPUServiceTemplateDependency.Name == dpuServiceTemplate.Name {
 						continue
 					}
@@ -457,7 +457,7 @@ func getDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuser
 		if err := c.Get(ctx, key, serviceTemplate); err != nil {
 			return deps, fmt.Errorf("error while getting %s %s: %w", dpuservicev1.DPUServiceTemplateGroupVersionKind.String(), key.String(), err)
 		}
-		if serviceTemplate.Spec.Service != service {
+		if serviceTemplate.Spec.DeploymentServiceName != service {
 			return deps, fmt.Errorf("service in DPUServiceTemplate %s doesn't match requested service in DPUDeployment", key.String())
 		}
 		deps.DPUServiceTemplates[service] = serviceTemplate
@@ -467,7 +467,7 @@ func getDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuser
 		if err := c.Get(ctx, key, serviceConfiguration); err != nil {
 			return deps, fmt.Errorf("error while getting %s %s: %w", dpuservicev1.DPUServiceConfigurationGroupVersionKind.String(), key.String(), err)
 		}
-		if serviceConfiguration.Spec.Service != service {
+		if serviceConfiguration.Spec.DeploymentServiceName != service {
 			return deps, fmt.Errorf("service in DPUServiceConfiguration %s doesn't match requested service in DPUDeployment", key.String())
 		}
 		deps.DPUServiceConfigurations[service] = serviceConfiguration

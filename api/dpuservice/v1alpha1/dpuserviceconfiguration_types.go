@@ -47,10 +47,11 @@ type DPUServiceConfiguration struct {
 
 // DPUServiceConfigurationSpec defines the desired state of DPUServiceConfiguration
 type DPUServiceConfigurationSpec struct {
-	// Service is the name of the DPU service this configuration refers to. It must match .spec.service of a
-	// DPUServiceTemplate object and one of the keys in .spec.services of a DPUDeployment object.
+	// DeploymentServiceName is the name of the DPU service this configuration refers to. It must match
+	// .spec.deploymentServiceName of a DPUServiceTemplate object and one of the keys in .spec.services of a
+	// DPUDeployment object.
 	// +required
-	Service string `json:"service"`
+	DeploymentServiceName string `json:"deploymentServiceName"`
 	// ServiceConfiguration contains fields that are configured on the generated DPUService.
 	// +optional
 	ServiceConfiguration ServiceConfiguration `json:"serviceConfiguration,omitempty"`

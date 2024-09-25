@@ -262,7 +262,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
 
 				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
-				dpuServiceConfiguration.Spec.Service = "wrong-service"
+				dpuServiceConfiguration.Spec.DeploymentServiceName = "wrong-service"
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
@@ -290,7 +290,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
 				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
-				dpuServiceTemplate.Spec.Service = "wrong-service"
+				dpuServiceTemplate.Spec.DeploymentServiceName = "wrong-service"
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
@@ -903,7 +903,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				By("Creating the dependencies")
 				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
 				dpuServiceConfiguration.Name = "service-1"
-				dpuServiceConfiguration.Spec.Service = "service-1"
+				dpuServiceConfiguration.Spec.DeploymentServiceName = "service-1"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations = make(map[string]string)
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations["annkey1"] = "annval1"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = make(map[string]string)
@@ -915,7 +915,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				dpuServiceConfiguration = getMinimalDPUServiceConfiguration(testNS.Name)
 				dpuServiceConfiguration.Name = "service-2"
-				dpuServiceConfiguration.Spec.Service = "service-2"
+				dpuServiceConfiguration.Spec.DeploymentServiceName = "service-2"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations = make(map[string]string)
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations["annkey2"] = "annval2"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = make(map[string]string)
@@ -926,7 +926,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				dpuServiceConfiguration = getMinimalDPUServiceConfiguration(testNS.Name)
 				dpuServiceConfiguration.Name = "service-3"
-				dpuServiceConfiguration.Spec.Service = "service-3"
+				dpuServiceConfiguration.Spec.DeploymentServiceName = "service-3"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations = make(map[string]string)
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations["annkey3"] = "annval3"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = make(map[string]string)
@@ -936,21 +936,21 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
 				dpuServiceTemplate.Name = "service-1"
-				dpuServiceTemplate.Spec.Service = "service-1"
+				dpuServiceTemplate.Spec.DeploymentServiceName = "service-1"
 				dpuServiceTemplate.Spec.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key1":"someothervalue"}`)}
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
 				dpuServiceTemplate = getMinimalDPUServiceTemplate(testNS.Name)
 				dpuServiceTemplate.Name = "service-2"
-				dpuServiceTemplate.Spec.Service = "service-2"
+				dpuServiceTemplate.Spec.DeploymentServiceName = "service-2"
 				dpuServiceTemplate.Spec.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key3":"value3"}`)}
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
 				dpuServiceTemplate = getMinimalDPUServiceTemplate(testNS.Name)
 				dpuServiceTemplate.Name = "service-3"
-				dpuServiceTemplate.Spec.Service = "service-3"
+				dpuServiceTemplate.Spec.DeploymentServiceName = "service-3"
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
@@ -2011,7 +2011,7 @@ func getMinimalDPUServiceTemplate(namespace string) *dpuservicev1.DPUServiceTemp
 			Namespace: namespace,
 		},
 		Spec: dpuservicev1.DPUServiceTemplateSpec{
-			Service: "someservice",
+			DeploymentServiceName: "someservice",
 			HelmChart: dpuservicev1.HelmChart{
 				Source: dpuservicev1.ApplicationSource{
 					RepoURL: "oci://someurl/repo",
@@ -2031,7 +2031,7 @@ func getMinimalDPUServiceConfiguration(namespace string) *dpuservicev1.DPUServic
 			Namespace: namespace,
 		},
 		Spec: dpuservicev1.DPUServiceConfigurationSpec{
-			Service: "someservice",
+			DeploymentServiceName: "someservice",
 		},
 	}
 }
@@ -2066,25 +2066,25 @@ func cleanDPUDeploymentDerivatives(namespace string) {
 func createReconcileDPUServicesDependencies(namespace string) {
 	dpuServiceConfiguration := getMinimalDPUServiceConfiguration(namespace)
 	dpuServiceConfiguration.Name = "service-1"
-	dpuServiceConfiguration.Spec.Service = "service-1"
+	dpuServiceConfiguration.Spec.DeploymentServiceName = "service-1"
 	Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 	DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
 	dpuServiceConfiguration = getMinimalDPUServiceConfiguration(namespace)
 	dpuServiceConfiguration.Name = "service-2"
-	dpuServiceConfiguration.Spec.Service = "service-2"
+	dpuServiceConfiguration.Spec.DeploymentServiceName = "service-2"
 	Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 	DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
 	dpuServiceTemplate := getMinimalDPUServiceTemplate(namespace)
 	dpuServiceTemplate.Name = "service-1"
-	dpuServiceTemplate.Spec.Service = "service-1"
+	dpuServiceTemplate.Spec.DeploymentServiceName = "service-1"
 	Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 	DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
 	dpuServiceTemplate = getMinimalDPUServiceTemplate(namespace)
 	dpuServiceTemplate.Name = "service-2"
-	dpuServiceTemplate.Spec.Service = "service-2"
+	dpuServiceTemplate.Spec.DeploymentServiceName = "service-2"
 	Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 	DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 }

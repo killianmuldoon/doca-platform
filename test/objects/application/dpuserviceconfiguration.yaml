@@ -4,7 +4,7 @@ metadata:
   name: dpudeployment-example-serviceconfiguration
   namespace: dpf-operator-system
 spec:
-  service: "example"
+  deploymentServiceName: "example"
   serviceConfiguration:
     serviceDaemonSet:
       labels:

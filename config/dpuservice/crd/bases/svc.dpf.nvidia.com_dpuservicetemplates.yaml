@@ -43,6 +43,12 @@ spec:
           spec:
             description: DPUServiceTemplateSpec defines the desired state of DPUServiceTemplate
             properties:
+              deploymentServiceName:
+                description: |-
+                  DeploymentServiceName is the name of the DPU service this configuration refers to. It must match
+                  .spec.deploymentServiceName of a DPUServiceConfiguration object and one of the keys in .spec.services of a
+                  DPUDeployment object.
+                type: string
               helmChart:
                 description: |-
                   HelmChart reflects the Helm related configuration. The user is supposed to configure the values that are static
@@ -97,14 +103,9 @@ spec:
                 description: ResourceRequirements contains the overall resources required
                   by this particular service to run on a single node
                 type: object
-              service:
-                description: |-
-                  Service is the name of the DPU service this configuration refers to. It must match .spec.service of a
-                  DPUServiceConfiguration object and one of the keys in .spec.services of a DPUDeployment object.
-                type: string
             required:
+            - deploymentServiceName
             - helmChart
-            - service
             type: object
           status:
             description: DPUServiceTemplateStatus defines the observed state of DPUServiceTemplate

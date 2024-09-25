@@ -46,10 +46,11 @@ type DPUServiceTemplate struct {
 
 // DPUServiceTemplateSpec defines the desired state of DPUServiceTemplate
 type DPUServiceTemplateSpec struct {
-	// Service is the name of the DPU service this configuration refers to. It must match .spec.service of a
-	// DPUServiceConfiguration object and one of the keys in .spec.services of a DPUDeployment object.
+	// DeploymentServiceName is the name of the DPU service this configuration refers to. It must match
+	// .spec.deploymentServiceName of a DPUServiceConfiguration object and one of the keys in .spec.services of a
+	// DPUDeployment object.
 	// +required
-	Service string `json:"service"`
+	DeploymentServiceName string `json:"deploymentServiceName"`
 	// HelmChart reflects the Helm related configuration. The user is supposed to configure the values that are static
 	// across any DPUServiceConfiguration used with this DPUServiceTemplate in a DPUDeployment. These values act as a
 	// baseline and are merged with values specified in the DPUServiceConfiguration. In case of conflict, the
