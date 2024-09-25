@@ -292,12 +292,18 @@ func getDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuser
 		if err := c.Get(ctx, key, serviceTemplate); err != nil {
 			return deps, fmt.Errorf("error while getting %s %s: %w", dpuservicev1.DPUServiceTemplateGroupVersionKind.String(), key.String(), err)
 		}
+		if serviceTemplate.Spec.Service != service {
+			return deps, fmt.Errorf("service in DPUServiceTemplate %s doesn't match requested service in DPUDeployment", key.String())
+		}
 		deps.DPUServiceTemplates[service] = serviceTemplate
 
 		serviceConfiguration := &dpuservicev1.DPUServiceConfiguration{}
 		key = client.ObjectKey{Namespace: dpuDeployment.Namespace, Name: config.ServiceConfiguration}
 		if err := c.Get(ctx, key, serviceConfiguration); err != nil {
 			return deps, fmt.Errorf("error while getting %s %s: %w", dpuservicev1.DPUServiceConfigurationGroupVersionKind.String(), key.String(), err)
+		}
+		if serviceConfiguration.Spec.Service != service {
+			return deps, fmt.Errorf("service in DPUServiceConfiguration %s doesn't match requested service in DPUDeployment", key.String())
 		}
 		deps.DPUServiceConfigurations[service] = serviceConfiguration
 	}

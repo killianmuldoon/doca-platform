@@ -219,6 +219,54 @@ var _ = Describe("DPUDeployment Controller", func() {
 				_, err := getDependencies(ctx, testClient, dpuDeployment)
 				Expect(err).To(HaveOccurred())
 			})
+			It("should error if a DPUServiceConfiguration doesn't match DPUDeployment service", func() {
+				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+				By("Creating the dependencies")
+				bfb := getMinimalBFB(testNS.Name)
+				Expect(testClient.Create(ctx, bfb)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
+
+				dpuFlavor := getMinimalDPUFlavor(testNS.Name)
+				Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
+
+				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
+				dpuServiceConfiguration.Spec.Service = "wrong-service"
+				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+				By("Checking the output of the function")
+				_, err := getDependencies(ctx, testClient, dpuDeployment)
+				Expect(err).To(HaveOccurred())
+			})
+			It("should error if a DPUServiceTemplate doesn't match DPUDeployment service", func() {
+				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+				By("Creating the dependencies")
+				bfb := getMinimalBFB(testNS.Name)
+				Expect(testClient.Create(ctx, bfb)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
+
+				dpuFlavor := getMinimalDPUFlavor(testNS.Name)
+				Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
+
+				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
+				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+				dpuServiceTemplate.Spec.Service = "wrong-service"
+				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+				By("Checking the output of the function")
+				_, err := getDependencies(ctx, testClient, dpuDeployment)
+				Expect(err).To(HaveOccurred())
+			})
 		})
 		Context("When checking reconcileDPUSets()", func() {
 			var initialDPUSetSettings []dpuservicev1.DPUSet
