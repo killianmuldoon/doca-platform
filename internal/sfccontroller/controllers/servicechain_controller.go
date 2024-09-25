@@ -50,12 +50,17 @@ const (
 	ServiceChainNameLabel      = "sfc.dpf.nvidia.com/ServiceChain-name"
 	ServiceChainNamespaceLabel = "sfc.dpf.nvidia.com/ServiceChain-namespace"
 	ServiceChainControllerName = "service-chain-controller"
+	RequeueIntervalFlows       = 5 * time.Second
 
 	podNodeNameKey = "spec.nodeName"
 )
 
+func requeueFlows() (ctrl.Result, error) {
+	return ctrl.Result{RequeueAfter: RequeueIntervalFlows}, nil
+}
+
 // Hashing function, will be used when adding and removing OpenFlow flows
-// This hash will take in the service chain name and return the coresponding hash
+// This hash will take in the service chain name and return the corresponding hash
 func hash(s string) uint64 {
 	h := fnv.New64a()
 	h.Write([]byte(s))
@@ -341,7 +346,7 @@ func (r *ServiceChainReconciler) getPortNameForServiceInterface(ctx context.Cont
 
 func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.Info("Reconciling")
+	log.Info("reconciling")
 	sc := &sfcv1.ServiceChain{}
 	if err := r.Client.Get(ctx, req.NamespacedName, sc); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -350,50 +355,50 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			flowErrors := delFlows(fmt.Sprintf("cookie=%d/-1", hash(req.NamespacedName.String())))
 			if flowErrors != nil {
 				log.Error(flowErrors, "failed to delete flows")
-				return ctrl.Result{}, flowErrors
+				return requeueFlows()
 			}
-
-			return ctrl.Result{}, nil
+			return requeueFlows()
 		}
-		return ctrl.Result{}, err
+		log.Error(err, "failed to get ServiceChain")
+		return requeueFlows()
 	}
 
 	if sc.Spec.Node == nil {
 		log.Info("sc.Spec.Node: not set, skip the object")
-		return ctrl.Result{}, nil
+		return requeueFlows()
 	}
 	if *sc.Spec.Node != r.NodeName {
 		// this object was not intended for this nodes
 		// skip
 		log.Info(fmt.Sprintf("sc.Spec.Node: %s != node: %s", *sc.Spec.Node, r.NodeName))
-		return ctrl.Result{}, nil
+		return requeueFlows()
 	}
 
 	// Construct an array of arrays of ports in order to traverse it
 	// and construct the flows
 	var err error
 	var ports [][]string
-	for sw_pos, sw := range sc.Spec.Switches {
+	for swPos, sw := range sc.Spec.Switches {
 		ports = append(ports, [][]string{{}}...)
 		for _, port := range sw.Ports {
 			if port.Service != nil {
 				servicePort, err := r.getPortNameForService(ctx, sc.Namespace, port.Service)
 				if err != nil {
 					log.Error(err, "failed to get port")
-					return ctrl.Result{}, err
+					return requeueFlows()
 				}
 				if servicePort != "" {
-					ports[sw_pos] = append(ports[sw_pos], servicePort)
+					ports[swPos] = append(ports[swPos], servicePort)
 				}
 			}
 			if port.ServiceInterface != nil {
 				intfName, err := r.getPortNameForServiceInterface(ctx, sc.Namespace, port.ServiceInterface)
 				if err != nil {
 					log.Error(err, "failed to get interface")
-					return ctrl.Result{}, err
+					return requeueFlows()
 				}
 				if intfName != "" {
-					ports[sw_pos] = append(ports[sw_pos], intfName)
+					ports[swPos] = append(ports[swPos], intfName)
 				}
 			}
 		}
@@ -461,13 +466,10 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		err = addFlows(ctx, flowsPerArray)
 		if err != nil {
 			log.Error(err, "failed to add flows")
-			return ctrl.Result{}, err
+			return requeueFlows()
 		}
 	}
-
-	// Always requeue after 5 seconds in order to do another sweep over the rules
-	// This ensures the flow addition / removal in case ovs-vswitchd stops / crashes
-	return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+	return requeueFlows()
 }
 
 // SetupWithManager sets up the controller with the Manager.

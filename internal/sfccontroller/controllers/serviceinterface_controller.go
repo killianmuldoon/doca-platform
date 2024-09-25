@@ -21,6 +21,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"time"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 
@@ -37,7 +38,17 @@ const (
 	ServiceInterfaceNamespaceLabel = "sfc.dpf.nvidia.com/ServiceInterface-namespace"
 	ServiceInterfaceControllerName = "service-interface-controller"
 	ServiceInterfaceFinalizer      = "sfc.dpf.nvidia.com/ServiceInterface-finalizer"
+	RequeueIntervalSuccess         = 20 * time.Second
+	RequeueIntervalError           = 5 * time.Second
 )
+
+func requeueSuccess() (ctrl.Result, error) {
+	return ctrl.Result{RequeueAfter: RequeueIntervalSuccess}, nil
+}
+
+func requeueError() (ctrl.Result, error) {
+	return ctrl.Result{RequeueAfter: RequeueIntervalError}, nil
+}
 
 // ServiceInterfaceReconciler reconciles a ServiceInterface object
 type ServiceInterfaceReconciler struct {
@@ -189,22 +200,21 @@ func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *sfcv1.Servic
 // move the current state of the cluster closer to the desired state.
 func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
-	log.Info("Reconciling")
+	log.Info("reconciling")
 	serviceInterface := &sfcv1.ServiceInterface{}
-
 	if err := r.Client.Get(ctx, req.NamespacedName, serviceInterface); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
 			log.Info("Object not found")
-			return ctrl.Result{}, nil
+			return requeueSuccess()
 		}
-
-		return ctrl.Result{}, err
+		log.Error(err, "Failed to get ServiceInterface")
+		return requeueError()
 	}
 
 	if serviceInterface.Spec.Node == nil {
 		log.Info("si.Spec.Node: not set, skip the object")
-		return ctrl.Result{}, nil
+		return requeueSuccess()
 	}
 
 	if *serviceInterface.Spec.Node != r.NodeName {
@@ -218,23 +228,23 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		err := DeleteInterfacesFromOvs(ctx, serviceInterface)
 		if err != nil {
-			log.Info("Failed to delete DeleteInterfacesFromOvs")
-			return ctrl.Result{}, err
+			log.Error(err, "Failed to delete DeleteInterfacesFromOvs")
+			return requeueError()
 		}
 
 		// If there are no associated applications remove the finalizer
 		log.Info("Removing finalizer")
 		controllerutil.RemoveFinalizer(serviceInterface, ServiceInterfaceFinalizer)
 		if err := r.Client.Update(ctx, serviceInterface); err != nil {
-			return ctrl.Result{}, err
+			return requeueError()
 		}
-		return ctrl.Result{}, nil
+		return requeueSuccess()
 	}
 
 	err := AddInterfacesToOvs(ctx, serviceInterface, req.NamespacedName.String())
 	if err != nil {
 		log.Info("Failed to add AddInterfacesToOvs")
-		return ctrl.Result{}, err
+		return requeueError()
 	}
 
 	// Add finalizer if not set.
@@ -243,14 +253,13 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		controllerutil.AddFinalizer(serviceInterface, ServiceInterfaceFinalizer)
 		err := r.Update(ctx, serviceInterface)
 		if err != nil {
-			log.Info("Failed to add finalizer")
-			return ctrl.Result{}, err
+			log.Error(err, "Failed to add finalizer")
+			return requeueError()
 		}
 		log.Info("Added finalizer")
-		return ctrl.Result{}, nil
+		return requeueSuccess()
 	}
-
-	return ctrl.Result{}, nil
+	return requeueSuccess()
 }
 
 // SetupWithManager sets up the controller with the Manager.
