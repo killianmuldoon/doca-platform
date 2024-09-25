@@ -25,8 +25,8 @@ type ClusterType string
 type ConditionType string
 
 const (
-	StaticCluster ClusterType = "Static"
-	NVidiaCluster ClusterType = "Nvidia"
+	StaticCluster ClusterType = "static"
+	NVidiaCluster ClusterType = "nvidia"
 )
 
 const (
@@ -34,6 +34,10 @@ const (
 	ConditionReady   ConditionType = "Ready"
 )
 
+// ClusterPhase describes current state of DPUCluster.
+// Only one of the following state may be specified.
+// Default is Pending.
+// +kubebuilder:validation:Enum="Pending";"Creating";"Ready";"NotReady";"Failed"
 type ClusterPhase string
 
 const (
@@ -54,39 +58,47 @@ const (
 
 // DPUClusterSpec defines the desired state of DPUCluster
 type DPUClusterSpec struct {
-	//+kubebuilder:validation:Pattern="nvidia|static|[^/]+/.*"
+	// Type of the cluster with few supported values
+	// static - existing cluster that is deployed by user. For DPUCluster of this type, the kubeconfig field must be set.
+	// nvidia - DPF managed cluster. The nvidia-cluster-manager will create a DPU cluster on behalf of this CR.
+	// $(others) - any string defined by ISVs, such type names must start with a prefix.
+	// +kubebuilder:validation:Pattern="nvidia|static|[^/]+/.*"
+	// +required
 	Type string `json:"type"`
 
-	//+kubebuilder:validation:XValidation:rule="self > 0 && self <= 1000",message="maxNode must be in range (0, 1000]"
 	// MaxNodes is the max amount of node in the cluster
-	MaxNodes int `json:"maxNodes"`
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=1000
+	// +kubebuilder:default=1000
+	// +optional
+	MaxNodes int `json:"maxNodes,omitempty"`
 
 	// Version is the K8s control-plane version of the cluster
 	Version string `json:"version"`
 
-	//+kubebuilder:validation:XValidation:rule="oldSelf==\"\"||self==oldSelf",message="kubeconfig is immutable"
-	//+optional
 	// Kubeconfig is the secret that contains the admin kubeconfig
-	Kubeconfig string `json:"kubeconfig"`
+	// +kubebuilder:validation:XValidation:rule="oldSelf==\"\"||self==oldSelf",message="kubeconfig is immutable"
+	// +optional
+	Kubeconfig string `json:"kubeconfig,omitempty"`
 
-	//+optional
 	// ClusterEndpoint contains configurations of the cluster entry point
+	// +optional
 	ClusterEndpoint *ClusterEndpointSpec `json:"clusterEndpoint,omitempty"`
 }
 
 // DPUClusterStatus defines the observed state of DPUCluster
 type DPUClusterStatus struct {
-	//+kubebuilder:validation:Enum=Pending;Creating;Ready;NotReady;Failed
-	//+kubebuilder:default="Pending"
+	// +kubebuilder:validation:Enum=Pending;Creating;Ready;NotReady;Failed
+	// +kubebuilder:default="Pending"
 	Phase ClusterPhase `json:"phase"`
 
-	//+optional
+	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
 }
 
 type ClusterEndpointSpec struct {
 	// Keepalived configures the keepalived that will be deployed for the cluster control-plane
-	//+optional
+	// +optional
 	Keepalived *KeepalivedSpec `json:"keepalived,omitempty"`
 }
 
@@ -95,7 +107,7 @@ type KeepalivedSpec struct {
 	VIP string `json:"vip"`
 
 	// NodeSelector specifies the nodes that keepalived instances should be deployed
-	//+optional
+	// +optional
 	NodeSelector map[string]string `json:"nodeSelector"`
 }
 
@@ -112,7 +124,10 @@ type DPUCluster struct {
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
 	//+required
-	Spec   DPUClusterSpec   `json:"spec,omitempty"`
+	Spec DPUClusterSpec `json:"spec,omitempty"`
+
+	// +kubebuilder:default={phase: Pending}
+	// +optional
 	Status DPUClusterStatus `json:"status,omitempty"`
 }
 

@@ -33,7 +33,7 @@ import (
 
 // These tests are written in BDD-style using Ginkgo framework. Refer to
 // http://onsi.github.io/ginkgo to learn more.
-var _ = Describe("DpuSet", func() {
+var _ = Describe("DpuCluster", func() {
 
 	const (
 		DefaultNS   = "dpf-provisioning-test"
@@ -45,21 +45,21 @@ var _ = Describe("DpuSet", func() {
 		testNode *corev1.Node
 	)
 
-	var getObjKey = func(obj *provisioningv1.DpuSet) types.NamespacedName {
+	var getObjKey = func(obj *provisioningv1.DPUCluster) types.NamespacedName {
 		return types.NamespacedName{
 			Name:      obj.Name,
 			Namespace: obj.Namespace,
 		}
 	}
 
-	var createObj = func(name string) *provisioningv1.DpuSet {
-		return &provisioningv1.DpuSet{
+	var createObj = func(name string) *provisioningv1.DPUCluster {
+		return &provisioningv1.DPUCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: testNS.Name,
 			},
-			Spec:   provisioningv1.DpuSetSpec{},
-			Status: provisioningv1.DpuSetStatus{},
+			Spec:   provisioningv1.DPUClusterSpec{},
+			Status: provisioningv1.DPUClusterStatus{},
 		}
 	}
 
@@ -91,68 +91,50 @@ var _ = Describe("DpuSet", func() {
 
 		It("create and destroy", func() {
 			By("creating the obj")
-			obj := createObj("obj-dpuset")
+			obj := createObj("obj-dpucluster")
+			obj.Spec.Type = "static"
+			obj.Spec.MaxNodes = 10
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &provisioningv1.DpuSet{}
+			obj_fetched := &provisioningv1.DPUCluster{}
 
 			By("checking the finalizer")
 			Eventually(func(g Gomega) []string {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Finalizers
-			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{provisioningv1.DpuSetFinalizer}))
+			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{provisioningv1.FinalizerInternalCleanUp}))
+			time.Sleep(10 * time.Second)
 		})
 
 		It("create from yaml", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
-kind: DpuSet
+kind: DPUCluster
 metadata:
-  name: dpuset-1
+  name: dpucluster-1
   namespace: default
 spec:
-  nodeSelector:
-    matchLabels:
-      feature.node.kubernetes.io/dpu-enabled: "true"
-  dpuSelector:
-      feature.node.kubernetes.io/dpu-0-psid: "MT_0000000375"
-      feature.node.kubernetes.io/dpu-0-pci-address: "0000-04-00"
-  strategy:
-    rollingUpdate:
-      maxUnavailable: 10%
-    type: RollingUpdate
-  dpuTemplate:
-    annotations:
-      nvidia.com/dpuOperator-override-powercycle-command: "cycle"
-    spec:
-      dpuFlavor: "hbn"
-      BFB:
-        bfb: "doca-24.04"
-      nodeEffect:
-        taint:
-          key: "dpu"
-          value: "provisioning"
-          effect: NoSchedule
-      k8s_cluster:
-        name: "tenant-00"
-        namespace: "tenant-00-ns"
-        node_labels:
-          "dpf.node.dpu/role": "worker"
+  maxNodes: 10
+  version: v1.31.0
+  type: static
+  clusterEndpoint:
+    keepalived:
+      vip: 10.10.10.10
 `)
-			obj := &provisioningv1.DpuSet{}
+			obj := &provisioningv1.DPUCluster{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &provisioningv1.DpuSet{}
+			obj_fetched := &provisioningv1.DPUCluster{}
 
 			By("checking the finalizer")
 			Eventually(func(g Gomega) []string {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Finalizers
-			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{provisioningv1.DpuSetFinalizer}))
+			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{provisioningv1.FinalizerInternalCleanUp}))
 		})
 	})
 })

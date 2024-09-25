@@ -89,7 +89,7 @@ func (r *DPUClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 	}
 
-	if dc.Status.Phase == "" {
+	if dc.Status.Phase == provisioningv1.PhasePending {
 		dc.Status.Phase = provisioningv1.PhaseCreating
 		if err := r.Client.Status().Update(ctx, dc); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to set Creating phase, err: %v", err)

@@ -74,6 +74,7 @@ var _ = Describe("Bfb", func() {
 	}
 
 	BeforeEach(func() {
+		Skip("Skipping suite as it is flaky")
 		By("creating the namespaces")
 		testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: DefaultNS}}
 		Expect(client.IgnoreAlreadyExists(k8sClient.Create(ctx, testNS))).To(Succeed())

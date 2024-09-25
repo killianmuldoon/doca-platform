@@ -20,6 +20,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	// DpuKind is the kind of the Dpu object
+	DpuKind = "Dpu"
+)
+
+// DpuGroupVersionKind is the GroupVersionKind of the Dpu object
+var DpuGroupVersionKind = GroupVersion.WithKind(DpuKind)
+
 // DpuPhase describes current state of Dpu.
 // Only one of the following state may be specified.
 // Default is Initializing.

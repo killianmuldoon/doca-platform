@@ -168,6 +168,32 @@ var _ = Describe("Dpu", func() {
 			Expect(obj_fetched.Spec.Cluster.Name).To(Equal(ref_value))
 		})
 
+		It("spec.k8s_cluster can be updated from unassigned state", func() {
+			new_value_name := `dummy_new_cluster_name`
+			new_value_namespace := `dummy_new_cluster_namespace`
+
+			obj := createObj("obj-dpu")
+			err := k8sClient.Create(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+			DeferCleanup(k8sClient.Delete, ctx, obj)
+
+			obj_fetched := &Dpu{}
+			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(obj_fetched.Spec.Cluster.Name).To(Equal(""))
+			Expect(obj_fetched.Spec.Cluster.NameSpace).To(Equal(""))
+
+			obj.Spec.Cluster.Name = new_value_name
+			obj.Spec.Cluster.NameSpace = new_value_namespace
+			err = k8sClient.Update(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+
+			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(obj_fetched.Spec.Cluster.Name).To(Equal(new_value_name))
+			Expect(obj_fetched.Spec.Cluster.NameSpace).To(Equal(new_value_namespace))
+		})
+
 		It("create from yaml", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
