@@ -74,23 +74,13 @@ help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 LOCALBIN ?= $(shell pwd)/bin
-$(LOCALBIN):
-	@mkdir -p $@
-
 CHARTSDIR ?= $(shell pwd)/hack/charts
-$(CHARTSDIR):
-	@mkdir -p $@
-
 DPUSERVICESDIR ?= $(shell pwd)/deploy/dpuservices
-$(DPUSERVICESDIR):
-	@mkdir -p $@
-
 REPOSDIR ?= $(shell pwd)/hack/repos
-$(REPOSDIR):
-	@mkdir -p $@
-
 HELMDIR ?= $(shell pwd)/deploy/helm
 
+$(LOCALBIN) $(CHARTSDIR) $(DPUSERVICESDIR) $(REPOSDIR):
+	@mkdir -p $@
 
 ## OVN Kubernetes Images
 # We build 2 images for OVN Kubernetes. One for the DPU enabled nodes and another for the non DPU enabled ones. The
@@ -166,6 +156,14 @@ $(OVNKUBERNETES_NON_DPU_DIR): | $(REPOSDIR)
 OVN_DIR=$(REPOSDIR)/ovn-$(OVN_REVISION)
 $(OVN_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR) $(OVN_REVISION)
+
+DOCA_SOSREPORT_REPO_URL=https://github.com/NVIDIA/doca-sosreport/archive/$(DOCA_SOSREPORT_REF).tar.gz
+DOCA_SOSREPORT_REF=6b4289b9f0d9f26af177b0d1c4c009ca74bb514a
+.PHONY: doca-sosreport
+doca-sosreport: | $(REPOSDIR)
+	curl -sL ${DOCA_SOSREPORT_REPO_URL} \
+	| tar -xz -C ${REPOSDIR} && \
+	cp -Rp ./hack/tools/dpf-tools/* $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF}/
 
 ##@ Development
 GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded release-defaults hbn-dpuservice dummydpuservice nvidia-cluster-manager static-cluster-manager
@@ -634,7 +632,7 @@ binary-ipallocator: ## Build the IP allocator binary.
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=operator-bundle hostnetwork dms
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn hbn-sidecar ovs-cni ipallocator
-MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system
+MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system dpf-tools
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
@@ -694,6 +692,9 @@ export HBN_SIDECAR_IMAGE ?= $(REGISTRY)/$(HBN_SIDECAR_IMAGE_NAME)
 DUMMYDPUSERVICE_IMAGE_NAME ?= dummydpuservice
 export DUMMYDPUSERVICE_IMAGE ?= $(REGISTRY)/$(DUMMYDPUSERVICE_IMAGE_NAME)
 
+DPF_TOOLS_BUILD_IMAGE_NAME ?= dpf-tools
+DPF_TOOLS_BUILD_IMAGE ?= $(REGISTRY)/$(DPF_TOOLS_BUILD_IMAGE_NAME)
+
 DPF_SYSTEM_ARCH ?= $(HOST_ARCH) $(DPU_ARCH)
 .PHONY: docker-build-dpf-system # Build a multi-arch image for DPF System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
 docker-build-dpf-system: $(addprefix docker-build-dpf-system-for-,$(DPF_SYSTEM_ARCH))
@@ -721,11 +722,24 @@ docker-push-dpf-system-for-%:
 	docker tag $(DPF_SYSTEM_IMAGE):$(TAG)-$* $(DPF_SYSTEM_IMAGE):$(TAG)
 	docker push $(DPF_SYSTEM_IMAGE):$(TAG)
 	# This must be called in a separate target to ensure the shell command is called in the correct order.
-	$(MAKE) docker-create-manifest
+	$(MAKE) docker-create-manifest-for-dpf-system
 
-docker-create-manifest:
+docker-create-manifest-for-dpf-system:
 	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
 	docker manifest create --amend $(DPF_SYSTEM_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(DPF_SYSTEM_IMAGE):$(TAG))
+
+
+# additional build args for the dpf-tools image.
+DPF_TOOLS_BUILD_ARGS ?=
+.PHONY: docker-build-dpf-tools
+docker-build-dpf-tools: $(addprefix docker-build-dpf-tools-for-,$(DPF_SYSTEM_ARCH))
+
+docker-build-dpf-tools-for-%: doca-sosreport
+	cd $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF} && \
+	docker buildx build \
+	--platform=linux/$* \
+	-t ${DPF_TOOLS_BUILD_IMAGE}:${TAG}-$* \
+	${DPF_TOOLS_BUILD_ARGS} .
 
 .PHONY: docker-build-sfc-controller
 docker-build-sfc-controller: docker-build-base-image-ovs ## Build docker images for the sfc-controller
@@ -992,6 +1006,21 @@ docker-push-hbn: ## Push the docker image for HBN
 .PHONY: docker-push-dummydpuservice
 docker-push-dummydpuservice: ## Push the docker image for dummydpuservice
 	docker push $(DUMMYDPUSERVICE_IMAGE):$(TAG)
+
+.PHONY: docker-push-dpf-tools # Push a multi-arch image for DPF tools using `docker manifest`. The variable DPF_SYSTEM_ARCH defines which architectures this target pushes for.
+docker-push-dpf-tools: $(addprefix docker-push-dpf-tools-for-,$(DPF_SYSTEM_ARCH))
+	docker manifest push --purge $(DPF_TOOLS_BUILD_IMAGE):$(TAG)
+
+docker-push-dpf-tools-for-%:
+	# Tag and push the arch-specific image with the single arch-agnostic tag.
+	docker tag $(DPF_TOOLS_BUILD_IMAGE):$(TAG)-$* $(DPF_TOOLS_BUILD_IMAGE):$(TAG)
+	docker push $(DPF_TOOLS_BUILD_IMAGE):$(TAG)
+	# This must be called in a separate target to ensure the shell command is called in the correct order.
+	$(MAKE) docker-create-manifest-for-dpf-tools
+
+docker-create-manifest-for-dpf-tools:
+	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
+	docker manifest create --amend $(DPF_TOOLS_BUILD_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(DPF_TOOLS_BUILD_IMAGE):$(TAG))
 
 # helm charts
 
