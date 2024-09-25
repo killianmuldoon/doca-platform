@@ -42,8 +42,8 @@ bridge_check () {
         fi
     done
 
-    IP_COUNT=$(ip addr show $bridge_name | grep 'inet ' | wc -l)
     while true; do
+        IP_COUNT=$(ip addr show $bridge_name | grep 'inet ' | wc -l)
         if [ $IP_COUNT -ge 1 ]; then
             break
         else
@@ -138,5 +138,6 @@ while true; do
     iptables -I FORWARD -i ${bridge_name} -j ACCEPT
     iptables -I FORWARD -o ${bridge_name} -j ACCEPT
 
+    touch /tmp/hostnetwork_succeed
     sleep 5
 done

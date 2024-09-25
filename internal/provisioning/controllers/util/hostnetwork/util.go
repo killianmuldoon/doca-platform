@@ -114,6 +114,17 @@ func CreateHostNetworkSetupPod(ctx context.Context, client client.Client, dpu *p
 					Args: []string{
 						"hostnetwork.sh",
 					},
+					ReadinessProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							Exec: &corev1.ExecAction{
+								Command: []string{
+									"ls",
+									"/tmp/hostnetwork_succeed",
+								},
+							},
+						},
+						PeriodSeconds: 5,
+					},
 				},
 			},
 			ImagePullSecrets: option.ImagePullSecrets,
