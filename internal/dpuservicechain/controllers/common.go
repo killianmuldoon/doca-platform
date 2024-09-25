@@ -48,7 +48,7 @@ type objectsInDPUClustersReconciler interface {
 	// objects in the DPU cluster related to the given parentObject. The implementation should get the created objects
 	// in the DPU cluster.
 	getObjectsInDPUCluster(ctx context.Context, dpuClusterClient client.Client, parentObject client.Object) ([]unstructured.Unstructured, error)
-	// createOrUpdateChild is the method called by the reconcileObjectsInDPUClusters function which applies changes to
+	// createOrUpdateObjectsInDPUCluster is the method called by the reconcileObjectsInDPUClusters function which applies changes to
 	// the DPU clusters based on the given parentObject. The implementation should create and update objects in the DPU
 	// cluster.
 	createOrUpdateObjectsInDPUCluster(ctx context.Context, dpuClusterClient client.Client, parentObject client.Object) error
@@ -91,15 +91,15 @@ func reconcileObjectDeletionInDPUClusters(ctx context.Context,
 		return err
 	}
 	var existingObjs int
-	for _, c := range clusters {
-		cl, err := c.NewClient(ctx, k8sClient)
+	for _, cluster := range clusters {
+		dpuClusterClient, err := cluster.NewClient(ctx, k8sClient)
 		if err != nil {
 			return err
 		}
-		if err := r.deleteObjectsInDPUCluster(ctx, cl, dpuServiceObject); err != nil && !apierrors.IsNotFound(err) {
+		if err := r.deleteObjectsInDPUCluster(ctx, dpuClusterClient, dpuServiceObject); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
-		objs, err := r.getObjectsInDPUCluster(ctx, cl, dpuServiceObject)
+		objs, err := r.getObjectsInDPUCluster(ctx, dpuClusterClient, dpuServiceObject)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
@@ -131,15 +131,15 @@ func reconcileObjectsInDPUClusters(ctx context.Context,
 		return err
 	}
 
-	for _, c := range clusters {
-		cl, err := c.NewClient(ctx, k8sClient)
+	for _, cluster := range clusters {
+		dpuClusterClient, err := cluster.NewClient(ctx, k8sClient)
 		if err != nil {
 			return err
 		}
-		if err := utils.EnsureNamespace(ctx, cl, dpuServiceObject.GetNamespace()); err != nil {
+		if err := utils.EnsureNamespace(ctx, dpuClusterClient, dpuServiceObject.GetNamespace()); err != nil {
 			return err
 		}
-		if err := r.createOrUpdateObjectsInDPUCluster(ctx, cl, dpuServiceObject); err != nil {
+		if err := r.createOrUpdateObjectsInDPUCluster(ctx, dpuClusterClient, dpuServiceObject); err != nil {
 			return err
 		}
 	}
@@ -159,34 +159,34 @@ func reconcileReadinessOfObjectsInDPUClusters(ctx context.Context,
 	//TODO implement list clusters with label selector
 	clusters, err := controlplane.GetDPFClusters(ctx, k8sClient)
 	if err != nil {
-		// TODO: Adjust error handling here to do as much work as possible with clusters we managed to rerieve, report
+		// TODO: Adjust error handling here to do as much work as possible with clusters we managed to retrieve, report
 		// error back to the controller logs and update status accordingly
 		return nil, err
 	}
 
-	unreadyObjs := []namespacedNameInCluster{}
-	for _, c := range clusters {
-		cl, err := c.NewClient(ctx, k8sClient)
+	unreadyObjsNN := []namespacedNameInCluster{}
+	for _, cluster := range clusters {
+		dpuClusterClient, err := cluster.NewClient(ctx, k8sClient)
 		if err != nil {
 			return nil, err
 		}
-		objs, err := r.getObjectsInDPUCluster(ctx, cl, dpuServiceObject)
+		objs, err := r.getObjectsInDPUCluster(ctx, dpuClusterClient, dpuServiceObject)
 		if err != nil {
 			return nil, err
 		}
-		uo, err := r.getUnreadyObjects(objs)
+		unreadyObjs, err := r.getUnreadyObjects(objs)
 		if err != nil {
 			return nil, err
 		}
-		for _, o := range uo {
-			unreadyObjs = append(unreadyObjs, namespacedNameInCluster{Object: o, Cluster: c})
+		for _, unreadyObj := range unreadyObjs {
+			unreadyObjsNN = append(unreadyObjsNN, namespacedNameInCluster{Object: unreadyObj, Cluster: cluster})
 		}
 
 	}
-	return unreadyObjs, nil
+	return unreadyObjsNN, nil
 }
 
-// reconcileReadinessOfObjectsInDPUClusters handles the readiness reconciliation loop for objects in the DPU clusters
+// updateSummary updates the status conditions in the object.
 //
 //nolint:unparam
 func updateSummary(ctx context.Context,

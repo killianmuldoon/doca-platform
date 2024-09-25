@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,6 +34,30 @@ var (
 	// ServiceChainSetGroupVersionKind is the GroupVersionKind of the ServiceChainSet
 	ServiceChainSetGroupVersionKind = GroupVersion.WithKind(ServiceChainSetKind)
 )
+
+// Status related variables
+const (
+	ConditionServiceChainsReconciled conditions.ConditionType = "ServiceChainsReconciled"
+	ConditionServiceChainsReady      conditions.ConditionType = "ServiceChainsReady"
+)
+
+var (
+	ServiceChainSetConditions = []conditions.ConditionType{
+		conditions.TypeReady,
+		ConditionServiceChainsReconciled,
+		ConditionServiceChainsReady,
+	}
+)
+
+var _ conditions.GetSet = &ServiceChainSet{}
+
+func (c *ServiceChainSet) GetConditions() []metav1.Condition {
+	return c.Status.Conditions
+}
+
+func (c *ServiceChainSet) SetConditions(conditions []metav1.Condition) {
+	c.Status.Conditions = conditions
+}
 
 // ServiceChainSetSpec defines the desired state of ServiceChainSet
 type ServiceChainSetSpec struct {
@@ -57,8 +83,11 @@ type ServiceChainSpecTemplate struct {
 
 // ServiceChainSetStatus defines the observed state of ServiceChainSet
 type ServiceChainSetStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions reflect the status of the object
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration records the Generation observed on the object the last time it was patched.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true

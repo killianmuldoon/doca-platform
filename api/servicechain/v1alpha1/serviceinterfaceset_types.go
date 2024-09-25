@@ -14,9 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+//nolint:dupl
 package v1alpha1
 
 import (
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -32,6 +35,30 @@ var (
 	// ServiceInterfaceSetGroupVersionKind is the GroupVersionKind of the ServiceInterfaceSet
 	ServiceInterfaceSetGroupVersionKind = GroupVersion.WithKind(ServiceInterfaceSetKind)
 )
+
+// Status related variables
+const (
+	ConditionServiceInterfacesReconciled conditions.ConditionType = "ServiceInterfacesReconciled"
+	ConditionServiceInterfacesReady      conditions.ConditionType = "ServiceInterfacesReady"
+)
+
+var (
+	ServiceInterfaceSetConditions = []conditions.ConditionType{
+		conditions.TypeReady,
+		ConditionServiceInterfacesReconciled,
+		ConditionServiceInterfacesReady,
+	}
+)
+
+var _ conditions.GetSet = &ServiceInterfaceSet{}
+
+func (c *ServiceInterfaceSet) GetConditions() []metav1.Condition {
+	return c.Status.Conditions
+}
+
+func (c *ServiceInterfaceSet) SetConditions(conditions []metav1.Condition) {
+	c.Status.Conditions = conditions
+}
 
 // ServiceInterfaceSetSpec defines the desired state of ServiceInterfaceSet
 type ServiceInterfaceSetSpec struct {
@@ -62,8 +89,11 @@ type ServiceInterfaceSpecTemplate struct {
 
 // ServiceInterfaceSetStatus defines the observed state of ServiceInterfaceSet
 type ServiceInterfaceSetStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions reflect the status of the object
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// ObservedGeneration records the Generation observed on the object the last time it was patched.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 //+kubebuilder:object:root=true
