@@ -139,12 +139,6 @@ $(KAMAJI): | $(CHARTSDIR) helm
 	$Q $(HELM) repo update
 	$Q $(HELM) pull $(KAMAJI_REPO_NAME)/$(KAMAJI_CHART_NAME) --version $(KAMAJI_CHART_VERSION) -d $(CHARTSDIR)
 
-# cert-manager is used for webhook certs in the dev setup.
-CERT_MANAGER_YAML=$(CHARTSDIR)/cert-manager.yaml
-CERT_MANAGER_VER=v1.13.3
-$(CERT_MANAGER_YAML): | $(CHARTSDIR)
-	curl -fSsL "https://github.com/cert-manager/cert-manager/releases/download/$(CERT_MANAGER_VER)/cert-manager.yaml" -o $(CERT_MANAGER_YAML)
-
 # argoCD is the underlying application service provider
 ARGOCD_YAML=$(CHARTSDIR)/argocd.yaml
 ARGOCD_VER=v2.10.1
@@ -415,21 +409,16 @@ test-release-e2e-quick: # Build images required for the quick DPF e2e test.
 	$(MAKE) helm-package-all helm-push-all
 
 TEST_CLUSTER_NAME := dpf-test
-test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) minikube ## Setup a Kubernetes environment to run tests.
+ADD_CONTROL_PLANE_TAINTS ?= true
+test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) minikube helm ## Setup a Kubernetes environment to run tests.
 
 	# Create a minikube cluster to host the test.
-	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
+	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) ADD_CONTROL_PLANE_TAINTS=$(ADD_CONTROL_PLANE_TAINTS) $(CURDIR)/hack/scripts/minikube-install.sh
 
 	$(KUBECTL) get namespace dpf-operator-system || $(KUBECTL) create namespace dpf-operator-system
 
 	# Create secrets required for using artefacts if required.
 	$(CURDIR)/hack/scripts/create-artefact-secrets.sh
-
-	# Deploy cert manager to provide certificates for webhooks.
-	$Q $(KUBECTL) apply -f $(CERT_MANAGER_YAML)
-
-	echo "Waiting for cert-manager deployment to be ready."
-	$(KUBECTL) -n cert-manager rollout status deploy cert-manager-webhook --timeout=180s
 
 .PHONY: test-env-dpf-standalone
 test-env-dpf-standalone:
@@ -1178,11 +1167,6 @@ clean-minikube: minikube  ## Delete the development minikube cluster.
 dev-prereqs-dpuservice: kustomize helm $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(KAMAJI) ## Install pre-requisites for dpuservice controller on minikube dev cluster
 	# Deploy the dpuservice CRD
 	$(KUSTOMIZE) build config/dpuservice/crd | $(KUBECTL) apply -f -
-
-    # Deploy cert manager to provide certificates for webhooks
-	$Q $(KUBECTL) apply -f $(CERT_MANAGER_YAML) \
-	&& echo "Waiting for cert-manager deployment to be ready." \
-	&& $(KUBECTL) -n cert-manager rollout status deploy cert-manager-webhook --timeout=180s
 
 	$Q $(KUBECTL) create namespace argocd --dry-run=client -o yaml | $(KUBECTL) apply -f - && $(KUBECTL) apply -f $(ARGOCD_YAML)
 

@@ -34,6 +34,8 @@ NODE_DISK="${NODE_DISK:-"100g"}"
 MINIKUBE_CNI="${MINIKUBE_CNI:-kindnet}"
 MINIKUBE_KUBERNETES_VERSION="${MINIKUBE_KUBERNETES_VERSION:-"v1.29.3"}"
 MINIKUBE_DOCKER_MIRROR="${MINIKUBE_DOCKER_MIRROR:-"https://dockerhub.nvidia.com"}"
+CERT_MANAGER_VERSION="v1.13.3"
+ADD_CONTROL_PLANE_TAINTS="${ADD_CONTROL_PLANE_TAINTS:-"false"}"
 
 ## Detect the OS.
 OS="unknown"
@@ -88,6 +90,17 @@ fi
 
 $MINIKUBE_BIN start --profile $CLUSTER_NAME $MINIKUBE_ARGS $MINIKUBE_EXTRA_ARGS
 
+## Set control-plane and master taint to be able to test tolerations and nodeAffinities.
+if [[ "$ADD_CONTROL_PLANE_TAINTS" == "true" ]]; then
+  ## Wait for storage-provisioner first. This is just a Pod and no Deployment or such.
+  kubectl wait --for=condition=ready pod/storage-provisioner --timeout=300s -n kube-system
+  ## We have to patch those 2 Deployments to tolerate the control-plane and master taint.
+  kubectl -n metallb-system patch deploy controller -p '{"spec":{"template":{"spec":{"tolerations":[{"key":"node-role.kubernetes.io/master","operator":"Exists","effect":"NoSchedule"},{"key":"node-role.kubernetes.io/control-plane","operator":"Exists","effect":"NoSchedule"}]}}}}'
+  kubectl -n kube-system patch deploy coredns -p '{"spec":{"template":{"spec":{"tolerations":[{"key":"node-role.kubernetes.io/master","operator":"Exists","effect":"NoSchedule"},{"key":"node-role.kubernetes.io/control-plane","operator":"Exists","effect":"NoSchedule"}]}}}}'
+  kubectl taint node "${CLUSTER_NAME}" node-role.kubernetes.io/control-plane:NoSchedule
+  kubectl taint node "${CLUSTER_NAME}" node-role.kubernetes.io/master:NoSchedule
+fi
+
 ## Update the MetalLB configuration to give it some IPs to give out. Take them from the same range as minikube uses.
 MINIKUBE_IP=$($MINIKUBE_BIN ip -p $CLUSTER_NAME)
 MINIKUBE_IP_NETWORK=$(echo $MINIKUBE_IP | sed -E 's/([0-9]+\.[0-9]+\.[0-9]+)\.[0-9]+/\1/')
@@ -108,9 +121,38 @@ data:
 EOF
 
 ## Install cert-manager
-kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.13.3/cert-manager.yaml \
-	&& echo "Waiting for cert-manager deployment to be ready." \
-	&& kubectl -n cert-manager rollout status deploy cert-manager-webhook --timeout=180s
+helm repo add jetstack https://charts.jetstack.io --force-update
+kubectl apply -f "https://github.com/cert-manager/cert-manager/releases/download/${CERT_MANAGER_VERSION}/cert-manager.crds.yaml"
+cat <<EOF | helm upgrade --install cert-manager --create-namespace --namespace cert-manager --version "${CERT_MANAGER_VERSION}" -f - jetstack/cert-manager
+tolerations:
+  - key: node-role.kubernetes.io/master
+    operator: Exists
+    effect: NoSchedule
+  - key: node-role.kubernetes.io/control-plane
+    operator: Exists
+    effect: NoSchedule
+cainjector:
+  tolerations:
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+webhook:
+  tolerations:
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+startupapicheck:
+  enabled: false
+EOF
+
+echo "Waiting for cert-manager deployment to be ready."
+kubectl -n cert-manager rollout status deploy cert-manager-webhook --timeout=180s
 
 ## Set environment variables to use the Minikube VM docker build for
 if [[ "$USE_MINIKUBE_DOCKER" == "true" ]]; then

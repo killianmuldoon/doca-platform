@@ -37,6 +37,50 @@ argo-cd:
     enabled: false
   notifications:
     enabled: false
+  global:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: "node-role.kubernetes.io/master"
+                  operator: Exists
+            - matchExpressions:
+                - key: "node-role.kubernetes.io/control-plane"
+                  operator: Exists
+    tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+
+## NFD configuration
+node-feature-discovery:
+  enabled: true
+  gc:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: "node-role.kubernetes.io/master"
+                  operator: Exists
+            - matchExpressions:
+                - key: "node-role.kubernetes.io/control-plane"
+                  operator: Exists
+    tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
+
+## kamaji configuration.
+kamaji-etcd:
+  enabled: true
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
@@ -54,14 +98,6 @@ argo-cd:
     - key: node-role.kubernetes.io/control-plane
       operator: Exists
       effect: NoSchedule
-
-## NFD configuration
-node-feature-discovery:
-  enabled: true
-
-## kamaji configuration.
-kamaji-etcd:
-  enabled: true
   datastore:
     enabled: true
     name: default
@@ -86,23 +122,6 @@ kamaji:
       effect: NoSchedule
   etcd:
     deploy: false
-    affinity:
-      nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
-                - key: "node-role.kubernetes.io/master"
-                  operator: Exists
-            - matchExpressions:
-                - key: "node-role.kubernetes.io/control-plane"
-                  operator: Exists
-    tolerations:
-      - key: node-role.kubernetes.io/master
-        operator: Exists
-        effect: NoSchedule
-      - key: node-role.kubernetes.io/control-plane
-        operator: Exists
-        effect: NoSchedule
   datastore:
     enabled: false
     nameOverride: default
@@ -115,23 +134,25 @@ kamaji:
 ## prometheus configuration.
 prometheus:
   enabled: false
-  affinity:
-    nodeAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-        nodeSelectorTerms:
-          - matchExpressions:
-              - key: "node-role.kubernetes.io/master"
-                operator: Exists
-          - matchExpressions:
-              - key: "node-role.kubernetes.io/control-plane"
-                operator: Exists
-  tolerations:
-    - key: node-role.kubernetes.io/master
-      operator: Exists
-      effect: NoSchedule
-    - key: node-role.kubernetes.io/control-plane
-      operator: Exists
-      effect: NoSchedule
+## Unfortunately, there is no affinity and tolerations value in the prometheus helm chart.
+## This is only necessary for dev purposes anyway. We should not run this stack on our control planes.
+#  affinity:
+#    nodeAffinity:
+#      requiredDuringSchedulingIgnoredDuringExecution:
+#        nodeSelectorTerms:
+#          - matchExpressions:
+#              - key: "node-role.kubernetes.io/master"
+#                operator: Exists
+#          - matchExpressions:
+#              - key: "node-role.kubernetes.io/control-plane"
+#                operator: Exists
+#  tolerations:
+#    - key: node-role.kubernetes.io/master
+#      operator: Exists
+#      effect: NoSchedule
+#    - key: node-role.kubernetes.io/control-plane
+#      operator: Exists
+#      effect: NoSchedule
   alertmanager:
     enabled: false
   prometheus-node-exporter:

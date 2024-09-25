@@ -183,6 +183,8 @@ func expectedTCP(dc *provisioningv1.DPUCluster, scheme *runtime.Scheme, nodePort
 			DataStore: "default",
 			ControlPlane: kamaji.ControlPlane{
 				Deployment: kamaji.DeploymentSpec{
+					// TODO: this should be a nodeAffinity and we have to add tolerations.
+					// See test/objects/infrastructure/dpu-control-plane.yaml for reference.
 					NodeSelector: map[string]string{
 						"node-role.kubernetes.io/control-plane": "",
 					},
