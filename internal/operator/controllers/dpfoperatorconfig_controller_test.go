@@ -120,7 +120,7 @@ func TestDPFOperatorConfigReconciler_Conditions(t *testing.T) {
 
 			// This secret name is wrong - this prevents ImagePullSecretsReconciled from becoming true.
 			ImagePullSecrets: []string{"wrong-secret-name"},
-			ProvisioningController: &operatorv1.ProvisioningControllerConfiguration{
+			ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
 				BFBPersistentVolumeClaimName: "{\"school\":\"EFG\", \"standard\": \"2\", \"name\": \"abc\", \"city\": \"miami\"}'",
 			},
 		},
@@ -226,7 +226,7 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 			Overrides: &operatorv1.Overrides{
 				Paused: ptr.To(true),
 			},
-			ProvisioningController: &operatorv1.ProvisioningControllerConfiguration{
+			ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
 				BFBPersistentVolumeClaimName: "foo-pvc",
 			},
 		},

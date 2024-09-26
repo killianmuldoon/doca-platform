@@ -124,7 +124,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Labels:    cleanupLabels,
 		},
 		Spec: operatorv1.DPFOperatorConfigSpec{
-			ProvisioningController: &operatorv1.ProvisioningControllerConfiguration{
+			ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
 				BFBPersistentVolumeClaimName: dpfProvisioningControllerPVCName,
 			},
 			ImagePullSecrets: []string{

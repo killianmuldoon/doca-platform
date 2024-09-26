@@ -57,8 +57,7 @@ type DPFOperatorConfigSpec struct {
 	// +optional
 	DPUServiceController *DPUServiceControllerConfiguration `json:"dpuServiceController,omitempty"`
 	// ProvisioningController is the configuration for the ProvisioningController
-	// +optional
-	ProvisioningController *ProvisioningControllerConfiguration `json:"provisioningController,omitempty"`
+	ProvisioningController ProvisioningControllerConfiguration `json:"provisioningController"`
 	// ServiceSetController is the configuration for the ServiceSetController
 	// +optional
 	ServiceSetController *ServiceSetControllerConfiguration `json:"serviceSetController,omitempty"`

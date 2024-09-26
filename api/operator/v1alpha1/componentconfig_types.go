@@ -32,9 +32,9 @@ const (
 
 func (c *DPFOperatorConfig) ComponentConfigs() []ComponentConfig {
 	out := []ComponentConfig{}
-	if c.Spec.ProvisioningController != nil {
-		out = append(out, c.Spec.ProvisioningController)
-	}
+
+	out = append(out, c.Spec.ProvisioningController)
+
 	if c.Spec.DPUServiceController != nil {
 		out = append(out, c.Spec.DPUServiceController)
 	}
@@ -95,11 +95,11 @@ type ProvisioningControllerConfiguration struct {
 	DMSTimeout *int `json:"dmsTimeout,omitempty"`
 }
 
-func (c *ProvisioningControllerConfiguration) Name() string {
+func (c ProvisioningControllerConfiguration) Name() string {
 	return ProvisioningControllerName
 }
 
-func (c *ProvisioningControllerConfiguration) Disabled() bool {
+func (c ProvisioningControllerConfiguration) Disabled() bool {
 	if c.Disable == nil {
 		return false
 	}

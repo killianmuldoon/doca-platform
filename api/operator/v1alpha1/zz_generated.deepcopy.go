@@ -97,11 +97,7 @@ func (in *DPFOperatorConfigSpec) DeepCopyInto(out *DPFOperatorConfigSpec) {
 		*out = new(DPUServiceControllerConfiguration)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.ProvisioningController != nil {
-		in, out := &in.ProvisioningController, &out.ProvisioningController
-		*out = new(ProvisioningControllerConfiguration)
-		(*in).DeepCopyInto(*out)
-	}
+	in.ProvisioningController.DeepCopyInto(&out.ProvisioningController)
 	if in.ServiceSetController != nil {
 		in, out := &in.ServiceSetController, &out.ServiceSetController
 		*out = new(ServiceSetControllerConfiguration)
