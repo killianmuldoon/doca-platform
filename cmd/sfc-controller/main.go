@@ -59,7 +59,7 @@ func main() {
 	var probeAddr string
 	var insecureMetrics bool
 	var enableHTTP2 bool
-	var syncPeriod time.Duration
+	var syncPeriod, staleFlowsRemovalPeriod time.Duration
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -72,6 +72,8 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.DurationVar(&syncPeriod, "sync-period", 10*time.Minute,
 		"The minimum interval at which watched resources are reconciled.")
+	flag.DurationVar(&staleFlowsRemovalPeriod, "stale-flows-removal-period", 1*time.Minute,
+		"The interval at which any stale flows on the bridge would be removed.")
 
 	opts := zap.Options{
 		Development: true,
@@ -169,6 +171,11 @@ func main() {
 	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
+	}
+
+	staleFlowsRemover := sfccontroller.NewStaleFlowsRemover(staleFlowsRemovalPeriod, mgr.GetClient())
+	if err = mgr.Add(staleFlowsRemover); err != nil {
+		setupLog.Error(err, "cannot add runnable to manager")
 	}
 
 	setupLog.Info("starting manager")

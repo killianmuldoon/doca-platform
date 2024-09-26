@@ -24,6 +24,7 @@ import (
 	"hash/fnv"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"time"
 
@@ -34,9 +35,12 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // ServiceChainReconciler reconciles a ServiceChain object
@@ -181,10 +185,32 @@ func delFlows(flows string) error {
 	return nil
 }
 
+// Utility function that returns an set of OpenFlow cookies for currently existing flows in the bridge.
+func getFlowCookies() (sets.Set[string], error) {
+	// ToDo: 1. This way of invoking ovs-ofctl via shell, should be changed, when we have a library for this. Leaving it "as is" for now.
+	// ToDo: 2. A new separate MR will remove grep and cut with golang based regex parsing of ovs-ofctl output. Remove this todo then.
+	// Output of ovs-ofctl dump-flows are of the format
+	// cookie=0x4dde72514b4ec14d, duration=3.703s, table=0, n_packets=501, n_bytes=157752, idle_age=30, priority=20,in_port=1 actions=learn(table=0,....),output:NXM_OF_IN_PORT[]),output:2,output:246
+	ovsOfCtlCommand := "ovs-ofctl -t 10 --names dump-flows br-sfc | grep cookie | tr -d ' ' | cut -d \",\" -f 1 | cut -d \"=\" -f 2 | uniq"
+	cmd := exec.Command("sh", "-c", ovsOfCtlCommand)
+	var stderr, output bytes.Buffer
+	cmd.Stderr = &stderr
+	cmd.Stdout = &output
+	err := cmd.Run()
+	if err != nil {
+		return nil, fmt.Errorf("error running command %s failed: err=%w stderr=%s", ovsOfCtlCommand, err, stderr.String())
+	}
+	ovsFlowCookieSlice := strings.Split(output.String(), "\n")
+	ovsFlowCookieSlice = slices.DeleteFunc(ovsFlowCookieSlice, func(e string) bool { // Delete empty elements if any
+		return e == ""
+	})
+	return sets.New(ovsFlowCookieSlice...), nil
+}
+
 // Utility function which takes in a multiline string called flows
 // Creates a temporary file on the system and writes the aforementioned
 // string. This will file will be consumed by ovs-ofctl command with the
-// bundle argument to ensure the fact that all flows are added in a atomic operation
+// bundle argument to ensure the fact that all flows are added in an atomic operation
 func addFlows(ctx context.Context, flows string) (err error) {
 	log := log.FromContext(ctx)
 	var fileP *os.File
@@ -347,12 +373,15 @@ func (r *ServiceChainReconciler) getPortNameForServiceInterface(ctx context.Cont
 func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := log.FromContext(ctx)
 	log.Info("reconciling")
+	var err error
+	var hashedName uint64
 	sc := &sfcv1.ServiceChain{}
-	if err := r.Client.Get(ctx, req.NamespacedName, sc); err != nil {
+	if err = r.Client.Get(ctx, req.NamespacedName, sc); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
 			// Always ensure delete operation in case of errors
-			flowErrors := delFlows(fmt.Sprintf("cookie=%d/-1", hash(req.NamespacedName.String())))
+			hashedName = hash(req.NamespacedName.String())
+			flowErrors := delFlows(fmt.Sprintf("cookie=%d/-1", hashedName))
 			if flowErrors != nil {
 				log.Error(flowErrors, "failed to delete flows")
 				return requeueFlows()
@@ -363,20 +392,8 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return requeueFlows()
 	}
 
-	if sc.Spec.Node == nil {
-		log.Info("sc.Spec.Node: not set, skip the object")
-		return requeueFlows()
-	}
-	if *sc.Spec.Node != r.NodeName {
-		// this object was not intended for this nodes
-		// skip
-		log.Info(fmt.Sprintf("sc.Spec.Node: %s != node: %s", *sc.Spec.Node, r.NodeName))
-		return requeueFlows()
-	}
-
 	// Construct an array of arrays of ports in order to traverse it
 	// and construct the flows
-	var err error
 	var ports [][]string
 	for swPos, sw := range sc.Spec.Switches {
 		ports = append(ports, [][]string{{}}...)
@@ -429,7 +446,7 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			// Add unique cookie based on hashing the namespace name together with the table, priority constants and input port
 			// this will result in the following string:
 			//  cookie=0x24592fc503504d3, table=0, priority=20, in_port=97 actions=
-			flowsPerArray += fmt.Sprintf("cookie=%d, table=0, priority=20, in_port=%s actions=", hash(req.NamespacedName.String()), arrayPort)
+			flowsPerArray += fmt.Sprintf("cookie=%d, table=0, priority=20, in_port=%s actions=", hashedName, arrayPort)
 
 			// Reset output string
 			outputFlowPart := ""
@@ -448,7 +465,9 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				}
 
 				// Add learn action
-				learnAction += fmt.Sprintf("learn(idle_timeout=10,table=0,priority=30,in_port=%s,dl_dst=dl_src,output:NXM_OF_IN_PORT[])", iter)
+				learnAction += fmt.Sprintf(
+					"learn(cookie=%d,idle_timeout=10,table=0,priority=30,in_port=%s,dl_dst=dl_src,output:NXM_OF_IN_PORT[])",
+					hashedName, iter)
 
 				if outputFlowPart != "" {
 					// If it's not the first output action add comma
@@ -481,8 +500,14 @@ func (r *ServiceChainReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 		return err
 	}
 
+	p := predicate.NewPredicateFuncs(func(o client.Object) bool {
+		if o.(*sfcv1.ServiceChain).Spec.Node == nil { // NodeName may not be set
+			return false
+		}
+		return *o.(*sfcv1.ServiceChain).Spec.Node == r.NodeName
+	})
+
 	return ctrl.NewControllerManagedBy(mgr).
-		// TODO Match current node and go only if we have a match
-		For(&sfcv1.ServiceChain{}).
+		For(&sfcv1.ServiceChain{}, builder.WithPredicates(p)).
 		Complete(r)
 }
