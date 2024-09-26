@@ -373,7 +373,7 @@ func getTypedTestServiceInterfaceSpec(typ string) sfcv1.ServiceInterfaceSpec {
 		sfc.InterfaceName = ptr.To("net1")
 		sfc.Service = &sfcv1.ServiceDef{
 			ServiceID:   "awsome-firewall",
-			NetworkName: ptr.To("mybrsfc"),
+			NetworkName: "mybrsfc",
 		}
 	}
 

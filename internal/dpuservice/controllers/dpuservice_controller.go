@@ -37,6 +37,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 
 	"github.com/fluxcd/pkg/runtime/patch"
+	multusTypes "gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/types"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,6 +80,7 @@ const (
 	argoCDSecretLabelValue = "cluster"
 	dpuAppProjectName      = "doca-platform-project-dpu"
 	hostAppProjectName     = "doca-platform-project-host"
+	networkAnnotationKey   = "k8s.v1.cni.cncf.io/networks"
 )
 
 // applyPatchOptions contains options which are passed to every `client.Apply` patch.
@@ -311,11 +313,18 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	}
 	dpfOperatorConfig := &dpfOperatorConfigList.Items[0]
 
-	if err := r.reconcileInterfaces(ctx, dpuService); err != nil {
+	serviceDaemonSet, err := r.reconcileInterfaces(ctx, dpuService)
+	if err != nil {
+		message := fmt.Sprintf("Unable to reconcile interfaces for %s", err.Error())
+		conditions.AddFalse(
+			dpuService,
+			dpuservicev1.ConditionDPUServiceInterfaceReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(message),
+		)
 		return err
 	}
 
-	// TODO: Add the condition to the DPUService only if there are annotations to add to the application serviceDeamonSet.
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionDPUServiceInterfaceReconciled)
 
 	if err := r.reconcileApplicationPrereqs(ctx, dpuService, clusters, dpfOperatorConfig); err != nil {
@@ -331,7 +340,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationPrereqsReconciled)
 
 	// Update the ArgoApplication for all target clusters.
-	if err = r.reconcileApplication(ctx, clusters, dpuService, dpfOperatorConfig.GetNamespace()); err != nil {
+	if err = r.reconcileApplication(ctx, clusters, dpuService, serviceDaemonSet, dpfOperatorConfig.GetNamespace()); err != nil {
 		message := fmt.Sprintf("Unable to reconcile Applications: %v", err)
 		conditions.AddFalse(
 			dpuService,
@@ -373,71 +382,61 @@ func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, 
 }
 
 // reconcileInterfaces reconciles the DPUServiceInterfaces associated with the DPUService.
-// TODO: Process the DPUServiceInterfaces and return annotations when required.
-func (r *DPUServiceReconciler) reconcileInterfaces(ctx context.Context, dpuService *dpuservicev1.DPUService) error {
+func (r *DPUServiceReconciler) reconcileInterfaces(ctx context.Context, dpuService *dpuservicev1.DPUService) (*dpuservicev1.ServiceDaemonSetValues, error) {
 	log := ctrllog.FromContext(ctx)
-	if dpuService.Spec.Interfaces == nil {
-		return nil
-	}
+	networks := []multusTypes.NetworkSelectionElement{}
 
+	if dpuService.Spec.Interfaces == nil {
+		return nil, nil
+	}
 	for _, interfaceName := range dpuService.Spec.Interfaces {
 		dpuServiceInterface := &sfcv1.DPUServiceInterface{}
 		if err := r.Client.Get(ctx, types.NamespacedName{Name: interfaceName, Namespace: dpuService.Namespace}, dpuServiceInterface); err != nil {
-			// Requeue until the DPUServiceInterface is available.
-			conditions.AddFalse(dpuService,
-				dpuservicev1.ConditionDPUServiceInterfaceReconciled,
-				conditions.ReasonError,
-				conditions.ConditionMessage(fmt.Sprintf("failed to get DPUServiceInterface %s: %v", interfaceName, err)))
-			return err
+			return nil, err
+		}
+
+		service := dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service
+		interfaceType := dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().InterfaceType
+		if service == nil || interfaceType != sfcv1.InterfaceTypeService {
+			return nil, fmt.Errorf("wrong service definition in DPUServiceInterface %s", interfaceName)
 		}
 
 		// report conflicting ServiceID in DPUServiceInterface
-		if dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service != nil && dpuService.Spec.ServiceID != nil {
-			if dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service.ServiceID != *dpuService.Spec.ServiceID {
-				conditions.AddFalse(dpuService,
-					dpuservicev1.ConditionDPUServiceInterfaceReconciled,
-					conditions.ReasonFailure,
-					conditions.ConditionMessage(fmt.Sprintf("conflicting ServiceID in DPUServiceInterface %s", interfaceName)))
-				return fmt.Errorf("conflicting ServiceID in DPUServiceInterface %s", interfaceName)
-			}
+		dpuServiceID := dpuService.Spec.ServiceID
+		if dpuServiceID != nil && service.ServiceID != *dpuServiceID {
+			return nil, fmt.Errorf("conflicting ServiceID in DPUServiceInterface %s", interfaceName)
 		}
 
 		inUse, exist := isDPUServiceInterfaceInUse(dpuServiceInterface, dpuService)
 		if inUse {
-			conditions.AddFalse(dpuService,
-				dpuservicev1.ConditionDPUServiceInterfaceReconciled,
-				conditions.ReasonFailure,
-				conditions.ConditionMessage(fmt.Sprintf("dpuServiceInterface %s is in use by another DPUService", interfaceName)))
-			return fmt.Errorf("dpuServiceInterface %s is in use by another DPUService", interfaceName)
+			return nil, fmt.Errorf("dpuServiceInterface %s is in use by another DPUService", interfaceName)
 		}
 
 		if !exist {
 			dpuServiceInterface.SetAnnotations(map[string]string{
 				dpuservicev1.DPUServiceInterfaceAnnotationKey: dpuService.Name,
 			})
-		}
 
-		// set serviceID on the DPUServiceInterface if it is not set.
-		if dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service == nil {
-			dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service = &sfcv1.ServiceDef{
-				ServiceID: *dpuService.Spec.ServiceID,
+			// remove managed fields from the DPUServiceInterface to avoid conflicts with the DPUService.
+			dpuServiceInterface.SetManagedFields(nil)
+			// Set the GroupVersionKind to the DPUServiceInterface.
+			dpuServiceInterface.SetGroupVersionKind(sfcv1.DPUServiceInterfaceGroupVersionKind)
+			if err := r.Client.Patch(ctx, dpuServiceInterface, client.Apply, applyPatchOptions...); err != nil {
+				return nil, err
 			}
 		}
 
-		// remove managed fields from the DPUServiceInterface to avoid conflicts with the DPUService.
-		dpuServiceInterface.SetManagedFields(nil)
-		// Set the GroupVersionKind to the DPUServiceInterface.
-		dpuServiceInterface.SetGroupVersionKind(sfcv1.DPUServiceInterfaceGroupVersionKind)
-		if err := r.Client.Patch(ctx, dpuServiceInterface, client.Apply, applyPatchOptions...); err != nil {
-			conditions.AddFalse(dpuService,
-				dpuservicev1.ConditionDPUServiceInterfaceReconciled,
-				conditions.ReasonError,
-				conditions.ConditionMessage(fmt.Sprintf("failed to patch DPUServiceInterface %s: %v", interfaceName, err)))
-			return err
-		}
+		// get network name from DPUServiceInterface
+		networks = append(networks, newNetworkSelectionElement(dpuServiceInterface))
 	}
+
+	serviceDaemonSet, err := addNetworkAnnotationToServiceDaemonSet(dpuService, networks)
+	if err != nil {
+		return nil, err
+	}
+
 	log.Info("Reconciled DPUServiceInterfaces")
-	return nil
+	return serviceDaemonSet, nil
 }
 
 func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, clusters []controlplane.DPFCluster, project, dpuNamespace string) error {
@@ -637,24 +636,24 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, clusters []controlplane.DPFCluster, dpuService *dpuservicev1.DPUService, dpfOperatorConfigNamespace string) error {
+func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, clusters []controlplane.DPFCluster, dpuService *dpuservicev1.DPUService, serviceDaemonSet *dpuservicev1.ServiceDaemonSetValues, dpfOperatorConfigNamespace string) error {
 	project := getProjectName(dpuService)
 	if project == dpuAppProjectName {
 		for _, cluster := range clusters {
-			if err := r.ensureApplication(ctx, dpuService, cluster.Name, dpfOperatorConfigNamespace); err != nil {
+			if err := r.ensureApplication(ctx, dpuService, serviceDaemonSet, cluster.Name, dpfOperatorConfigNamespace); err != nil {
 				return err
 			}
 		}
 	} else {
-		return r.ensureApplication(ctx, dpuService, "in-cluster", dpfOperatorConfigNamespace)
+		return r.ensureApplication(ctx, dpuService, serviceDaemonSet, "in-cluster", dpfOperatorConfigNamespace)
 	}
 	return nil
 }
 
-func (r *DPUServiceReconciler) ensureApplication(ctx context.Context, dpuService *dpuservicev1.DPUService, applicationName, dpfOperatorConfigNamespace string) error {
+func (r *DPUServiceReconciler) ensureApplication(ctx context.Context, dpuService *dpuservicev1.DPUService, serviceDaemonSet *dpuservicev1.ServiceDaemonSetValues, applicationName, dpfOperatorConfigNamespace string) error {
 	log := ctrllog.FromContext(ctx)
 	project := getProjectName(dpuService)
-	values, err := argoCDValuesFromDPUService(dpuService)
+	values, err := argoCDValuesFromDPUService(serviceDaemonSet, dpuService)
 	if err != nil {
 		return err
 	}
@@ -750,28 +749,27 @@ func getProjectName(dpuService *dpuservicev1.DPUService) string {
 	return dpuAppProjectName
 }
 
-func argoCDValuesFromDPUService(dpuService *dpuservicev1.DPUService) (*runtime.RawExtension, error) {
-	service := dpuService.DeepCopy()
-	if service.Spec.ServiceDaemonSet == nil {
-		service.Spec.ServiceDaemonSet = &dpuservicev1.ServiceDaemonSetValues{}
+func argoCDValuesFromDPUService(serviceDaemonSet *dpuservicev1.ServiceDaemonSetValues, dpuService *dpuservicev1.DPUService) (*runtime.RawExtension, error) {
+	if serviceDaemonSet == nil {
+		serviceDaemonSet = &dpuservicev1.ServiceDaemonSetValues{}
 	}
-	if service.Spec.ServiceDaemonSet.Labels == nil {
-		service.Spec.ServiceDaemonSet.Labels = map[string]string{}
+	if serviceDaemonSet.Labels == nil {
+		serviceDaemonSet.Labels = map[string]string{}
 	}
 	if dpuService.Spec.ServiceID != nil {
-		service.Spec.ServiceDaemonSet.Labels[dpuservicev1.DPFServiceIDLabelKey] = *dpuService.Spec.ServiceID
+		serviceDaemonSet.Labels[dpuservicev1.DPFServiceIDLabelKey] = *dpuService.Spec.ServiceID
 	}
 
 	// Marshal the ServiceDaemonSet and other values to map[string]interface to combine them.
 	var otherValues, serviceDaemonSetValues map[string]interface{}
-	if service.Spec.HelmChart.Values != nil {
-		if err := json.Unmarshal(service.Spec.HelmChart.Values.Raw, &otherValues); err != nil {
+	if dpuService.Spec.HelmChart.Values != nil {
+		if err := json.Unmarshal(dpuService.Spec.HelmChart.Values.Raw, &otherValues); err != nil {
 			return nil, err
 		}
 	}
 
 	// Unmarshal the ServiceDaemonSet to get the byte representation.
-	dsValuesData, err := json.Marshal(service.Spec.ServiceDaemonSet)
+	dsValuesData, err := json.Marshal(serviceDaemonSet)
 	if err != nil {
 		return nil, err
 	}

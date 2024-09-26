@@ -158,7 +158,7 @@ var _ = Describe("DPUService Controller", func() {
 
 			// Check that the argo Application has been created correctly
 			Eventually(func(g Gomega) {
-				assertApplication(g, testClient, dpuServices, clusters)
+				assertApplication(g, testClient, dpuServices, []*sfcv1.DPUServiceInterface{dpuServiceInterface}, clusters)
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 
 			Eventually(func(g Gomega) {
@@ -311,7 +311,7 @@ func assertAppProject(g Gomega, testClient client.Client, argoCDNamespace string
 	g.Expect(gotDestinations).To(ConsistOf(expectedDestinations))
 }
 
-func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, clusters []controlplane.DPFCluster) {
+func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, dpuServiceInterfaces []*sfcv1.DPUServiceInterface, clusters []controlplane.DPFCluster) {
 	// Check that argoApplications are created for each of the clusters.
 	applications := &argov1.ApplicationList{}
 	g.Expect(testClient.List(ctx, applications)).To(Succeed())
@@ -354,7 +354,15 @@ func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuser
 				Expect(appService.Labels).To(HaveKeyWithValue(k, v))
 			}
 			Expect(appService.Labels).To(HaveKeyWithValue(dpuservicev1.DPFServiceIDLabelKey, *service.Spec.ServiceID))
-			Expect(appService.Annotations).To(Equal(service.Spec.ServiceDaemonSet.Annotations))
+
+			m := map[string]*sfcv1.DPUServiceInterface{}
+			for _, dpuServiceInterface := range dpuServiceInterfaces {
+				m[dpuServiceInterface.Name] = dpuServiceInterface
+			}
+			annotations, err := updateAnnotationsWithNetworks(service, m)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(appService.Annotations).To(Equal(annotations))
+
 			Expect(appService.NodeSelector).To(Equal(service.Spec.ServiceDaemonSet.NodeSelector))
 			Expect(appService.UpdateStrategy).To(Equal(service.Spec.ServiceDaemonSet.UpdateStrategy))
 
@@ -643,7 +651,7 @@ var _ = Describe("unit test DPUService functions", func() {
 				},
 			}
 
-			o, err := argoCDValuesFromDPUService(dpuService)
+			o, err := argoCDValuesFromDPUService(serviceDaemonSetValues, dpuService)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(o.Raw).To(Equal([]byte(expectedValues)))
 		},
@@ -715,7 +723,7 @@ func getMinimalDPUServiceInterface(namespace string) *sfcv1.DPUServiceInterface 
 							InterfaceName: ptr.To("net1"),
 							Service: &sfcv1.ServiceDef{
 								ServiceID:   "service-one",
-								NetworkName: ptr.To("mybrsfc"),
+								NetworkName: "mybrsfc",
 							},
 						},
 					},

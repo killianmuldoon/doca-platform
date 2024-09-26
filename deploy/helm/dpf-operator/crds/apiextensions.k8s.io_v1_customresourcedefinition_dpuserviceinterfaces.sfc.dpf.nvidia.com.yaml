@@ -227,6 +227,7 @@ spec:
                                     description: ServiceID is the DPU Service Identifier
                                     type: string
                                 required:
+                                - networkName
                                 - serviceID
                                 type: object
                               vf:

@@ -68,8 +68,8 @@ type ServiceDef struct {
 	// +required
 	ServiceID string `json:"serviceID"`
 	// NetworkName is the Network Attachment Definition name in the same namespace of the ServiceInterface
-	// +optional
-	NetworkName *string `json:"networkName,omitempty"`
+	// +required
+	NetworkName string `json:"networkName"`
 }
 
 // VLAN defines the VLAN configuration
