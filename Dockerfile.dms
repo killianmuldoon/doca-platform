@@ -1,3 +1,33 @@
+FROM docker.io/library/golang:1.22 AS builder
+
+WORKDIR /workspace
+
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+
+# Cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY ./ ./
+
+# Ensure that no additional tools or artifacts are included.
+RUN make clean
+
+ARG gcflags
+ARG ldflags
+ARG TARGETARCH
+
+ENV GO_LDFLAGS=\"${ldflags}\"
+ENV GO_GCFLAGS=\"${gcflags}\"
+ENV ARCH=${TARGETARCH}
+
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    make binary-detector
+
 FROM nvcr.io/nvidia/doca/doca:2.8.0-full-rt-host
 
 RUN apt-get update -y && \
@@ -14,3 +44,4 @@ RUN echo "ipmitool chassis power $reboot" > /usr/sbin/reboot && chmod +x /usr/sb
 RUN echo "echo 'running rshim'; rshim" > rshim.sh && chmod +x rshim.sh
 
 COPY ./internal/bf-slr/bf-slr.sh /usr/sbin
+COPY --from=builder /workspace/bin/dpu-detector .

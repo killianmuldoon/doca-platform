@@ -59,6 +59,17 @@ argo-cd:
 ## NFD configuration
 node-feature-discovery:
   enabled: true
+  worker:
+    enable: true
+    config:
+      sources:
+        pci:
+          deviceClassWhitelist:
+            - "0200"
+          deviceLabelFields:
+            - "class"
+            - "vendor"
+            - "device"
   gc:
     affinity:
       nodeAffinity:

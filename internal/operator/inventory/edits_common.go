@@ -175,6 +175,20 @@ func ImagePullSecretsEditForDeploymentEdit(pullSecrets ...string) StructuredEdit
 	}
 }
 
+// ImagePullSecretsEditForDaemonSetEdit sets pullSecrets for DaemonSet object
+func ImagePullSecretsEditForDaemonSetEdit(pullSecrets ...string) StructuredEdit {
+	return func(obj client.Object) error {
+		daemonset, ok := obj.(*appsv1.DaemonSet)
+		if !ok {
+			return fmt.Errorf("unexpected object %s. expected DaemonSet", obj.GetObjectKind().GroupVersionKind())
+		}
+
+		// replace pull secrets with provided input
+		daemonset.Spec.Template.Spec.ImagePullSecrets = localObjRefsFromStrings(pullSecrets...)
+		return nil
+	}
+}
+
 // NodeAffinityEdit sets NodeAffinity for Deployment objs
 func NodeAffinityEdit(nodeAffinity *corev1.NodeAffinity) StructuredEdit {
 	return func(obj client.Object) error {

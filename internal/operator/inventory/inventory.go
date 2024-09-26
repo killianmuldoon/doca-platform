@@ -59,6 +59,7 @@ type SystemComponents struct {
 	SfcController           Component
 	NVidiaClusterManager    Component
 	StaticClusterManager    Component
+	DPUDetector             Component
 }
 
 // Embed manifests for Kubernetes objects created by the controller.
@@ -95,6 +96,9 @@ var (
 
 	//go:embed manifests/static-cluster-manager.yaml
 	staticCMData []byte
+
+	//go:embed manifests/dpu-detector.yaml
+	dpuDetectorData []byte
 )
 
 // New returns a new SystemComponents inventory with data preloaded but parsing not completed.
@@ -136,6 +140,9 @@ func New() *SystemComponents {
 		},
 		NVidiaClusterManager: NewClusterManagerObjects("nvidia-cluster-manager", nvidiaCMData),
 		StaticClusterManager: NewClusterManagerObjects("static-cluster-manager", staticCMData),
+		DPUDetector: &dpuDetectorObjects{
+			data: dpuDetectorData,
+		},
 	}
 }
 
@@ -166,6 +173,7 @@ func (s *SystemComponents) AllComponents() []Component {
 		s.SfcController,
 		s.NVidiaClusterManager,
 		s.StaticClusterManager,
+		s.DPUDetector,
 	}
 }
 

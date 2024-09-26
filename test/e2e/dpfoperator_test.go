@@ -78,6 +78,7 @@ var (
 		&sfcv1.DPUServiceInterfaceList{},
 		&operatorv1.DPFOperatorConfigList{},
 		&appsv1.DeploymentList{},
+		&appsv1.DaemonSetList{},
 		&corev1.PersistentVolumeClaimList{},
 		&corev1.NamespaceList{},
 	}

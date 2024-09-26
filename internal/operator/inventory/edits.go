@@ -171,6 +171,13 @@ func (e *Edits) toConcreteType(obj *unstructured.Unstructured) (client.Object, e
 			return nil, fmt.Errorf("error while converting data to objects: %w", err)
 		}
 		return concrete, nil
+	case DaemonSetKind:
+		concrete := &appsv1.DaemonSet{}
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.UnstructuredContent(), concrete)
+		if err != nil {
+			return nil, fmt.Errorf("error while converting data to objects: %w", err)
+		}
+		return concrete, nil
 	}
 	return nil, nil
 }

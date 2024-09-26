@@ -261,6 +261,7 @@ EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 .PHONY: generate-manifests-operator-embedded
 generate-manifests-operator-embedded:kustomize envsubst generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults generate-manifests-nvidia-cluster-manager generate-manifests-static-cluster-manager## Generates manifests that are embedded into the operator binary.
 	$(KUSTOMIZE) build config/provisioning/default > $(EMBEDDED_MANIFESTS_DIR)/provisioning-controller.yaml
+	$(KUSTOMIZE) build config/dpu-detector > $(EMBEDDED_MANIFESTS_DIR)/dpu-detector.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
 	$(KUSTOMIZE) build config/nvidia-cluster-manager/default > $(EMBEDDED_MANIFESTS_DIR)/nvidia-cluster-manager.yaml
 	$(KUSTOMIZE) build config/static-cluster-manager/default > $(EMBEDDED_MANIFESTS_DIR)/static-cluster-manager.yaml
@@ -330,6 +331,10 @@ generate-manifests-static-cluster-manager: controller-gen kustomize ## Generate 
 	rbac:roleName=manager-role \
 	output:rbac:dir=./config/static-cluster-manager/rbac
 	cd config/static-cluster-manager/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
+
+.PHONY: generate-manifests-dpu-detector
+generate-manifests-dpu-detector: kustomize
+	cd config/dpu-detector && $(KUSTOMIZE) edit set image dpu-detector=$(DMS_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-hbn-dpuservice
 generate-manifests-hbn-dpuservice: envsubst
@@ -629,6 +634,10 @@ binary-binary-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-
 binary-ipallocator: ## Build the IP allocator binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ipallocator gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/ipallocator
 
+.PHONY: binary-detector
+binary-detector: ## Build the DPU detector binary.
+	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/dpu-detector gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/dpudetector
+
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=operator-bundle hostnetwork dms
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn hbn-sidecar ovs-cni ipallocator
@@ -902,6 +911,8 @@ docker-build-dms: ## Build docker image with the hostnetwork.
 		--load \
 		--provenance=false \
 		--platform linux/${HOST_ARCH} \
+		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
 		-t $(DMS_IMAGE):$(TAG) \
 		-f Dockerfile.dms \
 		.

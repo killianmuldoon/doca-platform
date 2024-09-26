@@ -100,3 +100,76 @@ func Test_deploymentReadyCheck(t *testing.T) {
 		})
 	}
 }
+
+func Test_deamonsetReadyCheck(t *testing.T) {
+	g := NewWithT(t)
+
+	s := scheme.Scheme
+
+	daemonset := &appsv1.DaemonSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "testService",
+			Namespace: "testNamespace",
+		},
+		Spec: appsv1.DaemonSetSpec{},
+		Status: appsv1.DaemonSetStatus{
+			NumberReady: 5,
+		},
+	}
+	tests := []struct {
+		name    string
+		status  appsv1.DaemonSetStatus
+		wantErr bool
+	}{
+		{
+			name:    "error if daemonset has empty status",
+			status:  appsv1.DaemonSetStatus{},
+			wantErr: true,
+		},
+		{
+			name: "error if daemonset doesn't define DesiredNumberScheduled",
+			status: appsv1.DaemonSetStatus{
+				NumberReady: 1,
+			},
+			wantErr: true,
+		},
+		{
+			name: "error if daemonset NumberReady != DesiredNumberScheduled",
+			status: appsv1.DaemonSetStatus{
+				NumberReady:            3,
+				DesiredNumberScheduled: 1,
+			},
+			wantErr: true,
+		},
+		{
+			name: "succeed if daemonset has NumberReady == DesiredNumberScheduled",
+			status: appsv1.DaemonSetStatus{
+				NumberReady:            5,
+				DesiredNumberScheduled: 5,
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			daemonset.Status = tt.status
+			testClient := fake.NewClientBuilder().WithScheme(s).WithObjects(daemonset).Build()
+
+			objects := []*unstructured.Unstructured{
+				{
+					Object: map[string]interface{}{
+						"apiVersion": "apps/v1",
+						"kind":       "DaemonSet",
+						"metadata": map[string]interface{}{
+							"name":      daemonset.Name,
+							"namespace": daemonset.Namespace,
+						},
+					},
+				},
+			}
+			err := daemonsetReadyCheck(context.Background(), testClient, daemonset.Namespace, objects)
+			g.Expect(err != nil).To(Equal(tt.wantErr), err)
+		})
+	}
+}

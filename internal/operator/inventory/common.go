@@ -54,6 +54,7 @@ const (
 	ServiceAccountKind                 ObjectKind = "ServiceAccount"
 	ServiceKind                        ObjectKind = "Service"
 	DPUServiceKind                     ObjectKind = "DPUService"
+	DaemonsetKind                      ObjectKind = "DaemonSet"
 
 	kubernetesNodeRoleMaster       = "node-role.kubernetes.io/master"
 	kubernetesNodeRoleControlPlane = "node-role.kubernetes.io/control-plane"
@@ -104,6 +105,7 @@ func localObjRefsFromStrings(names ...string) []corev1.LocalObjectReference {
 	return localObjectRefs
 }
 
+// nolint
 // deploymentReadyCheck can be used to check for readiness of an inventory Component that has exactly one Kubernetes Deployment of interest.
 // The Component returns and error when the number of ReadyReplicas is zero or below the current number of Replicas.
 func deploymentReadyCheck(ctx context.Context, c client.Client, namespace string, objects []*unstructured.Unstructured) error {
@@ -233,4 +235,35 @@ func (p *simpleDeploymentObjects) GenerateManifests(vars Variables, options ...G
 
 func (p *simpleDeploymentObjects) IsReady(ctx context.Context, c client.Client, namespace string) error {
 	return deploymentReadyCheck(ctx, c, namespace, p.objects)
+}
+
+// nolint
+// daemonsetReadyCheck can be used to check for readiness of an inventory Component that has exactly one Kubernetes DaemonSet of interest.
+// The Component returns and error when the number of Ready is zero or below the current number of desiredNumberScheduled.
+func daemonsetReadyCheck(ctx context.Context, c client.Client, namespace string, objects []*unstructured.Unstructured) error {
+	deamonset := &appsv1.DaemonSet{}
+	found := false
+	for _, obj := range objects {
+		if obj.GetKind() == string(DaemonsetKind) {
+			err := c.Get(ctx, client.ObjectKey{Namespace: namespace, Name: obj.GetName()}, deamonset)
+			if err != nil {
+				return err
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		return errors.New("daemonset not found in objects")
+	}
+
+	// Consider the deployment not ready if it has no replicas.
+	if deamonset.Status.NumberReady == 0 {
+		return fmt.Errorf("Daemonset %s/%s has no replicas", deamonset.GetNamespace(), deamonset.GetName())
+	}
+	if deamonset.Status.NumberReady != deamonset.Status.DesiredNumberScheduled {
+		return fmt.Errorf("Daemonset %s/%s has %d ready, want %d",
+			deamonset.GetNamespace(), deamonset.GetName(), deamonset.Status.NumberReady, deamonset.Status.DesiredNumberScheduled)
+	}
+	return nil
 }
