@@ -39,6 +39,25 @@ spec:
           spec:
             description: DPFOperatorConfigSpec defines the desired state of DPFOperatorConfig
             properties:
+              dpuServiceController:
+                description: DPUServiceController is the configuration for the DPUServiceController
+                properties:
+                  disable:
+                    type: boolean
+                type: object
+              flannel:
+                description: Flannel is the configuration for Flannel
+                properties:
+                  disable:
+                    type: boolean
+                type: object
+              hostedControlPlaneManager:
+                description: HostedControlPlaneManager is the configuration for the
+                  HostedControlPlaneManager
+                properties:
+                  disable:
+                    type: boolean
+                type: object
               imagePullSecrets:
                 description: |-
                   List of secret names which are used to pull images for DPF system components and DPUServices.
@@ -47,30 +66,43 @@ spec:
                 items:
                   type: string
                 type: array
+              multus:
+                description: Multus is the configuration for Multus
+                properties:
+                  disable:
+                    type: boolean
+                type: object
+              nvipam:
+                description: NVIPAM is the configuration for NVIPAM
+                properties:
+                  disable:
+                    type: boolean
+                type: object
               overrides:
                 description: Overrides exposes a set of fields which impact the recommended
                   behaviour of the DPF Operator
                 properties:
-                  disableSystemComponents:
-                    description: DisableSystemComponents is a list of system components
-                      that will not be deployed.
-                    items:
-                      type: string
-                    type: array
                   paused:
                     description: Paused disables all reconciliation of the DPFOperatorConfig
                       when set to true.
                     type: boolean
                 type: object
-              provisioningConfiguration:
-                description: ProvisioningConfiguration defines dpf-provisioning-controller
-                  related configurations
+              ovsCNI:
+                description: OVSCNI is the configuration for OVSCNI
+                properties:
+                  disable:
+                    type: boolean
+                type: object
+              provisioningController:
+                description: ProvisioningController is the configuration for the ProvisioningController
                 properties:
                   bfbPVCName:
                     description: BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim
                       used by dpf-provisioning-controller
                     minLength: 1
                     type: string
+                  disable:
+                    type: boolean
                   dmsTimeout:
                     description: DMSTimeout is the max time in seconds within which
                       a DMS API must respond, 0 is unlimited
@@ -78,6 +110,31 @@ spec:
                     type: integer
                 required:
                 - bfbPVCName
+                type: object
+              serviceSetController:
+                description: ServiceSetController is the configuration for the ServiceSetController
+                properties:
+                  disable:
+                    type: boolean
+                type: object
+              sfcController:
+                description: SFCController is the configuration for the SFCController
+                properties:
+                  disable:
+                    type: boolean
+                type: object
+              sriovDevicePlugin:
+                description: SRIOVDevicePlugin is the configuration for the SRIOVDevicePlugin
+                properties:
+                  disable:
+                    type: boolean
+                type: object
+              staticControlPlaneManager:
+                description: StaticControlPlaneManager is the configuration for the
+                  StaticControlPlaneManager
+                properties:
+                  disable:
+                    type: boolean
                 type: object
             type: object
           status:

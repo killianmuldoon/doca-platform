@@ -43,13 +43,13 @@ type fromDPUService struct {
 
 // dpuNetworkingSubCharts are the DPUServices that use the dpu-networking helm chart by default.
 var dpuNetworkingSubCharts = map[string]bool{
-	FlannelName:              true,
-	ServiceSetControllerName: true,
-	MultusName:               true,
-	SRIOVDevicePluginName:    true,
-	OVSCNIName:               true,
-	NVIPAMName:               true,
-	SFCControllerName:        true,
+	operatorv1.FlannelName:              true,
+	operatorv1.ServiceSetControllerName: true,
+	operatorv1.MultusName:               true,
+	operatorv1.SRIOVDevicePluginName:    true,
+	operatorv1.OVSCNIName:               true,
+	operatorv1.NVIPAMName:               true,
+	operatorv1.SFCControllerName:        true,
 }
 
 func (f *fromDPUService) Name() string {
@@ -87,7 +87,7 @@ func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateMa
 	for _, option := range options {
 		option.Apply(opts)
 	}
-	if _, ok := vars.DisableSystemComponents[f.Name()]; ok {
+	if ok := vars.DisableSystemComponents[f.Name()]; ok {
 		return nil, nil
 	}
 

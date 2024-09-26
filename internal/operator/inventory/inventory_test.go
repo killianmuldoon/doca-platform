@@ -51,7 +51,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if ServiceFunctionChainSet data is nil",
 			inventory: New().setServiceFunctionChainSet(fromDPUService{
-				name: ServiceSetControllerName,
+				name: operatorv1.ServiceSetControllerName,
 				data: nil,
 			}),
 			wantErr: true,
@@ -59,7 +59,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if ServiceFunctionChainSet data has an unexpected object",
 			inventory: New().setServiceFunctionChainSet(fromDPUService{
-				name: ServiceSetControllerName,
+				name: operatorv1.ServiceSetControllerName,
 				data: addUnexpectedKindToObjects(g, serviceChainSetData),
 			}),
 			wantErr: true,
@@ -67,32 +67,32 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if ServiceFunctionChainSet is missing the DPUService",
 			inventory: New().setServiceFunctionChainSet(fromDPUService{
-				name: ServiceSetControllerName,
+				name: operatorv1.ServiceSetControllerName,
 				data: removeKindFromObjects(g, "DPUService", serviceChainSetData),
 			}),
 			wantErr: true,
 		},
 		// multus
 		{
-			name: "fail if Multus data is nil",
+			name: "fail if MultusConfiguration data is nil",
 			inventory: New().setMultus(fromDPUService{
-				name: MultusName,
+				name: operatorv1.MultusName,
 				data: nil,
 			}),
 			wantErr: true,
 		},
 		{
-			name: "fail if Multus data has an unexpected object",
+			name: "fail if MultusConfiguration data has an unexpected object",
 			inventory: New().setMultus(fromDPUService{
-				name: MultusName,
+				name: operatorv1.MultusName,
 				data: addUnexpectedKindToObjects(g, serviceChainSetData),
 			}),
 			wantErr: true,
 		},
 		{
-			name: "fail if Multus is missing the DPUService",
+			name: "fail if MultusConfiguration is missing the DPUService",
 			inventory: New().setMultus(fromDPUService{
-				name: MultusName,
+				name: operatorv1.MultusName,
 				data: removeKindFromObjects(g, "DPUService", serviceChainSetData),
 			}),
 			wantErr: true,
@@ -101,23 +101,23 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if sriovDevicePlugin data is nil",
 			inventory: New().setSRIOVDevicePlugin(fromDPUService{
-				name: SRIOVDevicePluginName,
+				name: operatorv1.SRIOVDevicePluginName,
 				data: nil,
 			}),
 			wantErr: true,
 		},
 		{
-			name: "fail if SRIOVDevicePlugin data has an unexpected object",
+			name: "fail if SRIOVDevicePluginConfiguration data has an unexpected object",
 			inventory: New().setSRIOVDevicePlugin(fromDPUService{
-				name: SRIOVDevicePluginName,
+				name: operatorv1.SRIOVDevicePluginName,
 				data: addUnexpectedKindToObjects(g, serviceChainSetData),
 			}),
 			wantErr: true,
 		},
 		{
-			name: "fail if SRIOVDevicePlugin is missing the DPUService",
+			name: "fail if SRIOVDevicePluginConfiguration is missing the DPUService",
 			inventory: New().setSRIOVDevicePlugin(fromDPUService{
-				name: SRIOVDevicePluginName,
+				name: operatorv1.SRIOVDevicePluginName,
 				data: removeKindFromObjects(g, "DPUService", serviceChainSetData),
 			}),
 			wantErr: true,
@@ -126,7 +126,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if flannel data is nil",
 			inventory: New().setFlannel(fromDPUService{
-				name: FlannelName,
+				name: operatorv1.FlannelName,
 				data: nil,
 			}),
 			wantErr: true,
@@ -134,7 +134,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if flannel data has an unexpected object",
 			inventory: New().setFlannel(fromDPUService{
-				name: FlannelName,
+				name: operatorv1.FlannelName,
 				data: addUnexpectedKindToObjects(g, flannelData),
 			}),
 			wantErr: true,
@@ -142,7 +142,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if flannel is missing the DPUService",
 			inventory: New().setFlannel(fromDPUService{
-				name: FlannelName,
+				name: operatorv1.FlannelName,
 				data: removeKindFromObjects(g, "DPUService", flannelData),
 			}),
 			wantErr: true,
@@ -151,7 +151,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if nv-ipam data is nil",
 			inventory: New().setNvK8sIpam(fromDPUService{
-				name: NVIPAMName,
+				name: operatorv1.NVIPAMName,
 				data: nil,
 			}),
 			wantErr: true,
@@ -159,7 +159,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if nv-ipam data has an unexpected object",
 			inventory: New().setNvK8sIpam(fromDPUService{
-				name: NVIPAMName,
+				name: operatorv1.NVIPAMName,
 				data: addUnexpectedKindToObjects(g, nvK8sIpamData),
 			}),
 			wantErr: true,
@@ -167,7 +167,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if nv-ipam is missing the DPUService",
 			inventory: New().setNvK8sIpam(fromDPUService{
-				name: NVIPAMName,
+				name: operatorv1.NVIPAMName,
 				data: removeKindFromObjects(g, "DPUService", nvK8sIpamData),
 			}),
 			wantErr: true,
@@ -176,7 +176,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if ovs-cni data is nil",
 			inventory: New().setOvsCni(fromDPUService{
-				name: OVSCNIName,
+				name: operatorv1.OVSCNIName,
 				data: nil,
 			}),
 			wantErr: true,
@@ -184,7 +184,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if ovs-cni data has an unexpected object",
 			inventory: New().setOvsCni(fromDPUService{
-				name: OVSCNIName,
+				name: operatorv1.OVSCNIName,
 				data: addUnexpectedKindToObjects(g, ovsCniData),
 			}),
 			wantErr: true,
@@ -192,7 +192,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if ovs-cni is missing the DPUService",
 			inventory: New().setOvsCni(fromDPUService{
-				name: OVSCNIName,
+				name: operatorv1.OVSCNIName,
 				data: removeKindFromObjects(g, "DPUService", ovsCniData),
 			}),
 			wantErr: true,
@@ -201,7 +201,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if sfc-controller data is nil",
 			inventory: New().setSfcController(fromDPUService{
-				name: SFCControllerName,
+				name: operatorv1.SFCControllerName,
 				data: nil,
 			}),
 			wantErr: true,
@@ -209,7 +209,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if sfc-controller data has an unexpected object",
 			inventory: New().setSfcController(fromDPUService{
-				name: SFCControllerName,
+				name: operatorv1.SFCControllerName,
 				data: addUnexpectedKindToObjects(g, sfcControllerData),
 			}),
 			wantErr: true,
@@ -217,7 +217,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if sfc-controller is missing the DPUService",
 			inventory: New().setSfcController(fromDPUService{
-				name: SFCControllerName,
+				name: operatorv1.SFCControllerName,
 				data: removeKindFromObjects(g, "DPUService", sfcControllerData),
 			}),
 			wantErr: true,
@@ -295,51 +295,51 @@ func TestManifests_generateAllManifests(t *testing.T) {
 		},
 		{
 			name:               "Disable multus manifests",
-			componentToDisable: MultusName,
+			componentToDisable: operatorv1.MultusName,
 			wantErr:            false,
-			expectedMissing:    MultusName,
+			expectedMissing:    operatorv1.MultusName,
 		},
 		{
 			name:               "Disable sriovDevicePlugin manifests",
-			componentToDisable: SRIOVDevicePluginName,
+			componentToDisable: operatorv1.SRIOVDevicePluginName,
 			wantErr:            false,
-			expectedMissing:    SRIOVDevicePluginName,
+			expectedMissing:    operatorv1.SRIOVDevicePluginName,
 		},
 		{
 			name:               "Disable flannel manifests",
-			componentToDisable: FlannelName,
+			componentToDisable: operatorv1.FlannelName,
 			wantErr:            false,
-			expectedMissing:    FlannelName,
+			expectedMissing:    operatorv1.FlannelName,
 		},
 		{
 			name:               "Disable nvidia-k8s-ipam manifests",
-			componentToDisable: NVIPAMName,
+			componentToDisable: operatorv1.NVIPAMName,
 			wantErr:            false,
-			expectedMissing:    NVIPAMName,
+			expectedMissing:    operatorv1.NVIPAMName,
 		},
 		{
 			name:               "Disable DPFProvisioningController manifests",
-			componentToDisable: ProvisioningControllerName,
+			componentToDisable: operatorv1.ProvisioningControllerName,
 			wantErr:            false,
-			expectedMissing:    ProvisioningControllerName,
+			expectedMissing:    operatorv1.ProvisioningControllerName,
 		},
 		{
-			name:               "Disable DPUServiceController manifests",
-			componentToDisable: SRIOVDevicePluginName,
+			name:               "Disable DPUServiceControllerConfiguration manifests",
+			componentToDisable: operatorv1.SRIOVDevicePluginName,
 			wantErr:            false,
-			expectedMissing:    SRIOVDevicePluginName,
+			expectedMissing:    operatorv1.SRIOVDevicePluginName,
 		},
 		{
 			name:               "Disable ovs-cni manifests",
-			componentToDisable: OVSCNIName,
+			componentToDisable: operatorv1.OVSCNIName,
 			wantErr:            false,
-			expectedMissing:    OVSCNIName,
+			expectedMissing:    operatorv1.OVSCNIName,
 		},
 		{
 			name:               "Disable sfc-controller manifests",
-			componentToDisable: SFCControllerName,
+			componentToDisable: operatorv1.SFCControllerName,
 			wantErr:            false,
-			expectedMissing:    SFCControllerName,
+			expectedMissing:    operatorv1.SFCControllerName,
 		},
 	}
 	for _, tt := range tests {

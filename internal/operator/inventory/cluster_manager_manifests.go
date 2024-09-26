@@ -30,9 +30,7 @@ func NewClusterManagerObjects(name string, data []byte) *clusterManagerObjects {
 	m.data = data
 	// disabled if the provisioning-controller is disabled
 	m.isDisabled = func(disableComponents map[string]bool) bool {
-		prov := &provisioningControllerObjects{}
-		_, ok := disableComponents[prov.Name()]
-		return ok
+		return disableComponents[name]
 	}
 	m.edit = func(objs []*unstructured.Unstructured, vars Variables, labelsToAdd map[string]string) error {
 		return NewEdits().

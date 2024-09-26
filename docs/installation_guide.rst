@@ -262,7 +262,7 @@ DPF Operator Configuration
         spec:
           imagePullSecrets:
           - dpf-pull-secret
-          provisioningConfiguration:
+          provisioningController:
             bfbPVCName: "bfb-pvc"
         EOF
 

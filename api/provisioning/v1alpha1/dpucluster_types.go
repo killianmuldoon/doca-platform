@@ -22,12 +22,12 @@ import (
 
 type ClusterType string
 
+type ConditionType string
+
 const (
 	StaticCluster ClusterType = "Static"
 	NVidiaCluster ClusterType = "Nvidia"
 )
-
-type ConditionType string
 
 const (
 	ConditionCreated ConditionType = "Created"

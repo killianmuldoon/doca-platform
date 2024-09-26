@@ -50,7 +50,7 @@ type provisioningControllerObjects struct {
 }
 
 func (p *provisioningControllerObjects) Name() string {
-	return ProvisioningControllerName
+	return operatorv1.ProvisioningControllerName
 }
 
 // Parse returns typed objects for the Provisioning controller deployment.
@@ -92,7 +92,7 @@ func (p *provisioningControllerObjects) Parse() (err error) {
 // GenerateManifests applies edits and returns objects
 func (p *provisioningControllerObjects) GenerateManifests(vars Variables, options ...GenerateManifestOption) ([]client.Object, error) {
 	ret := []client.Object{}
-	if _, ok := vars.DisableSystemComponents[p.Name()]; ok {
+	if ok := vars.DisableSystemComponents[p.Name()]; ok {
 		return []client.Object{}, nil
 	}
 	opts := &GenerateManifestOptions{}

@@ -20,20 +20,10 @@ import (
 	"context"
 	_ "embed"
 
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
+
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-)
-
-const (
-	FlannelName                = "flannel"
-	ServiceSetControllerName   = "servicechainset-controller"
-	MultusName                 = "multus"
-	SRIOVDevicePluginName      = "sriov-device-plugin"
-	OVSCNIName                 = "ovs-cni"
-	NVIPAMName                 = "nvidia-k8s-ipam"
-	SFCControllerName          = "sfc-controller"
-	ProvisioningControllerName = "provisioning-controller"
-	DPUServiceControllerName   = "dpuservice-controller"
 )
 
 // Component describes the responsibilities of an item in the Inventory.
@@ -111,38 +101,38 @@ func New() *SystemComponents {
 			data: provisioningControllerData,
 		},
 		ServiceFunctionChainSet: &fromDPUService{
-			name: ServiceSetControllerName,
+			name: operatorv1.ServiceSetControllerName,
 			data: serviceChainSetData,
 		},
 		Multus: &fromDPUService{
-			name: MultusName,
+			name: operatorv1.MultusName,
 			data: multusData,
 		},
 		SRIOVDevicePlugin: &fromDPUService{
-			name: SRIOVDevicePluginName,
+			name: operatorv1.SRIOVDevicePluginName,
 			data: sriovDevicePluginData,
 		},
 		Flannel: &fromDPUService{
-			name: FlannelName,
+			name: operatorv1.FlannelName,
 			data: flannelData,
 		},
 		OvsCni: &fromDPUService{
-			name: OVSCNIName,
+			name: operatorv1.OVSCNIName,
 			data: ovsCniData,
 		},
 		NvIPAM: &fromDPUService{
-			name: NVIPAMName,
+			name: operatorv1.NVIPAMName,
 			data: nvK8sIpamData,
 		},
 		SfcController: &fromDPUService{
-			name: SFCControllerName,
+			name: operatorv1.SFCControllerName,
 			data: sfcControllerData,
 		},
-		NVidiaClusterManager: NewClusterManagerObjects("nvidia-cluster-manager", nvidiaCMData),
-		StaticClusterManager: NewClusterManagerObjects("static-cluster-manager", staticCMData),
 		DPUDetector: &dpuDetectorObjects{
 			data: dpuDetectorData,
 		},
+		NVidiaClusterManager: NewClusterManagerObjects(operatorv1.HostedControlPlaneManagerName, nvidiaCMData),
+		StaticClusterManager: NewClusterManagerObjects(operatorv1.StaticControlPlaneManagerName, staticCMData),
 	}
 }
 
@@ -175,6 +165,17 @@ func (s *SystemComponents) AllComponents() []Component {
 		s.StaticClusterManager,
 		s.DPUDetector,
 	}
+}
+
+// EnabledComponents returns the set of components which is not disabled.
+func (s *SystemComponents) EnabledComponents(vars Variables) []Component {
+	out := []Component{}
+	for _, component := range s.AllComponents() {
+		if disabled, found := vars.DisableSystemComponents[component.Name()]; found && !disabled {
+			out = append(out, component)
+		}
+	}
+	return out
 }
 
 // ParseAll creates Kubernetes objects for all manifests related to the DPFOperator.

@@ -23,18 +23,33 @@ import (
 
 func newDefaultVariables(defaults *release.Defaults) Variables {
 	return Variables{
+		DisableSystemComponents: map[string]bool{
+			operatorv1.ProvisioningControllerName: false,
+			operatorv1.DPUServiceControllerName:   false,
+			operatorv1.ServiceSetControllerName:   false,
+			operatorv1.FlannelName:                false,
+			operatorv1.MultusName:                 false,
+			operatorv1.SRIOVDevicePluginName:      false,
+			operatorv1.OVSCNIName:                 false,
+			operatorv1.NVIPAMName:                 false,
+			operatorv1.SFCControllerName:          false,
+
+			// Both control plane managers are disabled by default.
+			operatorv1.StaticControlPlaneManagerName: true,
+			operatorv1.HostedControlPlaneManagerName: true,
+		},
 		Images: map[string]string{
-			ProvisioningControllerName: defaults.DPFSystemImage,
-			DPUServiceControllerName:   defaults.DPFSystemImage,
+			operatorv1.ProvisioningControllerName: defaults.DPFSystemImage,
+			operatorv1.DPUServiceControllerName:   defaults.DPFSystemImage,
 		},
 		HelmCharts: map[string]string{
-			FlannelName:              defaults.DPUNetworkingHelmChart,
-			MultusName:               defaults.DPUNetworkingHelmChart,
-			SRIOVDevicePluginName:    defaults.DPUNetworkingHelmChart,
-			NVIPAMName:               defaults.DPUNetworkingHelmChart,
-			OVSCNIName:               defaults.DPUNetworkingHelmChart,
-			SFCControllerName:        defaults.DPUNetworkingHelmChart,
-			ServiceSetControllerName: defaults.DPUNetworkingHelmChart,
+			operatorv1.FlannelName:              defaults.DPUNetworkingHelmChart,
+			operatorv1.MultusName:               defaults.DPUNetworkingHelmChart,
+			operatorv1.SRIOVDevicePluginName:    defaults.DPUNetworkingHelmChart,
+			operatorv1.NVIPAMName:               defaults.DPUNetworkingHelmChart,
+			operatorv1.OVSCNIName:               defaults.DPUNetworkingHelmChart,
+			operatorv1.SFCControllerName:        defaults.DPUNetworkingHelmChart,
+			operatorv1.ServiceSetControllerName: defaults.DPUNetworkingHelmChart,
 		},
 	}
 }
@@ -56,19 +71,18 @@ type DPFProvisioningVariables struct {
 
 func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operatorv1.DPFOperatorConfig) Variables {
 	variables := newDefaultVariables(defaults)
-	disableComponents := make(map[string]bool)
+	disableComponents := variables.DisableSystemComponents
 	images := variables.Images
 	helmCharts := variables.HelmCharts
-	if config.Spec.Overrides != nil {
-		for _, item := range config.Spec.Overrides.DisableSystemComponents {
-			disableComponents[item] = true
+	for _, componentConfig := range config.ComponentConfigs() {
+		if componentConfig != nil {
+			disableComponents[componentConfig.Name()] = componentConfig.Disabled()
 		}
-		// TODO: Allow users to override images from the DPFOperatorConfig
 	}
 	variables.Namespace = config.Namespace
 	variables.DPFProvisioningController = DPFProvisioningVariables{
-		BFBPersistentVolumeClaimName: config.Spec.ProvisioningConfiguration.BFBPersistentVolumeClaimName,
-		DMSTimeout:                   config.Spec.ProvisioningConfiguration.DMSTimeout,
+		BFBPersistentVolumeClaimName: config.Spec.ProvisioningController.BFBPersistentVolumeClaimName,
+		DMSTimeout:                   config.Spec.ProvisioningController.DMSTimeout,
 	}
 	variables.ImagePullSecrets = config.Spec.ImagePullSecrets
 	variables.DisableSystemComponents = disableComponents

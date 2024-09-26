@@ -40,7 +40,7 @@ type dpuServiceControllerObjects struct {
 }
 
 func (d *dpuServiceControllerObjects) Name() string {
-	return DPUServiceControllerName
+	return operatorv1.DPUServiceControllerName
 }
 
 // Parse returns typed objects for the DPUService controller deployment.
@@ -70,7 +70,7 @@ func (d *dpuServiceControllerObjects) Parse() error {
 // GenerateManifests returns all objects as a list.
 func (d *dpuServiceControllerObjects) GenerateManifests(vars Variables, options ...GenerateManifestOption) ([]client.Object, error) {
 	ret := []client.Object{}
-	if _, ok := vars.DisableSystemComponents[d.Name()]; ok {
+	if ok := vars.DisableSystemComponents[d.Name()]; ok {
 		return []client.Object{}, nil
 	}
 	opts := &GenerateManifestOptions{}

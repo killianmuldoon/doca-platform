@@ -120,7 +120,7 @@ func TestDPFOperatorConfigReconciler_Conditions(t *testing.T) {
 
 			// This secret name is wrong - this prevents ImagePullSecretsReconciled from becoming true.
 			ImagePullSecrets: []string{"wrong-secret-name"},
-			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
+			ProvisioningController: &operatorv1.ProvisioningControllerConfiguration{
 				BFBPersistentVolumeClaimName: "{\"school\":\"EFG\", \"standard\": \"2\", \"name\": \"abc\", \"city\": \"miami\"}'",
 			},
 		},
@@ -172,7 +172,7 @@ func TestDPFOperatorConfigReconciler_Conditions(t *testing.T) {
 
 		// Add a finalizer to a DPUService to prevent deletion from succeeding.
 		g.Eventually(func(g Gomega) {
-			g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: config.Namespace, Name: inventory.MultusName}, dpuservice)).To(Succeed())
+			g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: config.Namespace, Name: operatorv1.MultusName}, dpuservice)).To(Succeed())
 			dpuservice.ObjectMeta.SetFinalizers(append(dpuservice.ObjectMeta.GetFinalizers(), "another"))
 			g.Expect(testClient.Update(ctx, dpuservice)).To(Succeed())
 		}).WithTimeout(10 * time.Second).Should(Succeed())
@@ -226,7 +226,7 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 			Overrides: &operatorv1.Overrides{
 				Paused: ptr.To(true),
 			},
-			ProvisioningConfiguration: operatorv1.ProvisioningConfiguration{
+			ProvisioningController: &operatorv1.ProvisioningControllerConfiguration{
 				BFBPersistentVolumeClaimName: "foo-pvc",
 			},
 		},
@@ -278,13 +278,13 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 		verifyPVC(g, deployment, "foo-pvc")
 
 		// Check the system components deployed as DPUServices are created as expected.
-		waitForDPUService(g, config.Namespace, inventory.ServiceSetControllerName, initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, inventory.MultusName, initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, inventory.SRIOVDevicePluginName, initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, inventory.FlannelName, initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, inventory.NVIPAMName, initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, inventory.OVSCNIName, initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, inventory.SFCControllerName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.ServiceSetControllerName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.MultusName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.SRIOVDevicePluginName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.FlannelName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.NVIPAMName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.OVSCNIName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.SFCControllerName, initialImagePullSecrets)
 	})
 
 	t.Run("Remove label from Secrets when they are removed from the DPFOperatorConfig", func(t *testing.T) {
@@ -305,26 +305,27 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 	t.Run("Delete system components when they are disabled in the DPFOperatorConfig", func(t *testing.T) {
 		// Patch the DPFOperatorConfig to disable multus deployment.
 		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
-		patch := client.RawPatch(types.MergePatchType, []byte("{\"spec\": {\"overrides\": {\"disableSystemComponents\":[\"multus\"]}}}"))
-		g.Expect(testClient.Patch(ctx, config, patch)).To(Succeed())
+		configCopy := config.DeepCopy()
+		config.Spec.Multus = &operatorv1.MultusConfiguration{Disable: ptr.To(true)}
+		g.Expect(testClient.Patch(ctx, config, client.MergeFrom(configCopy))).To(Succeed())
 
 		// Expect the DPUService and Provisioning controller managers to be deployed.
 		waitForDeployment(g, config.Namespace, "dpuservice-controller-manager")
 		waitForDeployment(g, config.Namespace, "dpf-provisioning-controller-manager")
 
 		// Check the system components deployed as DPUServices are created as expected.
-		waitForDPUService(g, config.Namespace, inventory.ServiceSetControllerName, initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, inventory.SRIOVDevicePluginName, initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, inventory.FlannelName, initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, inventory.NVIPAMName, initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, inventory.OVSCNIName, initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, inventory.SFCControllerName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.ServiceSetControllerName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.SRIOVDevicePluginName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.FlannelName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.NVIPAMName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.OVSCNIName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.SFCControllerName, initialImagePullSecrets)
 		g.Eventually(func(g Gomega) {
 			dpuservices := &dpuservicev1.DPUServiceList{}
 			g.Expect(testClient.List(ctx, dpuservices)).To(Succeed())
 			err := testClient.Get(ctx, client.ObjectKey{
 				Namespace: config.Namespace,
-				Name:      inventory.MultusName},
+				Name:      operatorv1.MultusName},
 				&dpuservicev1.DPUService{})
 			g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		}).WithTimeout(10 * time.Second).Should(Succeed())

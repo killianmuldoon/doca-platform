@@ -45,9 +45,6 @@ var (
 
 // Overrides exposes a set of fields which impact the recommended behaviour of the DPF Operator
 type Overrides struct {
-	// DisableSystemComponents is a list of system components that will not be deployed.
-	// +optional
-	DisableSystemComponents []string `json:"disableSystemComponents,omitempty"`
 	// Paused disables all reconciliation of the DPFOperatorConfig when set to true.
 	// +optional
 	Paused *bool `json:"paused,omitempty"`
@@ -55,23 +52,45 @@ type Overrides struct {
 
 // DPFOperatorConfigSpec defines the desired state of DPFOperatorConfig
 type DPFOperatorConfigSpec struct {
-	ProvisioningConfiguration ProvisioningConfiguration `json:"provisioningConfiguration,omitempty"`
-	// +optional
 	Overrides *Overrides `json:"overrides,omitempty"`
+	// DPUServiceController is the configuration for the DPUServiceController
+	// +optional
+	DPUServiceController *DPUServiceControllerConfiguration `json:"dpuServiceController,omitempty"`
+	// ProvisioningController is the configuration for the ProvisioningController
+	// +optional
+	ProvisioningController *ProvisioningControllerConfiguration `json:"provisioningController,omitempty"`
+	// ServiceSetController is the configuration for the ServiceSetController
+	// +optional
+	ServiceSetController *ServiceSetControllerConfiguration `json:"serviceSetController,omitempty"`
+	// Multus is the configuration for Multus
+	// +optional
+	Multus *MultusConfiguration `json:"multus,omitempty"`
+	// SRIOVDevicePlugin is the configuration for the SRIOVDevicePlugin
+	// +optional
+	SRIOVDevicePlugin *SRIOVDevicePluginConfiguration `json:"sriovDevicePlugin,omitempty"`
+	// Flannel is the configuration for Flannel
+	// +optional
+	Flannel *FlannelConfiguration `json:"flannel,omitempty"`
+	// OVSCNI is the configuration for OVSCNI
+	// +optional
+	OVSCNI *OVSCNIConfiguration `json:"ovsCNI,omitempty"`
+	// NVIPAM is the configuration for NVIPAM
+	// +optional
+	NVIPAM *NVIPAMConfiguration `json:"nvipam,omitempty"`
+	// SFCController is the configuration for the SFCController
+	// +optional
+	SFCController *SFCControllerConfiguration `json:"sfcController,omitempty"`
+	// HostedControlPlaneManager is the configuration for the HostedControlPlaneManager
+	// +optional
+	HostedControlPlaneManager *HostedControlPlaneManagerConfiguration `json:"hostedControlPlaneManager,omitempty"`
+	// StaticControlPlaneManager is the configuration for the StaticControlPlaneManager
+	// +optional
+	StaticControlPlaneManager *StaticControlPlaneManagerConfiguration `json:"staticControlPlaneManager,omitempty"`
+
 	// List of secret names which are used to pull images for DPF system components and DPUServices.
 	// These secrets must be in the same namespace as the DPF Operator Config and should be created before the config is created.
 	// System reconciliation will not proceed until these secrets are available.
 	ImagePullSecrets []string `json:"imagePullSecrets,omitempty"`
-}
-
-// ProvisioningConfiguration defines dpf-provisioning-controller related configurations
-type ProvisioningConfiguration struct {
-	// BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim used by dpf-provisioning-controller
-	// +kubebuilder:validation:MinLength=1
-	BFBPersistentVolumeClaimName string `json:"bfbPVCName"`
-	// DMSTimeout is the max time in seconds within which a DMS API must respond, 0 is unlimited
-	// +kubebuilder:validation:Minimum=1
-	DMSTimeout *int `json:"dmsTimeout,omitempty"`
 }
 
 // DPFOperatorConfigStatus defines the observed state of DPFOperatorConfig

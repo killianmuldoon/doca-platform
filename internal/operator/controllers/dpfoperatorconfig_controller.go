@@ -272,8 +272,8 @@ func (r *DPFOperatorConfigReconciler) reconcileImagePullSecrets(ctx context.Cont
 // 2. DPU provisioning controller
 // 3. ServiceFunctionChainSet controller DPUService
 // 4. SR-IOV device plugin DPUService
-// 5. Multus DPUService
-// 6. Flannel DPUService
+// 5. MultusConfiguration DPUService
+// 6. FlannelConfiguration DPUService
 // 7. NVIDIA Kubernetes IPAM
 // 8. OVS CNI
 // 9. SFC Controller
@@ -292,7 +292,7 @@ func (r *DPFOperatorConfigReconciler) updateSystemComponentStatus(ctx context.Co
 	unreadyMessages := []string{}
 	log := ctrllog.FromContext(ctx)
 	log.Info("Updating status of DPF OperatorConfig")
-	for _, component := range r.Inventory.AllComponents() {
+	for _, component := range r.Inventory.EnabledComponents(inventory.VariablesFromDPFOperatorConfig(r.Defaults, config)) {
 		err := component.IsReady(ctx, r.Client, config.Namespace)
 		if err != nil {
 			log.Error(err, "Component not ready", "component", component)
