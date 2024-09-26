@@ -19,7 +19,6 @@ package controllers
 import (
 	"context"
 	"crypto/x509"
-	"encoding/base64"
 	"fmt"
 	"net"
 	"net/url"
@@ -389,7 +388,7 @@ func (r *DPUServiceCredentialRequestReconciler) createTokenFileWithToken(ctx con
 	return map[string][]byte{
 		"KUBERNETES_SERVICE_HOST": []byte(host),
 		"KUBERNETES_SERVICE_PORT": []byte(port),
-		"KUBERNETES_CA_DATA":      []byte(base64.StdEncoding.EncodeToString(caData)),
+		"KUBERNETES_CA_DATA":      caData,
 		"TOKEN_FILE":              []byte(token),
 	}, nil
 }

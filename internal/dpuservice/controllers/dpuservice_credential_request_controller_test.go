@@ -230,7 +230,7 @@ func assertDPUServiceCredentialRequestSecret(testClient client.Client, dsr *dpus
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(secret.Data["KUBERNETES_SERVICE_HOST"])).To(Equal(u.Hostname()))
 		Expect(string(secret.Data["KUBERNETES_SERVICE_PORT"])).To(Equal(u.Port()))
-		Expect(string(secret.Data["KUBERNETES_CA_DATA"])).To(Equal(base64EncodeCA))
+		Expect(string(secret.Data["KUBERNETES_CA_DATA"])).To(Equal(string(cfg.CAData)))
 	}
 }
 
