@@ -60,6 +60,7 @@ spec:
             - --cni-conf-dir=/etc/cni/net.d/nv-ipam.d
             - --cni-log-file=/var/log/nv-ipam-cni.log
             - --cni-log-level=info # log level for shim CNI
+            - --cni-force-pool-name
             - --ippools-namespace=$(POD_NAMESPACE)
           resources:
             requests:
