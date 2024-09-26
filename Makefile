@@ -284,19 +284,19 @@ generate-manifests-servicechainset: controller-gen kustomize envsubst ## Generat
 	output:crd:dir=./config/servicechainset/crd/bases \
 	output:rbac:dir=./config/servicechainset/rbac
 	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/servicechain/crds/ \;
-	$(ENVSUBST) < deploy/helm/servicechain/values.yaml.tmpl > deploy/helm/servicechain/values.yaml
+	$(ENVSUBST) < deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml.tmpl > deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml
 
 
 .PHONY: generate-manifests-sfc-controller
 generate-manifests-sfc-controller: envsubst generate-manifests-servicechainset
-	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_servicechains.yaml deploy/helm/sfc-controller/crds/
-	cp deploy/helm/servicechain/crds/sfc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/sfc-controller/crds/
+	cp deploy/helm/dpu-networking/charts/servicechainset-controller/crds/sfc.dpf.nvidia.com_servicechains.yaml deploy/helm/dpu-networking/charts/sfc-controller/crds/
+	cp deploy/helm/dpu-networking/charts/servicechainset-controller/crds/sfc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/dpu-networking/charts/sfc-controller/crds/
 	# Template the image name and tag used in the helm templates.
-	$(ENVSUBST) < deploy/helm/sfc-controller/values.yaml.tmpl > deploy/helm/sfc-controller/values.yaml
+	$(ENVSUBST) < deploy/helm/dpu-networking/charts/sfc-controller/values.yaml.tmpl > deploy/helm/dpu-networking/charts/sfc-controller/values.yaml
 
 .PHONY: generate-manifests-ovs-cni
 generate-manifests-ovs-cni: envsubst ## Generate values for OVS helm chart.
-	$(ENVSUBST) < deploy/helm/ovs-cni/values.yaml.tmpl > deploy/helm/ovs-cni/values.yaml
+	$(ENVSUBST) < deploy/helm/dpu-networking/charts/ovs-cni/values.yaml.tmpl > deploy/helm/dpu-networking/charts/ovs-cni/values.yaml
 
 .PHONY: generate-manifests-provisioning
 generate-manifests-provisioning: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
@@ -512,31 +512,11 @@ verify-copyright: ## Verify copyrights for project files
 	$Q $(CURDIR)/hack/scripts/copyright-validation.sh
 
 .PHONY: lint-helm
-lint-helm: lint-helm-servicechainset lint-helm-multus lint-helm-sriov-dp lint-helm-nvidia-k8s-ipam lint-helm-ovs-cni lint-helm-sfc-controller lint-helm-ovnkubernetes-operator lint-helm-dummydpuservice
+lint-helm: lint-helm-dpu-networking lint-helm-ovnkubernetes-operator lint-helm-dummydpuservice
 
-.PHONY: lint-helm-servicechainset
-lint-helm-servicechainset: helm ## Run helm lint for servicechainset chart
-	$Q $(HELM) lint $(SERVICECHAIN_CONTROLLER_HELM_CHART)
-
-.PHONY: lint-helm-multus
-lint-helm-multus: helm ## Run helm lint for multus chart
-	$Q $(HELM) lint $(MULTUS_HELM_CHART)
-
-.PHONY: lint-helm-sriov-dp
-lint-helm-sriov-dp: helm ## Run helm lint for sriov device plugin chart
-	$Q $(HELM) lint $(SRIOV_DP_HELM_CHART)
-
-.PHONY: lint-helm-nvidia-k8s-ipam
-lint-helm-nvidia-k8s-ipam: helm ## Run helm lint for nvidia-k8s-ipam chart
-	$Q $(HELM) lint $(NVIDIA_K8S_IPAM_HELM_CHART)
-
-.PHONY: lint-helm-ovs-cni
-lint-helm-ovs-cni: helm ## Run helm lint for ovs-cni chart
-	$Q $(HELM) lint $(OVS_CNI_HELM_CHART)
-
-.PHONY: lint-helm-sfc-controller
-lint-helm-sfc-controller: helm ## Run helm lint for sfc controller chart
-	$Q $(HELM) lint $(SFC_CONTOLLER_HELM_CHART)
+.PHONY: lint-helm-dpu-networking
+lint-helm-dpu-networking: helm ## Run helm lint for servicechainset chart
+	$Q $(HELM) lint $(DPU_NETWORKING_HELM_CHART)
 
 .PHONY: lint-helm-ovnkubernetes-operator
 lint-helm-ovnkubernetes-operator: helm ## Run helm lint for OVN Kubernetes Operator chart
@@ -1038,46 +1018,16 @@ docker-create-manifest-for-dpf-tools:
 # By default the helm registry is assumed to be an OCI registry. This variable should be overwritten when using a https helm repository.
 export HELM_REGISTRY ?= oci://$(REGISTRY)
 
-HELM_TARGETS ?= servicechain-controller multus sriov-device-plugin flannel nvidia-k8s-ipam ovs-cni sfc-controller operator hbn-dpuservice
+HELM_TARGETS ?= dpu-networking operator hbn-dpuservice
 
 # metadata for the operator helm chart
 OPERATOR_HELM_CHART_NAME ?= dpf-operator
 OPERATOR_HELM_CHART ?= $(HELMDIR)/$(OPERATOR_HELM_CHART_NAME)
 
-## metadata for servicechain controller.
-export SERVICECHAIN_CONTROLLER_HELM_CHART_NAME = servicechain
-SERVICECHAIN_CONTROLLER_HELM_CHART ?= $(HELMDIR)/$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME)
-SERVICECHAIN_CONTROLLER_HELM_CHART_VER ?= $(TAG)
-
-## metadata for multus.
-export MULTUS_HELM_CHART_NAME = multus
-MULTUS_HELM_CHART ?= $(HELMDIR)/$(MULTUS_HELM_CHART_NAME)
-MULTUS_HELM_CHART_VER ?= $(TAG)
-
-## metadata for sriov device plugin.
-export SRIOV_DP_HELM_CHART_NAME = sriov-device-plugin
-SRIOV_DP_HELM_CHART ?= $(HELMDIR)/$(SRIOV_DP_HELM_CHART_NAME)
-SRIOV_DP_HELM_CHART_VER ?= $(TAG)
-
-## metadata for nvidia-k8s-ipam.
-export NVIDIA_K8S_IPAM_HELM_CHART_NAME = nvidia-k8s-ipam
-NVIDIA_K8S_IPAM_HELM_CHART ?= $(HELMDIR)/$(NVIDIA_K8S_IPAM_HELM_CHART_NAME)
-NVIDIA_K8S_IPAM_HELM_CHART_VER ?= $(TAG)
-
-## metadata for ovs-cni.
-export OVS_CNI_HELM_CHART_NAME = ovs-cni
-OVS_CNI_HELM_CHART ?= $(HELMDIR)/$(OVS_CNI_HELM_CHART_NAME)
-OVS_CNI_HELM_CHART_VER ?= $(TAG)
-
-# metadata for flannel - using the chart published with flannel github releases.
-export FLANNEL_HELM_CHART_NAME ?= flannel
-export FLANNEL_VERSION ?= v0.25.1
-FLANNEL_HELM_CHART ?= $(abspath $(CHARTSDIR)/$(FLANNEL_HELM_CHART_NAME)-$(FLANNEL_VERSION).tgz)
-
-## metadata for sfc-controller.
-export SFC_CONTOLLER_HELM_CHART_NAME = sfc-controller
-SFC_CONTOLLER_HELM_CHART ?= $(HELMDIR)/$(SFC_CONTOLLER_HELM_CHART_NAME)
-SFC_CONTOLLER_HELM_CHART_VER ?= $(TAG)
+## metadata for dpu-networking helm chart.
+export DPU_NETWORKING_HELM_CHART_NAME = dpu-networking
+DPU_NETWORKING_HELM_CHART ?= $(HELMDIR)/$(DPU_NETWORKING_HELM_CHART_NAME)
+DPU_NETWORKING_HELM_CHART_VER ?= $(TAG)
 
 ## metadata for dpf-ovn-kubernetes-operator.
 export DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME = dpf-ovn-kubernetes-operator
@@ -1096,33 +1046,10 @@ DUMMYDPUSERVICE_HELM_CHART ?= $(DPUSERVICESDIR)/dummydpuservice/chart
 .PHONY: helm-package-all
 helm-package-all: $(addprefix helm-package-,$(HELM_TARGETS))  ## Package the helm charts for all components.
 
-.PHONY: helm-package-servicechain-controller
-helm-package-servicechain-controller: $(CHARTSDIR) helm ## Package helm chart for service chain controller
-	$(HELM) package $(SERVICECHAIN_CONTROLLER_HELM_CHART) --version $(SERVICECHAIN_CONTROLLER_HELM_CHART_VER) --destination $(CHARTSDIR)
-
-.PHONY: helm-package-multus
-helm-package-multus: $(CHARTSDIR) helm ## Package helm chart for multus CNIs
-	$(HELM) package $(MULTUS_HELM_CHART) --version $(MULTUS_HELM_CHART_VER) --destination $(CHARTSDIR)
-
-.PHONY: helm-package-sriov-device-plugin
-helm-package-sriov-device-plugin: $(CHARTSDIR) helm ## Package helm chart for sriov-network-device-plugin
-	$(HELM) package $(SRIOV_DP_HELM_CHART) --version $(SRIOV_DP_HELM_CHART_VER) --destination $(CHARTSDIR)
-
-.PHONY: helm-package-nvidia-k8s-ipam
-helm-package-nvidia-k8s-ipam: $(CHARTSDIR) helm ## Package helm chart for nvidia-k8s-ipam
-	$(HELM) package $(NVIDIA_K8S_IPAM_HELM_CHART) --version $(NVIDIA_K8S_IPAM_HELM_CHART_VER) --destination $(CHARTSDIR)
-
-.PHONY: helm-package-flannel
-helm-package-flannel: $(CHARTSDIR) helm ## Package helm chart for flannel CNI
-	$Q curl -v -fSsL https://github.com/flannel-io/flannel/releases/download/$(FLANNEL_VERSION)/flannel.tgz -o $(FLANNEL_HELM_CHART)
-
-.PHONY: helm-package-ovs-cni
-helm-package-ovs-cni: $(CHARTSDIR) helm ## Package helm chart for OVS CNI
-	$(HELM) package $(OVS_CNI_HELM_CHART) --version $(OVS_CNI_HELM_CHART_VER) --destination $(CHARTSDIR)
-
-.PHONY: helm-package-sfc-controller
-helm-package-sfc-controller: $(CHARTSDIR) helm ## Package helm chart for SFC controller
-	$(HELM) package $(SFC_CONTOLLER_HELM_CHART) --version $(SFC_CONTOLLER_HELM_CHART_VER) --destination $(CHARTSDIR)
+.PHONY: helm-package-dpu-networking
+helm-package-dpu-networking: $(CHARTSDIR) helm ## Package helm chart for service chain controller
+	$(HELM) dependency update $(DPU_NETWORKING_HELM_CHART)
+	$(HELM) package $(DPU_NETWORKING_HELM_CHART) --version $(DPU_NETWORKING_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 OPERATOR_CHART_TAGS ?=$(TAG)
 .PHONY: helm-package-operator
@@ -1152,33 +1079,9 @@ helm-push-operator: $(CHARTSDIR) helm ## Push helm chart for dpf-operator
 		$(HELM) push $(CHARTSDIR)/$(OPERATOR_HELM_CHART_NAME)-$$tag.tgz $(HELM_REGISTRY); \
 	done
 
-.PHONY: helm-push-servicechain-controller
-helm-push-servicechain-controller: $(CHARTSDIR) helm ## Push helm chart for service chain controller
-	$(HELM) push $(CHARTSDIR)/$(SERVICECHAIN_CONTROLLER_HELM_CHART_NAME)-chart-$(SERVICECHAIN_CONTROLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
-
-.PHONY: helm-push-multus
-helm-push-multus: $(CHARTSDIR) helm ## Push helm chart for multus CNI
-	$(HELM) push $(CHARTSDIR)/$(MULTUS_HELM_CHART_NAME)-chart-$(MULTUS_HELM_CHART_VER).tgz $(HELM_REGISTRY)
-
-.PHONY: helm-push-sriov-device-plugin
-helm-push-sriov-device-plugin: $(CHARTSDIR) helm ## Push helm chart for sriov-network-device-plugin
-	$(HELM) push $(CHARTSDIR)/$(SRIOV_DP_HELM_CHART_NAME)-chart-$(SRIOV_DP_HELM_CHART_VER).tgz $(HELM_REGISTRY)
-
-.PHONY: helm-push-nvidia-k8s-ipam
-helm-push-nvidia-k8s-ipam: $(CHARTSDIR) helm ## Push helm chart for nvidia-k8s-ipam
-	$(HELM) push $(CHARTSDIR)/$(NVIDIA_K8S_IPAM_HELM_CHART_NAME)-chart-$(NVIDIA_K8S_IPAM_HELM_CHART_VER).tgz $(HELM_REGISTRY)
-
-.PHONY: helm-push-flannel
-helm-push-flannel: $(CHARTSDIR) helm ## Push helm chart for flannel CNI
-	$(HELM) push $(CHARTSDIR)/$(FLANNEL_HELM_CHART_NAME)-$(FLANNEL_VERSION).tgz $(HELM_REGISTRY)
-
-.PHONY: helm-push-ovs-cni
-helm-push-ovs-cni: $(CHARTSDIR) helm ## Push helm chart for OVS CNI
-	$(HELM) push $(CHARTSDIR)/$(OVS_CNI_HELM_CHART_NAME)-chart-$(OVS_CNI_HELM_CHART_VER).tgz $(HELM_REGISTRY)
-
-.PHONY: helm-push-sfc-controller
-helm-push-sfc-controller: $(CHARTSDIR) helm ## Push helm chart for sfc-controller
-	$(HELM) push $(CHARTSDIR)/$(SFC_CONTOLLER_HELM_CHART_NAME)-chart-$(SFC_CONTOLLER_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+.PHONY: helm-push-dpu-networking
+helm-push-dpu-networking: $(CHARTSDIR) helm ## Push helm chart for service chain controller
+	$(HELM) push $(CHARTSDIR)/$(DPU_NETWORKING_HELM_CHART_NAME)-$(DPU_NETWORKING_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-ovnkubernetes-operator
 helm-push-ovnkubernetes-operator: $(CHARTSDIR) helm ## Push helm chart for DPF OVN Kubernetes Operator

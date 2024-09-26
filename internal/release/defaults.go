@@ -32,13 +32,7 @@ type Defaults struct {
 	HostNetworkSetupImage string `yaml:"hostNetworkSetupImage"`
 	DPFSystemImage        string `yaml:"dpfSystemImage"`
 
-	FlannelHelmChart                string `yaml:"flannelHelmChart"`
-	MultusHelmChart                 string `yaml:"multusHelmChart"`
-	SriovDPHelmChart                string `yaml:"sriovDPHelmChart"`
-	OVSCNIHelmChart                 string `yaml:"ovsCNIHelmChart"`
-	NvidiaK8sHelmChart              string `yaml:"nvidiaK8sHelmChart"`
-	ServiceSetControllerHelmChart   string `yaml:"serviceSetControllerHelmChart"`
-	ServiceChainControllerHelmChart string `yaml:"serviceChainControllerHelmChart"`
+	DPUNetworkingHelmChart string `yaml:"dpuNetworkingHelmChart"`
 
 	// CustomOVNKubernetesDPUImage is the default custom OVN Kubernetes image that should be deployed to the DPU
 	// enabled workers.
@@ -68,28 +62,10 @@ func (d *Defaults) Parse() error {
 		return errors.New("hostNetworkSetupImage can't be empty")
 	}
 	if len(d.DPFSystemImage) == 0 {
-		return errors.New("dpsfSystemImage can't be empty")
+		return errors.New("dpfSystemImage can't be empty")
 	}
-	if len(d.FlannelHelmChart) == 0 {
-		return errors.New("FlannelHelmChart can't be empty")
-	}
-	if len(d.MultusHelmChart) == 0 {
-		return errors.New("multusHelmChart can't be empty")
-	}
-	if len(d.SriovDPHelmChart) == 0 {
-		return errors.New("sriovDPHelmChart can't be empty")
-	}
-	if len(d.OVSCNIHelmChart) == 0 {
-		return errors.New("ovsCNIHelmChart can't be empty")
-	}
-	if len(d.NvidiaK8sHelmChart) == 0 {
-		return errors.New("nvidiaK8sHelmChart can't be empty")
-	}
-	if len(d.ServiceChainControllerHelmChart) == 0 {
-		return errors.New("serviceChainControllerHelmChart can't be empty")
-	}
-	if len(d.ServiceSetControllerHelmChart) == 0 {
-		return errors.New("serviceSetControllerHelmChart can't be empty")
+	if len(d.DPUNetworkingHelmChart) == 0 {
+		return errors.New("DPUNetworkingHelmChart can't be empty")
 	}
 	return nil
 }

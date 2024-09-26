@@ -51,7 +51,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if ServiceFunctionChainSet data is nil",
 			inventory: New().setServiceFunctionChainSet(fromDPUService{
-				name: "serviceFunctionChainSet",
+				name: ServiceSetControllerName,
 				data: nil,
 			}),
 			wantErr: true,
@@ -59,7 +59,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if ServiceFunctionChainSet data has an unexpected object",
 			inventory: New().setServiceFunctionChainSet(fromDPUService{
-				name: "serviceFunctionChainSet",
+				name: ServiceSetControllerName,
 				data: addUnexpectedKindToObjects(g, serviceChainSetData),
 			}),
 			wantErr: true,
@@ -67,7 +67,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if ServiceFunctionChainSet is missing the DPUService",
 			inventory: New().setServiceFunctionChainSet(fromDPUService{
-				name: "serviceFunctionChainSet",
+				name: ServiceSetControllerName,
 				data: removeKindFromObjects(g, "DPUService", serviceChainSetData),
 			}),
 			wantErr: true,
@@ -76,7 +76,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if Multus data is nil",
 			inventory: New().setMultus(fromDPUService{
-				name: "multus",
+				name: MultusName,
 				data: nil,
 			}),
 			wantErr: true,
@@ -84,7 +84,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if Multus data has an unexpected object",
 			inventory: New().setMultus(fromDPUService{
-				name: "multus",
+				name: MultusName,
 				data: addUnexpectedKindToObjects(g, serviceChainSetData),
 			}),
 			wantErr: true,
@@ -92,7 +92,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if Multus is missing the DPUService",
 			inventory: New().setMultus(fromDPUService{
-				name: "multus",
+				name: MultusName,
 				data: removeKindFromObjects(g, "DPUService", serviceChainSetData),
 			}),
 			wantErr: true,
@@ -101,7 +101,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if sriovDevicePlugin data is nil",
 			inventory: New().setSRIOVDevicePlugin(fromDPUService{
-				name: "sriovDevicePlugin",
+				name: SRIOVDevicePluginName,
 				data: nil,
 			}),
 			wantErr: true,
@@ -109,7 +109,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if SRIOVDevicePlugin data has an unexpected object",
 			inventory: New().setSRIOVDevicePlugin(fromDPUService{
-				name: "sriovDevicePlugin",
+				name: SRIOVDevicePluginName,
 				data: addUnexpectedKindToObjects(g, serviceChainSetData),
 			}),
 			wantErr: true,
@@ -117,7 +117,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if SRIOVDevicePlugin is missing the DPUService",
 			inventory: New().setSRIOVDevicePlugin(fromDPUService{
-				name: "sriovDevicePlugin",
+				name: SRIOVDevicePluginName,
 				data: removeKindFromObjects(g, "DPUService", serviceChainSetData),
 			}),
 			wantErr: true,
@@ -126,7 +126,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if flannel data is nil",
 			inventory: New().setFlannel(fromDPUService{
-				name: "flannel",
+				name: FlannelName,
 				data: nil,
 			}),
 			wantErr: true,
@@ -134,7 +134,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if flannel data has an unexpected object",
 			inventory: New().setFlannel(fromDPUService{
-				name: "flannel",
+				name: FlannelName,
 				data: addUnexpectedKindToObjects(g, flannelData),
 			}),
 			wantErr: true,
@@ -142,7 +142,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if flannel is missing the DPUService",
 			inventory: New().setFlannel(fromDPUService{
-				name: "flannel",
+				name: FlannelName,
 				data: removeKindFromObjects(g, "DPUService", flannelData),
 			}),
 			wantErr: true,
@@ -151,7 +151,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if nv-ipam data is nil",
 			inventory: New().setNvK8sIpam(fromDPUService{
-				name: "nv-ipam",
+				name: NVIPAMName,
 				data: nil,
 			}),
 			wantErr: true,
@@ -159,7 +159,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if nv-ipam data has an unexpected object",
 			inventory: New().setNvK8sIpam(fromDPUService{
-				name: "nv-ipam",
+				name: NVIPAMName,
 				data: addUnexpectedKindToObjects(g, nvK8sIpamData),
 			}),
 			wantErr: true,
@@ -167,7 +167,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if nv-ipam is missing the DPUService",
 			inventory: New().setNvK8sIpam(fromDPUService{
-				name: "nv-ipam",
+				name: NVIPAMName,
 				data: removeKindFromObjects(g, "DPUService", nvK8sIpamData),
 			}),
 			wantErr: true,
@@ -176,7 +176,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if ovs-cni data is nil",
 			inventory: New().setOvsCni(fromDPUService{
-				name: "ovs-cni",
+				name: OVSCNIName,
 				data: nil,
 			}),
 			wantErr: true,
@@ -184,7 +184,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if ovs-cni data has an unexpected object",
 			inventory: New().setOvsCni(fromDPUService{
-				name: "ovs-cni",
+				name: OVSCNIName,
 				data: addUnexpectedKindToObjects(g, ovsCniData),
 			}),
 			wantErr: true,
@@ -192,7 +192,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if ovs-cni is missing the DPUService",
 			inventory: New().setOvsCni(fromDPUService{
-				name: "ovs-cni",
+				name: OVSCNIName,
 				data: removeKindFromObjects(g, "DPUService", ovsCniData),
 			}),
 			wantErr: true,
@@ -201,7 +201,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if sfc-controller data is nil",
 			inventory: New().setSfcController(fromDPUService{
-				name: "sfc-controller",
+				name: SFCControllerName,
 				data: nil,
 			}),
 			wantErr: true,
@@ -209,7 +209,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if sfc-controller data has an unexpected object",
 			inventory: New().setSfcController(fromDPUService{
-				name: "sfc-controller",
+				name: SFCControllerName,
 				data: addUnexpectedKindToObjects(g, sfcControllerData),
 			}),
 			wantErr: true,
@@ -217,7 +217,7 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 		{
 			name: "fail if sfc-controller is missing the DPUService",
 			inventory: New().setSfcController(fromDPUService{
-				name: "sfc-controller",
+				name: SFCControllerName,
 				data: removeKindFromObjects(g, "DPUService", sfcControllerData),
 			}),
 			wantErr: true,

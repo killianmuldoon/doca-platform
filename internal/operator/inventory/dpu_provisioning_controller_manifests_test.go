@@ -345,8 +345,8 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		expectedArgs := []string{
 			"--leader-elect",
 			"--v=3",
-			"--dms-image=example.com/dms-server:v0.1.0",
-			"--hostnetwork-image=example.com/hostnetworksetup:v0.1.0",
+			fmt.Sprintf("--dms-image=%s", defaults.DMSImage),
+			fmt.Sprintf("--hostnetwork-image=%s", defaults.HostNetworkSetupImage),
 			fmt.Sprintf("--bfb-pvc=%s", expectedPVC),
 			fmt.Sprintf("--image-pull-secrets=%s", strings.Join([]string{expectedImagePullSecret1, expectedImagePullSecret2}, ",")),
 			fmt.Sprintf("--dms-timeout=%d", expectedDmsTimeout),

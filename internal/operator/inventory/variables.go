@@ -26,17 +26,15 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 		Images: map[string]string{
 			ProvisioningControllerName: defaults.DPFSystemImage,
 			DPUServiceControllerName:   defaults.DPFSystemImage,
-			ServiceSetControllerName:   defaults.DPFSystemImage,
-			SFCControllerName:          defaults.ServiceChainControllerHelmChart,
 		},
 		HelmCharts: map[string]string{
-			FlannelName:              defaults.FlannelHelmChart,
-			MultusName:               defaults.MultusHelmChart,
-			SRIOVDevicePluginName:    defaults.SriovDPHelmChart,
-			NVIPAMName:               defaults.NvidiaK8sHelmChart,
-			OVSCNIName:               defaults.OVSCNIHelmChart,
-			SFCControllerName:        defaults.ServiceChainControllerHelmChart,
-			ServiceSetControllerName: defaults.ServiceSetControllerHelmChart,
+			FlannelName:              defaults.DPUNetworkingHelmChart,
+			MultusName:               defaults.DPUNetworkingHelmChart,
+			SRIOVDevicePluginName:    defaults.DPUNetworkingHelmChart,
+			NVIPAMName:               defaults.DPUNetworkingHelmChart,
+			OVSCNIName:               defaults.DPUNetworkingHelmChart,
+			SFCControllerName:        defaults.DPUNetworkingHelmChart,
+			ServiceSetControllerName: defaults.DPUNetworkingHelmChart,
 		},
 	}
 }

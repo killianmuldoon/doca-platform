@@ -41,6 +41,17 @@ type fromDPUService struct {
 	dpuService *unstructured.Unstructured
 }
 
+// dpuNetworkingSubCharts are the DPUServices that use the dpu-networking helm chart by default.
+var dpuNetworkingSubCharts = map[string]bool{
+	FlannelName:              true,
+	ServiceSetControllerName: true,
+	MultusName:               true,
+	SRIOVDevicePluginName:    true,
+	OVSCNIName:               true,
+	NVIPAMName:               true,
+	SFCControllerName:        true,
+}
+
 func (f *fromDPUService) Name() string {
 	return f.name
 }
@@ -83,6 +94,8 @@ func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateMa
 	// copy object
 	dpuServiceCopy := f.dpuService.DeepCopy()
 
+	dpuServiceCopy.SetName(f.Name())
+
 	labelsToAdd := map[string]string{operatorv1.DPFComponentLabelKey: f.Name()}
 	applySetID := ApplySetID(vars.Namespace, f)
 	// Add the ApplySet labels to the manifests unless disabled.
@@ -95,6 +108,11 @@ func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateMa
 		NamespaceEdit(vars.Namespace),
 		LabelsEdit(labelsToAdd))
 
+	// The DPUNetworking helm chart has all components disabled by default. Enable this DPUService in the helm chart values.
+	if _, ok := dpuNetworkingSubCharts[f.Name()]; ok {
+		edits.AddForKindS(DPUServiceKind, dpuServiceAddValueEdit(true, f.Name(), "enabled"))
+	}
+
 	// Add the helm chart.
 	helmChartString, ok := vars.HelmCharts[f.Name()]
 	if !ok {
@@ -103,7 +121,8 @@ func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateMa
 	edits.AddForKindS(DPUServiceKind, dpuServiceSetHelmChartEdit(helmChartString))
 
 	if vars.ImagePullSecrets != nil {
-		edits.AddForKindS(DPUServiceKind, dpuServiceAddValueEdit("imagePullSecrets", localObjRefsFromStrings(vars.ImagePullSecrets...)))
+		secrets := pullSecretValueFromStrings(vars.ImagePullSecrets...)
+		edits.AddForKindS(DPUServiceKind, dpuServiceAddValueEdit(secrets, "imagePullSecrets"))
 	}
 	if err := edits.Apply([]*unstructured.Unstructured{dpuServiceCopy}); err != nil {
 		return nil, err
@@ -114,6 +133,14 @@ func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateMa
 		ret = append(ret, applySetParentForComponent(f, applySetID, vars, applySetInventoryString(dpuServiceCopy)))
 	}
 	return append(ret, dpuServiceCopy), nil
+}
+
+func pullSecretValueFromStrings(names ...string) []interface{} {
+	pullSecrets := make([]interface{}, 0, len(names))
+	for _, name := range names {
+		pullSecrets = append(pullSecrets, map[string]interface{}{"name": name})
+	}
+	return pullSecrets
 }
 
 func dpuServiceSetHelmChartEdit(helmChart string) StructuredEdit {
@@ -135,7 +162,7 @@ func dpuServiceSetHelmChartEdit(helmChart string) StructuredEdit {
 	}
 }
 
-func dpuServiceAddValueEdit(key string, value interface{}) StructuredEdit {
+func dpuServiceAddValueEdit(value interface{}, key ...string) StructuredEdit {
 	return func(obj client.Object) error {
 		dpuService, ok := obj.(*dpuservicev1.DPUService)
 		if !ok {
@@ -143,21 +170,30 @@ func dpuServiceAddValueEdit(key string, value interface{}) StructuredEdit {
 		}
 
 		if dpuService.Spec.HelmChart.Values == nil {
-			dpuService.Spec.HelmChart.Values = &runtime.RawExtension{
-				Object: &unstructured.Unstructured{Object: map[string]interface{}{
-					key: value,
-				},
-				},
-			}
-			return nil
+			dpuService.Spec.HelmChart.Values = &runtime.RawExtension{}
 		}
 		currentValues := map[string]interface{}{}
-		err := json.Unmarshal(dpuService.Spec.HelmChart.Values.Raw, &currentValues)
-		if err != nil {
-			return fmt.Errorf("error merging values in DPUService manifests")
+		if dpuService.Spec.HelmChart.Values.Raw != nil {
+			err := json.Unmarshal(dpuService.Spec.HelmChart.Values.Raw, &currentValues)
+			if err != nil {
+				return fmt.Errorf("error merging values in DPUService manifests: %w", err)
+			}
+			// This function needs to handle the case where dpuService.Spec.HelmChart.Values.Object holds the values.
+			// This is because the function can be called multiple times and stores updated values there.
+		} else if dpuService.Spec.HelmChart.Values.Object != nil {
+			uns, ok := dpuService.Spec.HelmChart.Values.Object.(*unstructured.Unstructured)
+			if !ok {
+				return fmt.Errorf("could not treat values object field as unstructured")
+			}
+			currentValues = uns.UnstructuredContent()
 		}
-		currentValues[key] = value
-		dpuService.Spec.HelmChart.Values.Object = &unstructured.Unstructured{Object: currentValues}
+
+		valuesObject := &unstructured.Unstructured{Object: currentValues}
+		if err := unstructured.SetNestedField(valuesObject.UnstructuredContent(), value, key...); err != nil {
+			return err
+		}
+
+		dpuService.Spec.HelmChart.Values.Object = valuesObject
 		dpuService.Spec.HelmChart.Values.Raw = nil
 		return nil
 	}

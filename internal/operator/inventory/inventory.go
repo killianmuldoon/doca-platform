@@ -26,9 +26,9 @@ import (
 
 const (
 	FlannelName                = "flannel"
-	ServiceSetControllerName   = "servicefunctionchainset"
+	ServiceSetControllerName   = "servicechainset-controller"
 	MultusName                 = "multus"
-	SRIOVDevicePluginName      = "sriovdeviceplugin"
+	SRIOVDevicePluginName      = "sriov-device-plugin"
 	OVSCNIName                 = "ovs-cni"
 	NVIPAMName                 = "nvidia-k8s-ipam"
 	SFCControllerName          = "sfc-controller"

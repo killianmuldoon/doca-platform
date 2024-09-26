@@ -31,6 +31,8 @@ func TestDefaults_Parse(t *testing.T) {
 		"customOVNKubernetesNonDPUImage": "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/ovn-kubernetes-non-dpu:v0.0.0",
 		"dmsImage":                       "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/dms-server:v0.0.0",
 		"hostnetworksetupImage":          "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/hostnetworksetup:v0.0.0",
+		"dpfSystemImage":                 "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/dpfSystem:v0.0.0",
+		"dpuNetworkingHelmChart":         "harbor.mellanox.com/cloud-orchestration-dev/dpf/killian/test/hostnetworksetup:v0.0.0",
 	}
 	tests := []struct {
 		name    string
@@ -60,6 +62,16 @@ func TestDefaults_Parse(t *testing.T) {
 		{
 			name:    "fail when hostnetworksetupImage empty/missing",
 			content: withoutValue(g, defaultValues, "hostnetworksetupImage"),
+			wantErr: true,
+		},
+		{
+			name:    "fail when dpuNetworkingHelmChart empty/missing",
+			content: withoutValue(g, defaultValues, "dpuNetworkingHelmChart"),
+			wantErr: true,
+		},
+		{
+			name:    "fail when dpfSystemImage is empty/missing",
+			content: withoutValue(g, defaultValues, "dpfSystemImage"),
 			wantErr: true,
 		},
 	}

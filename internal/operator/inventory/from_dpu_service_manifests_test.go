@@ -41,16 +41,22 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 	initialValuesObject := &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"value-one": "value-again",
+			"ovs-cni": map[string]interface{}{
+				"enabled": false,
+			},
+			"multus": map[string]interface{}{
+				"enabled": true,
+			},
 		},
 	}
 	initialValuesData, err := json.Marshal(initialValuesObject)
 	g.Expect(err).NotTo(HaveOccurred())
-	initialValuesObjectAfterMerge := initialValuesObject.DeepCopy()
-	initialValuesObjectAfterMerge.Object["imagePullSecrets"] = []corev1.LocalObjectReference{
+	valuesObjectWithPullSecrets := initialValuesObject.DeepCopy()
+	valuesObjectWithPullSecrets.Object["imagePullSecrets"] = []corev1.LocalObjectReference{
 		{Name: "secret-one"},
 		{Name: "secret-two"},
 	}
-	initialValuesDataAfterMerge, err := json.Marshal(initialValuesObjectAfterMerge)
+	valuesDataWithImagePullSecrets, err := json.Marshal(valuesObjectWithPullSecrets)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	defaults := &release.Defaults{}
@@ -58,6 +64,12 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 	imagePullSecretsVars := newDefaultVariables(defaults)
 	imagePullSecretsVars.ImagePullSecrets = []string{"secret-one", "secret-two"}
 
+	disabledTestServiceVars := newDefaultVariables(defaults)
+	imagePullSecretsVars.ImagePullSecrets = []string{"secret-one", "secret-two"}
+	disabledTestServiceVars.DisableSystemComponents = map[string]bool{
+		serviceName: true,
+	}
+	g.Expect(err).NotTo(HaveOccurred())
 	tests := []struct {
 		name    string
 		in      *dpuservicev1.DPUService
@@ -81,6 +93,7 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			want: &dpuservicev1.DPUService{
 				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
 				ObjectMeta: metav1.ObjectMeta{
+					Name: serviceName,
 					Labels: map[string]string{
 						operatorv1.DPFComponentLabelKey: serviceName,
 					},
@@ -117,6 +130,7 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			want: &dpuservicev1.DPUService{
 				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
 				ObjectMeta: metav1.ObjectMeta{
+					Name: serviceName,
 					Labels: map[string]string{
 						operatorv1.DPFComponentLabelKey: serviceName,
 					},
@@ -130,11 +144,27 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 							Chart:   "chart",
 						},
 						Values: &runtime.RawExtension{
-							Raw: initialValuesDataAfterMerge,
+							Raw: valuesDataWithImagePullSecrets,
 						},
 					},
 				},
 			},
+			wantErr: false,
+		},
+		{
+			name: "Disable component by setting enabled: false in the helm values",
+			in: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				Spec: dpuservicev1.DPUServiceSpec{
+					HelmChart: dpuservicev1.HelmChart{
+						Values: &runtime.RawExtension{
+							Raw: initialValuesData,
+						},
+					},
+				},
+			},
+			vars:    disabledTestServiceVars,
+			want:    nil,
 			wantErr: false,
 		},
 	}
@@ -157,6 +187,11 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 				g.Expect(err).NotTo(HaveOccurred())
 			}
 
+			// If a DPUService shouldn't be generated expect the list of objects to be empty.
+			if tt.want == nil {
+				g.Expect(got).To(BeEmpty())
+				return
+			}
 			// convert to concrete type so we can compare to tt.want
 			gotUnstructured, ok := got[0].(*unstructured.Unstructured)
 			g.Expect(ok).To(BeTrue())

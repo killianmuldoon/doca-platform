@@ -6,6 +6,8 @@
 *.so
 *.dylib
 *.tar
+*.tgz
+*.tar.gz
 bin/*
 testbin/*
 Dockerfile.cross

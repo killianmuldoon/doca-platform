@@ -31,6 +31,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils/collector"
 
@@ -306,13 +307,13 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				}
 
 				// Expect each of the following to have been created by the operator.
-				g.Expect(found).To(HaveKey("multus"))
-				g.Expect(found).To(HaveKey("sriov-device-plugin"))
-				g.Expect(found).To(HaveKey("flannel"))
-				g.Expect(found).To(HaveKey("servicefunctionchainset-controller"))
-				g.Expect(found).To(HaveKey("nvidia-k8s-ipam"))
-				g.Expect(found).To(HaveKey("ovs-cni"))
-				g.Expect(found).To(HaveKey("sfc-controller"))
+				g.Expect(found).To(HaveKey(inventory.MultusName))
+				g.Expect(found).To(HaveKey(inventory.SRIOVDevicePluginName))
+				g.Expect(found).To(HaveKey(inventory.ServiceSetControllerName))
+				g.Expect(found).To(HaveKey(inventory.FlannelName))
+				g.Expect(found).To(HaveKey(inventory.NVIPAMName))
+				g.Expect(found).To(HaveKey(inventory.OVSCNIName))
+				g.Expect(found).To(HaveKey(inventory.SFCControllerName))
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 
 			By("Checking that DPUService objects have been mirrored to the DPUClusters")
@@ -341,14 +342,14 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					// Expect each of the following to have been created by the operator.
 					// These are labels on the appv1 type - e.g. DaemonSet or Deployment on the DPU cluster.
 					g.Expect(found).To(HaveLen(7))
-					g.Expect(found).To(HaveKey(ContainSubstring("multus")))
-					g.Expect(found).To(HaveKey(ContainSubstring("sriov-device-plugin")))
-					g.Expect(found).To(HaveKey(ContainSubstring("flannel")))
-					g.Expect(found).To(HaveKey(ContainSubstring("servicefunctionchainset-controller")))
+					g.Expect(found).To(HaveKey(ContainSubstring(inventory.MultusName)))
+					g.Expect(found).To(HaveKey(ContainSubstring(inventory.FlannelName)))
+					g.Expect(found).To(HaveKey(ContainSubstring(inventory.SRIOVDevicePluginName)))
+					g.Expect(found).To(HaveKey(ContainSubstring(inventory.ServiceSetControllerName)))
 					// Note: The NVIPAM DPUService contains both a Daemonset and a Deployment - but this is overwritten in the map.
-					g.Expect(found).To(HaveKey(ContainSubstring("nvidia-k8s-ipam")))
-					g.Expect(found).To(HaveKey(ContainSubstring("ovs-cni")))
-					g.Expect(found).To(HaveKey(ContainSubstring("sfc-controller")))
+					g.Expect(found).To(HaveKey(ContainSubstring(inventory.NVIPAMName)))
+					g.Expect(found).To(HaveKey(ContainSubstring(inventory.OVSCNIName)))
+					g.Expect(found).To(HaveKey(ContainSubstring(inventory.OVSCNIName)))
 				}
 			}).WithTimeout(600 * time.Second).Should(Succeed())
 		})
@@ -373,7 +374,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				// Patch a DPUService to trigger a reconciliation. The DPUService should clean  this secret up from
 				// clusters to which it was previously mirrored.
 				g.Expect(utils.ForceObjectReconcileWithAnnotation(ctx, testClient,
-					&dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: "multus", Namespace: "dpf-operator-system"}})).To(Succeed())
+					&dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: inventory.MultusName, Namespace: "dpf-operator-system"}})).To(Succeed())
 
 				// Verify that we have only 1.
 				verifyImagePullSecretsCount(1)

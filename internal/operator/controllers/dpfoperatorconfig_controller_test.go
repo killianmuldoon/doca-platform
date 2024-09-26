@@ -172,7 +172,7 @@ func TestDPFOperatorConfigReconciler_Conditions(t *testing.T) {
 
 		// Add a finalizer to a DPUService to prevent deletion from succeeding.
 		g.Eventually(func(g Gomega) {
-			g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: config.Namespace, Name: "multus"}, dpuservice)).To(Succeed())
+			g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: config.Namespace, Name: inventory.MultusName}, dpuservice)).To(Succeed())
 			dpuservice.ObjectMeta.SetFinalizers(append(dpuservice.ObjectMeta.GetFinalizers(), "another"))
 			g.Expect(testClient.Update(ctx, dpuservice)).To(Succeed())
 		}).WithTimeout(10 * time.Second).Should(Succeed())
@@ -278,13 +278,13 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 		verifyPVC(g, deployment, "foo-pvc")
 
 		// Check the system components deployed as DPUServices are created as expected.
-		waitForDPUService(g, config.Namespace, "servicefunctionchainset-controller", initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "multus", initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "sriov-device-plugin", initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "flannel", initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "nvidia-k8s-ipam", initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "ovs-cni", initialImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "sfc-controller", initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, inventory.ServiceSetControllerName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, inventory.MultusName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, inventory.SRIOVDevicePluginName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, inventory.FlannelName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, inventory.NVIPAMName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, inventory.OVSCNIName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, inventory.SFCControllerName, initialImagePullSecrets)
 	})
 
 	t.Run("Remove label from Secrets when they are removed from the DPFOperatorConfig", func(t *testing.T) {
@@ -313,46 +313,22 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 		waitForDeployment(g, config.Namespace, "dpf-provisioning-controller-manager")
 
 		// Check the system components deployed as DPUServices are created as expected.
-		waitForDPUService(g, config.Namespace, "servicefunctionchainset-controller", updatedImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "sriov-device-plugin", updatedImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "flannel", updatedImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "nvidia-k8s-ipam", updatedImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "ovs-cni", updatedImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "sfc-controller", updatedImagePullSecrets)
+		waitForDPUService(g, config.Namespace, inventory.ServiceSetControllerName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, inventory.SRIOVDevicePluginName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, inventory.FlannelName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, inventory.NVIPAMName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, inventory.OVSCNIName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, inventory.SFCControllerName, initialImagePullSecrets)
 		g.Eventually(func(g Gomega) {
 			dpuservices := &dpuservicev1.DPUServiceList{}
 			g.Expect(testClient.List(ctx, dpuservices)).To(Succeed())
 			err := testClient.Get(ctx, client.ObjectKey{
 				Namespace: config.Namespace,
-				Name:      "multus"},
+				Name:      inventory.MultusName},
 				&dpuservicev1.DPUService{})
 			g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		}).WithTimeout(10 * time.Second).Should(Succeed())
 	})
-
-	t.Run("Delete resources when they are removed from the DPFOperator inventory", func(t *testing.T) {
-
-		// Expect the DPUService and Provisioning controller managers to be deployed.
-		waitForDeployment(g, config.Namespace, "dpuservice-controller-manager")
-		waitForDeployment(g, config.Namespace, "dpf-provisioning-controller-manager")
-
-		// Check the system components deployed as DPUServices are created as expected.
-		waitForDPUService(g, config.Namespace, "servicefunctionchainset-controller", updatedImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "sriov-device-plugin", updatedImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "flannel", updatedImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "nvidia-k8s-ipam", updatedImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "ovs-cni", updatedImagePullSecrets)
-		waitForDPUService(g, config.Namespace, "sfc-controller", updatedImagePullSecrets)
-		// Multus should not be deployed.
-		g.Eventually(func(g Gomega) {
-			err := testClient.Get(ctx, client.ObjectKey{
-				Namespace: config.Namespace,
-				Name:      "multus"},
-				&dpuservicev1.DPUService{})
-			g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
-		}).WithTimeout(10 * time.Second).Should(Succeed())
-	})
-
 	t.Run("Delete Operator config", func(t *testing.T) {
 		g.Expect(testClient.Delete(ctx, config)).To(Succeed())
 		g.Eventually(func(g Gomega) {

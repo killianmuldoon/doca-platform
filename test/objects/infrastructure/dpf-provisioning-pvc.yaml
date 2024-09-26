@@ -1,8 +1,8 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: name-will-be-replaced
-  namespace: namespace-will-be-replaced
+  name: bfb-pvc
+  namespace: dpf-operator-system
 spec:
   accessModes:
   - ReadWriteOnce
