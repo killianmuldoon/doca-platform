@@ -78,3 +78,11 @@ networkAttachmentBrHBNJson: |-
       "bridge": "br-hbn",
       "interface_type": "dpdk"
     }
+networkAttachmentIpRequestJson: |-
+    {
+      "cniVersion": "0.4.0",
+      "type": "dummy",
+      "ipam": {
+        "type": "nv-ipam"
+      }
+    }

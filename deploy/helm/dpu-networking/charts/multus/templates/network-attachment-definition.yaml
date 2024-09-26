@@ -21,3 +21,13 @@ metadata:
 spec:
   config: {{ .Values.networkAttachmentBrHBNJson | toYaml | indent
     1 }}
+---
+apiVersion: "k8s.cni.cncf.io/v1"
+kind: NetworkAttachmentDefinition
+metadata:
+  name: iprequest
+  labels:
+    {{- include "multus.labels" . | nindent 4 }}
+spec:
+  config: {{ .Values.networkAttachmentIpRequestJson | toYaml | indent
+    1 }}
