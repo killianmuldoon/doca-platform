@@ -408,6 +408,9 @@ func (r *DpuSetReconciler) needUpdate(ctx context.Context, dpuSet provisioningv1
 	newLabel := dpuSet.Spec.DpuTemplate.Spec.Cluster.NodeLabels
 	oldLabel := dpu.Spec.Cluster.NodeLabels
 	if !reflect.DeepEqual(newLabel, oldLabel) {
+		if dpu.Spec.Cluster.NodeLabels == nil {
+			dpu.Spec.Cluster.NodeLabels = make(map[string]string)
+		}
 		patcher := patch.NewSerialPatcher(&dpu, r.Client)
 		// merge label from DPUSet to DPU CR
 		for k, v := range newLabel {

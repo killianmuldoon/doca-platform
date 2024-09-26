@@ -42,14 +42,14 @@ query_bf_state() {
   rshim=$1
   echo DISPLAY_LEVEL 2 > /dev/${rshim}/misc
   counter=1
-  while [ $counter -le 20 ];
+  while [ $counter -le 30 ];
   do
     output=$(cat /dev/${rshim}/misc)
     if [[ ${output} =~ "INFO[BL31]: System Off" ]]; then
       echo "System off"
       return
     fi
-    sleep 3
+    sleep 5
     ((counter++))
   done
   exit 2
