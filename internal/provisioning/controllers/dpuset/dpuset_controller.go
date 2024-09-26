@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"regexp"
+	"strconv"
 	"strings"
 
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
@@ -31,9 +33,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
@@ -49,7 +49,8 @@ import (
 
 const (
 	// controller name that will be used when
-	DpuSetControllerName = "dpuset"
+	DpuSetControllerName    = "dpuset"
+	DefaultFirstDPULabelKey = "dpu-0-pci-address"
 )
 
 // DpuSetReconciler reconciles a DpuSet object
@@ -108,7 +109,7 @@ func (r *DpuSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.Dp
 	}
 
 	// Get node map by nodeSelector
-	nodeMap, err := r.getNodeMap(ctx, dpuSet.Spec.NodeSelector, dpuSet.Spec.DpuSelector)
+	nodeMap, err := r.getNodeMap(ctx, dpuSet.Spec.NodeSelector)
 	if err != nil {
 		logger.Error(err, "Failed to get Node list", "DPUSet", dpuSet)
 		return ctrl.Result{}, errors.Wrap(err, "failed to get Node list")
@@ -124,9 +125,21 @@ func (r *DpuSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.Dp
 	// create dpu for the node
 	for nodeName, node := range nodeMap {
 		if _, ok := dpuMap[nodeName]; !ok {
-			if _, err = r.createDpu(ctx, dpuSet, node); err != nil {
-				logger.Error(err, "Failed to create Dpu", "DPUSet", dpuSet)
-				return ctrl.Result{}, errors.Wrap(err, "failed to create Dpu")
+			if len(dpuSet.Spec.DpuSelector) == 0 {
+				// if DpuSelector is not set, we will select the first DPU(index 0) by default.
+				if err = r.createDpu(ctx, dpuSet, node, 0); err != nil {
+					logger.Error(err, "Failed to create Dpu", "DPUSet", dpuSet)
+					return ctrl.Result{}, errors.Wrap(err, "failed to create Dpu")
+				}
+
+			} else {
+				dpuIndexMap := getDPUIndexFromSelector(dpuSet.Spec.DpuSelector, node.Labels)
+				for _, index := range dpuIndexMap {
+					if err = r.createDpu(ctx, dpuSet, node, index); err != nil {
+						logger.Error(err, "Failed to create Dpu", "DPUSet", dpuSet)
+						return ctrl.Result{}, errors.Wrap(err, "failed to create Dpu")
+					}
+				}
 			}
 		} else {
 			delete(dpuMap, nodeName)
@@ -219,18 +232,10 @@ func (r *DpuSetReconciler) flavorToDpuSeqReq(ctx context.Context, resource clien
 	return requests
 }
 
-func (r *DpuSetReconciler) getNodeMap(ctx context.Context, nselector *metav1.LabelSelector, dselector map[string]string) (map[string]corev1.Node, error) {
+func (r *DpuSetReconciler) getNodeMap(ctx context.Context, nselector *metav1.LabelSelector) (map[string]corev1.Node, error) {
 	nodeMap := make(map[string]corev1.Node)
 	nodeList := &corev1.NodeList{}
 	nodeSelector, err := metav1.LabelSelectorAsSelector(nselector)
-	for k, v := range dselector {
-		if r, err := labels.NewRequirement(k, selection.Equals, []string{v}); err != nil {
-			return nodeMap, err
-		} else {
-			nodeSelector.Add(*r)
-		}
-	}
-
 	if err != nil {
 		return nodeMap, err
 	}
@@ -264,7 +269,7 @@ func (r *DpuSetReconciler) getDpusMap(ctx context.Context, dpuSet *provisioningv
 }
 
 func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningv1.DpuSet,
-	node corev1.Node) (*provisioningv1.Dpu, error) {
+	node corev1.Node, dpuIndex int) error {
 	logger := log.FromContext(ctx)
 
 	labels := map[string]string{cutil.DpuSetNameLabel: dpuSet.Name, cutil.DpuSetNamespaceLabel: dpuSet.Namespace}
@@ -273,18 +278,18 @@ func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningv1
 	}
 
 	for k, v := range node.Labels {
-		if strings.HasSuffix(k, cutil.DpuPCIAddress) {
+		if strings.HasSuffix(k, fmt.Sprintf(cutil.DpuPCIAddress, dpuIndex)) {
 			if len(v) != 0 {
 				labels[cutil.DpuPCIAddressLabel] = v
 			} else {
-				return nil, fmt.Errorf("the label of %s on node %s is empty", cutil.DpuPCIAddress, node.Name)
+				return fmt.Errorf("the label of %s on node %s is empty", cutil.DpuPCIAddress, node.Name)
 			}
 		}
-		if strings.HasSuffix(k, cutil.DpuPFName) {
+		if strings.HasSuffix(k, fmt.Sprintf(cutil.DpuPFName, dpuIndex)) {
 			if len(v) != 0 {
 				labels[cutil.DpuPFNameLabel] = v
 			} else {
-				return nil, fmt.Errorf("the label of %s on node %s is empty", cutil.DpuPFName, node.Name)
+				return fmt.Errorf("the label of %s on node %s is empty", cutil.DpuPFName, node.Name)
 			}
 		}
 	}
@@ -293,6 +298,10 @@ func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningv1
 			labels[cutil.DpuHostIPLabel] = address.Address
 			break
 		}
+	}
+
+	if _, ok := labels[cutil.DpuPCIAddressLabel]; !ok {
+		return fmt.Errorf("DPU on node %s cannot be created due to lack of pci address of dpu", node.Name)
 	}
 
 	dpuName := fmt.Sprintf("%s-%s", strings.ToLower(node.Name), labels[cutil.DpuPCIAddressLabel])
@@ -324,10 +333,10 @@ func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningv1
 		dpu.Annotations[reboot.HostPowerCycleRequireKey] = v
 	}
 	if err := r.Create(ctx, dpu); err != nil {
-		return nil, err
+		return err
 	}
 	logger.V(2).Info("Dpu is created", "Dpu", dpu)
-	return dpu, nil
+	return nil
 }
 
 func (r *DpuSetReconciler) rolloutRecreate(ctx context.Context, dpuSet *provisioningv1.DpuSet,
@@ -479,4 +488,25 @@ func (r *DpuSetReconciler) finalizeDPUSet(ctx context.Context, dpuSet *provision
 		return err
 	}
 	return nil
+}
+
+func getDPUIndexFromSelector(dpuSelector map[string]string, nodeLabels map[string]string) map[int]int {
+	dpuIndexMap := make(map[int]int)
+	for key, value := range dpuSelector {
+		if v, ok := nodeLabels[key]; ok && value == v {
+			keyRegex := regexp.MustCompile(`^feature.node.kubernetes.io/dpu-\d+-.*$`)
+			// key must match "feature.node.kubernetes.io/dpu-index-" pattern
+			if keyRegex.MatchString(key) {
+				// get DPU index from lable key
+				indexRegex := regexp.MustCompile(`dpu-(\d+)-.*?`)
+				matches := indexRegex.FindStringSubmatch(key)
+				if len(matches) > 1 {
+					if index, err := strconv.Atoi(matches[1]); err == nil {
+						dpuIndexMap[index] = index
+					}
+				}
+			}
+		}
+	}
+	return dpuIndexMap
 }
