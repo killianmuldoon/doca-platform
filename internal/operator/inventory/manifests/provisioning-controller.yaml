@@ -158,6 +158,11 @@ spec:
                     description: Keepalived configures the keepalived that will be
                       deployed for the cluster control-plane
                     properties:
+                      interface:
+                        description: Interface specifies on which interface the VIP
+                          should be assigned
+                        minLength: 1
+                        type: string
                       nodeSelector:
                         additionalProperties:
                           type: string
@@ -168,8 +173,15 @@ spec:
                         description: VIP is the virtual IP owned by the keepalived
                           instances
                         type: string
+                      virtualRouterID:
+                        description: VirtualRouterID is the virtual_router_id in keepalived.conf
+                        maximum: 255
+                        minimum: 1
+                        type: integer
                     required:
+                    - interface
                     - vip
+                    - virtualRouterID
                     type: object
                 type: object
               kubeconfig:

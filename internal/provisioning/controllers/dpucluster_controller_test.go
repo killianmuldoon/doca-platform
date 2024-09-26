@@ -121,6 +121,8 @@ spec:
   clusterEndpoint:
     keepalived:
       vip: 10.10.10.10
+      virtualRouterID: 1
+      interface: br-dpu
 `)
 			obj := &provisioningv1.DPUCluster{}
 			err := yaml.UnmarshalStrict(yml, obj)

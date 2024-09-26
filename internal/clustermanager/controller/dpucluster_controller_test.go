@@ -56,7 +56,9 @@ var _ = Describe("DPUCluster Controller", func() {
 						Version:  "v1.31.0",
 						ClusterEndpoint: &provisioningv1.ClusterEndpointSpec{
 							Keepalived: &provisioningv1.KeepalivedSpec{
-								VIP: "10.10.10.10",
+								Interface:       "mock",
+								VIP:             "10.10.10.10",
+								VirtualRouterID: 1,
 							},
 						},
 					},

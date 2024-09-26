@@ -106,9 +106,18 @@ type KeepalivedSpec struct {
 	// VIP is the virtual IP owned by the keepalived instances
 	VIP string `json:"vip"`
 
+	// VirtualRouterID is the virtual_router_id in keepalived.conf
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=255
+	VirtualRouterID int `json:"virtualRouterID"`
+
+	// Interface specifies on which interface the VIP should be assigned
+	// +kubebuilder:validation:MinLength=1
+	Interface string `json:"interface"`
+
 	// NodeSelector specifies the nodes that keepalived instances should be deployed
 	// +optional
-	NodeSelector map[string]string `json:"nodeSelector"`
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 //+kubebuilder:object:root=true

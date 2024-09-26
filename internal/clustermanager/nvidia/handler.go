@@ -17,14 +17,21 @@ limitations under the License.
 package nvidia
 
 import (
+	"bytes"
 	"context"
+	_ "embed"
 	"fmt"
+	"text/template"
+	"time"
 
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/clustermanager/controller"
 	kamaji "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/kamaji/api/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
+	"github.com/Masterminds/sprig/v3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -32,6 +39,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -41,6 +49,13 @@ import (
 //+kubebuilder:rbac:groups=kamaji.clastix.io,resources=tenantcontrolplanes,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=apps,resources=daemonsets,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
+
+var (
+	//go:embed manifests/keepalived.yaml
+	keepalivedData []byte
+	tmpl           = template.Must(template.New("").Funcs(sprig.FuncMap()).Parse(string(keepalivedData)))
+)
 
 func init() {
 	controller.RegisterWatch(&kamaji.TenantControlPlane{}, handler.EnqueueRequestsFromMapFunc(tcpToDPUCluster))
@@ -58,13 +73,17 @@ func NewHandler(client client.Client, scheme *runtime.Scheme) controller.Cluster
 
 func (cm *clusterHandler) ReconcileCluster(ctx context.Context, dc *provisioningv1.DPUCluster) (string, []metav1.Condition, error) {
 	var conds []metav1.Condition
-	cond := cm.reconcileKeepalived(ctx, dc)
-	if cond != nil {
+	kubeconfig, nodePort, cond, err := cm.reconcileKamaji(ctx, dc)
+	if err != nil {
+		return "", nil, err
+	} else if cond != nil {
 		conds = append(conds, *cond)
 	}
 
-	kubeconfig, cond, err := cm.reconcileKamaji(ctx, dc)
-	if cond != nil {
+	cond, err = cm.reconcileKeepalived(ctx, dc, nodePort)
+	if err != nil {
+		return "", nil, err
+	} else if cond != nil {
 		conds = append(conds, *cond)
 	}
 	return kubeconfig, conds, err
@@ -79,38 +98,90 @@ func (cm clusterHandler) Type() string {
 	return "nvidia"
 }
 
-func (cm *clusterHandler) reconcileKeepalived(_ context.Context, dc *provisioningv1.DPUCluster) *metav1.Condition {
-	if dc.Spec.ClusterEndpoint == nil || dc.Spec.ClusterEndpoint.Keepalived == nil {
-		return nil
+func (cm *clusterHandler) reconcileKeepalived(ctx context.Context, dc *provisioningv1.DPUCluster, nodePort int32) (*metav1.Condition, error) {
+	if dc.Spec.ClusterEndpoint == nil || dc.Spec.ClusterEndpoint.Keepalived == nil || nodePort == 0 {
+		return nil, nil
 	}
-	// todo: deploy keepalived
-	return cutil.NewCondition("KeepalivedReady", nil, "Deployed", "")
+	values := struct {
+		Name            string
+		Interface       string
+		VirtualRouterID int
+		VirtualIP       string
+		NodePort        int32
+	}{
+		Name:            fmt.Sprintf("%s-keepalived", dc.Name),
+		Interface:       dc.Spec.ClusterEndpoint.Keepalived.Interface,
+		VirtualRouterID: dc.Spec.ClusterEndpoint.Keepalived.VirtualRouterID,
+		VirtualIP:       dc.Spec.ClusterEndpoint.Keepalived.VIP,
+		NodePort:        nodePort,
+	}
+	tc, tcCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer tcCancel()
+	ds := &appsv1.DaemonSet{}
+	if err := cm.Client.Get(tc, types.NamespacedName{Namespace: dc.Namespace, Name: values.Name}, ds); err == nil {
+		return cutil.NewCondition("KeepalivedReady", nil, "Deployed", ""), nil
+	} else if !apierrors.IsNotFound(err) {
+		return nil, fmt.Errorf("failed to get keepalived Daemonset, err: %v", err)
+	}
+
+	buf := bytes.NewBuffer(nil)
+	if err := tmpl.Execute(buf, values); err != nil {
+		return nil, fmt.Errorf("failed to execute template, err: %v", err)
+	}
+	objs, err := utils.BytesToUnstructured(buf.Bytes())
+	if err != nil {
+		return nil, fmt.Errorf("error while converting keepalived manifests to objects: %w", err)
+	} else if len(objs) == 0 {
+		return nil, fmt.Errorf("no objects found in keepalived manifests")
+	}
+	if err := inventory.NewEdits().
+		AddForAll(inventory.NamespaceEdit(dc.Namespace)).
+		Apply(objs); err != nil {
+		return nil, fmt.Errorf("failed to set namespace for keepalived manifests, err: %v", err)
+	}
+	for _, obj := range objs {
+		if err := controllerutil.SetOwnerReference(dc, obj, cm.Scheme); err != nil {
+			return nil, fmt.Errorf("failed to set owner reference, err: %v", err)
+		}
+		err = func() error {
+			tc, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			if err = cm.Client.Patch(tc, obj, client.Apply, client.FieldOwner("nvidia-cluster-manager")); err != nil {
+				return fmt.Errorf("error patching %v %v: %w", obj.GetObjectKind().GroupVersionKind().Kind, klog.KObj(obj), err)
+			}
+			return nil
+		}()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return cutil.NewCondition("KeepalivedReady", nil, "Deployed", ""), nil
 }
 
-func (cm *clusterHandler) reconcileKamaji(ctx context.Context, dc *provisioningv1.DPUCluster) (string, *metav1.Condition, error) {
+func (cm *clusterHandler) reconcileKamaji(ctx context.Context, dc *provisioningv1.DPUCluster) (string, int32, *metav1.Condition, error) {
 	nn := kamajiTCPName(dc)
 	svc := &corev1.Service{}
 	svcCreated, tcpCreated := true, true
 	if err := cm.Client.Get(ctx, nn, svc); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return "", nil, fmt.Errorf("failed to get service, err: %v", err)
+			return "", 0, nil, fmt.Errorf("failed to get service, err: %v", err)
 		}
 		svcCreated = false
 	}
 	tcp := &kamaji.TenantControlPlane{}
 	if err := cm.Client.Get(ctx, nn, tcp); err != nil {
 		if !apierrors.IsNotFound(err) {
-			return "", nil, fmt.Errorf("failed to get TCP, err: %v", err)
+			return "", 0, nil, fmt.Errorf("failed to get TCP, err: %v", err)
 		}
 		tcpCreated = false
 	}
 	if !svcCreated && !tcpCreated {
 		if err := cm.Client.Create(ctx, expectedService(dc)); err != nil {
-			return "", nil, fmt.Errorf("failed to create service, err: %v", err)
+			return "", 0, nil, fmt.Errorf("failed to create service, err: %v", err)
 		}
 	}
+	var nodePort int32
 	if !tcpCreated {
-		var nodePort int32
 		for _, p := range svc.Spec.Ports {
 			if p.Name != "kube-apiserver" || p.NodePort == 0 {
 				continue
@@ -119,22 +190,25 @@ func (cm *clusterHandler) reconcileKamaji(ctx context.Context, dc *provisioningv
 			break
 		}
 		if nodePort == 0 {
-			return "", nil, fmt.Errorf("missing NodePort for kube-apiserver")
+			return "", 0, nil, fmt.Errorf("missing NodePort for kube-apiserver")
 		}
 		var err error
 		tcp, err = expectedTCP(dc, cm.Scheme, nodePort)
 		if err != nil {
-			return "", nil, fmt.Errorf("failed to generate expected TCP, err: %v", err)
+			return "", 0, nil, fmt.Errorf("failed to generate expected TCP, err: %v", err)
 		}
 		if err := cm.Client.Create(ctx, tcp); err != nil {
-			return "", nil, fmt.Errorf("failed to create cluster request, err: %v", err)
+			return "", 0, nil, fmt.Errorf("failed to create cluster request, err: %v", err)
 		}
+	} else {
+		nodePort = tcp.Spec.NetworkProfile.Port
 	}
+
 	tcpStatus := tcp.Status.Kubernetes.Version.Status
 	if tcpStatus == nil || *tcpStatus != kamaji.VersionReady {
-		return "", cutil.NewCondition(string(provisioningv1.ConditionCreated), fmt.Errorf("creating cluster"), "ClusterNotReady", ""), nil
+		return "", nodePort, cutil.NewCondition(string(provisioningv1.ConditionCreated), fmt.Errorf("creating cluster"), "ClusterNotReady", ""), nil
 	}
-	return adminKubeconfigName(dc), cutil.NewCondition(string(provisioningv1.ConditionCreated), nil, "Created", ""), nil
+	return adminKubeconfigName(dc), nodePort, cutil.NewCondition(string(provisioningv1.ConditionCreated), nil, "Created", ""), nil
 }
 
 func kamajiTCPName(dc *provisioningv1.DPUCluster) types.NamespacedName {
