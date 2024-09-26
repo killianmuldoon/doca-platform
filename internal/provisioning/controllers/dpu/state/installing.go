@@ -221,19 +221,19 @@ func createGRPCConnection(ctx context.Context, client client.Client, dpu *provis
 	return conn, nil
 }
 
-func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningv1.Dpu, bfb *provisioningv1.Bfb) {
+func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv1.Dpu, bfb *provisioningv1.Bfb) {
 	dmsTaskName := generateDMSTaskName(dpu)
 	dmsTask := future.New(func() (any, error) {
 		logger := log.FromContext(ctx)
 		logger.V(3).Info(fmt.Sprintf("DMS %s start os installation", dmsTaskName))
 
-		conn, err := createGRPCConnection(ctx, client, dpu)
+		conn, err := createGRPCConnection(ctx, k8sClient, dpu)
 		if err != nil {
 			logger.Error(err, fmt.Sprintf("Error creating gRPC connection: %v", err))
 			return future.Ready, err
 		}
 		defer conn.Close() //nolint: errcheck
-		clients := gnoigo.NewClients(conn)
+		gnoiClient := gnoigo.NewClients(conn)
 		gnmiClient := gnmi.NewGNMIClient(conn)
 
 		modeRequest := setModeRequest()
@@ -258,21 +258,21 @@ func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningv1.D
 		}
 		defer bfbfile.Close() //nolint: errcheck
 		osInstall.Reader(bfbfile)
-		if response, err := gnoigo.Execute(ctx, clients, osInstall); err != nil {
+		if response, err := gnoigo.Execute(ctx, gnoiClient, osInstall); err != nil {
 			return nil, err
 		} else {
 			logger.V(3).Info(fmt.Sprintf("DMS %s Performed InstallOperation %v", dmsTaskName, response))
 		}
 
 		flavor := &provisioningv1.DPUFlavor{}
-		if err := client.Get(ctx, types.NamespacedName{
+		if err := k8sClient.Get(ctx, types.NamespacedName{
 			Namespace: dpu.Namespace,
 			Name:      dpu.Spec.DPUFlavor,
 		}, flavor); err != nil {
 			return nil, err
 		}
 		dc := &provisioningv1.DPUCluster{}
-		if err := client.Get(ctx, types.NamespacedName{Namespace: dpu.Spec.Cluster.NameSpace, Name: dpu.Spec.Cluster.Name}, dc); err != nil {
+		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: dpu.Spec.Cluster.NameSpace, Name: dpu.Spec.Cluster.Name}, dc); err != nil {
 			return "", fmt.Errorf("failed to get DPUCluster, err: %v", err)
 		}
 		cfgfile, err := generateBFConfig(ctx, dpu, flavor, dc)
@@ -290,7 +290,7 @@ func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningv1.D
 		cfgVersion := path.Base(cfgfile)
 		cfg.Version(cfgVersion)
 		cfg.Reader(config)
-		if response, err := gnoigo.Execute(ctx, clients, cfg); err != nil {
+		if response, err := gnoigo.Execute(ctx, gnoiClient, cfg); err != nil {
 			return nil, err
 		} else {
 			logger.V(3).Info(fmt.Sprintf("DMS %s Performed BF configuration %v", dmsTaskName, response))
@@ -311,7 +311,7 @@ func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningv1.D
 		logger.V(3).Info("starting execute activate operation")
 		var response *ospb.ActivateResponse
 		for retry := 1; retry <= MaxRetryCount; retry++ {
-			response, err = gnoigo.Execute(ctx, clients, activateOp)
+			response, err = gnoigo.Execute(ctx, gnoiClient, activateOp)
 			if err == nil {
 				break
 			} else {
@@ -334,7 +334,7 @@ func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningv1.D
 				return nil, ctx.Err()
 			case <-ticker.C:
 				rebootStatusOp := gsystem.NewRebootStatusOperation().Subcomponents([]*tpb.Path{{Elem: []*tpb.PathElem{{Name: "CPU"}}}})
-				response, err := gnoigo.Execute(ctx, clients, rebootStatusOp)
+				response, err := gnoigo.Execute(ctx, gnoiClient, rebootStatusOp)
 				if err != nil {
 					logger.Error(err, fmt.Sprintf("DMS %s failed to Execute rebootStatusOp", dmsTaskName))
 					return nil, err
@@ -374,9 +374,10 @@ func dmsHandler(ctx context.Context, client client.Client, dpu *provisioningv1.D
 						// Add DOCA_BFB version to DPU NodeLabels as it is found in DPU ARM under /etc/mlnx-release. e.g.,
 						// cat /etc/mlnx-release
 						// bf-bundle-2.7.0-33_24.04_ubuntu-22.04_prod
+						patch := client.MergeFrom(dpu.DeepCopy())
 						dpu.Spec.Cluster.NodeLabels["provisioning.dpf.nvidia.com/DOCA-BFB-version"] = cutil.GenerateBFBVersionFromURL(bfb.Spec.URL)
 						dpu.Spec.Cluster.NodeLabels[HostNameDPULabelKey] = dpu.Spec.NodeName
-						if err := client.Update(ctx, dpu); err != nil {
+						if err := k8sClient.Patch(ctx, dpu, patch); err != nil {
 							return future.Ready, err
 						}
 						return nil, nil

@@ -409,7 +409,10 @@ func (r *DpuSetReconciler) needUpdate(ctx context.Context, dpuSet provisioningv1
 	oldLabel := dpu.Spec.Cluster.NodeLabels
 	if !reflect.DeepEqual(newLabel, oldLabel) {
 		patcher := patch.NewSerialPatcher(&dpu, r.Client)
-		dpu.Spec.Cluster.NodeLabels = newLabel
+		// merge label from DPUSet to DPU CR
+		for k, v := range newLabel {
+			dpu.Spec.Cluster.NodeLabels[k] = v
+		}
 		if err := patcher.Patch(ctx, &dpu); err != nil {
 			return false, err
 		} else {
