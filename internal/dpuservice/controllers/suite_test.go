@@ -64,7 +64,7 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "..", "..", "config", "dpuservice", "crd", "bases"),
 			filepath.Join("..", "..", "..", "config", "servicechainset", "crd", "bases"),
 			filepath.Join("..", "..", "..", "config", "provisioning", "crd", "bases"),
-			filepath.Join("..", "..", "..", "deploy", "helm", "dpf-operator", "crds"),
+			filepath.Join("..", "..", "..", "deploy", "helm", "dpf-operator", "templates", "crds"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "argocd"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "kamaji"),
 		},

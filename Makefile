@@ -187,7 +187,7 @@ generate-manifests: $(addprefix generate-manifests-,$(GENERATE_TARGETS)) ## Run 
 
 .PHONY: generate-manifests-operator
 generate-manifests-operator: controller-gen kustomize envsubst helm ## Generate manifests e.g. CRD, RBAC. for the operator controller.
-	$(MAKE) clean-generated-yaml SRC_DIRS="./deploy/helm/dpf-operator/crds/"
+	$(MAKE) clean-generated-yaml SRC_DIRS="./deploy/helm/dpf-operator/templates/crds/"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/operator/..." \
 	paths="./cmd/nvidia-cluster-manager/..." \
@@ -197,10 +197,10 @@ generate-manifests-operator: controller-gen kustomize envsubst helm ## Generate 
 	paths="./api/operator/..." \
 	crd:crdVersions=v1 \
 	rbac:roleName="dpf-operator-manager-role" \
-	output:crd:dir=./deploy/helm/dpf-operator/crds \
+	output:crd:dir=./deploy/helm/dpf-operator/templates/crds \
 	output:rbac:dir=./deploy/helm/dpf-operator/templates
 	## Copy all other CRD definitions to the operator helm directory
-	$(KUSTOMIZE) build config/operator-additional-crds -o  deploy/helm/dpf-operator/crds/;
+	$(KUSTOMIZE) build config/operator-additional-crds -o  deploy/helm/dpf-operator/templates/crds/;
 	## Set the image name and tag in the operator helm chart values
 	$(ENVSUBST) < deploy/helm/dpf-operator/values.yaml.tmpl > deploy/helm/dpf-operator/values.yaml
 	## Update the helm dependencies for the chart.
@@ -283,14 +283,14 @@ generate-manifests-servicechainset: controller-gen kustomize envsubst ## Generat
 	rbac:roleName=manager-role \
 	output:crd:dir=./config/servicechainset/crd/bases \
 	output:rbac:dir=./config/servicechainset/rbac
-	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/servicechain/crds/ \;
+	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/servicechain/templates/crds/ \;
 	$(ENVSUBST) < deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml.tmpl > deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml
 
 
 .PHONY: generate-manifests-sfc-controller
 generate-manifests-sfc-controller: envsubst generate-manifests-servicechainset
-	cp deploy/helm/dpu-networking/charts/servicechainset-controller/crds/sfc.dpf.nvidia.com_servicechains.yaml deploy/helm/dpu-networking/charts/sfc-controller/crds/
-	cp deploy/helm/dpu-networking/charts/servicechainset-controller/crds/sfc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/dpu-networking/charts/sfc-controller/crds/
+	cp deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/sfc.dpf.nvidia.com_servicechains.yaml deploy/helm/dpu-networking/charts/sfc-controller/templates/crds/
+	cp deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/sfc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/dpu-networking/charts/sfc-controller/templates/crds/
 	# Template the image name and tag used in the helm templates.
 	$(ENVSUBST) < deploy/helm/dpu-networking/charts/sfc-controller/values.yaml.tmpl > deploy/helm/dpu-networking/charts/sfc-controller/values.yaml
 
@@ -363,7 +363,7 @@ generate-operator-bundle: helm operator-sdk generate-manifests-operator ## Gener
     # Note we need to explicitly set stdin to null using < /dev/null.
 	$(OPERATOR_SDK) generate bundle \
 	--overwrite --package dpf-operator --version $(BUNDLE_VERSION) --default-channel=$(BUNDLE_VERSION) --channels=$(BUNDLE_VERSION) \
-	--deploy-dir hack/charts/dpf-operator --crds-dir deploy/helm/dpf-operator/crds 	</dev/null
+	--deploy-dir hack/charts/dpf-operator --crds-dir deploy/helm/dpf-operator/templates/crds 	</dev/null
 
 	# We need to ensure operator-sdk receives nothing on stdin by explicitly redirecting null there.
 	# Remove the createdAt field to prevent rebasing issues.

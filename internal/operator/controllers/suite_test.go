@@ -54,7 +54,7 @@ func TestMain(m *testing.M) {
 	setupLogger := ctrl.Log.WithName("dpf-operator-config-controller-test-setup")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "deploy", "helm", "dpf-operator", "crds"),
+			filepath.Join("..", "..", "..", "deploy", "helm", "dpf-operator", "templates", "crds"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "cert-manager"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "openshift"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "argocd"),
