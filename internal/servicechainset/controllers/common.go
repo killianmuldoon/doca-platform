@@ -19,9 +19,9 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,21 +33,8 @@ import (
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// namespacedNameInCluster is a struct that points to a particular object within a cluster
-//
-//nolint:unused
-type namespacedNameInCluster struct {
-	Object  types.NamespacedName
-	Cluster controlplane.DPFCluster
-}
-
-//nolint:unused
-func (n *namespacedNameInCluster) String() string {
-	return fmt.Sprintf("{Cluster: %s/%s, Object: %s/%s}", n.Cluster.Namespace, n.Cluster.Name, n.Object.Namespace, n.Object.Name)
-}
-
 type serviceSetReconciler interface {
-	// getObjectsInDPUCluster is the method called by the reconcileReadinessOfObjectsInDPUClusters function which deletes
+	// getObjectsInDPUCluster is the method called by the reconcileReadinessOfObjectsInDPUCluster function which deletes
 	// objects in the DPU cluster related to the given parentObject. The implementation should get the created objects
 	// in the DPU cluster.
 	getObjectsInDPUCluster(ctx context.Context, k8sClient client.Client, dpuObject client.Object) ([]unstructured.Unstructured, error)
@@ -58,7 +45,7 @@ type serviceSetReconciler interface {
 	// the DPU clusters based on the given parentObject. The implementation should create and update objects in the DPU
 	// cluster.
 	createOrUpdateChild(context.Context, client.Object, string) error
-	// getUnreadyObjects is the method called by reconcileReadinessOfObjectsInDPUClusters function which returns whether
+	// getUnreadyObjects is the method called by reconcileReadinessOfObjectsInDPUCluster function which returns whether
 	// objects in the DPU cluster are ready. The input to the function is a list of objects that exist in a particular
 	// cluster.
 	getUnreadyObjects(objects []unstructured.Unstructured) ([]types.NamespacedName, error)
@@ -158,23 +145,34 @@ func reconcileDelete(ctx context.Context, set client.Object, k8sClient client.Cl
 	return ctrl.Result{}, nil
 }
 
-// reconcileReadinessOfObjectsInDPUClusters handles the readiness reconciliation loop for objects in the DPU clusters
-// TODO not implemented
-//
-//nolint:unparam,unused
-func reconcileReadinessOfObjectsInDPUClusters(
+// reconcileReadinessOfObjectsInDPUCluster handles the readiness reconciliation loop for objects in a specific DPU cluster.
+func reconcileReadinessOfObjectsInDPUCluster(
 	ctx context.Context,
 	r serviceSetReconciler,
 	k8sClient client.Client,
 	serviceSet client.Object,
-) ([]namespacedNameInCluster, error) {
-	return nil, nil
+) ([]types.NamespacedName, error) {
+	objs, err := r.getObjectsInDPUCluster(ctx, k8sClient, serviceSet)
+	if err != nil {
+		return nil, err
+	}
+	unreadyObjs, err := r.getUnreadyObjects(objs)
+	if err != nil {
+		return nil, err
+	}
+
+	unreadyObjsNN := []types.NamespacedName{}
+	for _, unreadyObj := range unreadyObjs {
+		unreadyObjsNN = append(unreadyObjsNN, types.NamespacedName{
+			Namespace: unreadyObj.Namespace,
+			Name:      unreadyObj.Name,
+		})
+	}
+
+	return unreadyObjsNN, nil
 }
 
 // updateSummary updates the status conditions in the object.
-// TODO not implemented
-//
-//nolint:unparam,unused
 func updateSummary(
 	ctx context.Context,
 	r serviceSetReconciler,
@@ -182,5 +180,42 @@ func updateSummary(
 	objReadyCondition conditions.ConditionType,
 	serviceSet client.Object,
 ) error {
+	objAsGetSet, ok := serviceSet.(conditions.GetSet)
+	if !ok {
+		return fmt.Errorf("error while converting object to conditions.GetSet")
+	}
+
+	defer conditions.SetSummary(objAsGetSet)
+	unreadyObjs, err := reconcileReadinessOfObjectsInDPUCluster(ctx, r, k8sClient, serviceSet)
+	if err != nil {
+		conditions.AddFalse(
+			objAsGetSet,
+			objReadyCondition,
+			conditions.ReasonPending,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
+		return err
+	}
+
+	if len(unreadyObjs) > 0 {
+		conditions.AddFalse(
+			objAsGetSet,
+			objReadyCondition,
+			conditions.ReasonPending,
+			conditions.ConditionMessage(fmt.Sprintf("Objects not ready: %s", strings.Join(func() []string {
+				out := []string{}
+				for _, o := range unreadyObjs {
+					out = append(out, o.String())
+				}
+				return out
+			}(), ","))),
+		)
+		return nil
+	}
+
+	conditions.AddTrue(
+		objAsGetSet,
+		objReadyCondition,
+	)
 	return nil
 }

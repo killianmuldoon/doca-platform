@@ -29,6 +29,7 @@ import (
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -193,22 +194,18 @@ func (r *DPUServiceChainReconciler) deleteObjectsInDPUCluster(ctx context.Contex
 	return k8sClient.Delete(ctx, scs)
 }
 
-// getUnreadyObjects is the method called by reconcileReadinessOfObjectsInDPUClusters function which returns whether
-// objects in the DPU cluster are ready. The input to the function is a list of objects that exist in a particular
-// cluster.
 func (r *DPUServiceChainReconciler) getUnreadyObjects(objects []unstructured.Unstructured) ([]types.NamespacedName, error) {
 	unreadyObjs := []types.NamespacedName{}
 	for _, o := range objects {
-		// TODO: Convert to ServiceChainSet when we implement status for this controller
-		conditions, exists, err := unstructured.NestedSlice(o.Object, "status", "conditions")
+		serviceChainSet := &sfcv1.ServiceChainSet{}
+		err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, &serviceChainSet)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("convert unstructured to %T: %w", serviceChainSet, err)
 		}
-		// TODO: Check on condition ready when we implement status for this controller
-		if len(conditions) == 0 || !exists {
-			unreadyObjs = append(unreadyObjs, types.NamespacedName{Name: o.GetName(), Namespace: o.GetNamespace()})
+		if meta.IsStatusConditionTrue(serviceChainSet.GetConditions(), string(conditions.TypeReady)) {
 			continue
 		}
+		unreadyObjs = append(unreadyObjs, types.NamespacedName{Name: o.GetName(), Namespace: o.GetNamespace()})
 	}
 	return unreadyObjs, nil
 }

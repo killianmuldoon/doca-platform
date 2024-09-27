@@ -21,6 +21,7 @@ import (
 	"time"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -191,31 +192,63 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
 		})
 		It("should successfully create the ServiceChainSet with port service interface", func() {
-			By("creating ServiceInterfaceSet, with Node Selector")
+			By("creating ServiceChainSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createServiceChainSetWithServiceInterface(ctx,
 				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, false))
 		})
 		It("should successfully create the ServiceChainSet with port service interface and references", func() {
-			By("creating ServiceInterfaceSet, with Node Selector")
+			By("creating ServiceChainSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createServiceChainSetWithServiceInterface(ctx,
 				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, true))
 		})
 		It("should successfully create the ServiceChainSet with port service", func() {
-			By("creating ServiceInterfaceSet, with Node Selector")
+			By("creating ServiceChainSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createServiceChainSetWithService(ctx,
 				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, false))
 		})
 		It("should successfully create the ServiceChainSet with port service and references", func() {
-			By("creating ServiceInterfaceSet, with Node Selector")
+			By("creating ServiceChainSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createServiceChainSetWithService(ctx,
 				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, true))
 		})
 		It("should fail to create the ServiceChainSet with invalid spec", func() {
-			By("creating ServiceInterfaceSet, with Node Selector")
+			By("creating ServiceChainSet, with Node Selector")
 			createInvalidServiceChainSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}})
+		})
+		It("should successfully create the ServiceChainSet and have all conditions set", func() {
+			By("creating ServiceChainSet, with Node Selector")
+			obj := createServiceChainSetWithService(ctx,
+				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, true)
+			cleanupObjects = append(cleanupObjects, obj)
+			Eventually(func(g Gomega) {
+				assertServiceChainSetCondition(g, testClient, obj)
+			}).WithTimeout(30 * time.Second).Should(BeNil())
 		})
 	})
 })
+
+func assertServiceChainSetCondition(g Gomega, testClient client.Client, serviceChainSet *sfcv1.ServiceChainSet) {
+	gotServiceChainSet := &sfcv1.ServiceChainSet{}
+	g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(serviceChainSet), gotServiceChainSet)).To(Succeed())
+	g.Expect(gotServiceChainSet.Status.Conditions).NotTo(BeNil())
+	g.Expect(gotServiceChainSet.Status.Conditions).To(ConsistOf(
+		And(
+			HaveField("Type", string(conditions.TypeReady)),
+			HaveField("Status", metav1.ConditionTrue),
+			HaveField("Reason", string(conditions.ReasonSuccess)),
+		),
+		And(
+			HaveField("Type", string(sfcv1.ConditionServiceChainsReconciled)),
+			HaveField("Status", metav1.ConditionTrue),
+			HaveField("Reason", string(conditions.ReasonSuccess)),
+		),
+		And(
+			HaveField("Type", string(sfcv1.ConditionServiceChainsReady)),
+			HaveField("Status", metav1.ConditionTrue),
+			HaveField("Reason", string(conditions.ReasonSuccess)),
+		),
+	))
+}
 
 func createServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelector) *sfcv1.ServiceChainSet {
 	scs := serviceChainSet(labelSelector)

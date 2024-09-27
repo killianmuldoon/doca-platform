@@ -21,6 +21,7 @@ import (
 	"time"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -245,8 +246,39 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		It("should fail to create the ServiceInterfaceSet with missing service definition", func() {
 			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeService)
 		})
+		It("should successfully create the ServiceInterfaceSet and have all conditions set", func() {
+			By("creating ServiceInterfaceSet, with Node Selector")
+			obj := createServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}})
+			cleanupObjects = append(cleanupObjects, obj)
+			Eventually(func(g Gomega) {
+				assertServiceInterfaceSetCondition(g, testClient, obj)
+			}).WithTimeout(30 * time.Second).Should(BeNil())
+		})
 	})
 })
+
+func assertServiceInterfaceSetCondition(g Gomega, testClient client.Client, serviceInterfaceSet *sfcv1.ServiceInterfaceSet) {
+	gotServiceInterfaceSet := &sfcv1.ServiceInterfaceSet{}
+	g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(serviceInterfaceSet), gotServiceInterfaceSet)).To(Succeed())
+	g.Expect(gotServiceInterfaceSet.Status.Conditions).NotTo(BeNil())
+	g.Expect(gotServiceInterfaceSet.Status.Conditions).To(ConsistOf(
+		And(
+			HaveField("Type", string(conditions.TypeReady)),
+			HaveField("Status", metav1.ConditionTrue),
+			HaveField("Reason", string(conditions.ReasonSuccess)),
+		),
+		And(
+			HaveField("Type", string(sfcv1.ConditionServiceInterfacesReconciled)),
+			HaveField("Status", metav1.ConditionTrue),
+			HaveField("Reason", string(conditions.ReasonSuccess)),
+		),
+		And(
+			HaveField("Type", string(sfcv1.ConditionServiceInterfacesReady)),
+			HaveField("Status", metav1.ConditionTrue),
+			HaveField("Reason", string(conditions.ReasonSuccess)),
+		),
+	))
+}
 
 func assertServiceInterfaceList(ctx context.Context, g Gomega, nodeCount int, cleanupObjects *[]client.Object,
 	testSpec *sfcv1.ServiceInterfaceSpec) {

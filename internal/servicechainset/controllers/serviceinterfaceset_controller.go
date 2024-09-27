@@ -18,9 +18,11 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"maps"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
@@ -36,7 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
@@ -67,10 +69,10 @@ type ServiceInterfaceSetReconciler struct {
 //
 //nolint:dupl
 func (r *ServiceInterfaceSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
-	log := log.FromContext(ctx)
+	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling")
-	sis := &sfcv1.ServiceInterfaceSet{}
-	if err := r.Client.Get(ctx, req.NamespacedName, sis); err != nil {
+	serviceInterfaceSet := &sfcv1.ServiceInterfaceSet{}
+	if err := r.Client.Get(ctx, req.NamespacedName, serviceInterfaceSet); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
 			return ctrl.Result{}, nil
@@ -78,31 +80,57 @@ func (r *ServiceInterfaceSetReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, err
 	}
 
-	patcher := patch.NewSerialPatcher(sis, r.Client)
+	patcher := patch.NewSerialPatcher(serviceInterfaceSet, r.Client)
 
 	// Defer a patch call to always patch the object when Reconcile exits.
 	defer func() {
-
 		log.Info("Patching")
-		if err := patcher.Patch(ctx, sis,
+
+		if err := updateSummary(ctx, r, r.Client, sfcv1.ConditionServiceInterfacesReady, serviceInterfaceSet); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+		if err := patcher.Patch(ctx, serviceInterfaceSet,
 			patch.WithFieldOwner(serviceInterfaceSetControllerName),
+			patch.WithStatusObservedGeneration{},
+			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(sfcv1.ServiceInterfaceSetConditions)},
 		); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
 
-	if !sis.ObjectMeta.DeletionTimestamp.IsZero() {
-		return reconcileDelete(ctx, sis, r.Client, r, sfcv1.ServiceInterfaceSetFinalizer)
+	conditions.EnsureConditions(serviceInterfaceSet, sfcv1.ServiceInterfaceSetConditions)
+
+	if !serviceInterfaceSet.ObjectMeta.DeletionTimestamp.IsZero() {
+		return reconcileDelete(ctx, serviceInterfaceSet, r.Client, r, sfcv1.ServiceInterfaceSetFinalizer)
 	}
 
 	// Add finalizer if not set.
-	if !controllerutil.ContainsFinalizer(sis, sfcv1.ServiceInterfaceSetFinalizer) {
+	if !controllerutil.ContainsFinalizer(serviceInterfaceSet, sfcv1.ServiceInterfaceSetFinalizer) {
 		log.Info("Adding finalizer")
-		controllerutil.AddFinalizer(sis, sfcv1.ServiceInterfaceSetFinalizer)
+		controllerutil.AddFinalizer(serviceInterfaceSet, sfcv1.ServiceInterfaceSetFinalizer)
 		return ctrl.Result{}, nil
 	}
 
-	return reconcileSet(ctx, sis, r.Client, sis.Spec.NodeSelector, r)
+	return r.reconcile(ctx, serviceInterfaceSet)
+}
+
+func (r *ServiceInterfaceSetReconciler) reconcile(ctx context.Context, serviceInterfaceSet *sfcv1.ServiceInterfaceSet) (ctrl.Result, error) {
+	res, err := reconcileSet(ctx, serviceInterfaceSet, r.Client, serviceInterfaceSet.Spec.NodeSelector, r)
+	if err != nil {
+		conditions.AddFalse(
+			serviceInterfaceSet,
+			sfcv1.ConditionServiceInterfacesReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
+		return ctrl.Result{}, err
+	}
+	conditions.AddTrue(
+		serviceInterfaceSet,
+		sfcv1.ConditionServiceInterfacesReconciled,
+	)
+
+	return res, nil
 }
 
 func (r *ServiceInterfaceSetReconciler) getChildMap(ctx context.Context, set client.Object) (map[string]client.Object, error) {
@@ -114,25 +142,27 @@ func (r *ServiceInterfaceSetReconciler) getChildMap(ctx context.Context, set cli
 	}); err != nil {
 		return serviceInterfaceMap, err
 	}
-	for i := range serviceInterfaceList.Items {
-		si := serviceInterfaceList.Items[i]
-		serviceInterfaceMap[*si.Spec.Node] = &si
+	for _, serviceInterface := range serviceInterfaceList.Items {
+		serviceInterfaceMap[*serviceInterface.Spec.Node] = &serviceInterface
 	}
 	return serviceInterfaceMap, nil
 }
 
 func (r *ServiceInterfaceSetReconciler) createOrUpdateChild(ctx context.Context, set client.Object, nodeName string) error {
-	log := log.FromContext(ctx)
+	log := ctrllog.FromContext(ctx)
+
 	serviceInterfaceSet := set.(*sfcv1.ServiceInterfaceSet)
-	labels := map[string]string{ServiceInterfaceSetNameLabel: serviceInterfaceSet.Name,
-		ServiceInterfaceSetNamespaceLabel: serviceInterfaceSet.Namespace}
+	labels := map[string]string{
+		ServiceInterfaceSetNameLabel:      serviceInterfaceSet.Name,
+		ServiceInterfaceSetNamespaceLabel: serviceInterfaceSet.Namespace,
+	}
 	maps.Copy(labels, serviceInterfaceSet.Spec.Template.ObjectMeta.Labels)
-	scName := serviceInterfaceSet.Name + "-" + nodeName
+
 	owner := metav1.NewControllerRef(serviceInterfaceSet, sfcv1.GroupVersion.WithKind("ServiceInterfaceSet"))
 
-	sc := &sfcv1.ServiceInterface{
+	serviceInterface := &sfcv1.ServiceInterface{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:            scName,
+			Name:            fmt.Sprintf("%s-%s", serviceInterfaceSet.Name, nodeName),
 			Namespace:       serviceInterfaceSet.Namespace,
 			Labels:          labels,
 			Annotations:     serviceInterfaceSet.Annotations,
@@ -145,50 +175,66 @@ func (r *ServiceInterfaceSetReconciler) createOrUpdateChild(ctx context.Context,
 		},
 	}
 	if serviceInterfaceSet.Spec.Template.Spec.Vlan != nil {
-		sc.Spec.Vlan = &sfcv1.VLAN{
+		serviceInterface.Spec.Vlan = &sfcv1.VLAN{
 			VlanID:             serviceInterfaceSet.Spec.Template.Spec.Vlan.VlanID,
 			ParentInterfaceRef: serviceInterfaceSet.Spec.Template.Spec.Vlan.ParentInterfaceRef + "-" + nodeName,
 		}
 	}
 	if serviceInterfaceSet.Spec.Template.Spec.VF != nil {
-		sc.Spec.VF = &sfcv1.VF{
+		serviceInterface.Spec.VF = &sfcv1.VF{
 			VFID:               serviceInterfaceSet.Spec.Template.Spec.VF.VFID,
 			PFID:               serviceInterfaceSet.Spec.Template.Spec.VF.PFID,
 			ParentInterfaceRef: serviceInterfaceSet.Spec.Template.Spec.VF.ParentInterfaceRef + "-" + nodeName,
 		}
 	}
 	if serviceInterfaceSet.Spec.Template.Spec.PF != nil {
-		sc.Spec.PF = &sfcv1.PF{
+		serviceInterface.Spec.PF = &sfcv1.PF{
 			ID: serviceInterfaceSet.Spec.Template.Spec.PF.ID,
 		}
 	}
 	if serviceInterfaceSet.Spec.Template.Spec.Service != nil {
-		sc.Spec.Service = &sfcv1.ServiceDef{
+		serviceInterface.Spec.Service = &sfcv1.ServiceDef{
 			ServiceID: serviceInterfaceSet.Spec.Template.Spec.Service.ServiceID,
 			Network:   serviceInterfaceSet.Spec.Template.Spec.Service.Network,
 		}
 	}
-	sc.ObjectMeta.ManagedFields = nil
-	sc.SetGroupVersionKind(sfcv1.GroupVersion.WithKind("ServiceInterface"))
-	if err := r.Client.Patch(ctx, sc, client.Apply, client.ForceOwnership, client.FieldOwner(serviceInterfaceSetControllerName)); err != nil {
+	serviceInterface.SetManagedFields(nil)
+	serviceInterface.SetGroupVersionKind(sfcv1.GroupVersion.WithKind("ServiceInterface"))
+	if err := r.Client.Patch(ctx, serviceInterface, client.Apply, client.ForceOwnership, client.FieldOwner(serviceInterfaceSetControllerName)); err != nil {
 		return err
 	}
-	log.Info("ServiceInterface is updated/created", "ServiceInterface", sc)
+
+	log.Info("ServiceInterface is updated/created", "ServiceInterface", serviceInterface)
 	return nil
 }
 
-// TODO not implemented
-//
-//nolint:unused
 func (r *ServiceInterfaceSetReconciler) getObjectsInDPUCluster(ctx context.Context, k8sClient client.Client, dpuObject client.Object) ([]unstructured.Unstructured, error) {
-	return nil, nil
+	serviceInterfaceSet := &unstructured.Unstructured{}
+	serviceInterfaceSet.SetGroupVersionKind(sfcv1.ServiceInterfaceSetGroupVersionKind)
+	key := client.ObjectKey{Namespace: dpuObject.GetNamespace(), Name: dpuObject.GetName()}
+	err := k8sClient.Get(ctx, key, serviceInterfaceSet)
+	if err != nil {
+		return nil, fmt.Errorf("error while getting %s %s: %w", serviceInterfaceSet.GetObjectKind().GroupVersionKind().String(), key.String(), err)
+	}
+
+	return []unstructured.Unstructured{*serviceInterfaceSet}, nil
 }
 
-// TODO not implemented
-//
-//nolint:unused
 func (r *ServiceInterfaceSetReconciler) getUnreadyObjects(objects []unstructured.Unstructured) ([]types.NamespacedName, error) {
-	return nil, nil
+	unreadyObjs := []types.NamespacedName{}
+	for _, o := range objects {
+		// TODO: Convert to ServiceInterfaceSet when we implement status for this controller
+		conditions, exists, err := unstructured.NestedSlice(o.Object, "status", "conditions")
+		if err != nil {
+			return nil, err
+		}
+		// TODO: Check on condition ready when we implement status for this controller
+		if len(conditions) == 0 || !exists {
+			unreadyObjs = append(unreadyObjs, types.NamespacedName{Name: o.GetName(), Namespace: o.GetNamespace()})
+			continue
+		}
+	}
+	return unreadyObjs, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -203,16 +249,18 @@ func (r *ServiceInterfaceSetReconciler) SetupWithManager(mgr ctrl.Manager) error
 }
 
 func (r *ServiceInterfaceSetReconciler) nodeToServiceInterfaceSetReq(ctx context.Context, resource client.Object) []reconcile.Request {
-	requests := make([]reconcile.Request, 0)
 	serviceInterfaceSetList := &sfcv1.ServiceInterfaceSetList{}
-	if err := r.List(ctx, serviceInterfaceSetList); err == nil {
-		for _, item := range serviceInterfaceSetList.Items {
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      item.GetName(),
-					Namespace: item.GetNamespace(),
-				}})
-		}
+	if err := r.List(ctx, serviceInterfaceSetList); err != nil {
+		return nil
+	}
+
+	requests := []reconcile.Request{}
+	for _, item := range serviceInterfaceSetList.Items {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      item.GetName(),
+				Namespace: item.GetNamespace(),
+			}})
 	}
 	return requests
 }
