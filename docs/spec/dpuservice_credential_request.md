@@ -144,3 +144,12 @@ This will free the user from having to watch the mounted secret files.
 **Note** This will overwrite the default values, which are necessary to access the
 local API Server. If this is not desirable, it is still possible to adapt the `InClusterConfig()`
 logic.
+
+
+## API Server consideration
+
+The `DPUServiceCredentialRequest` will request tokens for the provided `ServiceAccount`
+by setting the `Audience` to the API server audience based on the server config.
+The specific configuration flag is `--api-audiences`. The service account token
+authenticator will validate that tokens used against the API server are bound to
+at least one of these audiences.

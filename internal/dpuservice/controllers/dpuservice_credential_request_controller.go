@@ -241,11 +241,7 @@ func reconcileServiceAccount(ctx context.Context, obj *dpuservicev1.DPUServiceCr
 		AutomountServiceAccountToken: ptr.To(false),
 	}
 
-	tr := &authenticationv1.TokenRequest{
-		Spec: authenticationv1.TokenRequestSpec{
-			Audiences: []string{"https://kubernetes.default.svc"},
-		},
-	}
+	tr := &authenticationv1.TokenRequest{}
 	if obj.Spec.Duration != nil {
 		tr.Spec.ExpirationSeconds = ptr.To(int64(obj.Spec.Duration.Duration / time.Second))
 	}
