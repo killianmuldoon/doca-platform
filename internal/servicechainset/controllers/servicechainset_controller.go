@@ -230,6 +230,12 @@ func (r *ServiceChainSetReconciler) getUnreadyObjects(objects []unstructured.Uns
 	return unreadyObjs, nil
 }
 
+func (r *ServiceChainSetReconciler) setReadyStatus(serviceSet client.Object, numberApplied, numberReady int32) {
+	obj := serviceSet.(*sfcv1.ServiceChainSet)
+	// TODO add NumberReady state as soon as we have the state of a ServiceChain
+	obj.Status.NumberApplied = numberApplied
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *ServiceChainSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).

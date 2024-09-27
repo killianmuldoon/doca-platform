@@ -49,6 +49,9 @@ type serviceSetReconciler interface {
 	// objects in the DPU cluster are ready. The input to the function is a list of objects that exist in a particular
 	// cluster.
 	getUnreadyObjects(objects []unstructured.Unstructured) ([]types.NamespacedName, error)
+	// setReadyStatus sets the status for ready objects called by reconcileReadinessOfObjectsInDPUCluster function
+	// which mutates that status ob the serviceSet.
+	setReadyStatus(serviceSet client.Object, numberApplied, numberReady int32)
 }
 
 //nolint:unparam
@@ -168,6 +171,11 @@ func reconcileReadinessOfObjectsInDPUCluster(
 			Name:      unreadyObj.Name,
 		})
 	}
+
+	// Set the status of applied and ready objects.
+	numberApplied := int32(len(objs))
+	numberReady := numberApplied - int32(len(unreadyObjsNN))
+	r.setReadyStatus(serviceSet, numberApplied, numberReady)
 
 	return unreadyObjsNN, nil
 }

@@ -95,6 +95,12 @@ type ServiceInterfaceSetStatus struct {
 
 	// ObservedGeneration records the Generation observed on the object the last time it was patched.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// The number of nodes where the service chain is applied and is supposed to be applied.
+	NumberApplied int32 `json:"numberApplied,omitempty"`
+
+	// The number of nodes where the service chain is applied and ready.
+	NumberReady int32 `json:"numberReady,omitempty"`
 }
 
 //+kubebuilder:object:root=true

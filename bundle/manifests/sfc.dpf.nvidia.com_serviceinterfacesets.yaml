@@ -270,6 +270,16 @@ spec:
                   - type
                   type: object
                 type: array
+              numberApplied:
+                description: The number of nodes where the service chain is applied
+                  and is supposed to be applied.
+                format: int32
+                type: integer
+              numberReady:
+                description: The number of nodes where the service chain is applied
+                  and ready.
+                format: int32
+                type: integer
               observedGeneration:
                 description: ObservedGeneration records the Generation observed on
                   the object the last time it was patched.

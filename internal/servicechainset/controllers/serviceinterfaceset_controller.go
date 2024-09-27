@@ -237,6 +237,12 @@ func (r *ServiceInterfaceSetReconciler) getUnreadyObjects(objects []unstructured
 	return unreadyObjs, nil
 }
 
+func (r *ServiceInterfaceSetReconciler) setReadyStatus(serviceSet client.Object, numberApplied, numberReady int32) {
+	obj := serviceSet.(*sfcv1.ServiceInterfaceSet)
+	// TODO add NumberReady state as soon as we have the state of a ServiceInterface
+	obj.Status.NumberApplied = numberApplied
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *ServiceInterfaceSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
