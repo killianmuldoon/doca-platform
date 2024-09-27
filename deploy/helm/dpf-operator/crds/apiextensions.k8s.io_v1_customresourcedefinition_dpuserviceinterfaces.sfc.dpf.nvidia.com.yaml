@@ -218,16 +218,16 @@ spec:
                               service:
                                 description: The Service definition
                                 properties:
-                                  networkName:
-                                    description: NetworkName is the Network Attachment
-                                      Definition name in the same namespace of the
-                                      ServiceInterface
+                                  network:
+                                    description: |-
+                                      Network is the Network Attachment Definition in the form of "namespace/name"
+                                      or just "name" if the namespace is the same as the ServiceInterface.
                                     type: string
                                   serviceID:
                                     description: ServiceID is the DPU Service Identifier
                                     type: string
                                 required:
-                                - networkName
+                                - network
                                 - serviceID
                                 type: object
                               vf:

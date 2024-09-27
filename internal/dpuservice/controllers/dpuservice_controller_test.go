@@ -722,8 +722,8 @@ func getMinimalDPUServiceInterface(namespace string) *sfcv1.DPUServiceInterface 
 							InterfaceType: sfcv1.InterfaceTypeService,
 							InterfaceName: ptr.To("net1"),
 							Service: &sfcv1.ServiceDef{
-								ServiceID:   "service-one",
-								NetworkName: "mybrsfc",
+								ServiceID: "service-one",
+								Network:   "mybrsfc",
 							},
 						},
 					},

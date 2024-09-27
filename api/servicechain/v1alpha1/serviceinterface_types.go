@@ -17,7 +17,10 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"strings"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -67,9 +70,27 @@ type ServiceDef struct {
 	// ServiceID is the DPU Service Identifier
 	// +required
 	ServiceID string `json:"serviceID"`
-	// NetworkName is the Network Attachment Definition name in the same namespace of the ServiceInterface
+	// Network is the Network Attachment Definition in the form of "namespace/name"
+	// or just "name" if the namespace is the same as the ServiceInterface.
 	// +required
-	NetworkName string `json:"networkName"`
+	Network string `json:"network"`
+}
+
+// GetNetwork returns the namespace and name of the network
+func (s *ServiceDef) GetNetwork() (string, string) {
+	if s.Network == "" {
+		return "", ""
+	}
+
+	split := strings.Split(s.Network, string(types.Separator))
+
+	switch len(split) {
+	case 1:
+		return "", split[0]
+	case 2:
+		return split[0], split[1]
+	}
+	return "", ""
 }
 
 // VLAN defines the VLAN configuration

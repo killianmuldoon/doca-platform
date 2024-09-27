@@ -164,8 +164,8 @@ func (r *ServiceInterfaceSetReconciler) createOrUpdateChild(ctx context.Context,
 	}
 	if serviceInterfaceSet.Spec.Template.Spec.Service != nil {
 		sc.Spec.Service = &sfcv1.ServiceDef{
-			ServiceID:   serviceInterfaceSet.Spec.Template.Spec.Service.ServiceID,
-			NetworkName: serviceInterfaceSet.Spec.Template.Spec.Service.NetworkName,
+			ServiceID: serviceInterfaceSet.Spec.Template.Spec.Service.ServiceID,
+			Network:   serviceInterfaceSet.Spec.Template.Spec.Service.Network,
 		}
 	}
 	sc.ObjectMeta.ManagedFields = nil

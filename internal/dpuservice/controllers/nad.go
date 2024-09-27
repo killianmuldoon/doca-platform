@@ -71,8 +71,14 @@ func updateAnnotationsWithNetworks(service *dpuservicev1.DPUService, dpuServiceI
 }
 
 func newNetworkSelectionElement(dpuServiceInterface *sfcv1.DPUServiceInterface) types.NetworkSelectionElement {
+	ns, name := dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service.GetNetwork()
+	var interfaceName string
+	if dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().InterfaceName != nil {
+		interfaceName = *dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().InterfaceName
+	}
 	return types.NetworkSelectionElement{
-		Name:             dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service.NetworkName,
-		InterfaceRequest: *dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().InterfaceName,
+		Name:             name,
+		Namespace:        ns,
+		InterfaceRequest: interfaceName,
 	}
 }
