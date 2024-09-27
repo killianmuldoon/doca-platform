@@ -166,7 +166,7 @@ doca-sosreport: | $(REPOSDIR)
 	cp -Rp ./hack/tools/dpf-tools/* $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF}/
 
 ##@ Development
-GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded release-defaults hbn-dpuservice dummydpuservice nvidia-cluster-manager static-cluster-manager
+GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded release-defaults hbn-dpuservice dummydpuservice nvidia-cluster-manager static-cluster-manager dpu-detector
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -259,7 +259,7 @@ generate-manifests-release-defaults: envsubst ## Generates manifests that contai
 TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 .PHONY: generate-manifests-operator-embedded
-generate-manifests-operator-embedded:kustomize envsubst generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults generate-manifests-nvidia-cluster-manager generate-manifests-static-cluster-manager## Generates manifests that are embedded into the operator binary.
+generate-manifests-operator-embedded:kustomize envsubst generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults generate-manifests-nvidia-cluster-manager generate-manifests-static-cluster-manager generate-manifests-dpu-detector ## Generates manifests that are embedded into the operator binary.
 	$(KUSTOMIZE) build config/provisioning/default > $(EMBEDDED_MANIFESTS_DIR)/provisioning-controller.yaml
 	$(KUSTOMIZE) build config/dpu-detector > $(EMBEDDED_MANIFESTS_DIR)/dpu-detector.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
