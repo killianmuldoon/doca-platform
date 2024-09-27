@@ -30,16 +30,13 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
-	ServiceInterfaceNameLabel      = "sfc.dpf.nvidia.com/ServiceInterface-name"
-	ServiceInterfaceNamespaceLabel = "sfc.dpf.nvidia.com/ServiceInterface-namespace"
-	ServiceInterfaceControllerName = "service-interface-controller"
-	ServiceInterfaceFinalizer      = "sfc.dpf.nvidia.com/ServiceInterface-finalizer"
-	RequeueIntervalSuccess         = 20 * time.Second
-	RequeueIntervalError           = 5 * time.Second
+	ServiceInterfaceFinalizer = "sfc.dpf.nvidia.com/ServiceInterface-finalizer"
+	RequeueIntervalSuccess    = 20 * time.Second
+	RequeueIntervalError      = 5 * time.Second
 )
 
 func requeueSuccess() (ctrl.Result, error) {
@@ -87,9 +84,7 @@ func AddPort(portName string, metadata string) error {
 		"--", "set", "int", portName, "external_ids:dpf-id="+metadata)
 }
 
-func AddPatchPort(portName string, brA string, brB string, metadata string) error {
-	// portBrA := fmt.Sprintf("%s-%s", portName, brA)
-	// portBrB := fmt.Sprintf("%s-%s", portName, brB)
+func AddPatchPort(brA, brB, metadata string) error {
 	// match on ovs-cni naming
 	portBrA := "puplinkbrovn"
 	portBrB := "puplinkbrsfc"
@@ -106,7 +101,7 @@ func AddPatchPort(portName string, brA string, brB string, metadata string) erro
 }
 
 func FigureOutName(ctx context.Context, serviceInterface *sfcv1.ServiceInterface) string {
-	log := log.FromContext(ctx)
+	log := ctrllog.FromContext(ctx)
 	portName := ""
 
 	switch serviceInterface.Spec.InterfaceType {
@@ -132,11 +127,11 @@ func FigureOutName(ctx context.Context, serviceInterface *sfcv1.ServiceInterface
 }
 
 func AddInterfacesToOvs(ctx context.Context, serviceInterface *sfcv1.ServiceInterface, metadata string) error {
-	log := log.FromContext(ctx)
+	log := ctrllog.FromContext(ctx)
 
 	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypeOVN {
 		log.Info("matched on ovn")
-		err := AddPatchPort("patch", "br-ovn", "br-sfc", metadata)
+		err := AddPatchPort("br-ovn", "br-sfc", metadata)
 		if err != nil {
 			log.Info(fmt.Sprintf("failed to add port %s", err.Error()))
 			return err
@@ -158,8 +153,8 @@ func AddInterfacesToOvs(ctx context.Context, serviceInterface *sfcv1.ServiceInte
 }
 
 func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *sfcv1.ServiceInterface) error {
-	log := log.FromContext(ctx)
-	log.Info("DeleteInterfacesFromOvs")
+	log := ctrllog.FromContext(ctx)
+	log.Info("deleteInterfacesFromOvs")
 
 	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypeOVN {
 		log.Info("matched on ovn")
@@ -180,7 +175,7 @@ func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *sfcv1.Servic
 	}
 
 	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypePhysical {
-		log.Info("Ignoring delete on physical interfaces.")
+		log.Info("ignoring delete on physical interfaces.")
 		return nil
 	}
 
@@ -199,16 +194,16 @@ func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *sfcv1.Servic
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
+	log := ctrllog.FromContext(ctx)
 	log.Info("reconciling")
 	serviceInterface := &sfcv1.ServiceInterface{}
 	if err := r.Client.Get(ctx, req.NamespacedName, serviceInterface); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
-			log.Info("Object not found")
+			log.Info("object not found")
 			return requeueSuccess()
 		}
-		log.Error(err, "Failed to get ServiceInterface")
+		log.Error(err, "failed to get ServiceInterface")
 		return requeueError()
 	}
 
@@ -228,12 +223,12 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 		err := DeleteInterfacesFromOvs(ctx, serviceInterface)
 		if err != nil {
-			log.Error(err, "Failed to delete DeleteInterfacesFromOvs")
+			log.Error(err, "failed to delete DeleteInterfacesFromOvs")
 			return requeueError()
 		}
 
 		// If there are no associated applications remove the finalizer
-		log.Info("Removing finalizer")
+		log.Info("removing finalizer")
 		controllerutil.RemoveFinalizer(serviceInterface, ServiceInterfaceFinalizer)
 		if err := r.Client.Update(ctx, serviceInterface); err != nil {
 			return requeueError()
@@ -243,20 +238,20 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	err := AddInterfacesToOvs(ctx, serviceInterface, req.NamespacedName.String())
 	if err != nil {
-		log.Info("Failed to add AddInterfacesToOvs")
+		log.Info("failed to add AddInterfacesToOvs")
 		return requeueError()
 	}
 
 	// Add finalizer if not set.
 	if !controllerutil.ContainsFinalizer(serviceInterface, ServiceInterfaceFinalizer) {
-		log.Info("Adding finalizer")
+		log.Info("adding finalizer")
 		controllerutil.AddFinalizer(serviceInterface, ServiceInterfaceFinalizer)
 		err := r.Update(ctx, serviceInterface)
 		if err != nil {
-			log.Error(err, "Failed to add finalizer")
+			log.Error(err, "failed to add finalizer")
 			return requeueError()
 		}
-		log.Info("Added finalizer")
+		log.Info("added finalizer")
 		return requeueSuccess()
 	}
 	return requeueSuccess()

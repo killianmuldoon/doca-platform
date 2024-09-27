@@ -39,7 +39,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
@@ -51,12 +51,8 @@ type ServiceChainReconciler struct {
 }
 
 const (
-	ServiceChainNameLabel      = "sfc.dpf.nvidia.com/ServiceChain-name"
-	ServiceChainNamespaceLabel = "sfc.dpf.nvidia.com/ServiceChain-namespace"
-	ServiceChainControllerName = "service-chain-controller"
-	RequeueIntervalFlows       = 5 * time.Second
-
-	podNodeNameKey = "spec.nodeName"
+	RequeueIntervalFlows = 5 * time.Second
+	podNodeNameKey       = "spec.nodeName"
 )
 
 func requeueFlows() (ctrl.Result, error) {
@@ -67,7 +63,7 @@ func requeueFlows() (ctrl.Result, error) {
 // This hash will take in the service chain name and return the corresponding hash
 func hash(s string) uint64 {
 	h := fnv.New64a()
-	h.Write([]byte(s))
+	_, _ = h.Write([]byte(s)) // Ignoring error
 	return h.Sum64()
 }
 
@@ -212,7 +208,7 @@ func getFlowCookies() (sets.Set[string], error) {
 // string. This will file will be consumed by ovs-ofctl command with the
 // bundle argument to ensure the fact that all flows are added in an atomic operation
 func addFlows(ctx context.Context, flows string) (err error) {
-	log := log.FromContext(ctx)
+	log := ctrllog.FromContext(ctx)
 	var fileP *os.File
 	fileP, err = os.Create("/tmp/of-output.txt")
 	if err != nil {
@@ -241,7 +237,7 @@ func addFlows(ctx context.Context, flows string) (err error) {
 	if err != nil {
 		return fmt.Errorf("error running ovs-ofctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
 	}
-	log.Info("Added flows:")
+	log.Info("added flows:")
 	log.Info(flows)
 	return err
 }
@@ -371,7 +367,7 @@ func (r *ServiceChainReconciler) getPortNameForServiceInterface(ctx context.Cont
 //+kubebuilder:rbac:groups="",resources=nodes;s,verbs=get;list;watch
 
 func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	log := log.FromContext(ctx)
+	log := ctrllog.FromContext(ctx)
 	log.Info("reconciling")
 	var err error
 	var hashedName uint64

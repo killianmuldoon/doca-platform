@@ -26,7 +26,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type StaleFlowsRemover struct {
@@ -39,7 +39,7 @@ func NewStaleFlowsRemover(duration time.Duration, client client.Client) *StaleFl
 }
 
 func (r *StaleFlowsRemover) Start(ctx context.Context) error {
-	log := log.FromContext(ctx)
+	log := ctrllog.FromContext(ctx)
 	log.Info("setup stale flows cleaner")
 	ticker := time.NewTicker(r.duration)
 	defer ticker.Stop()
@@ -61,7 +61,7 @@ func (r *StaleFlowsRemover) Start(ctx context.Context) error {
 // and compares them against actual OpenFlow cookies in the OVS flows.
 // The difference is treated as stale flows and removed.
 func (r *StaleFlowsRemover) removeStaleFlows(ctx context.Context) error {
-	log := log.FromContext(ctx)
+	log := ctrllog.FromContext(ctx)
 	log.Info("running stale flows cleaner")
 	currentCookiesSet, err := getFlowCookies()
 	if err != nil {
