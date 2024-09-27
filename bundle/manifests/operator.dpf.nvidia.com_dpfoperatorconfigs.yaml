@@ -44,12 +44,24 @@ spec:
                 properties:
                   disable:
                     type: boolean
+                  image:
+                    description: Image overrides the container image used by the DPUService
+                      controller
+                    type: string
                 type: object
               flannel:
                 description: Flannel is the configuration for Flannel
                 properties:
                   disable:
                     type: boolean
+                  helmChart:
+                    description: HelmChartOverrider overrides the helm chart used
+                      by the Flannel
+                    type: string
+                  image:
+                    description: ImageOverrider overrides the container image used
+                      by Flannel
+                    type: string
                 type: object
               hostedControlPlaneManager:
                 description: HostedControlPlaneManager is the configuration for the
@@ -57,6 +69,10 @@ spec:
                 properties:
                   disable:
                     type: boolean
+                  image:
+                    description: ImageOverrider overrides the container image used
+                      by the HostedControlPlaneManager.
+                    type: string
                 type: object
               imagePullSecrets:
                 description: |-
@@ -71,12 +87,28 @@ spec:
                 properties:
                   disable:
                     type: boolean
+                  helmChart:
+                    description: HelmChartOverrider overrides the helm chart used
+                      by Multus
+                    type: string
+                  image:
+                    description: ImageOverrider overrides the container image used
+                      by Multus
+                    type: string
                 type: object
               nvipam:
                 description: NVIPAM is the configuration for NVIPAM
                 properties:
                   disable:
                     type: boolean
+                  helmChart:
+                    description: HelmChartOverrider overrides the helm chart used
+                      by NVIPAM
+                    type: string
+                  image:
+                    description: ImageOverrider overrides the container image used
+                      by NVIPAM
+                    type: string
                 type: object
               overrides:
                 description: Overrides exposes a set of fields which impact the recommended
@@ -92,14 +124,21 @@ spec:
                 properties:
                   disable:
                     type: boolean
+                  helmChart:
+                    description: HelmChartOverrider overrides the helm chart used
+                      by the OVS CNI
+                    type: string
+                  image:
+                    description: ImageOverrider overrides the container image used
+                      by the OVS CNI
+                    type: string
                 type: object
               provisioningController:
                 description: ProvisioningController is the configuration for the ProvisioningController
                 properties:
                   bfbPVCName:
-                    description: BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim
-                      used by dpf-provisioning-controller
-                    minLength: 1
+                    description: BFBPersistentVolumeClaimName is the PVC used by the
+                      provisioning controller to store BFBs.
                     type: string
                   disable:
                     type: boolean
@@ -108,6 +147,11 @@ spec:
                       a DMS API must respond, 0 is unlimited
                     minimum: 1
                     type: integer
+                  image:
+                    description: Image overrides the container image used by the Provisioning
+                      controller
+                    minLength: 1
+                    type: string
                 required:
                 - bfbPVCName
                 type: object
@@ -116,18 +160,42 @@ spec:
                 properties:
                   disable:
                     type: boolean
+                  helmChart:
+                    description: HelmChartOverrider overrides the helm chart used
+                      by the ServiceSet controller.
+                    type: string
+                  image:
+                    description: ImageOverrider overrides the container image used
+                      by the ServiceSetController
+                    type: string
                 type: object
               sfcController:
                 description: SFCController is the configuration for the SFCController
                 properties:
                   disable:
                     type: boolean
+                  helmChart:
+                    description: HelmChartOverrider overrides the helm chart used
+                      by the SFC Controller
+                    type: string
+                  image:
+                    description: ImageOverrider overrides the container image used
+                      by the SFC Controller
+                    type: string
                 type: object
               sriovDevicePlugin:
                 description: SRIOVDevicePlugin is the configuration for the SRIOVDevicePlugin
                 properties:
                   disable:
                     type: boolean
+                  helmChart:
+                    description: HelmChartOverrider overrides the helm chart used
+                      by the SRIOV Device Plugin
+                    type: string
+                  image:
+                    description: ImageOverrider overrides the container image used
+                      by the SRIOV Device Plugin
+                    type: string
                 type: object
               staticControlPlaneManager:
                 description: StaticControlPlaneManager is the configuration for the
@@ -135,6 +203,10 @@ spec:
                 properties:
                   disable:
                     type: boolean
+                  image:
+                    description: ImageOverrider is the container image used by the
+                      StaticControlPlaneManager
+                    type: string
                 type: object
             required:
             - provisioningController

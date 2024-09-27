@@ -303,16 +303,16 @@ func Test_parseHelmChartString(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
-		want    *helmChartSource
+		want    *HelmChartSource
 		wantErr bool
 	}{
 		{
 			name:  "correctly parse a valid helmChart string",
 			input: "oci://example.com/ovs-cni:v0.1.0",
-			want: &helmChartSource{
-				repo:    "oci://example.com",
-				version: "v0.1.0",
-				chart:   "ovs-cni",
+			want: &HelmChartSource{
+				Repo:    "oci://example.com",
+				Version: "v0.1.0",
+				Chart:   "ovs-cni",
 			},
 			wantErr: false,
 		},
@@ -322,20 +322,20 @@ func Test_parseHelmChartString(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "error if repo previx",
+			name:    "error if repo prefix is missing",
 			input:   "ovs-cni:v0.1.0",
 			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := parseHelmChartString(tt.input)
+			got, err := ParseHelmChartString(tt.input)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("parseHelmChartString() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ParseHelmChartString() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("parseHelmChartString() got = %v, want %v", got, tt.want)
+				t.Errorf("ParseHelmChartString() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

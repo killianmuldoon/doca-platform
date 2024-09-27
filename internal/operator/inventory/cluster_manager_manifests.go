@@ -24,7 +24,7 @@ type clusterManagerObjects struct {
 	simpleDeploymentObjects
 }
 
-func NewClusterManagerObjects(name string, data []byte) *clusterManagerObjects {
+func newClusterManagerObjects(name string, data []byte) *clusterManagerObjects {
 	m := &clusterManagerObjects{}
 	m.name = name
 	m.data = data
@@ -37,6 +37,7 @@ func NewClusterManagerObjects(name string, data []byte) *clusterManagerObjects {
 			AddForAll(NamespaceEdit(vars.Namespace), LabelsEdit(labelsToAdd)).
 			AddForKindS(DeploymentKind, ImagePullSecretsEditForDeploymentEdit(vars.ImagePullSecrets...)).
 			AddForKindS(DeploymentKind, NodeAffinityEdit(&controlPlaneNodeAffinity)).
+			AddForKindS(DeploymentKind, ImageForDeploymentContainerEdit("manager", vars.Images[name])).
 			Apply(objs)
 	}
 	return m

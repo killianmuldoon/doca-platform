@@ -68,20 +68,19 @@ func (c *DPFOperatorConfig) ComponentConfigs() []ComponentConfig {
 	return out
 }
 
+// ComponentConfig defines the shared config for all components deployed by the DPF Operator.
 // +kubebuilder:object:generate=false
 type ComponentConfig interface {
 	Name() string
 	Disabled() bool
+	GetImage() *string
 }
 
+// HelmComponentConfig is the shared config for helm components.
+//
 // +kubebuilder:object:generate=false
 type HelmComponentConfig interface {
-	HelmChart() string
-}
-
-// +kubebuilder:object:generate=false
-type ImageComponentConfig interface {
-	Image() string
+	GetHelmChart() *string
 }
 
 type ProvisioningControllerConfiguration struct {
@@ -89,7 +88,13 @@ type ProvisioningControllerConfiguration struct {
 	Disable *bool `json:"disable"`
 	// BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim used by dpf-provisioning-controller
 	// +kubebuilder:validation:MinLength=1
+
+	//Image overrides the container image used by the Provisioning controller
+	Image *string `json:"image,omitempty"`
+
+	// BFBPersistentVolumeClaimName is the PVC used by the provisioning controller to store BFBs.
 	BFBPersistentVolumeClaimName string `json:"bfbPVCName"`
+
 	// DMSTimeout is the max time in seconds within which a DMS API must respond, 0 is unlimited
 	// +kubebuilder:validation:Minimum=1
 	DMSTimeout *int `json:"dmsTimeout,omitempty"`
@@ -106,9 +111,16 @@ func (c ProvisioningControllerConfiguration) Disabled() bool {
 	return *c.Disable
 }
 
+func (c ProvisioningControllerConfiguration) GetImage() *string {
+	return c.Image
+}
+
 type DPUServiceControllerConfiguration struct {
 	// +optional
 	Disable *bool `json:"disable"`
+
+	//Image overrides the container image used by the DPUService controller
+	Image *string `json:"image,omitempty"`
 }
 
 func (c *DPUServiceControllerConfiguration) Name() string {
@@ -122,121 +134,16 @@ func (c *DPUServiceControllerConfiguration) Disabled() bool {
 	return *c.Disable
 }
 
-type ServiceSetControllerConfiguration struct {
-	// +optional
-	Disable *bool `json:"disable"`
-}
-
-func (c *ServiceSetControllerConfiguration) Name() string {
-	return ServiceSetControllerName
-}
-
-func (c *ServiceSetControllerConfiguration) Disabled() bool {
-	if c.Disable == nil {
-		return false
-	}
-	return *c.Disable
-}
-
-type FlannelConfiguration struct {
-	// +optional
-	Disable *bool `json:"disable"`
-}
-
-func (c *FlannelConfiguration) Name() string {
-	return FlannelName
-}
-
-func (c *FlannelConfiguration) Disabled() bool {
-	if c.Disable == nil {
-		return false
-	}
-	return *c.Disable
-}
-
-type MultusConfiguration struct {
-	// +optional
-	Disable *bool `json:"disable"`
-}
-
-func (c *MultusConfiguration) Name() string {
-	return MultusName
-}
-
-func (c *MultusConfiguration) Disabled() bool {
-	if c.Disable == nil {
-		return false
-	}
-	return *c.Disable
-}
-
-type NVIPAMConfiguration struct {
-	// +optional
-	Disable *bool `json:"disable"`
-}
-
-func (c *NVIPAMConfiguration) Name() string {
-	return NVIPAMName
-}
-
-func (c *NVIPAMConfiguration) Disabled() bool {
-	if c.Disable == nil {
-		return false
-	}
-	return *c.Disable
-}
-
-type SRIOVDevicePluginConfiguration struct {
-	// +optional
-	Disable *bool `json:"disable"`
-}
-
-func (c *SRIOVDevicePluginConfiguration) Name() string {
-	return SRIOVDevicePluginName
-}
-
-func (c *SRIOVDevicePluginConfiguration) Disabled() bool {
-	if c.Disable == nil {
-		return false
-	}
-	return *c.Disable
-}
-
-type OVSCNIConfiguration struct {
-	// +optional
-	Disable *bool `json:"disable"`
-}
-
-func (c *OVSCNIConfiguration) Name() string {
-	return OVSCNIName
-}
-
-func (c *OVSCNIConfiguration) Disabled() bool {
-	if c.Disable == nil {
-		return false
-	}
-	return *c.Disable
-}
-
-type SFCControllerConfiguration struct {
-	// +optional
-	Disable *bool `json:"disable"`
-}
-
-func (c *SFCControllerConfiguration) Name() string {
-	return SFCControllerName
-}
-
-func (c *SFCControllerConfiguration) Disabled() bool {
-	if c.Disable == nil {
-		return false
-	}
-	return *c.Disable
+func (c *DPUServiceControllerConfiguration) GetImage() *string {
+	return c.Image
 }
 
 type HostedControlPlaneManagerConfiguration struct {
 	// +optional
 	Disable *bool `json:"disable"`
+
+	// ImageOverrider overrides the container image used by the HostedControlPlaneManager.
+	Image *string `json:"image,omitempty"`
 }
 
 func (c *HostedControlPlaneManagerConfiguration) Name() string {
@@ -250,9 +157,16 @@ func (c *HostedControlPlaneManagerConfiguration) Disabled() bool {
 	return *c.Disable
 }
 
+func (c *HostedControlPlaneManagerConfiguration) GetImage() *string {
+	return c.Image
+}
+
 type StaticControlPlaneManagerConfiguration struct {
 	// +optional
 	Disable *bool `json:"disable"`
+
+	// ImageOverrider is the container image used by the StaticControlPlaneManager
+	Image *string `json:"image,omitempty"`
 }
 
 func (c *StaticControlPlaneManagerConfiguration) Name() string {
@@ -264,4 +178,218 @@ func (c *StaticControlPlaneManagerConfiguration) Disabled() bool {
 		return false
 	}
 	return *c.Disable
+}
+
+func (c *StaticControlPlaneManagerConfiguration) GetImage() *string {
+	return c.Image
+}
+
+type ServiceSetControllerConfiguration struct {
+	// +optional
+	Disable *bool `json:"disable"`
+
+	// ImageOverrider overrides the container image used by the ServiceSetController
+	Image *string `json:"image,omitempty"`
+
+	// HelmChartOverrider overrides the helm chart used by the ServiceSet controller.
+	HelmChart *string `json:"helmChart,omitempty"`
+}
+
+func (c *ServiceSetControllerConfiguration) Name() string {
+	return ServiceSetControllerName
+}
+
+func (c *ServiceSetControllerConfiguration) Disabled() bool {
+	if c.Disable == nil {
+		return false
+	}
+	return *c.Disable
+}
+
+func (c *ServiceSetControllerConfiguration) GetImage() *string {
+	return c.Image
+}
+
+func (c *ServiceSetControllerConfiguration) GetHelmChart() *string {
+	return c.HelmChart
+}
+
+type FlannelConfiguration struct {
+	// +optional
+	Disable *bool `json:"disable"`
+
+	// ImageOverrider overrides the container image used by Flannel
+	Image *string `json:"image,omitempty"`
+
+	// HelmChartOverrider overrides the helm chart used by the Flannel
+	HelmChart *string `json:"helmChart,omitempty"`
+}
+
+func (c *FlannelConfiguration) Name() string {
+	return FlannelName
+}
+
+func (c *FlannelConfiguration) Disabled() bool {
+	if c.Disable == nil {
+		return false
+	}
+	return *c.Disable
+}
+
+func (c *FlannelConfiguration) GetImage() *string {
+	return c.Image
+}
+
+func (c *FlannelConfiguration) GetHelmChart() *string {
+	return c.HelmChart
+}
+
+type MultusConfiguration struct {
+	// +optional
+	Disable *bool `json:"disable"`
+
+	// ImageOverrider overrides the container image used by Multus
+	Image *string `json:"image,omitempty"`
+
+	// HelmChartOverrider overrides the helm chart used by Multus
+	HelmChart *string `json:"helmChart,omitempty"`
+}
+
+func (c *MultusConfiguration) Name() string {
+	return MultusName
+}
+
+func (c *MultusConfiguration) Disabled() bool {
+	if c.Disable == nil {
+		return false
+	}
+	return *c.Disable
+}
+
+func (c *MultusConfiguration) GetImage() *string {
+	return c.Image
+}
+
+func (c *MultusConfiguration) GetHelmChart() *string {
+	return c.HelmChart
+}
+
+type NVIPAMConfiguration struct {
+	// +optional
+	Disable *bool `json:"disable"`
+
+	// ImageOverrider overrides the container image used by NVIPAM
+	Image *string `json:"image,omitempty"`
+
+	// HelmChartOverrider overrides the helm chart used by NVIPAM
+	HelmChart *string `json:"helmChart,omitempty"`
+}
+
+func (c *NVIPAMConfiguration) Name() string {
+	return NVIPAMName
+}
+
+func (c *NVIPAMConfiguration) Disabled() bool {
+	if c.Disable == nil {
+		return false
+	}
+	return *c.Disable
+}
+
+func (c *NVIPAMConfiguration) GetImage() *string {
+	return c.Image
+}
+
+func (c *NVIPAMConfiguration) GetHelmChart() *string {
+	return c.HelmChart
+}
+
+type SRIOVDevicePluginConfiguration struct {
+	// +optional
+	Disable *bool `json:"disable"`
+
+	// ImageOverrider overrides the container image used by the SRIOV Device Plugin
+	Image *string `json:"image,omitempty"`
+
+	// HelmChartOverrider overrides the helm chart used by the SRIOV Device Plugin
+	HelmChart *string `json:"helmChart,omitempty"`
+}
+
+func (c *SRIOVDevicePluginConfiguration) Name() string {
+	return SRIOVDevicePluginName
+}
+
+func (c *SRIOVDevicePluginConfiguration) Disabled() bool {
+	if c.Disable == nil {
+		return false
+	}
+	return *c.Disable
+}
+
+func (c *SRIOVDevicePluginConfiguration) GetImage() *string {
+	return c.Image
+}
+
+func (c *SRIOVDevicePluginConfiguration) GetHelmChart() *string {
+	return c.HelmChart
+}
+
+type OVSCNIConfiguration struct {
+	// +optional
+	Disable *bool `json:"disable"`
+
+	// ImageOverrider overrides the container image used by the OVS CNI
+	Image *string `json:"image,omitempty"`
+
+	// HelmChartOverrider overrides the helm chart used by the OVS CNI
+	HelmChart *string `json:"helmChart,omitempty"`
+}
+
+func (c *OVSCNIConfiguration) Name() string {
+	return OVSCNIName
+}
+
+func (c *OVSCNIConfiguration) Disabled() bool {
+	if c.Disable == nil {
+		return false
+	}
+	return *c.Disable
+}
+
+func (c *OVSCNIConfiguration) GetImage() *string {
+	return c.Image
+}
+
+func (c *OVSCNIConfiguration) GetHelmChart() *string {
+	return c.HelmChart
+}
+
+type SFCControllerConfiguration struct {
+	// +optional
+	Disable *bool `json:"disable"`
+
+	// ImageOverrider overrides the container image used by the SFC Controller
+	Image *string `json:"image,omitempty"`
+
+	// HelmChartOverrider overrides the helm chart used by the SFC Controller
+	HelmChart *string `json:"helmChart,omitempty"`
+}
+
+func (c *SFCControllerConfiguration) Name() string {
+	return SFCControllerName
+}
+
+func (c *SFCControllerConfiguration) Disabled() bool {
+	if c.Disable == nil {
+		return false
+	}
+	return *c.Disable
+}
+
+func (c *SFCControllerConfiguration) GetImage() *string {
+	return c.Image
+}
+
+func (c *SFCControllerConfiguration) GetHelmChart() *string {
+	return c.HelmChart
 }

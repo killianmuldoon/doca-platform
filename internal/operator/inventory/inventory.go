@@ -131,8 +131,8 @@ func New() *SystemComponents {
 		DPUDetector: &dpuDetectorObjects{
 			data: dpuDetectorData,
 		},
-		NVidiaClusterManager: NewClusterManagerObjects(operatorv1.HostedControlPlaneManagerName, nvidiaCMData),
-		StaticClusterManager: NewClusterManagerObjects(operatorv1.StaticControlPlaneManagerName, staticCMData),
+		NVidiaClusterManager: newClusterManagerObjects(operatorv1.HostedControlPlaneManagerName, nvidiaCMData),
+		StaticClusterManager: newClusterManagerObjects(operatorv1.StaticControlPlaneManagerName, staticCMData),
 	}
 }
 

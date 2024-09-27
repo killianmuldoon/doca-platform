@@ -302,6 +302,119 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 		}).WithTimeout(30 * time.Second).Should(Succeed())
 	})
 
+	t.Run("update images and helm charts for objects deployed by the DPF Operator ", func(t *testing.T) {
+		// Set the image and helm chart for each component deployed by DPF.
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
+		configCopy := config.DeepCopy()
+
+		imageTemplate := "release-artifacts.com/%s:v1.0"
+		helmTemplate := "oci://release-artifacts.com/%s:v1.0"
+		// Update the config with
+		config.Spec = operatorv1.DPFOperatorConfigSpec{
+			ImagePullSecrets: initialImagePullSecrets,
+
+			// For objects which are deployed as raw manifests set the image field in configuration.
+			ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
+				BFBPersistentVolumeClaimName: "foo-pvc",
+				Image:                        ptr.To(fmt.Sprintf(imageTemplate, operatorv1.ProvisioningControllerName)),
+			},
+			DPUServiceController: &operatorv1.DPUServiceControllerConfiguration{
+				Image: ptr.To(fmt.Sprintf(imageTemplate, operatorv1.DPUServiceControllerName)),
+			},
+			HostedControlPlaneManager: &operatorv1.HostedControlPlaneManagerConfiguration{
+				Image:   ptr.To(fmt.Sprintf(imageTemplate, operatorv1.HostedControlPlaneManagerName)),
+				Disable: ptr.To(false),
+			},
+			StaticControlPlaneManager: &operatorv1.StaticControlPlaneManagerConfiguration{
+				Image:   ptr.To(fmt.Sprintf(imageTemplate, operatorv1.StaticControlPlaneManagerName)),
+				Disable: ptr.To(false),
+			},
+
+			// For objects which are deployed as DPUServices set the helm chart field in configuration.
+			ServiceSetController: &operatorv1.ServiceSetControllerConfiguration{
+				HelmChart: ptr.To(fmt.Sprintf(helmTemplate, operatorv1.ServiceSetControllerName)),
+			},
+			Multus: &operatorv1.MultusConfiguration{
+				HelmChart: ptr.To(fmt.Sprintf(helmTemplate, operatorv1.MultusName)),
+			},
+			SRIOVDevicePlugin: &operatorv1.SRIOVDevicePluginConfiguration{
+				HelmChart: ptr.To(fmt.Sprintf(helmTemplate, operatorv1.SRIOVDevicePluginName)),
+			},
+			Flannel: &operatorv1.FlannelConfiguration{
+				HelmChart: ptr.To(fmt.Sprintf(helmTemplate, operatorv1.FlannelName)),
+			},
+			OVSCNI: &operatorv1.OVSCNIConfiguration{
+				HelmChart: ptr.To(fmt.Sprintf(helmTemplate, operatorv1.OVSCNIName)),
+			},
+			NVIPAM: &operatorv1.NVIPAMConfiguration{
+				HelmChart: ptr.To(fmt.Sprintf(helmTemplate, operatorv1.NVIPAMName)),
+			},
+			SFCController: &operatorv1.SFCControllerConfiguration{
+				HelmChart: ptr.To(fmt.Sprintf(helmTemplate, operatorv1.SFCControllerName)),
+			},
+		}
+		g.Expect(testClient.Patch(ctx, config, client.MergeFrom(configCopy))).To(Succeed())
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
+
+		g.Eventually(func(g Gomega) {
+			g.Expect(firstContainerHasImageWithName(
+				waitForDeployment(g, config.Namespace, "dpf-provisioning-controller-manager"),
+				fmt.Sprintf(imageTemplate, operatorv1.ProvisioningControllerName),
+			)).To(BeTrue())
+
+			g.Expect(firstContainerHasImageWithName(
+				waitForDeployment(g, config.Namespace, "dpuservice-controller-manager"),
+				fmt.Sprintf(imageTemplate, operatorv1.DPUServiceControllerName),
+			)).To(BeTrue())
+
+			g.Expect(firstContainerHasImageWithName(
+				waitForDeployment(g, config.Namespace, "static-cm-controller-manager"),
+				fmt.Sprintf(imageTemplate, operatorv1.StaticControlPlaneManagerName),
+			)).To(BeTrue())
+
+			g.Expect(firstContainerHasImageWithName(
+				waitForDeployment(g, config.Namespace, "nvidia-cm-controller-manager"),
+				fmt.Sprintf(imageTemplate, operatorv1.HostedControlPlaneManagerName),
+			)).To(BeTrue())
+
+			g.Expect(dpuServiceReferencesHelmChart(
+				waitForDPUService(g, config.Namespace, operatorv1.ServiceSetControllerName, initialImagePullSecrets),
+				fmt.Sprintf(helmTemplate, operatorv1.ServiceSetControllerName),
+			)).To(BeTrue())
+
+			g.Expect(dpuServiceReferencesHelmChart(
+				waitForDPUService(g, config.Namespace, operatorv1.OVSCNIName, initialImagePullSecrets),
+				fmt.Sprintf(helmTemplate, operatorv1.OVSCNIName),
+			)).To(BeTrue())
+
+			g.Expect(dpuServiceReferencesHelmChart(
+				waitForDPUService(g, config.Namespace, operatorv1.SRIOVDevicePluginName, initialImagePullSecrets),
+				fmt.Sprintf(helmTemplate, operatorv1.SRIOVDevicePluginName),
+			)).To(BeTrue())
+
+			g.Expect(dpuServiceReferencesHelmChart(
+				waitForDPUService(g, config.Namespace, operatorv1.FlannelName, initialImagePullSecrets),
+				fmt.Sprintf(helmTemplate, operatorv1.FlannelName),
+			)).To(BeTrue())
+
+			g.Expect(dpuServiceReferencesHelmChart(
+				waitForDPUService(g, config.Namespace, operatorv1.MultusName, initialImagePullSecrets),
+				fmt.Sprintf(helmTemplate, operatorv1.MultusName),
+			)).To(BeTrue())
+
+			g.Expect(dpuServiceReferencesHelmChart(
+				waitForDPUService(g, config.Namespace, operatorv1.SFCControllerName, initialImagePullSecrets),
+				fmt.Sprintf(helmTemplate, operatorv1.SFCControllerName),
+			)).To(BeTrue())
+
+			g.Expect(dpuServiceReferencesHelmChart(
+				waitForDPUService(g, config.Namespace, operatorv1.NVIPAMName, initialImagePullSecrets),
+				fmt.Sprintf(helmTemplate, operatorv1.NVIPAMName),
+			)).To(BeTrue())
+
+		}).WithTimeout(20 * time.Second).Should(Succeed())
+
+	})
 	t.Run("Delete system components when they are disabled in the DPFOperatorConfig", func(t *testing.T) {
 		// Patch the DPFOperatorConfig to disable multus deployment.
 		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
@@ -336,10 +449,23 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 			g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(config), config))).To(BeTrue())
 		}).WithTimeout(30 * time.Second).Should(Succeed())
 	})
-
 }
 
-func waitForDPUService(g Gomega, ns, name string, imagePullSecrets []string) {
+func dpuServiceReferencesHelmChart(dpuService *dpuservicev1.DPUService, chart string) bool {
+	helmSource, err := inventory.ParseHelmChartString(chart)
+	if err != nil {
+		return false
+	}
+	dpuServiceHelmSource := dpuService.Spec.HelmChart.Source
+	return helmSource.Chart == dpuServiceHelmSource.Chart &&
+		helmSource.Repo == dpuServiceHelmSource.RepoURL &&
+		helmSource.Version == dpuServiceHelmSource.Version
+}
+func firstContainerHasImageWithName(deployment *appsv1.Deployment, imageName string) bool {
+	return deployment.Spec.Template.Spec.Containers[0].Image == imageName
+}
+
+func waitForDPUService(g Gomega, ns, name string, imagePullSecrets []string) *dpuservicev1.DPUService {
 	dpuservice := &dpuservicev1.DPUService{}
 	g.Eventually(func(g Gomega) {
 		g.Expect(testClient.Get(ctx, client.ObjectKey{
@@ -358,6 +484,7 @@ func waitForDPUService(g Gomega, ns, name string, imagePullSecrets []string) {
 			g.Expect(secret["name"]).To(Equal(imagePullSecrets[i]))
 		}
 	}).WithTimeout(30 * time.Second).Should(Succeed())
+	return dpuservice
 }
 
 func waitForDeployment(g Gomega, ns, name string) *appsv1.Deployment {

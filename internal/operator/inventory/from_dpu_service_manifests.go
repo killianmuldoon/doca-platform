@@ -150,14 +150,14 @@ func dpuServiceSetHelmChartEdit(helmChart string) StructuredEdit {
 			return fmt.Errorf("unexpected object kind %s. expected DPUService", obj.GetObjectKind().GroupVersionKind())
 		}
 
-		chart, err := parseHelmChartString(helmChart)
+		chart, err := ParseHelmChartString(helmChart)
 		if err != nil {
 			return fmt.Errorf("failed parsing %s: %w", dpuService.Name, err)
 		}
 
-		dpuService.Spec.HelmChart.Source.Chart = chart.chart
-		dpuService.Spec.HelmChart.Source.RepoURL = chart.repo
-		dpuService.Spec.HelmChart.Source.Version = chart.version
+		dpuService.Spec.HelmChart.Source.Chart = chart.Chart
+		dpuService.Spec.HelmChart.Source.RepoURL = chart.Repo
+		dpuService.Spec.HelmChart.Source.Version = chart.Version
 		return nil
 	}
 }
@@ -212,13 +212,13 @@ func (f *fromDPUService) IsReady(ctx context.Context, c client.Client, namespace
 	return nil
 }
 
-type helmChartSource struct {
-	repo    string
-	chart   string
-	version string
+type HelmChartSource struct {
+	Repo    string
+	Chart   string
+	Version string
 }
 
-func parseHelmChartString(repoChartVersion string) (*helmChartSource, error) {
+func ParseHelmChartString(repoChartVersion string) (*HelmChartSource, error) {
 	versionStart := strings.LastIndex(repoChartVersion, ":")
 
 	if versionStart == -1 {
@@ -235,9 +235,9 @@ func parseHelmChartString(repoChartVersion string) (*helmChartSource, error) {
 	image := repoChart[imageStart+1:]
 	repo := repoChart[:imageStart]
 
-	return &helmChartSource{
-		version: version,
-		chart:   image,
-		repo:    repo,
+	return &HelmChartSource{
+		Version: version,
+		Chart:   image,
+		Repo:    repo,
 	}, nil
 }
