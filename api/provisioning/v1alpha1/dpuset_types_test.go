@@ -98,28 +98,6 @@ var _ = Describe("DpuSet", func() {
 			Expect(obj_fetched).To(Equal(obj))
 		})
 
-		It("spec.dpuTemplate.spec.k8s_cluster is immutable", func() {
-			ref_value := `dummy_cluster`
-			new_value := `dummy_new_cluster`
-
-			obj := createObj("obj-4")
-			obj.Spec.DpuTemplate.Spec.Cluster = K8sCluster{
-				Name:      ref_value,
-				NameSpace: `default`,
-			}
-			err := k8sClient.Create(ctx, obj)
-			Expect(err).NotTo(HaveOccurred())
-
-			obj.Spec.DpuTemplate.Spec.Cluster.Name = new_value
-			err = k8sClient.Update(ctx, obj)
-			Expect(err).To(HaveOccurred())
-
-			obj_fetched := &DpuSet{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.DpuTemplate.Spec.Cluster.Name).To(Equal(ref_value))
-		})
-
 		It("create from yaml", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1

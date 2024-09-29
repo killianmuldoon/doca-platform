@@ -68,21 +68,12 @@ spec:
                 properties:
                   name:
                     type: string
-                    x-kubernetes-validations:
-                    - message: Value is immutable
-                      rule: oldSelf==""||self==oldSelf
                   namespace:
                     type: string
-                    x-kubernetes-validations:
-                    - message: Value is immutable
-                      rule: oldSelf==""||self==oldSelf
                   node_labels:
                     additionalProperties:
                       type: string
                     type: object
-                required:
-                - name
-                - namespace
                 type: object
               nodeEffect:
                 default:
