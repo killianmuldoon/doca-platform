@@ -124,21 +124,6 @@ if [ "$EUID" -ne 0 ]; then
     error_exit "This script must be run as root. Use sudo."
 fi
 
-# Check if Netplan is installed
-if ! command -v netplan &> /dev/null; then
-    error_exit "Netplan is not installed. Please install it and try again."
-fi
-
-# Check if dhclient is installed
-if ! command -v dhclient &> /dev/null; then
-    error_exit "dhclient is not installed. Please install it and try again."
-fi
-
-# Check if ethtool is installed
-if ! command -v ethtool &> /dev/null; then
-    error_exit "ethtool is not installed. Please install it and try again."
-fi
-
 # Get the permanent MAC address of the OOB interface
 PERMANENT_MAC=$(ethtool -P $OOB_INTERFACE | awk '{print $3}')
 if [ -z "$PERMANENT_MAC" ]; then
@@ -188,22 +173,7 @@ if [ $? -ne 0 ]; then
     error_exit "Failed to apply Netplan configuration."
 fi
 
-# Release the DHCP lease
-echo "Releasing DHCP lease for $OOB_INTERFACE..."
-dhclient -r $OOB_INTERFACE
-
-if [ $? -ne 0 ]; then
-    error_exit "Failed to release DHCP lease for $OOB_INTERFACE."
-fi
-
 sleep 20
-
-# Verify that the IP address was released
-if ip addr show $OOB_INTERFACE | grep -q 'inet '; then
-    error_exit "IP address still assigned to $OOB_INTERFACE after release."
-else
-    echo "IP address successfully released from $OOB_INTERFACE."
-fi
 
 # Check and delete default route via OOB interface if it exists
 DEFAULT_ROUTE_OOB=$(ip route | awk '/default/ && /'"$OOB_INTERFACE"'/ {print}')
@@ -224,4 +194,142 @@ fi
 
 ```
 #### Reverting the Configuration
-To revert the process, delete the  ```/etc/netplan/$NETPLAN_CONFIG_FILE```, restore the permanent MAC address of the OOB interface and execute ```netplan apply```.
+To revert the process:
+1. Delete the generated netplan configuration file:
+```
+rm -rf /etc/netplan/$NETPLAN_CONFIG_FILE
+```
+2. Restore the permanent MAC address of the OOB interface:
+```
+ip link set dev $OOB_INTERFACE down
+ip link set dev $OOB_INTERFACE address $PERMANENT_MAC
+ip link set dev $OOB_INTERFACE up
+```
+3. Delete ```br-dpu``` bridge:
+```
+ip link delete br-dpu
+```
+4. Execute:
+ ```
+ netplan apply
+ ```
+### Integrating to cloud-init
+To integrate this configuration as a part of cloud-init operations add:
+```
+  ###DPF host networking bash script
+  - path: /usr/local/bin/dpf-host-networking-script.sh
+    permissions: '0755'
+    content: |
+      #!/bin/bash
+
+     # Variables
+     BRIDGE_NAME="br-dpu"
+     NETPLAN_CONFIG_FILE="/etc/netplan/99-bridge-cfg.yaml"
+
+     # Function to handle errors
+     error_exit() {
+         echo "Error: $1"
+         exit 1
+     }
+
+     # Check if the 'active-route' service is running
+     if systemctl is-active --quiet active-route; then
+         echo "This script cannot run while the 'active-route' service is running."
+         exit 1
+     fi
+
+     # Discover the host uplink via default route
+     OOB_INTERFACE=$(ip route | awk '/default/ && /proto dhcp/ {print $5; exit}')
+     if [ -z "$OOB_INTERFACE" ]; then
+         error_exit "Failed to discover host OOB uplink."
+     fi
+
+     echo "Discovered host uplink: $OOB_INTERFACE."
+
+     # Get the permanent MAC address of the OOB interface
+     PERMANENT_MAC=$(ethtool -P $OOB_INTERFACE | awk '{print $3}')
+     if [ -z "$PERMANENT_MAC" ]; then
+         error_exit "Failed to get the permanent MAC address of $OOB_INTERFACE."
+     fi
+
+     echo "Permanent MAC address of $OOB_INTERFACE: $PERMANENT_MAC."
+
+     # Generate a local random MAC address for the OOB interface
+     generate_local_mac() {
+         hexchars="0123456789ABCDEF"
+         echo "02:$(for i in {1..5}; do echo -n ${hexchars:$(( $RANDOM % 16 )):1}${hexchars:$(( $RANDOM % 16 )):1}; [ $i -lt 5 ] && echo -n ":"; done)"
+     }
+
+     RANDOM_MAC=$(generate_local_mac)
+     echo "Generated random MAC address for $OOB_INTERFACE: $RANDOM_MAC."
+
+     # Create a Netplan configuration file for the bridge
+     echo "Creating Netplan configuration..."
+     cat <<EOF | tee $NETPLAN_CONFIG_FILE > /dev/null
+     network:
+         version: 2
+         ethernets:
+             $OOB_INTERFACE:
+                 dhcp4: no
+                 macaddress: $RANDOM_MAC
+         bridges:
+             $BRIDGE_NAME:
+                 interfaces: [$OOB_INTERFACE]
+                 dhcp4: yes
+                 critical: true
+                 dhcp-identifier: mac
+                 macaddress: $PERMANENT_MAC
+     EOF
+
+     if [ $? -ne 0 ]; then
+         error_exit "Failed to create Netplan configuration file."
+     fi
+
+     chmod 600 $NETPLAN_CONFIG_FILE
+
+     # Apply the Netplan configuration
+     echo "Applying Netplan configuration..."
+     netplan apply
+
+     if [ $? -ne 0 ]; then
+         error_exit "Failed to apply Netplan configuration."
+     fi
+
+     sleep 20
+
+     # Check and delete default route via OOB interface if it exists
+     DEFAULT_ROUTE_OOB=$(ip route | awk '/default/ && /'"$OOB_INTERFACE"'/ {print}')
+     if [ -n "$DEFAULT_ROUTE_OOB" ]; then
+         echo "Deleting default route via OOB interface: $DEFAULT_ROUTE_OOB"
+         ip route del default dev "$OOB_INTERFACE"
+     else
+         echo "No default route via OOB interface found."
+     fi
+
+     # Check that there is a default route via the bridge interface
+     DEFAULT_ROUTE_BRIDGE=$(ip route | awk '/default/ && /'"$BRIDGE_NAME"'/ {print}')
+     if [ -z "$DEFAULT_ROUTE_BRIDGE" ]; then
+         error_exit "No default route via bridge interface found. Please ensure network connectivity through the bridge."
+     else
+         echo "Default route via bridge interface exists: $DEFAULT_ROUTE_BRIDGE"
+     fi
+
+
+  ###DPF host networking systemd service
+  - path: /etc/systemd/system/dpf-host-networking-script.service
+    permissions: '0644'
+    content: |
+      [Unit]
+      Description=DPF Host Networking Script Runner
+      After=systemd-networkd.service network-online.target
+      Wants=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/local/bin/dpf-host-networking-script.sh
+      Restart=on-failure
+      RestartSec=5s
+
+      [Install]
+      WantedBy=multi-user.target
+```
