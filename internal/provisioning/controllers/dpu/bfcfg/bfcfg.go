@@ -48,6 +48,7 @@ type BFCFGData struct {
 	KernelParameters           string
 	ContainerdRegistryEndpoint string
 	SF_NUM                     int
+	HOST_K8S_NODENAME          string
 }
 
 type BFCFGWriteFile struct {
@@ -57,11 +58,12 @@ type BFCFGWriteFile struct {
 	Permissions string
 }
 
-func Generate(flavor *provisioningv1.DPUFlavor, dpuName, joinCmd string) ([]byte, error) {
+func Generate(flavor *provisioningv1.DPUFlavor, dpuName, joinCmd string, hostK8sNodeName string) ([]byte, error) {
 	config := &BFCFGData{
-		KUBEADM_JOIN:     joinCmd,
-		HOSTNAME:         dpuName,
-		KernelParameters: strings.TrimSpace(strings.Join(flavor.Spec.Grub.KernelParameters, " ")),
+		KUBEADM_JOIN:      joinCmd,
+		HOSTNAME:          dpuName,
+		HOST_K8S_NODENAME: hostK8sNodeName,
+		KernelParameters:  strings.TrimSpace(strings.Join(flavor.Spec.Grub.KernelParameters, " ")),
 	}
 
 	config.ContainerdRegistryEndpoint = flavor.Spec.ContainerdConfig.RegistryEndpoint

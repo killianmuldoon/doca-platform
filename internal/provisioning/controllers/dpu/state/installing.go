@@ -402,7 +402,7 @@ func generateBFConfig(ctx context.Context, dpu *provisioningv1.Dpu, flavor *prov
 		return nil, err
 	}
 
-	buf, err := bfcfg.Generate(flavor, dpu.Name, joinCommand)
+	buf, err := bfcfg.Generate(flavor, dpu.Name, joinCommand, dpu.Spec.NodeName)
 	if err != nil {
 		return nil, err
 	}
