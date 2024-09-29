@@ -130,7 +130,111 @@ docker run -ti --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone \
   -e '{"deploy_dpf_operator_chart": false, "deploy_dpf_bfb_pvc": false, "target_host": "<target-host-ip-here>"}' \
   install.yml
 ```
- Continue with steps 10-14 and then follow [DPU Provisioning](https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-standalone#dpu-provisioning)
+Continue with steps 10-14 and then:
+
+15. Create PVC for BFB:
+```
+cat <<'EOF' | kubectl create -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bfb
+  namespace: dpf-operator-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  volumeMode: Filesystem
+EOF
+ ```
+16. Create DPFOperatorConfig CR:
+```
+cat <<'EOF' | kubectl create -f -
+apiVersion: operator.dpf.nvidia.com/v1alpha1
+kind: DPFOperatorConfig
+metadata:
+  name: dpfoperatorconfig
+  namespace: dpf-operator-system
+spec:
+  provisioningController:
+    bfbPVCName: "bfb"
+    dmsTimeout: 900
+EOF
+```
+17. Create [DPUCluster CR](../cluster-manager/dev-guide.md):
+```
+cat <<'EOF' | kubectl create -f -
+apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+kind: DPUCluster
+metadata:
+  name: dpu-cluster-0
+  namespace: dpu-cplane-tenant1
+spec:
+  type: nvidia
+  maxNodes: 1
+  version: v1.29.0
+  clusterEndpoint:
+    keepalived:
+      #interface: ens9f0
+      interface: br-dpu
+      virtualRouterID: 126
+      vip: "10.33.33.34"
+      nodeSelector:
+        node-role.kubernetes.io/control-plane: ""
+EOF
+```
+18. Create BFB CR:
+```
+cat <<'EOF' | kubectl create -f -
+apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+kind: Bfb
+metadata:
+  name: bf-bundle-2.7.0
+  namespace: dpf-operator-system
+spec:
+  # file_name must use ".bfb" extension
+  file_name: "bf-bundle-2.7.0-33.bfb"
+  # the URL to download bfb file - using internal HTTP server
+  url: "http://bfb-server.dpf-operator-system/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_prod.bfb"
+EOF
+```
+18. Create DPUSet CR:
+```
+cat <<'EOF' | kubectl create -f -
+apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+kind: DpuSet
+metadata:
+  name: dpuset-1
+  namespace: dpf-operator-system
+spec:
+  nodeSelector:
+    matchLabels:
+      feature.node.kubernetes.io/dpu-enabled: "true"
+  strategy:
+    rollingUpdate:
+      maxUnavailable: "10%"
+    type: RollingUpdate
+  dpuTemplate:
+    spec:
+      dpuFlavor: dpf-provisioning-hbn-ovn
+      automaticNodeReboot: true
+      BFB:
+        bfb: "bf-bundle-2.7.0"
+      nodeEffect:
+        taint:
+          key: "dpu"
+          value: "provisioning"
+          effect: NoSchedule
+      k8s_cluster:
+        name: "dpu-cplane-tenant1"
+        namespace: "dpu-cplane-tenant1"
+EOF
+```
+
+After applying DPUSet CR, the provisioning process should start.
+More Information can be found in [DPU Provisioning](https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-standalone#dpu-provisioning)
 
 ### Test DPU Services
 To test full provisioning flow, follow steps 1-14 and then follow [DPU Services](https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-standalone#deploy-test-service-on-dpu)
