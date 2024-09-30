@@ -203,12 +203,12 @@ release:
   # probability of having a successful nightly release. Even if the known issue is fixed, we should keep that retry for
   # transient errors (e.g. network).
   retry: 2
-  needs: [push-release-artifacts]
+  needs: []
   rules:
     - if: $CI_PIPELINE_SOURCE == 'push' && $CI_COMMIT_BRANCH == "main"
       when: always
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-      when: on_success
+      when: manual
       allow_failure: true
     - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_RELEASE == "true"
       when: always
@@ -218,31 +218,11 @@ release:
   tags:
     - release
   before_script:
-    - docker run --privileged --rm tonistiigi/binfmt:qemu-v8.1.5 --install all
+    - docker run --privileged --rm tonistiigi/binfmt:qemu-v6.2.0 --uninstall qemu-*
+    - docker run --privileged --rm tonistiigi/binfmt:qemu-v6.2.0 --install all
   script:
     - ./hack/scripts/ci_helm_docker_login.sh
     - timeout 30m make release
-  after_script:
-    - ./hack/scripts/slack-notification.sh
-
-# This job syncs release artifacts from a shared folder internally to the gitlab artifact repo.
-push-release-artifacts:
-  interruptible: false
-  stage: build
-  needs: []
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'push' && $CI_COMMIT_BRANCH == "main"
-      when: always
-    - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_RELEASE == "true"
-      when: always
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-      when: manual
-      allow_failure: true
-  tags:
-    - release
-    - lab/mellanox
-  script:
-    - ./hack/scripts/mirror-packages-to-gitlab.sh
   after_script:
     - ./hack/scripts/slack-notification.sh
 
