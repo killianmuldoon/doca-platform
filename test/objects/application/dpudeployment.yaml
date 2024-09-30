@@ -26,6 +26,5 @@ spec:
         matchLabels:
           uplink: p0
     - service:
-        matchLabels:
-          sfc.nvidia.com/service: example
+        name: example
         interface: app-iface

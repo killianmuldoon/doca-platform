@@ -91,7 +91,7 @@ type DPUDeploymentSpec struct {
 	// ServiceChains contains the configuration related to the DPUServiceChains that the DPUDeployment creates.
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=50
-	ServiceChains []sfcv1.Switch `json:"serviceChains"`
+	ServiceChains []Switch `json:"serviceChains"`
 	// Strategy contains configuration related to the rolling update that the DPUDeployment can do whenever a DPUService
 	// or a DPUSet related setting has changed.
 	// +optional
@@ -134,6 +134,41 @@ type DPUDeploymentServiceConfiguration struct {
 	// ServiceConfiguration is the name of the DPUServiceConfiguration object to be used for this Service. It must be
 	// in the same namespace as the DPUDeployment.
 	ServiceConfiguration string `json:"serviceConfiguration"`
+}
+
+// Switch holds the ports that are connected in switch topology
+type Switch struct {
+	// Ports contains the ports of the switch
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=50
+	// +required
+	Ports []Port `json:"ports"`
+}
+
+// Port defines how a port can be configured
+// +kubebuilder:validation:XValidation:rule="(has(self.service) && !has(self.serviceInterface)) || (!has(self.service) && has(self.serviceInterface))", message="either service or serviceInterface must be specified"
+type Port struct {
+	// Service holds configuration that helps configure the Service Function Chain and identify a port associated with
+	// a DPUService
+	// +optional
+	Service *Service `json:"service,omitempty"`
+	// ServiceInterface holds configuration that helps configure the Service Function Chain and identify a user defined
+	// port
+	// +optional
+	ServiceInterface *sfcv1.ServiceIfc `json:"serviceInterface,omitempty"`
+}
+
+// Service is the struct used for referencing an interface.
+type Service struct {
+	// Name is the name of the service as defined in the DPUDeployment Spec
+	// +required
+	Name string `json:"name"`
+	// Interface name is the name of the interface as defined in the DPUServiceTemplate
+	// +required
+	InterfaceName string `json:"interface"`
+	// IPAM defines the IPAM configuration that is configured in the Service Function Chain
+	// +optional
+	IPAM *sfcv1.IPAM `json:"ipam,omitempty"`
 }
 
 // Strategy contains configuration related to the rolling update that the DPUDeployment can do whenever a DPUService

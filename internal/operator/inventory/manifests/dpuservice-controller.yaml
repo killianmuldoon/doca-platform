@@ -146,20 +146,26 @@ spec:
                 description: ServiceChains contains the configuration related to the
                   DPUServiceChains that the DPUDeployment creates.
                 items:
-                  description: Switch defines the switch configuration
+                  description: Switch holds the ports that are connected in switch
+                    topology
                   properties:
                     ports:
-                      description: Ports of the switch
+                      description: Ports contains the ports of the switch
                       items:
-                        description: Port defines the port configuration
+                        description: Port defines how a port can be configured
                         properties:
                           service:
+                            description: |-
+                              Service holds configuration that helps configure the Service Function Chain and identify a port associated with
+                              a DPUService
                             properties:
                               interface:
-                                description: Interface name
+                                description: Interface name is the name of the interface
+                                  as defined in the DPUServiceTemplate
                                 type: string
                               ipam:
-                                description: IPAM defines the IPAM configuration
+                                description: IPAM defines the IPAM configuration that
+                                  is configured in the Service Function Chain
                                 properties:
                                   defaultGateway:
                                     type: boolean
@@ -192,40 +198,18 @@ spec:
                                     specified
                                   rule: (has(self.reference) && !has(self.matchLabels))
                                     || (!has(self.reference) && has(self.matchLabels))
-                              matchLabels:
-                                additionalProperties:
-                                  type: string
-                                description: |-
-                                  MatchLabels is a map of string keys and values that are used to select
-                                  an object.
-                                maxProperties: 50
-                                minProperties: 1
-                                type: object
-                              reference:
-                                properties:
-                                  name:
-                                    description: Name of the object
-                                    maxLength: 253
-                                    minLength: 1
-                                    type: string
-                                  namespace:
-                                    description: Namespace of the object
-                                    maxLength: 253
-                                    minLength: 1
-                                    type: string
-                                required:
-                                - name
-                                type: object
+                              name:
+                                description: Name is the name of the service as defined
+                                  in the DPUDeployment Spec
+                                type: string
                             required:
                             - interface
+                            - name
                             type: object
-                            x-kubernetes-validations:
-                            - message: either reference or matchLabels must be specified
-                              rule: (has(self.reference) && !has(self.matchLabels))
-                                || (!has(self.reference) && has(self.matchLabels))
                           serviceInterface:
-                            description: ServiceIfc defines the service interface
-                              configuration
+                            description: |-
+                              ServiceInterface holds configuration that helps configure the Service Function Chain and identify a user defined
+                              port
                             properties:
                               ipam:
                                 description: IPAM defines the IPAM configuration when

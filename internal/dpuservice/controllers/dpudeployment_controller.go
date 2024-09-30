@@ -724,7 +724,13 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 }
 
 // generateDPUServiceChain generates a DPUServiceChain according to the DPUDeployment
-func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, owner *metav1.OwnerReference, switches []sfcv1.Switch) *sfcv1.DPUServiceChain {
+func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, owner *metav1.OwnerReference, switches []dpuservicev1.Switch) *sfcv1.DPUServiceChain {
+	sw := make([]sfcv1.Switch, 0, len(switches))
+
+	for _, s := range switches {
+		sw = append(sw, convertToSFCSwitch(dpuDeploymentNamespacedName, s))
+	}
+
 	dpuServiceChain := &sfcv1.DPUServiceChain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpuDeploymentNamespacedName.Name,
@@ -740,7 +746,7 @@ func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, o
 					// TODO: Figure out what to do with NodeSelector
 					Template: sfcv1.ServiceChainSpecTemplate{
 						Spec: sfcv1.ServiceChainSpec{
-							Switches: switches,
+							Switches: sw,
 						},
 					},
 				},
@@ -752,6 +758,35 @@ func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, o
 	dpuServiceChain.SetGroupVersionKind(sfcv1.DPUServiceChainGroupVersionKind)
 
 	return dpuServiceChain
+}
+
+// convertToSFCSwitch converts a dpuservicev1.Switch to a sfcv1.Switch
+func convertToSFCSwitch(dpuDeploymentNamespacedName types.NamespacedName, sw dpuservicev1.Switch) sfcv1.Switch {
+	o := sfcv1.Switch{
+		Ports: make([]sfcv1.Port, 0, len(sw.Ports)),
+	}
+
+	for _, inPort := range sw.Ports {
+		outPort := sfcv1.Port{}
+
+		if inPort.Service != nil {
+			outPort.Service = &sfcv1.Service{}
+			if inPort.Service.IPAM != nil {
+				outPort.Service.IPAM = inPort.Service.IPAM.DeepCopy()
+			}
+			outPort.Service.MatchLabels = make(map[string]string)
+			outPort.Service.MatchLabels[dpuservicev1.DPFServiceIDLabelKey] = getServiceID(dpuDeploymentNamespacedName, inPort.Service.Name)
+			outPort.Service.InterfaceName = inPort.Service.InterfaceName
+		}
+
+		if inPort.ServiceInterface != nil {
+			outPort.ServiceInterface = inPort.ServiceInterface.DeepCopy()
+		}
+
+		o.Ports = append(o.Ports, outPort)
+
+	}
+	return o
 }
 
 // reconcileDelete handles the deletion reconciliation loop

@@ -1377,26 +1377,49 @@ var _ = Describe("DPUDeployment Controller", func() {
 			})
 			It("should create the correct DPUServiceChain", func() {
 				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
-				dpuDeployment.Spec.ServiceChains = []sfcv1.Switch{
+				dpuDeployment.Spec.ServiceChains = []dpuservicev1.Switch{
 					{
-						Ports: []sfcv1.Port{
+						Ports: []dpuservicev1.Port{
 							{
-								Service: &sfcv1.Service{
+								Service: &dpuservicev1.Service{
 									InterfaceName: "someinterface",
-									Reference: &sfcv1.ObjectRef{
-										Name: "somedpuservice",
+									Name:          "somedpuservice",
+								},
+							},
+							{
+								Service: &dpuservicev1.Service{
+									InterfaceName: "someinterface2",
+									Name:          "somedpuservice2",
+									IPAM: &sfcv1.IPAM{
+										MatchLabels: map[string]string{
+											"ipamkey1": "ipamvalue1",
+										},
 									},
 								},
 							},
 						},
 					},
 					{
-						Ports: []sfcv1.Port{
+						Ports: []dpuservicev1.Port{
 							{
-								Service: &sfcv1.Service{
+								Service: &dpuservicev1.Service{
 									InterfaceName: "someotherinterface",
-									Reference: &sfcv1.ObjectRef{
-										Name: "someotherservice",
+									Name:          "someotherservice",
+								},
+							},
+						},
+					},
+					{
+						Ports: []dpuservicev1.Port{
+							{
+								ServiceInterface: &sfcv1.ServiceIfc{
+									MatchLabels: map[string]string{
+										"key": "value",
+									},
+									IPAM: &sfcv1.IPAM{
+										MatchLabels: map[string]string{
+											"ipamkey2": "ipamvalue2",
+										},
 									},
 								},
 							},
@@ -1433,8 +1456,21 @@ var _ = Describe("DPUDeployment Controller", func() {
 													{
 														Service: &sfcv1.Service{
 															InterfaceName: "someinterface",
-															Reference: &sfcv1.ObjectRef{
-																Name: "somedpuservice",
+															MatchLabels: map[string]string{
+																"sfc.nvidia.com/service": "dpudeployment-dpudeployment-somedpuservice",
+															},
+														},
+													},
+													{
+														Service: &sfcv1.Service{
+															InterfaceName: "someinterface2",
+															MatchLabels: map[string]string{
+																"sfc.nvidia.com/service": "dpudeployment-dpudeployment-somedpuservice2",
+															},
+															IPAM: &sfcv1.IPAM{
+																MatchLabels: map[string]string{
+																	"ipamkey1": "ipamvalue1",
+																},
 															},
 														},
 													},
@@ -1445,8 +1481,24 @@ var _ = Describe("DPUDeployment Controller", func() {
 													{
 														Service: &sfcv1.Service{
 															InterfaceName: "someotherinterface",
-															Reference: &sfcv1.ObjectRef{
-																Name: "someotherservice",
+															MatchLabels: map[string]string{
+																"sfc.nvidia.com/service": "dpudeployment-dpudeployment-someotherservice",
+															},
+														},
+													},
+												},
+											},
+											{
+												Ports: []sfcv1.Port{
+													{
+														ServiceInterface: &sfcv1.ServiceIfc{
+															MatchLabels: map[string]string{
+																"key": "value",
+															},
+															IPAM: &sfcv1.IPAM{
+																MatchLabels: map[string]string{
+																	"ipamkey2": "ipamvalue2",
+																},
 															},
 														},
 													},
@@ -1463,6 +1515,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 			})
 		})
 	})
+
 	Context("When checking the status transitions", func() {
 		var testNS *corev1.Namespace
 		var i *informer.TestInformer
@@ -1956,15 +2009,13 @@ func getMinimalDPUDeployment(namespace string) *dpuservicev1.DPUDeployment {
 					ServiceConfiguration: "someconfiguration",
 				},
 			},
-			ServiceChains: []sfcv1.Switch{
+			ServiceChains: []dpuservicev1.Switch{
 				{
-					Ports: []sfcv1.Port{
+					Ports: []dpuservicev1.Port{
 						{
-							Service: &sfcv1.Service{
+							Service: &dpuservicev1.Service{
 								InterfaceName: "someinterface",
-								Reference: &sfcv1.ObjectRef{
-									Name: "somedpuservice",
-								},
+								Name:          "somedpuservice",
 							},
 						},
 					},
