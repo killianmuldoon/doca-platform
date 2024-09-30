@@ -56,8 +56,9 @@ import (
 const (
 	TemplateFile            = "bf.cfg.template"
 	CloudInitDefaultTimeout = 300
-	MaxBFSize               = 1024 * 16
-	MaxRetryCount           = 10
+	// The maximum size of the bf.cfg file is expanded to 128k since DOCA 2.8
+	MaxBFSize     = 1024 * 128
+	MaxRetryCount = 10
 
 	// HostNameDPULabelKey is the label added to the DPU Kubernetes Node that indicates the hostname of the host that
 	// this DPU belongs to.
@@ -280,7 +281,9 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 			return nil, err
 		}
 		cfgInstall := gos.NewInstallOperation()
-		cfgInstall.Version(dpu.Name)
+		// DMS has a default rule: bf cfg file must end with .cfg
+		cfgversion := fmt.Sprintf("%s%s", dpu.Name, cutil.CFGExtension)
+		cfgInstall.Version(cfgversion)
 		cfgInstall.Reader(bytes.NewReader(data))
 		if response, err := gnoigo.Execute(ctx, gnoiClient, cfgInstall); err != nil {
 			return nil, err
@@ -298,7 +301,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		activateOp := gos.NewActivateOperation()
 		noReboot := false
 		activateOp.NoReboot(noReboot)
-		activateOp.Version(fmt.Sprintf("%s;%s", bfb.Spec.FileName, dpu.Name))
+		activateOp.Version(fmt.Sprintf("%s;%s", bfb.Spec.FileName, cfgversion))
 
 		logger.V(3).Info("starting execute activate operation")
 		var response *ospb.ActivateResponse
@@ -409,7 +412,7 @@ func generateBFConfig(ctx context.Context, dpu *provisioningv1.Dpu, flavor *prov
 	if buf == nil {
 		return nil, fmt.Errorf("failed bf.cfg creation due to buffer issue")
 	}
-	if len(buf) <= MaxBFSize {
+	if len(buf) > MaxBFSize {
 		return nil, fmt.Errorf("bf.cfg for %s size (%d) exceeds the maximum limit (%d)", dpu.Name, len(buf), MaxBFSize)
 	}
 	logger.V(3).Info(fmt.Sprintf("bf.cfg for %s has len: %d data: %s", dpu.Name, len(buf), string(buf)))
