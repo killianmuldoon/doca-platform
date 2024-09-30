@@ -280,6 +280,12 @@ kube-state-metrics:
           - sfc.dpf.nvidia.com
           - provisioning.dpf.nvidia.com
         resources:
+          - dpuclusters
+          - dpuclusters/status
+          - dpudeployments
+          - dpudeployments/status
+          - dpuservicecredentialrequests
+          - dpuservicecredentialrequests/status
           - dpuservices
           - dpuservices/status
           - dpfoperatorconfigs
