@@ -223,16 +223,12 @@ func (r *ServiceInterfaceSetReconciler) getObjectsInDPUCluster(ctx context.Conte
 func (r *ServiceInterfaceSetReconciler) getUnreadyObjects(objects []unstructured.Unstructured) ([]types.NamespacedName, error) {
 	unreadyObjs := []types.NamespacedName{}
 	for _, o := range objects {
-		// TODO: Convert to ServiceInterfaceSet when we implement status for this controller
-		conditions, exists, err := unstructured.NestedSlice(o.Object, "status", "conditions")
+		// TODO: Convert to ServiceInterface when we implement status for this controller
+		_, _, err := unstructured.NestedSlice(o.Object, "status", "conditions")
 		if err != nil {
 			return nil, err
 		}
 		// TODO: Check on condition ready when we implement status for this controller
-		if len(conditions) == 0 || !exists {
-			unreadyObjs = append(unreadyObjs, types.NamespacedName{Name: o.GetName(), Namespace: o.GetNamespace()})
-			continue
-		}
 	}
 	return unreadyObjs, nil
 }
