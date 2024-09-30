@@ -51,6 +51,11 @@ import (
 //+kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 
+const (
+	kubernetesNodeRoleMaster       = "node-role.kubernetes.io/master"
+	kubernetesNodeRoleControlPlane = "node-role.kubernetes.io/control-plane"
+)
+
 var (
 	//go:embed manifests/keepalived.yaml
 	keepalivedData []byte
@@ -257,10 +262,41 @@ func expectedTCP(dc *provisioningv1.DPUCluster, scheme *runtime.Scheme, nodePort
 			DataStore: "default",
 			ControlPlane: kamaji.ControlPlane{
 				Deployment: kamaji.DeploymentSpec{
-					// TODO: this should be a nodeAffinity and we have to add tolerations.
-					// See test/objects/infrastructure/dpu-control-plane.yaml for reference.
-					NodeSelector: map[string]string{
-						"node-role.kubernetes.io/control-plane": "",
+					Affinity: &corev1.Affinity{
+						NodeAffinity: &corev1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      kubernetesNodeRoleMaster,
+												Operator: corev1.NodeSelectorOpExists,
+											},
+										},
+									},
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      kubernetesNodeRoleControlPlane,
+												Operator: corev1.NodeSelectorOpExists,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+					Tolerations: []corev1.Toleration{
+						{
+							Key:      kubernetesNodeRoleMaster,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
+						{
+							Key:      kubernetesNodeRoleControlPlane,
+							Operator: corev1.TolerationOpExists,
+							Effect:   corev1.TaintEffectNoSchedule,
+						},
 					},
 					Replicas: int32Ptr(3),
 					AdditionalMetadata: kamaji.AdditionalMetadata{
