@@ -159,8 +159,9 @@ $(OVN_DIR): | $(REPOSDIR)
 
 DOCA_SOSREPORT_REPO_URL=https://github.com/NVIDIA/doca-sosreport/archive/$(DOCA_SOSREPORT_REF).tar.gz
 DOCA_SOSREPORT_REF=6b4289b9f0d9f26af177b0d1c4c009ca74bb514a
-.PHONY: doca-sosreport
-doca-sosreport: | $(REPOSDIR)
+SOS_REPORT_DIR=$(REPOSDIR)/doca-sosreport-$(DOCA_SOSREPORT_REF)
+OVN_DIR=$(REPOSDIR)/ovn-$(OVN_REVISION)
+$(SOS_REPORT_DIR): | $(REPOSDIR)
 	curl -sL ${DOCA_SOSREPORT_REPO_URL} \
 	| tar -xz -C ${REPOSDIR} && \
 	cp -Rp ./hack/tools/dpf-tools/* $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF}/
@@ -723,12 +724,30 @@ DPF_TOOLS_BUILD_ARGS ?=
 .PHONY: docker-build-dpf-tools
 docker-build-dpf-tools: $(addprefix docker-build-dpf-tools-for-,$(DPF_SYSTEM_ARCH))
 
-docker-build-dpf-tools-for-%: doca-sosreport
+docker-build-dpf-tools-for-%: $(SOS_REPORT_DIR)
 	cd $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF} && \
 	docker buildx build \
+	--load \
+	--provenance=false \
 	--platform=linux/$* \
+	. \
 	-t ${DPF_TOOLS_BUILD_IMAGE}:${TAG}-$* \
-	${DPF_TOOLS_BUILD_ARGS} .
+	${DPF_TOOLS_BUILD_ARGS}
+
+.PHONY: docker-push-dpf-tools # Push a multi-arch image for DPF tools using `docker manifest`. The variable DPF_SYSTEM_ARCH defines which architectures this target pushes for.
+docker-push-dpf-tools: $(addprefix docker-push-dpf-tools-for-,$(DPF_SYSTEM_ARCH))
+	docker manifest push --purge $(DPF_TOOLS_BUILD_IMAGE):$(TAG)
+
+docker-push-dpf-tools-for-%:
+	# Tag and push the arch-specific image with the single arch-agnostic tag.
+	docker tag $(DPF_TOOLS_BUILD_IMAGE):$(TAG)-$* $(DPF_TOOLS_BUILD_IMAGE):$(TAG)
+	docker push $(DPF_TOOLS_BUILD_IMAGE):$(TAG)
+	# This must be called in a separate target to ensure the shell command is called in the correct order.
+	$(MAKE) docker-create-manifest-for-dpf-tools
+
+docker-create-manifest-for-dpf-tools:
+	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
+	docker manifest create --amend $(DPF_TOOLS_BUILD_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(DPF_TOOLS_BUILD_IMAGE):$(TAG))
 
 .PHONY: docker-build-sfc-controller
 docker-build-sfc-controller: docker-build-base-image-ovs ## Build docker images for the sfc-controller
@@ -998,20 +1017,6 @@ docker-push-hbn: ## Push the docker image for HBN
 docker-push-dummydpuservice: ## Push the docker image for dummydpuservice
 	docker push $(DUMMYDPUSERVICE_IMAGE):$(TAG)
 
-.PHONY: docker-push-dpf-tools # Push a multi-arch image for DPF tools using `docker manifest`. The variable DPF_SYSTEM_ARCH defines which architectures this target pushes for.
-docker-push-dpf-tools: $(addprefix docker-push-dpf-tools-for-,$(DPF_SYSTEM_ARCH))
-	docker manifest push --purge $(DPF_TOOLS_BUILD_IMAGE):$(TAG)
-
-docker-push-dpf-tools-for-%:
-	# Tag and push the arch-specific image with the single arch-agnostic tag.
-	docker tag $(DPF_TOOLS_BUILD_IMAGE):$(TAG)-$* $(DPF_TOOLS_BUILD_IMAGE):$(TAG)
-	docker push $(DPF_TOOLS_BUILD_IMAGE):$(TAG)
-	# This must be called in a separate target to ensure the shell command is called in the correct order.
-	$(MAKE) docker-create-manifest-for-dpf-tools
-
-docker-create-manifest-for-dpf-tools:
-	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
-	docker manifest create --amend $(DPF_TOOLS_BUILD_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(DPF_TOOLS_BUILD_IMAGE):$(TAG))
 
 # helm charts
 
