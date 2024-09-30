@@ -152,6 +152,8 @@ func (s *SystemComponents) SystemDPUServices() []Component {
 // AllComponents returns all Components deployed by the DPF Operator.
 func (s *SystemComponents) AllComponents() []Component {
 	return []Component{
+		s.NVidiaClusterManager,
+		s.StaticClusterManager,
 		s.DPFProvisioning,
 		s.DPUService,
 		s.ServiceFunctionChainSet,
@@ -161,8 +163,6 @@ func (s *SystemComponents) AllComponents() []Component {
 		s.NvIPAM,
 		s.OvsCni,
 		s.SfcController,
-		s.NVidiaClusterManager,
-		s.StaticClusterManager,
 		s.DPUDetector,
 	}
 }
