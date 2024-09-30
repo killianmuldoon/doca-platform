@@ -25,6 +25,7 @@ import (
 	"strings"
 
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/events"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/reboot"
 
@@ -125,22 +126,16 @@ func (r *DpuSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.Dp
 	// create dpu for the node
 	for nodeName, node := range nodeMap {
 		if _, ok := dpuMap[nodeName]; !ok {
-			if len(dpuSet.Spec.DpuSelector) == 0 {
-				// if DpuSelector is not set, we will select the first DPU(index 0) by default.
-				if err = r.createDpu(ctx, dpuSet, node, 0); err != nil {
-					logger.Error(err, "Failed to create Dpu", "DPUSet", dpuSet)
+			dpuIndexMap := getDPUIndexFromSelector(dpuSet.Spec.DpuSelector, node.Labels)
+			for _, index := range dpuIndexMap {
+				if err = r.createDpu(ctx, dpuSet, node, index); err != nil {
+					msg := fmt.Sprintf("Failed to created DPU index %v on node %s", index, node.Name)
+					r.Recorder.Eventf(dpuSet, corev1.EventTypeWarning, events.EventReasonFailedCreateDPUReason, msg)
+					logger.Error(err, msg)
 					return ctrl.Result{}, errors.Wrap(err, "failed to create Dpu")
 				}
-
-			} else {
-				dpuIndexMap := getDPUIndexFromSelector(dpuSet.Spec.DpuSelector, node.Labels)
-				for _, index := range dpuIndexMap {
-					if err = r.createDpu(ctx, dpuSet, node, index); err != nil {
-						logger.Error(err, "Failed to create Dpu", "DPUSet", dpuSet)
-						return ctrl.Result{}, errors.Wrap(err, "failed to create Dpu")
-					}
-				}
 			}
+
 		} else {
 			delete(dpuMap, nodeName)
 		}
@@ -149,10 +144,14 @@ func (r *DpuSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.Dp
 	// delete dpu if node does not exist
 	for nodeName, dpu := range dpuMap {
 		if err := r.Delete(ctx, &dpu); err != nil {
-			logger.Error(err, "Failed to delete Dpu", "DPUSet", dpuSet)
+			msg := fmt.Sprintf("Failed to Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, nodeName)
+			logger.Error(err, msg)
+			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulDeleteDPUReason, msg)
 			return ctrl.Result{}, errors.Wrap(err, "failed to delete Dpu")
 		}
-		logger.V(3).Info("Dpu is deleted", "nodename", nodeName)
+		msg := fmt.Sprintf("Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, nodeName)
+		r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulDeleteDPUReason, msg)
+		logger.V(3).Info(msg)
 	}
 
 	// handle rolling update
@@ -335,7 +334,10 @@ func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningv1
 	if err := r.Create(ctx, dpu); err != nil {
 		return err
 	}
-	logger.V(2).Info("Dpu is created", "Dpu", dpu)
+	msg := fmt.Sprintf("Created DPU: (%s/%s)", dpu.Namespace, dpu.Name)
+	logger.V(2).Info(msg)
+	r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulCreateDPUReason, msg)
+
 	return nil
 }
 
@@ -346,8 +348,12 @@ func (r *DpuSetReconciler) rolloutRecreate(ctx context.Context, dpuSet *provisio
 			return err
 		} else if update {
 			if err := r.Delete(ctx, &dpu); err != nil {
+				msg := fmt.Sprintf("Failed to Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, dpu.Spec.NodeName)
+				r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonFailedDeleteDPUReason, msg)
 				return err
 			}
+			msg := fmt.Sprintf("Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, dpu.Spec.NodeName)
+			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulDeleteDPUReason, msg)
 		}
 	}
 	return nil
@@ -382,14 +388,21 @@ func (r *DpuSetReconciler) rolloutRolling(ctx context.Context, dpuSet *provision
 		} else if !update {
 			continue
 		}
+
+		failedMsg := fmt.Sprintf("Failed to Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, dpu.Spec.NodeName)
+		successMsg := fmt.Sprintf("Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, dpu.Spec.NodeName)
 		if isUnavailable(&dpu) {
 			if err := r.Delete(ctx, &dpu); err != nil {
+				r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonFailedDeleteDPUReason, failedMsg)
 				return err
 			}
+			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulDeleteDPUReason, successMsg)
 		} else if unavaiable < scaledValue {
 			if err := r.Delete(ctx, &dpu); err != nil {
+				r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonFailedDeleteDPUReason, failedMsg)
 				return err
 			}
+			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulDeleteDPUReason, successMsg)
 			unavaiable++
 		}
 	}
@@ -498,19 +511,30 @@ func (r *DpuSetReconciler) finalizeDPUSet(ctx context.Context, dpuSet *provision
 
 func getDPUIndexFromSelector(dpuSelector map[string]string, nodeLabels map[string]string) map[int]int {
 	dpuIndexMap := make(map[int]int)
-	for key, value := range dpuSelector {
-		if v, ok := nodeLabels[key]; ok && value == v {
-			keyRegex := regexp.MustCompile(`^feature.node.kubernetes.io/dpu-\d+-.*$`)
-			// key must match "feature.node.kubernetes.io/dpu-index-" pattern
-			if keyRegex.MatchString(key) {
-				// get DPU index from lable key
-				indexRegex := regexp.MustCompile(`dpu-(\d+)-.*?`)
-				matches := indexRegex.FindStringSubmatch(key)
-				if len(matches) > 1 {
-					if index, err := strconv.Atoi(matches[1]); err == nil {
-						dpuIndexMap[index] = index
+
+	if len(dpuSelector) != 0 {
+		for key, value := range dpuSelector {
+			if v, ok := nodeLabels[key]; ok && value == v {
+				keyRegex := regexp.MustCompile(`^feature.node.kubernetes.io/dpu-\d+-.*$`)
+				// key must match "feature.node.kubernetes.io/dpu-index-" pattern
+				if keyRegex.MatchString(key) {
+					// get DPU index from lable key
+					indexRegex := regexp.MustCompile(`dpu-(\d+)-.*?`)
+					matches := indexRegex.FindStringSubmatch(key)
+					if len(matches) > 1 {
+						if index, err := strconv.Atoi(matches[1]); err == nil {
+							dpuIndexMap[index] = index
+						}
 					}
 				}
+			}
+		}
+	} else {
+		// If dpuSelector is not set, use index 0 DPU by default
+		for k := range nodeLabels {
+			if strings.HasSuffix(k, fmt.Sprintf(cutil.DpuPCIAddress, 0)) {
+				dpuIndexMap[0] = 0
+				break
 			}
 		}
 	}
