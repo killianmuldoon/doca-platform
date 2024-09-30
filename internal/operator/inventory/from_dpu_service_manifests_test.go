@@ -52,10 +52,13 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 	initialValuesData, err := json.Marshal(initialValuesObject)
 	g.Expect(err).NotTo(HaveOccurred())
 	valuesObjectWithPullSecrets := initialValuesObject.DeepCopy()
-	valuesObjectWithPullSecrets.Object["imagePullSecrets"] = []corev1.LocalObjectReference{
-		{Name: "secret-one"},
-		{Name: "secret-two"},
+	valuesObjectWithPullSecrets.Object[serviceName] = map[string]interface{}{
+		"imagePullSecrets": []corev1.LocalObjectReference{
+			{Name: "secret-one"},
+			{Name: "secret-two"},
+		},
 	}
+
 	valuesDataWithImagePullSecrets, err := json.Marshal(valuesObjectWithPullSecrets)
 	g.Expect(err).NotTo(HaveOccurred())
 

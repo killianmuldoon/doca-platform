@@ -122,7 +122,7 @@ func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateMa
 
 	if vars.ImagePullSecrets != nil {
 		secrets := pullSecretValueFromStrings(vars.ImagePullSecrets...)
-		edits.AddForKindS(DPUServiceKind, dpuServiceAddValueEdit(secrets, "imagePullSecrets"))
+		edits.AddForKindS(DPUServiceKind, dpuServiceAddValueEdit(secrets, f.Name(), "imagePullSecrets"))
 	}
 	if err := edits.Apply([]*unstructured.Unstructured{dpuServiceCopy}); err != nil {
 		return nil, err

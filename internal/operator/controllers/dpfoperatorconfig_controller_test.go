@@ -474,8 +474,12 @@ func waitForDPUService(g Gomega, ns, name string, imagePullSecrets []string) *dp
 			dpuservice)).To(Succeed())
 		var result map[string]interface{}
 		g.Expect(json.Unmarshal(dpuservice.Spec.HelmChart.Values.Raw, &result)).To(Succeed())
-		g.Expect(result).To(HaveKey("imagePullSecrets"))
-		secrets, ok := result["imagePullSecrets"].([]interface{})
+
+		// Each system DPUService should have specific values under values.$SERVICE_NAME
+		serviceValues, ok := result[name].(map[string]interface{})
+		g.Expect(ok).To(BeTrue())
+		g.Expect(serviceValues).To(HaveKey("imagePullSecrets"))
+		secrets, ok := serviceValues["imagePullSecrets"].([]interface{})
 		g.Expect(ok).To(BeTrue())
 		g.Expect(secrets).To(HaveLen(len(imagePullSecrets)))
 		for i := range secrets {
