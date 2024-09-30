@@ -702,7 +702,7 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 				Source: serviceTemplate.Spec.HelmChart.Source,
 				Values: mergedValuesRawExtension,
 			},
-			ServiceID:       ptr.To[string](name),
+			ServiceID:       ptr.To[string](getServiceID(dpuDeploymentNamespacedName, name)),
 			DeployInCluster: serviceConfig.Spec.ServiceConfiguration.DeployInCluster,
 		},
 	}
@@ -1013,6 +1013,11 @@ func getNotReadyObjects(objs *unstructured.UnstructuredList) ([]types.Namespaced
 	}
 
 	return unreadyObjs, nil
+}
+
+// generateServiceID generates the serviceID for the child resources of a DPUDeployment
+func getServiceID(dpuDeploymentNamespacedName types.NamespacedName, serviceName string) string {
+	return fmt.Sprintf("dpudeployment-%s-%s", dpuDeploymentNamespacedName.Name, serviceName)
 }
 
 // deleteElementOrNil deletes an element from a slice or returns nil if this is the last element in the slice

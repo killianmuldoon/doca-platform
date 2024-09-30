@@ -1001,7 +1001,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 								Values: &runtime.RawExtension{Raw: []byte(`{"key1":"value1"}`)},
 							},
-							ServiceID: ptr.To[string]("service-1"),
+							ServiceID: ptr.To[string]("dpudeployment-dpudeployment-service-1"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels:      map[string]string{"labelkey1": "labelval1"},
 								Annotations: map[string]string{"annkey1": "annval1"},
@@ -1018,7 +1018,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 								Values: &runtime.RawExtension{Raw: []byte(`{"key2":"value2","key3":"value3"}`)},
 							},
-							ServiceID: ptr.To[string]("service-2"),
+							ServiceID: ptr.To[string]("dpudeployment-dpudeployment-service-2"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels:      map[string]string{"labelkey2": "labelval2"},
 								Annotations: map[string]string{"annkey2": "annval2"},
@@ -1033,7 +1033,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("service-3"),
+							ServiceID: ptr.To[string]("dpudeployment-dpudeployment-service-3"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels:      map[string]string{"labelkey3": "labelval3"},
 								Annotations: map[string]string{"annkey3": "annval3"},
@@ -1096,7 +1096,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("service-1"),
+							ServiceID: ptr.To[string]("dpudeployment-dpudeployment-service-1"),
 						},
 						{
 							HelmChart: dpuservicev1.HelmChart{
@@ -1107,7 +1107,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID:       ptr.To[string]("service-2"),
+							ServiceID:       ptr.To[string]("dpudeployment-dpudeployment-service-2"),
 							DeployInCluster: ptr.To[bool](true),
 						},
 					}))
@@ -1159,7 +1159,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								Chart:   "somechart",
 							},
 						},
-						ServiceID: ptr.To[string]("service-2"),
+						ServiceID: ptr.To[string]("dpudeployment-dpudeployment-service-2"),
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
@@ -1214,7 +1214,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("service-1"),
+							ServiceID: ptr.To[string]("dpudeployment-dpudeployment-service-1"),
 						},
 						{
 							HelmChart: dpuservicev1.HelmChart{
@@ -1225,7 +1225,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("service-2"),
+							ServiceID: ptr.To[string]("dpudeployment-dpudeployment-service-2"),
 						},
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
