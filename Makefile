@@ -685,6 +685,14 @@ export DUMMYDPUSERVICE_IMAGE ?= $(REGISTRY)/$(DUMMYDPUSERVICE_IMAGE_NAME)
 DPF_TOOLS_BUILD_IMAGE_NAME ?= dpf-tools
 DPF_TOOLS_BUILD_IMAGE ?= $(REGISTRY)/$(DPF_TOOLS_BUILD_IMAGE_NAME)
 
+## External images that are set by the DPF Operator
+export MULTUS_IMAGE=ghcr.io/k8snetworkplumbingwg/multus-cni
+export MULTUS_TAG=v3.9.3
+export SRIOVDP_IMAGE=ghcr.io/k8snetworkplumbingwg/sriov-network-device-plugin
+export SRIOVDP_TAG=v3.6.2
+export NVIPAM_IMAGE=ghcr.io/mellanox/nvidia-k8s-ipam
+export NVIPAM_TAG=v0.3.3
+
 DPF_SYSTEM_ARCH ?= $(HOST_ARCH) $(DPU_ARCH)
 .PHONY: docker-build-dpf-system # Build a multi-arch image for DPF System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
 docker-build-dpf-system: $(addprefix docker-build-dpf-system-for-,$(DPF_SYSTEM_ARCH))

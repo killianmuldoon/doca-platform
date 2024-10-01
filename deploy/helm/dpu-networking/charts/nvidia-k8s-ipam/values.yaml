@@ -3,9 +3,9 @@
 # Declare variables to be passed into your templates.
 imagePullSecrets: []
 nvIpam:
+  image:
+    repository: ghcr.io/mellanox/nvidia-k8s-ipam
+    tag: v0.3.3
   nameOverride: ""
   fullnameOverride: ""  
-  image: nvidia-k8s-ipam
-  repository: ghcr.io/mellanox
   pullPolicy: IfNotPresent
-  tag: v0.3.3

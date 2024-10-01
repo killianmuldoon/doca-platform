@@ -61,7 +61,7 @@ spec:
           effect: NoSchedule
       containers:
         - name: controller
-          image: "{{ .Values.nvIpam.repository }}/{{ .Values.nvIpam.image }}:{{ .Values.nvIpam.tag | default .Chart.AppVersion }}"
+          image: "{{ .Values.nvIpam.image.repository }}:{{ .Values.nvIpam.image.tag | default .Chart.AppVersion }}"
           imagePullPolicy: {{ .Values.nvIpam.pullPolicy }}
           command: [ "/ipam-controller" ]
           args:

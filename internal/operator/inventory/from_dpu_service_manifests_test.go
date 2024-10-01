@@ -176,12 +176,12 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			un, err := runtime.DefaultUnstructuredConverter.ToUnstructured(tt.in)
 			g.Expect(err).ToNot(HaveOccurred())
 
-			testServiceName := "testService"
 			f := &fromDPUService{
 				name:       serviceName,
 				dpuService: &unstructured.Unstructured{Object: un},
 			}
-			tt.vars.HelmCharts[testServiceName] = "helmchart.com/chart:v1"
+			tt.vars.HelmCharts[serviceName] = "helmchart.com/chart:v1"
+
 			got, err := f.GenerateManifests(tt.vars, skipApplySetCreationOption{})
 			if tt.wantErr {
 				g.Expect(err).To(HaveOccurred())
@@ -319,6 +319,7 @@ func Test_parseHelmChartString(t *testing.T) {
 			},
 			wantErr: false,
 		},
+
 		{
 			name:    "error if version not present",
 			input:   "oci://example.com/ovs-cni",
@@ -339,6 +340,55 @@ func Test_parseHelmChartString(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("ParseHelmChartString() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_parseImageString(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      string
+		want    *image
+		wantErr bool
+	}{
+		{
+			name: "correctly parse image reference with tag",
+			in:   "docker.com/image:v1.0",
+			want: &image{
+				repoImage: "docker.com/image",
+				tag:       "v1.0",
+			},
+			wantErr: false,
+		},
+		{
+			name: "correctly parse image reference with tag and digest",
+			in:   "docker.com/image:v1.0@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			want: &image{
+				repoImage: "docker.com/image",
+				tag:       "v1.0@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			},
+			wantErr: false,
+		},
+		{
+			name: "correctly parse image reference with digest only",
+			in:   "docker.com/image@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			want: &image{
+				repoImage: "docker.com/image@sha256",
+				tag:       "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseImageString(tt.in)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseImageString() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("parseImageString() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

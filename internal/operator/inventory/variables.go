@@ -39,19 +39,19 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.HostedControlPlaneManagerName: true,
 		},
 		Images: map[string]string{
+			// Images built as part of the DPF Operator release.
 			operatorv1.ProvisioningControllerName:    defaults.DPFSystemImage,
 			operatorv1.DPUServiceControllerName:      defaults.DPFSystemImage,
 			operatorv1.StaticControlPlaneManagerName: defaults.DPFSystemImage,
 			operatorv1.HostedControlPlaneManagerName: defaults.DPFSystemImage,
+			operatorv1.ServiceSetControllerName:      defaults.DPFSystemImage,
+			operatorv1.OVSCNIName:                    defaults.OVSCNIImage,
+			operatorv1.SFCControllerName:             defaults.SFCControllerImage,
 
-			// Components installed with helm charts which can also have their images overwritten.
-			operatorv1.FlannelName:              defaults.DPUNetworkingHelmChart,
-			operatorv1.MultusName:               defaults.DPUNetworkingHelmChart,
-			operatorv1.SRIOVDevicePluginName:    defaults.DPUNetworkingHelmChart,
-			operatorv1.NVIPAMName:               defaults.DPUNetworkingHelmChart,
-			operatorv1.OVSCNIName:               defaults.DPUNetworkingHelmChart,
-			operatorv1.SFCControllerName:        defaults.DPUNetworkingHelmChart,
-			operatorv1.ServiceSetControllerName: defaults.DPUNetworkingHelmChart,
+			// External images of components which are deployed by the DPF Operator.
+			operatorv1.MultusName:            defaults.MultusImage,
+			operatorv1.SRIOVDevicePluginName: defaults.SRIOVDPImage,
+			operatorv1.NVIPAMName:            defaults.NVIPAMImage,
 		},
 		HelmCharts: map[string]string{
 			operatorv1.FlannelName:              defaults.DPUNetworkingHelmChart,
@@ -88,11 +88,14 @@ func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operator
 	for _, componentConfig := range config.ComponentConfigs() {
 		if componentConfig != nil {
 			disableComponents[componentConfig.Name()] = componentConfig.Disabled()
-			if componentConfig.GetImage() != nil {
-				images[componentConfig.Name()] = *componentConfig.GetImage()
+
+			// If the component is an imageComponent override the image.
+			imageConfig, ok := componentConfig.(operatorv1.ImageComponentConfig)
+			if ok && imageConfig.GetImage() != nil {
+				images[componentConfig.Name()] = *imageConfig.GetImage()
 			}
 
-			// If the component is a helmComponent set the helm chart.
+			// If the component is a helmComponent override the helm chart.
 			helmConfig, ok := componentConfig.(operatorv1.HelmComponentConfig)
 			if ok && helmConfig.GetHelmChart() != nil {
 				helmCharts[componentConfig.Name()] = *helmConfig.GetHelmChart()

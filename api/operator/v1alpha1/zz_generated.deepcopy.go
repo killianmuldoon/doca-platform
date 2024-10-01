@@ -215,11 +215,6 @@ func (in *FlannelConfiguration) DeepCopyInto(out *FlannelConfiguration) {
 		*out = new(bool)
 		**out = **in
 	}
-	if in.Image != nil {
-		in, out := &in.Image, &out.Image
-		*out = new(string)
-		**out = **in
-	}
 	if in.HelmChart != nil {
 		in, out := &in.HelmChart, &out.HelmChart
 		*out = new(string)

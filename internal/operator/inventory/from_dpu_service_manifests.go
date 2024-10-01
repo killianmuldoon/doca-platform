@@ -116,10 +116,21 @@ func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateMa
 	// Add the helm chart.
 	helmChartString, ok := vars.HelmCharts[f.Name()]
 	if !ok {
-		return []client.Object{}, fmt.Errorf("could not find helm chart source for DPUService %s", f.Name())
+		return nil, fmt.Errorf("could not find helm chart source for DPUService %s", f.Name())
 	}
 	edits.AddForKindS(DPUServiceKind, dpuServiceSetHelmChartEdit(helmChartString))
 
+	// Update the image from variables if possible.
+	imageString, ok := vars.Images[f.Name()]
+	if ok {
+		imageEdits, err := imageEditsForComponent(f.Name(), imageString)
+		if err != nil {
+			return nil, err
+		}
+		for _, edit := range imageEdits {
+			edits.AddForKindS(DPUServiceKind, edit)
+		}
+	}
 	if vars.ImagePullSecrets != nil {
 		secrets := pullSecretValueFromStrings(vars.ImagePullSecrets...)
 		edits.AddForKindS(DPUServiceKind, dpuServiceAddValueEdit(secrets, f.Name(), "imagePullSecrets"))
@@ -240,4 +251,121 @@ func ParseHelmChartString(repoChartVersion string) (*HelmChartSource, error) {
 		Chart:   image,
 		Repo:    repo,
 	}, nil
+}
+
+type image struct {
+	repoImage string
+	tag       string
+}
+
+// Image will be in the form: repoName/imageName:version.
+func parseImageString(repoImageVersion string) (*image, error) {
+	repoImage, tag, found := strings.Cut(repoImageVersion, ":")
+	if !found {
+		return nil, fmt.Errorf("image must be in the format 'image:tag' and must always contain a colon. input: %v", repoImageVersion)
+	}
+	return &image{
+		repoImage: repoImage,
+		tag:       tag,
+	}, nil
+}
+
+// imageEditsForComponent contains the correct functions to set images in each of the components deployed by covered by the DPUNetworking helm chart.
+func imageEditsForComponent(name string, imageOverride string) ([]StructuredEdit, error) {
+	imageToSet, err := parseImageString(imageOverride)
+	if err != nil {
+		return nil, err
+	}
+	edits := map[string][]StructuredEdit{
+		operatorv1.FlannelName:              setFlannelImage(imageToSet),
+		operatorv1.ServiceSetControllerName: setServiceSetControllerImage(imageToSet),
+		operatorv1.MultusName:               setMultusImage(imageToSet),
+		operatorv1.SRIOVDevicePluginName:    setSRIOVDevicePluginImage(imageToSet),
+		operatorv1.OVSCNIName:               setOVSCNIImage(imageToSet),
+		operatorv1.NVIPAMName:               setNVIPAMImage(imageToSet),
+		operatorv1.SFCControllerName:        setSFCControllerImage(imageToSet),
+	}
+	editForComponent, ok := edits[name]
+	if !ok {
+		return nil, fmt.Errorf("failed to find image edit for component %q", name)
+	}
+	return editForComponent, nil
+}
+
+func setFlannelImage(imageOverride *image) []StructuredEdit {
+	repoPath := []string{operatorv1.FlannelName, "flannel", "image", "repository"}
+	tagPath := []string{operatorv1.FlannelName, "flannel", "image", "tag"}
+
+	return []StructuredEdit{
+		dpuServiceAddValueEdit(imageOverride.repoImage, repoPath...),
+		dpuServiceAddValueEdit(imageOverride.tag, tagPath...),
+	}
+}
+
+func setServiceSetControllerImage(imageOverride *image) []StructuredEdit {
+	repoPath := []string{operatorv1.ServiceSetControllerName, "controllerManager", "manager", "image", "repository"}
+	tagPath := []string{operatorv1.ServiceSetControllerName, "controllerManager", "manager", "image", "tag"}
+
+	return []StructuredEdit{
+		dpuServiceAddValueEdit(imageOverride.repoImage, repoPath...),
+		dpuServiceAddValueEdit(imageOverride.tag, tagPath...),
+	}
+}
+
+func setSFCControllerImage(imageOverride *image) []StructuredEdit {
+	repoPath := []string{operatorv1.SFCControllerName, "controllerManager", "manager", "image", "repository"}
+	tagPath := []string{operatorv1.SFCControllerName, "controllerManager", "manager", "image", "tag"}
+
+	return []StructuredEdit{
+		dpuServiceAddValueEdit(imageOverride.repoImage, repoPath...),
+		dpuServiceAddValueEdit(imageOverride.tag, tagPath...),
+	}
+}
+
+// ovsCNI has two containers which both use the same image.
+func setOVSCNIImage(imageOverride *image) []StructuredEdit {
+	markerRepoPath := []string{operatorv1.OVSCNIName, "arm64", "ovsCniMarker", "image", "repository"}
+	markerTagPath := []string{operatorv1.OVSCNIName, "arm64", "ovsCniMarker", "image", "tag"}
+	pluginRepoPath := []string{operatorv1.OVSCNIName, "arm64", "ovsCniPlugin", "image", "repository"}
+	pluginTagPath := []string{operatorv1.OVSCNIName, "arm64", "ovsCniPlugin", "image", "tag"}
+
+	return []StructuredEdit{
+		dpuServiceAddValueEdit(imageOverride.repoImage, markerRepoPath...),
+		dpuServiceAddValueEdit(imageOverride.tag, markerTagPath...),
+		dpuServiceAddValueEdit(imageOverride.repoImage, pluginRepoPath...),
+		dpuServiceAddValueEdit(imageOverride.tag, pluginTagPath...),
+	}
+}
+
+// multus has two containers which both use the same image.
+func setMultusImage(imageOverride *image) []StructuredEdit {
+	installerRepoPath := []string{operatorv1.MultusName, "kubeMultusDs", "installMultusBinary", "image", "repository"}
+	installerTagPath := []string{operatorv1.MultusName, "kubeMultusDs", "installMultusBinary", "image", "tag"}
+	daemonSetRepoPath := []string{operatorv1.MultusName, "kubeMultusDs", "kubeMultus", "image", "repository"}
+	daemonSetTagPath := []string{operatorv1.MultusName, "kubeMultusDs", "kubeMultus", "image", "tag"}
+
+	return []StructuredEdit{
+		dpuServiceAddValueEdit(imageOverride.repoImage, installerRepoPath...),
+		dpuServiceAddValueEdit(imageOverride.tag, installerTagPath...),
+		dpuServiceAddValueEdit(imageOverride.repoImage, daemonSetRepoPath...),
+		dpuServiceAddValueEdit(imageOverride.tag, daemonSetTagPath...),
+	}
+}
+
+func setSRIOVDevicePluginImage(imageOverride *image) []StructuredEdit {
+	repoPath := []string{operatorv1.SRIOVDevicePluginName, "kubeSriovDevicePlugin", "kubeSriovdp", "image", "repository"}
+	tagPath := []string{operatorv1.SRIOVDevicePluginName, "kubeSriovDevicePlugin", "kubeSriovdp", "image", "tag"}
+	return []StructuredEdit{
+		dpuServiceAddValueEdit(imageOverride.repoImage, repoPath...),
+		dpuServiceAddValueEdit(imageOverride.tag, tagPath...),
+	}
+}
+
+func setNVIPAMImage(imageOverride *image) []StructuredEdit {
+	tagPath := []string{operatorv1.NVIPAMName, "nvIpam", "image", "tag"}
+	repoPath := []string{operatorv1.NVIPAMName, "nvIpam", "image", "repository"}
+	return []StructuredEdit{
+		dpuServiceAddValueEdit(imageOverride.repoImage, repoPath...),
+		dpuServiceAddValueEdit(imageOverride.tag, tagPath...),
+	}
 }

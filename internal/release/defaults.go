@@ -34,6 +34,12 @@ type Defaults struct {
 
 	DPUNetworkingHelmChart string `yaml:"dpuNetworkingHelmChart"`
 
+	MultusImage        string `yaml:"multusImage"`
+	SRIOVDPImage       string `yaml:"sriovDPImage"`
+	NVIPAMImage        string `yaml:"nvipamImage"`
+	OVSCNIImage        string `yaml:"ovsCniImage"`
+	SFCControllerImage string `yaml:"sfcControllerImage"`
+
 	// CustomOVNKubernetesDPUImage is the default custom OVN Kubernetes image that should be deployed to the DPU
 	// enabled workers.
 	CustomOVNKubernetesDPUImage string `yaml:"customOVNKubernetesDPUImage"`
@@ -66,6 +72,21 @@ func (d *Defaults) Parse() error {
 	}
 	if len(d.DPUNetworkingHelmChart) == 0 {
 		return errors.New("DPUNetworkingHelmChart can't be empty")
+	}
+	if len(d.MultusImage) == 0 {
+		return errors.New("multusImage can't be empty")
+	}
+	if len(d.SRIOVDPImage) == 0 {
+		return errors.New("sriovDPImage can't be empty")
+	}
+	if len(d.NVIPAMImage) == 0 {
+		return errors.New("nvipamImage can't be empty")
+	}
+	if len(d.OVSCNIImage) == 0 {
+		return errors.New("ovsCniImage can't be empty")
+	}
+	if len(d.SFCControllerImage) == 0 {
+		return errors.New("sfcControllerImage can't be empty")
 	}
 	return nil
 }

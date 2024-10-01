@@ -73,6 +73,12 @@ func (c *DPFOperatorConfig) ComponentConfigs() []ComponentConfig {
 type ComponentConfig interface {
 	Name() string
 	Disabled() bool
+}
+
+// ImageComponentConfig is the shared config for helm components.
+//
+// +kubebuilder:object:generate=false
+type ImageComponentConfig interface {
 	GetImage() *string
 }
 
@@ -84,19 +90,20 @@ type HelmComponentConfig interface {
 }
 
 type ProvisioningControllerConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
 	// +optional
 	Disable *bool `json:"disable"`
-	// BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim used by dpf-provisioning-controller
-	// +kubebuilder:validation:MinLength=1
 
 	//Image overrides the container image used by the Provisioning controller
 	Image *string `json:"image,omitempty"`
 
-	// BFBPersistentVolumeClaimName is the PVC used by the provisioning controller to store BFBs.
+	// BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim used by dpf-provisioning-controller
+	// +kubebuilder:validation:MinLength=1
 	BFBPersistentVolumeClaimName string `json:"bfbPVCName"`
 
 	// DMSTimeout is the max time in seconds within which a DMS API must respond, 0 is unlimited
 	// +kubebuilder:validation:Minimum=1
+	// +optional
 	DMSTimeout *int `json:"dmsTimeout,omitempty"`
 }
 
@@ -116,10 +123,12 @@ func (c ProvisioningControllerConfiguration) GetImage() *string {
 }
 
 type DPUServiceControllerConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
 	// +optional
-	Disable *bool `json:"disable"`
+	Disable *bool `json:"disable,omitempty"`
 
-	//Image overrides the container image used by the DPUService controller
+	// Image overrides the container image used by the DPUService controller
+	// +optional
 	Image *string `json:"image,omitempty"`
 }
 
@@ -139,10 +148,11 @@ func (c *DPUServiceControllerConfiguration) GetImage() *string {
 }
 
 type HostedControlPlaneManagerConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
 	// +optional
-	Disable *bool `json:"disable"`
+	Disable *bool `json:"disable,omitempty"`
 
-	// ImageOverrider overrides the container image used by the HostedControlPlaneManager.
+	// Image overrides the container image used by the HostedControlPlaneManager.
 	Image *string `json:"image,omitempty"`
 }
 
@@ -162,10 +172,12 @@ func (c *HostedControlPlaneManagerConfiguration) GetImage() *string {
 }
 
 type StaticControlPlaneManagerConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
 	// +optional
-	Disable *bool `json:"disable"`
+	Disable *bool `json:"disable,omitempty"`
 
-	// ImageOverrider is the container image used by the StaticControlPlaneManager
+	// Image is the container image used by the StaticControlPlaneManager
+	// +optional
 	Image *string `json:"image,omitempty"`
 }
 
@@ -185,13 +197,16 @@ func (c *StaticControlPlaneManagerConfiguration) GetImage() *string {
 }
 
 type ServiceSetControllerConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
 	// +optional
-	Disable *bool `json:"disable"`
+	Disable *bool `json:"disable,omitempty"`
 
-	// ImageOverrider overrides the container image used by the ServiceSetController
+	// Image overrides the container image used by the ServiceSetController
+	// +optional
 	Image *string `json:"image,omitempty"`
 
-	// HelmChartOverrider overrides the helm chart used by the ServiceSet controller.
+	// HelmChart overrides the helm chart used by the ServiceSet controller.
+	// +optional
 	HelmChart *string `json:"helmChart,omitempty"`
 }
 
@@ -215,13 +230,12 @@ func (c *ServiceSetControllerConfiguration) GetHelmChart() *string {
 }
 
 type FlannelConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
 	// +optional
-	Disable *bool `json:"disable"`
+	Disable *bool `json:"disable,omitempty"`
 
-	// ImageOverrider overrides the container image used by Flannel
-	Image *string `json:"image,omitempty"`
-
-	// HelmChartOverrider overrides the helm chart used by the Flannel
+	// HelmChart overrides the helm chart used by the Flannel
+	// +optional
 	HelmChart *string `json:"helmChart,omitempty"`
 }
 
@@ -236,22 +250,21 @@ func (c *FlannelConfiguration) Disabled() bool {
 	return *c.Disable
 }
 
-func (c *FlannelConfiguration) GetImage() *string {
-	return c.Image
-}
-
 func (c *FlannelConfiguration) GetHelmChart() *string {
 	return c.HelmChart
 }
 
 type MultusConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
 	// +optional
-	Disable *bool `json:"disable"`
+	Disable *bool `json:"disable,omitempty"`
 
-	// ImageOverrider overrides the container image used by Multus
+	// Image overrides the container image used by Multus
+	// +optional
 	Image *string `json:"image,omitempty"`
 
-	// HelmChartOverrider overrides the helm chart used by Multus
+	// HelmChart overrides the helm chart used by Multus
+	// +optional
 	HelmChart *string `json:"helmChart,omitempty"`
 }
 
@@ -275,13 +288,16 @@ func (c *MultusConfiguration) GetHelmChart() *string {
 }
 
 type NVIPAMConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
 	// +optional
-	Disable *bool `json:"disable"`
+	Disable *bool `json:"disable,omitempty"`
 
-	// ImageOverrider overrides the container image used by NVIPAM
+	// Image overrides the container image used by NVIPAM
+	// +optional
 	Image *string `json:"image,omitempty"`
 
-	// HelmChartOverrider overrides the helm chart used by NVIPAM
+	// HelmChart overrides the helm chart used by NVIPAM
+	// +optional
 	HelmChart *string `json:"helmChart,omitempty"`
 }
 
@@ -305,13 +321,16 @@ func (c *NVIPAMConfiguration) GetHelmChart() *string {
 }
 
 type SRIOVDevicePluginConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
 	// +optional
-	Disable *bool `json:"disable"`
+	Disable *bool `json:"disable,omitempty"`
 
-	// ImageOverrider overrides the container image used by the SRIOV Device Plugin
+	// Image overrides the container image used by the SRIOV Device Plugin
+	// +optional
 	Image *string `json:"image,omitempty"`
 
-	// HelmChartOverrider overrides the helm chart used by the SRIOV Device Plugin
+	// HelmChart overrides the helm chart used by the SRIOV Device Plugin
+	// +optional
 	HelmChart *string `json:"helmChart,omitempty"`
 }
 
@@ -335,13 +354,16 @@ func (c *SRIOVDevicePluginConfiguration) GetHelmChart() *string {
 }
 
 type OVSCNIConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
 	// +optional
-	Disable *bool `json:"disable"`
+	Disable *bool `json:"disable,omitempty"`
 
-	// ImageOverrider overrides the container image used by the OVS CNI
+	// Image overrides the container image used by the OVS CNI
+	// +optional
 	Image *string `json:"image,omitempty"`
 
-	// HelmChartOverrider overrides the helm chart used by the OVS CNI
+	// HelmChart overrides the helm chart used by the OVS CNI
+	// +optional
 	HelmChart *string `json:"helmChart,omitempty"`
 }
 
@@ -365,13 +387,16 @@ func (c *OVSCNIConfiguration) GetHelmChart() *string {
 }
 
 type SFCControllerConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
 	// +optional
-	Disable *bool `json:"disable"`
+	Disable *bool `json:"disable,omitempty"`
 
-	// ImageOverrider overrides the container image used by the SFC Controller
+	// Image overrides the container image used by the SFC Controller
+	// +optional
 	Image *string `json:"image,omitempty"`
 
-	// HelmChartOverrider overrides the helm chart used by the SFC Controller
+	// HelmChart overrides the helm chart used by the SFC Controller
+	// +optional
 	HelmChart *string `json:"helmChart,omitempty"`
 }
 
