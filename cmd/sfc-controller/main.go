@@ -18,28 +18,33 @@ package main
 
 import (
 	"crypto/tls"
-	"flag"
 	"os"
 	"time"
 
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	sfccontroller "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/sfccontroller/controllers"
 
+	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/component-base/logs"
+	logsv1 "k8s.io/component-base/logs/api/v1"
+	_ "k8s.io/component-base/logs/json/register"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+	scheme     = runtime.NewScheme()
+	setupLog   = ctrl.Log.WithName("setup")
+	logOptions = logs.NewOptions()
+	fs         = pflag.CommandLine
 )
 
 func init() {
@@ -61,27 +66,27 @@ func main() {
 	var enableHTTP2 bool
 	var syncPeriod, staleFlowsRemovalPeriod time.Duration
 
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
+	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	fs.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	flag.BoolVar(&insecureMetrics, "insecure-metrics", false,
+	fs.BoolVar(&insecureMetrics, "insecure-metrics", false,
 		"If set the metrics endpoint is served insecure without AuthN/AuthZ.")
-	flag.BoolVar(&enableHTTP2, "enable-http2", false,
+	fs.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
-	flag.DurationVar(&syncPeriod, "sync-period", 10*time.Minute,
+	fs.DurationVar(&syncPeriod, "sync-period", 10*time.Minute,
 		"The minimum interval at which watched resources are reconciled.")
-	flag.DurationVar(&staleFlowsRemovalPeriod, "stale-flows-removal-period", 1*time.Minute,
+	fs.DurationVar(&staleFlowsRemovalPeriod, "stale-flows-removal-period", 1*time.Minute,
 		"The interval at which any stale flows on the bridge would be removed.")
+	logsv1.AddFlags(logOptions, fs)
 
-	opts := zap.Options{
-		Development: true,
+	pflag.Parse()
+	if err := logsv1.ValidateAndApply(logOptions, nil); err != nil {
+		setupLog.Error(err, "unable to start manager")
+		os.Exit(1)
 	}
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
-
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	ctrl.SetLogger(klog.Background())
 
 	// validate required env variables
 	nodeName := os.Getenv("SFC_NODE_NAME")
