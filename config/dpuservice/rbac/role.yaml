@@ -114,6 +114,7 @@ rules:
   - sfc.dpf.nvidia.com
   resources:
   - dpuservicechains
+  - dpuserviceinterfaces
   verbs:
   - create
   - delete
@@ -144,7 +145,6 @@ rules:
 - apiGroups:
   - sfc.dpf.nvidia.com
   resources:
-  - dpuserviceinterfaces
   - dpuserviceipams
   verbs:
   - create

@@ -67,7 +67,7 @@ const (
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceconfigurations;dpuservicetemplates,verbs=get;list;watch;update;patch
 
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets,verbs=get;list;watch;create;update;patch;delete;deletecollection
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuservicechains,verbs=get;list;watch;create;update;patch;delete;deletecollection
+//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuservicechains;dpuserviceinterfaces,verbs=get;list;watch;create;update;patch;delete;deletecollection
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices,verbs=get;list;watch;create;update;patch;delete;deletecollection
 
 // DPUDeploymentReconciler reconciles a DPUDeployment object
@@ -85,6 +85,7 @@ func (r *DPUDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dpuservicev1.DPUDeployment{}).
 		Watches(&dpuservicev1.DPUServiceConfiguration{}, handler.EnqueueRequestsFromMapFunc(r.DPUServiceConfigurationToDPUDeployment)).
+		Watches(&dpuservicev1.DPUServiceTemplate{}, handler.EnqueueRequestsFromMapFunc(r.DPUServiceTemplateToDPUDeployment)).
 		Complete(r)
 }
 
@@ -99,6 +100,26 @@ func (r *DPUDeploymentReconciler) DPUServiceConfigurationToDPUDeployment(ctx con
 	for _, dpuDeployment := range dpuDeploymentList.Items {
 		for _, opt := range dpuDeployment.Spec.Services {
 			if opt.ServiceConfiguration == o.GetName() {
+				result = append(result, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(&dpuDeployment)})
+				break
+			}
+		}
+	}
+
+	return result
+}
+
+// DPUServiceTemplateToDPUDeployment returns the DPUDeployments associated with a DPUServiceTemplate
+func (r *DPUDeploymentReconciler) DPUServiceTemplateToDPUDeployment(ctx context.Context, o client.Object) []ctrl.Request {
+	result := []ctrl.Request{}
+	dpuDeploymentList := &dpuservicev1.DPUDeploymentList{}
+	if err := r.Client.List(ctx, dpuDeploymentList, client.InNamespace(o.GetNamespace())); err != nil {
+		return nil
+	}
+
+	for _, dpuDeployment := range dpuDeploymentList.Items {
+		for _, opt := range dpuDeployment.Spec.Services {
+			if opt.ServiceTemplate == o.GetName() {
 				result = append(result, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(&dpuDeployment)})
 				break
 			}
@@ -207,7 +228,19 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 	}
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUSetsReconciled)
 
-	if err := reconcileDPUServices(ctx, r.Client, dpuDeployment, deps); err != nil {
+	dpuServiceToInterfaces, err := reconcileDPUServiceInterfaces(ctx, r.Client, dpuDeployment, deps)
+	if err != nil {
+		conditions.AddFalse(
+			dpuDeployment,
+			dpuservicev1.ConditionDPUServiceInterfacesReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
+		return ctrl.Result{}, fmt.Errorf("error while reconciling the DPUServiceInterfaces: %w", err)
+	}
+	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServiceInterfacesReconciled)
+
+	if err := reconcileDPUServices(ctx, r.Client, dpuDeployment, deps, dpuServiceToInterfaces); err != nil {
 		conditions.AddFalse(
 			dpuDeployment,
 			dpuservicev1.ConditionDPUServicesReconciled,
@@ -554,7 +587,7 @@ func equalDPUSetIndex(expected *provisioningv1.DpuSet, existing []provisioningv1
 }
 
 // reconcileDPUServices reconciles the DPUServices created by the DPUDeployment
-func reconcileDPUServices(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, dependencies *dpuDeploymentDependencies) error {
+func reconcileDPUServices(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, dependencies *dpuDeploymentDependencies, dpuServicesToInterfaces map[string][]string) error {
 	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
 
 	// Grab existing DPUServices
@@ -580,6 +613,7 @@ func reconcileDPUServices(ctx context.Context, c client.Client, dpuDeployment *d
 			dpuServiceName,
 			dependencies.DPUServiceConfigurations[dpuServiceName],
 			dependencies.DPUServiceTemplates[dpuServiceName],
+			dpuServicesToInterfaces[dpuServiceName],
 		)
 		if err != nil {
 			return fmt.Errorf("error while generating DPUService %s: %w", dpuServiceName, err)
@@ -600,6 +634,57 @@ func reconcileDPUServices(ctx context.Context, c client.Client, dpuDeployment *d
 	}
 
 	return nil
+}
+
+// reconcileDPUServiceInterfaces reconciles the DPUServiceInterfaces created by the DPUDeployment
+func reconcileDPUServiceInterfaces(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, dependencies *dpuDeploymentDependencies) (map[string][]string, error) {
+	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
+
+	// Grab existing DPUServiceInterface
+	existingDPUServiceInterfaces := &sfcv1.DPUServiceInterfaceList{}
+	if err := c.List(ctx,
+		existingDPUServiceInterfaces,
+		client.MatchingLabels{
+			ParentDPUDeploymentNameLabel: dpuDeployment.Name,
+		},
+		client.InNamespace(dpuDeployment.Namespace)); err != nil {
+		return nil, fmt.Errorf("error while listing DPUServiceInterfaces: %w", err)
+	}
+
+	existingDPUServiceInterfacesMap := make(map[string]sfcv1.DPUServiceInterface)
+	for _, dpuServiceInterface := range existingDPUServiceInterfaces.Items {
+		existingDPUServiceInterfacesMap[dpuServiceInterface.Name] = dpuServiceInterface
+	}
+
+	// dpuServiceToInterfaces used by other relevant functions to get the name of the current interfaces per dpuservice
+	dpuServiceToInterfaces := map[string][]string{}
+
+	// Create or update DPUServiceInterfaces to match what is defined in the DPUDeployment
+	for dpuServiceName := range dpuDeployment.Spec.Services {
+		for _, serviceInterface := range dependencies.DPUServiceTemplates[dpuServiceName].Spec.Interfaces {
+			dpuServiceInterface := generateDPUServiceInterface(client.ObjectKeyFromObject(dpuDeployment),
+				owner,
+				dpuServiceName,
+				serviceInterface,
+			)
+
+			if err := c.Patch(ctx, dpuServiceInterface, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
+				return nil, fmt.Errorf("error while patching %s %s: %w", dpuServiceInterface.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuServiceInterface), err)
+			}
+
+			dpuServiceToInterfaces[dpuServiceName] = append(dpuServiceToInterfaces[dpuServiceName], dpuServiceInterface.Name)
+			delete(existingDPUServiceInterfacesMap, dpuServiceInterface.Name)
+		}
+	}
+
+	// Cleanup the remaining stale DPUServiceInterfaces
+	for _, dpuServiceInterface := range existingDPUServiceInterfacesMap {
+		if err := c.Delete(ctx, &dpuServiceInterface); err != nil {
+			return nil, fmt.Errorf("error while deleting %s %s: %w", dpuServiceInterface.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuServiceInterface), err)
+		}
+	}
+
+	return dpuServiceToInterfaces, nil
 }
 
 // reconcileDPUServiceChain reconciles the DPUServiceChain object created by the DPUDeployment
@@ -665,6 +750,7 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 	name string,
 	serviceConfig *dpuservicev1.DPUServiceConfiguration,
 	serviceTemplate *dpuservicev1.DPUServiceTemplate,
+	interfaces []string,
 ) (*dpuservicev1.DPUService, error) {
 
 	var serviceConfigValues, serviceTemplateValues map[string]interface{}
@@ -704,6 +790,7 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 			},
 			ServiceID:       ptr.To[string](getServiceID(dpuDeploymentNamespacedName, name)),
 			DeployInCluster: serviceConfig.Spec.ServiceConfiguration.DeployInCluster,
+			Interfaces:      interfaces,
 		},
 	}
 
@@ -760,6 +847,43 @@ func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, o
 	return dpuServiceChain
 }
 
+// generateDPUServiceInterface generates a DPUServiceInterface according to the DPUDeployment
+func generateDPUServiceInterface(dpuDeploymentNamespacedName types.NamespacedName, owner *metav1.OwnerReference, dpuServiceName string, serviceInterface dpuservicev1.ServiceInterface) *sfcv1.DPUServiceInterface {
+	dpuServiceInterface := &sfcv1.DPUServiceInterface{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-%s-%s", dpuDeploymentNamespacedName.Name, dpuServiceName, serviceInterface.Name),
+			Namespace: dpuDeploymentNamespacedName.Namespace,
+			Labels: map[string]string{
+				// TODO: Add additional label to select in the DPUServiceChain accordingly
+				ParentDPUDeploymentNameLabel: dpuDeploymentNamespacedName.Name,
+			},
+		},
+		Spec: sfcv1.DPUServiceInterfaceSpec{
+			// TODO: Derive and add cluster selector
+			Template: sfcv1.ServiceInterfaceSetSpecTemplate{
+				Spec: sfcv1.ServiceInterfaceSetSpec{
+					// TODO: Figure out what to do with NodeSelector
+					Template: sfcv1.ServiceInterfaceSpecTemplate{
+						Spec: sfcv1.ServiceInterfaceSpec{
+							InterfaceType: sfcv1.InterfaceTypeService,
+							Service: &sfcv1.ServiceDef{
+								ServiceID: getServiceID(dpuDeploymentNamespacedName, dpuServiceName),
+								Network:   serviceInterface.Network,
+							},
+							InterfaceName: &serviceInterface.Name,
+						},
+					},
+				},
+			},
+		},
+	}
+	dpuServiceInterface.SetOwnerReferences([]metav1.OwnerReference{*owner})
+	dpuServiceInterface.ObjectMeta.ManagedFields = nil
+	dpuServiceInterface.SetGroupVersionKind(sfcv1.DPUServiceInterfaceGroupVersionKind)
+
+	return dpuServiceInterface
+}
+
 // convertToSFCSwitch converts a dpuservicev1.Switch to a sfcv1.Switch
 func convertToSFCSwitch(dpuDeploymentNamespacedName types.NamespacedName, sw dpuservicev1.Switch) sfcv1.Switch {
 	o := sfcv1.Switch{
@@ -796,6 +920,7 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 
 	for _, obj := range []client.Object{
 		&sfcv1.DPUServiceChain{},
+		&sfcv1.DPUServiceInterface{},
 		&dpuservicev1.DPUService{},
 		&provisioningv1.DpuSet{},
 	} {
@@ -810,11 +935,12 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 		}
 	}
 
-	var dpuServiceChainItems, dpuServiceItems, dpuSetItems int
+	var dpuServiceChainItems, dpuServiceInterfaceItems, dpuServiceItems, dpuSetItems int
 	for obj, conditionType := range map[client.ObjectList]conditions.ConditionType{
-		&sfcv1.DPUServiceChainList{}:   dpuservicev1.ConditionDPUServiceChainsReconciled,
-		&dpuservicev1.DPUServiceList{}: dpuservicev1.ConditionDPUServicesReconciled,
-		&provisioningv1.DpuSetList{}:   dpuservicev1.ConditionDPUSetsReconciled,
+		&sfcv1.DPUServiceChainList{}:     dpuservicev1.ConditionDPUServiceChainsReconciled,
+		&sfcv1.DPUServiceInterfaceList{}: dpuservicev1.ConditionDPUServiceInterfacesReconciled,
+		&dpuservicev1.DPUServiceList{}:   dpuservicev1.ConditionDPUServicesReconciled,
+		&provisioningv1.DpuSetList{}:     dpuservicev1.ConditionDPUSetsReconciled,
 	} {
 		if err := r.Client.List(ctx,
 			obj,
@@ -834,6 +960,16 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 					conditionType,
 					conditions.ReasonAwaitingDeletion,
 					conditions.ConditionMessage(fmt.Sprintf("There are still %d DPUServiceChains that are not completely deleted", dpuServiceChainItems)),
+				)
+			}
+		case *sfcv1.DPUServiceInterfaceList:
+			dpuServiceInterfaceItems += len(obj.(*sfcv1.DPUServiceInterfaceList).Items)
+			if dpuServiceInterfaceItems > 0 {
+				conditions.AddFalse(
+					dpuDeployment,
+					conditionType,
+					conditions.ReasonAwaitingDeletion,
+					conditions.ConditionMessage(fmt.Sprintf("There are still %d DPUServiceInterfaces that are not completely deleted", dpuServiceInterfaceItems)),
 				)
 			}
 		case *dpuservicev1.DPUServiceList:
@@ -861,10 +997,11 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 		}
 	}
 
-	existingObjs := dpuServiceChainItems + dpuServiceItems + dpuSetItems
+	existingObjs := dpuServiceChainItems + dpuServiceInterfaceItems + dpuServiceItems + dpuSetItems
 	if existingObjs > 0 {
 		log.Info(fmt.Sprintf("There are still %d child objects that are not completely deleted, requeueing before removing the finalizer.", existingObjs),
 			"dpuservicechains", dpuServiceChainItems,
+			"dpuserviceinterfaces", dpuServiceInterfaceItems,
 			"dpuservices", dpuServiceItems,
 			"dpusets", dpuSetItems,
 		)
@@ -953,6 +1090,7 @@ func (r *DPUDeploymentReconciler) updateSummary(ctx context.Context, dpuDeployme
 		// TODO: Fix for DpuSet since it has different status
 		// "DpuSetList":          dpuservicev1.ConditionDPUSetsReady,
 		sfcv1.GroupVersion.WithKind(sfcv1.DPUServiceChainListKind):          dpuservicev1.ConditionDPUServiceChainsReady,
+		sfcv1.GroupVersion.WithKind(sfcv1.DPUServiceInterfaceListKind):      dpuservicev1.ConditionDPUServiceInterfacesReady,
 		dpuservicev1.GroupVersion.WithKind(dpuservicev1.DPUServiceListKind): dpuservicev1.ConditionDPUServicesReady,
 	} {
 		objs := &unstructured.UnstructuredList{}

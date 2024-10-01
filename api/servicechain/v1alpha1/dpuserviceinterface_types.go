@@ -26,6 +26,7 @@ import (
 const (
 	DPUServiceInterfaceFinalizer = "sfc.dpf.nvidia.com/dpuserviceinterface"
 	DPUServiceInterfaceKind      = "DPUServiceInterface"
+	DPUServiceInterfaceListKind  = "DPUServiceInterfaceList"
 )
 
 var DPUServiceInterfaceGroupVersionKind = GroupVersion.WithKind(DPUServiceInterfaceKind)

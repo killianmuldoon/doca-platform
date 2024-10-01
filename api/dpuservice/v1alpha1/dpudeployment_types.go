@@ -33,14 +33,16 @@ var DPUDeploymentGroupVersionKind = GroupVersion.WithKind(DPUDeploymentKind)
 
 // Status related variables
 const (
-	ConditionPreReqsReady               conditions.ConditionType = "PrerequisitesReady"
-	ConditionResourceFittingReady       conditions.ConditionType = "ResourceFittingReady"
-	ConditionDPUSetsReconciled          conditions.ConditionType = "DpuSetsReconciled"
-	ConditionDPUSetsReady               conditions.ConditionType = "DpuSetsReady"
-	ConditionDPUServicesReconciled      conditions.ConditionType = "DPUServicesReconciled"
-	ConditionDPUServicesReady           conditions.ConditionType = "DPUServicesReady"
-	ConditionDPUServiceChainsReconciled conditions.ConditionType = "DPUServiceChainsReconciled"
-	ConditionDPUServiceChainsReady      conditions.ConditionType = "DPUServiceChainsReady"
+	ConditionPreReqsReady                   conditions.ConditionType = "PrerequisitesReady"
+	ConditionResourceFittingReady           conditions.ConditionType = "ResourceFittingReady"
+	ConditionDPUSetsReconciled              conditions.ConditionType = "DpuSetsReconciled"
+	ConditionDPUSetsReady                   conditions.ConditionType = "DpuSetsReady"
+	ConditionDPUServicesReconciled          conditions.ConditionType = "DPUServicesReconciled"
+	ConditionDPUServicesReady               conditions.ConditionType = "DPUServicesReady"
+	ConditionDPUServiceChainsReconciled     conditions.ConditionType = "DPUServiceChainsReconciled"
+	ConditionDPUServiceChainsReady          conditions.ConditionType = "DPUServiceChainsReady"
+	ConditionDPUServiceInterfacesReconciled conditions.ConditionType = "DPUServiceInterfacesReconciled"
+	ConditionDPUServiceInterfacesReady      conditions.ConditionType = "DPUServiceInterfacesReady"
 )
 
 var (
@@ -54,6 +56,8 @@ var (
 		ConditionDPUServicesReady,
 		ConditionDPUServiceChainsReconciled,
 		ConditionDPUServiceChainsReady,
+		ConditionDPUServiceInterfacesReconciled,
+		ConditionDPUServiceInterfacesReady,
 	}
 )
 

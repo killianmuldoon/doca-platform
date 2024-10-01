@@ -758,6 +758,15 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
 					})).To(Succeed())
 				g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
+
+				gotDPUServiceInterfaceList := &sfcv1.DPUServiceInterfaceList{}
+				g.Expect(testClient.List(ctx,
+					gotDPUServiceInterfaceList,
+					client.InNamespace(dpuDeployment.GetNamespace()),
+					client.MatchingLabels{
+						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					})).To(Succeed())
+				g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
 			}).WithTimeout(180 * time.Second).Should(Succeed())
 		})
 
@@ -798,6 +807,15 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
 					})).To(Succeed())
 				g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
+
+				gotDPUServiceInterfaceList := &sfcv1.DPUServiceInterfaceList{}
+				g.Expect(testClient.List(ctx,
+					gotDPUServiceInterfaceList,
+					client.InNamespace(dpuDeployment.GetNamespace()),
+					client.MatchingLabels{
+						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					})).To(Succeed())
+				g.Expect(gotDPUServiceInterfaceList.Items).To(BeEmpty())
 
 				// Expect the DPUDeployment to be deleted
 				err := testClient.Get(ctx, client.ObjectKey{Namespace: dpuDeployment.GetNamespace(), Name: dpuDeployment.GetName()}, &dpuservicev1.DPUDeployment{})
