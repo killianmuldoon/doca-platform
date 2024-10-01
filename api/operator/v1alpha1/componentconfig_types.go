@@ -82,6 +82,11 @@ type ImageComponentConfig interface {
 	GetImage() *string
 }
 
+// Image is a reference to a container image.
+// +kubebuilder:validation:Pattern= `^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$`
+// Validation is the same as the implementation at https://github.com/containers/image/blob/93fa49b0f1fb78470512e0484012ca7ad3c5c804/docker/reference/regexp.go
+type Image *string
+
 // HelmComponentConfig is the shared config for helm components.
 //
 // +kubebuilder:object:generate=false
@@ -89,13 +94,19 @@ type HelmComponentConfig interface {
 	GetHelmChart() *string
 }
 
+// HelmChart is a reference to a helm chart.
+// +kubebuilder:validation:Pattern=`^(oci://|https://).+$`
+// +optional
+type HelmChart *string
+
 type ProvisioningControllerConfiguration struct {
 	// Disable ensures the component is not deployed when set to true.
 	// +optional
 	Disable *bool `json:"disable"`
 
 	//Image overrides the container image used by the Provisioning controller
-	Image *string `json:"image,omitempty"`
+	// +optional
+	Image Image `json:"image,omitempty"`
 
 	// BFBPersistentVolumeClaimName is the name of the PersistentVolumeClaim used by dpf-provisioning-controller
 	// +kubebuilder:validation:MinLength=1
@@ -129,7 +140,7 @@ type DPUServiceControllerConfiguration struct {
 
 	// Image overrides the container image used by the DPUService controller
 	// +optional
-	Image *string `json:"image,omitempty"`
+	Image Image `json:"image,omitempty"`
 }
 
 func (c *DPUServiceControllerConfiguration) Name() string {
@@ -153,7 +164,8 @@ type HostedControlPlaneManagerConfiguration struct {
 	Disable *bool `json:"disable,omitempty"`
 
 	// Image overrides the container image used by the HostedControlPlaneManager.
-	Image *string `json:"image,omitempty"`
+	// +optional
+	Image Image `json:"image,omitempty"`
 }
 
 func (c *HostedControlPlaneManagerConfiguration) Name() string {
@@ -177,8 +189,9 @@ type StaticControlPlaneManagerConfiguration struct {
 	Disable *bool `json:"disable,omitempty"`
 
 	// Image is the container image used by the StaticControlPlaneManager
+	// Image overrides the container image used by the HostedControlPlaneManager.
 	// +optional
-	Image *string `json:"image,omitempty"`
+	Image Image `json:"image,omitempty"`
 }
 
 func (c *StaticControlPlaneManagerConfiguration) Name() string {
@@ -203,11 +216,13 @@ type ServiceSetControllerConfiguration struct {
 
 	// Image overrides the container image used by the ServiceSetController
 	// +optional
-	Image *string `json:"image,omitempty"`
+	Image Image `json:"image,omitempty"`
 
 	// HelmChart overrides the helm chart used by the ServiceSet controller.
+	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+	// OCI registry or a web-based repository.
 	// +optional
-	HelmChart *string `json:"helmChart,omitempty"`
+	HelmChart HelmChart `json:"helmChart,omitempty"`
 }
 
 func (c *ServiceSetControllerConfiguration) Name() string {
@@ -235,8 +250,10 @@ type FlannelConfiguration struct {
 	Disable *bool `json:"disable,omitempty"`
 
 	// HelmChart overrides the helm chart used by the Flannel
+	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+	// OCI registry or a web-based repository.
 	// +optional
-	HelmChart *string `json:"helmChart,omitempty"`
+	HelmChart HelmChart `json:"helmChart,omitempty"`
 }
 
 func (c *FlannelConfiguration) Name() string {
@@ -261,11 +278,13 @@ type MultusConfiguration struct {
 
 	// Image overrides the container image used by Multus
 	// +optional
-	Image *string `json:"image,omitempty"`
+	Image Image `json:"image,omitempty"`
 
 	// HelmChart overrides the helm chart used by Multus
+	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+	// OCI registry or a web-based repository.
 	// +optional
-	HelmChart *string `json:"helmChart,omitempty"`
+	HelmChart HelmChart `json:"helmChart,omitempty"`
 }
 
 func (c *MultusConfiguration) Name() string {
@@ -294,11 +313,13 @@ type NVIPAMConfiguration struct {
 
 	// Image overrides the container image used by NVIPAM
 	// +optional
-	Image *string `json:"image,omitempty"`
+	Image Image `json:"image,omitempty"`
 
 	// HelmChart overrides the helm chart used by NVIPAM
+	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+	// OCI registry or a web-based repository.
 	// +optional
-	HelmChart *string `json:"helmChart,omitempty"`
+	HelmChart HelmChart `json:"helmChart,omitempty"`
 }
 
 func (c *NVIPAMConfiguration) Name() string {
@@ -327,11 +348,13 @@ type SRIOVDevicePluginConfiguration struct {
 
 	// Image overrides the container image used by the SRIOV Device Plugin
 	// +optional
-	Image *string `json:"image,omitempty"`
+	Image Image `json:"image,omitempty"`
 
 	// HelmChart overrides the helm chart used by the SRIOV Device Plugin
+	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+	// OCI registry or a web-based repository.
 	// +optional
-	HelmChart *string `json:"helmChart,omitempty"`
+	HelmChart HelmChart `json:"helmChart,omitempty"`
 }
 
 func (c *SRIOVDevicePluginConfiguration) Name() string {
@@ -360,11 +383,13 @@ type OVSCNIConfiguration struct {
 
 	// Image overrides the container image used by the OVS CNI
 	// +optional
-	Image *string `json:"image,omitempty"`
+	Image Image `json:"image,omitempty"`
 
 	// HelmChart overrides the helm chart used by the OVS CNI
+	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+	// OCI registry or a web-based repository.
 	// +optional
-	HelmChart *string `json:"helmChart,omitempty"`
+	HelmChart HelmChart `json:"helmChart,omitempty"`
 }
 
 func (c *OVSCNIConfiguration) Name() string {
@@ -393,11 +418,13 @@ type SFCControllerConfiguration struct {
 
 	// Image overrides the container image used by the SFC Controller
 	// +optional
-	Image *string `json:"image,omitempty"`
+	Image Image `json:"image,omitempty"`
 
 	// HelmChart overrides the helm chart used by the SFC Controller
+	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+	// OCI registry or a web-based repository.
 	// +optional
-	HelmChart *string `json:"helmChart,omitempty"`
+	HelmChart HelmChart `json:"helmChart,omitempty"`
 }
 
 func (c *SFCControllerConfiguration) Name() string {

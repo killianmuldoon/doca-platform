@@ -194,6 +194,90 @@ func TestDPFOperatorConfigReconciler_Conditions(t *testing.T) {
 
 }
 
+func TestDPFOperatorConfig_Validation(t *testing.T) {
+	g := NewWithT(t)
+
+	testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+	// Create the namespace for the test.
+	g.Expect(testClient.Create(ctx, testNS)).To(Succeed())
+
+	tests := []struct {
+		name    string
+		config  *operatorv1.DPFOperatorConfig
+		wantErr bool
+	}{
+		{
+			name: "succeed for valid image and helm chart name",
+			config: &operatorv1.DPFOperatorConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "config",
+					Namespace: testNS.Name,
+				},
+				Spec: operatorv1.DPFOperatorConfigSpec{
+					ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
+						// Invalid image name.
+						Image:                        ptr.To("example.com/dpu-provisioning-controller:v1.0.0"),
+						BFBPersistentVolumeClaimName: "name",
+					},
+					Flannel: &operatorv1.FlannelConfiguration{
+						HelmChart: ptr.To("oci://example.com/dpu-provisioning-controller:v1.0.0"),
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "fail for image with invalid name",
+			config: &operatorv1.DPFOperatorConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "config",
+					Namespace: testNS.Name,
+				},
+				Spec: operatorv1.DPFOperatorConfigSpec{
+					ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
+						// Invalid image name.
+						Image:                        ptr.To("--"),
+						BFBPersistentVolumeClaimName: "name",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "fail for helm chart with invalid name",
+			config: &operatorv1.DPFOperatorConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "config",
+					Namespace: testNS.Name,
+				},
+				Spec: operatorv1.DPFOperatorConfigSpec{
+					ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
+						// Invalid image name.
+						Image:                        ptr.To("example.com/dpu-provisioning-controller:v1.0.0"),
+						BFBPersistentVolumeClaimName: "name",
+					},
+					Flannel: &operatorv1.FlannelConfiguration{
+						// Helm chart missing prefix is invalid.
+						HelmChart: ptr.To("example.com/dpu-provisioning-controller:v1.0.0"),
+					},
+				},
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := testClient.Create(ctx, tt.config)
+			if tt.wantErr {
+				g.Expect(err).To(HaveOccurred())
+				return
+			}
+			g.Expect(err).NotTo(HaveOccurred())
+		})
+	}
+
+}
+
 // assertCondition takes a map of Condition type to Condition reasons and asserts it against the conditions of the passed config.
 func assertConditions(g Gomega, config *operatorv1.DPFOperatorConfig, assertion map[string]string) {
 	g.Expect(config.Status.Conditions).To(HaveLen(4))

@@ -49,6 +49,7 @@ spec:
                   image:
                     description: Image overrides the container image used by the DPUService
                       controller
+                    pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
                     type: string
                 type: object
               flannel:
@@ -59,7 +60,11 @@ spec:
                       set to true.
                     type: boolean
                   helmChart:
-                    description: HelmChart overrides the helm chart used by the Flannel
+                    description: |-
+                      HelmChart overrides the helm chart used by the Flannel
+                      The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+                      OCI registry or a web-based repository.
+                    pattern: ^(oci://|https://).+$
                     type: string
                 type: object
               hostedControlPlaneManager:
@@ -72,6 +77,7 @@ spec:
                     type: boolean
                   image:
                     description: Image overrides the container image used by the HostedControlPlaneManager.
+                    pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
                     type: string
                 type: object
               imagePullSecrets:
@@ -90,10 +96,15 @@ spec:
                       set to true.
                     type: boolean
                   helmChart:
-                    description: HelmChart overrides the helm chart used by Multus
+                    description: |-
+                      HelmChart overrides the helm chart used by Multus
+                      The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+                      OCI registry or a web-based repository.
+                    pattern: ^(oci://|https://).+$
                     type: string
                   image:
                     description: Image overrides the container image used by Multus
+                    pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
                     type: string
                 type: object
               nvipam:
@@ -104,10 +115,15 @@ spec:
                       set to true.
                     type: boolean
                   helmChart:
-                    description: HelmChart overrides the helm chart used by NVIPAM
+                    description: |-
+                      HelmChart overrides the helm chart used by NVIPAM
+                      The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+                      OCI registry or a web-based repository.
+                    pattern: ^(oci://|https://).+$
                     type: string
                   image:
                     description: Image overrides the container image used by NVIPAM
+                    pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
                     type: string
                 type: object
               overrides:
@@ -127,12 +143,16 @@ spec:
                       set to true.
                     type: boolean
                   helmChart:
-                    description: HelmChart overrides the helm chart used by the OVS
-                      CNI
+                    description: |-
+                      HelmChart overrides the helm chart used by the OVS CNI
+                      The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+                      OCI registry or a web-based repository.
+                    pattern: ^(oci://|https://).+$
                     type: string
                   image:
                     description: Image overrides the container image used by the OVS
                       CNI
+                    pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
                     type: string
                 type: object
               provisioningController:
@@ -155,6 +175,7 @@ spec:
                   image:
                     description: Image overrides the container image used by the Provisioning
                       controller
+                    pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
                     type: string
                 required:
                 - bfbPVCName
@@ -167,11 +188,15 @@ spec:
                       set to true.
                     type: boolean
                   helmChart:
-                    description: HelmChart overrides the helm chart used by the ServiceSet
-                      controller.
+                    description: |-
+                      HelmChart overrides the helm chart used by the ServiceSet controller.
+                      The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+                      OCI registry or a web-based repository.
+                    pattern: ^(oci://|https://).+$
                     type: string
                   image:
                     description: Image overrides the container image used by the ServiceSetController
+                    pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
                     type: string
                 type: object
               sfcController:
@@ -182,12 +207,16 @@ spec:
                       set to true.
                     type: boolean
                   helmChart:
-                    description: HelmChart overrides the helm chart used by the SFC
-                      Controller
+                    description: |-
+                      HelmChart overrides the helm chart used by the SFC Controller
+                      The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+                      OCI registry or a web-based repository.
+                    pattern: ^(oci://|https://).+$
                     type: string
                   image:
                     description: Image overrides the container image used by the SFC
                       Controller
+                    pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
                     type: string
                 type: object
               sriovDevicePlugin:
@@ -198,12 +227,16 @@ spec:
                       set to true.
                     type: boolean
                   helmChart:
-                    description: HelmChart overrides the helm chart used by the SRIOV
-                      Device Plugin
+                    description: |-
+                      HelmChart overrides the helm chart used by the SRIOV Device Plugin
+                      The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+                      OCI registry or a web-based repository.
+                    pattern: ^(oci://|https://).+$
                     type: string
                   image:
                     description: Image overrides the container image used by the SRIOV
                       Device Plugin
+                    pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
                     type: string
                 type: object
               staticControlPlaneManager:
@@ -215,7 +248,10 @@ spec:
                       set to true.
                     type: boolean
                   image:
-                    description: Image is the container image used by the StaticControlPlaneManager
+                    description: |-
+                      Image is the container image used by the StaticControlPlaneManager
+                      Image overrides the container image used by the HostedControlPlaneManager.
+                    pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
                     type: string
                 type: object
             required:
