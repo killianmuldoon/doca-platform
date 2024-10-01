@@ -198,16 +198,25 @@ grafana:
    dashboardproviders.yaml:
      apiVersion: 1
      providers:
-     - name: 'default'
-       orgId: 1
-       folder: ''
-       type: file
-       disableDeletion: false
-       editable: true
-       options:
-         path: /var/lib/grafana/dashboards/default
+       - name: 'default'
+         orgId: 1
+         folder: ''
+         type: file
+         disableDeletion: false
+         editable: true
+         options:
+           path: /var/lib/grafana/dashboards/default
+       - name: 'debug'
+         orgId: 1
+         folder: 'debug'
+         type: file
+         disableDeletion: false
+         editable: true
+         options:
+           path: /var/lib/grafana/dashboards/debug
   dashboardsConfigMaps:
     default: dpf-operator-grafana-dashboards
+    debug: dpf-operator-grafana-debug-dashboards
 
 ## kube-state-metrics configuration
 kube-state-metrics:
