@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -74,5 +75,62 @@ var _ = Describe("NetworkSelectionElement", func() {
 			Namespace:        "my-namespace",
 			InterfaceRequest: "net1",
 		}),
+	)
+	DescribeTable("Validate AddNetworkAnnotationToServiceDaemonSet",
+		func(dpuService *dpuservicev1.DPUService, networks []types.NetworkSelectionElement, expected *dpuservicev1.ServiceDaemonSetValues, expectedErr error) {
+			resp, err := addNetworkAnnotationToServiceDaemonSet(dpuService, networks)
+			if expectedErr != nil {
+				Expect(err).To(HaveOccurred())
+				Expect(err).To(Equal(expectedErr))
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+				Expect(resp).To(Equal(expected))
+			}
+		},
+		Entry("networks is nil", &dpuservicev1.DPUService{}, nil, &dpuservicev1.ServiceDaemonSetValues{Annotations: map[string]string{}}, nil),
+		Entry("networks is empty", &dpuservicev1.DPUService{}, []types.NetworkSelectionElement{}, &dpuservicev1.ServiceDaemonSetValues{Annotations: map[string]string{}}, nil),
+		Entry("networks contains network", &dpuservicev1.DPUService{
+			Spec: dpuservicev1.DPUServiceSpec{
+				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+					Annotations: map[string]string{
+						networkAnnotationKey: `[{"name":"mybrsfc","namespace":"my-namespace","interface":"net1"}]`,
+					},
+				},
+			},
+		}, []types.NetworkSelectionElement{
+			{
+				Name:             "mybrsfc",
+				Namespace:        "my-namespace",
+				InterfaceRequest: "net1",
+			},
+		}, &dpuservicev1.ServiceDaemonSetValues{
+			Annotations: map[string]string{
+				networkAnnotationKey: `[{"name":"mybrsfc","namespace":"my-namespace","interface":"net1","cni-args":null}]`,
+			},
+		}, nil),
+		Entry("networks conflicts, ServiceDaemonSet takes precedence", &dpuservicev1.DPUService{
+			Spec: dpuservicev1.DPUServiceSpec{
+				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+					Annotations: map[string]string{
+						networkAnnotationKey: `[{"name":"mybrsfc","namespace":"my-namespace","interface":"net1"},{"name":"iprequest","interface":"myip1",` +
+							`"cni-args":{"allocateDefaultGateway":true,"poolNames":["pool1"],"poolType":"cidrpool"}}]`,
+					},
+				},
+			},
+		}, []types.NetworkSelectionElement{
+			{
+				Name:             "mybrsfc",
+				Namespace:        "my-namespace",
+				InterfaceRequest: "net2",
+				CNIArgs: &map[string]interface{}{
+					"allocateDefaultGateway": true,
+				},
+			},
+		}, &dpuservicev1.ServiceDaemonSetValues{
+			Annotations: map[string]string{
+				networkAnnotationKey: `[{"name":"mybrsfc","namespace":"my-namespace","interface":"net1","cni-args":{"allocateDefaultGateway":true}},{"name":"iprequest","interface":"myip1",` +
+					`"cni-args":{"allocateDefaultGateway":true,"poolNames":["pool1"],"poolType":"cidrpool"}}]`,
+			},
+		}, nil),
 	)
 })

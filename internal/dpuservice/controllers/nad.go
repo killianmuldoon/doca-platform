@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
@@ -37,14 +38,30 @@ func addNetworkAnnotationToServiceDaemonSet(dpuService *dpuservicev1.DPUService,
 		service.Spec.ServiceDaemonSet.Annotations = map[string]string{}
 	}
 
-	if networks != nil {
-		values, err := json.Marshal(networks)
-		if err != nil {
-			return nil, err
-		}
-		// we always update the whole annotation, so we can just overwrite old values
-		service.Spec.ServiceDaemonSet.Annotations[networkAnnotationKey] = string(values)
+	if len(networks) == 0 {
+		// return serviceDaemonSet as is
+		return service.Spec.ServiceDaemonSet, nil
 	}
+
+	// look for any existing annotations
+	if existingNetworks, ok := service.Spec.ServiceDaemonSet.Annotations[networkAnnotationKey]; ok {
+		// Unmarshal existing networks into networks.
+		// This effectively merges the existing networks with the new ones.
+		// If there are any duplicates, the existing networks take precedence
+		err := json.Unmarshal([]byte(existingNetworks), &networks)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unmarshal existing networks: %v, expected format is a list of objects", err)
+		}
+	}
+
+	values, err := json.Marshal(networks)
+	if err != nil {
+		return nil, err
+	}
+	// we always update the whole annotation, so we can just overwrite old values
+	service.Spec.ServiceDaemonSet.Annotations[networkAnnotationKey] = string(values)
+
+	//merge annotations in serviceDaemonSet
 	return service.Spec.ServiceDaemonSet, nil
 }
 
