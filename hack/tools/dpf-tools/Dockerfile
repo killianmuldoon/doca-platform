@@ -27,6 +27,7 @@ ENV VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH"
 
 COPY setup.py .
+COPY doca-dpf.py sos/report/plugins/doca-dpf.py
 COPY sos sos
 COPY bin bin
 COPY man man

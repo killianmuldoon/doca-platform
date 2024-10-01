@@ -32,7 +32,7 @@ spec:
   nodeName: <node_name>
   containers:
   - name: dpf-tools
-    image: gnvcr.io/nvstaging/mellanox/dpf-tools
+    image: nvcr.io/nvstaging/mellanox/dpf-tools
     env:
     - name: CASE_ID
       value: "<case_id>"

@@ -20,7 +20,7 @@
 # CASE_ID - The case number for the support case (optional)
 # DEBUG - Be more verbose (optional)
 
-set -euo pipefail
+set -eo pipefail
 
 OUTPUT_DIR=/host/tmp
 
