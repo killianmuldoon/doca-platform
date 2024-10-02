@@ -284,7 +284,7 @@ func Test_fromDPUService_ReadyCheck(t *testing.T) {
 			dpuService.Status.Conditions = tt.conditions
 			testClient := fake.NewClientBuilder().WithScheme(s).WithObjects(dpuService).Build()
 			f := &fromDPUService{
-				name: tt.name,
+				name: dpuService.Name,
 				dpuService: &unstructured.Unstructured{
 					Object: map[string]interface{}{
 						"metadata": map[string]interface{}{

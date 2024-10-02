@@ -213,7 +213,7 @@ func dpuServiceAddValueEdit(value interface{}, key ...string) StructuredEdit {
 // IsReady returns an error if the DPUService does not have a Ready status condition.
 func (f *fromDPUService) IsReady(ctx context.Context, c client.Client, namespace string) error {
 	obj := &dpuservicev1.DPUService{}
-	err := c.Get(ctx, client.ObjectKey{Name: f.dpuService.GetName(), Namespace: namespace}, obj)
+	err := c.Get(ctx, client.ObjectKey{Name: f.Name(), Namespace: namespace}, obj)
 	if err != nil {
 		return err
 	}
