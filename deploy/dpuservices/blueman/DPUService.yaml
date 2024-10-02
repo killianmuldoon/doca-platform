@@ -1,4 +1,4 @@
-apiVersion: svc.dpf.nvidia.com/v1alpha1
+apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUService
 metadata:
   name: doca-blueman-service
@@ -15,6 +15,6 @@ spec:
       rollingUpdate:
         maxUnavailable: 2
     labels:
-      dpuservice.dpf.nvidia.com/name: doca-blueman-service
+      dpuservice.dpu.nvidia.com/name: doca-blueman-service
     annotations:
-      dpuservice.dpf.nvidia.com/name: doca-blueman-service
+      dpuservice.dpu.nvidia.com/name: doca-blueman-service

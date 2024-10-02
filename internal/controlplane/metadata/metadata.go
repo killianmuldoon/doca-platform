@@ -30,7 +30,7 @@ var (
 	DPFClusterSecretClusterNameLabelKey = "kamaji.clastix.io/name"
 
 	// DPFClusterLabelKey is the key of the label linking objects to a specific DPF Cluster.
-	DPFClusterLabelKey = "dpf.nvidia.com/cluster"
+	DPFClusterLabelKey = "dpu.nvidia.com/cluster"
 )
 
 var (

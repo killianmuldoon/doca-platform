@@ -9,23 +9,23 @@ metadata:
     app.kubernetes.io/created-by: dpf-operator
     app.kubernetes.io/part-of: dpf-operator
     control-plane: controller-manager
-    dpf.nvidia.com/component: dpf-ovn-kubernetes-operator-controller-manager
+    dpu.nvidia.com/component: dpf-ovn-kubernetes-operator-controller-manager
   {{- include "dpf-ovn-kubernetes-operator.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.controllerManager.replicas }}
   selector:
     matchLabels:
       control-plane: controller-manager
-      dpf.nvidia.com/component: dpf-ovn-kubernetes-operator-controller-manager
+      dpu.nvidia.com/component: dpf-ovn-kubernetes-operator-controller-manager
     {{- include "dpf-ovn-kubernetes-operator.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       labels:
         control-plane: controller-manager
-        dpf.nvidia.com/component: dpf-ovn-kubernetes-operator-controller-manager
+        dpu.nvidia.com/component: dpf-ovn-kubernetes-operator-controller-manager
       {{- include "dpf-ovn-kubernetes-operator.selectorLabels" . | nindent 8 }}
       {{- if eq $isWebhookEnabled "true" }}
-        network-injector.dpf.nvidia.com/skip-injection: ""
+        network-injector.dpu.nvidia.com/skip-injection: ""
       {{- end }}
       annotations:
         kubectl.kubernetes.io/default-container: manager

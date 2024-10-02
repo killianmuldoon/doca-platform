@@ -4,4 +4,4 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     cert-manager.io/inject-ca-from: CERTIFICATE_NAMESPACE/CERTIFICATE_NAME
-  name: bfbs.provisioning.dpf.nvidia.com
+  name: bfbs.provisioning.dpu.nvidia.com

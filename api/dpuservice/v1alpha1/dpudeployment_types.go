@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	DPUDeploymentFinalizer = "dpf.nvidia.com/dpudeployment"
+	DPUDeploymentFinalizer = "dpu.nvidia.com/dpudeployment"
 	DPUDeploymentKind      = "DPUDeployment"
 )
 

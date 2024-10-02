@@ -521,7 +521,7 @@ var _ = Describe("DPU", func() {
 			obj.Spec.NodeName = testNode.Name
 			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
 				CustomLabel: map[string]string{
-					"provisioning.dpf.nvidia.com/bfb": "dummy.bfb",
+					"provisioning.dpu.nvidia.com/bfb": "dummy.bfb",
 					"version":                         "1.2.3",
 				},
 			}
@@ -591,7 +591,7 @@ var _ = Describe("DPU", func() {
 			node_fetched := &corev1.Node{}
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(testNode), node_fetched)).To(Succeed())
 			Expect(node_fetched.Labels).To(HaveLen(2))
-			Expect(node_fetched.Labels).To(HaveKeyWithValue("provisioning.dpf.nvidia.com/bfb", "dummy.bfb"))
+			Expect(node_fetched.Labels).To(HaveKeyWithValue("provisioning.dpu.nvidia.com/bfb", "dummy.bfb"))
 			Expect(node_fetched.Labels).To(HaveKeyWithValue("version", "1.2.3"))
 
 			By("creating the bfb")
@@ -646,7 +646,7 @@ var _ = Describe("DPU", func() {
 			obj.Spec.NodeName = node_obj.Name
 			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
 				CustomLabel: map[string]string{
-					"provisioning.dpf.nvidia.com/bfb": "dummy.bfb",
+					"provisioning.dpu.nvidia.com/bfb": "dummy.bfb",
 					"version":                         "1.2.3",
 				},
 			}
@@ -717,7 +717,7 @@ var _ = Describe("DPU", func() {
 			Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(node_obj), node_fetched)).To(Succeed())
 			Expect(node_fetched.Labels).To(HaveLen(3))
 			Expect(node_fetched.Labels).To(HaveKeyWithValue("label1", "value1"))
-			Expect(node_fetched.Labels).To(HaveKeyWithValue("provisioning.dpf.nvidia.com/bfb", "dummy.bfb"))
+			Expect(node_fetched.Labels).To(HaveKeyWithValue("provisioning.dpu.nvidia.com/bfb", "dummy.bfb"))
 			Expect(node_fetched.Labels).To(HaveKeyWithValue("version", "1.2.3"))
 
 			By("creating the bfb")
@@ -949,7 +949,7 @@ var _ = Describe("DPUFlavor", func() {
 
 			By("creating the obj-2")
 			yml := []byte(`
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPUFlavor
 metadata:
   name: obj-dpuflavor-2
@@ -971,7 +971,7 @@ metadata:
 
 		It("create obj", func() {
 			yml := []byte(`
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPUFlavor
 metadata:
   name: obj
@@ -1163,8 +1163,8 @@ var _ = Describe("DMS Pod", func() {
 					Name:      DefaultDPUName,
 					Namespace: testNS.Name,
 					Labels: map[string]string{
-						"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-90-00",
-						"provisioning.dpf.nvidia.com/dpu-pf-name":    "ens1f0np0",
+						"provisioning.dpu.nvidia.com/dpu-pciAddress": "0000-90-00",
+						"provisioning.dpu.nvidia.com/dpu-pf-name":    "ens1f0np0",
 					},
 				},
 				Spec: provisioningv1.DPUSpec{
@@ -1197,8 +1197,8 @@ var _ = Describe("DMS Pod", func() {
 					Name:      DefaultDPUName,
 					Namespace: testNS.Name,
 					Labels: map[string]string{
-						"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-90-00",
-						"provisioning.dpf.nvidia.com/dpu-pf-name":    "ens1f0np0",
+						"provisioning.dpu.nvidia.com/dpu-pciAddress": "0000-90-00",
+						"provisioning.dpu.nvidia.com/dpu-pf-name":    "ens1f0np0",
 					},
 				},
 				Spec: provisioningv1.DPUSpec{

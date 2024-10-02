@@ -27,7 +27,7 @@ const (
 	ServiceChainSetKind = "ServiceChainSet"
 	// ServiceChainSetFinalizer is set on a ServiceChainSet when it is first handled by
 	// the controller, and removed when this object is deleted.
-	ServiceChainSetFinalizer = "dpf.nvidia.com/servicechainset"
+	ServiceChainSetFinalizer = "dpu.nvidia.com/servicechainset"
 )
 
 var (

@@ -1,4 +1,4 @@
-apiVersion: svc.dpf.nvidia.com/v1alpha1
+apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: ServiceInterface
 metadata:
   name: node1-dpu1-vf0

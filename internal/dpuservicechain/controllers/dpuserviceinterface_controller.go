@@ -55,9 +55,9 @@ const (
 	dpuServiceInterfaceControllerName = "dpuserviceinterfacecontroller"
 )
 
-// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceinterfaces,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceinterfaces/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceinterfaces/finalizers,verbs=update
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuserviceinterfaces,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuserviceinterfaces/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuserviceinterfaces/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=events;secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kamaji.clastix.io,resources=tenantcontrolplanes,verbs=get;list;watch
 

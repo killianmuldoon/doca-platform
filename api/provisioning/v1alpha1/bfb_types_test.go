@@ -227,7 +227,7 @@ var _ = Describe("BFB", func() {
 
 		It("create from yaml", func() {
 			yml := []byte(`
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: BFB
 metadata:
   name: obj-bfb
@@ -246,7 +246,7 @@ spec:
 
 		It("create from yaml minimal", func() {
 			yml := []byte(`
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: BFB
 metadata:
   name: obj-bfb
@@ -264,7 +264,7 @@ spec:
 
 		It("create from yaml validation issue (w/o url)", func() {
 			yml := []byte(`
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: BFB
 metadata:
   name: obj-bfb
@@ -279,7 +279,7 @@ metadata:
 
 		It("create from yaml validation issue (url is empty)", func() {
 			yml := []byte(`
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: BFB
 metadata:
   name: obj-bfb

@@ -1,4 +1,4 @@
-apiVersion: svc.dpf.nvidia.com/v1alpha1
+apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUService
 metadata:
   name: hbn-dpuservice
@@ -18,9 +18,9 @@ spec:
       rollingUpdate:
         maxUnavailable: 2
     labels:
-      dpuservice.dpf.nvidia.com/name: hbn
+      dpuservice.dpu.nvidia.com/name: hbn
     annotations:
-      dpuservice.dpf.nvidia.com/name: hbn
+      dpuservice.dpu.nvidia.com/name: hbn
   helmChart:
     source:
       repoURL:  nvidia.com/dpf

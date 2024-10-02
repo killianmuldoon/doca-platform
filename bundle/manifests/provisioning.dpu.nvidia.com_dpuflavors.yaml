@@ -1,0 +1,137 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.3
+  creationTimestamp: null
+  labels:
+    dpu.nvidia.com/component: dpf-operator-controller-manager
+  name: dpuflavors.provisioning.dpu.nvidia.com
+spec:
+  group: provisioning.dpu.nvidia.com
+  names:
+    kind: DPUFlavor
+    listKind: DPUFlavorList
+    plural: dpuflavors
+    singular: dpuflavor
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: DPUFlavor is the Schema for the dpuflavors API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: DPUFlavorSpec defines the content of DPUFlavor
+            properties:
+              bfcfgParameters:
+                items:
+                  type: string
+                type: array
+              configFiles:
+                items:
+                  properties:
+                    operation:
+                      enum:
+                      - override
+                      - append
+                      type: string
+                    path:
+                      type: string
+                    permissions:
+                      type: string
+                    raw:
+                      type: string
+                  type: object
+                type: array
+              containerdConfig:
+                properties:
+                  registryEndpoint:
+                    type: string
+                type: object
+              dpuDeploymentResources:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                description: |-
+                  DPUDeploymentResources indicates the resources available for DPUServices to consume after the BFB with this
+                  particular flavor and the DPF system components have been installed on a DPU. These resources do not take into
+                  account potential resources consumed by other DPUServices. The DPUDeployment Controller takes into account that
+                  field to understand if a DPUService can be installed on a given DPU.
+                type: object
+              grub:
+                properties:
+                  kernelParameters:
+                    items:
+                      type: string
+                    type: array
+                type: object
+              nvconfig:
+                items:
+                  properties:
+                    device:
+                      type: string
+                    hostPowerCycleRequired:
+                      type: boolean
+                    parameters:
+                      items:
+                        type: string
+                      type: array
+                  type: object
+                type: array
+              ovs:
+                properties:
+                  rawConfigScript:
+                    type: string
+                type: object
+              resourceRequirements:
+                additionalProperties:
+                  anyOf:
+                  - type: integer
+                  - type: string
+                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                  x-kubernetes-int-or-string: true
+                description: |-
+                  ResourceRequirements indicates the minimum amount of resources needed for a BFB with that flavor to be installed
+                  on a DPU. Using this field, the controller can understand if that flavor can be installed on a particular DPU.
+                type: object
+              sysctl:
+                properties:
+                  parameters:
+                    items:
+                      type: string
+                    type: array
+                type: object
+            type: object
+            x-kubernetes-validations:
+            - message: DPUFlavor spec is immutable
+              rule: self == oldSelf
+        type: object
+    served: true
+    storage: true
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: null
+  storedVersions: null

@@ -36,7 +36,7 @@ type BFBPhase string
 
 // These are the valid statuses of BFB.
 const (
-	BFBFinalizer = "provisioning.dpf.nvidia.com/bfb-protection"
+	BFBFinalizer = "provisioning.dpu.nvidia.com/bfb-protection"
 
 	// BFB CR is created
 	BFBInitializing BFBPhase = "Initializing"

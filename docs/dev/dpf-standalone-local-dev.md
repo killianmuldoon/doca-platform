@@ -152,7 +152,7 @@ EOF
 16. Create DPFOperatorConfig CR:
 ```
 cat <<'EOF' | kubectl create -f -
-apiVersion: operator.dpf.nvidia.com/v1alpha1
+apiVersion: operator.dpu.nvidia.com/v1alpha1
 kind: DPFOperatorConfig
 metadata:
   name: dpfoperatorconfig
@@ -166,7 +166,7 @@ EOF
 17. Create [DPUCluster CR](../cluster-manager/dev-guide.md):
 ```
 cat <<'EOF' | kubectl create -f -
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPUCluster
 metadata:
   name: dpu-cluster-0
@@ -188,7 +188,7 @@ EOF
 18. Create BFB CR:
 ```
 cat <<'EOF' | kubectl create -f -
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: Bfb
 metadata:
   name: bf-bundle-2.7.0
@@ -203,7 +203,7 @@ EOF
 18. Create DPUSet CR:
 ```
 cat <<'EOF' | kubectl create -f -
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DpuSet
 metadata:
   name: dpuset-1

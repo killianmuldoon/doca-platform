@@ -49,8 +49,8 @@ const (
 )
 
 const (
-	FinalizerCleanUp         = "provisioning.dpf.nvidia.com/cluster-manager-clean-up"
-	FinalizerInternalCleanUp = "provisioning.dpf.nvidia.com/cluster-manager-internal-clean-up"
+	FinalizerCleanUp         = "provisioning.dpu.nvidia.com/cluster-manager-clean-up"
+	FinalizerInternalCleanUp = "provisioning.dpu.nvidia.com/cluster-manager-internal-clean-up"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!

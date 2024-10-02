@@ -704,7 +704,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuSet := range gotDPUSetList.Items {
 						g.Expect(dpuSet.Labels).To(HaveLen(1))
-						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
 						g.Expect(dpuSet.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
@@ -746,7 +746,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuSet := range gotDPUSetList.Items {
 						g.Expect(dpuSet.Labels).To(HaveLen(1))
-						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
 						// Validate that the same object is updated
 						g.Expect(firstDPUSetUIDs).To(ContainElement(dpuSet.UID))
 
@@ -792,7 +792,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuSet := range gotDPUSetList.Items {
 						g.Expect(dpuSet.Labels).To(HaveLen(1))
-						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
 						// Validate that the object was not recreated
 						g.Expect(firstDPUSetUIDs).To(ContainElement(dpuSet.UID))
 
@@ -851,7 +851,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuSet := range gotDPUSetList.Items {
 						g.Expect(dpuSet.Labels).To(HaveLen(1))
-						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
 
 						delete(firstDPUSetUIDs, dpuSet.UID)
 
@@ -944,7 +944,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
-						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
 						g.Expect(dpuServiceInterface.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
@@ -1046,7 +1046,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
-						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
 						g.Expect(dpuServiceInterface.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
@@ -1144,7 +1144,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
-						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
 						g.Expect(dpuServiceInterface.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
@@ -1226,7 +1226,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
-						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
 						g.Expect(dpuServiceInterface.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
@@ -1370,7 +1370,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuService := range gotDPUServiceList.Items {
 						g.Expect(dpuService.Labels).To(HaveLen(1))
-						g.Expect(dpuService.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuService.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
 						g.Expect(dpuService.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
@@ -1835,7 +1835,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					obj := gotDPUServiceChainList.Items[0]
 
 					g.Expect(obj.Labels).To(HaveLen(1))
-					g.Expect(obj.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpudeployment-name", "dpudeployment"))
+					g.Expect(obj.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
 					g.Expect(obj.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 
 					By("checking the spec")
@@ -2362,7 +2362,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 				g.Expect(gotDPUServiceList.Items).ToNot(BeEmpty())
 				for _, dpuService := range gotDPUServiceList.Items {
-					dpuService.SetFinalizers([]string{"test.dpf.nvidia.com/test"})
+					dpuService.SetFinalizers([]string{"test.dpu.nvidia.com/test"})
 					dpuService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
 					dpuService.SetManagedFields(nil)
 					g.Expect(testClient.Patch(ctx, &dpuService, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
@@ -2372,7 +2372,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
 				g.Expect(gotDPUServiceChainList.Items).ToNot(BeEmpty())
 				for _, dpuServiceChain := range gotDPUServiceChainList.Items {
-					dpuServiceChain.SetFinalizers([]string{"test.dpf.nvidia.com/test"})
+					dpuServiceChain.SetFinalizers([]string{"test.dpu.nvidia.com/test"})
 					dpuServiceChain.SetGroupVersionKind(dpuservicev1.DPUServiceChainGroupVersionKind)
 					dpuServiceChain.SetManagedFields(nil)
 					g.Expect(testClient.Patch(ctx, &dpuServiceChain, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
@@ -2381,7 +2381,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
 				g.Expect(gotDPUServiceInterfaceList.Items).ToNot(BeEmpty())
 				for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
-					dpuServiceInterface.SetFinalizers([]string{"test.dpf.nvidia.com/test"})
+					dpuServiceInterface.SetFinalizers([]string{"test.dpu.nvidia.com/test"})
 					dpuServiceInterface.SetGroupVersionKind(dpuservicev1.DPUServiceInterfaceGroupVersionKind)
 					dpuServiceInterface.SetManagedFields(nil)
 					g.Expect(testClient.Patch(ctx, &dpuServiceInterface, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())

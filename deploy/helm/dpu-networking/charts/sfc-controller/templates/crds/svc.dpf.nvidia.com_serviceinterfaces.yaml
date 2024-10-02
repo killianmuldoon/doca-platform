@@ -4,9 +4,9 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
-  name: serviceinterfaces.svc.dpf.nvidia.com
+  name: serviceinterfaces.svc.dpu.nvidia.com
 spec:
-  group: svc.dpf.nvidia.com
+  group: svc.dpu.nvidia.com
   names:
     kind: ServiceInterface
     listKind: ServiceInterfaceList

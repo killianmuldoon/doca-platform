@@ -44,7 +44,7 @@ func (r *BFB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 		Complete()
 }
 
-//+kubebuilder:webhook:path=/mutate-provisioning-dpf-nvidia-com-v1alpha1-bfb,mutating=true,failurePolicy=fail,sideEffects=None,groups=provisioning.dpf.nvidia.com,resources=bfbs,verbs=create;update,versions=v1alpha1,name=mbfb.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-provisioning-dpu-nvidia-com-v1alpha1-bfb,mutating=true,failurePolicy=fail,sideEffects=None,groups=provisioning.dpu.nvidia.com,resources=bfbs,verbs=create;update,versions=v1alpha1,name=mbfb.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &BFB{}
 
@@ -57,7 +57,7 @@ func (r *BFB) Default() {
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
-//+kubebuilder:webhook:path=/validate-provisioning-dpf-nvidia-com-v1alpha1-bfb,mutating=false,failurePolicy=fail,sideEffects=None,groups=provisioning.dpf.nvidia.com,resources=bfbs,verbs=create;update;delete,versions=v1alpha1,name=vbfb.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-provisioning-dpu-nvidia-com-v1alpha1-bfb,mutating=false,failurePolicy=fail,sideEffects=None,groups=provisioning.dpu.nvidia.com,resources=bfbs,verbs=create;update;delete,versions=v1alpha1,name=vbfb.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &BFB{}
 

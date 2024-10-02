@@ -65,9 +65,9 @@ type DPUServiceCredentialRequestReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservicecredentialrequests,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservicecredentialrequests/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservicecredentialrequests/finalizers,verbs=update
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuservicecredentialrequests,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuservicecredentialrequests/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuservicecredentialrequests/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=serviceaccounts/token,verbs=create
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch

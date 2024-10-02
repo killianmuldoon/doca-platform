@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	ServiceInterfaceFinalizer = "svc.dpf.nvidia.com/ServiceInterface-finalizer"
+	ServiceInterfaceFinalizer = "svc.dpu.nvidia.com/ServiceInterface-finalizer"
 	RequeueIntervalSuccess    = 20 * time.Second
 	RequeueIntervalError      = 5 * time.Second
 )
@@ -69,11 +69,11 @@ func runOVSVsctl(args ...string) error {
 	return nil
 }
 
-// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=ServiceInterfaces,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=ServiceInterfaces/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=ServiceInterfaces/finalizers,verbs=update
-// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=ServiceInterfaces,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=ServiceInterfaces/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=ServiceInterfaces/finalizers,verbs=update
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 func DelPort(portName string) error {
 	return runOVSVsctl("-t", "5", "--if-exist", "del-port", portName)

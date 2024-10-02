@@ -16,7 +16,7 @@ limitations under the License.
 
 // Package v1alpha1 contains API Schema definitions for the sfc v1alpha1 API group
 // +kubebuilder:object:generate=true
-// +groupName=svc.dpf.nvidia.com
+// +groupName=svc.dpu.nvidia.com
 package v1alpha1
 
 // ObjectMeta holds metadata like labels and annotations.

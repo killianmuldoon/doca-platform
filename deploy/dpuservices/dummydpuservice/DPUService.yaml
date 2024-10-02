@@ -1,4 +1,4 @@
-apiVersion: svc.dpf.nvidia.com/v1alpha1
+apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUService
 metadata:
   name: dummydpuservice
@@ -26,6 +26,6 @@ spec:
       rollingUpdate:
         maxUnavailable: 2
     labels:
-      dpuservice.dpf.nvidia.com/name: dummydpuservice
+      dpuservice.dpu.nvidia.com/name: dummydpuservice
     annotations:
-      dpuservice.dpf.nvidia.com/name: dummydpuservice
+      dpuservice.dpu.nvidia.com/name: dummydpuservice

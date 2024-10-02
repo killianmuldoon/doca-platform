@@ -173,7 +173,7 @@ prometheus:
       kubernetes_sd_configs:
         - role: pod
       relabel_configs:
-        - source_labels: [__meta_kubernetes_pod_label_dpf_nvidia_com_component]
+        - source_labels: [__meta_kubernetes_pod_label_dpu.nvidia.com_component]
           action: keep
           regex: ".*-controller-manager"
         - source_labels: [__meta_kubernetes_pod_container_port_name]
@@ -252,10 +252,10 @@ kube-state-metrics:
   rbac:
     extraRules:
       - apiGroups:
-          - svc.dpf.nvidia.com
-          - operator.dpf.nvidia.com
-          - svc.dpf.nvidia.com
-          - provisioning.dpf.nvidia.com
+          - svc.dpu.nvidia.com
+          - operator.dpu.nvidia.com
+          - svc.dpu.nvidia.com
+          - provisioning.dpu.nvidia.com
         resources:
           - dpuclusters
           - dpuclusters/status

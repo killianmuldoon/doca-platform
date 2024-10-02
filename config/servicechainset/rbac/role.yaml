@@ -64,7 +64,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - servicechains
   - servicechainsets
@@ -79,7 +79,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - servicechains/finalizers
   - servicechainsets/finalizers
@@ -88,7 +88,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - servicechainsets/status
   - serviceinterfacesets/status

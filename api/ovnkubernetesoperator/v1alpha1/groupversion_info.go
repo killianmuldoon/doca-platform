@@ -16,7 +16,7 @@ limitations under the License.
 
 // Package v1alpha1 contains API Schema definitions for the ovn v1alpha1 API group
 // +kubebuilder:object:generate=true
-// +groupName=ovn.dpf.nvidia.com
+// +groupName=ovn.dpu.nvidia.com
 package v1alpha1
 
 import (
@@ -31,7 +31,7 @@ var (
 
 var (
 	// GroupVersion is group version used to register these objects
-	GroupVersion = schema.GroupVersion{Group: "ovn.dpf.nvidia.com", Version: "v1alpha1"}
+	GroupVersion = schema.GroupVersion{Group: "ovn.dpu.nvidia.com", Version: "v1alpha1"}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}

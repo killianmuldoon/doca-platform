@@ -62,7 +62,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dpu1",
 					Labels: map[string]string{
-						"provisioning.dpf.nvidia.com/host": "host1",
+						"provisioning.dpu.nvidia.com/host": "host1",
 					},
 				},
 			}
@@ -151,7 +151,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dpu1",
 					Labels: map[string]string{
-						"provisioning.dpf.nvidia.com/host": "host1",
+						"provisioning.dpu.nvidia.com/host": "host1",
 					},
 				},
 			}
@@ -242,7 +242,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dpu1",
 					Labels: map[string]string{
-						"provisioning.dpf.nvidia.com/host": "host1",
+						"provisioning.dpu.nvidia.com/host": "host1",
 					},
 				},
 			}
@@ -291,7 +291,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dpu1",
 					Labels: map[string]string{
-						"provisioning.dpf.nvidia.com/host": "host1",
+						"provisioning.dpu.nvidia.com/host": "host1",
 					},
 				},
 			}
@@ -360,7 +360,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dpu1",
 					Labels: map[string]string{
-						"provisioning.dpf.nvidia.com/host": "host1",
+						"provisioning.dpu.nvidia.com/host": "host1",
 					},
 				},
 			}

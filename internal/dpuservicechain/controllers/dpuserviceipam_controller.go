@@ -43,10 +43,10 @@ import (
 const (
 	// ParentDPUServiceIPAMNameLabel points to the name of the DPUServiceIPAM object that owns a resource in the DPU
 	// cluster.
-	ParentDPUServiceIPAMNameLabel = "dpf.nvidia.com/dpuserviceipam-name"
+	ParentDPUServiceIPAMNameLabel = "dpu.nvidia.com/dpuserviceipam-name"
 	// ParentDPUServiceIPAMNamespaceLabel points to the namespace of the DPUServiceIPAM object that owns a resource in
 	// the DPU cluster.
-	ParentDPUServiceIPAMNamespaceLabel = "dpf.nvidia.com/dpuserviceipam-namespace"
+	ParentDPUServiceIPAMNamespaceLabel = "dpu.nvidia.com/dpuserviceipam-namespace"
 )
 
 // DPUServiceIPAMReconciler reconciles a DPUServiceIPAM object
@@ -61,9 +61,9 @@ const (
 	dpuServiceIPAMControllerName = "dpuserviceipamcontroller"
 )
 
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceipams,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceipams/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceipams/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuserviceipams,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuserviceipams/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuserviceipams/finalizers,verbs=update
 //+kubebuilder:rbac:groups=nv-ipam.nvidia.com,resources=ippools,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reconciles changes in a DPUServiceIPAM object

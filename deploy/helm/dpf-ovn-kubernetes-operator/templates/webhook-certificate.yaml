@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/created-by: dpf-operator
     app.kubernetes.io/part-of: dpf-operator
     control-plane: controller-manager
-    dpf.nvidia.com/component: dpf-ovn-kubernetes-operator-webhook
+    dpu.nvidia.com/component: dpf-ovn-kubernetes-operator-webhook
     {{- include "dpf-ovn-kubernetes-operator.labels" . | nindent 4 }}
   name: {{ $issuerName }}
   namespace: {{ .Release.Namespace }}
@@ -24,7 +24,7 @@ metadata:
     app.kubernetes.io/created-by: dpf-operator
     app.kubernetes.io/part-of: dpf-operator
     control-plane: controller-manager
-    dpf.nvidia.com/component: dpf-ovn-kubernetes-operator-webhook
+    dpu.nvidia.com/component: dpf-ovn-kubernetes-operator-webhook
     {{- include "dpf-ovn-kubernetes-operator.labels" . | nindent 4 }}
   name: {{ include "dpf-ovn-kubernetes-operator.webhook.certificateName" . }}
   namespace: {{ .Release.Namespace }}

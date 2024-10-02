@@ -17,58 +17,58 @@ spec:
   customresourcedefinitions:
     owned:
     - kind: BFB
-      name: bfbs.provisioning.dpf.nvidia.com
+      name: bfbs.provisioning.dpu.nvidia.com
       version: v1alpha1
     - kind: DPUCluster
-      name: dpuclusters.provisioning.dpf.nvidia.com
+      name: dpuclusters.provisioning.dpu.nvidia.com
       version: v1alpha1
     - kind: DPUDeployment
-      name: dpudeployments.svc.dpf.nvidia.com
+      name: dpudeployments.svc.dpu.nvidia.com
       version: v1alpha1
     - kind: DPUFlavor
-      name: dpuflavors.provisioning.dpf.nvidia.com
+      name: dpuflavors.provisioning.dpu.nvidia.com
       version: v1alpha1
     - kind: DPU
-      name: dpus.provisioning.dpf.nvidia.com
+      name: dpus.provisioning.dpu.nvidia.com
       version: v1alpha1
     - kind: DPUServiceChain
-      name: dpuservicechains.svc.dpf.nvidia.com
+      name: dpuservicechains.svc.dpu.nvidia.com
       version: v1alpha1
     - kind: DPUServiceConfiguration
-      name: dpuserviceconfigurations.svc.dpf.nvidia.com
+      name: dpuserviceconfigurations.svc.dpu.nvidia.com
       version: v1alpha1
     - kind: DPUServiceCredentialRequest
-      name: dpuservicecredentialrequests.svc.dpf.nvidia.com
+      name: dpuservicecredentialrequests.svc.dpu.nvidia.com
       version: v1alpha1
     - kind: DPUServiceInterface
-      name: dpuserviceinterfaces.svc.dpf.nvidia.com
+      name: dpuserviceinterfaces.svc.dpu.nvidia.com
       version: v1alpha1
     - kind: DPUServiceIPAM
-      name: dpuserviceipams.svc.dpf.nvidia.com
+      name: dpuserviceipams.svc.dpu.nvidia.com
       version: v1alpha1
     - kind: DPUService
-      name: dpuservices.svc.dpf.nvidia.com
+      name: dpuservices.svc.dpu.nvidia.com
       version: v1alpha1
     - kind: DPUServiceTemplate
-      name: dpuservicetemplates.svc.dpf.nvidia.com
+      name: dpuservicetemplates.svc.dpu.nvidia.com
       version: v1alpha1
     - kind: DPUSet
-      name: dpusets.provisioning.dpf.nvidia.com
+      name: dpusets.provisioning.dpu.nvidia.com
       version: v1alpha1
     - kind: ServiceChain
-      name: servicechains.svc.dpf.nvidia.com
+      name: servicechains.svc.dpu.nvidia.com
       version: v1alpha1
     - kind: ServiceChainSet
-      name: servicechainsets.svc.dpf.nvidia.com
+      name: servicechainsets.svc.dpu.nvidia.com
       version: v1alpha1
     - kind: ServiceInterface
-      name: serviceinterfaces.svc.dpf.nvidia.com
+      name: serviceinterfaces.svc.dpu.nvidia.com
       version: v1alpha1
     - kind: ServiceInterfaceSet
-      name: serviceinterfacesets.svc.dpf.nvidia.com
+      name: serviceinterfacesets.svc.dpu.nvidia.com
       version: v1alpha1
     - kind: DPFOperatorConfig
-      name: dpfoperatorconfigs.operator.dpf.nvidia.com
+      name: dpfoperatorconfigs.operator.dpu.nvidia.com
       version: v1alpha1
   description: |
     ## DPF Operator
@@ -205,7 +205,7 @@ spec:
           - update
           - watch
         - apiGroups:
-          - operator.dpf.nvidia.com
+          - operator.dpu.nvidia.com
           resources:
           - dpfoperatorconfigs
           verbs:
@@ -217,13 +217,13 @@ spec:
           - update
           - watch
         - apiGroups:
-          - operator.dpf.nvidia.com
+          - operator.dpu.nvidia.com
           resources:
           - dpfoperatorconfigs/finalizers
           verbs:
           - update
         - apiGroups:
-          - operator.dpf.nvidia.com
+          - operator.dpu.nvidia.com
           resources:
           - dpfoperatorconfigs/status
           verbs:
@@ -231,7 +231,7 @@ spec:
           - patch
           - update
         - apiGroups:
-          - provisioning.dpf.nvidia.com
+          - provisioning.dpu.nvidia.com
           resources:
           - bfbs
           - dpuclusters
@@ -248,7 +248,7 @@ spec:
           - update
           - watch
         - apiGroups:
-          - provisioning.dpf.nvidia.com
+          - provisioning.dpu.nvidia.com
           resources:
           - bfbs/finalizers
           - dpuclusters/finalizers
@@ -258,7 +258,7 @@ spec:
           verbs:
           - update
         - apiGroups:
-          - provisioning.dpf.nvidia.com
+          - provisioning.dpu.nvidia.com
           resources:
           - bfbs/status
           - dpuclusters/status
@@ -284,7 +284,7 @@ spec:
           - update
           - watch
         - apiGroups:
-          - svc.dpf.nvidia.com
+          - svc.dpu.nvidia.com
           resources:
           - dpudeployments
           - dpuservicechains
@@ -306,7 +306,7 @@ spec:
           - update
           - watch
         - apiGroups:
-          - svc.dpf.nvidia.com
+          - svc.dpu.nvidia.com
           resources:
           - dpudeployments/finalizers
           - dpuservicechains/finalizers
@@ -319,7 +319,7 @@ spec:
           verbs:
           - update
         - apiGroups:
-          - svc.dpf.nvidia.com
+          - svc.dpu.nvidia.com
           resources:
           - dpudeployments/status
           - dpuservicechains/status
@@ -344,7 +344,7 @@ spec:
           app.kubernetes.io/part-of: dpf-operator
           app.kubernetes.io/version: 0.1.0
           control-plane: controller-manager
-          dpf.nvidia.com/component: dpf-operator-controller-manager
+          dpu.nvidia.com/component: dpf-operator-controller-manager
           helm.sh/chart: dpf-operator-0.1.0
         name: dpf-operator-controller-manager
         spec:
@@ -354,7 +354,7 @@ spec:
               app.kubernetes.io/instance: release-name
               app.kubernetes.io/name: dpf-operator
               control-plane: controller-manager
-              dpf.nvidia.com/component: dpf-operator-controller-manager
+              dpu.nvidia.com/component: dpf-operator-controller-manager
           strategy: {}
           template:
             metadata:
@@ -364,7 +364,7 @@ spec:
                 app.kubernetes.io/instance: release-name
                 app.kubernetes.io/name: dpf-operator
                 control-plane: controller-manager
-                dpf.nvidia.com/component: dpf-operator-controller-manager
+                dpu.nvidia.com/component: dpf-operator-controller-manager
             spec:
               affinity:
                 nodeAffinity:

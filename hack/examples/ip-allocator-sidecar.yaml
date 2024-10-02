@@ -16,7 +16,7 @@ spec:
         app: ip-allocator-sidecar
       annotations:
         # With this annotation we provide requests to the sidecar to fulfil.
-        dpf.nvidia.com/ip-requests: |-
+        dpu.nvidia.com/ip-requests: |-
           [
             {
               "name": "req1",
@@ -92,7 +92,7 @@ spec:
         - name: IP_ALLOCATOR_REQUESTS
           valueFrom:
             fieldRef:
-              fieldPath: metadata.annotations['dpf.nvidia.com/ip-requests']
+              fieldPath: metadata.annotations['dpu.nvidia.com/ip-requests']
         - name: K8S_POD_NAME
           valueFrom:
             fieldRef:

@@ -17,7 +17,7 @@ labels:
   - includeSelectors: true
     includeTemplates: true
     pairs:
-      dpf.nvidia.com/component: dpf-ovn-kubernetes-operator-controller-manager
+      dpu.nvidia.com/component: dpf-ovn-kubernetes-operator-controller-manager
 
 patchesStrategicMerge:
   - manager_webhook_patch.yaml

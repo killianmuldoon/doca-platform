@@ -46,7 +46,7 @@ const (
 
 var _ webhook.CustomValidator = &DPUServiceIPAMValidator{}
 
-// +kubebuilder:webhook:path=/validate-svc-dpf-nvidia-com-v1alpha1-dpuserviceipam,mutating=false,failurePolicy=fail,groups=svc.dpf.nvidia.com,resources=dpuserviceipams,verbs=create;update,versions=v1alpha1,name=ipam-validator.svc.dpf.nvidia.com,admissionReviewVersions=v1,sideEffects=None
+// +kubebuilder:webhook:path=/validate-svc-dpu-nvidia-com-v1alpha1-dpuserviceipam,mutating=false,failurePolicy=fail,groups=svc.dpu.nvidia.com,resources=dpuserviceipams,verbs=create;update,versions=v1alpha1,name=ipam-validator.svc.dpu.nvidia.com,admissionReviewVersions=v1,sideEffects=None
 
 func (v *DPUServiceIPAMValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).

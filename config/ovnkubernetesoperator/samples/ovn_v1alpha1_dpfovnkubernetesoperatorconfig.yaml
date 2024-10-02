@@ -1,4 +1,4 @@
-apiVersion: ovn.dpf.nvidia.com/v1alpha1
+apiVersion: ovn.dpu.nvidia.com/v1alpha1
 kind: DPFOVNKubernetesOperatorConfig
 metadata:
   labels:

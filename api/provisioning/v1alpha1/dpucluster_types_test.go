@@ -249,7 +249,7 @@ var _ = Describe("DPUCluster", func() {
 
 		It("create from yaml", func() {
 			yml := []byte(`
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPUCluster
 metadata:
   name: dpucluster-1

@@ -107,8 +107,8 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			Eventually(func(g Gomega) {
 				got := &nvipamv1.IPPool{}
 				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, got)).To(Succeed())
-				g.Expect(got.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpuserviceipam-name", "pool-1"))
-				g.Expect(got.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpuserviceipam-namespace", testNS.Name))
+				g.Expect(got.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpuserviceipam-name", "pool-1"))
+				g.Expect(got.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpuserviceipam-namespace", testNS.Name))
 				g.Expect(got.Spec.Subnet).To(Equal("192.168.0.0/20"))
 				g.Expect(got.Spec.PerNodeBlockSize).To(Equal(256))
 				g.Expect(got.Spec.Gateway).To(Equal("192.168.0.1"))
@@ -207,8 +207,8 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			Eventually(func(g Gomega) {
 				got := &nvipamv1.CIDRPool{}
 				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, got)).To(Succeed())
-				g.Expect(got.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpuserviceipam-name", "pool-1"))
-				g.Expect(got.Labels).To(HaveKeyWithValue("dpf.nvidia.com/dpuserviceipam-namespace", testNS.Name))
+				g.Expect(got.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpuserviceipam-name", "pool-1"))
+				g.Expect(got.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpuserviceipam-namespace", testNS.Name))
 				g.Expect(got.Spec.CIDR).To(Equal("192.168.0.0/20"))
 				g.Expect(got.Spec.PerNodeNetworkPrefix).To(Equal(int32(24)))
 				g.Expect(got.Spec.GatewayIndex).To(Equal(ptr.To[int32](1)))
@@ -560,7 +560,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			By("Adding finalizer to the underlying object")
 			gotIPPool := &nvipamv1.IPPool{}
 			Eventually(dpfClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool).Should(Succeed())
-			gotIPPool.SetFinalizers([]string{"test.dpf.nvidia.com/test"})
+			gotIPPool.SetFinalizers([]string{"test.dpu.nvidia.com/test"})
 			gotIPPool.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind(nvipamv1.IPPoolKind))
 			gotIPPool.SetManagedFields(nil)
 			Expect(testClient.Patch(ctx, gotIPPool, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())

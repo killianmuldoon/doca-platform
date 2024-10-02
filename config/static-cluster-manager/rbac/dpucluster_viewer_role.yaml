@@ -12,7 +12,7 @@ metadata:
   name: dpucluster-viewer-role
 rules:
 - apiGroups:
-  - cluster-manager.dpf.nvidia.com
+  - cluster-manager.dpu.nvidia.com
   resources:
   - dpuclusters
   verbs:
@@ -20,7 +20,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - cluster-manager.dpf.nvidia.com
+  - cluster-manager.dpu.nvidia.com
   resources:
   - dpuclusters/status
   verbs:

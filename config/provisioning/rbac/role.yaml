@@ -71,7 +71,7 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - bfbs
   - dpuclusters
@@ -86,7 +86,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - bfbs/finalizers
   - dpuclusters/finalizers
@@ -95,7 +95,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - bfbs/status
   - dpuclusters/status
@@ -106,7 +106,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - dpuflavors
   verbs:

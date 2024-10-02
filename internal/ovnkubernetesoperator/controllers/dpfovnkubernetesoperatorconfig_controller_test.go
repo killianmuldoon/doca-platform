@@ -454,13 +454,13 @@ networking:
 			By("Turning the DPUs to Ready")
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuWorker1), dpuWorker1)).To(Succeed())
 			Expect(unstructured.SetNestedField(dpuWorker1.Object, "Ready", "status", "phase")).ToNot(HaveOccurred())
-			dpuWorker1.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "DPU"))
+			dpuWorker1.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpu.nvidia.com/v1alpha1", "DPU"))
 			dpuWorker1.SetManagedFields(nil)
 			Expect(testClient.Status().Patch(ctx, dpuWorker1, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuWorker2), dpuWorker2)).To(Succeed())
 			Expect(unstructured.SetNestedField(dpuWorker2.Object, "Ready", "status", "phase")).ToNot(HaveOccurred())
-			dpuWorker2.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "DPU"))
+			dpuWorker2.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpu.nvidia.com/v1alpha1", "DPU"))
 			dpuWorker2.SetManagedFields(nil)
 			Expect(testClient.Status().Patch(ctx, dpuWorker2, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
@@ -628,7 +628,7 @@ networking:
 								{
 									MatchExpressions: []corev1.NodeSelectorRequirement{
 										{
-											Key:      "ovn.dpf.nvidia.com/network-preconfig-ready",
+											Key:      "ovn.dpu.nvidia.com/network-preconfig-ready",
 											Operator: corev1.NodeSelectorOpExists,
 										},
 									},
@@ -1311,7 +1311,7 @@ func getDefaultClusterVersion(name string) *unstructured.Unstructured {
 func getMinimalBFB(name string, namespace string, nodeName string) *unstructured.Unstructured {
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
-			"apiVersion": "provisioning.dpf.nvidia.com/v1alpha1",
+			"apiVersion": "provisioning.dpu.nvidia.com/v1alpha1",
 			"kind":       "DPU",
 			"metadata": map[string]interface{}{
 				"name":      name,

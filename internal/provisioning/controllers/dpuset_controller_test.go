@@ -106,7 +106,7 @@ var _ = Describe("DPUSet", func() {
 
 		It("create from yaml", func() {
 			yml := []byte(`
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPUSet
 metadata:
   name: dpuset-1

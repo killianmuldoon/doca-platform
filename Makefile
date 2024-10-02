@@ -290,8 +290,8 @@ generate-manifests-servicechainset: controller-gen kustomize envsubst ## Generat
 
 .PHONY: generate-manifests-sfc-controller
 generate-manifests-sfc-controller: envsubst generate-manifests-servicechainset
-	cp deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/svc.dpf.nvidia.com_servicechains.yaml deploy/helm/dpu-networking/charts/sfc-controller/templates/crds/
-	cp deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/svc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/dpu-networking/charts/sfc-controller/templates/crds/
+	cp deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/svc.dpu.nvidia.com_servicechains.yaml deploy/helm/dpu-networking/charts/sfc-controller/templates/crds/
+	cp deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/svc.dpu.nvidia.com_serviceinterfaces.yaml deploy/helm/dpu-networking/charts/sfc-controller/templates/crds/
 	# Template the image name and tag used in the helm templates.
 	$(ENVSUBST) < deploy/helm/dpu-networking/charts/sfc-controller/values.yaml.tmpl > deploy/helm/dpu-networking/charts/sfc-controller/values.yaml
 

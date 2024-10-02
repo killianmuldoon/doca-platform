@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	DPUServiceChainFinalizer = "svc.dpf.nvidia.com/dpuservicechain"
+	DPUServiceChainFinalizer = "svc.dpu.nvidia.com/dpuservicechain"
 	DPUServiceChainKind      = "DPUServiceChain"
 	DPUServiceChainListKind  = "DPUServiceChainList"
 )

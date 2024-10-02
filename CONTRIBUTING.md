@@ -49,11 +49,11 @@ The below is a representation of how multiple components are structured in the r
 │         ├── controlplane
 │         │         ├── crd
 │         │         │         ├── bases
-│         │         │         │         └── controlplane.dpf.nvidia.com_dpfclusters.yaml
+│         │         │         │         └── controlplane.dpu.nvidia.com_dpfclusters.yaml
 │         └── dpuservice
 │             ├── crd
 │             │         ├── bases
-│             │         │         └── svc.dpf.nvidia.com_dpuservices.yaml
+│             │         │         └── svc.dpu.nvidia.com_dpuservices.yaml
 │             │         ├── kustomization.yaml
 │             │         └── kustomizeconfig.yaml
 │             ├── default

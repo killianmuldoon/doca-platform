@@ -23,9 +23,9 @@ import (
 )
 
 const (
-	PowercycleCmdKey         = "provisioning.dpf.nvidia.com/powercycle-command"
-	RebootCmdKey             = "provisioning.dpf.nvidia.com/reboot-command"
-	HostPowerCycleRequireKey = "provisioning.dpf.nvidia.com/host-power-cycle-required"
+	PowercycleCmdKey         = "provisioning.dpu.nvidia.com/powercycle-command"
+	RebootCmdKey             = "provisioning.dpu.nvidia.com/reboot-command"
+	HostPowerCycleRequireKey = "provisioning.dpu.nvidia.com/host-power-cycle-required"
 	Cycle                    = "cycle"
 	Reset                    = "reset"
 	// Skip ensures no power cycle is done on the host.

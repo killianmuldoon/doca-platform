@@ -36,7 +36,7 @@ type DPUPhase string
 
 // These are the valid statuses of DPU.
 const (
-	DPUFinalizer = "provisioning.dpf.nvidia.com/dpu-protection"
+	DPUFinalizer = "provisioning.dpu.nvidia.com/dpu-protection"
 
 	// DPU CR is created by DPUSet.
 	DPUInitializing DPUPhase = "Initializing"

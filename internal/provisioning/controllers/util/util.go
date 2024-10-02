@@ -49,13 +49,13 @@ const (
 	RequeueInterval                 = 5 * time.Second
 	BFBBaseDir                      = "bfb"
 	CFGExtension                    = ".cfg"
-	DPUSetNameLabel                 = "provisioning.dpf.nvidia.com/dpuset-name"
-	DPUSetNamespaceLabel            = "provisioning.dpf.nvidia.com/dpuset-namespace"
+	DPUSetNameLabel                 = "provisioning.dpu.nvidia.com/dpuset-name"
+	DPUSetNamespaceLabel            = "provisioning.dpu.nvidia.com/dpuset-namespace"
 	DPUPCIAddress                   = "dpu-%d-pci-address"
 	DPUPFName                       = "dpu-%d-pf0-name"
-	DPUPCIAddressLabel              = "provisioning.dpf.nvidia.com/dpu-pciAddress"
-	DPUPFNameLabel                  = "provisioning.dpf.nvidia.com/dpu-pf-name"
-	DPUHostIPLabel                  = "provisioning.dpf.nvidia.com/dpu-host-ip"
+	DPUPCIAddressLabel              = "provisioning.dpu.nvidia.com/dpu-pciAddress"
+	DPUPFNameLabel                  = "provisioning.dpu.nvidia.com/dpu-pf-name"
+	DPUHostIPLabel                  = "provisioning.dpu.nvidia.com/dpu-host-ip"
 	TolerationNotReadyKey           = "node.kubernetes.io/not-ready"
 	TolerationUnreachableyKey       = "node.kubernetes.io/unreachable"
 	TolerationUnschedulableKey      = "node.kubernetes.io/unschedulable"
@@ -66,10 +66,10 @@ const (
 	// clusterConfigNamespace is the Namespace where the OpenShift cluster configuration ConfigMap exists.
 	ClusterConfigNamespace = "kube-system"
 	// NodeMaintenanceRequestorID is the requestor ID used for NodeMaintenance CRs
-	NodeMaintenanceRequestorID = "dpf.nvidia.com"
+	NodeMaintenanceRequestorID = "dpu.nvidia.com"
 	// ProvisioningGroupName is the provisioning group, used to identify provisioning as
 	// additional Requestors in NodeMaintenance CR.
-	ProvisioningGroupName = "provisioning.dpf.nvidia.com"
+	ProvisioningGroupName = "provisioning.dpu.nvidia.com"
 )
 
 func GenerateBFBTaskName(bfb provisioningv1.BFB) string {

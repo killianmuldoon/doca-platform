@@ -171,7 +171,7 @@ make undeploy
 ### Example of DPU provsioning
 #### BFB yaml file example
 ```
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: Bfb
 metadata:
   name: doca-24.04
@@ -185,7 +185,7 @@ spec:
 
 #### DPUFlavor yaml file example
 ```
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPUFlavor
 metadata:
   name: dpuflavor-example
@@ -246,7 +246,7 @@ spec:
 
 #### DpuSet yaml file example
 ```
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DpuSet
 metadata:
   name: dpuset-demo
@@ -392,7 +392,7 @@ oc create secret docker-registry dpf-docker -n dpf-provisioning --docker-server=
 #### Specify registry mirror endpoint in DPUFlavor yaml file
 Once registry service is up and running, user should pass the service IP as a parameter to the DPUFlavor yaml file, to ensure the containerd configuration is set to pull from the local cache. Edit your DPUFlavor yaml file to have this lines:
 ```
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPUFlavor
 metadata:
   name: dpuflavor-example

@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	DPUServiceInterfaceFinalizer = "svc.dpf.nvidia.com/dpuserviceinterface"
+	DPUServiceInterfaceFinalizer = "svc.dpu.nvidia.com/dpuserviceinterface"
 	DPUServiceInterfaceKind      = "DPUServiceInterface"
 	DPUServiceInterfaceListKind  = "DPUServiceInterfaceList"
 )

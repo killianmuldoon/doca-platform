@@ -1404,7 +1404,7 @@
               "status": false,
               "type": true,
               "uid": true,
-              "{__name__=\"dpuservice_status_conditions\", app_kubernetes_io_component=\"metrics\", app_kubernetes_io_instance=\"dpf-operator\", app_kubernetes_io_managed_by=\"Helm\", app_kubernetes_io_name=\"kube-state-metrics\", app_kubernetes_io_part_of=\"kube-state-metrics\", app_kubernetes_io_version=\"2.13.0\", creation_timestamp=\"2024-09-02T13:54:06Z\", customresource_group=\"svc.dpf.nvidia.com\", customresource_kind=\"DPUService\", customresource_version=\"v1alpha1\", helm_sh_chart=\"kube-state-metrics-5.25.1\", instance=\"10.244.0.35:8080\", job=\"kubernetes-service-endpoints\", name=\"flannel\", namespace=\"dpf-operator-system\", node=\"dpf-test\", service=\"dpf-operator-kube-state-metrics\", status=\"False\", type=\"Ready\", uid=\"31cb2ccc-175b-4983-8b12-bb27708a5155\"}": false
+              "{__name__=\"dpuservice_status_conditions\", app_kubernetes_io_component=\"metrics\", app_kubernetes_io_instance=\"dpf-operator\", app_kubernetes_io_managed_by=\"Helm\", app_kubernetes_io_name=\"kube-state-metrics\", app_kubernetes_io_part_of=\"kube-state-metrics\", app_kubernetes_io_version=\"2.13.0\", creation_timestamp=\"2024-09-02T13:54:06Z\", customresource_group=\"svc.dpu.nvidia.com\", customresource_kind=\"DPUService\", customresource_version=\"v1alpha1\", helm_sh_chart=\"kube-state-metrics-5.25.1\", instance=\"10.244.0.35:8080\", job=\"kubernetes-service-endpoints\", name=\"flannel\", namespace=\"dpf-operator-system\", node=\"dpf-test\", service=\"dpf-operator-kube-state-metrics\", status=\"False\", type=\"Ready\", uid=\"31cb2ccc-175b-4983-8b12-bb27708a5155\"}": false
             },
             "includeByName": {},
             "indexByName": {

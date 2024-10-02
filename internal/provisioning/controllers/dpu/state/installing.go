@@ -62,7 +62,7 @@ const (
 
 	// HostNameDPULabelKey is the label added to the DPU Kubernetes Node that indicates the hostname of the host that
 	// this DPU belongs to.
-	HostNameDPULabelKey = "provisioning.dpf.nvidia.com/host"
+	HostNameDPULabelKey = "provisioning.dpu.nvidia.com/host"
 )
 
 type BFConfig struct {
@@ -370,7 +370,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 						// cat /etc/mlnx-release
 						// bf-bundle-2.7.0-33_24.04_ubuntu-22.04_prod
 						patch := client.MergeFrom(dpu.DeepCopy())
-						dpu.Spec.Cluster.NodeLabels["provisioning.dpf.nvidia.com/DOCA-BFB-version"] = cutil.GenerateBFBVersionFromURL(bfb.Spec.URL)
+						dpu.Spec.Cluster.NodeLabels["provisioning.dpu.nvidia.com/DOCA-BFB-version"] = cutil.GenerateBFBVersionFromURL(bfb.Spec.URL)
 						dpu.Spec.Cluster.NodeLabels[HostNameDPULabelKey] = dpu.Spec.NodeName
 						if err := k8sClient.Patch(ctx, dpu, patch); err != nil {
 							return future.Ready, err

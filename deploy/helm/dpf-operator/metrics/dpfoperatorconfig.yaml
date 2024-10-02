@@ -1,5 +1,5 @@
 - groupVersionKind:
-    group: operator.dpf.nvidia.com
+    group: operator.dpu.nvidia.com
     kind: DPFOperatorConfig
     version: v1alpha1
   labelsFromPath:

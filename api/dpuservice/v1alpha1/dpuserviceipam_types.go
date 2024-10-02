@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	DPUServiceIPAMFinalizer = "svc.dpf.nvidia.com/dpuserviceipam"
+	DPUServiceIPAMFinalizer = "svc.dpu.nvidia.com/dpuserviceipam"
 	DPUServiceIPAMKind      = "DPUServiceIPAM"
 )
 

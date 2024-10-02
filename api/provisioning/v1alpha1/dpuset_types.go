@@ -36,7 +36,7 @@ var DPUSetGroupVersionKind = GroupVersion.WithKind(DPUSetKind)
 type StrategyType string
 
 const (
-	DPUSetFinalizer = "provisioning.dpf.nvidia.com/dpuset-protection"
+	DPUSetFinalizer = "provisioning.dpu.nvidia.com/dpuset-protection"
 
 	// Delete all the existing DPUs before creating new ones.
 	RecreateStrategyType StrategyType = "Recreate"

@@ -72,7 +72,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - operator.dpf.nvidia.com
+  - operator.dpu.nvidia.com
   resources:
   - dpfoperatorconfigs
   verbs:
@@ -80,7 +80,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - bfbs
   - dpuflavors
@@ -91,14 +91,14 @@ rules:
   - update
   - watch
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - bfbs/finalizers
   - dpuflavors/finalizers
   verbs:
   - update
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - dpusets
   verbs:
@@ -111,7 +111,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpudeployments
   - dpuserviceconfigurations
@@ -123,7 +123,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpudeployments/finalizers
   - dpuservicechains/finalizers
@@ -134,7 +134,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpudeployments/status
   - dpuservicechains/status
@@ -147,7 +147,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpuservicechains
   - dpuserviceinterfaces
@@ -162,7 +162,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpuservicecredentialrequests
   - dpuserviceipams

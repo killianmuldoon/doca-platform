@@ -43,7 +43,7 @@ func (r *DPUSet) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 // TODO(user): EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 
-//+kubebuilder:webhook:path=/mutate-provisioning-dpf-nvidia-com-v1alpha1-dpuset,mutating=true,failurePolicy=fail,sideEffects=None,groups=provisioning.dpf.nvidia.com,resources=dpusets,verbs=create;update,versions=v1alpha1,name=mdpuset.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/mutate-provisioning-dpu-nvidia-com-v1alpha1-dpuset,mutating=true,failurePolicy=fail,sideEffects=None,groups=provisioning.dpu.nvidia.com,resources=dpusets,verbs=create;update,versions=v1alpha1,name=mdpuset.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Defaulter = &DPUSet{}
 
@@ -71,7 +71,7 @@ func (r *DPUSet) Default() {
 	}
 }
 
-//+kubebuilder:webhook:path=/validate-provisioning-dpf-nvidia-com-v1alpha1-dpuset,mutating=false,failurePolicy=fail,sideEffects=None,groups=provisioning.dpf.nvidia.com,resources=dpusets,verbs=create;update,versions=v1alpha1,name=vdpuset.kb.io,admissionReviewVersions=v1
+//+kubebuilder:webhook:path=/validate-provisioning-dpu-nvidia-com-v1alpha1-dpuset,mutating=false,failurePolicy=fail,sideEffects=None,groups=provisioning.dpu.nvidia.com,resources=dpusets,verbs=create;update,versions=v1alpha1,name=vdpuset.kb.io,admissionReviewVersions=v1
 
 var _ webhook.Validator = &DPUSet{}
 
@@ -92,7 +92,7 @@ func (r *DPUSet) ValidateCreate() (admission.Warnings, error) {
 		errs = append(errs, field.Invalid(newPath.Child("dpu_template.annotations", reboot.HostPowerCycleRequireKey), r.Annotations[reboot.HostPowerCycleRequireKey], err.Error()))
 	}
 	if len(errs) != 0 {
-		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpf.nvidia.com", Kind: "DPUSet"},
+		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpu.nvidia.com", Kind: "DPUSet"},
 			r.Name,
 			errs)
 	}
@@ -115,7 +115,7 @@ func (r *DPUSet) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 	}
 
 	if len(errs) != 0 {
-		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpf.nvidia.com", Kind: "DPUSet"},
+		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpu.nvidia.com", Kind: "DPUSet"},
 			r.Name,
 			errs)
 	}

@@ -9,7 +9,7 @@ metadata:
     app.kubernetes.io/name: namespace
     app.kubernetes.io/part-of: dpf-dpuservice
     control-plane: controller-manager
-    dpf.nvidia.com/component: dpuservice-controller-manager
+    dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservice-controller-system
 ---
 apiVersion: apiextensions.k8s.io/v1
@@ -18,10 +18,10 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
   labels:
-    dpf.nvidia.com/component: dpuservice-controller-manager
-  name: dpudeployments.svc.dpf.nvidia.com
+    dpu.nvidia.com/component: dpuservice-controller-manager
+  name: dpudeployments.svc.dpu.nvidia.com
 spec:
-  group: svc.dpf.nvidia.com
+  group: svc.dpu.nvidia.com
   names:
     kind: DPUDeployment
     listKind: DPUDeploymentList
@@ -450,10 +450,10 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
   labels:
-    dpf.nvidia.com/component: dpuservice-controller-manager
-  name: dpuserviceconfigurations.svc.dpf.nvidia.com
+    dpu.nvidia.com/component: dpuservice-controller-manager
+  name: dpuserviceconfigurations.svc.dpu.nvidia.com
 spec:
-  group: svc.dpf.nvidia.com
+  group: svc.dpu.nvidia.com
   names:
     kind: DPUServiceConfiguration
     listKind: DPUServiceConfigurationList
@@ -557,10 +557,10 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
   labels:
-    dpf.nvidia.com/component: dpuservice-controller-manager
-  name: dpuservicecredentialrequests.svc.dpf.nvidia.com
+    dpu.nvidia.com/component: dpuservice-controller-manager
+  name: dpuservicecredentialrequests.svc.dpu.nvidia.com
 spec:
-  group: svc.dpf.nvidia.com
+  group: svc.dpu.nvidia.com
   names:
     kind: DPUServiceCredentialRequest
     listKind: DPUServiceCredentialRequestList
@@ -773,10 +773,10 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
   labels:
-    dpf.nvidia.com/component: dpuservice-controller-manager
-  name: dpuservices.svc.dpf.nvidia.com
+    dpu.nvidia.com/component: dpuservice-controller-manager
+  name: dpuservices.svc.dpu.nvidia.com
 spec:
-  group: svc.dpf.nvidia.com
+  group: svc.dpu.nvidia.com
   names:
     kind: DPUService
     listKind: DPUServiceList
@@ -1115,10 +1115,10 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
   labels:
-    dpf.nvidia.com/component: dpuservice-controller-manager
-  name: dpuservicetemplates.svc.dpf.nvidia.com
+    dpu.nvidia.com/component: dpuservice-controller-manager
+  name: dpuservicetemplates.svc.dpu.nvidia.com
 spec:
-  group: svc.dpf.nvidia.com
+  group: svc.dpu.nvidia.com
   names:
     kind: DPUServiceTemplate
     listKind: DPUServiceTemplateList
@@ -1260,7 +1260,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: serviceaccount
     app.kubernetes.io/part-of: dpf-operator
-    dpf.nvidia.com/component: dpuservice-controller-manager
+    dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservice-controller-manager
   namespace: dpuservice-controller-system
 ---
@@ -1274,7 +1274,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: role
     app.kubernetes.io/part-of: dpf-operator
-    dpf.nvidia.com/component: dpuservice-controller-manager
+    dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservice-leader-election-role
   namespace: dpuservice-controller-system
 rules:
@@ -1314,7 +1314,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    dpf.nvidia.com/component: dpuservice-controller-manager
+    dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservice-manager-role
 rules:
 - apiGroups:
@@ -1385,7 +1385,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - operator.dpf.nvidia.com
+  - operator.dpu.nvidia.com
   resources:
   - dpfoperatorconfigs
   verbs:
@@ -1393,7 +1393,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - bfbs
   - dpuflavors
@@ -1404,14 +1404,14 @@ rules:
   - update
   - watch
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - bfbs/finalizers
   - dpuflavors/finalizers
   verbs:
   - update
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - dpusets
   verbs:
@@ -1424,7 +1424,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpudeployments
   - dpuserviceconfigurations
@@ -1436,7 +1436,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpudeployments/finalizers
   - dpuservicechains/finalizers
@@ -1447,7 +1447,7 @@ rules:
   verbs:
   - update
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpudeployments/status
   - dpuservicechains/status
@@ -1460,7 +1460,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpuservicechains
   - dpuserviceinterfaces
@@ -1475,7 +1475,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpuservicecredentialrequests
   - dpuserviceipams
@@ -1498,7 +1498,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: rolebinding
     app.kubernetes.io/part-of: dpf-operator
-    dpf.nvidia.com/component: dpuservice-controller-manager
+    dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservice-leader-election-rolebinding
   namespace: dpuservice-controller-system
 roleRef:
@@ -1520,7 +1520,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: clusterrolebinding
     app.kubernetes.io/part-of: dpf-operator
-    dpf.nvidia.com/component: dpuservice-controller-manager
+    dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservice-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -1542,7 +1542,7 @@ metadata:
     app.kubernetes.io/name: namespace
     app.kubernetes.io/part-of: dpf-operator
     control-plane: controller-manager
-    dpf.nvidia.com/component: dpuservice-controller-manager
+    dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservice-webhook-service
   namespace: dpuservice-controller-system
 spec:
@@ -1552,7 +1552,7 @@ spec:
     targetPort: 9443
   selector:
     control-plane: controller-manager
-    dpf.nvidia.com/component: dpuservice-controller-manager
+    dpu.nvidia.com/component: dpuservice-controller-manager
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -1565,7 +1565,7 @@ metadata:
     app.kubernetes.io/name: deployment
     app.kubernetes.io/part-of: dpf-dpuservice
     control-plane: controller-manager
-    dpf.nvidia.com/component: dpuservice-controller-manager
+    dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservice-controller-manager
   namespace: dpuservice-controller-system
 spec:
@@ -1573,14 +1573,14 @@ spec:
   selector:
     matchLabels:
       control-plane: controller-manager
-      dpf.nvidia.com/component: dpuservice-controller-manager
+      dpu.nvidia.com/component: dpuservice-controller-manager
   template:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
         control-plane: controller-manager
-        dpf.nvidia.com/component: dpuservice-controller-manager
+        dpu.nvidia.com/component: dpuservice-controller-manager
     spec:
       containers:
       - command:
@@ -1634,7 +1634,7 @@ metadata:
     app.kubernetes.io/name: namespace
     app.kubernetes.io/part-of: dpf-operator
     control-plane: controller-manager
-    dpf.nvidia.com/component: dpuservice-controller-manager
+    dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservice-serving-cert
   namespace: dpuservice-controller-system
 spec:
@@ -1657,7 +1657,7 @@ metadata:
     app.kubernetes.io/name: namespace
     app.kubernetes.io/part-of: dpf-operator
     control-plane: controller-manager
-    dpf.nvidia.com/component: dpuservice-controller-manager
+    dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservice-selfsigned-issuer
   namespace: dpuservice-controller-system
 spec:
@@ -1675,7 +1675,7 @@ metadata:
     app.kubernetes.io/name: namespace
     app.kubernetes.io/part-of: dpf-ovnkubernetes-operator
     control-plane: controller-manager
-    dpf.nvidia.com/component: dpuservice-controller-manager
+    dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservice-validating-webhook-configuration
 webhooks:
 - admissionReviewVersions:
@@ -1684,12 +1684,12 @@ webhooks:
     service:
       name: dpuservice-webhook-service
       namespace: dpuservice-controller-system
-      path: /validate-svc-dpf-nvidia-com-v1alpha1-dpuserviceipam
+      path: /validate-svc-dpu-nvidia-com-v1alpha1-dpuserviceipam
   failurePolicy: Fail
-  name: ipam-validator.svc.dpf.nvidia.com
+  name: ipam-validator.svc.dpu.nvidia.com
   rules:
   - apiGroups:
-    - svc.dpf.nvidia.com
+    - svc.dpu.nvidia.com
     apiVersions:
     - v1alpha1
     operations:

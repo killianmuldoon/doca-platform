@@ -44,8 +44,8 @@ import (
 )
 
 const (
-	ServiceInterfaceSetNameLabel      = "svc.dpf.nvidia.com/serviceinterfaceset-name"
-	ServiceInterfaceSetNamespaceLabel = "svc.dpf.nvidia.com/serviceinterfaceset-namespace"
+	ServiceInterfaceSetNameLabel      = "svc.dpu.nvidia.com/serviceinterfaceset-name"
+	ServiceInterfaceSetNamespaceLabel = "svc.dpu.nvidia.com/serviceinterfaceset-namespace"
 	serviceInterfaceSetControllerName = "service-interface-set-controller"
 )
 
@@ -57,11 +57,11 @@ type ServiceInterfaceSetReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfacesets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfacesets/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfacesets/finalizers,verbs=update
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfacesets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfacesets/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfacesets/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to

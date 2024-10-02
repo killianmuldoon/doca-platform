@@ -12,7 +12,7 @@ metadata:
   name: bfb-viewer-role
 rules:
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - bfbs
   verbs:
@@ -20,7 +20,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - bfbs/status
   verbs:

@@ -38,9 +38,9 @@ var (
 )
 
 var (
-	DPFOperatorConfigFinalizer = "dpf.nvidia.com/dpfoperatorconfig"
+	DPFOperatorConfigFinalizer = "dpu.nvidia.com/dpfoperatorconfig"
 	// DPFComponentLabelKey is added on all objects created by the DPF Operator.
-	DPFComponentLabelKey = "dpf.nvidia.com/component"
+	DPFComponentLabelKey = "dpu.nvidia.com/component"
 )
 
 // Overrides exposes a set of fields which impact the recommended behaviour of the DPF Operator

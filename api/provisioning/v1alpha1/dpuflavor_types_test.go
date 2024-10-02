@@ -289,7 +289,7 @@ var _ = Describe("DPUFlavor", func() {
 
 		It("create from yaml", func() {
 			yml := []byte(`
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPUFlavor
 metadata:
   name: obj-13
@@ -356,7 +356,7 @@ spec:
 
 		It("create from yaml minimal", func() {
 			yml := []byte(`
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPUFlavor
 metadata:
   name: obj-14

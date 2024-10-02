@@ -254,7 +254,7 @@ DPF Operator Configuration
     .. code-block:: bash
 
         cat <<EOF | kubectl apply -f -
-        apiVersion: operator.dpf.nvidia.com/v1alpha1
+        apiVersion: operator.dpu.nvidia.com/v1alpha1
         kind: DPFOperatorConfig
         metadata:
           name: dpfoperatorconfig

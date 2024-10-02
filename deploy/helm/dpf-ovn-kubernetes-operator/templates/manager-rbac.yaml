@@ -3,7 +3,7 @@ kind: ClusterRole
 metadata:
   name: {{ include "dpf-ovn-kubernetes-operator.fullname" . }}-manager-role
   labels:
-    dpf.nvidia.com/component: dpf-ovn-kubernetes-operator-controller-manager
+    dpu.nvidia.com/component: dpf-ovn-kubernetes-operator-controller-manager
   {{- include "dpf-ovn-kubernetes-operator.labels" . | nindent 4 }}
 rules:
 - apiGroups:
@@ -21,7 +21,7 @@ metadata:
     app.kubernetes.io/component: rbac
     app.kubernetes.io/created-by: dpf-operator
     app.kubernetes.io/part-of: dpf-operator
-    dpf.nvidia.com/component: dpf-ovn-kubernetes-operator-controller-manager
+    dpu.nvidia.com/component: dpf-ovn-kubernetes-operator-controller-manager
   {{- include "dpf-ovn-kubernetes-operator.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io

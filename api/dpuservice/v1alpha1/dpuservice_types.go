@@ -33,20 +33,20 @@ const (
 	// DPUServiceListKind is the kind of the DPUServiceList.
 	DPUServiceListKind = "DPUServiceList"
 	// DPUServiceFinalizer is the finalizer that will be added to the DPUService.
-	DPUServiceFinalizer = "dpf.nvidia.com/dpuservice"
+	DPUServiceFinalizer = "dpu.nvidia.com/dpuservice"
 	// DPUServiceNameLabelKey is the label key that is used to store the name of the DPUService.
-	DPUServiceNameLabelKey = "dpf.nvidia.com/dpuservice-name"
+	DPUServiceNameLabelKey = "dpu.nvidia.com/dpuservice-name"
 	// DPUServiceNamespaceLabelKey is the label key that is used to store the namespace of the DPUService.
-	DPUServiceNamespaceLabelKey = "dpf.nvidia.com/dpuservice-namespace"
+	DPUServiceNamespaceLabelKey = "dpu.nvidia.com/dpuservice-namespace"
 	// DPFServiceIDLabelKey is a label of DPU Service pods with a value of service identifier.
 	DPFServiceIDLabelKey = "sfc.nvidia.com/service"
 
 	// DPFImagePullSecretLabelKey marks a secret as being an ImagePullSecret used by DPF which should be mirrored to DPUClusters.
-	DPFImagePullSecretLabelKey = "dpf.nvidia.com/image-pull-secret"
+	DPFImagePullSecretLabelKey = "dpu.nvidia.com/image-pull-secret"
 
 	// DPUServiceInterfaceAnnotationKey is the key used to add an annotation to a
 	// the DPUServiceInterface to indicate that it is consumed by a DPUService.
-	DPUServiceInterfaceAnnotationKey = "dpf.nvidia.com/consumed-by"
+	DPUServiceInterfaceAnnotationKey = "dpu.nvidia.com/consumed-by"
 
 	// InterfaceIndexKey is the key used to index the DPUService by the interfaces
 	// it consumes.

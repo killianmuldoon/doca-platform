@@ -12,7 +12,7 @@ labels:
   - includeTemplates: true
     includeSelectors: true
     pairs:
-      dpf.nvidia.com/component: servicefunctionchainset-controller-manager
+      dpu.nvidia.com/component: servicefunctionchainset-controller-manager
 
 resources:
 - ../crd

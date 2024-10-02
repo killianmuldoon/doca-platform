@@ -53,21 +53,21 @@ const (
 	dpuDeploymentControllerName = "dpudeploymentcontroller"
 
 	// ParentDPUDeploymentNameLabel contains the name of the DPUDeployment object that owns the resource
-	ParentDPUDeploymentNameLabel = "dpf.nvidia.com/dpudeployment-name"
+	ParentDPUDeploymentNameLabel = "dpu.nvidia.com/dpudeployment-name"
 	// DependentDPUDeploymentNameLabel contains the name of the DPUDeployment object that relies on this resource
-	DependentDPUDeploymentNameLabel = "dpf.nvidia.com/consumed-by-dpudeployment-name"
+	DependentDPUDeploymentNameLabel = "dpu.nvidia.com/consumed-by-dpudeployment-name"
 )
 
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpudeployments,verbs=get;list;watch;update;patch
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpudeployments/finalizers,verbs=update
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpudeployments/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=bfbs;dpuflavors,verbs=get;list;watch;update;patch
-//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=bfbs/finalizers;dpuflavors/finalizers,verbs=update
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceconfigurations;dpuservicetemplates,verbs=get;list;watch;update;patch
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpudeployments,verbs=get;list;watch;update;patch
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpudeployments/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpudeployments/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=bfbs;dpuflavors,verbs=get;list;watch;update;patch
+//+kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=bfbs/finalizers;dpuflavors/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuserviceconfigurations;dpuservicetemplates,verbs=get;list;watch;update;patch
 
-//+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets,verbs=get;list;watch;create;update;patch;delete;deletecollection
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservicechains;dpuserviceinterfaces,verbs=get;list;watch;create;update;patch;delete;deletecollection
-//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices,verbs=get;list;watch;create;update;patch;delete;deletecollection
+//+kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpusets,verbs=get;list;watch;create;update;patch;delete;deletecollection
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuservicechains;dpuserviceinterfaces,verbs=get;list;watch;create;update;patch;delete;deletecollection
+//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuservices,verbs=get;list;watch;create;update;patch;delete;deletecollection
 
 // DPUDeploymentReconciler reconciles a DPUDeployment object
 type DPUDeploymentReconciler struct {

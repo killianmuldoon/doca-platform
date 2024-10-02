@@ -636,8 +636,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 					ipPools := &nvipamv1.IPPoolList{}
 					g.Expect(dpuClient.List(ctx, ipPools, client.MatchingLabels{
-						"dpf.nvidia.com/dpuserviceipam-name":      dpuServiceIPAM.GetName(),
-						"dpf.nvidia.com/dpuserviceipam-namespace": dpuServiceIPAM.GetNamespace(),
+						"dpu.nvidia.com/dpuserviceipam-name":      dpuServiceIPAM.GetName(),
+						"dpu.nvidia.com/dpuserviceipam-namespace": dpuServiceIPAM.GetNamespace(),
 					})).To(Succeed())
 					g.Expect(ipPools.Items).To(HaveLen(1))
 
@@ -665,8 +665,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 					ipPools := &nvipamv1.IPPoolList{}
 					g.Expect(dpuClient.List(ctx, ipPools, client.MatchingLabels{
-						"dpf.nvidia.com/dpuserviceipam-name":      dpuServiceIPAM.GetName(),
-						"dpf.nvidia.com/dpuserviceipam-namespace": dpuServiceIPAM.GetNamespace(),
+						"dpu.nvidia.com/dpuserviceipam-name":      dpuServiceIPAM.GetName(),
+						"dpu.nvidia.com/dpuserviceipam-namespace": dpuServiceIPAM.GetNamespace(),
 					})).To(Succeed())
 					g.Expect(ipPools.Items).To(BeEmpty())
 				}
@@ -691,8 +691,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 					cidrPools := &nvipamv1.CIDRPoolList{}
 					g.Expect(dpuClient.List(ctx, cidrPools, client.MatchingLabels{
-						"dpf.nvidia.com/dpuserviceipam-name":      dpuServiceIPAM.GetName(),
-						"dpf.nvidia.com/dpuserviceipam-namespace": dpuServiceIPAM.GetNamespace(),
+						"dpu.nvidia.com/dpuserviceipam-name":      dpuServiceIPAM.GetName(),
+						"dpu.nvidia.com/dpuserviceipam-namespace": dpuServiceIPAM.GetNamespace(),
 					})).To(Succeed())
 					g.Expect(cidrPools.Items).To(HaveLen(1))
 
@@ -720,8 +720,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 					cidrPools := &nvipamv1.CIDRPoolList{}
 					g.Expect(dpuClient.List(ctx, cidrPools, client.MatchingLabels{
-						"dpf.nvidia.com/dpuserviceipam-name":      dpuServiceIPAM.GetName(),
-						"dpf.nvidia.com/dpuserviceipam-namespace": dpuServiceIPAM.GetNamespace(),
+						"dpu.nvidia.com/dpuserviceipam-name":      dpuServiceIPAM.GetName(),
+						"dpu.nvidia.com/dpuserviceipam-namespace": dpuServiceIPAM.GetNamespace(),
 					})).To(Succeed())
 					g.Expect(cidrPools.Items).To(BeEmpty())
 				}
@@ -750,7 +750,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					gotDPUSetList,
 					client.InNamespace(dpuDeployment.GetNamespace()),
 					client.MatchingLabels{
-						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
 					})).To(Succeed())
 				g.Expect(gotDPUSetList.Items).To(HaveLen(1))
 
@@ -759,7 +759,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					gotDPUServiceList,
 					client.InNamespace(dpuDeployment.GetNamespace()),
 					client.MatchingLabels{
-						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
 					})).To(Succeed())
 				g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
 
@@ -768,7 +768,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					gotDPUServiceChainList,
 					client.InNamespace(dpuDeployment.GetNamespace()),
 					client.MatchingLabels{
-						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
 					})).To(Succeed())
 				g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
 
@@ -777,7 +777,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					gotDPUServiceInterfaceList,
 					client.InNamespace(dpuDeployment.GetNamespace()),
 					client.MatchingLabels{
-						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
 					})).To(Succeed())
 				g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
 			}).WithTimeout(180 * time.Second).Should(Succeed())
@@ -799,7 +799,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					gotDPUSetList,
 					client.InNamespace(dpuDeployment.GetNamespace()),
 					client.MatchingLabels{
-						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
 					})).To(Succeed())
 				g.Expect(gotDPUSetList.Items).To(BeEmpty())
 
@@ -808,7 +808,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					gotDPUServiceList,
 					client.InNamespace(dpuDeployment.GetNamespace()),
 					client.MatchingLabels{
-						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
 					})).To(Succeed())
 				g.Expect(gotDPUServiceList.Items).To(BeEmpty())
 
@@ -817,7 +817,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					gotDPUServiceChainList,
 					client.InNamespace(dpuDeployment.GetNamespace()),
 					client.MatchingLabels{
-						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
 					})).To(Succeed())
 				g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
 
@@ -826,7 +826,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					gotDPUServiceInterfaceList,
 					client.InNamespace(dpuDeployment.GetNamespace()),
 					client.MatchingLabels{
-						"dpf.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
 					})).To(Succeed())
 				g.Expect(gotDPUServiceInterfaceList.Items).To(BeEmpty())
 

@@ -12,7 +12,7 @@ metadata:
   name: dpuservice-viewer-role
 rules:
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpuservices
   verbs:
@@ -20,7 +20,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpuservices/status
   verbs:

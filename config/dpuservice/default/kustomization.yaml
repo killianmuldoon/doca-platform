@@ -12,7 +12,7 @@ labels:
   - includeTemplates: true
     includeSelectors: true
     pairs:
-      dpf.nvidia.com/component: dpuservice-controller-manager
+      dpu.nvidia.com/component: dpuservice-controller-manager
 
 resources:
 - ../crd

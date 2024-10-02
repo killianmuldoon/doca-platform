@@ -314,7 +314,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			By("Adding finalizer to the underlying object")
 			gotInterfaceSet := &dpuservicev1.ServiceInterfaceSet{}
 			Eventually(dpfClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "interface"}, gotInterfaceSet).Should(Succeed())
-			gotInterfaceSet.SetFinalizers([]string{"test.dpf.nvidia.com/test"})
+			gotInterfaceSet.SetFinalizers([]string{"test.dpu.nvidia.com/test"})
 			gotInterfaceSet.SetGroupVersionKind(dpuservicev1.ServiceInterfaceSetGroupVersionKind)
 			gotInterfaceSet.SetManagedFields(nil)
 			Expect(testClient.Patch(ctx, gotInterfaceSet, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())

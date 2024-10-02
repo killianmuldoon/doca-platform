@@ -196,7 +196,7 @@ var _ = Describe("DPU", func() {
 
 		It("create from yaml", func() {
 			yml := []byte(`
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPU
 metadata:
   name: obj-8
@@ -226,7 +226,7 @@ spec:
 
 		It("create from yaml minimal", func() {
 			yml := []byte(`
-apiVersion: provisioning.dpf.nvidia.com/v1alpha1
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPU
 metadata:
   name: obj-9

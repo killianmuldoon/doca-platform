@@ -28,7 +28,7 @@ const (
 	ServiceInterfaceSetKind = "ServiceInterfaceSet"
 	// ServiceInterfaceSetFinalizer is set on a ServiceInterfaceSet when it is first handled by
 	// the controller, and removed when this object is deleted.
-	ServiceInterfaceSetFinalizer = "dpf.nvidia.com/serviceinterfaceset"
+	ServiceInterfaceSetFinalizer = "dpu.nvidia.com/serviceinterfaceset"
 )
 
 var (

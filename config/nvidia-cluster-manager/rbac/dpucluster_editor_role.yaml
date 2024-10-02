@@ -12,7 +12,7 @@ metadata:
   name: dpucluster-editor-role
 rules:
 - apiGroups:
-  - cluster-manager.dpf.nvidia.com
+  - cluster-manager.dpu.nvidia.com
   resources:
   - dpuclusters
   verbs:
@@ -24,7 +24,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - cluster-manager.dpf.nvidia.com
+  - cluster-manager.dpu.nvidia.com
   resources:
   - dpuclusters/status
   verbs:

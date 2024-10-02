@@ -315,7 +315,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			By("Adding finalizer to the underlying object")
 			gotChainSet := &dpuservicev1.ServiceChainSet{}
 			Eventually(dpfClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "chain"}, gotChainSet).Should(Succeed())
-			gotChainSet.SetFinalizers([]string{"test.dpf.nvidia.com/test"})
+			gotChainSet.SetFinalizers([]string{"test.dpu.nvidia.com/test"})
 			gotChainSet.SetGroupVersionKind(dpuservicev1.ServiceChainSetGroupVersionKind)
 			gotChainSet.SetManagedFields(nil)
 			Expect(testClient.Patch(ctx, gotChainSet, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())

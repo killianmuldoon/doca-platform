@@ -112,7 +112,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - dpuclusters
   verbs:
@@ -124,13 +124,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - dpuclusters/finalizers
   verbs:
   - update
 - apiGroups:
-  - provisioning.dpf.nvidia.com
+  - provisioning.dpu.nvidia.com
   resources:
   - dpuclusters/status
   verbs:

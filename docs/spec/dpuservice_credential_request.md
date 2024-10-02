@@ -9,7 +9,7 @@ The following is an example of a `DPUServiceCredentialRequest` which requests cr
 to access a cluster with a duration of 1h.
 
 ```yaml
-apiVersion: svc.dpf.nvidia.com/v1alpha1
+apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceCredentialRequest
 metadata:
   name: dpu-01-credential-request

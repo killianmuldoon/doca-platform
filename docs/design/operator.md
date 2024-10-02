@@ -41,7 +41,7 @@ The following is a set of pre-requisites that are out of scope for this design. 
 
 The DPF Operator reconciles a DPFOperatorConfig object. This object contains only the information required for initialising the system. It must be unique and is confined to a single name and namespace.
 ```yaml
-apiVersion: operator.dpf.nvidia.com/v1alpha1
+apiVersion: operator.dpu.nvidia.com/v1alpha1
 kind: DPFOperatorConfig
 metadata:
   name: dpfoperatorconfig

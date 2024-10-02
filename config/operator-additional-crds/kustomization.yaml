@@ -11,4 +11,4 @@ labels:
   - includeSelectors: true
     includeTemplates: true
     pairs:
-      dpf.nvidia.com/component: dpf-operator-controller-manager
+      dpu.nvidia.com/component: dpf-operator-controller-manager

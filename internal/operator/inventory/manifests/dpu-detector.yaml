@@ -2,16 +2,16 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
-    dpf.nvidia.com/component: dpf-dpu-detector
+    dpu.nvidia.com/component: dpf-dpu-detector
   name: dpf-dpu-detector
 spec:
   selector:
     matchLabels:
-      dpf.nvidia.com/component: dpf-dpu-detector
+      dpu.nvidia.com/component: dpf-dpu-detector
   template:
     metadata:
       labels:
-        dpf.nvidia.com/component: dpf-dpu-detector
+        dpu.nvidia.com/component: dpf-dpu-detector
     spec:
       containers:
       - command:

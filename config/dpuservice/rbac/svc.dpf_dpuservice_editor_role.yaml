@@ -12,7 +12,7 @@ metadata:
   name: dpuservice-editor-role
 rules:
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpuservices
   verbs:
@@ -24,7 +24,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - svc.dpf.nvidia.com
+  - svc.dpu.nvidia.com
   resources:
   - dpuservices/status
   verbs:

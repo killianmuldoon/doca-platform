@@ -40,7 +40,7 @@ This contract sets out that the helm chart contains:
 
 ### Spec
 ```yaml 
-apiVersion: svc.dpf.nvidia.com/v1alpha1
+apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUService
 metadata:
   name: dpu-service-name
@@ -56,7 +56,7 @@ spec:
   serviceDaemonSet:
     nodeSelector:
         matchLabels:
-          dpf.nvidia.com/dpu-label: dpu
+          dpu.nvidia.com/dpu-label: dpu
         matchExpressions:
           - { key: tier, operator: In, values: [critical-dpus] }
     resources:
@@ -206,8 +206,8 @@ metadata:
   name: dpu-service-name-$CLUSTER_NUMBER-SUFFIX # Templated name from DPUService name + cluster number suffix.
   namespace: dpf-argo-cd-system
   labels:
-    - "dpf.nvidia.com/cluster-name": "dpu-cluster-01" # Labels added by controller.
-    - "dpf.nvidia.com/dpu-service-name": "dpu-service-name"
+    - "dpu.nvidia.com/cluster-name": "dpu-cluster-01" # Labels added by controller.
+    - "dpu.nvidia.com/dpu-service-name": "dpu-service-name"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
@@ -225,7 +225,7 @@ spec:
         serviceDaemonSet:
             nodeSelector: # From DPUService `.spec.serviceDaemonSet.nodeSelector`
               matchLabels:
-                dpf.nvidia.com/dpu-label: dpu
+                dpu.nvidia.com/dpu-label: dpu
               matchExpressions:
                 - { key: tier, operator: In, values: [critical-dpus] }
             labels: # From DPUService `.spec.serviceDaemonSetlabels`

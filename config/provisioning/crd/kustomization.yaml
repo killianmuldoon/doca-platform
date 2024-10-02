@@ -2,11 +2,11 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/provisioning.dpf.nvidia.com_dpus.yaml
-- bases/provisioning.dpf.nvidia.com_dpusets.yaml
-- bases/provisioning.dpf.nvidia.com_bfbs.yaml
-- bases/provisioning.dpf.nvidia.com_dpuflavors.yaml
-- bases/provisioning.dpf.nvidia.com_dpuclusters.yaml
+- bases/provisioning.dpu.nvidia.com_dpus.yaml
+- bases/provisioning.dpu.nvidia.com_dpusets.yaml
+- bases/provisioning.dpu.nvidia.com_bfbs.yaml
+- bases/provisioning.dpu.nvidia.com_dpuflavors.yaml
+- bases/provisioning.dpu.nvidia.com_dpuclusters.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patches:

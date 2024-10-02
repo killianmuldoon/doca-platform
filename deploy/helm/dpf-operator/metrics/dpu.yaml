@@ -1,5 +1,5 @@
 - groupVersionKind:
-    group: provisioning.dpf.nvidia.com
+    group: provisioning.dpu.nvidia.com
     kind: DPU
     version: v1alpha1
   labelsFromPath:

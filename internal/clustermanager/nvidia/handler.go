@@ -373,7 +373,7 @@ func tcpToDPUCluster(ctx context.Context, o client.Object) []reconcile.Request {
 func daemonsetToDPUCluster(ctx context.Context, o client.Object) []reconcile.Request {
 	refs := o.GetOwnerReferences()
 	for _, ref := range refs {
-		if ref.APIVersion != "cluster-manager.dpf.nvidia.com" || ref.Kind != "DPUCluster" {
+		if ref.APIVersion != "cluster-manager.dpu.nvidia.com" || ref.Kind != "DPUCluster" {
 			continue
 		}
 		nn := types.NamespacedName{
