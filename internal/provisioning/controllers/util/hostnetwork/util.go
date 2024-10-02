@@ -50,7 +50,7 @@ func getNumOfVFsFromFlavor(flavor *provisioningv1.DPUFlavor) (string, bool) {
 	return "", false
 }
 
-func CreateHostNetworkSetupPod(ctx context.Context, client client.Client, dpu *provisioningv1.Dpu, option dutil.DPUOptions) error {
+func CreateHostNetworkSetupPod(ctx context.Context, client client.Client, dpu *provisioningv1.DPU, option dutil.DPUOptions) error {
 	logger := log.FromContext(ctx)
 	hostnetworkPodName := cutil.GenerateHostnetworkPodName(dpu.Name)
 
@@ -76,7 +76,7 @@ func CreateHostNetworkSetupPod(ctx context.Context, client client.Client, dpu *p
 
 	hostPathType := corev1.HostPathDirectory
 	owner := metav1.NewControllerRef(dpu,
-		provisioningv1.GroupVersion.WithKind("Dpu"))
+		provisioningv1.GroupVersion.WithKind("DPU"))
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            hostnetworkPodName,

@@ -49,13 +49,13 @@ const (
 	RequeueInterval                 = 5 * time.Second
 	BFBBaseDir                      = "bfb"
 	CFGExtension                    = ".cfg"
-	DpuSetNameLabel                 = "provisioning.dpf.nvidia.com/dpuset-name"
-	DpuSetNamespaceLabel            = "provisioning.dpf.nvidia.com/dpuset-namespace"
-	DpuPCIAddress                   = "dpu-%d-pci-address"
-	DpuPFName                       = "dpu-%d-pf0-name"
-	DpuPCIAddressLabel              = "provisioning.dpf.nvidia.com/dpu-pciAddress"
-	DpuPFNameLabel                  = "provisioning.dpf.nvidia.com/dpu-pf-name"
-	DpuHostIPLabel                  = "provisioning.dpf.nvidia.com/dpu-host-ip"
+	DPUSetNameLabel                 = "provisioning.dpf.nvidia.com/dpuset-name"
+	DPUSetNamespaceLabel            = "provisioning.dpf.nvidia.com/dpuset-namespace"
+	DPUPCIAddress                   = "dpu-%d-pci-address"
+	DPUPFName                       = "dpu-%d-pf0-name"
+	DPUPCIAddressLabel              = "provisioning.dpf.nvidia.com/dpu-pciAddress"
+	DPUPFNameLabel                  = "provisioning.dpf.nvidia.com/dpu-pf-name"
+	DPUHostIPLabel                  = "provisioning.dpf.nvidia.com/dpu-host-ip"
 	TolerationNotReadyKey           = "node.kubernetes.io/not-ready"
 	TolerationUnreachableyKey       = "node.kubernetes.io/unreachable"
 	TolerationUnschedulableKey      = "node.kubernetes.io/unschedulable"
@@ -174,7 +174,7 @@ func RemoteExec(ns, name, container, cmd string) (string, error) {
 
 func GetPCIAddrFromLabel(labels map[string]string, removePrefix bool) (string, error) {
 	// the value of pci address from the node label likes: 0000_4b_00
-	if pci_address, ok := labels[DpuPCIAddressLabel]; ok {
+	if pci_address, ok := labels[DPUPCIAddressLabel]; ok {
 		if removePrefix {
 			// remove 0000- prefix
 			underscoreIndex := strings.Index(pci_address, "-")
@@ -267,7 +267,7 @@ func GetObjects(client crclient.Client, objects []crclient.Object) (existObjects
 	return existObjects, nil
 }
 
-func GetDPUCondition(status *provisioningv1.DpuStatus, conditionType string) (int, *metav1.Condition) {
+func GetDPUCondition(status *provisioningv1.DPUStatus, conditionType string) (int, *metav1.Condition) {
 	if status == nil {
 		return -1, nil
 	}
@@ -297,7 +297,7 @@ func DPUCondition(condType provisioningv1.DPUConditionType, reason, message stri
 	return cond
 }
 
-func SetDPUCondition(status *provisioningv1.DpuStatus, condition *metav1.Condition) bool {
+func SetDPUCondition(status *provisioningv1.DPUStatus, condition *metav1.Condition) bool {
 	condition.LastTransitionTime = metav1.Now()
 	// Try to find this condition.
 	conditionIndex, oldCondition := GetDPUCondition(status, condition.Type)

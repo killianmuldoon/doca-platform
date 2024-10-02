@@ -27,8 +27,7 @@ import (
 )
 
 const (
-	// DPUCredentialRequestFinalizer is the finalizer that will be added to the
-	// DPUServiceCredentialRequest
+	// DPUServiceCredentialRequestFinalizer is the finalizer that will be added to the
 	DPUServiceCredentialRequestFinalizer = "dpf.nvidia.com/dpuservicecredentialrequest"
 )
 

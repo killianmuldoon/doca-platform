@@ -28,7 +28,7 @@ spec:
     - kind: DPUFlavor
       name: dpuflavors.provisioning.dpf.nvidia.com
       version: v1alpha1
-    - kind: Dpu
+    - kind: DPU
       name: dpus.provisioning.dpf.nvidia.com
       version: v1alpha1
     - kind: DPUServiceChain
@@ -52,7 +52,7 @@ spec:
     - kind: DPUServiceTemplate
       name: dpuservicetemplates.svc.dpf.nvidia.com
       version: v1alpha1
-    - kind: DpuSet
+    - kind: DPUSet
       name: dpusets.provisioning.dpf.nvidia.com
       version: v1alpha1
     - kind: ServiceChain

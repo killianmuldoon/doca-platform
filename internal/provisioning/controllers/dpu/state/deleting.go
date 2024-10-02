@@ -34,10 +34,10 @@ import (
 )
 
 type dpuDeletingState struct {
-	dpu *provisioningv1.Dpu
+	dpu *provisioningv1.DPU
 }
 
-func (st *dpuDeletingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
+func (st *dpuDeletingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
 	state := st.dpu.Status.DeepCopy()
 

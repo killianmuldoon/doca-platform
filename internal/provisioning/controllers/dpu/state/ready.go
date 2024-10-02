@@ -36,10 +36,10 @@ import (
 )
 
 type dpuReadyState struct {
-	dpu *provisioningv1.Dpu
+	dpu *provisioningv1.DPU
 }
 
-func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
+func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
@@ -63,7 +63,7 @@ func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, optio
 		Name:      st.dpu.Name,
 	}
 
-	dpu := provisioningv1.Dpu{}
+	dpu := provisioningv1.DPU{}
 	if err := client.Get(ctx, nn, &dpu); err != nil {
 		updateFalseDPUCondReady(state, "DPUGetError", err.Error())
 		return *state, err
@@ -111,7 +111,7 @@ func needUpdateNodeLabel(dpulabel map[string]string, nodeLabel map[string]string
 }
 
 // Check if the DMS pod exist, if not, restore the missing pod
-func healthyCheck(ctx context.Context, dpu *provisioningv1.Dpu, client client.Client, option dutil.DPUOptions) error {
+func healthyCheck(ctx context.Context, dpu *provisioningv1.DPU, client client.Client, option dutil.DPUOptions) error {
 	nn := types.NamespacedName{
 		Namespace: dpu.Namespace,
 		Name:      cutil.GenerateDMSPodName(dpu.Name),
@@ -138,7 +138,7 @@ func healthyCheck(ctx context.Context, dpu *provisioningv1.Dpu, client client.Cl
 	return nil
 }
 
-func updateFalseDPUCondReady(status *provisioningv1.DpuStatus, reason string, message string) {
+func updateFalseDPUCondReady(status *provisioningv1.DPUStatus, reason string, message string) {
 	cond := cutil.DPUCondition(provisioningv1.DPUCondReady, reason, message)
 	cond.Status = metav1.ConditionFalse
 	cutil.SetDPUCondition(status, cond)

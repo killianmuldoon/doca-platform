@@ -37,10 +37,10 @@ import (
 )
 
 type dpuRebootingState struct {
-	dpu *provisioningv1.Dpu
+	dpu *provisioningv1.DPU
 }
 
-func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
+func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
 
 	rebootTaskName := generateRebootTaskName(st.dpu)
@@ -56,7 +56,7 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 		Name:      st.dpu.Name,
 	}
 
-	dpu := provisioningv1.Dpu{}
+	dpu := provisioningv1.DPU{}
 	if err := client.Get(ctx, nn, &dpu); err != nil {
 		return *state, err
 	}
@@ -148,7 +148,7 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 	return *state, nil
 }
 
-func rebootHandler(ctx context.Context, dpu *provisioningv1.Dpu, pci_address string, cmd string) {
+func rebootHandler(ctx context.Context, dpu *provisioningv1.DPU, pci_address string, cmd string) {
 	logger := log.FromContext(ctx)
 	rebootTaskName := generateRebootTaskName(dpu)
 	logger.V(3).Info(fmt.Sprintf("BF-SLR for %s", rebootTaskName))
@@ -185,6 +185,6 @@ func HostUptime(ns, name, container string) (int, error) {
 	return int(uptime), nil
 }
 
-func generateRebootTaskName(dpu *provisioningv1.Dpu) string {
+func generateRebootTaskName(dpu *provisioningv1.DPU) string {
 	return fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)
 }

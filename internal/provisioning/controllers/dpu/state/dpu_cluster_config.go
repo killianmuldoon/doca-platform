@@ -31,10 +31,10 @@ import (
 )
 
 type dpuClusterConfig struct {
-	dpu *provisioningv1.Dpu
+	dpu *provisioningv1.DPU
 }
 
-func (st *dpuClusterConfig) Handle(ctx context.Context, client crclient.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
+func (st *dpuClusterConfig) Handle(ctx context.Context, client crclient.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
 
 	state := st.dpu.Status.DeepCopy()

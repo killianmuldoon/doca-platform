@@ -33,7 +33,7 @@ import (
 
 // These tests are written in BDD-style using Ginkgo framework. Refer to
 // http://onsi.github.io/ginkgo to learn more.
-var _ = Describe("DpuSet", func() {
+var _ = Describe("DPUSet", func() {
 
 	const (
 		DefaultNS   = "dpf-provisioning-test"
@@ -45,21 +45,21 @@ var _ = Describe("DpuSet", func() {
 		testNode *corev1.Node
 	)
 
-	var getObjKey = func(obj *provisioningv1.DpuSet) types.NamespacedName {
+	var getObjKey = func(obj *provisioningv1.DPUSet) types.NamespacedName {
 		return types.NamespacedName{
 			Name:      obj.Name,
 			Namespace: obj.Namespace,
 		}
 	}
 
-	var createObj = func(name string) *provisioningv1.DpuSet {
-		return &provisioningv1.DpuSet{
+	var createObj = func(name string) *provisioningv1.DPUSet {
+		return &provisioningv1.DPUSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: testNS.Name,
 			},
-			Spec:   provisioningv1.DpuSetSpec{},
-			Status: provisioningv1.DpuSetStatus{},
+			Spec:   provisioningv1.DPUSetSpec{},
+			Status: provisioningv1.DPUSetStatus{},
 		}
 	}
 
@@ -95,19 +95,19 @@ var _ = Describe("DpuSet", func() {
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &provisioningv1.DpuSet{}
+			obj_fetched := &provisioningv1.DPUSet{}
 
 			By("checking the finalizer")
 			Eventually(func(g Gomega) []string {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Finalizers
-			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{provisioningv1.DpuSetFinalizer}))
+			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{provisioningv1.DPUSetFinalizer}))
 		})
 
 		It("create from yaml", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
-kind: DpuSet
+kind: DPUSet
 metadata:
   name: dpuset-1
   namespace: default
@@ -140,19 +140,19 @@ spec:
         node_labels:
           "dpf.node.dpu/role": "worker"
 `)
-			obj := &provisioningv1.DpuSet{}
+			obj := &provisioningv1.DPUSet{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &provisioningv1.DpuSet{}
+			obj_fetched := &provisioningv1.DPUSet{}
 
 			By("checking the finalizer")
 			Eventually(func(g Gomega) []string {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Finalizers
-			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{provisioningv1.DpuSetFinalizer}))
+			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{provisioningv1.DPUSetFinalizer}))
 		})
 	})
 })

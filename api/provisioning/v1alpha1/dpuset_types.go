@@ -23,12 +23,12 @@ import (
 )
 
 const (
-	// DpuSetKind is the kind of the DpuSet object
-	DpuSetKind = "DpuSet"
+	// DPUSetKind is the kind of the DPUSet object
+	DPUSetKind = "DPUSet"
 )
 
-// DpuSetGroupVersionKind is the GroupVersionKind of the DpuSet object
-var DpuSetGroupVersionKind = GroupVersion.WithKind(DpuSetKind)
+// DPUSetGroupVersionKind is the GroupVersionKind of the DPUSet object
+var DPUSetGroupVersionKind = GroupVersion.WithKind(DPUSetKind)
 
 // StrategyType describes strategy to use to reprovision existing DPUs.
 // Default is "Recreate".
@@ -36,7 +36,7 @@ var DpuSetGroupVersionKind = GroupVersion.WithKind(DpuSetKind)
 type StrategyType string
 
 const (
-	DpuSetFinalizer = "provisioning.dpf.nvidia.com/dpuset-protection"
+	DPUSetFinalizer = "provisioning.dpf.nvidia.com/dpuset-protection"
 
 	// Delete all the existing DPUs before creating new ones.
 	RecreateStrategyType StrategyType = "Recreate"
@@ -45,7 +45,7 @@ const (
 	RollingUpdateStrategyType StrategyType = "RollingUpdate"
 )
 
-type DpuSetStrategy struct {
+type DPUSetStrategy struct {
 	// Can be "Recreate" or "RollingUpdate".
 	// +kubebuilder:default=Recreate
 	// +optional
@@ -53,11 +53,11 @@ type DpuSetStrategy struct {
 
 	// Rolling update config params. Present only if StrategyType = RollingUpdate.
 	// +optional
-	RollingUpdate *RollingUpdateDpu `json:"rollingUpdate,omitempty"`
+	RollingUpdate *RollingUpdateDPU `json:"rollingUpdate,omitempty"`
 }
 
 // Spec to control the desired behavior of rolling update.
-type RollingUpdateDpu struct {
+type RollingUpdateDPU struct {
 	// +optional
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
@@ -66,7 +66,7 @@ type BFBReference struct {
 	Name string `json:"name,omitempty"`
 }
 
-type DPUSpec struct {
+type DPUTemplateSpec struct {
 	BFB        BFBReference `json:"bfb,omitempty"`
 	NodeEffect *NodeEffect  `json:"nodeEffect,omitempty"`
 	Cluster    K8sCluster   `json:"k8s_cluster"`
@@ -76,9 +76,9 @@ type DPUSpec struct {
 	// +optional
 	AutomaticNodeReboot bool `json:"automaticNodeReboot,omitempty"`
 }
-type DpuTemplate struct {
+type DPUTemplate struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
-	Spec        DPUSpec           `json:"spec,omitempty"`
+	Spec        DPUTemplateSpec   `json:"spec,omitempty"`
 }
 
 type NodeEffect struct {
@@ -93,11 +93,11 @@ type Drain struct {
 	AutomaticNodeReboot bool `json:"automaticNodeReboot,omitempty"`
 }
 
-// DpuSetSpec defines the desired state of DpuSet
-type DpuSetSpec struct {
-	// The rolling update strategy to use to updating existing Dpus with new ones.
+// DPUSetSpec defines the desired state of DPUSet
+type DPUSetSpec struct {
+	// The rolling update strategy to use to updating existing DPUs with new ones.
 	// +optional
-	Strategy *DpuSetStrategy `json:"strategy,omitempty"`
+	Strategy *DPUSetStrategy `json:"strategy,omitempty"`
 
 	// Select the Nodes with specific labels
 	// +optional
@@ -105,40 +105,40 @@ type DpuSetSpec struct {
 
 	// Select the DPU with specific labels
 	// +optional
-	DpuSelector map[string]string `json:"dpuSelector,omitempty"`
+	DPUSelector map[string]string `json:"dpuSelector,omitempty"`
 
 	// Object that describes the DPU that will be created if insufficient replicas are detected
 	// +optional
-	DpuTemplate DpuTemplate `json:"dpuTemplate,omitempty"`
+	DPUTemplate DPUTemplate `json:"dpuTemplate,omitempty"`
 }
 
-// DpuSetStatus defines the observed state of DpuSet
-type DpuSetStatus struct {
+// DPUSetStatus defines the observed state of DPUSet
+type DPUSetStatus struct {
 	// +optional
-	Dpustatistics map[DpuPhase]int `json:"dpuStatistics,omitempty"`
+	DPUStatistics map[DPUPhase]int `json:"dpuStatistics,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// DpuSet is the Schema for the dpusets API
-type DpuSet struct {
+// DPUSet is the Schema for the dpusets API
+type DPUSet struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   DpuSetSpec   `json:"spec,omitempty"`
-	Status DpuSetStatus `json:"status,omitempty"`
+	Spec   DPUSetSpec   `json:"spec,omitempty"`
+	Status DPUSetStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// DpuSetList contains a list of DpuSet
-type DpuSetList struct {
+// DPUSetList contains a list of DPUSet
+type DPUSetList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []DpuSet `json:"items"`
+	Items           []DPUSet `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&DpuSet{}, &DpuSetList{})
+	SchemeBuilder.Register(&DPUSet{}, &DPUSetList{})
 }

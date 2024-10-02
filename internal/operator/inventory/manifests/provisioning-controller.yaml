@@ -453,8 +453,8 @@ spec:
       - v1
   group: provisioning.dpf.nvidia.com
   names:
-    kind: Dpu
-    listKind: DpuList
+    kind: DPU
+    listKind: DPUList
     plural: dpus
     singular: dpu
   scope: Namespaced
@@ -462,7 +462,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Dpu is the Schema for the dpus API
+        description: DPU is the Schema for the dpus API
         properties:
           apiVersion:
             description: |-
@@ -482,7 +482,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: DpuSpec defines the desired state of Dpu
+            description: DPUSpec defines the desired state of DPU
             properties:
               automaticNodeReboot:
                 description: |-
@@ -573,7 +573,7 @@ spec:
           status:
             default:
               phase: Initializing
-            description: DpuStatus defines the observed state of DPU
+            description: DPUStatus defines the observed state of DPU
             properties:
               bfb_version:
                 description: bfb version of this DPU
@@ -649,7 +649,7 @@ spec:
                 type: string
               phase:
                 default: Initializing
-                description: The current state of Dpu.
+                description: The current state of DPU.
                 enum:
                 - Initializing
                 - Node Effect
@@ -685,8 +685,8 @@ metadata:
 spec:
   group: provisioning.dpf.nvidia.com
   names:
-    kind: DpuSet
-    listKind: DpuSetList
+    kind: DPUSet
+    listKind: DPUSetList
     plural: dpusets
     singular: dpuset
   scope: Namespaced
@@ -694,7 +694,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: DpuSet is the Schema for the dpusets API
+        description: DPUSet is the Schema for the dpusets API
         properties:
           apiVersion:
             description: |-
@@ -714,7 +714,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: DpuSetSpec defines the desired state of DpuSet
+            description: DPUSetSpec defines the desired state of DPUSet
             properties:
               dpuSelector:
                 additionalProperties:
@@ -850,7 +850,7 @@ spec:
                 x-kubernetes-map-type: atomic
               strategy:
                 description: The rolling update strategy to use to updating existing
-                  Dpus with new ones.
+                  DPUs with new ones.
                 properties:
                   rollingUpdate:
                     description: Rolling update config params. Present only if StrategyType
@@ -872,7 +872,7 @@ spec:
                 type: object
             type: object
           status:
-            description: DpuSetStatus defines the observed state of DpuSet
+            description: DPUSetStatus defines the observed state of DPUSet
             properties:
               dpuStatistics:
                 additionalProperties:

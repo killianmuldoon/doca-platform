@@ -40,11 +40,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// controller name that will be used when reporting events
-const DpuControllerName = "dpu"
+// DPUControllerName is used when reporting events
+const DPUControllerName = "dpu"
 
-// DpuReconciler reconciles a Dpu object
-type DpuReconciler struct {
+// DPUReconciler reconciles a DPU object
+type DPUReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	util.DPUOptions
@@ -65,17 +65,17 @@ type DpuReconciler struct {
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpuclusters/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpuclusters/finalizers,verbs=update
 
-func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *DPUReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.V(4).Info("Reconcile", "dpu", req.Name)
 
-	dpu := &provisioningv1.Dpu{}
+	dpu := &provisioningv1.DPU{}
 	if err := r.Get(ctx, req.NamespacedName, dpu); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "Failed to get DPU", "DPU", dpu)
-		return ctrl.Result{}, errors.Wrap(err, "failed to get Dpu")
+		return ctrl.Result{}, errors.Wrap(err, "failed to get DPU")
 	}
 
 	node := &corev1.Node{}
@@ -109,7 +109,7 @@ func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 		if err := r.Client.Status().Update(ctx, dpu); err != nil {
 			logger.Error(err, "Failed to update DPU", "DPU", dpu)
-			return ctrl.Result{}, errors.Wrap(err, "failed to update Dpu")
+			return ctrl.Result{}, errors.Wrap(err, "failed to update DPU")
 		}
 	} else if nextState.Phase != provisioningv1.DPUError {
 		// TODO: move the state checking in state machine
@@ -120,20 +120,20 @@ func (r *DpuReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DpuReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DPUReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&provisioningv1.Dpu{}).
+		For(&provisioningv1.DPU{}).
 		Watches(&provisioningv1.DPUCluster{}, handler.EnqueueRequestsFromMapFunc(r.nonInitializedDPU)).
 		Complete(r)
 }
 
-func (r *DpuReconciler) nonInitializedDPU(ctx context.Context, obj client.Object) []reconcile.Request {
+func (r *DPUReconciler) nonInitializedDPU(ctx context.Context, obj client.Object) []reconcile.Request {
 	var ret []reconcile.Request
 	dc := obj.(*provisioningv1.DPUCluster)
 	if dc.Status.Phase != provisioningv1.PhaseReady {
 		return nil
 	}
-	dpuList := &provisioningv1.DpuList{}
+	dpuList := &provisioningv1.DPUList{}
 	if err := r.Client.List(ctx, dpuList); err != nil {
 		log.FromContext(ctx).Error(fmt.Errorf("failed to list DPUs, err: %v", err), "")
 		return nil

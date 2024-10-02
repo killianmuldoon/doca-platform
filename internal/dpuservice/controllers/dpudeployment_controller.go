@@ -517,7 +517,7 @@ func reconcileDPUSets(ctx context.Context, c client.Client, dpuDeployment *dpuse
 	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
 
 	// Grab existing DPUSets
-	existingDPUSets := &provisioningv1.DpuSetList{}
+	existingDPUSets := &provisioningv1.DPUSetList{}
 	if err := c.List(ctx,
 		existingDPUSets,
 		client.MatchingLabels{
@@ -539,7 +539,7 @@ func reconcileDPUSets(ctx context.Context, c client.Client, dpuDeployment *dpuse
 
 		// In case we found a matching DPUSet, remove the items from the lists
 		if i := equalDPUSetIndex(dpuSet, existingDPUSets.Items); i >= 0 {
-			existingDPUSets.Items = deleteElementOrNil[[]provisioningv1.DpuSet](existingDPUSets.Items, i, i+1)
+			existingDPUSets.Items = deleteElementOrNil[[]provisioningv1.DPUSet](existingDPUSets.Items, i, i+1)
 			dpuSetsToBeCreated = deleteElementOrNil[[]dpuservicev1.DPUSet](dpuSetsToBeCreated, index, index+1)
 		}
 	}
@@ -557,7 +557,7 @@ func reconcileDPUSets(ctx context.Context, c client.Client, dpuDeployment *dpuse
 			existingDPUSet := existingDPUSets.Items[0]
 			dpuSet.Name = existingDPUSet.Name
 
-			existingDPUSets.Items = deleteElementOrNil[[]provisioningv1.DpuSet](existingDPUSets.Items, 0, 1)
+			existingDPUSets.Items = deleteElementOrNil[[]provisioningv1.DPUSet](existingDPUSets.Items, 0, 1)
 		}
 
 		if err := c.Patch(ctx, dpuSet, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
@@ -575,11 +575,11 @@ func reconcileDPUSets(ctx context.Context, c client.Client, dpuDeployment *dpuse
 	return nil
 }
 
-// equalDPUSetIndex tries to find a DpuSet that matches the expected input from a list and returns the index
-func equalDPUSetIndex(expected *provisioningv1.DpuSet, existing []provisioningv1.DpuSet) int {
-	for i, existingDpuSet := range existing {
-		if reflect.DeepEqual(expected.Spec, existingDpuSet.Spec) &&
-			isMapSubset[string, string](existingDpuSet.Labels, expected.Labels) {
+// equalDPUSetIndex tries to find a DPUSet that matches the expected input from a list and returns the index
+func equalDPUSetIndex(expected *provisioningv1.DPUSet, existing []provisioningv1.DPUSet) int {
+	for i, existingDPUSet := range existing {
+		if reflect.DeepEqual(expected.Spec, existingDPUSet.Spec) &&
+			isMapSubset[string, string](existingDPUSet.Labels, expected.Labels) {
 			return i
 		}
 	}
@@ -706,8 +706,8 @@ func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 	dpuSetSettings *dpuservicev1.DPUSet,
 	bfb string,
 	dpuFlavor string,
-) *provisioningv1.DpuSet {
-	dpuSet := &provisioningv1.DpuSet{
+) *provisioningv1.DPUSet {
+	dpuSet := &provisioningv1.DPUSet{
 		ObjectMeta: metav1.ObjectMeta{
 			// Extremely simplified version of:
 			// https://github.com/kubernetes/apiserver/blob/master/pkg/storage/names/generate.go
@@ -717,16 +717,16 @@ func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 				ParentDPUDeploymentNameLabel: dpuDeploymentNamespacedName.Name,
 			},
 		},
-		Spec: provisioningv1.DpuSetSpec{
+		Spec: provisioningv1.DPUSetSpec{
 			NodeSelector: dpuSetSettings.NodeSelector,
-			DpuSelector:  dpuSetSettings.DPUSelector,
-			Strategy: &provisioningv1.DpuSetStrategy{
+			DPUSelector:  dpuSetSettings.DPUSelector,
+			Strategy: &provisioningv1.DPUSetStrategy{
 				// TODO: Update to OnDelete when this is implemented
 				Type: provisioningv1.RollingUpdateStrategyType,
 			},
-			DpuTemplate: provisioningv1.DpuTemplate{
+			DPUTemplate: provisioningv1.DPUTemplate{
 				Annotations: dpuSetSettings.DPUAnnotations,
-				Spec: provisioningv1.DPUSpec{
+				Spec: provisioningv1.DPUTemplateSpec{
 					BFB: provisioningv1.BFBReference{
 						Name: bfb,
 					},
@@ -739,7 +739,7 @@ func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 	}
 	dpuSet.SetOwnerReferences([]metav1.OwnerReference{*owner})
 	dpuSet.ObjectMeta.ManagedFields = nil
-	dpuSet.SetGroupVersionKind(provisioningv1.DpuSetGroupVersionKind)
+	dpuSet.SetGroupVersionKind(provisioningv1.DPUSetGroupVersionKind)
 
 	return dpuSet
 }
@@ -922,7 +922,7 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 		&sfcv1.DPUServiceChain{},
 		&sfcv1.DPUServiceInterface{},
 		&dpuservicev1.DPUService{},
-		&provisioningv1.DpuSet{},
+		&provisioningv1.DPUSet{},
 	} {
 		if err := r.Client.DeleteAllOf(ctx,
 			obj,
@@ -940,7 +940,7 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 		&sfcv1.DPUServiceChainList{}:     dpuservicev1.ConditionDPUServiceChainsReconciled,
 		&sfcv1.DPUServiceInterfaceList{}: dpuservicev1.ConditionDPUServiceInterfacesReconciled,
 		&dpuservicev1.DPUServiceList{}:   dpuservicev1.ConditionDPUServicesReconciled,
-		&provisioningv1.DpuSetList{}:     dpuservicev1.ConditionDPUSetsReconciled,
+		&provisioningv1.DPUSetList{}:     dpuservicev1.ConditionDPUSetsReconciled,
 	} {
 		if err := r.Client.List(ctx,
 			obj,
@@ -982,14 +982,14 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 					conditions.ConditionMessage(fmt.Sprintf("There are still %d DPUServices that are not completely deleted", dpuServiceItems)),
 				)
 			}
-		case *provisioningv1.DpuSetList:
-			dpuSetItems += len(obj.(*provisioningv1.DpuSetList).Items)
+		case *provisioningv1.DPUSetList:
+			dpuSetItems += len(obj.(*provisioningv1.DPUSetList).Items)
 			if dpuSetItems > 0 {
 				conditions.AddFalse(
 					dpuDeployment,
 					conditionType,
 					conditions.ReasonAwaitingDeletion,
-					conditions.ConditionMessage(fmt.Sprintf("There are still %d DpuSets that are not completely deleted", dpuSetItems)),
+					conditions.ConditionMessage(fmt.Sprintf("There are still %d DPUSets that are not completely deleted", dpuSetItems)),
 				)
 			}
 		default:
@@ -1087,8 +1087,8 @@ func (r *DPUDeploymentReconciler) updateSummary(ctx context.Context, dpuDeployme
 	defer conditions.SetSummary(dpuDeployment)
 
 	for objGVK, conditionType := range map[schema.GroupVersionKind]conditions.ConditionType{
-		// TODO: Fix for DpuSet since it has different status
-		// "DpuSetList":          dpuservicev1.ConditionDPUSetsReady,
+		// TODO: Fix for DPUSet since it has different status
+		// "DPUSetList":          dpuservicev1.ConditionDPUSetsReady,
 		sfcv1.GroupVersion.WithKind(sfcv1.DPUServiceChainListKind):          dpuservicev1.ConditionDPUServiceChainsReady,
 		sfcv1.GroupVersion.WithKind(sfcv1.DPUServiceInterfaceListKind):      dpuservicev1.ConditionDPUServiceInterfacesReady,
 		dpuservicev1.GroupVersion.WithKind(dpuservicev1.DPUServiceListKind): dpuservicev1.ConditionDPUServicesReady,

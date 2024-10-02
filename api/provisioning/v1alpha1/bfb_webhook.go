@@ -79,13 +79,13 @@ func (r *BFB) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 func (r *BFB) ValidateDelete() (admission.Warnings, error) {
 	bfblog.V(4).Info("validate delete", "name", r.Name)
 
-	dpusetList := &DpuSetList{}
+	dpusetList := &DPUSetList{}
 	if err := bfbMgr.GetClient().List(context.TODO(), dpusetList); err != nil {
 		return nil, fmt.Errorf("list DPUSets failed, err: %v", err)
 	}
 	var ref []string
 	for _, ds := range dpusetList.Items {
-		if ds.Spec.DpuTemplate.Spec.BFB.Name == r.Name {
+		if ds.Spec.DPUTemplate.Spec.BFB.Name == r.Name {
 			ref = append(ref, ds.Name)
 		}
 	}
@@ -93,7 +93,7 @@ func (r *BFB) ValidateDelete() (admission.Warnings, error) {
 		return nil, fmt.Errorf("being referred to by DPUSet(s) %s, you must delete the DPUSet(s) first", ref)
 	}
 
-	dpuList := &DpuList{}
+	dpuList := &DPUList{}
 	if err := bfbMgr.GetClient().List(context.TODO(), dpuList); err != nil {
 		return nil, fmt.Errorf("list DPUs failed, err: %v", err)
 	}

@@ -83,7 +83,7 @@ type BFCfgWriteFile struct {
 }
 
 type dpuOSInstallingState struct {
-	dpu *provisioningv1.Dpu
+	dpu *provisioningv1.DPU
 }
 
 type ExecuteResult struct {
@@ -91,7 +91,7 @@ type ExecuteResult struct {
 	Err      error
 }
 
-func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
+func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
 	dmsTaskName := generateDMSTaskName(st.dpu)
 	state := st.dpu.Status.DeepCopy()
@@ -133,7 +133,7 @@ func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client
 	return *state, nil
 }
 
-func updateState(state *provisioningv1.DpuStatus, phase provisioningv1.DpuPhase, message string) provisioningv1.DpuStatus {
+func updateState(state *provisioningv1.DPUStatus, phase provisioningv1.DPUPhase, message string) provisioningv1.DPUStatus {
 	state.Phase = phase
 	cond := cutil.DPUCondition(provisioningv1.DPUCondOSInstalled, "", message)
 	if phase == provisioningv1.DPUError {
@@ -144,7 +144,7 @@ func updateState(state *provisioningv1.DpuStatus, phase provisioningv1.DpuPhase,
 	return *state
 }
 
-func createGRPCConnection(ctx context.Context, client client.Client, dpu *provisioningv1.Dpu) (*grpc.ClientConn, error) {
+func createGRPCConnection(ctx context.Context, client client.Client, dpu *provisioningv1.DPU) (*grpc.ClientConn, error) {
 	nn := types.NamespacedName{
 		Namespace: dpu.Namespace,
 		Name:      cutil.GenerateDMSPodName(dpu.Name),
@@ -222,7 +222,7 @@ func createGRPCConnection(ctx context.Context, client client.Client, dpu *provis
 	return conn, nil
 }
 
-func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv1.Dpu, bfb *provisioningv1.BFB) {
+func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv1.DPU, bfb *provisioningv1.BFB) {
 	dmsTaskName := generateDMSTaskName(dpu)
 	dmsTask := future.New(func() (any, error) {
 		logger := log.FromContext(ctx)
@@ -393,11 +393,11 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 	dutil.OsInstallTaskMap.Store(dmsTaskName, dmsTask)
 }
 
-func generateDMSTaskName(dpu *provisioningv1.Dpu) string {
+func generateDMSTaskName(dpu *provisioningv1.DPU) string {
 	return fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)
 }
 
-func generateBFConfig(ctx context.Context, dpu *provisioningv1.Dpu, flavor *provisioningv1.DPUFlavor, dc *provisioningv1.DPUCluster) ([]byte, error) {
+func generateBFConfig(ctx context.Context, dpu *provisioningv1.DPU, flavor *provisioningv1.DPUFlavor, dc *provisioningv1.DPUCluster) ([]byte, error) {
 	logger := log.FromContext(ctx)
 
 	joinCommand, err := generateJoinCommand(dc)

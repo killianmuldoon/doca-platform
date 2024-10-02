@@ -87,7 +87,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 			By("checking that no object is created")
 			Consistently(func(g Gomega) {
-				gotDPUSetList := &provisioningv1.DpuSetList{}
+				gotDPUSetList := &provisioningv1.DPUSetList{}
 				g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
 				g.Expect(gotDPUSetList.Items).To(BeEmpty())
 
@@ -160,7 +160,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 			By("checking that objects are created")
 			Eventually(func(g Gomega) {
-				gotDPUSetList := &provisioningv1.DpuSetList{}
+				gotDPUSetList := &provisioningv1.DPUSetList{}
 				g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
 				g.Expect(gotDPUSetList.Items).To(HaveLen(1))
 
@@ -182,7 +182,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 			By("checking that the child resources are removed")
 			Eventually(func(g Gomega) {
-				gotDPUSetList := &provisioningv1.DpuSetList{}
+				gotDPUSetList := &provisioningv1.DPUSetList{}
 				g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
 				g.Expect(gotDPUSetList.Items).To(BeEmpty())
 
@@ -589,7 +589,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 		})
 		Context("When checking reconcileDPUSets()", func() {
 			var initialDPUSetSettings []dpuservicev1.DPUSet
-			var expectedDPUSetSpecs []provisioningv1.DpuSetSpec
+			var expectedDPUSetSpecs []provisioningv1.DPUSetSpec
 			BeforeEach(func() {
 				initialDPUSetSettings = []dpuservicev1.DPUSet{
 					{
@@ -620,24 +620,24 @@ var _ = Describe("DPUDeployment Controller", func() {
 					},
 				}
 
-				expectedDPUSetSpecs = []provisioningv1.DpuSetSpec{
+				expectedDPUSetSpecs = []provisioningv1.DPUSetSpec{
 					{
 						NodeSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"nodekey1": "nodevalue1",
 							},
 						},
-						DpuSelector: map[string]string{
+						DPUSelector: map[string]string{
 							"dpukey1": "dpuvalue1",
 						},
-						Strategy: &provisioningv1.DpuSetStrategy{
+						Strategy: &provisioningv1.DPUSetStrategy{
 							Type: provisioningv1.RollingUpdateStrategyType,
 						},
-						DpuTemplate: provisioningv1.DpuTemplate{
+						DPUTemplate: provisioningv1.DPUTemplate{
 							Annotations: map[string]string{
 								"annotationkey1": "annotationvalue1",
 							},
-							Spec: provisioningv1.DPUSpec{
+							Spec: provisioningv1.DPUTemplateSpec{
 								BFB: provisioningv1.BFBReference{
 									Name: "somebfb",
 								},
@@ -651,17 +651,17 @@ var _ = Describe("DPUDeployment Controller", func() {
 								"nodekey2": "nodevalue2",
 							},
 						},
-						DpuSelector: map[string]string{
+						DPUSelector: map[string]string{
 							"dpukey2": "dpuvalue2",
 						},
-						Strategy: &provisioningv1.DpuSetStrategy{
+						Strategy: &provisioningv1.DPUSetStrategy{
 							Type: provisioningv1.RollingUpdateStrategyType,
 						},
-						DpuTemplate: provisioningv1.DpuTemplate{
+						DPUTemplate: provisioningv1.DPUTemplate{
 							Annotations: map[string]string{
 								"annotationkey2": "annotationvalue2",
 							},
-							Spec: provisioningv1.DPUSpec{
+							Spec: provisioningv1.DPUTemplateSpec{
 								BFB: provisioningv1.BFBReference{
 									Name: "somebfb",
 								},
@@ -698,7 +698,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("checking that correct DPUSets are created")
 				Eventually(func(g Gomega) {
-					gotDPUSetList := &provisioningv1.DpuSetList{}
+					gotDPUSetList := &provisioningv1.DPUSetList{}
 					g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
 					g.Expect(gotDPUSetList.Items).To(HaveLen(2))
 
@@ -710,7 +710,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}
 
 					By("checking the specs")
-					specs := make([]provisioningv1.DpuSetSpec, 0, len(gotDPUSetList.Items))
+					specs := make([]provisioningv1.DPUSetSpec, 0, len(gotDPUSetList.Items))
 					for _, dpuSet := range gotDPUSetList.Items {
 						specs = append(specs, dpuSet.Spec)
 					}
@@ -727,7 +727,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				By("waiting for the initial DPUSets to be applied")
 				firstDPUSetUIDs := make([]types.UID, 0, 2)
 				Eventually(func(g Gomega) {
-					gotDPUSetList := &provisioningv1.DpuSetList{}
+					gotDPUSetList := &provisioningv1.DPUSetList{}
 					g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
 					g.Expect(gotDPUSetList.Items).To(HaveLen(2))
 					for _, dpuSet := range gotDPUSetList.Items {
@@ -740,7 +740,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(patcher.Patch(ctx, dpuDeployment, patch.WithFieldOwner(dpuDeploymentControllerName))).To(Succeed())
 				By("checking that correct DPUSets are created")
 				Eventually(func(g Gomega) {
-					gotDPUSetList := &provisioningv1.DpuSetList{}
+					gotDPUSetList := &provisioningv1.DPUSetList{}
 					g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
 					g.Expect(gotDPUSetList.Items).To(HaveLen(2))
 
@@ -755,11 +755,11 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}
 
 					By("checking the specs")
-					specs := make([]provisioningv1.DpuSetSpec, 0, len(gotDPUSetList.Items))
+					specs := make([]provisioningv1.DPUSetSpec, 0, len(gotDPUSetList.Items))
 					for _, dpuSet := range gotDPUSetList.Items {
 						specs = append(specs, dpuSet.Spec)
 					}
-					expectedDPUSetSpecs[1].DpuTemplate.Annotations["newkey"] = "newvalue"
+					expectedDPUSetSpecs[1].DPUTemplate.Annotations["newkey"] = "newvalue"
 					g.Expect(specs).To(ConsistOf(expectedDPUSetSpecs))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
@@ -773,7 +773,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				By("waiting for the initial DPUSets to be applied")
 				firstDPUSetUIDs := make([]types.UID, 0, 2)
 				Eventually(func(g Gomega) {
-					gotDPUSetList := &provisioningv1.DpuSetList{}
+					gotDPUSetList := &provisioningv1.DPUSetList{}
 					g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
 					g.Expect(gotDPUSetList.Items).To(HaveLen(2))
 					for _, dpuSet := range gotDPUSetList.Items {
@@ -786,7 +786,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(patcher.Patch(ctx, dpuDeployment, patch.WithFieldOwner(dpuDeploymentControllerName))).To(Succeed())
 				By("checking that correct DPUSets are created")
 				Eventually(func(g Gomega) {
-					gotDPUSetList := &provisioningv1.DpuSetList{}
+					gotDPUSetList := &provisioningv1.DPUSetList{}
 					g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
 					g.Expect(gotDPUSetList.Items).To(HaveLen(1))
 
@@ -801,7 +801,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}
 
 					By("checking the specs")
-					specs := make([]provisioningv1.DpuSetSpec, 0, len(gotDPUSetList.Items))
+					specs := make([]provisioningv1.DPUSetSpec, 0, len(gotDPUSetList.Items))
 					for _, dpuSet := range gotDPUSetList.Items {
 						specs = append(specs, dpuSet.Spec)
 					}
@@ -819,7 +819,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				By("waiting for the initial DPUSets to be applied")
 				firstDPUSetUIDs := make(map[types.UID]interface{})
 				Eventually(func(g Gomega) {
-					gotDPUSetList := &provisioningv1.DpuSetList{}
+					gotDPUSetList := &provisioningv1.DPUSetList{}
 					g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
 					g.Expect(gotDPUSetList.Items).To(HaveLen(2))
 					for _, dpuSet := range gotDPUSetList.Items {
@@ -845,7 +845,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(patcher.Patch(ctx, dpuDeployment, patch.WithFieldOwner(dpuDeploymentControllerName))).To(Succeed())
 				By("checking that correct DPUSets are created")
 				Eventually(func(g Gomega) {
-					gotDPUSetList := &provisioningv1.DpuSetList{}
+					gotDPUSetList := &provisioningv1.DPUSetList{}
 					g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
 					g.Expect(gotDPUSetList.Items).To(HaveLen(3))
 
@@ -863,28 +863,28 @@ var _ = Describe("DPUDeployment Controller", func() {
 					g.Expect(firstDPUSetUIDs).To(BeEmpty())
 
 					By("checking the specs")
-					specs := make([]provisioningv1.DpuSetSpec, 0, len(gotDPUSetList.Items))
+					specs := make([]provisioningv1.DPUSetSpec, 0, len(gotDPUSetList.Items))
 					for _, dpuSet := range gotDPUSetList.Items {
 						specs = append(specs, dpuSet.Spec)
 					}
-					expectedDPUSetSpecs[1].DpuTemplate.Annotations["newkey"] = "newvalue"
-					expectedDPUSetSpecs = append(expectedDPUSetSpecs, provisioningv1.DpuSetSpec{
+					expectedDPUSetSpecs[1].DPUTemplate.Annotations["newkey"] = "newvalue"
+					expectedDPUSetSpecs = append(expectedDPUSetSpecs, provisioningv1.DPUSetSpec{
 						NodeSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"nodekey3": "nodevalue3",
 							},
 						},
-						DpuSelector: map[string]string{
+						DPUSelector: map[string]string{
 							"dpukey3": "dpuvalue3",
 						},
-						Strategy: &provisioningv1.DpuSetStrategy{
+						Strategy: &provisioningv1.DPUSetStrategy{
 							Type: provisioningv1.RollingUpdateStrategyType,
 						},
-						DpuTemplate: provisioningv1.DpuTemplate{
+						DPUTemplate: provisioningv1.DPUTemplate{
 							Annotations: map[string]string{
 								"annotationkey3": "annotationvalue3",
 							},
-							Spec: provisioningv1.DPUSpec{
+							Spec: provisioningv1.DPUTemplateSpec{
 								BFB: provisioningv1.BFBReference{
 									Name: "somebfb",
 								},
@@ -2564,7 +2564,7 @@ func getMinimalDPUServiceConfiguration(namespace string) *dpuservicev1.DPUServic
 // cleanDPUDeploymentDerivatives removes all the objects that a DPUDeployment creates in a particular namespace
 func cleanDPUDeploymentDerivatives(namespace string) {
 	By("Ensuring DPUSets, DPUServiceChains, DPUServiceInterfaces and DPUServices are deleted")
-	dpuSetList := &provisioningv1.DpuSetList{}
+	dpuSetList := &provisioningv1.DPUSetList{}
 	Expect(testClient.List(ctx, dpuSetList, client.InNamespace(namespace))).To(Succeed())
 	objs := []client.Object{}
 	for i := range dpuSetList.Items {

@@ -30,10 +30,10 @@ import (
 )
 
 type dpuInitializingState struct {
-	dpu *provisioningv1.Dpu
+	dpu *provisioningv1.DPU
 }
 
-func (st *dpuInitializingState) Handle(ctx context.Context, c client.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
+func (st *dpuInitializingState) Handle(ctx context.Context, c client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
 		state.Phase = provisioningv1.DPUDeleting

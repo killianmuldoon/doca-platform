@@ -37,10 +37,10 @@ const (
 )
 
 type dpuHostNetworkConfigState struct {
-	dpu *provisioningv1.Dpu
+	dpu *provisioningv1.DPU
 }
 
-func (st *dpuHostNetworkConfigState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
+func (st *dpuHostNetworkConfigState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
 	state := st.dpu.Status.DeepCopy()
 
 	if isDeleting(st.dpu) {

@@ -100,10 +100,10 @@ var _ = BeforeSuite(func() {
 	err = (&BFB{}).SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&Dpu{}).SetupWebhookWithManager(mgr)
+	err = (&DPU{}).SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
-	err = (&DpuSet{}).SetupWebhookWithManager(mgr)
+	err = (&DPUSet{}).SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = (&DPUFlavor{}).SetupWebhookWithManager(mgr)

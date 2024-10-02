@@ -29,23 +29,23 @@ import (
 
 // These tests are written in BDD-style using Ginkgo framework. Refer to
 // http://onsi.github.io/ginkgo to learn more.
-var _ = Describe("Dpu", func() {
+var _ = Describe("DPU", func() {
 
-	var getObjKey = func(obj *Dpu) types.NamespacedName {
+	var getObjKey = func(obj *DPU) types.NamespacedName {
 		return types.NamespacedName{
 			Name:      obj.Name,
 			Namespace: obj.Namespace,
 		}
 	}
 
-	var createObj = func(name string) *Dpu {
-		return &Dpu{
+	var createObj = func(name string) *DPU {
+		return &DPU{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: "default",
 			},
-			Spec:   DpuSpec{},
-			Status: DpuStatus{},
+			Spec:   DPUSpec{},
+			Status: DPUStatus{},
 		}
 	}
 
@@ -65,7 +65,7 @@ var _ = Describe("Dpu", func() {
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &Dpu{}
+			obj_fetched := &DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched).To(Equal(obj))
@@ -92,7 +92,7 @@ var _ = Describe("Dpu", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &Dpu{}
+			obj_fetched := &DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched).To(Equal(obj))
@@ -103,7 +103,7 @@ var _ = Describe("Dpu", func() {
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &Dpu{}
+			obj_fetched := &DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched.Spec.NodeEffect.Drain).NotTo(BeNil())
@@ -122,7 +122,7 @@ var _ = Describe("Dpu", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			obj_fetched := &Dpu{}
+			obj_fetched := &DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched.Spec.NodeName).To(Equal(ref_value))
@@ -140,7 +140,7 @@ var _ = Describe("Dpu", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			obj_fetched := &Dpu{}
+			obj_fetched := &DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched.Spec.PCIAddress).To(Equal(ref_value))
@@ -162,7 +162,7 @@ var _ = Describe("Dpu", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &Dpu{}
+			obj_fetched := &DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched.Spec.Cluster.Name).To(Equal(new_value))
@@ -177,7 +177,7 @@ var _ = Describe("Dpu", func() {
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &Dpu{}
+			obj_fetched := &DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched.Spec.Cluster.Name).To(Equal(""))
@@ -197,7 +197,7 @@ var _ = Describe("Dpu", func() {
 		It("create from yaml", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
-kind: Dpu
+kind: DPU
 metadata:
   name: obj-8
   namespace: default
@@ -217,7 +217,7 @@ spec:
       value: "provisioning"
       effect: NoSchedule
 `)
-			obj := &Dpu{}
+			obj := &DPU{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -227,12 +227,12 @@ spec:
 		It("create from yaml minimal", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
-kind: Dpu
+kind: DPU
 metadata:
   name: obj-9
   namespace: default
 `)
-			obj := &Dpu{}
+			obj := &DPU{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -245,7 +245,7 @@ metadata:
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj.Status.Phase).To(BeEquivalentTo(DPUInitializing))
 
-			obj_fetched := &Dpu{}
+			obj_fetched := &DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched.Status.Phase).To(BeEquivalentTo(DPUInitializing))

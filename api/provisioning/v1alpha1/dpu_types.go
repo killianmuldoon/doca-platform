@@ -21,45 +21,45 @@ import (
 )
 
 const (
-	// DpuKind is the kind of the Dpu object
-	DpuKind = "Dpu"
+	// DPUKind is the kind of the DPU object
+	DPUKind = "DPU"
 )
 
-// DpuGroupVersionKind is the GroupVersionKind of the Dpu object
-var DpuGroupVersionKind = GroupVersion.WithKind(DpuKind)
+// DPUGroupVersionKind is the GroupVersionKind of the DPU object
+var DPUGroupVersionKind = GroupVersion.WithKind(DPUKind)
 
-// DpuPhase describes current state of Dpu.
+// DPUPhase describes current state of DPU.
 // Only one of the following state may be specified.
 // Default is Initializing.
 // +kubebuilder:validation:Enum="Initializing";"Node Effect";"Pending";"DMSDeployment";"OS Installing";"DPU Cluster Config";"Host Network Configuration";"Ready";"Error";"Deleting";"Rebooting"
-type DpuPhase string
+type DPUPhase string
 
 // These are the valid statuses of DPU.
 const (
 	DPUFinalizer = "provisioning.dpf.nvidia.com/dpu-protection"
 
 	// DPU CR is created by DPUSet.
-	DPUInitializing DpuPhase = "Initializing"
+	DPUInitializing DPUPhase = "Initializing"
 	// In DPUNodeEffect state, the controller will handle the node effect provided by the user.
-	DPUNodeEffect DpuPhase = "Node Effect"
+	DPUNodeEffect DPUPhase = "Node Effect"
 	// In this state, the controller will check whether BFB is ready.
-	DPUPending DpuPhase = "Pending"
+	DPUPending DPUPhase = "Pending"
 	// In DPUDMSDeployment state, the controller will create DMS pod and proxy pod.
-	DPUDMSDeployment DpuPhase = "DMSDeployment"
+	DPUDMSDeployment DPUPhase = "DMSDeployment"
 	// In DPUOSInstalling state, the controller will call DMS gNOI interface to do dpu provisioning.
-	DPUOSInstalling DpuPhase = "OS Installing"
+	DPUOSInstalling DPUPhase = "OS Installing"
 	// In DPUClusterConfig state, The controller will verify DPU joined successfully to Kamaji cluster.
-	DPUClusterConfig DpuPhase = "DPU Cluster Config"
+	DPUClusterConfig DPUPhase = "DPU Cluster Config"
 	// Setup host network
-	DPUHostNetworkConfiguration DpuPhase = "Host Network Configuration"
+	DPUHostNetworkConfiguration DPUPhase = "Host Network Configuration"
 	// DPUReady means the DPU is ready to use.
-	DPUReady DpuPhase = "Ready"
+	DPUReady DPUPhase = "Ready"
 	// DPUError means error occurred.
-	DPUError DpuPhase = "Error"
+	DPUError DPUPhase = "Error"
 	// DPUDeleting means the DPU CR will be deleted, controller will do some cleanup works.
-	DPUDeleting DpuPhase = "Deleting"
+	DPUDeleting DPUPhase = "Deleting"
 	// DPURebooting means the host of DPU is rebooting.
-	DPURebooting DpuPhase = "Rebooting"
+	DPURebooting DPUPhase = "Rebooting"
 )
 
 type DPUConditionType string
@@ -88,8 +88,8 @@ type K8sCluster struct {
 	NodeLabels map[string]string `json:"node_labels,omitempty"`
 }
 
-// DpuSpec defines the desired state of Dpu
-type DpuSpec struct {
+// DPUSpec defines the desired state of DPU
+type DPUSpec struct {
 	// Specifies Node this DPU belongs to
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +required
@@ -123,12 +123,12 @@ type DpuSpec struct {
 	AutomaticNodeReboot bool `json:"automaticNodeReboot,omitempty"`
 }
 
-// DpuStatus defines the observed state of DPU
-type DpuStatus struct {
-	// The current state of Dpu.
+// DPUStatus defines the observed state of DPU
+type DPUStatus struct {
+	// The current state of DPU.
 	// +kubebuilder:default=Initializing
 	// +required
-	Phase DpuPhase `json:"phase"`
+	Phase DPUPhase `json:"phase"`
 
 	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
@@ -159,27 +159,27 @@ type Firmware struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Dpu is the Schema for the dpus API
-type Dpu struct {
+// DPU is the Schema for the dpus API
+type DPU struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec DpuSpec `json:"spec,omitempty"`
+	Spec DPUSpec `json:"spec,omitempty"`
 
 	// +kubebuilder:default={phase: Initializing}
 	// +optional
-	Status DpuStatus `json:"status,omitempty"`
+	Status DPUStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// DpuList contains a list of Dpu
-type DpuList struct {
+// DPUList contains a list of DPU
+type DPUList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Dpu `json:"items"`
+	Items           []DPU `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Dpu{}, &DpuList{})
+	SchemeBuilder.Register(&DPU{}, &DPUList{})
 }

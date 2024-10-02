@@ -63,13 +63,13 @@ func (r *DPUFlavor) ValidateUpdate(old runtime.Object) (admission.Warnings, erro
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *DPUFlavor) ValidateDelete() (admission.Warnings, error) {
 	dpuflavorlog.Info("validate delete", "name", r.Name)
-	dpuSetList := &DpuSetList{}
+	dpuSetList := &DPUSetList{}
 	if err := manager.GetClient().List(context.TODO(), dpuSetList, &client.ListOptions{Namespace: r.Namespace}); err != nil {
 		return nil, fmt.Errorf("list DPUSets failed, err: %v", err)
 	}
 	var ref []string
 	for _, ds := range dpuSetList.Items {
-		if ds.Spec.DpuTemplate.Spec.DPUFlavor == r.Name {
+		if ds.Spec.DPUTemplate.Spec.DPUFlavor == r.Name {
 			ref = append(ref, ds.Name)
 		}
 	}
@@ -77,7 +77,7 @@ func (r *DPUFlavor) ValidateDelete() (admission.Warnings, error) {
 		return nil, fmt.Errorf("DPUFlavor is being referred to by DPUSet(s) %s, you must delete the DPUSet(s) first", ref)
 	}
 
-	dpuList := &DpuList{}
+	dpuList := &DPUList{}
 	if err := manager.GetClient().List(context.TODO(), dpuList, &client.ListOptions{Namespace: r.Namespace}); err != nil {
 		return nil, fmt.Errorf("list DPUs failed, err: %v", err)
 	}

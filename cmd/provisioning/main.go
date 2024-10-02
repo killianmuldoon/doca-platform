@@ -183,21 +183,21 @@ func main() {
 		ImagePullSecrets:        imagePullSecretsReferences,
 	}
 	setupLog.Info("DPU", "options", dpuOptions)
-	if err = (&dpu.DpuReconciler{
+	if err = (&dpu.DPUReconciler{
 		Client:     mgr.GetClient(),
 		Scheme:     mgr.GetScheme(),
-		Recorder:   mgr.GetEventRecorderFor(dpu.DpuControllerName),
+		Recorder:   mgr.GetEventRecorderFor(dpu.DPUControllerName),
 		DPUOptions: dpuOptions,
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Dpu")
+		setupLog.Error(err, "unable to create controller", "controller", "DPU")
 		os.Exit(1)
 	}
-	if err = (&dpuset.DpuSetReconciler{
+	if err = (&dpuset.DPUSetReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor(dpuset.DpuSetControllerName),
+		Recorder: mgr.GetEventRecorderFor(dpuset.DPUSetControllerName),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DpuSet")
+		setupLog.Error(err, "unable to create controller", "controller", "DPUSet")
 		os.Exit(1)
 	}
 	if err = (&bfb.BFBReconciler{
@@ -211,7 +211,7 @@ func main() {
 	if err = (&dpucluster.DPUClusterReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor(dpucluster.DpuClusterControllerName),
+		Recorder: mgr.GetEventRecorderFor(dpucluster.DPUClusterControllerName),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPUCluster")
 		os.Exit(1)
@@ -220,12 +220,12 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "BFB")
 		os.Exit(1)
 	}
-	if err = (&provisioningv1.Dpu{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Dpu")
+	if err = (&provisioningv1.DPU{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "DPU")
 		os.Exit(1)
 	}
-	if err = (&provisioningv1.DpuSet{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "DpuSet")
+	if err = (&provisioningv1.DPUSet{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "DPUSet")
 		os.Exit(1)
 	}
 	if err = (&provisioningv1.DPUFlavor{}).SetupWebhookWithManager(mgr); err != nil {

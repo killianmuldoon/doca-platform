@@ -70,8 +70,8 @@ var (
 		&dpuservicev1.DPUServiceList{},
 		&dpuservicev1.DPUServiceConfigurationList{},
 		&dpuservicev1.DPUServiceTemplateList{},
-		&provisioningv1.DpuSetList{},
-		&provisioningv1.DpuList{},
+		&provisioningv1.DPUSetList{},
+		&provisioningv1.DPUList{},
 		&provisioningv1.BFBList{},
 		&sfcv1.DPUServiceIPAMList{},
 		&sfcv1.DPUServiceChainList{},
@@ -328,12 +328,12 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Eventually(func(g Gomega) {
 				for _, cluster := range dpuClusters {
 					dpusetUnstructured := getUnstructuredFromFile("infrastructure/dpuset.yaml")
-					dpuset := &provisioningv1.DpuSet{}
+					dpuset := &provisioningv1.DPUSet{}
 					Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpusetUnstructured.Object, dpuset)).To(Succeed())
 
 					By(fmt.Sprintf("Creating the DPUSet for cluster %s/%s", cluster.Name, cluster.Namespace))
-					dpuset.Spec.DpuTemplate.Spec.Cluster.Name = cluster.Name
-					dpuset.Spec.DpuTemplate.Spec.Cluster.NameSpace = cluster.Namespace
+					dpuset.Spec.DPUTemplate.Spec.Cluster.Name = cluster.Name
+					dpuset.Spec.DPUTemplate.Spec.Cluster.NameSpace = cluster.Namespace
 					dpuset.SetLabels(cleanupLabels)
 					g.Expect(testClient.Create(ctx, dpuset)).To(Succeed())
 				}
@@ -746,7 +746,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 			By("checking that the underlying objects are created")
 			Eventually(func(g Gomega) {
-				gotDPUSetList := &provisioningv1.DpuSetList{}
+				gotDPUSetList := &provisioningv1.DPUSetList{}
 				g.Expect(testClient.List(ctx,
 					gotDPUSetList,
 					client.InNamespace(dpuDeployment.GetNamespace()),
@@ -795,7 +795,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 
 			By("checking that the underlying objects are deleted")
 			Eventually(func(g Gomega) {
-				gotDPUSetList := &provisioningv1.DpuSetList{}
+				gotDPUSetList := &provisioningv1.DPUSetList{}
 				g.Expect(testClient.List(ctx,
 					gotDPUSetList,
 					client.InNamespace(dpuDeployment.GetNamespace()),
@@ -844,13 +844,13 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			dpuClusters, err := controlplane.GetDPFClusters(ctx, testClient)
 			Expect(err).ToNot(HaveOccurred())
 			dpusetUnstructured := getUnstructuredFromFile("infrastructure/dpuset.yaml")
-			dpuset := &provisioningv1.DpuSet{}
+			dpuset := &provisioningv1.DPUSet{}
 			Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpusetUnstructured.Object, dpuset)).To(Succeed())
 
 			Eventually(func(g Gomega) {
 				for _, cluster := range dpuClusters {
-					dpuset.Spec.DpuTemplate.Spec.Cluster.Name = cluster.Name
-					dpuset.Spec.DpuTemplate.Spec.Cluster.NameSpace = cluster.Namespace
+					dpuset.Spec.DPUTemplate.Spec.Cluster.Name = cluster.Name
+					dpuset.Spec.DPUTemplate.Spec.Cluster.NameSpace = cluster.Namespace
 					g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, dpuset))).To(Succeed())
 					g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(dpuset), dpuset))).To(BeTrue())
 				}

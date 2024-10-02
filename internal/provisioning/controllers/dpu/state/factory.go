@@ -26,10 +26,10 @@ import (
 )
 
 type State interface {
-	Handle(ctx context.Context, client client.Client, option util.DPUOptions) (provisioningv1.DpuStatus, error)
+	Handle(ctx context.Context, client client.Client, option util.DPUOptions) (provisioningv1.DPUStatus, error)
 }
 
-func GetDPUState(dpu *provisioningv1.Dpu) State {
+func GetDPUState(dpu *provisioningv1.DPU) State {
 	switch dpu.Status.Phase {
 	case provisioningv1.DPUInitializing:
 		return &dpuInitializingState{
@@ -82,6 +82,6 @@ func GetDPUState(dpu *provisioningv1.Dpu) State {
 	}
 }
 
-func isDeleting(dpu *provisioningv1.Dpu) bool {
+func isDeleting(dpu *provisioningv1.DPU) bool {
 	return !dpu.DeletionTimestamp.IsZero()
 }

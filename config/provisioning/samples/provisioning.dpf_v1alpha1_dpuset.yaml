@@ -1,5 +1,5 @@
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
-kind: DpuSet
+kind: DPUSet
 metadata:
   name: dpuset-example
 spec:

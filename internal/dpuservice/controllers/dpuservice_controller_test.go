@@ -189,9 +189,9 @@ var _ = Describe("DPUService Controller", func() {
 
 			// Ensure the DPUService finalizer is removed and they are deleted.
 			Eventually(func(g Gomega) {
-				gotDpuServices := &dpuservicev1.DPUServiceList{}
-				g.Expect(testClient.List(ctx, gotDpuServices)).To(Succeed())
-				g.Expect(gotDpuServices.Items).To(BeEmpty())
+				gotDPUServices := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx, gotDPUServices)).To(Succeed())
+				g.Expect(gotDPUServices.Items).To(BeEmpty())
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 
 			g := NewWithT(GinkgoT())

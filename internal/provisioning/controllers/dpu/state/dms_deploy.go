@@ -39,10 +39,10 @@ const (
 )
 
 type dmsDeploymentState struct {
-	dpu *provisioningv1.Dpu
+	dpu *provisioningv1.DPU
 }
 
-func (st *dmsDeploymentState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
+func (st *dmsDeploymentState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
@@ -92,7 +92,7 @@ func isTimeout(pod *corev1.Pod, timeoutDuration time.Duration) bool {
 	return time.Since(pod.CreationTimestamp.Time) > timeoutDuration
 }
 
-func handleDMSPodFailure(state *provisioningv1.DpuStatus, reason string, message string) (provisioningv1.DpuStatus, error) {
+func handleDMSPodFailure(state *provisioningv1.DPUStatus, reason string, message string) (provisioningv1.DPUStatus, error) {
 	cond := cutil.DPUCondition(provisioningv1.DPUCondDMSRunning, reason, message)
 	cond.Status = metav1.ConditionFalse
 	cutil.SetDPUCondition(state, cond)

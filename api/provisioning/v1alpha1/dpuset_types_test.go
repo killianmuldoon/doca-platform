@@ -29,23 +29,23 @@ import (
 
 // These tests are written in BDD-style using Ginkgo framework. Refer to
 // http://onsi.github.io/ginkgo to learn more.
-var _ = Describe("DpuSet", func() {
+var _ = Describe("DPUSet", func() {
 
-	var getObjKey = func(obj *DpuSet) types.NamespacedName {
+	var getObjKey = func(obj *DPUSet) types.NamespacedName {
 		return types.NamespacedName{
 			Name:      obj.Name,
 			Namespace: obj.Namespace,
 		}
 	}
 
-	var createObj = func(name string) *DpuSet {
-		return &DpuSet{
+	var createObj = func(name string) *DPUSet {
+		return &DPUSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: "default",
 			},
-			Spec:   DpuSetSpec{},
-			Status: DpuSetStatus{},
+			Spec:   DPUSetSpec{},
+			Status: DPUSetStatus{},
 		}
 	}
 
@@ -65,7 +65,7 @@ var _ = Describe("DpuSet", func() {
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &DpuSet{}
+			obj_fetched := &DPUSet{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched).To(Equal(obj))
@@ -92,7 +92,7 @@ var _ = Describe("DpuSet", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &DpuSet{}
+			obj_fetched := &DPUSet{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched).To(Equal(obj))
@@ -103,27 +103,27 @@ var _ = Describe("DpuSet", func() {
 			new_value := `dummy_new_cluster`
 
 			obj := createObj("obj-4")
-			obj.Spec.DpuTemplate.Spec.Cluster = K8sCluster{
+			obj.Spec.DPUTemplate.Spec.Cluster = K8sCluster{
 				Name:      ref_value,
 				NameSpace: `default`,
 			}
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj.Spec.DpuTemplate.Spec.Cluster.Name = new_value
+			obj.Spec.DPUTemplate.Spec.Cluster.Name = new_value
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &DpuSet{}
+			obj_fetched := &DPUSet{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.DpuTemplate.Spec.Cluster.Name).To(Equal(new_value))
+			Expect(obj_fetched.Spec.DPUTemplate.Spec.Cluster.Name).To(Equal(new_value))
 		})
 
 		It("create from yaml", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
-kind: DpuSet
+kind: DPUSet
 metadata:
   name: obj-5
   namespace: default
@@ -151,7 +151,7 @@ spec:
         node_labels:
           "dpf.node.dpu/role": "worker"
 `)
-			obj := &DpuSet{}
+			obj := &DPUSet{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -161,12 +161,12 @@ spec:
 		It("create from yaml minimal", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
-kind: DpuSet
+kind: DPUSet
 metadata:
   name: obj-6
   namespace: default
 `)
-			obj := &DpuSet{}
+			obj := &DPUSet{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)

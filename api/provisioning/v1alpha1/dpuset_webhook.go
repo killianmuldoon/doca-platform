@@ -35,7 +35,7 @@ import (
 // log is for logging in this package.
 var dpusetlog = logf.Log.WithName("dpuset-resource")
 
-func (r *DpuSet) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *DPUSet) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
@@ -45,27 +45,27 @@ func (r *DpuSet) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/mutate-provisioning-dpf-nvidia-com-v1alpha1-dpuset,mutating=true,failurePolicy=fail,sideEffects=None,groups=provisioning.dpf.nvidia.com,resources=dpusets,verbs=create;update,versions=v1alpha1,name=mdpuset.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &DpuSet{}
+var _ webhook.Defaulter = &DPUSet{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *DpuSet) Default() {
+func (r *DPUSet) Default() {
 	dpusetlog.V(4).Info("default", "name", r.Name)
 
 	if r.Spec.Strategy == nil {
-		r.Spec.Strategy = &DpuSetStrategy{
+		r.Spec.Strategy = &DPUSetStrategy{
 			Type: RecreateStrategyType,
 		}
 	} else if r.Spec.Strategy.Type == RollingUpdateStrategyType {
 		if r.Spec.Strategy.RollingUpdate == nil {
 			defaultValue := intstr.IntOrString{Type: intstr.Int, IntVal: 1}
-			r.Spec.Strategy.RollingUpdate = &RollingUpdateDpu{
+			r.Spec.Strategy.RollingUpdate = &RollingUpdateDPU{
 				MaxUnavailable: &defaultValue,
 			}
 		}
 	}
 
-	if r.Spec.DpuTemplate.Spec.NodeEffect == nil {
-		r.Spec.DpuTemplate.Spec.NodeEffect = &NodeEffect{
+	if r.Spec.DPUTemplate.Spec.NodeEffect == nil {
+		r.Spec.DPUTemplate.Spec.NodeEffect = &NodeEffect{
 			NoEffect: true,
 		}
 	}
@@ -73,10 +73,10 @@ func (r *DpuSet) Default() {
 
 //+kubebuilder:webhook:path=/validate-provisioning-dpf-nvidia-com-v1alpha1-dpuset,mutating=false,failurePolicy=fail,sideEffects=None,groups=provisioning.dpf.nvidia.com,resources=dpusets,verbs=create;update,versions=v1alpha1,name=vdpuset.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &DpuSet{}
+var _ webhook.Validator = &DPUSet{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *DpuSet) ValidateCreate() (admission.Warnings, error) {
+func (r *DPUSet) ValidateCreate() (admission.Warnings, error) {
 	dpusetlog.V(4).Info("validate create", "name", r.Name)
 	errs := field.ErrorList{}
 	newPath := field.NewPath("spec")
@@ -85,14 +85,14 @@ func (r *DpuSet) ValidateCreate() (admission.Warnings, error) {
 
 	}
 
-	if err := ValidateNodeEffect(*r.Spec.DpuTemplate.Spec.NodeEffect); err != nil {
-		errs = append(errs, field.Invalid(newPath.Child("dpu_template.spec.node_effect"), r.Spec.DpuTemplate.Spec.NodeEffect, err.Error()))
+	if err := ValidateNodeEffect(*r.Spec.DPUTemplate.Spec.NodeEffect); err != nil {
+		errs = append(errs, field.Invalid(newPath.Child("dpu_template.spec.node_effect"), r.Spec.DPUTemplate.Spec.NodeEffect, err.Error()))
 	}
-	if err := reboot.ValidateHostPowerCycleRequire(r.Spec.DpuTemplate.Annotations); err != nil {
+	if err := reboot.ValidateHostPowerCycleRequire(r.Spec.DPUTemplate.Annotations); err != nil {
 		errs = append(errs, field.Invalid(newPath.Child("dpu_template.annotations", reboot.HostPowerCycleRequireKey), r.Annotations[reboot.HostPowerCycleRequireKey], err.Error()))
 	}
 	if len(errs) != 0 {
-		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpf.nvidia.com", Kind: "DpuSet"},
+		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpf.nvidia.com", Kind: "DPUSet"},
 			r.Name,
 			errs)
 	}
@@ -101,7 +101,7 @@ func (r *DpuSet) ValidateCreate() (admission.Warnings, error) {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *DpuSet) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
+func (r *DPUSet) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	dpusetlog.V(4).Info("validate update", "name", r.Name)
 	errs := field.ErrorList{}
 	newPath := field.NewPath("spec")
@@ -110,12 +110,12 @@ func (r *DpuSet) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 
 	}
 
-	if err := ValidateNodeEffect(*r.Spec.DpuTemplate.Spec.NodeEffect); err != nil {
+	if err := ValidateNodeEffect(*r.Spec.DPUTemplate.Spec.NodeEffect); err != nil {
 		errs = append(errs, field.Invalid(newPath.Child("dpu_template.spec.node_effect"), r.Spec.Strategy, err.Error()))
 	}
 
 	if len(errs) != 0 {
-		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpf.nvidia.com", Kind: "DpuSet"},
+		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpf.nvidia.com", Kind: "DPUSet"},
 			r.Name,
 			errs)
 	}
@@ -124,13 +124,13 @@ func (r *DpuSet) ValidateUpdate(old runtime.Object) (admission.Warnings, error) 
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *DpuSet) ValidateDelete() (admission.Warnings, error) {
+func (r *DPUSet) ValidateDelete() (admission.Warnings, error) {
 	dpusetlog.V(4).Info("validate delete", "name", r.Name)
 
 	return nil, nil
 }
 
-func validateStrategy(strategy DpuSetStrategy) error {
+func validateStrategy(strategy DPUSetStrategy) error {
 	if strategy.Type == RollingUpdateStrategyType {
 		switch strategy.RollingUpdate.MaxUnavailable.Type {
 		case intstr.String:

@@ -33,7 +33,7 @@ import (
 
 // These tests are written in BDD-style using Ginkgo framework. Refer to
 // http://onsi.github.io/ginkgo to learn more.
-var _ = Describe("DpuCluster", func() {
+var _ = Describe("DPUCluster", func() {
 
 	const (
 		DefaultNS   = "dpf-provisioning-test"

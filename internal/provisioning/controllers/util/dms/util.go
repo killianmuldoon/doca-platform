@@ -203,7 +203,7 @@ func createRootCaCert(ctx context.Context, client client.Client, name string, na
 	return nil
 }
 
-func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1.Dpu, option dutil.DPUOptions) error {
+func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1.DPU, option dutil.DPUOptions) error {
 	logger := log.FromContext(ctx)
 	dmsPodName := cutil.GenerateDMSPodName(dpu.Name)
 
@@ -236,7 +236,7 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 	dmsServerIssuerName := cutil.GenerateDMSServerIssuerName(dpu.Name)
 
 	owner := metav1.NewControllerRef(dpu,
-		provisioningv1.GroupVersion.WithKind("Dpu"))
+		provisioningv1.GroupVersion.WithKind("DPU"))
 
 	// Define the Server Issuer using the Self-Signed Issuer
 	if err := createIssuer(ctx, client, dmsServerIssuerName, dpu.Namespace, caSecretName, owner); err != nil {

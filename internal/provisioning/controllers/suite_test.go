@@ -131,18 +131,18 @@ var _ = BeforeSuite(func() {
 	err = bfbReconciler.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&provisioningv1.Dpu{}).SetupWebhookWithManager(k8sManager)
+	err = (&provisioningv1.DPU{}).SetupWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
-	dpuReconciler := &dpu.DpuReconciler{
+	dpuReconciler := &dpu.DPUReconciler{
 		Client: k8sManager.GetClient(),
 		Scheme: k8sManager.GetScheme(),
 	}
 	err = dpuReconciler.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&provisioningv1.DpuSet{}).SetupWebhookWithManager(k8sManager)
+	err = (&provisioningv1.DPUSet{}).SetupWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
-	dpusetReconciler := &dpuset.DpuSetReconciler{
+	dpusetReconciler := &dpuset.DPUSetReconciler{
 		Client: k8sManager.GetClient(),
 		Scheme: k8sManager.GetScheme(),
 	}

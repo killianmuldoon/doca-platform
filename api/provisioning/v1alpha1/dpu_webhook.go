@@ -32,7 +32,7 @@ import (
 // log is for logging in this package.
 var dpulog = logf.Log.WithName("dpu-resource")
 
-func (r *Dpu) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *DPU) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
 		Complete()
@@ -40,20 +40,20 @@ func (r *Dpu) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/mutate-provisioning-dpf-nvidia-com-v1alpha1-dpu,mutating=true,failurePolicy=fail,sideEffects=None,groups=provisioning.dpf.nvidia.com,resources=dpus,verbs=create;update,versions=v1alpha1,name=mdpu.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &Dpu{}
+var _ webhook.Defaulter = &DPU{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Dpu) Default() {
+func (r *DPU) Default() {
 	dpulog.V(4).Info("default", "name", r.Name)
 }
 
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-provisioning-dpf-nvidia-com-v1alpha1-dpu,mutating=false,failurePolicy=fail,sideEffects=None,groups=provisioning.dpf.nvidia.com,resources=dpus,verbs=create;update,versions=v1alpha1,name=vdpu.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &Dpu{}
+var _ webhook.Validator = &DPU{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Dpu) ValidateCreate() (admission.Warnings, error) {
+func (r *DPU) ValidateCreate() (admission.Warnings, error) {
 	dpulog.V(4).Info("validate create", "name", r.Name)
 
 	errs := field.ErrorList{}
@@ -67,7 +67,7 @@ func (r *Dpu) ValidateCreate() (admission.Warnings, error) {
 	}
 
 	if len(errs) != 0 {
-		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpf.nvidia.com", Kind: "DpuSet"},
+		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpf.nvidia.com", Kind: "DPUSet"},
 			r.Name,
 			errs)
 	}
@@ -75,7 +75,7 @@ func (r *Dpu) ValidateCreate() (admission.Warnings, error) {
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Dpu) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
+func (r *DPU) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	dpulog.V(4).Info("validate update", "name", r.Name)
 
 	errs := field.ErrorList{}
@@ -85,7 +85,7 @@ func (r *Dpu) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 		errs = append(errs, field.Invalid(newPath.Child(".node_effect"), r.Spec.NodeEffect, err.Error()))
 	}
 	if len(errs) != 0 {
-		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpf.nvidia.com", Kind: "DpuSet"},
+		return nil, apierrors.NewInvalid(schema.GroupKind{Group: "provisioning.dpf.nvidia.com", Kind: "DPUSet"},
 			r.Name,
 			errs)
 	}
@@ -94,7 +94,7 @@ func (r *Dpu) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Dpu) ValidateDelete() (admission.Warnings, error) {
+func (r *DPU) ValidateDelete() (admission.Warnings, error) {
 	dpulog.V(4).Info("validate delete", "name", r.Name)
 
 	return nil, nil

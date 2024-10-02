@@ -150,8 +150,8 @@ func (c *Cluster) run(ctx context.Context) error {
 		appsv1.SchemeGroupVersion.WithKind("DaemonSet"), // DaemonSet
 		argov1.ApplicationSchemaGroupVersionKind,        // ArgoApplications
 		operatorv1.DPFOperatorConfigGroupVersionKind,    // DPFOperatorConfig
-		provisioningv1.GroupVersion.WithKind("Dpu"),     // DPU
-		provisioningv1.GroupVersion.WithKind("DpuSet"),  // DPUSet
+		provisioningv1.GroupVersion.WithKind("DPU"),     // DPU
+		provisioningv1.GroupVersion.WithKind("DPUSet"),  // DPUSet
 		provisioningv1.GroupVersion.WithKind("BFB"),     // BFB
 
 		controlplanemeta.TenantControlPlaneGVK, // Kamaji control plane

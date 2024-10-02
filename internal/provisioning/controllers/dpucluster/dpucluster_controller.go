@@ -42,7 +42,7 @@ import (
 )
 
 // controller name that will be used when reporting events
-const DpuClusterControllerName = "dpucluster"
+const DPUClusterControllerName = "dpucluster"
 
 // DPUClusterReconciler reconciles a DPUCluster object
 type DPUClusterReconciler struct {

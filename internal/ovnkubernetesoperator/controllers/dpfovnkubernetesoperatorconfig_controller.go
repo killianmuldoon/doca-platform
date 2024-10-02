@@ -227,7 +227,7 @@ func (r *DPFOVNKubernetesOperatorConfigReconciler) reconcileDelete(ctx context.C
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPFOVNKubernetesOperatorConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	dpu := &metav1.PartialObjectMetadata{}
-	dpu.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "Dpu"))
+	dpu.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "DPU"))
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&ovnkubernetesoperatorv1.DPFOVNKubernetesOperatorConfig{}).
 		WatchesMetadata(dpu, handler.EnqueueRequestsFromMapFunc(r.generateRequestForConfig)).
@@ -361,7 +361,7 @@ func markNodesAsInstallable(ctx context.Context, c client.Client) error {
 	var errs []error
 
 	dpus := &unstructured.UnstructuredList{}
-	dpus.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "Dpu"))
+	dpus.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "DPU"))
 	if err := c.List(ctx, dpus); err != nil {
 		return fmt.Errorf("error while listing %s as unstructured: %w", dpus.GetObjectKind().GroupVersionKind().String(), err)
 	}

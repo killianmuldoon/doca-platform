@@ -35,10 +35,10 @@ import (
 )
 
 type dpuNodeEffectState struct {
-	dpu *provisioningv1.Dpu
+	dpu *provisioningv1.DPU
 }
 
-func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DpuStatus, error) {
+func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
@@ -173,7 +173,7 @@ func checkNodeMaintenanceProgress(ctx context.Context, client client.Client, nod
 	return false, nil
 }
 
-func setDPUCondNodeEffectReady(state *provisioningv1.DpuStatus, status metav1.ConditionStatus, reason, message string) {
+func setDPUCondNodeEffectReady(state *provisioningv1.DPUStatus, status metav1.ConditionStatus, reason, message string) {
 	cond := cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", "")
 	cond.Status = status
 	cond.Reason = reason

@@ -32,7 +32,7 @@ var DPUServiceTemplateGroupVersionKind = GroupVersion.WithKind(DPUServiceTemplat
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// DPUServiceTemplate is the Schema for the dpuservicetemplates API. This object is intended to be used in
+// DPUServiceTemplate is the Schema for the DPUServiceTemplate API. This object is intended to be used in
 // conjunction with a DPUDeployment object. This object is the template from which the DPUService will be created. It
 // contains configuration options related to resources required by the service to be deployed. The rest of the
 // configuration options must be defined in a DPUServiceConfiguration object.

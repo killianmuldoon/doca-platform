@@ -44,7 +44,7 @@ import (
 
 // These tests are written in BDD-style using Ginkgo framework. Refer to
 // http://onsi.github.io/ginkgo to learn more.
-var _ = Describe("Dpu", func() {
+var _ = Describe("DPU", func() {
 	const (
 		DefaultNS  = "dpf-provisioning-test"
 		DefaultBFB = "dpf-provisioning-bfb-test"
@@ -57,21 +57,21 @@ var _ = Describe("Dpu", func() {
 		i              *informer.TestInformer
 	)
 
-	var getObjKey = func(obj *provisioningv1.Dpu) types.NamespacedName {
+	var getObjKey = func(obj *provisioningv1.DPU) types.NamespacedName {
 		return types.NamespacedName{
 			Name:      obj.Name,
 			Namespace: obj.Namespace,
 		}
 	}
 
-	var createObj = func(name string) *provisioningv1.Dpu {
-		return &provisioningv1.Dpu{
+	var createObj = func(name string) *provisioningv1.DPU {
+		return &provisioningv1.DPU{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: testNS.Name,
 			},
-			Spec:   provisioningv1.DpuSpec{},
-			Status: provisioningv1.DpuStatus{},
+			Spec:   provisioningv1.DPUSpec{},
+			Status: provisioningv1.DPUStatus{},
 		}
 	}
 
@@ -193,8 +193,8 @@ var _ = Describe("Dpu", func() {
 		By("creating the node")
 		testNode = createNode(ctx, "node-default", make(map[string]string))
 
-		By("Creating the informer infrastructure for Dpu")
-		i = informer.NewInformer(cfg, provisioningv1.DpuGroupVersionKind, testNS.Name, "dpus")
+		By("Creating the informer infrastructure for DPU")
+		i = informer.NewInformer(cfg, provisioningv1.DPUGroupVersionKind, testNS.Name, "dpus")
 		DeferCleanup(i.Cleanup)
 		go i.Run()
 	})
@@ -219,10 +219,10 @@ var _ = Describe("Dpu", func() {
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &provisioningv1.Dpu{}
+			obj_fetched := &provisioningv1.DPU{}
 
 			By("expecting the Status (Initializing)")
-			Consistently(func(g Gomega) provisioningv1.DpuPhase {
+			Consistently(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Status.Phase
 			}).WithTimeout(30 * time.Second).WithPolling(10 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
@@ -238,10 +238,10 @@ var _ = Describe("Dpu", func() {
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &provisioningv1.Dpu{}
+			obj_fetched := &provisioningv1.DPU{}
 
 			By("expecting the Status (Initializing)")
-			Eventually(func(g Gomega) provisioningv1.DpuPhase {
+			Eventually(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Status.Phase
 			}).WithTimeout(30 * time.Second).WithPolling(10 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
@@ -250,8 +250,8 @@ var _ = Describe("Dpu", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &provisioningv1.Dpu{}
-				newObj := &provisioningv1.Dpu{}
+				oldObj := &provisioningv1.DPU{}
+				newObj := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(k8sClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -278,10 +278,10 @@ var _ = Describe("Dpu", func() {
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &provisioningv1.Dpu{}
+			obj_fetched := &provisioningv1.DPU{}
 
 			By("expecting the Status (Initializing)")
-			Eventually(func(g Gomega) provisioningv1.DpuPhase {
+			Eventually(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Status.Phase
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
@@ -292,8 +292,8 @@ var _ = Describe("Dpu", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &provisioningv1.Dpu{}
-				newObj := &provisioningv1.Dpu{}
+				oldObj := &provisioningv1.DPU{}
+				newObj := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(k8sClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -313,8 +313,8 @@ var _ = Describe("Dpu", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &provisioningv1.Dpu{}
-				newObj := &provisioningv1.Dpu{}
+				oldObj := &provisioningv1.DPU{}
+				newObj := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(k8sClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -351,10 +351,10 @@ var _ = Describe("Dpu", func() {
 			}
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 
-			obj_fetched := &provisioningv1.Dpu{}
+			obj_fetched := &provisioningv1.DPU{}
 
 			By("expecting the Status (Initializing)")
-			Eventually(func(g Gomega) provisioningv1.DpuPhase {
+			Eventually(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Status.Phase
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
@@ -365,8 +365,8 @@ var _ = Describe("Dpu", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &provisioningv1.Dpu{}
-				newObj := &provisioningv1.Dpu{}
+				oldObj := &provisioningv1.DPU{}
+				newObj := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(k8sClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -415,10 +415,10 @@ var _ = Describe("Dpu", func() {
 			}
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 
-			obj_fetched := &provisioningv1.Dpu{}
+			obj_fetched := &provisioningv1.DPU{}
 
 			By("expecting the Status (Initializing)")
-			Eventually(func(g Gomega) provisioningv1.DpuPhase {
+			Eventually(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Status.Phase
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
@@ -429,8 +429,8 @@ var _ = Describe("Dpu", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &provisioningv1.Dpu{}
-				newObj := &provisioningv1.Dpu{}
+				oldObj := &provisioningv1.DPU{}
+				newObj := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(k8sClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -450,8 +450,8 @@ var _ = Describe("Dpu", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &provisioningv1.Dpu{}
-				newObj := &provisioningv1.Dpu{}
+				oldObj := &provisioningv1.DPU{}
+				newObj := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(k8sClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -527,10 +527,10 @@ var _ = Describe("Dpu", func() {
 			}
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 
-			obj_fetched := &provisioningv1.Dpu{}
+			obj_fetched := &provisioningv1.DPU{}
 
 			By("expecting the Status (Initializing)")
-			Eventually(func(g Gomega) provisioningv1.DpuPhase {
+			Eventually(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Status.Phase
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
@@ -541,8 +541,8 @@ var _ = Describe("Dpu", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &provisioningv1.Dpu{}
-				newObj := &provisioningv1.Dpu{}
+				oldObj := &provisioningv1.DPU{}
+				newObj := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(k8sClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -562,8 +562,8 @@ var _ = Describe("Dpu", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &provisioningv1.Dpu{}
-				newObj := &provisioningv1.Dpu{}
+				oldObj := &provisioningv1.DPU{}
+				newObj := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(k8sClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -652,10 +652,10 @@ var _ = Describe("Dpu", func() {
 			}
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 
-			obj_fetched := &provisioningv1.Dpu{}
+			obj_fetched := &provisioningv1.DPU{}
 
 			By("expecting the Status (Initializing)")
-			Eventually(func(g Gomega) provisioningv1.DpuPhase {
+			Eventually(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Status.Phase
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
@@ -666,8 +666,8 @@ var _ = Describe("Dpu", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &provisioningv1.Dpu{}
-				newObj := &provisioningv1.Dpu{}
+				oldObj := &provisioningv1.DPU{}
+				newObj := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(k8sClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -687,8 +687,8 @@ var _ = Describe("Dpu", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &provisioningv1.Dpu{}
-				newObj := &provisioningv1.Dpu{}
+				oldObj := &provisioningv1.DPU{}
+				newObj := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(k8sClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -775,10 +775,10 @@ var _ = Describe("Dpu", func() {
 			}
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 
-			obj_fetched := &provisioningv1.Dpu{}
+			obj_fetched := &provisioningv1.DPU{}
 
 			By("expecting the Status (Initializing)")
-			Eventually(func(g Gomega) provisioningv1.DpuPhase {
+			Eventually(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
 				return obj_fetched.Status.Phase
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
@@ -789,8 +789,8 @@ var _ = Describe("Dpu", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &provisioningv1.Dpu{}
-				newObj := &provisioningv1.Dpu{}
+				oldObj := &provisioningv1.DPU{}
+				newObj := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(k8sClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -810,8 +810,8 @@ var _ = Describe("Dpu", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &provisioningv1.Dpu{}
-				newObj := &provisioningv1.Dpu{}
+				oldObj := &provisioningv1.DPU{}
+				newObj := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(k8sClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -894,7 +894,7 @@ var _ = Describe("DPUFlavor", func() {
 
 	const (
 		DefaultNS      = "dpf-provisioning-test"
-		DefaultDpuName = "dpf-dpu"
+		DefaultDPUName = "dpf-dpu"
 	)
 
 	var (
@@ -943,7 +943,7 @@ var _ = Describe("DPUFlavor", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched).To(Equal(obj1))
 
-			data1, err := bfcfg.Generate(obj1, DefaultDpuName, "", "")
+			data1, err := bfcfg.Generate(obj1, DefaultDPUName, "", "")
 			Expect(err).To(Succeed())
 			Expect(data1).ShouldNot(BeNil())
 
@@ -961,7 +961,7 @@ metadata:
 			err = k8sClient.Create(ctx, obj2)
 			Expect(err).NotTo(HaveOccurred())
 
-			data2, err := bfcfg.Generate(obj2, DefaultDpuName, "", "")
+			data2, err := bfcfg.Generate(obj2, DefaultDPUName, "", "")
 			Expect(err).To(Succeed())
 			Expect(data2).ShouldNot(BeNil())
 
@@ -1035,7 +1035,7 @@ spec:
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			data, err := bfcfg.Generate(obj, DefaultDpuName, "", "")
+			data, err := bfcfg.Generate(obj, DefaultDPUName, "", "")
 			Expect(err).To(Succeed())
 			Expect(data).ShouldNot(BeNil())
 		})
@@ -1047,7 +1047,7 @@ var _ = Describe("DMS Pod", func() {
 	const (
 		DefaultNS       = "dpf-provisioning-test"
 		DefaultNodeName = "dpf-node"
-		DefaultDpuName  = "dpf-dpu"
+		DefaultDPUName  = "dpf-dpu"
 	)
 
 	var (
@@ -1102,13 +1102,13 @@ var _ = Describe("DMS Pod", func() {
 
 		It("create DMS Pod w/o Issuer", func() {
 			By("creating the dpu")
-			obj_dpu := &provisioningv1.Dpu{
+			obj_dpu := &provisioningv1.DPU{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      DefaultDpuName,
+					Name:      DefaultDPUName,
 					Namespace: testNS.Name,
 				},
-				Spec:   provisioningv1.DpuSpec{},
-				Status: provisioningv1.DpuStatus{},
+				Spec:   provisioningv1.DPUSpec{},
+				Status: provisioningv1.DPUStatus{},
 			}
 			Expect(k8sClient.Create(ctx, obj_dpu)).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj_dpu)
@@ -1130,13 +1130,13 @@ var _ = Describe("DMS Pod", func() {
 			Expect(k8sClient.Create(ctx, obj)).NotTo(HaveOccurred())
 
 			By("creating the dpu")
-			obj_dpu := &provisioningv1.Dpu{
+			obj_dpu := &provisioningv1.DPU{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      DefaultDpuName,
+					Name:      DefaultDPUName,
 					Namespace: testNS.Name,
 				},
-				Spec:   provisioningv1.DpuSpec{},
-				Status: provisioningv1.DpuStatus{},
+				Spec:   provisioningv1.DPUSpec{},
+				Status: provisioningv1.DPUStatus{},
 			}
 			Expect(k8sClient.Create(ctx, obj_dpu)).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj_dpu)
@@ -1158,19 +1158,19 @@ var _ = Describe("DMS Pod", func() {
 			Expect(k8sClient.Create(ctx, obj)).NotTo(HaveOccurred())
 
 			By("creating the dpu")
-			obj_dpu := &provisioningv1.Dpu{
+			obj_dpu := &provisioningv1.DPU{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      DefaultDpuName,
+					Name:      DefaultDPUName,
 					Namespace: testNS.Name,
 					Labels: map[string]string{
 						"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-90-00",
 						"provisioning.dpf.nvidia.com/dpu-pf-name":    "ens1f0np0",
 					},
 				},
-				Spec: provisioningv1.DpuSpec{
+				Spec: provisioningv1.DPUSpec{
 					NodeName: testNode.Name,
 				},
-				Status: provisioningv1.DpuStatus{},
+				Status: provisioningv1.DPUStatus{},
 			}
 			Expect(k8sClient.Create(ctx, obj_dpu)).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj_dpu)
@@ -1192,19 +1192,19 @@ var _ = Describe("DMS Pod", func() {
 			Expect(k8sClient.Create(ctx, obj)).NotTo(HaveOccurred())
 
 			By("creating the dpu")
-			obj_dpu := &provisioningv1.Dpu{
+			obj_dpu := &provisioningv1.DPU{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      DefaultDpuName,
+					Name:      DefaultDPUName,
 					Namespace: testNS.Name,
 					Labels: map[string]string{
 						"provisioning.dpf.nvidia.com/dpu-pciAddress": "0000-90-00",
 						"provisioning.dpf.nvidia.com/dpu-pf-name":    "ens1f0np0",
 					},
 				},
-				Spec: provisioningv1.DpuSpec{
+				Spec: provisioningv1.DPUSpec{
 					NodeName: testNode.Name,
 				},
-				Status: provisioningv1.DpuStatus{},
+				Status: provisioningv1.DPUStatus{},
 			}
 			Expect(k8sClient.Create(ctx, obj_dpu)).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj_dpu)
@@ -1223,7 +1223,7 @@ var _ = Describe("DMS Pod", func() {
 				Namespace: obj_dpu.Namespace,
 				Name:      cutil.GenerateDMSPodName(obj_dpu.Name)},
 				obj_fetched)).To(Succeed())
-			Expect(obj_fetched.OwnerReferences[0].Kind).Should(Equal("Dpu"))
+			Expect(obj_fetched.OwnerReferences[0].Kind).Should(Equal("DPU"))
 			Expect(obj_fetched.OwnerReferences[0].Name).Should(Equal(obj_dpu.Name))
 		})
 	})

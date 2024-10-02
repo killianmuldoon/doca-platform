@@ -454,13 +454,13 @@ networking:
 			By("Turning the DPUs to Ready")
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuWorker1), dpuWorker1)).To(Succeed())
 			Expect(unstructured.SetNestedField(dpuWorker1.Object, "Ready", "status", "phase")).ToNot(HaveOccurred())
-			dpuWorker1.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "Dpu"))
+			dpuWorker1.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "DPU"))
 			dpuWorker1.SetManagedFields(nil)
 			Expect(testClient.Status().Patch(ctx, dpuWorker1, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuWorker2), dpuWorker2)).To(Succeed())
 			Expect(unstructured.SetNestedField(dpuWorker2.Object, "Ready", "status", "phase")).ToNot(HaveOccurred())
-			dpuWorker2.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "Dpu"))
+			dpuWorker2.SetGroupVersionKind(schema.FromAPIVersionAndKind("provisioning.dpf.nvidia.com/v1alpha1", "DPU"))
 			dpuWorker2.SetManagedFields(nil)
 			Expect(testClient.Status().Patch(ctx, dpuWorker2, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
@@ -1312,7 +1312,7 @@ func getMinimalBFB(name string, namespace string, nodeName string) *unstructured
 	return &unstructured.Unstructured{
 		Object: map[string]interface{}{
 			"apiVersion": "provisioning.dpf.nvidia.com/v1alpha1",
-			"kind":       "Dpu",
+			"kind":       "DPU",
 			"metadata": map[string]interface{}{
 				"name":      name,
 				"namespace": namespace,

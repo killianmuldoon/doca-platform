@@ -50,12 +50,12 @@ import (
 
 const (
 	// controller name that will be used when
-	DpuSetControllerName    = "dpuset"
+	DPUSetControllerName    = "dpuset"
 	DefaultFirstDPULabelKey = "dpu-0-pci-address"
 )
 
-// DpuSetReconciler reconciles a DpuSet object
-type DpuSetReconciler struct {
+// DPUSetReconciler reconciles a DPUSet object
+type DPUSetReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
@@ -66,17 +66,17 @@ type DpuSetReconciler struct {
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets/finalizers,verbs=update
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpuflavors,verbs=get;list;watch
 
-func (r *DpuSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *DPUSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.V(4).Info("Reconcile", "dpuset", req.Name)
 
-	dpuSet := &provisioningv1.DpuSet{}
+	dpuSet := &provisioningv1.DPUSet{}
 	if err := r.Get(ctx, req.NamespacedName, dpuSet); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "Failed to get DPUSet", "DPUSet", dpuSet)
-		return ctrl.Result{}, errors.Wrap(err, "failed to get DpuSet")
+		return ctrl.Result{}, errors.Wrap(err, "failed to get DPUSet")
 	}
 
 	if !dpuSet.DeletionTimestamp.IsZero() {
@@ -86,7 +86,7 @@ func (r *DpuSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	return r.Handle(ctx, dpuSet)
 }
 
-func (r *DpuSetReconciler) reconcileDelete(ctx context.Context, dpuSet *provisioningv1.DpuSet) (ctrl.Result, error) {
+func (r *DPUSetReconciler) reconcileDelete(ctx context.Context, dpuSet *provisioningv1.DPUSet) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	if err := r.finalizeDPUSet(ctx, dpuSet); err != nil {
 		logger.Error(err, "Failed to finalize DPUSet", "DPUSet", dpuSet)
@@ -96,13 +96,13 @@ func (r *DpuSetReconciler) reconcileDelete(ctx context.Context, dpuSet *provisio
 	return ctrl.Result{}, nil
 }
 
-func (r *DpuSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DpuSet) (ctrl.Result, error) {
+func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DPUSet) (ctrl.Result, error) {
 	var err error
 	logger := log.FromContext(ctx)
 
 	// Add finalizer if not set.
-	if !controllerutil.ContainsFinalizer(dpuSet, provisioningv1.DpuSetFinalizer) {
-		controllerutil.AddFinalizer(dpuSet, provisioningv1.DpuSetFinalizer)
+	if !controllerutil.ContainsFinalizer(dpuSet, provisioningv1.DPUSetFinalizer) {
+		controllerutil.AddFinalizer(dpuSet, provisioningv1.DPUSetFinalizer)
 		if err := r.Client.Update(ctx, dpuSet); err != nil {
 			return ctrl.Result{}, errors.Wrap(err, "failed to add DPUSet finalizer")
 		}
@@ -117,22 +117,22 @@ func (r *DpuSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.Dp
 	}
 
 	// Get dpu map which are owned by dpuset
-	dpuMap, err := r.getDpusMap(ctx, dpuSet)
+	dpuMap, err := r.getDPUsMap(ctx, dpuSet)
 	if err != nil {
-		logger.Error(err, "Failed to get Dpu list", "DPUSet", dpuSet)
-		return ctrl.Result{}, errors.Wrap(err, "failed to get Dpu list")
+		logger.Error(err, "Failed to get DPU list", "DPUSet", dpuSet)
+		return ctrl.Result{}, errors.Wrap(err, "failed to get DPU list")
 	}
 
 	// create dpu for the node
 	for nodeName, node := range nodeMap {
 		if _, ok := dpuMap[nodeName]; !ok {
-			dpuIndexMap := getDPUIndexFromSelector(dpuSet.Spec.DpuSelector, node.Labels)
+			dpuIndexMap := getDPUIndexFromSelector(dpuSet.Spec.DPUSelector, node.Labels)
 			for _, index := range dpuIndexMap {
-				if err = r.createDpu(ctx, dpuSet, node, index); err != nil {
+				if err = r.createDPU(ctx, dpuSet, node, index); err != nil {
 					msg := fmt.Sprintf("Failed to created DPU index %v on node %s", index, node.Name)
 					r.Recorder.Eventf(dpuSet, corev1.EventTypeWarning, events.EventReasonFailedCreateDPUReason, msg)
 					logger.Error(err, msg)
-					return ctrl.Result{}, errors.Wrap(err, "failed to create Dpu")
+					return ctrl.Result{}, errors.Wrap(err, "failed to create DPU")
 				}
 			}
 
@@ -147,7 +147,7 @@ func (r *DpuSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.Dp
 			msg := fmt.Sprintf("Failed to Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, nodeName)
 			logger.Error(err, msg)
 			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulDeleteDPUReason, msg)
-			return ctrl.Result{}, errors.Wrap(err, "failed to delete Dpu")
+			return ctrl.Result{}, errors.Wrap(err, "failed to delete DPU")
 		}
 		msg := fmt.Sprintf("Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, nodeName)
 		r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulDeleteDPUReason, msg)
@@ -155,27 +155,27 @@ func (r *DpuSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.Dp
 	}
 
 	// handle rolling update
-	dpuMap, err = r.getDpusMap(ctx, dpuSet)
+	dpuMap, err = r.getDPUsMap(ctx, dpuSet)
 	if err != nil {
-		logger.Error(err, "Failed to get Dpus", "DPUSet", dpuSet)
-		return ctrl.Result{}, errors.Wrap(err, "failed to get Dpus")
+		logger.Error(err, "Failed to get DPUs", "DPUSet", dpuSet)
+		return ctrl.Result{}, errors.Wrap(err, "failed to get DPUs")
 	}
 
 	switch dpuSet.Spec.Strategy.Type {
 	case provisioningv1.RecreateStrategyType:
 		if err := r.rolloutRecreate(ctx, dpuSet, dpuMap); err != nil {
-			logger.Error(err, "Failed to rollout Dpu", "DPUSet", dpuSet)
-			return ctrl.Result{}, errors.Wrap(err, "failed to rollout Dpu")
+			logger.Error(err, "Failed to rollout DPU", "DPUSet", dpuSet)
+			return ctrl.Result{}, errors.Wrap(err, "failed to rollout DPU")
 		}
 	case provisioningv1.RollingUpdateStrategyType:
 		if err := r.rolloutRolling(ctx, dpuSet, dpuMap, len(nodeMap)); err != nil {
-			logger.Error(err, "Failed to rollout Dpu", "DPUSet", dpuSet)
-			return ctrl.Result{}, errors.Wrap(err, "failed to rollout Dpu")
+			logger.Error(err, "Failed to rollout DPU", "DPUSet", dpuSet)
+			return ctrl.Result{}, errors.Wrap(err, "failed to rollout DPU")
 		}
 	}
 
 	if err := updateDPUSetStatus(ctx, dpuSet, dpuMap, r.Client); err != nil {
-		logger.Error(err, "Failed to update DpuSet status", "DPUSet", dpuSet)
+		logger.Error(err, "Failed to update DPUSet status", "DPUSet", dpuSet)
 		return ctrl.Result{}, errors.Wrap(err, "failed to update DPUSet status")
 	}
 
@@ -183,21 +183,21 @@ func (r *DpuSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.Dp
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DpuSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DPUSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&provisioningv1.DpuSet{}).
-		Owns(&provisioningv1.Dpu{}).
+		For(&provisioningv1.DPUSet{}).
+		Owns(&provisioningv1.DPU{}).
 		Watches(&corev1.Node{},
-			handler.EnqueueRequestsFromMapFunc(r.nodeToDpuSetReq),
+			handler.EnqueueRequestsFromMapFunc(r.nodeToDPUSetReq),
 			builder.WithPredicates(predicate.LabelChangedPredicate{})).
 		Watches(&provisioningv1.DPUFlavor{},
-			handler.EnqueueRequestsFromMapFunc(r.flavorToDpuSeqReq)).
+			handler.EnqueueRequestsFromMapFunc(r.flavorToDPUSetReq)).
 		Complete(r)
 }
 
-func (r *DpuSetReconciler) nodeToDpuSetReq(ctx context.Context, resource client.Object) []reconcile.Request {
+func (r *DPUSetReconciler) nodeToDPUSetReq(ctx context.Context, resource client.Object) []reconcile.Request {
 	requests := make([]reconcile.Request, 0)
-	dpuSetList := &provisioningv1.DpuSetList{}
+	dpuSetList := &provisioningv1.DPUSetList{}
 	if err := r.List(ctx, dpuSetList); err == nil {
 		for _, item := range dpuSetList.Items {
 			requests = append(requests, reconcile.Request{
@@ -210,15 +210,15 @@ func (r *DpuSetReconciler) nodeToDpuSetReq(ctx context.Context, resource client.
 	return requests
 }
 
-func (r *DpuSetReconciler) flavorToDpuSeqReq(ctx context.Context, resource client.Object) []reconcile.Request {
+func (r *DPUSetReconciler) flavorToDPUSetReq(ctx context.Context, resource client.Object) []reconcile.Request {
 	flavor := resource.(*provisioningv1.DPUFlavor)
-	dpuSetList := &provisioningv1.DpuSetList{}
+	dpuSetList := &provisioningv1.DPUSetList{}
 	if err := r.List(ctx, dpuSetList); err != nil {
 		return nil
 	}
 	requests := []reconcile.Request{}
 	for _, item := range dpuSetList.Items {
-		if item.Spec.DpuTemplate.Spec.DPUFlavor != flavor.Name {
+		if item.Spec.DPUTemplate.Spec.DPUFlavor != flavor.Name {
 			continue
 		}
 		requests = append(requests, reconcile.Request{
@@ -231,7 +231,7 @@ func (r *DpuSetReconciler) flavorToDpuSeqReq(ctx context.Context, resource clien
 	return requests
 }
 
-func (r *DpuSetReconciler) getNodeMap(ctx context.Context, nselector *metav1.LabelSelector) (map[string]corev1.Node, error) {
+func (r *DPUSetReconciler) getNodeMap(ctx context.Context, nselector *metav1.LabelSelector) (map[string]corev1.Node, error) {
 	nodeMap := make(map[string]corev1.Node)
 	nodeList := &corev1.NodeList{}
 	nodeSelector, err := metav1.LabelSelectorAsSelector(nselector)
@@ -252,12 +252,12 @@ func (r *DpuSetReconciler) getNodeMap(ctx context.Context, nselector *metav1.Lab
 	return nodeMap, nil
 }
 
-func (r *DpuSetReconciler) getDpusMap(ctx context.Context, dpuSet *provisioningv1.DpuSet) (map[string]provisioningv1.Dpu, error) {
-	dpuMap := make(map[string]provisioningv1.Dpu)
-	dpuList := &provisioningv1.DpuList{}
+func (r *DPUSetReconciler) getDPUsMap(ctx context.Context, dpuSet *provisioningv1.DPUSet) (map[string]provisioningv1.DPU, error) {
+	dpuMap := make(map[string]provisioningv1.DPU)
+	dpuList := &provisioningv1.DPUList{}
 	if err := r.List(ctx, dpuList, client.MatchingLabels{
-		cutil.DpuSetNameLabel:      dpuSet.Name,
-		cutil.DpuSetNamespaceLabel: dpuSet.Namespace,
+		cutil.DPUSetNameLabel:      dpuSet.Name,
+		cutil.DPUSetNamespaceLabel: dpuSet.Namespace,
 	}); err != nil {
 		return dpuMap, err
 	}
@@ -267,47 +267,47 @@ func (r *DpuSetReconciler) getDpusMap(ctx context.Context, dpuSet *provisioningv
 	return dpuMap, nil
 }
 
-func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningv1.DpuSet,
+func (r *DPUSetReconciler) createDPU(ctx context.Context, dpuSet *provisioningv1.DPUSet,
 	node corev1.Node, dpuIndex int) error {
 	logger := log.FromContext(ctx)
 
-	labels := map[string]string{cutil.DpuSetNameLabel: dpuSet.Name, cutil.DpuSetNamespaceLabel: dpuSet.Namespace}
+	labels := map[string]string{cutil.DPUSetNameLabel: dpuSet.Name, cutil.DPUSetNamespaceLabel: dpuSet.Namespace}
 	for k, v := range dpuSet.Labels {
 		labels[k] = v
 	}
 
 	for k, v := range node.Labels {
-		if strings.HasSuffix(k, fmt.Sprintf(cutil.DpuPCIAddress, dpuIndex)) {
+		if strings.HasSuffix(k, fmt.Sprintf(cutil.DPUPCIAddress, dpuIndex)) {
 			if len(v) != 0 {
-				labels[cutil.DpuPCIAddressLabel] = v
+				labels[cutil.DPUPCIAddressLabel] = v
 			} else {
-				return fmt.Errorf("the label of %s on node %s is empty", cutil.DpuPCIAddress, node.Name)
+				return fmt.Errorf("the label of %s on node %s is empty", cutil.DPUPCIAddress, node.Name)
 			}
 		}
-		if strings.HasSuffix(k, fmt.Sprintf(cutil.DpuPFName, dpuIndex)) {
+		if strings.HasSuffix(k, fmt.Sprintf(cutil.DPUPFName, dpuIndex)) {
 			if len(v) != 0 {
-				labels[cutil.DpuPFNameLabel] = v
+				labels[cutil.DPUPFNameLabel] = v
 			} else {
-				return fmt.Errorf("the label of %s on node %s is empty", cutil.DpuPFName, node.Name)
+				return fmt.Errorf("the label of %s on node %s is empty", cutil.DPUPFName, node.Name)
 			}
 		}
 	}
 	for _, address := range node.Status.Addresses {
 		if address.Type == corev1.NodeInternalIP {
-			labels[cutil.DpuHostIPLabel] = address.Address
+			labels[cutil.DPUHostIPLabel] = address.Address
 			break
 		}
 	}
 
-	if _, ok := labels[cutil.DpuPCIAddressLabel]; !ok {
+	if _, ok := labels[cutil.DPUPCIAddressLabel]; !ok {
 		return fmt.Errorf("DPU on node %s cannot be created due to lack of pci address of dpu", node.Name)
 	}
 
-	dpuName := fmt.Sprintf("%s-%s", strings.ToLower(node.Name), labels[cutil.DpuPCIAddressLabel])
+	dpuName := fmt.Sprintf("%s-%s", strings.ToLower(node.Name), labels[cutil.DPUPCIAddressLabel])
 	owner := metav1.NewControllerRef(dpuSet,
-		provisioningv1.GroupVersion.WithKind("DpuSet"))
+		provisioningv1.GroupVersion.WithKind("DPUSet"))
 
-	dpu := &provisioningv1.Dpu{
+	dpu := &provisioningv1.DPU{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            dpuName,
 			Namespace:       dpuSet.Namespace,
@@ -315,20 +315,20 @@ func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningv1
 			Annotations:     make(map[string]string),
 			OwnerReferences: []metav1.OwnerReference{*owner},
 		},
-		Spec: provisioningv1.DpuSpec{
+		Spec: provisioningv1.DPUSpec{
 			NodeName:            node.Name,
-			BFB:                 dpuSet.Spec.DpuTemplate.Spec.BFB.Name,
-			NodeEffect:          dpuSet.Spec.DpuTemplate.Spec.NodeEffect,
-			Cluster:             dpuSet.Spec.DpuTemplate.Spec.Cluster,
-			DPUFlavor:           dpuSet.Spec.DpuTemplate.Spec.DPUFlavor,
-			AutomaticNodeReboot: dpuSet.Spec.DpuTemplate.Spec.AutomaticNodeReboot,
+			BFB:                 dpuSet.Spec.DPUTemplate.Spec.BFB.Name,
+			NodeEffect:          dpuSet.Spec.DPUTemplate.Spec.NodeEffect,
+			Cluster:             dpuSet.Spec.DPUTemplate.Spec.Cluster,
+			DPUFlavor:           dpuSet.Spec.DPUTemplate.Spec.DPUFlavor,
+			AutomaticNodeReboot: dpuSet.Spec.DPUTemplate.Spec.AutomaticNodeReboot,
 		},
 	}
 	// do we really need this?
 	for k, v := range dpuSet.Annotations {
 		dpu.Annotations[k] = v
 	}
-	if v, ok := dpuSet.Spec.DpuTemplate.Annotations[reboot.HostPowerCycleRequireKey]; ok {
+	if v, ok := dpuSet.Spec.DPUTemplate.Annotations[reboot.HostPowerCycleRequireKey]; ok {
 		dpu.Annotations[reboot.HostPowerCycleRequireKey] = v
 	}
 	if err := r.Create(ctx, dpu); err != nil {
@@ -341,8 +341,8 @@ func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningv1
 	return nil
 }
 
-func (r *DpuSetReconciler) rolloutRecreate(ctx context.Context, dpuSet *provisioningv1.DpuSet,
-	dpuMap map[string]provisioningv1.Dpu) error {
+func (r *DPUSetReconciler) rolloutRecreate(ctx context.Context, dpuSet *provisioningv1.DPUSet,
+	dpuMap map[string]provisioningv1.DPU) error {
 	for _, dpu := range dpuMap {
 		if update, err := r.needUpdate(ctx, *dpuSet, dpu); err != nil {
 			return err
@@ -359,8 +359,8 @@ func (r *DpuSetReconciler) rolloutRecreate(ctx context.Context, dpuSet *provisio
 	return nil
 }
 
-func (r *DpuSetReconciler) rolloutRolling(ctx context.Context, dpuSet *provisioningv1.DpuSet,
-	dpuMap map[string]provisioningv1.Dpu, total int) error {
+func (r *DPUSetReconciler) rolloutRolling(ctx context.Context, dpuSet *provisioningv1.DPUSet,
+	dpuMap map[string]provisioningv1.DPU, total int) error {
 	scaledValue, err := intstr.GetScaledValueFromIntOrPercent(intstr.ValueOrDefault(
 		dpuSet.Spec.Strategy.RollingUpdate.MaxUnavailable, intstr.FromInt(0)), total, true)
 	if err != nil {
@@ -409,16 +409,16 @@ func (r *DpuSetReconciler) rolloutRolling(ctx context.Context, dpuSet *provision
 	return nil
 }
 
-func isUnavailable(dpu *provisioningv1.Dpu) bool {
+func isUnavailable(dpu *provisioningv1.DPU) bool {
 	_, cond := cutil.GetDPUCondition(&dpu.Status, provisioningv1.DPUCondReady.String())
 	return cond == nil || cond.Status == metav1.ConditionFalse
 }
 
 // TODO: check more informations
-func (r *DpuSetReconciler) needUpdate(ctx context.Context, dpuSet provisioningv1.DpuSet, dpu provisioningv1.Dpu) (bool, error) {
+func (r *DPUSetReconciler) needUpdate(ctx context.Context, dpuSet provisioningv1.DPUSet, dpu provisioningv1.DPU) (bool, error) {
 	logger := log.FromContext(ctx)
 	// update dpu node label
-	newLabel := dpuSet.Spec.DpuTemplate.Spec.Cluster.NodeLabels
+	newLabel := dpuSet.Spec.DPUTemplate.Spec.Cluster.NodeLabels
 	oldLabel := dpu.Spec.Cluster.NodeLabels
 	if !reflect.DeepEqual(newLabel, oldLabel) {
 		if dpu.Spec.Cluster.NodeLabels == nil {
@@ -436,12 +436,12 @@ func (r *DpuSetReconciler) needUpdate(ctx context.Context, dpuSet provisioningv1
 		}
 	}
 
-	return dpu.Spec.BFB != dpuSet.Spec.DpuTemplate.Spec.BFB.Name || dpu.Spec.DPUFlavor != dpuSet.Spec.DpuTemplate.Spec.DPUFlavor, nil
+	return dpu.Spec.BFB != dpuSet.Spec.DPUTemplate.Spec.BFB.Name || dpu.Spec.DPUFlavor != dpuSet.Spec.DPUTemplate.Spec.DPUFlavor, nil
 }
 
-func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningv1.DpuSet,
-	dpuMap map[string]provisioningv1.Dpu, client client.Client) error {
-	dpuStatistics := make(map[provisioningv1.DpuPhase]int)
+func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningv1.DPUSet,
+	dpuMap map[string]provisioningv1.DPU, client client.Client) error {
+	dpuStatistics := make(map[provisioningv1.DPUPhase]int)
 	for _, dpu := range dpuMap {
 		switch dpu.Status.Phase {
 		case "":
@@ -477,11 +477,11 @@ func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningv1.DpuSet,
 	}
 
 	needUpdate := false
-	if len(dpuStatistics) != len(dpuSet.Status.Dpustatistics) {
+	if len(dpuStatistics) != len(dpuSet.Status.DPUStatistics) {
 		needUpdate = true
 	} else {
 		for key, count1 := range dpuStatistics {
-			count2, ok := dpuSet.Status.Dpustatistics[key]
+			count2, ok := dpuSet.Status.DPUStatistics[key]
 			if !ok {
 				needUpdate = true
 				break
@@ -492,7 +492,7 @@ func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningv1.DpuSet,
 		}
 	}
 	if needUpdate {
-		dpuSet.Status.Dpustatistics = dpuStatistics
+		dpuSet.Status.DPUStatistics = dpuStatistics
 		if err := client.Status().Update(ctx, dpuSet); err != nil {
 			return err
 		}
@@ -501,8 +501,8 @@ func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningv1.DpuSet,
 	return nil
 }
 
-func (r *DpuSetReconciler) finalizeDPUSet(ctx context.Context, dpuSet *provisioningv1.DpuSet) error {
-	controllerutil.RemoveFinalizer(dpuSet, provisioningv1.DpuSetFinalizer)
+func (r *DPUSetReconciler) finalizeDPUSet(ctx context.Context, dpuSet *provisioningv1.DPUSet) error {
+	controllerutil.RemoveFinalizer(dpuSet, provisioningv1.DPUSetFinalizer)
 	if err := r.Client.Update(ctx, dpuSet); err != nil {
 		return err
 	}
@@ -532,7 +532,7 @@ func getDPUIndexFromSelector(dpuSelector map[string]string, nodeLabels map[strin
 	} else {
 		// If dpuSelector is not set, use index 0 DPU by default
 		for k := range nodeLabels {
-			if strings.HasSuffix(k, fmt.Sprintf(cutil.DpuPCIAddress, 0)) {
+			if strings.HasSuffix(k, fmt.Sprintf(cutil.DPUPCIAddress, 0)) {
 				dpuIndexMap[0] = 0
 				break
 			}
