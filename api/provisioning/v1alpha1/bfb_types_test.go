@@ -163,7 +163,7 @@ var _ = Describe("BFB", func() {
 			Expect(obj_fetched.Spec.URL).To(Equal(ref_value))
 		})
 
-		It("spec.file_name default", func() {
+		It("spec.fileName default", func() {
 			obj := createObj(DefaultObjName)
 			obj.Spec.URL = DefaultURL
 			err := k8sClient.Create(ctx, obj)
@@ -172,7 +172,7 @@ var _ = Describe("BFB", func() {
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 		})
 
-		It("spec.file_name is validation", func() {
+		It("spec.fileName is validation", func() {
 			obj := createObj(DefaultObjName)
 			obj.Spec.FileName = "dummy_NAME-1.2.3.bfb"
 			obj.Spec.URL = DefaultURL
@@ -205,7 +205,7 @@ var _ = Describe("BFB", func() {
 			Expect(err).To(HaveOccurred())
 		})
 
-		It("spec.file_name is immutable", func() {
+		It("spec.fileName is immutable", func() {
 			ref_value := "dummy.bfb"
 
 			obj := createObj(DefaultObjName)
@@ -233,7 +233,7 @@ metadata:
   name: obj-bfb
   namespace: default
 spec:
-  file_name: "bf-bundle-2.7.0-33.bfb"
+  fileName: "bf-bundle-2.7.0-33.bfb"
   url: "http://bfb-server.dpf-operator-system/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_unsigned.bfb"
 `)
 			obj := &BFB{}

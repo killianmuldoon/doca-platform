@@ -64,22 +64,22 @@ spec:
                           name:
                             type: string
                         type: object
-                      dpuFlavor:
-                        type: string
-                      k8s_cluster:
+                      cluster:
                         properties:
                           name:
                             type: string
                           namespace:
                             type: string
-                          node_labels:
+                          nodeLabels:
                             additionalProperties:
                               type: string
                             type: object
                         type: object
+                      dpuFlavor:
+                        type: string
                       nodeEffect:
                         properties:
-                          custom_label:
+                          customLabel:
                             additionalProperties:
                               type: string
                             type: object
@@ -88,7 +88,7 @@ spec:
                               automaticNodeReboot:
                                 type: boolean
                             type: object
-                          no_effect:
+                          noEffect:
                             type: boolean
                           taint:
                             description: |-
@@ -121,8 +121,8 @@ spec:
                             type: object
                         type: object
                     required:
+                    - cluster
                     - dpuFlavor
-                    - k8s_cluster
                     type: object
                 type: object
               nodeSelector:

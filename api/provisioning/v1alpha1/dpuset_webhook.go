@@ -168,7 +168,7 @@ func ValidateNodeEffect(nodeEffect NodeEffect) error {
 		count++
 	}
 	if count > 1 {
-		return errors.New("nodeEffect can only be one of \"taint\", \"no_effect\" , \"drain\" and \"custom_label\"")
+		return errors.New("nodeEffect can only be one of \"taint\", \"noEffect\" , \"drain\" and \"customLabel\"")
 	}
 	return nil
 }

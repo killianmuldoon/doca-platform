@@ -85,7 +85,7 @@ type K8sCluster struct {
 	// +optional
 	NameSpace string `json:"namespace"`
 	// +optional
-	NodeLabels map[string]string `json:"node_labels,omitempty"`
+	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
 }
 
 // DPUSpec defines the desired state of DPU
@@ -102,7 +102,7 @@ type DPUSpec struct {
 	// The PCI device related DPU
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +optional
-	PCIAddress string `json:"pci_address,omitempty"`
+	PCIAddress string `json:"pciAddress,omitempty"`
 
 	// Specifies how changes to the DPU should affect the Node
 	// +kubebuilder:default={drain: {automaticNodeReboot: true}}
@@ -111,7 +111,7 @@ type DPUSpec struct {
 
 	// Specifies details on the K8S cluster to join
 	// +required
-	Cluster K8sCluster `json:"k8s_cluster"`
+	Cluster K8sCluster `json:"cluster"`
 
 	// DPUFlavor is the name of the DPUFlavor that will be used to deploy the DPU.
 	// +optional
@@ -135,15 +135,15 @@ type DPUStatus struct {
 
 	// bfb version of this DPU
 	// +optional
-	BFBVersion string `json:"bfb_version,omitempty"`
+	BFBVersion string `json:"bfbVersion,omitempty"`
 
 	// pci device information of this DPU
 	// +optional
-	PCIDevice string `json:"pci_device,omitempty"`
+	PCIDevice string `json:"pciDevice,omitempty"`
 
 	// whether require reset of DPU
 	// +optional
-	RequiredReset *bool `json:"required_reset,omitempty"`
+	RequiredReset *bool `json:"requiredReset,omitempty"`
 
 	// the firmware information of DPU
 	// +optional

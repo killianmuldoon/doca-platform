@@ -69,7 +69,7 @@ type BFBReference struct {
 type DPUTemplateSpec struct {
 	BFB        BFBReference `json:"bfb,omitempty"`
 	NodeEffect *NodeEffect  `json:"nodeEffect,omitempty"`
-	Cluster    K8sCluster   `json:"k8s_cluster"`
+	Cluster    K8sCluster   `json:"cluster"`
 	DPUFlavor  string       `json:"dpuFlavor"`
 	// Specifies if the DPU controller should automatically reboot the node on upgrades,
 	// this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic
@@ -83,8 +83,8 @@ type DPUTemplate struct {
 
 type NodeEffect struct {
 	Taint       *corev1.Taint     `json:"taint,omitempty"`
-	NoEffect    bool              `json:"no_effect,omitempty"`
-	CustomLabel map[string]string `json:"custom_label,omitempty"`
+	NoEffect    bool              `json:"noEffect,omitempty"`
+	CustomLabel map[string]string `json:"customLabel,omitempty"`
 	Drain       *Drain            `json:"drain,omitempty"`
 }
 

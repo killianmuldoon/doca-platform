@@ -47,29 +47,29 @@ spec:
               bfb:
                 description: Specifies name of the bfb CR to use for this DPU
                 type: string
-              dpuFlavor:
-                description: DPUFlavor is the name of the DPUFlavor that will be used
-                  to deploy the DPU.
-                type: string
-              k8s_cluster:
+              cluster:
                 description: Specifies details on the K8S cluster to join
                 properties:
                   name:
                     type: string
                   namespace:
                     type: string
-                  node_labels:
+                  nodeLabels:
                     additionalProperties:
                       type: string
                     type: object
                 type: object
+              dpuFlavor:
+                description: DPUFlavor is the name of the DPUFlavor that will be used
+                  to deploy the DPU.
+                type: string
               nodeEffect:
                 default:
                   drain:
                     automaticNodeReboot: true
                 description: Specifies how changes to the DPU should affect the Node
                 properties:
-                  custom_label:
+                  customLabel:
                     additionalProperties:
                       type: string
                     type: object
@@ -78,7 +78,7 @@ spec:
                       automaticNodeReboot:
                         type: boolean
                     type: object
-                  no_effect:
+                  noEffect:
                     type: boolean
                   taint:
                     description: |-
@@ -114,7 +114,7 @@ spec:
                 x-kubernetes-validations:
                 - message: Value is immutable
                   rule: self == oldSelf
-              pci_address:
+              pciAddress:
                 description: The PCI device related DPU
                 type: string
                 x-kubernetes-validations:
@@ -122,7 +122,7 @@ spec:
                   rule: self == oldSelf
             required:
             - bfb
-            - k8s_cluster
+            - cluster
             - nodeName
             type: object
           status:
@@ -130,7 +130,7 @@ spec:
               phase: Initializing
             description: DPUStatus defines the observed state of DPU
             properties:
-              bfb_version:
+              bfbVersion:
                 description: bfb version of this DPU
                 type: string
               conditions:
@@ -199,7 +199,7 @@ spec:
                   uefi:
                     type: string
                 type: object
-              pci_device:
+              pciDevice:
                 description: pci device information of this DPU
                 type: string
               phase:
@@ -218,7 +218,7 @@ spec:
                 - Deleting
                 - Rebooting
                 type: string
-              required_reset:
+              requiredReset:
                 description: whether require reset of DPU
                 type: boolean
             required:

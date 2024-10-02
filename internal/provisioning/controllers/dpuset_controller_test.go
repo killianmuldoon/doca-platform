@@ -134,10 +134,10 @@ spec:
           key: "dpu"
           value: "provisioning"
           effect: NoSchedule
-      k8s_cluster:
+      cluster:
         name: "tenant-00"
         namespace: "tenant-00-ns"
-        node_labels:
+        nodeLabels:
           "dpf.node.dpu/role": "worker"
 `)
 			obj := &provisioningv1.DPUSet{}

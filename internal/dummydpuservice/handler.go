@@ -36,11 +36,11 @@ const (
 
 // PodInfo contains information about the Pod
 type PodInfo struct {
-	NodeName     string `json:"node_name"`
-	NodeIP       string `json:"node_ip"`
-	PodName      string `json:"pod_name"`
-	PodNamespace string `json:"pod_namespace"`
-	PodIP        string `json:"pod_ip"`
+	NodeName     string `json:"nodeName"`
+	NodeIP       string `json:"nodeIP"`
+	PodName      string `json:"podName"`
+	PodNamespace string `json:"podNamespace"`
+	PodIP        string `json:"podIP"`
 }
 
 // GetStaticPodInfo reads information about the Pod from the env variables
@@ -58,8 +58,8 @@ var counter uint64
 
 type respData struct {
 	PodInfo
-	ClientIP  string `json:"client_ip"`
-	CallCount uint64 `json:"call_count"`
+	ClientIP  string `json:"clientIP"`
+	CallCount uint64 `json:"callCount"`
 }
 
 func marshalRespData(podInfo PodInfo, clientIP string) ([]byte, error) {

@@ -1320,7 +1320,7 @@ func getMinimalBFB(name string, namespace string, nodeName string) *unstructured
 			"spec": map[string]interface{}{
 				"nodeName": nodeName,
 				"bfb":      "some-bfb",
-				"k8s_cluster": map[string]interface{}{
+				"cluster": map[string]interface{}{
 					"name":      "some-cluster",
 					"namespace": "some-namespace",
 				},

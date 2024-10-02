@@ -731,7 +731,7 @@ func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 					},
 					DPUFlavor: dpuFlavor,
 				},
-				// TODO: Derive and add k8s_cluster
+				// TODO: Derive and add cluster
 				// TODO: Add nodeEffect
 			},
 		},

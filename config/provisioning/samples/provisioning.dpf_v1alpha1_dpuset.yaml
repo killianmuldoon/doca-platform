@@ -17,11 +17,11 @@ spec:
       bfb:
         name: "doca-23.09"
       nodeEffect:
-        #custom_label:
+        #customLabel:
         #  dpu-provisoning: "running"
         taint:
           key: "dpu"
           value: "provisioning"
           effect: NoSchedule
-      k8s_cluster:
+      cluster:
         name: "dpu_cluster"

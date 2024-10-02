@@ -98,7 +98,7 @@ var _ = Describe("DPUSet", func() {
 			Expect(obj_fetched).To(Equal(obj))
 		})
 
-		It("spec.dpuTemplate.spec.k8s_cluster is mutable", func() {
+		It("spec.dpuTemplate.spec.cluster is mutable", func() {
 			ref_value := `dummy_cluster`
 			new_value := `dummy_new_cluster`
 
@@ -145,10 +145,10 @@ spec:
           key: "dpu"
           value: "provisioning"
           effect: NoSchedule
-      k8s_cluster:
+      Cluster:
         name: "tenant-00"
         namespace: "tenant-00-ns"
-        node_labels:
+        nodeLabels:
           "dpf.node.dpu/role": "worker"
 `)
 			obj := &DPUSet{}

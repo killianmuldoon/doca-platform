@@ -194,8 +194,8 @@ metadata:
   name: bf-bundle-2.7.0
   namespace: dpf-operator-system
 spec:
-  # file_name must use ".bfb" extension
-  file_name: "bf-bundle-2.7.0-33.bfb"
+  # fileName must use ".bfb" extension
+  fileName: "bf-bundle-2.7.0-33.bfb"
   # the URL to download bfb file - using internal HTTP server
   url: "http://bfb-server.dpf-operator-system/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_prod.bfb"
 EOF
@@ -227,7 +227,7 @@ spec:
           key: "dpu"
           value: "provisioning"
           effect: NoSchedule
-      k8s_cluster:
+      cluster:
         name: "dpu-cplane-tenant1"
         namespace: "dpu-cplane-tenant1"
 EOF

@@ -30,10 +30,10 @@
           labelsFromPath:
             bfb_version:
               - status
-              - bfb_version
+              - bfbVersion
             pci_device:
               - status
-              - pci_device
+              - pciDevice
             firmware:
               - status
               - firmware

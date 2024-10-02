@@ -29,7 +29,7 @@ DPF uses rshim service on x86 host for DPU provisioning. The rshim service shoul
 
 #### DPU cluster discovery
 DPUSet controller joins DPU to the `Kamaji tenant control plane` according to field
-`.spec.dpuTemplate.spec.k8s_cluster` in `DPUSet`. 
+`.spec.dpuTemplate.spec.cluster` in `DPUSet`. 
 
 Refer to [kamaji-installation](./kamaji-installation.md) for instructions on manipulating `Kamaji` on OCP.
 
@@ -177,8 +177,8 @@ metadata:
   name: doca-24.04
   namespace: dpf-provisioning
 spec:
-  # file_name must use ".bfb" extension
-  file_name: "doca-24.04.bfb"
+  # fileName must use ".bfb" extension
+  fileName: "doca-24.04.bfb"
   # the URL to download bfb file 
   url: "https://content.mellanox.com/BlueField/BFBs/Ubuntu22.04/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_prod.bfb"
 ```
@@ -270,10 +270,10 @@ spec:
           value: "provisioning"
           effect: NoSchedule
       automaticNodeReboot: true
-      k8s_cluster:
+      cluster:
         name: "tenant-00"
         namespace: "tenant-00-ns"
-        node_labels:
+        nodeLabels:
           "dpf.node.dpu/role": "worker"
 ```
 

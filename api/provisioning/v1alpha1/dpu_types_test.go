@@ -128,15 +128,15 @@ var _ = Describe("DPU", func() {
 			Expect(obj_fetched.Spec.NodeName).To(Equal(ref_value))
 		})
 
-		It("spec.pci_address is immutable", func() {
-			ref_value := "spec.pci_address"
+		It("spec.pciAddress is immutable", func() {
+			ref_value := "spec.pciAddress"
 
 			obj := createObj("obj-6")
 			obj.Spec.PCIAddress = ref_value
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj.Spec.PCIAddress = "spec.pci_address_new"
+			obj.Spec.PCIAddress = "spec.pciAddress_new"
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
@@ -146,7 +146,7 @@ var _ = Describe("DPU", func() {
 			Expect(obj_fetched.Spec.PCIAddress).To(Equal(ref_value))
 		})
 
-		It("spec.k8s_cluster is mutable", func() {
+		It("spec.Cluster is mutable", func() {
 			ref_value := `dummy_cluster`
 			new_value := `dummy_new_cluster`
 
@@ -168,7 +168,7 @@ var _ = Describe("DPU", func() {
 			Expect(obj_fetched.Spec.Cluster.Name).To(Equal(new_value))
 		})
 
-		It("spec.k8s_cluster can be updated from unassigned state", func() {
+		It("spec.cluster can be updated from unassigned state", func() {
 			new_value_name := `dummy_new_cluster_name`
 			new_value_namespace := `dummy_new_cluster_namespace`
 
@@ -202,14 +202,14 @@ metadata:
   name: obj-8
   namespace: default
 spec:
-  nodename: "dpu-bf2"
+  nodeName: "dpu-bf2"
   bfb: "doca-24.04"
-  pci_address: "0000:04:00.0"
+  pciAddress: "0000:04:00.0"
   dpuFlavor: "dpu-flavor"
-  k8s_cluster:
+  cluster:
     name: "tenant-00"
     namespace: "tenant-00-ns"
-    node_labels:
+    nodeLabels:
       "dpf.node.dpu/role": "worker"
   nodeEffect:
     taint:
