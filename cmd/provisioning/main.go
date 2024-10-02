@@ -169,9 +169,11 @@ func main() {
 
 	// imagePullSecrets should be a comma-joined list of the names of imagePullSecrets.
 	imagePullSecretsReferences := []corev1.LocalObjectReference{}
-	secretList := strings.Split(imagePullSecrets, ",")
-	for _, secret := range secretList {
-		imagePullSecretsReferences = append(imagePullSecretsReferences, corev1.LocalObjectReference{Name: secret})
+	if imagePullSecrets != "" {
+		secretList := strings.Split(imagePullSecrets, ",")
+		for _, secret := range secretList {
+			imagePullSecretsReferences = append(imagePullSecretsReferences, corev1.LocalObjectReference{Name: secret})
+		}
 	}
 
 	dpuOptions := util.DPUOptions{
