@@ -24,7 +24,6 @@ import (
 	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
 
 	multusclient "gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/k8sclient"
@@ -51,11 +50,11 @@ type poolConfig struct {
 }
 
 type svcPortEntry struct {
-	service    *sfcv1.Service
-	serviceIfc *sfcv1.ServiceIfc
+	service    *dpuservicev1.Service
+	serviceIfc *dpuservicev1.ServiceIfc
 }
 
-func (s *svcPortEntry) getIPAM() *sfcv1.IPAM {
+func (s *svcPortEntry) getIPAM() *dpuservicev1.IPAM {
 	if s.service != nil {
 		return s.service.IPAM
 	}
@@ -78,7 +77,7 @@ const (
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 //+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains,verbs=get;list;watch
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=servicechains,verbs=get;list;watch
 //+kubebuilder:rbac:groups=nv-ipam.nvidia.com,resources=ippools,verbs=get;list;watch
 //+kubebuilder:rbac:groups=nv-ipam.nvidia.com,resources=cidrpools,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch;update;patch
@@ -125,12 +124,12 @@ func (r *PodIpamReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 	err = r.getServicesFromChainForPod(ctx, ifcToSvc, pod.Spec.NodeName, pod)
 	if err != nil {
-		log.Error(err, "Fail to get Service from Chain, requeue.")
+		log.Error(err, "Fail to get DPUDeploymentService from Chain, requeue.")
 		return ctrl.Result{RequeueAfter: reconcileRetryTime}, nil
 	}
 	for ifc, spe := range ifcToSvc {
 		if spe == nil {
-			log.Info("No Service definition for requested interface found. Requeing", "interface", ifc)
+			log.Info("No DPUDeploymentService definition for requested interface found. Requeing", "interface", ifc)
 			return ctrl.Result{RequeueAfter: reconcileRetryTime}, nil
 		}
 		ipam := spe.getIPAM()
@@ -188,7 +187,7 @@ func (r *PodIpamReconciler) updatePodAnnotation(ctx context.Context, pod *corev1
 }
 
 func (r *PodIpamReconciler) getServicesFromChainForPod(ctx context.Context, ifcToSvc map[string]*svcPortEntry, node string, pod *corev1.Pod) error {
-	scList := &sfcv1.ServiceChainList{}
+	scList := &dpuservicev1.ServiceChainList{}
 	if err := r.Client.List(ctx, scList, client.InNamespace(pod.Namespace)); err != nil {
 		return err
 	}
@@ -217,7 +216,7 @@ func (r *PodIpamReconciler) getServicesFromChainForPod(ctx context.Context, ifcT
 					if err != nil {
 						return fmt.Errorf("failed to get serviceInterface for chain. %w", err)
 					}
-					if svcIfc.Spec.InterfaceType == sfcv1.InterfaceTypeService {
+					if svcIfc.Spec.InterfaceType == dpuservicev1.InterfaceTypeService {
 						// no support for object reference
 						// we add entry if the pod matched serviceID label AND the interface name matches.
 						if podMatchLabels(pod, map[string]string{dpuservicev1.DPFServiceIDLabelKey: svcIfc.Spec.Service.ServiceID}) {
@@ -234,9 +233,9 @@ func (r *PodIpamReconciler) getServicesFromChainForPod(ctx context.Context, ifcT
 }
 
 // getServiceInterfaceWithLabels returns ServiceInterface in given namespace that belongs to current node with given labels. if more than one or none matches, error out.
-func (r *PodIpamReconciler) getServiceInterfaceWithLabels(ctx context.Context, nodeName string, namespace string, lbls map[string]string) (*sfcv1.ServiceInterface, error) {
+func (r *PodIpamReconciler) getServiceInterfaceWithLabels(ctx context.Context, nodeName string, namespace string, lbls map[string]string) (*dpuservicev1.ServiceInterface, error) {
 	//TODO(adrianc): this needs to be moved to a common place as we need the same thing in sfc-controller
-	sil := &sfcv1.ServiceInterfaceList{}
+	sil := &dpuservicev1.ServiceInterfaceList{}
 	listOpts := []client.ListOption{}
 	listOpts = append(listOpts, client.MatchingLabelsSelector{Selector: labels.SelectorFromSet(labels.Set(lbls))})
 	if namespace != "" {
@@ -247,7 +246,7 @@ func (r *PodIpamReconciler) getServiceInterfaceWithLabels(ctx context.Context, n
 	}
 
 	// filter out serviceInterfaces not on this node
-	matching := make([]*sfcv1.ServiceInterface, 0, len(sil.Items))
+	matching := make([]*dpuservicev1.ServiceInterface, 0, len(sil.Items))
 	for i := range sil.Items {
 		if sil.Items[i].Spec.Node == nil || *sil.Items[i].Spec.Node != nodeName {
 			continue
@@ -319,7 +318,7 @@ func (r *PodIpamReconciler) getPoolsConfig(ctx context.Context, ifcToSvc map[str
 	return ifcToPoolCfg, nil
 }
 
-func (r *PodIpamReconciler) getPoolConfig(ctx context.Context, ipam *sfcv1.IPAM) (*poolConfig, error) {
+func (r *PodIpamReconciler) getPoolConfig(ctx context.Context, ipam *dpuservicev1.IPAM) (*poolConfig, error) {
 	poolCfg := &poolConfig{}
 
 	if ipam.DefaultGateway != nil {
@@ -343,7 +342,7 @@ func (r *PodIpamReconciler) getPoolConfig(ctx context.Context, ipam *sfcv1.IPAM)
 	return poolCfg, nil
 }
 
-func (r *PodIpamReconciler) getPoolByRef(ctx context.Context, ipam *sfcv1.IPAM) (string, string, error) {
+func (r *PodIpamReconciler) getPoolByRef(ctx context.Context, ipam *dpuservicev1.IPAM) (string, string, error) {
 	ipPool := &nvipamv1.IPPool{}
 	err := r.Client.Get(ctx, client.ObjectKey{Namespace: *ipam.Reference.Namespace,
 		Name: ipam.Reference.Name}, ipPool)
@@ -372,7 +371,7 @@ func (r *PodIpamReconciler) getPoolByRef(ctx context.Context, ipam *sfcv1.IPAM) 
 	}
 }
 
-func (r *PodIpamReconciler) getPoolByMatchLabel(ctx context.Context, ipam *sfcv1.IPAM) (string, string, error) {
+func (r *PodIpamReconciler) getPoolByMatchLabel(ctx context.Context, ipam *dpuservicev1.IPAM) (string, string, error) {
 	log := log.FromContext(ctx)
 	listOptions := client.MatchingLabels(ipam.MatchLabels)
 	ipPoolList := &nvipamv1.IPPoolList{}
@@ -381,7 +380,7 @@ func (r *PodIpamReconciler) getPoolByMatchLabel(ctx context.Context, ipam *sfcv1
 	}
 	if len(ipPoolList.Items) > 0 {
 		if len(ipPoolList.Items) > 1 {
-			log.Info("Service IPAM MatchLabels matched more than one IPPool", "labels", ipam.MatchLabels)
+			log.Info("DPUDeploymentService IPAM MatchLabels matched more than one IPPool", "labels", ipam.MatchLabels)
 		}
 		return ipPoolList.Items[0].Name, strings.ToLower(nvipamv1.IPPoolKind), nil
 	}
@@ -391,7 +390,7 @@ func (r *PodIpamReconciler) getPoolByMatchLabel(ctx context.Context, ipam *sfcv1
 	}
 	if len(cidrPoolList.Items) > 0 {
 		if len(ipPoolList.Items) > 1 {
-			log.Info("Service IPAM MatchLabels matched more than one CIDRPool", "labels", ipam.MatchLabels)
+			log.Info("DPUDeploymentService IPAM MatchLabels matched more than one CIDRPool", "labels", ipam.MatchLabels)
 		}
 		return cidrPoolList.Items[0].Name, strings.ToLower(nvipamv1.CIDRPoolKind), nil
 	}

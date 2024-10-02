@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -88,14 +87,14 @@ type DPUDeployment struct {
 type DPUDeploymentSpec struct {
 	// DPUs contains the DPU related configuration
 	DPUs DPUs `json:"dpus"`
-	// Services contains the Service related configuration. The key is the deploymentServiceName and the value is its
+	// Services contains the DPUDeploymentService related configuration. The key is the deploymentServiceName and the value is its
 	// configuration. All underlying objects must specify the same deploymentServiceName in order to be able to be consumed by the
 	// DPUDeployment.
 	Services map[string]DPUDeploymentServiceConfiguration `json:"services"`
 	// ServiceChains contains the configuration related to the DPUServiceChains that the DPUDeployment creates.
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=50
-	ServiceChains []Switch `json:"serviceChains"`
+	ServiceChains []DPUDeploymentSwitch `json:"serviceChains"`
 	// Strategy contains configuration related to the rolling update that the DPUDeployment can do whenever a DPUService
 	// or a DPUSet related setting has changed.
 	// +optional
@@ -140,30 +139,30 @@ type DPUDeploymentServiceConfiguration struct {
 	ServiceConfiguration string `json:"serviceConfiguration"`
 }
 
-// Switch holds the ports that are connected in switch topology
-type Switch struct {
+// DPUDeploymentSwitch holds the ports that are connected in switch topology
+type DPUDeploymentSwitch struct {
 	// Ports contains the ports of the switch
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=50
 	// +required
-	Ports []Port `json:"ports"`
+	Ports []DPUDeploymentPort `json:"ports"`
 }
 
-// Port defines how a port can be configured
+// DPUDeploymentPort defines how a port can be configured
 // +kubebuilder:validation:XValidation:rule="(has(self.service) && !has(self.serviceInterface)) || (!has(self.service) && has(self.serviceInterface))", message="either service or serviceInterface must be specified"
-type Port struct {
+type DPUDeploymentPort struct {
 	// Service holds configuration that helps configure the Service Function Chain and identify a port associated with
 	// a DPUService
 	// +optional
-	Service *Service `json:"service,omitempty"`
+	Service *DPUDeploymentService `json:"service,omitempty"`
 	// ServiceInterface holds configuration that helps configure the Service Function Chain and identify a user defined
 	// port
 	// +optional
-	ServiceInterface *sfcv1.ServiceIfc `json:"serviceInterface,omitempty"`
+	ServiceInterface *ServiceIfc `json:"serviceInterface,omitempty"`
 }
 
-// Service is the struct used for referencing an interface.
-type Service struct {
+// DPUDeploymentService is the struct used for referencing an interface.
+type DPUDeploymentService struct {
 	// Name is the name of the service as defined in the DPUDeployment Spec
 	// +required
 	Name string `json:"name"`
@@ -172,7 +171,7 @@ type Service struct {
 	InterfaceName string `json:"interface"`
 	// IPAM defines the IPAM configuration that is configured in the Service Function Chain
 	// +optional
-	IPAM *sfcv1.IPAM `json:"ipam,omitempty"`
+	IPAM *IPAM `json:"ipam,omitempty"`
 }
 
 // Strategy contains configuration related to the rolling update that the DPUDeployment can do whenever a DPUService

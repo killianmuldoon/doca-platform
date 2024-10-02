@@ -26,7 +26,6 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
@@ -80,9 +79,6 @@ func TestMain(m *testing.M) {
 	}
 	if err := dpuservicev1.AddToScheme(scheme.Scheme); err != nil {
 		panic(fmt.Sprintf("Failed to add DPUservice v1 scheme: %v", err))
-	}
-	if err := sfcv1.AddToScheme(scheme.Scheme); err != nil {
-		panic(fmt.Sprintf("Failed to add SFC scheme: %v", err))
 	}
 	if err := argov1.AddToScheme(scheme.Scheme); err != nil {
 		panic(fmt.Sprintf("Failed to add Argo scheme: %v", err))

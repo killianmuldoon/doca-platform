@@ -1,4 +1,4 @@
-apiVersion: "sfc.dpf.nvidia.com/v1alpha1"
+apiVersion: "svc.dpf.nvidia.com/v1alpha1"
 kind: DPUServiceInterface
 metadata:
   name: pf0-vf2

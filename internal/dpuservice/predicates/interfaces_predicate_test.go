@@ -19,7 +19,7 @@ package predicates
 import (
 	"testing"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -31,7 +31,7 @@ import (
 func TestDPUServiceInterfaceChangePredicate_Update(t *testing.T) {
 	interfaceA := createInterface("serviceA")
 	interfaceB := createInterface("serviceB")
-	emptyInterface := &sfcv1.DPUServiceInterface{}
+	emptyInterface := &dpuservicev1.DPUServiceInterface{}
 	notAInterface := &unstructured.Unstructured{}
 
 	tests := []struct {
@@ -60,16 +60,16 @@ func TestDPUServiceInterfaceChangePredicate_Update(t *testing.T) {
 	}
 }
 
-func createInterface(service string) *sfcv1.DPUServiceInterface {
-	return &sfcv1.DPUServiceInterface{
-		Spec: sfcv1.DPUServiceInterfaceSpec{
-			Template: sfcv1.ServiceInterfaceSetSpecTemplate{
-				Spec: sfcv1.ServiceInterfaceSetSpec{
-					Template: sfcv1.ServiceInterfaceSpecTemplate{
-						Spec: sfcv1.ServiceInterfaceSpec{
-							InterfaceType: sfcv1.InterfaceTypeService,
+func createInterface(service string) *dpuservicev1.DPUServiceInterface {
+	return &dpuservicev1.DPUServiceInterface{
+		Spec: dpuservicev1.DPUServiceInterfaceSpec{
+			Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+				Spec: dpuservicev1.ServiceInterfaceSetSpec{
+					Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+						Spec: dpuservicev1.ServiceInterfaceSpec{
+							InterfaceType: dpuservicev1.InterfaceTypeService,
 							InterfaceName: ptr.To("net1"),
-							Service: &sfcv1.ServiceDef{
+							Service: &dpuservicev1.ServiceDef{
 								ServiceID: service,
 								Network:   "mybrsfc",
 							},

@@ -279,19 +279,19 @@ generate-manifests-servicechainset: controller-gen kustomize envsubst ## Generat
 	paths="./cmd/servicechainset/..." \
 	paths="./internal/servicechainset/..." \
 	paths="./internal/pod-ipam-injector/..." \
-	paths="./api/servicechain/..." \
+	paths="./api/dpuservice/..." \
 	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
 	rbac:roleName=manager-role \
 	output:crd:dir=./config/servicechainset/crd/bases \
 	output:rbac:dir=./config/servicechainset/rbac
-	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/servicechain/templates/crds/ \;
+	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/ \;
 	$(ENVSUBST) < deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml.tmpl > deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml
 
 
 .PHONY: generate-manifests-sfc-controller
 generate-manifests-sfc-controller: envsubst generate-manifests-servicechainset
-	cp deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/sfc.dpf.nvidia.com_servicechains.yaml deploy/helm/dpu-networking/charts/sfc-controller/templates/crds/
-	cp deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/sfc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/dpu-networking/charts/sfc-controller/templates/crds/
+	cp deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/svc.dpf.nvidia.com_servicechains.yaml deploy/helm/dpu-networking/charts/sfc-controller/templates/crds/
+	cp deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/svc.dpf.nvidia.com_serviceinterfaces.yaml deploy/helm/dpu-networking/charts/sfc-controller/templates/crds/
 	# Template the image name and tag used in the helm templates.
 	$(ENVSUBST) < deploy/helm/dpu-networking/charts/sfc-controller/values.yaml.tmpl > deploy/helm/dpu-networking/charts/sfc-controller/values.yaml
 

@@ -18,7 +18,6 @@ package controllers
 
 import (
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,19 +27,19 @@ import (
 
 var _ = Describe("NetworkSelectionElement", func() {
 	DescribeTable("Validate NetworkSelectionElement",
-		func(dpuServiceInterface *sfcv1.DPUServiceInterface, expected types.NetworkSelectionElement) {
+		func(dpuServiceInterface *dpuservicev1.DPUServiceInterface, expected types.NetworkSelectionElement) {
 			resp := newNetworkSelectionElement(dpuServiceInterface)
 			Expect(resp).To(Equal(expected))
 		},
-		Entry("network without namespace", &sfcv1.DPUServiceInterface{
-			Spec: sfcv1.DPUServiceInterfaceSpec{
-				Template: sfcv1.ServiceInterfaceSetSpecTemplate{
-					Spec: sfcv1.ServiceInterfaceSetSpec{
-						Template: sfcv1.ServiceInterfaceSpecTemplate{
-							Spec: sfcv1.ServiceInterfaceSpec{
-								InterfaceType: sfcv1.InterfaceTypeService,
+		Entry("network without namespace", &dpuservicev1.DPUServiceInterface{
+			Spec: dpuservicev1.DPUServiceInterfaceSpec{
+				Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+					Spec: dpuservicev1.ServiceInterfaceSetSpec{
+						Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+							Spec: dpuservicev1.ServiceInterfaceSpec{
+								InterfaceType: dpuservicev1.InterfaceTypeService,
 								InterfaceName: ptr.To("net1"),
-								Service: &sfcv1.ServiceDef{
+								Service: &dpuservicev1.ServiceDef{
 									ServiceID: "service-one",
 									Network:   "mybrsfc",
 								},
@@ -53,15 +52,15 @@ var _ = Describe("NetworkSelectionElement", func() {
 			Name:             "mybrsfc",
 			InterfaceRequest: "net1",
 		}),
-		Entry("network with namespace", &sfcv1.DPUServiceInterface{
-			Spec: sfcv1.DPUServiceInterfaceSpec{
-				Template: sfcv1.ServiceInterfaceSetSpecTemplate{
-					Spec: sfcv1.ServiceInterfaceSetSpec{
-						Template: sfcv1.ServiceInterfaceSpecTemplate{
-							Spec: sfcv1.ServiceInterfaceSpec{
-								InterfaceType: sfcv1.InterfaceTypeService,
+		Entry("network with namespace", &dpuservicev1.DPUServiceInterface{
+			Spec: dpuservicev1.DPUServiceInterfaceSpec{
+				Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+					Spec: dpuservicev1.ServiceInterfaceSetSpec{
+						Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+							Spec: dpuservicev1.ServiceInterfaceSpec{
+								InterfaceType: dpuservicev1.InterfaceTypeService,
 								InterfaceName: ptr.To("net1"),
-								Service: &sfcv1.ServiceDef{
+								Service: &dpuservicev1.ServiceDef{
 									ServiceID: "service-one",
 									Network:   "my-namespace/mybrsfc",
 								},

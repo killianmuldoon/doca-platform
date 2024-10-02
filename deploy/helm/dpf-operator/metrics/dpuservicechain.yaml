@@ -1,5 +1,5 @@
 - groupVersionKind:
-    group: sfc.dpf.nvidia.com
+    group: svc.dpf.nvidia.com
     kind: DPUServiceChain
     version: v1alpha1
   labelsFromPath:

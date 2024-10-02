@@ -22,7 +22,6 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
@@ -50,7 +49,7 @@ var _ = Describe("DPUService Controller", func() {
 		var (
 			testNS              *corev1.Namespace
 			testConfig          *operatorv1.DPFOperatorConfig
-			dpuServiceInterface *sfcv1.DPUServiceInterface
+			dpuServiceInterface *dpuservicev1.DPUServiceInterface
 			testDPU1NS          *corev1.Namespace
 			testDPU2NS          *corev1.Namespace
 			testDPU3NS          *corev1.Namespace
@@ -158,7 +157,7 @@ var _ = Describe("DPUService Controller", func() {
 
 			// Check that the argo Application has been created correctly
 			Eventually(func(g Gomega) {
-				assertApplication(g, testClient, dpuServices, []*sfcv1.DPUServiceInterface{dpuServiceInterface}, clusters)
+				assertApplication(g, testClient, dpuServices, []*dpuservicev1.DPUServiceInterface{dpuServiceInterface}, clusters)
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 
 			Eventually(func(g Gomega) {
@@ -318,14 +317,14 @@ func assertDPUServiceAnnotationsClean(g Gomega, testClient client.Client, dpuSer
 	for _, dpuService := range dpuServices {
 		interfaces := dpuService.Spec.Interfaces
 		for _, name := range interfaces {
-			dsi := &sfcv1.DPUServiceInterface{}
+			dsi := &dpuservicev1.DPUServiceInterface{}
 			g.Expect(testClient.Get(ctx, types.NamespacedName{Name: name, Namespace: dpuService.Namespace}, dsi)).To(Succeed())
 			g.Expect(dsi.GetAnnotations()[dpuservicev1.DPUServiceInterfaceAnnotationKey]).To(Not(Equal(dpuService.Name)))
 		}
 	}
 }
 
-func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, dpuServiceInterfaces []*sfcv1.DPUServiceInterface, clusters []controlplane.DPFCluster) {
+func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, dpuServiceInterfaces []*dpuservicev1.DPUServiceInterface, clusters []controlplane.DPFCluster) {
 	// Check that argoApplications are created for each of the clusters.
 	applications := &argov1.ApplicationList{}
 	g.Expect(testClient.List(ctx, applications)).To(Succeed())
@@ -369,7 +368,7 @@ func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuser
 			}
 			Expect(appService.Labels).To(HaveKeyWithValue(dpuservicev1.DPFServiceIDLabelKey, *service.Spec.ServiceID))
 
-			m := map[string]*sfcv1.DPUServiceInterface{}
+			m := map[string]*dpuservicev1.DPUServiceInterface{}
 			for _, dpuServiceInterface := range dpuServiceInterfaces {
 				m[dpuServiceInterface.Name] = dpuServiceInterface
 			}
@@ -722,20 +721,20 @@ func getMinimalDPFOperatorConfig() *operatorv1.DPFOperatorConfig {
 	}
 }
 
-func getMinimalDPUServiceInterface(namespace string) *sfcv1.DPUServiceInterface {
-	return &sfcv1.DPUServiceInterface{
+func getMinimalDPUServiceInterface(namespace string) *dpuservicev1.DPUServiceInterface {
+	return &dpuservicev1.DPUServiceInterface{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "dpu-service-interface",
 			Namespace: namespace,
 		},
-		Spec: sfcv1.DPUServiceInterfaceSpec{
-			Template: sfcv1.ServiceInterfaceSetSpecTemplate{
-				Spec: sfcv1.ServiceInterfaceSetSpec{
-					Template: sfcv1.ServiceInterfaceSpecTemplate{
-						Spec: sfcv1.ServiceInterfaceSpec{
-							InterfaceType: sfcv1.InterfaceTypeService,
+		Spec: dpuservicev1.DPUServiceInterfaceSpec{
+			Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+				Spec: dpuservicev1.ServiceInterfaceSetSpec{
+					Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+						Spec: dpuservicev1.ServiceInterfaceSpec{
+							InterfaceType: dpuservicev1.InterfaceTypeService,
 							InterfaceName: ptr.To("net1"),
-							Service: &sfcv1.ServiceDef{
+							Service: &dpuservicev1.ServiceDef{
 								ServiceID: "service-one",
 								Network:   "mybrsfc",
 							},

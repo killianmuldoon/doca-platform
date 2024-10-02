@@ -19,7 +19,7 @@ package controllers
 import (
 	"time"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
@@ -53,10 +53,10 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			By("checking that finalizer is added")
 			Eventually(func(g Gomega) []string {
-				got := &sfcv1.DPUServiceIPAM{}
+				got := &dpuservicev1.DPUServiceIPAM{}
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceIPAM), got)).To(Succeed())
 				return got.Finalizers
-			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{sfcv1.DPUServiceIPAMFinalizer}))
+			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{dpuservicev1.DPUServiceIPAMFinalizer}))
 		})
 	})
 	Context("When checking the behavior on the DPU cluster", func() {
@@ -81,12 +81,12 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			By("Creating the DPUServiceIPAM resource")
 			dpuServiceIPAM := getMinimalDPUServiceIPAM(testNS.Name)
 			dpuServiceIPAM.Name = "pool-1"
-			dpuServiceIPAM.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
+			dpuServiceIPAM.Spec.IPV4Subnet = &dpuservicev1.IPV4Subnet{
 				Subnet:         "192.168.0.0/20",
 				Gateway:        "192.168.0.1",
 				PerNodeIPCount: 256,
 				DefaultGateway: true,
-				Routes:         []sfcv1.Route{{Dst: "5.5.5.0/16"}},
+				Routes:         []dpuservicev1.Route{{Dst: "5.5.5.0/16"}},
 			}
 			dpuServiceIPAM.Spec.NodeSelector = &corev1.NodeSelector{
 				NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -143,7 +143,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			By("Creating 2 DPUServiceIPAM resources")
 			dpuServiceIPAMOne := getMinimalDPUServiceIPAM(testNS.Name)
 			dpuServiceIPAMOne.Name = "resource-1"
-			dpuServiceIPAMOne.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
+			dpuServiceIPAMOne.Spec.IPV4Subnet = &dpuservicev1.IPV4Subnet{
 				Subnet:         "192.168.0.0/20",
 				Gateway:        "192.168.0.1",
 				PerNodeIPCount: 256,
@@ -153,7 +153,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			dpuServiceIPAMTwo := getMinimalDPUServiceIPAM(testNS.Name)
 			dpuServiceIPAMTwo.Name = "resource-2"
-			dpuServiceIPAMTwo.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
+			dpuServiceIPAMTwo.Spec.IPV4Subnet = &dpuservicev1.IPV4Subnet{
 				Subnet:         "192.168.32.0/20",
 				Gateway:        "192.168.32.1",
 				PerNodeIPCount: 256,
@@ -176,7 +176,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			By("Creating the DPUServiceIPAM resource")
 			dpuServiceIPAM := getMinimalDPUServiceIPAM(testNS.Name)
 			dpuServiceIPAM.Name = "pool-1"
-			dpuServiceIPAM.Spec.IPV4Network = &sfcv1.IPV4Network{
+			dpuServiceIPAM.Spec.IPV4Network = &dpuservicev1.IPV4Network{
 				Network:      "192.168.0.0/20",
 				GatewayIndex: 1,
 				PrefixSize:   24,
@@ -186,7 +186,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 					"node-2": "192.168.2.0/24",
 				},
 				DefaultGateway: true,
-				Routes:         []sfcv1.Route{{Dst: "5.5.5.0/16"}},
+				Routes:         []dpuservicev1.Route{{Dst: "5.5.5.0/16"}},
 			}
 			dpuServiceIPAM.Spec.NodeSelector = &corev1.NodeSelector{
 				NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -251,13 +251,13 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			By("Creating the DPUServiceIPAM resource")
 			dpuServiceIPAM := getMinimalDPUServiceIPAM(testNS.Name)
 			dpuServiceIPAM.Name = "pool-1"
-			dpuServiceIPAM.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
+			dpuServiceIPAM.Spec.IPV4Subnet = &dpuservicev1.IPV4Subnet{
 				Subnet:         "192.168.0.0/20",
 				Gateway:        "192.168.0.1",
 				PerNodeIPCount: 256,
 			}
 			dpuServiceIPAM.SetManagedFields(nil)
-			dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
+			dpuServiceIPAM.SetGroupVersionKind(dpuservicev1.DPUServiceIPAMGroupVersionKind)
 			// FieldOwner must be the same as the controller so that we can set a field to nil later
 			Expect(testClient.Patch(ctx, dpuServiceIPAM, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceIPAMControllerName))).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceIPAM)
@@ -273,13 +273,13 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceIPAM), dpuServiceIPAM)).To(Succeed())
 				dpuServiceIPAM.Spec.IPV4Subnet = nil
-				dpuServiceIPAM.Spec.IPV4Network = &sfcv1.IPV4Network{
+				dpuServiceIPAM.Spec.IPV4Network = &dpuservicev1.IPV4Network{
 					Network:      "192.168.0.0/20",
 					GatewayIndex: 1,
 					PrefixSize:   24,
 				}
 				dpuServiceIPAM.SetManagedFields(nil)
-				dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
+				dpuServiceIPAM.SetGroupVersionKind(dpuservicev1.DPUServiceIPAMGroupVersionKind)
 				// FieldOwner must be the same as the controller because we modify a field that the controller owns (see
 				// defer in the main reconcile function)
 				g.Expect(testClient.Patch(ctx, dpuServiceIPAM, client.Apply, client.FieldOwner(dpuServiceIPAMControllerName))).To(Succeed())
@@ -296,14 +296,14 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			By("Creating the DPUServiceIPAM resource")
 			dpuServiceIPAM := getMinimalDPUServiceIPAM(testNS.Name)
 			dpuServiceIPAM.Name = "pool-1"
-			dpuServiceIPAM.Spec.IPV4Network = &sfcv1.IPV4Network{
+			dpuServiceIPAM.Spec.IPV4Network = &dpuservicev1.IPV4Network{
 				Network:      "192.168.0.0/20",
 				GatewayIndex: 1,
 				PrefixSize:   24,
 			}
 
 			dpuServiceIPAM.SetManagedFields(nil)
-			dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
+			dpuServiceIPAM.SetGroupVersionKind(dpuservicev1.DPUServiceIPAMGroupVersionKind)
 			// FieldOwner must be the same as the controlller so that we can set a field to nil later
 			Expect(testClient.Patch(ctx, dpuServiceIPAM, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceIPAMControllerName))).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceIPAM)
@@ -319,14 +319,14 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			Eventually(func(g Gomega) {
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceIPAM), dpuServiceIPAM)).To(Succeed())
 				dpuServiceIPAM.Spec.IPV4Network = nil
-				dpuServiceIPAM.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
+				dpuServiceIPAM.Spec.IPV4Subnet = &dpuservicev1.IPV4Subnet{
 					Subnet:         "192.168.0.0/20",
 					Gateway:        "192.168.0.1",
 					PerNodeIPCount: 256,
 				}
 
 				dpuServiceIPAM.SetManagedFields(nil)
-				dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
+				dpuServiceIPAM.SetGroupVersionKind(dpuservicev1.DPUServiceIPAMGroupVersionKind)
 				// FieldOwner must be the same as the controller because we modify a field that the controller owns (see
 				// defer in the main reconcile function)
 				g.Expect(testClient.Patch(ctx, dpuServiceIPAM, client.Apply, client.FieldOwner(dpuServiceIPAMControllerName))).To(Succeed())
@@ -342,7 +342,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 	})
 	Context("When checking the status transitions", func() {
 		var testNS *corev1.Namespace
-		var dpuServiceIPAM *sfcv1.DPUServiceIPAM
+		var dpuServiceIPAM *dpuservicev1.DPUServiceIPAM
 		var kamajiSecret *corev1.Secret
 		var dpfClusterClient client.Client
 		var i *informer.TestInformer
@@ -364,14 +364,14 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating the informer infrastructure for DPUServiceIPAM")
-			i = informer.NewInformer(cfg, sfcv1.DPUServiceIPAMGroupVersionKind, testNS.Name, "dpuserviceipams")
+			i = informer.NewInformer(cfg, dpuservicev1.DPUServiceIPAMGroupVersionKind, testNS.Name, "dpuserviceipams")
 			DeferCleanup(i.Cleanup)
 			go i.Run()
 
 			By("Creating a DPUServiceIPAM")
 			dpuServiceIPAM = getMinimalDPUServiceIPAM(testNS.Name)
 			dpuServiceIPAM.Name = "pool-1"
-			dpuServiceIPAM.Spec.IPV4Subnet = &sfcv1.IPV4Subnet{
+			dpuServiceIPAM.Spec.IPV4Subnet = &dpuservicev1.IPV4Subnet{
 				Subnet:         "192.168.0.0/20",
 				Gateway:        "192.168.0.1",
 				PerNodeIPCount: 256,
@@ -384,8 +384,8 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &sfcv1.DPUServiceIPAM{}
-				newObj := &sfcv1.DPUServiceIPAM{}
+				oldObj := &dpuservicev1.DPUServiceIPAM{}
+				newObj := &dpuservicev1.DPUServiceIPAM{}
 				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -399,13 +399,13 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+					HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReconciled)),
 					HaveField("Status", metav1.ConditionUnknown),
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
 				// We have success here because there is no object in the cluster to watch on
 				And(
-					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReady)),
+					HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReady)),
 					HaveField("Status", metav1.ConditionTrue),
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
@@ -415,14 +415,14 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &sfcv1.DPUServiceIPAM{}
-				newObj := &sfcv1.DPUServiceIPAM{}
+				oldObj := &dpuservicev1.DPUServiceIPAM{}
+				newObj := &dpuservicev1.DPUServiceIPAM{}
 				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(ContainElement(
 					And(
-						HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+						HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReconciled)),
 						HaveField("Status", metav1.ConditionUnknown),
 						HaveField("Reason", string(conditions.ReasonPending)),
 					),
@@ -435,12 +435,12 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+					HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReconciled)),
 					HaveField("Status", metav1.ConditionTrue),
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReady)),
+					HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReady)),
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
@@ -465,8 +465,8 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &sfcv1.DPUServiceIPAM{}
-				newObj := &sfcv1.DPUServiceIPAM{}
+				oldObj := &dpuservicev1.DPUServiceIPAM{}
+				newObj := &dpuservicev1.DPUServiceIPAM{}
 				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 				return newObj.Status.Conditions
@@ -477,12 +477,12 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+					HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReconciled)),
 					HaveField("Status", metav1.ConditionTrue),
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReady)),
+					HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReady)),
 					HaveField("Status", metav1.ConditionTrue),
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
@@ -513,14 +513,14 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &sfcv1.DPUServiceIPAM{}
-				newObj := &sfcv1.DPUServiceIPAM{}
+				oldObj := &dpuservicev1.DPUServiceIPAM{}
+				newObj := &dpuservicev1.DPUServiceIPAM{}
 				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(ContainElement(
 					And(
-						HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+						HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReconciled)),
 						HaveField("Status", metav1.ConditionUnknown),
 						HaveField("Reason", string(conditions.ReasonPending)),
 					),
@@ -533,12 +533,12 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+					HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReconciled)),
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonError)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReady)),
+					HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReady)),
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
@@ -547,12 +547,12 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 		It("DPUServiceIPAM has condition Deleting with ObjectsExistInDPUClusters Reason when there are still objects in the DPUCluster", func() {
 			By("Ensuring that the DPUServiceIPAM has been reconciled successfully")
 			Eventually(func(g Gomega) []metav1.Condition {
-				got := &sfcv1.DPUServiceIPAM{}
+				got := &dpuservicev1.DPUServiceIPAM{}
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceIPAM), got)).To(Succeed())
 				return got.Status.Conditions
 			}).WithTimeout(10 * time.Second).Should(ContainElement(
 				And(
-					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+					HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReconciled)),
 					HaveField("Status", metav1.ConditionTrue),
 				),
 			))
@@ -572,14 +572,14 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &sfcv1.DPUServiceIPAM{}
-				newObj := &sfcv1.DPUServiceIPAM{}
+				oldObj := &dpuservicev1.DPUServiceIPAM{}
+				newObj := &dpuservicev1.DPUServiceIPAM{}
 				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(ContainElement(
 					And(
-						HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+						HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReconciled)),
 					),
 				))
 				return newObj.Status.Conditions
@@ -590,13 +590,13 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReconciled)),
+					HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReconciled)),
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
 					HaveField("Message", ContainSubstring("1")),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionDPUIPAMObjectReady)),
+					HaveField("Type", string(dpuservicev1.ConditionDPUIPAMObjectReady)),
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
@@ -620,8 +620,8 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 	})
 })
 
-func getMinimalDPUServiceIPAM(namespace string) *sfcv1.DPUServiceIPAM {
-	return &sfcv1.DPUServiceIPAM{
+func getMinimalDPUServiceIPAM(namespace string) *dpuservicev1.DPUServiceIPAM {
+	return &dpuservicev1.DPUServiceIPAM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "dpuserviceipam",
 			Namespace: namespace,

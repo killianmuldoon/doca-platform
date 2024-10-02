@@ -25,7 +25,6 @@ import (
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application"
 	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
@@ -114,7 +113,7 @@ func (r *DPUServiceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Ma
 		For(&dpuservicev1.DPUService{}).
 		Watches(&argov1.Application{}, handler.EnqueueRequestsFromMapFunc(r.ArgoApplicationToDPUService)).
 		Watches(
-			&sfcv1.DPUServiceInterface{},
+			&dpuservicev1.DPUServiceInterface{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForDPUServiceInterfaceChange),
 			builder.WithPredicates(predicates.DPUServiceInterfaceChangePredicate{}),
 		).
@@ -211,7 +210,7 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 }
 
 func (r *DPUServiceReconciler) deleteInterfaceAnnotation(ctx context.Context, interfaceName string, dpuService *dpuservicev1.DPUService) error {
-	dpuServiceInterface := &sfcv1.DPUServiceInterface{}
+	dpuServiceInterface := &dpuservicev1.DPUServiceInterface{}
 	if err := r.Client.Get(ctx, types.NamespacedName{Name: interfaceName, Namespace: dpuService.Namespace}, dpuServiceInterface); err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
@@ -224,7 +223,7 @@ func (r *DPUServiceReconciler) deleteInterfaceAnnotation(ctx context.Context, in
 		delete(annotations, dpuservicev1.DPUServiceInterfaceAnnotationKey)
 		dpuServiceInterface.SetManagedFields(nil)
 		// Set the GroupVersionKind to the DPUServiceInterface.
-		dpuServiceInterface.SetGroupVersionKind(sfcv1.DPUServiceInterfaceGroupVersionKind)
+		dpuServiceInterface.SetGroupVersionKind(dpuservicev1.DPUServiceInterfaceGroupVersionKind)
 		if err := r.Client.Patch(ctx, dpuServiceInterface, client.Apply, applyPatchOptions...); err != nil {
 			return err
 		}
@@ -443,14 +442,14 @@ func (r *DPUServiceReconciler) reconcileInterfaces(ctx context.Context, dpuServi
 		return nil, nil
 	}
 	for _, interfaceName := range dpuService.Spec.Interfaces {
-		dpuServiceInterface := &sfcv1.DPUServiceInterface{}
+		dpuServiceInterface := &dpuservicev1.DPUServiceInterface{}
 		if err := r.Client.Get(ctx, types.NamespacedName{Name: interfaceName, Namespace: dpuService.Namespace}, dpuServiceInterface); err != nil {
 			return nil, err
 		}
 
 		service := dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service
 		interfaceType := dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().InterfaceType
-		if service == nil || interfaceType != sfcv1.InterfaceTypeService {
+		if service == nil || interfaceType != dpuservicev1.InterfaceTypeService {
 			return nil, fmt.Errorf("wrong service definition in DPUServiceInterface %s", interfaceName)
 		}
 
@@ -473,7 +472,7 @@ func (r *DPUServiceReconciler) reconcileInterfaces(ctx context.Context, dpuServi
 			// remove managed fields from the DPUServiceInterface to avoid conflicts with the DPUService.
 			dpuServiceInterface.SetManagedFields(nil)
 			// Set the GroupVersionKind to the DPUServiceInterface.
-			dpuServiceInterface.SetGroupVersionKind(sfcv1.DPUServiceInterfaceGroupVersionKind)
+			dpuServiceInterface.SetGroupVersionKind(dpuservicev1.DPUServiceInterfaceGroupVersionKind)
 			if err := r.Client.Patch(ctx, dpuServiceInterface, client.Apply, applyPatchOptions...); err != nil {
 				return nil, err
 			}
@@ -878,7 +877,7 @@ func (r *DPUServiceReconciler) ArgoApplicationToDPUService(ctx context.Context, 
 }
 
 func (r *DPUServiceReconciler) requestsForDPUServiceInterfaceChange(ctx context.Context, o client.Object) []reconcile.Request {
-	dsi, ok := o.(*sfcv1.DPUServiceInterface)
+	dsi, ok := o.(*dpuservicev1.DPUServiceInterface)
 	if !ok {
 		err := fmt.Errorf("expected a DPUServiceInterface but got %T", o)
 		ctrl.LoggerFrom(ctx).Error(err, "failed to get requests for DPUServiceInterface change")
@@ -915,7 +914,7 @@ func getInterfaceNamespacedNames(dpuservice *dpuservicev1.DPUService) ([]string,
 
 // isDPUServiceInterfaceInUse checks if the DPUServiceInterface is in use by another DPUService.
 // Returns true if the DPUServiceInterface is in use, and true if the DPUServiceInterface is found.
-func isDPUServiceInterfaceInUse(dpuServiceInterface *sfcv1.DPUServiceInterface, dpuService *dpuservicev1.DPUService) (inUse bool, exist bool) {
+func isDPUServiceInterfaceInUse(dpuServiceInterface *dpuservicev1.DPUServiceInterface, dpuService *dpuservicev1.DPUService) (inUse bool, exist bool) {
 	annotations := dpuServiceInterface.GetAnnotations()
 	if annotations != nil {
 		_, ok := annotations[dpuservicev1.DPUServiceInterfaceAnnotationKey]

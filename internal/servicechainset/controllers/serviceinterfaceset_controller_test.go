@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
 
@@ -53,7 +53,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, nil))
 			By("Verify ServiceInterface not created, no nodes")
 			Consistently(func(g Gomega) {
-				serviceInterfaceList := &sfcv1.ServiceInterfaceList{}
+				serviceInterfaceList := &dpuservicev1.ServiceInterfaceList{}
 				err := testClient.List(ctx, serviceInterfaceList)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(serviceInterfaceList.Items).To(BeEmpty())
@@ -70,7 +70,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 				assertServiceInterfaceList(ctx, g, 3, &cleanupObjects, getTestServiceInterfaceSpec())
 			}, timeout*3, interval).Should(Succeed())
 			By("Delete ServiceInterfaceSet Spec")
-			Expect(testClient.Delete(ctx, &sfcv1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
+			Expect(testClient.Delete(ctx, &dpuservicev1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
 		})
 		It("should successfully reconcile the ServiceInterfaceSet with Node Selector", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
@@ -88,7 +88,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 				assertServiceInterfaceList(ctx, g, 2, &cleanupObjects, getTestServiceInterfaceSpec())
 			}, timeout*30, interval).Should(Succeed())
 			By("Delete ServiceInterfaceSet Spec")
-			Expect(testClient.Delete(ctx, &sfcv1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
+			Expect(testClient.Delete(ctx, &dpuservicev1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
 		})
 		It("should successfully reconcile the ServiceInterfaceSet with Node Selector and remove Service Interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
@@ -117,7 +117,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 				assertServiceInterfaceList(ctx, g, 2, &cleanupObjects, getTestServiceInterfaceSpec())
 			}, timeout*30, interval).Should(Succeed())
 			By("Delete ServiceInterfaceSet Spec")
-			Expect(testClient.Delete(ctx, &sfcv1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
+			Expect(testClient.Delete(ctx, &dpuservicev1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
 		})
 		It("should successfully reconcile the ServiceInterfaceSet after update", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
@@ -136,21 +136,21 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			}, timeout*30, interval).Should(Succeed())
 
 			By("Update ServiceInterfaceSet Spec")
-			sis := &sfcv1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}}
+			sis := &dpuservicev1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}}
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(sis), sis)).NotTo(HaveOccurred())
-			updatedSpec := &sfcv1.ServiceInterfaceSpec{
-				InterfaceType: sfcv1.InterfaceTypeVLAN,
+			updatedSpec := &dpuservicev1.ServiceInterfaceSpec{
+				InterfaceType: dpuservicev1.InterfaceTypeVLAN,
 				InterfaceName: ptr.To("eth1.100"),
-				Vlan: &sfcv1.VLAN{
+				Vlan: &dpuservicev1.VLAN{
 					VlanID:             100,
 					ParentInterfaceRef: "p7",
 				},
-				VF: &sfcv1.VF{
+				VF: &dpuservicev1.VF{
 					VFID:               3,
 					PFID:               7,
 					ParentInterfaceRef: "p10",
 				},
-				PF: &sfcv1.PF{
+				PF: &dpuservicev1.PF{
 					ID: 8,
 				},
 			}
@@ -161,7 +161,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 				assertServiceInterfaceList(ctx, g, 2, &cleanupObjects, updatedSpec)
 			}, timeout*30, interval).Should(Succeed())
 			By("Delete ServiceInterfaceSet Spec")
-			Expect(testClient.Delete(ctx, &sfcv1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
+			Expect(testClient.Delete(ctx, &dpuservicev1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
 		})
 		It("should successfully delete the ServiceInterfaceSet", func() {
 			By("Creating ServiceInterfaceSet, with Node Selector")
@@ -179,12 +179,12 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			}, timeout*30, interval).Should(Succeed())
 
 			By("Deleting ServiceInterfaceSet")
-			sis := cleanupObjects[0].(*sfcv1.ServiceInterfaceSet)
+			sis := cleanupObjects[0].(*dpuservicev1.ServiceInterfaceSet)
 			Expect(testClient.Delete(ctx, sis)).NotTo(HaveOccurred())
 
 			By("Verifying ServiceInterfaceSet is deleted")
 			Eventually(func(g Gomega) {
-				sis := cleanupObjects[0].(*sfcv1.ServiceInterfaceSet)
+				sis := cleanupObjects[0].(*dpuservicev1.ServiceInterfaceSet)
 				err := testClient.Get(ctx, client.ObjectKeyFromObject(sis), sis)
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}, timeout*30, interval).Should(Succeed())
@@ -203,48 +203,48 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		It("should successfully create the ServiceInterfaceSet with vlan interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
-				MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeVLAN))
+				MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeVLAN))
 		})
 		It("should successfully create the ServiceInterfaceSet with pf interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
-				MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypePF))
+				MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypePF))
 		})
 		It("should successfully create the ServiceInterfaceSet with vf interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
-				MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeVF))
+				MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeVF))
 		})
 		It("should successfully create the ServiceInterfaceSet with physical interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
-				MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypePhysical))
+				MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypePhysical))
 		})
 		It("should successfully create the ServiceInterfaceSet with ovn interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
-				MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeOVN))
+				MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeOVN))
 		})
 		It("should successfully create the ServiceInterfaceSet with service interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
-				MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeService))
+				MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeService))
 		})
 
 		It("should fail to create the ServiceInterfaceSet with missing vlan interface", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeVLAN)
+			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeVLAN)
 		})
 		It("should fail to create the ServiceInterfaceSet with missing pf interface", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypePF)
+			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypePF)
 		})
 		It("should fail to create the ServiceInterfaceSet with missing vf interface", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeVF)
+			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeVF)
 		})
 		It("should fail to create the ServiceInterfaceSet with missing physical interface", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypePhysical)
+			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypePhysical)
 		})
 		It("should fail to create the ServiceInterfaceSet with missing service definition", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, sfcv1.InterfaceTypeService)
+			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeService)
 		})
 		It("should successfully create the ServiceInterfaceSet and have all conditions set", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
@@ -257,8 +257,8 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 	})
 })
 
-func assertServiceInterfaceSetCondition(g Gomega, testClient client.Client, serviceInterfaceSet *sfcv1.ServiceInterfaceSet) {
-	gotServiceInterfaceSet := &sfcv1.ServiceInterfaceSet{}
+func assertServiceInterfaceSetCondition(g Gomega, testClient client.Client, serviceInterfaceSet *dpuservicev1.ServiceInterfaceSet) {
+	gotServiceInterfaceSet := &dpuservicev1.ServiceInterfaceSet{}
 	g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(serviceInterfaceSet), gotServiceInterfaceSet)).To(Succeed())
 	g.Expect(gotServiceInterfaceSet.Status.Conditions).NotTo(BeNil())
 	g.Expect(gotServiceInterfaceSet.Status.Conditions).To(ConsistOf(
@@ -268,12 +268,12 @@ func assertServiceInterfaceSetCondition(g Gomega, testClient client.Client, serv
 			HaveField("Reason", string(conditions.ReasonSuccess)),
 		),
 		And(
-			HaveField("Type", string(sfcv1.ConditionServiceInterfacesReconciled)),
+			HaveField("Type", string(dpuservicev1.ConditionServiceInterfacesReconciled)),
 			HaveField("Status", metav1.ConditionTrue),
 			HaveField("Reason", string(conditions.ReasonSuccess)),
 		),
 		And(
-			HaveField("Type", string(sfcv1.ConditionServiceInterfacesReady)),
+			HaveField("Type", string(dpuservicev1.ConditionServiceInterfacesReady)),
 			HaveField("Status", metav1.ConditionTrue),
 			HaveField("Reason", string(conditions.ReasonSuccess)),
 		),
@@ -281,8 +281,8 @@ func assertServiceInterfaceSetCondition(g Gomega, testClient client.Client, serv
 }
 
 func assertServiceInterfaceList(ctx context.Context, g Gomega, nodeCount int, cleanupObjects *[]client.Object,
-	testSpec *sfcv1.ServiceInterfaceSpec) {
-	serviceInterfaceList := &sfcv1.ServiceInterfaceList{}
+	testSpec *dpuservicev1.ServiceInterfaceSpec) {
+	serviceInterfaceList := &dpuservicev1.ServiceInterfaceList{}
 	g.ExpectWithOffset(1, testClient.List(ctx, serviceInterfaceList)).NotTo(HaveOccurred())
 	g.ExpectWithOffset(1, serviceInterfaceList.Items).To(HaveLen(nodeCount))
 
@@ -296,7 +296,7 @@ func assertServiceInterfaceList(ctx context.Context, g Gomega, nodeCount int, cl
 	g.ExpectWithOffset(1, nodeMap).To(HaveLen(nodeCount))
 }
 
-func assertServiceInterface(g Gomega, sc *sfcv1.ServiceInterface, testSpec *sfcv1.ServiceInterfaceSpec) {
+func assertServiceInterface(g Gomega, sc *dpuservicev1.ServiceInterface, testSpec *dpuservicev1.ServiceInterfaceSpec) {
 	specCopy := testSpec.DeepCopy()
 	node := sc.Spec.Node
 	specCopy.Vlan.ParentInterfaceRef = specCopy.Vlan.ParentInterfaceRef + "-" + *node
@@ -313,7 +313,7 @@ func assertServiceInterface(g Gomega, sc *sfcv1.ServiceInterface, testSpec *sfcv
 	}
 }
 
-func createServiceInterfaceSet(ctx context.Context, labelSelector *metav1.LabelSelector) *sfcv1.ServiceInterfaceSet {
+func createServiceInterfaceSet(ctx context.Context, labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceInterfaceSet {
 	sis := serviceInterfaceSpec(labelSelector)
 	sis.Spec.Template.Spec = *getTestServiceInterfaceSpec()
 
@@ -321,7 +321,7 @@ func createServiceInterfaceSet(ctx context.Context, labelSelector *metav1.LabelS
 	return sis
 }
 
-func createTypedServiceInterfaceSet(ctx context.Context, labelSelector *metav1.LabelSelector, typ string) *sfcv1.ServiceInterfaceSet {
+func createTypedServiceInterfaceSet(ctx context.Context, labelSelector *metav1.LabelSelector, typ string) *dpuservicev1.ServiceInterfaceSet {
 	sis := serviceInterfaceSpec(labelSelector)
 	sis.Spec.Template.Spec = getTypedTestServiceInterfaceSpec(typ)
 
@@ -336,16 +336,16 @@ func createInvalidTypedServiceInterfaceSet(ctx context.Context, labelSelector *m
 	Expect(testClient.Create(ctx, sis)).To(HaveOccurred())
 }
 
-func serviceInterfaceSpec(labelSelector *metav1.LabelSelector) *sfcv1.ServiceInterfaceSet {
-	sis := &sfcv1.ServiceInterfaceSet{
+func serviceInterfaceSpec(labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceInterfaceSet {
+	sis := &dpuservicev1.ServiceInterfaceSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      svcIfcSetName,
 			Namespace: defaultNS,
 		},
-		Spec: sfcv1.ServiceInterfaceSetSpec{
+		Spec: dpuservicev1.ServiceInterfaceSetSpec{
 			NodeSelector: labelSelector,
-			Template: sfcv1.ServiceInterfaceSpecTemplate{
-				ObjectMeta: sfcv1.ObjectMeta{
+			Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+				ObjectMeta: dpuservicev1.ObjectMeta{
 					Labels: testutils.GetTestLabels(),
 				},
 			},
@@ -354,56 +354,56 @@ func serviceInterfaceSpec(labelSelector *metav1.LabelSelector) *sfcv1.ServiceInt
 	return sis
 }
 
-func getTestServiceInterfaceSpec() *sfcv1.ServiceInterfaceSpec {
-	return &sfcv1.ServiceInterfaceSpec{
-		InterfaceType: sfcv1.InterfaceTypeVF,
+func getTestServiceInterfaceSpec() *dpuservicev1.ServiceInterfaceSpec {
+	return &dpuservicev1.ServiceInterfaceSpec{
+		InterfaceType: dpuservicev1.InterfaceTypeVF,
 		InterfaceName: ptr.To("enp33s0f0np0v0"),
-		Vlan: &sfcv1.VLAN{
+		Vlan: &dpuservicev1.VLAN{
 			VlanID:             102,
 			ParentInterfaceRef: "p0",
 		},
-		VF: &sfcv1.VF{
+		VF: &dpuservicev1.VF{
 			VFID:               0,
 			PFID:               1,
 			ParentInterfaceRef: "p0",
 		},
-		PF: &sfcv1.PF{
+		PF: &dpuservicev1.PF{
 			ID: 3,
 		},
 	}
 }
 
-func getTypedTestServiceInterfaceSpec(typ string) sfcv1.ServiceInterfaceSpec {
-	sfc := sfcv1.ServiceInterfaceSpec{}
+func getTypedTestServiceInterfaceSpec(typ string) dpuservicev1.ServiceInterfaceSpec {
+	sfc := dpuservicev1.ServiceInterfaceSpec{}
 	switch typ {
-	case sfcv1.InterfaceTypeVLAN:
-		sfc.InterfaceType = sfcv1.InterfaceTypeVLAN
+	case dpuservicev1.InterfaceTypeVLAN:
+		sfc.InterfaceType = dpuservicev1.InterfaceTypeVLAN
 		sfc.InterfaceName = ptr.To("eth1.100")
-		sfc.Vlan = &sfcv1.VLAN{
+		sfc.Vlan = &dpuservicev1.VLAN{
 			VlanID:             102,
 			ParentInterfaceRef: "p0",
 		}
-	case sfcv1.InterfaceTypePF:
-		sfc.InterfaceType = sfcv1.InterfaceTypePF
-		sfc.PF = &sfcv1.PF{
+	case dpuservicev1.InterfaceTypePF:
+		sfc.InterfaceType = dpuservicev1.InterfaceTypePF
+		sfc.PF = &dpuservicev1.PF{
 			ID: 3,
 		}
-	case sfcv1.InterfaceTypeVF:
-		sfc.InterfaceType = sfcv1.InterfaceTypeVF
-		sfc.VF = &sfcv1.VF{
+	case dpuservicev1.InterfaceTypeVF:
+		sfc.InterfaceType = dpuservicev1.InterfaceTypeVF
+		sfc.VF = &dpuservicev1.VF{
 			VFID:               0,
 			PFID:               1,
 			ParentInterfaceRef: "p0",
 		}
-	case sfcv1.InterfaceTypePhysical:
-		sfc.InterfaceType = sfcv1.InterfaceTypePhysical
+	case dpuservicev1.InterfaceTypePhysical:
+		sfc.InterfaceType = dpuservicev1.InterfaceTypePhysical
 		sfc.InterfaceName = ptr.To("enp33s0f0np0v0")
-	case sfcv1.InterfaceTypeOVN:
-		sfc.InterfaceType = sfcv1.InterfaceTypeOVN
-	case sfcv1.InterfaceTypeService:
-		sfc.InterfaceType = sfcv1.InterfaceTypeService
+	case dpuservicev1.InterfaceTypeOVN:
+		sfc.InterfaceType = dpuservicev1.InterfaceTypeOVN
+	case dpuservicev1.InterfaceTypeService:
+		sfc.InterfaceType = dpuservicev1.InterfaceTypeService
 		sfc.InterfaceName = ptr.To("net1")
-		sfc.Service = &sfcv1.ServiceDef{
+		sfc.Service = &dpuservicev1.ServiceDef{
 			ServiceID: "awsome-firewall",
 			Network:   "mybrsfc",
 		}
@@ -412,18 +412,18 @@ func getTypedTestServiceInterfaceSpec(typ string) sfcv1.ServiceInterfaceSpec {
 	return sfc
 }
 
-func getInvalidTestServiceInterfaceSpec(typ string) sfcv1.ServiceInterfaceSpec {
+func getInvalidTestServiceInterfaceSpec(typ string) dpuservicev1.ServiceInterfaceSpec {
 	sfc := getTypedTestServiceInterfaceSpec(typ)
 	switch typ {
-	case sfcv1.InterfaceTypeVLAN:
+	case dpuservicev1.InterfaceTypeVLAN:
 		sfc.Vlan = nil
-	case sfcv1.InterfaceTypePF:
+	case dpuservicev1.InterfaceTypePF:
 		sfc.PF = nil
-	case sfcv1.InterfaceTypeVF:
+	case dpuservicev1.InterfaceTypeVF:
 		sfc.VF = nil
-	case sfcv1.InterfaceTypePhysical:
+	case dpuservicev1.InterfaceTypePhysical:
 		sfc.InterfaceName = nil
-	case sfcv1.InterfaceTypeService:
+	case dpuservicev1.InterfaceTypeService:
 		sfc.Service = nil
 	}
 	return sfc

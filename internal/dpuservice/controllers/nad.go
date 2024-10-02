@@ -21,7 +21,6 @@ import (
 	"fmt"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 
 	"gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/types"
 )
@@ -65,7 +64,7 @@ func addNetworkAnnotationToServiceDaemonSet(dpuService *dpuservicev1.DPUService,
 	return service.Spec.ServiceDaemonSet, nil
 }
 
-func updateAnnotationsWithNetworks(service *dpuservicev1.DPUService, dpuServiceInterfacesMap map[string]*sfcv1.DPUServiceInterface) (map[string]string, error) {
+func updateAnnotationsWithNetworks(service *dpuservicev1.DPUService, dpuServiceInterfacesMap map[string]*dpuservicev1.DPUServiceInterface) (map[string]string, error) {
 	networks := make([]types.NetworkSelectionElement, 0)
 	for _, n := range service.Spec.Interfaces {
 		if dpuServiceInterface, found := dpuServiceInterfacesMap[n]; found {
@@ -87,7 +86,7 @@ func updateAnnotationsWithNetworks(service *dpuservicev1.DPUService, dpuServiceI
 	return annotations, nil
 }
 
-func newNetworkSelectionElement(dpuServiceInterface *sfcv1.DPUServiceInterface) types.NetworkSelectionElement {
+func newNetworkSelectionElement(dpuServiceInterface *dpuservicev1.DPUServiceInterface) types.NetworkSelectionElement {
 	ns, name := dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service.GetNetwork()
 	var interfaceName string
 	if dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().InterfaceName != nil {

@@ -42,8 +42,6 @@ linters-settings:
       # DPF
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1
         alias: operatorv1
-      - pkg: gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1
-        alias: sfcv1
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/controlplane/v1alpha1
         alias: controlplanev1
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1

@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"maps"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 
 	"github.com/fluxcd/pkg/runtime/patch"
@@ -52,18 +52,18 @@ type ServiceChainSetReconciler struct {
 }
 
 const (
-	ServiceChainSetNameLabel      = "sfc.dpf.nvidia.com/servicechainset-name"
-	ServiceChainSetNamespaceLabel = "sfc.dpf.nvidia.com/servicechainset-namespace"
+	ServiceChainSetNameLabel      = "svc.dpf.nvidia.com/servicechainset-name"
+	ServiceChainSetNamespaceLabel = "svc.dpf.nvidia.com/servicechainset-namespace"
 	serviceChainSetControllerName = "service-chain-set-controller"
 )
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 //+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechainsets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechainsets/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechainsets/finalizers,verbs=update
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=servicechainsets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=servicechainsets/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=servicechainsets/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=servicechains,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=servicechains/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 
 //nolint:dupl
@@ -71,7 +71,7 @@ func (r *ServiceChainSetReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling")
 
-	serviceChainSet := &sfcv1.ServiceChainSet{}
+	serviceChainSet := &dpuservicev1.ServiceChainSet{}
 	if err := r.Client.Get(ctx, req.NamespacedName, serviceChainSet); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
@@ -85,40 +85,40 @@ func (r *ServiceChainSetReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	defer func() {
 		log.Info("Patching")
 
-		if err := updateSummary(ctx, r, r.Client, sfcv1.ConditionServiceChainsReady, serviceChainSet); err != nil {
+		if err := updateSummary(ctx, r, r.Client, dpuservicev1.ConditionServiceChainsReady, serviceChainSet); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 		if err := patcher.Patch(ctx, serviceChainSet,
 			patch.WithFieldOwner(serviceChainSetControllerName),
 			patch.WithStatusObservedGeneration{},
-			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(sfcv1.ServiceChainSetConditions)},
+			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(dpuservicev1.ServiceChainSetConditions)},
 		); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
 
-	conditions.EnsureConditions(serviceChainSet, sfcv1.ServiceChainSetConditions)
+	conditions.EnsureConditions(serviceChainSet, dpuservicev1.ServiceChainSetConditions)
 
 	if !serviceChainSet.ObjectMeta.DeletionTimestamp.IsZero() {
-		return reconcileDelete(ctx, serviceChainSet, r.Client, r, sfcv1.ServiceChainSetFinalizer)
+		return reconcileDelete(ctx, serviceChainSet, r.Client, r, dpuservicev1.ServiceChainSetFinalizer)
 	}
 
 	// Add finalizer if not set.
-	if !controllerutil.ContainsFinalizer(serviceChainSet, sfcv1.ServiceChainSetFinalizer) {
+	if !controllerutil.ContainsFinalizer(serviceChainSet, dpuservicev1.ServiceChainSetFinalizer) {
 		log.Info("Adding finalizer")
-		controllerutil.AddFinalizer(serviceChainSet, sfcv1.ServiceChainSetFinalizer)
+		controllerutil.AddFinalizer(serviceChainSet, dpuservicev1.ServiceChainSetFinalizer)
 		return ctrl.Result{}, nil
 	}
 
 	return r.reconcile(ctx, serviceChainSet)
 }
 
-func (r *ServiceChainSetReconciler) reconcile(ctx context.Context, serviceChainSet *sfcv1.ServiceChainSet) (ctrl.Result, error) {
+func (r *ServiceChainSetReconciler) reconcile(ctx context.Context, serviceChainSet *dpuservicev1.ServiceChainSet) (ctrl.Result, error) {
 	res, err := reconcileSet(ctx, serviceChainSet, r.Client, serviceChainSet.Spec.NodeSelector, r)
 	if err != nil {
 		conditions.AddFalse(
 			serviceChainSet,
-			sfcv1.ConditionServiceChainsReconciled,
+			dpuservicev1.ConditionServiceChainsReconciled,
 			conditions.ReasonError,
 			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
 		)
@@ -126,7 +126,7 @@ func (r *ServiceChainSetReconciler) reconcile(ctx context.Context, serviceChainS
 	}
 	conditions.AddTrue(
 		serviceChainSet,
-		sfcv1.ConditionServiceChainsReconciled,
+		dpuservicev1.ConditionServiceChainsReconciled,
 	)
 
 	return res, nil
@@ -134,7 +134,7 @@ func (r *ServiceChainSetReconciler) reconcile(ctx context.Context, serviceChainS
 
 func (r *ServiceChainSetReconciler) getChildMap(ctx context.Context, set client.Object) (map[string]client.Object, error) {
 	serviceChainMap := make(map[string]client.Object)
-	serviceChainList := &sfcv1.ServiceChainList{}
+	serviceChainList := &dpuservicev1.ServiceChainList{}
 	if err := r.List(ctx, serviceChainList, client.MatchingLabels{
 		ServiceChainSetNameLabel:      set.GetName(),
 		ServiceChainSetNamespaceLabel: set.GetNamespace(),
@@ -150,16 +150,16 @@ func (r *ServiceChainSetReconciler) getChildMap(ctx context.Context, set client.
 func (r *ServiceChainSetReconciler) createOrUpdateChild(ctx context.Context, set client.Object, nodeName string) error {
 	log := ctrllog.FromContext(ctx)
 
-	serviceChainSet := set.(*sfcv1.ServiceChainSet)
+	serviceChainSet := set.(*dpuservicev1.ServiceChainSet)
 	labels := map[string]string{
 		ServiceChainSetNameLabel:      serviceChainSet.Name,
 		ServiceChainSetNamespaceLabel: serviceChainSet.Namespace,
 	}
 	maps.Copy(labels, serviceChainSet.Spec.Template.ObjectMeta.Labels)
 
-	switches := make([]sfcv1.Switch, len(serviceChainSet.Spec.Template.Spec.Switches))
+	switches := make([]dpuservicev1.Switch, len(serviceChainSet.Spec.Template.Spec.Switches))
 	for i, serviceChain := range serviceChainSet.Spec.Template.Spec.Switches {
-		ports := make([]sfcv1.Port, len(serviceChain.Ports))
+		ports := make([]dpuservicev1.Port, len(serviceChain.Ports))
 		for j, port := range serviceChain.Ports {
 			ports[j] = *port.DeepCopy()
 			// Continue if serviceInterface reference name is not present.
@@ -173,13 +173,13 @@ func (r *ServiceChainSetReconciler) createOrUpdateChild(ctx context.Context, set
 
 			ports[j].ServiceInterface.Reference.Name = fmt.Sprintf("%s-%s", port.ServiceInterface.Reference.Name, nodeName)
 		}
-		switches[i] = sfcv1.Switch{
+		switches[i] = dpuservicev1.Switch{
 			Ports: ports,
 		}
 	}
 
-	owner := metav1.NewControllerRef(serviceChainSet, sfcv1.GroupVersion.WithKind("ServiceChainSet"))
-	serviceChain := &sfcv1.ServiceChain{
+	owner := metav1.NewControllerRef(serviceChainSet, dpuservicev1.GroupVersion.WithKind("ServiceChainSet"))
+	serviceChain := &dpuservicev1.ServiceChain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            fmt.Sprintf("%s-%s", serviceChainSet.Name, nodeName),
 			Namespace:       serviceChainSet.Namespace,
@@ -187,13 +187,13 @@ func (r *ServiceChainSetReconciler) createOrUpdateChild(ctx context.Context, set
 			Annotations:     serviceChainSet.Annotations,
 			OwnerReferences: []metav1.OwnerReference{*owner},
 		},
-		Spec: sfcv1.ServiceChainSpec{
+		Spec: dpuservicev1.ServiceChainSpec{
 			Node:     ptr.To(nodeName),
 			Switches: switches,
 		},
 	}
 	serviceChain.SetManagedFields(nil)
-	serviceChain.SetGroupVersionKind(sfcv1.GroupVersion.WithKind("ServiceChain"))
+	serviceChain.SetGroupVersionKind(dpuservicev1.GroupVersion.WithKind("ServiceChain"))
 	if err := r.Client.Patch(ctx, serviceChain, client.Apply, client.ForceOwnership, client.FieldOwner(serviceChainSetControllerName)); err != nil {
 		return err
 	}
@@ -204,7 +204,7 @@ func (r *ServiceChainSetReconciler) createOrUpdateChild(ctx context.Context, set
 
 func (r *ServiceChainSetReconciler) getObjectsInDPUCluster(ctx context.Context, k8sClient client.Client, dpuObject client.Object) ([]unstructured.Unstructured, error) {
 	serviceChainSet := &unstructured.Unstructured{}
-	serviceChainSet.SetGroupVersionKind(sfcv1.ServiceChainSetGroupVersionKind)
+	serviceChainSet.SetGroupVersionKind(dpuservicev1.ServiceChainSetGroupVersionKind)
 	key := client.ObjectKey{Namespace: dpuObject.GetNamespace(), Name: dpuObject.GetName()}
 	err := k8sClient.Get(ctx, key, serviceChainSet)
 	if err != nil {
@@ -228,7 +228,7 @@ func (r *ServiceChainSetReconciler) getUnreadyObjects(objects []unstructured.Uns
 }
 
 func (r *ServiceChainSetReconciler) setReadyStatus(serviceSet client.Object, numberApplied, numberReady int32) {
-	obj := serviceSet.(*sfcv1.ServiceChainSet)
+	obj := serviceSet.(*dpuservicev1.ServiceChainSet)
 	// TODO add NumberReady state as soon as we have the state of a ServiceChain
 	obj.Status.NumberApplied = numberApplied
 }
@@ -236,8 +236,8 @@ func (r *ServiceChainSetReconciler) setReadyStatus(serviceSet client.Object, num
 // SetupWithManager sets up the controller with the Manager.
 func (r *ServiceChainSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&sfcv1.ServiceChainSet{}).
-		Owns(&sfcv1.ServiceChain{}).
+		For(&dpuservicev1.ServiceChainSet{}).
+		Owns(&dpuservicev1.ServiceChain{}).
 		Watches(&corev1.Node{},
 			handler.EnqueueRequestsFromMapFunc(r.nodeToServiceChainSetReq),
 			builder.WithPredicates(predicate.LabelChangedPredicate{})).
@@ -245,7 +245,7 @@ func (r *ServiceChainSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *ServiceChainSetReconciler) nodeToServiceChainSetReq(ctx context.Context, resource client.Object) []reconcile.Request {
-	serviceChainSetList := &sfcv1.ServiceChainSetList{}
+	serviceChainSetList := &dpuservicev1.ServiceChainSetList{}
 	if err := r.List(ctx, serviceChainSetList); err != nil {
 		return nil
 	}

@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
 
@@ -53,7 +53,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, nil))
 			By("Verify ServiceChain not created, no nodes")
 			Consistently(func(g Gomega) {
-				serviceChainList := &sfcv1.ServiceChainList{}
+				serviceChainList := &dpuservicev1.ServiceChainList{}
 				err := testClient.List(ctx, serviceChainList)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(serviceChainList.Items).To(BeEmpty())
@@ -131,15 +131,15 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			}, timeout*30, interval).Should(Succeed())
 
 			By("Update ServiceChainSet Spec")
-			scs := &sfcv1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: resourceName, Namespace: defaultNS}}
+			scs := &dpuservicev1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: resourceName, Namespace: defaultNS}}
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)).NotTo(HaveOccurred())
-			updatedSpec := &sfcv1.ServiceChainSpec{
-				Switches: []sfcv1.Switch{
+			updatedSpec := &dpuservicev1.ServiceChainSpec{
+				Switches: []dpuservicev1.Switch{
 					{
-						Ports: []sfcv1.Port{
+						Ports: []dpuservicev1.Port{
 							{
-								ServiceInterface: &sfcv1.ServiceIfc{
-									Reference: &sfcv1.ObjectRef{
+								ServiceInterface: &dpuservicev1.ServiceIfc{
+									Reference: &dpuservicev1.ObjectRef{
 										Name: "p0",
 									},
 								},
@@ -171,12 +171,12 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			}, timeout*30, interval).Should(Succeed())
 
 			By("Deleting ServiceChainSet")
-			scs := cleanupObjects[0].(*sfcv1.ServiceChainSet)
+			scs := cleanupObjects[0].(*dpuservicev1.ServiceChainSet)
 			Expect(testClient.Delete(ctx, scs)).NotTo(HaveOccurred())
 
 			By("Verifying ServiceChainSet is deleted")
 			Eventually(func(g Gomega) {
-				scs := cleanupObjects[0].(*sfcv1.ServiceChainSet)
+				scs := cleanupObjects[0].(*dpuservicev1.ServiceChainSet)
 				err := testClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}, timeout*30, interval).Should(Succeed())
@@ -227,8 +227,8 @@ var _ = Describe("ServiceChainSet Controller", func() {
 	})
 })
 
-func assertServiceChainSetCondition(g Gomega, testClient client.Client, serviceChainSet *sfcv1.ServiceChainSet) {
-	gotServiceChainSet := &sfcv1.ServiceChainSet{}
+func assertServiceChainSetCondition(g Gomega, testClient client.Client, serviceChainSet *dpuservicev1.ServiceChainSet) {
+	gotServiceChainSet := &dpuservicev1.ServiceChainSet{}
 	g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(serviceChainSet), gotServiceChainSet)).To(Succeed())
 	g.Expect(gotServiceChainSet.Status.Conditions).NotTo(BeNil())
 	g.Expect(gotServiceChainSet.Status.Conditions).To(ConsistOf(
@@ -238,19 +238,19 @@ func assertServiceChainSetCondition(g Gomega, testClient client.Client, serviceC
 			HaveField("Reason", string(conditions.ReasonSuccess)),
 		),
 		And(
-			HaveField("Type", string(sfcv1.ConditionServiceChainsReconciled)),
+			HaveField("Type", string(dpuservicev1.ConditionServiceChainsReconciled)),
 			HaveField("Status", metav1.ConditionTrue),
 			HaveField("Reason", string(conditions.ReasonSuccess)),
 		),
 		And(
-			HaveField("Type", string(sfcv1.ConditionServiceChainsReady)),
+			HaveField("Type", string(dpuservicev1.ConditionServiceChainsReady)),
 			HaveField("Status", metav1.ConditionTrue),
 			HaveField("Reason", string(conditions.ReasonSuccess)),
 		),
 	))
 }
 
-func createServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelector) *sfcv1.ServiceChainSet {
+func createServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
 	scs := serviceChainSet(labelSelector)
 	scs.Spec.Template.Spec = *getTestServiceChainSpec()
 
@@ -258,7 +258,7 @@ func createServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelec
 	return scs
 }
 
-func createServiceChainSetWithService(ctx context.Context, labelSelector *metav1.LabelSelector, ref bool) *sfcv1.ServiceChainSet {
+func createServiceChainSetWithService(ctx context.Context, labelSelector *metav1.LabelSelector, ref bool) *dpuservicev1.ServiceChainSet {
 	scs := serviceChainSet(labelSelector)
 	scs.Spec.Template.Spec = *getTestServiceChainSpecWithService(ref)
 
@@ -266,7 +266,7 @@ func createServiceChainSetWithService(ctx context.Context, labelSelector *metav1
 	return scs
 }
 
-func createServiceChainSetWithServiceInterface(ctx context.Context, labelSelector *metav1.LabelSelector, ref bool) *sfcv1.ServiceChainSet {
+func createServiceChainSetWithServiceInterface(ctx context.Context, labelSelector *metav1.LabelSelector, ref bool) *dpuservicev1.ServiceChainSet {
 	scs := serviceChainSet(labelSelector)
 	scs.Spec.Template.Spec = *getTestServiceChainSpecWithServiceInterface(ref)
 
@@ -281,16 +281,16 @@ func createInvalidServiceChainSet(ctx context.Context, labelSelector *metav1.Lab
 	Expect(testClient.Create(ctx, scs)).To(HaveOccurred())
 }
 
-func serviceChainSet(labelSelector *metav1.LabelSelector) *sfcv1.ServiceChainSet {
-	scs := &sfcv1.ServiceChainSet{
+func serviceChainSet(labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
+	scs := &dpuservicev1.ServiceChainSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      resourceName,
 			Namespace: defaultNS,
 		},
-		Spec: sfcv1.ServiceChainSetSpec{
+		Spec: dpuservicev1.ServiceChainSetSpec{
 			NodeSelector: labelSelector,
-			Template: sfcv1.ServiceChainSpecTemplate{
-				ObjectMeta: sfcv1.ObjectMeta{
+			Template: dpuservicev1.ServiceChainSpecTemplate{
+				ObjectMeta: dpuservicev1.ObjectMeta{
 					Labels: testutils.GetTestLabels(),
 				},
 			},
@@ -299,14 +299,14 @@ func serviceChainSet(labelSelector *metav1.LabelSelector) *sfcv1.ServiceChainSet
 	return scs
 }
 
-func getTestServiceChainSpec() *sfcv1.ServiceChainSpec {
-	return &sfcv1.ServiceChainSpec{
-		Switches: []sfcv1.Switch{
+func getTestServiceChainSpec() *dpuservicev1.ServiceChainSpec {
+	return &dpuservicev1.ServiceChainSpec{
+		Switches: []dpuservicev1.Switch{
 			{
-				Ports: []sfcv1.Port{
+				Ports: []dpuservicev1.Port{
 					{
-						ServiceInterface: &sfcv1.ServiceIfc{
-							Reference: &sfcv1.ObjectRef{
+						ServiceInterface: &dpuservicev1.ServiceIfc{
+							Reference: &dpuservicev1.ObjectRef{
 								Name: "p0",
 							},
 						},
@@ -317,29 +317,29 @@ func getTestServiceChainSpec() *sfcv1.ServiceChainSpec {
 	}
 }
 
-func getTestServiceChainSpecWithService(ref bool) *sfcv1.ServiceChainSpec {
+func getTestServiceChainSpecWithService(ref bool) *dpuservicev1.ServiceChainSpec {
 	var (
-		reference   *sfcv1.ObjectRef
+		reference   *dpuservicev1.ObjectRef
 		matchLabels map[string]string
 	)
 	if ref {
-		reference = &sfcv1.ObjectRef{
+		reference = &dpuservicev1.ObjectRef{
 			Name: "p0",
 		}
 	} else {
 		matchLabels = map[string]string{"role": "firewall"}
 	}
 
-	return &sfcv1.ServiceChainSpec{
-		Switches: []sfcv1.Switch{
+	return &dpuservicev1.ServiceChainSpec{
+		Switches: []dpuservicev1.Switch{
 			{
-				Ports: []sfcv1.Port{
+				Ports: []dpuservicev1.Port{
 					{
-						Service: &sfcv1.Service{
+						Service: &dpuservicev1.Service{
 							InterfaceName: "eth0",
 							Reference:     reference,
 							MatchLabels:   matchLabels,
-							IPAM: &sfcv1.IPAM{
+							IPAM: &dpuservicev1.IPAM{
 								Reference:   reference,
 								MatchLabels: matchLabels,
 							},
@@ -351,20 +351,20 @@ func getTestServiceChainSpecWithService(ref bool) *sfcv1.ServiceChainSpec {
 	}
 }
 
-func getInvalidTestServiceChainSpec() *sfcv1.ServiceChainSpec {
-	return &sfcv1.ServiceChainSpec{
-		Switches: []sfcv1.Switch{
+func getInvalidTestServiceChainSpec() *dpuservicev1.ServiceChainSpec {
+	return &dpuservicev1.ServiceChainSpec{
+		Switches: []dpuservicev1.Switch{
 			{
-				Ports: []sfcv1.Port{
+				Ports: []dpuservicev1.Port{
 					{
-						Service: &sfcv1.Service{
+						Service: &dpuservicev1.Service{
 							InterfaceName: "eth0",
-							Reference: &sfcv1.ObjectRef{
+							Reference: &dpuservicev1.ObjectRef{
 								Name: "p0",
 							},
 						},
-						ServiceInterface: &sfcv1.ServiceIfc{
-							Reference: &sfcv1.ObjectRef{
+						ServiceInterface: &dpuservicev1.ServiceIfc{
+							Reference: &dpuservicev1.ObjectRef{
 								Name: "p0",
 							},
 						},
@@ -375,24 +375,24 @@ func getInvalidTestServiceChainSpec() *sfcv1.ServiceChainSpec {
 	}
 }
 
-func getTestServiceChainSpecWithServiceInterface(ref bool) *sfcv1.ServiceChainSpec {
+func getTestServiceChainSpecWithServiceInterface(ref bool) *dpuservicev1.ServiceChainSpec {
 	var (
-		reference   *sfcv1.ObjectRef
+		reference   *dpuservicev1.ObjectRef
 		matchLabels map[string]string
 	)
 	if ref {
-		reference = &sfcv1.ObjectRef{
+		reference = &dpuservicev1.ObjectRef{
 			Name: "p0",
 		}
 	} else {
 		matchLabels = map[string]string{"role": "firewall"}
 	}
-	return &sfcv1.ServiceChainSpec{
-		Switches: []sfcv1.Switch{
+	return &dpuservicev1.ServiceChainSpec{
+		Switches: []dpuservicev1.Switch{
 			{
-				Ports: []sfcv1.Port{
+				Ports: []dpuservicev1.Port{
 					{
-						ServiceInterface: &sfcv1.ServiceIfc{
+						ServiceInterface: &dpuservicev1.ServiceIfc{
 							Reference:   reference,
 							MatchLabels: matchLabels,
 						},
@@ -410,8 +410,8 @@ func createNode(ctx context.Context, name string, labels map[string]string) *cor
 }
 
 func assertServiceChainList(ctx context.Context, g Gomega, nodeCount int, cleanupObjects *[]client.Object,
-	testSpec *sfcv1.ServiceChainSpec) {
-	serviceChainList := &sfcv1.ServiceChainList{}
+	testSpec *dpuservicev1.ServiceChainSpec) {
+	serviceChainList := &dpuservicev1.ServiceChainList{}
 	g.ExpectWithOffset(1, testClient.List(ctx, serviceChainList)).NotTo(HaveOccurred())
 	g.ExpectWithOffset(1, serviceChainList.Items).To(HaveLen(nodeCount))
 
@@ -425,7 +425,7 @@ func assertServiceChainList(ctx context.Context, g Gomega, nodeCount int, cleanu
 	g.ExpectWithOffset(1, nodeMap).To(HaveLen(nodeCount))
 }
 
-func assertServiceChain(g Gomega, sc *sfcv1.ServiceChain, testSpec *sfcv1.ServiceChainSpec) {
+func assertServiceChain(g Gomega, sc *dpuservicev1.ServiceChain, testSpec *dpuservicev1.ServiceChainSpec) {
 	specCopy := testSpec.DeepCopy()
 	node := sc.Spec.Node
 	specCopy.Node = node

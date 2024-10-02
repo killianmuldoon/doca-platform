@@ -60,7 +60,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - sfc.dpf.nvidia.com
+  - svc.dpf.nvidia.com
   resources:
   - servicechains
   verbs:
@@ -72,13 +72,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - sfc.dpf.nvidia.com
+  - svc.dpf.nvidia.com
   resources:
   - servicechains/finalizers
   verbs:
   - update
 - apiGroups:
-  - sfc.dpf.nvidia.com
+  - svc.dpf.nvidia.com
   resources:
   - servicechainsets
   verbs:
@@ -90,13 +90,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - sfc.dpf.nvidia.com
+  - svc.dpf.nvidia.com
   resources:
   - servicechainsets/finalizers
   verbs:
   - update
 - apiGroups:
-  - sfc.dpf.nvidia.com
+  - svc.dpf.nvidia.com
   resources:
   - servicechainsets/status
   verbs:
@@ -104,7 +104,7 @@ rules:
   - patch
   - update
 - apiGroups:
-  - sfc.dpf.nvidia.com
+  - svc.dpf.nvidia.com
   resources:
   - serviceinterfaces
   verbs:
@@ -116,13 +116,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - sfc.dpf.nvidia.com
+  - svc.dpf.nvidia.com
   resources:
   - serviceinterfaces/finalizers
   verbs:
   - update
 - apiGroups:
-  - sfc.dpf.nvidia.com
+  - svc.dpf.nvidia.com
   resources:
   - serviceinterfacesets
   verbs:
@@ -134,13 +134,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - sfc.dpf.nvidia.com
+  - svc.dpf.nvidia.com
   resources:
   - serviceinterfacesets/finalizers
   verbs:
   - update
 - apiGroups:
-  - sfc.dpf.nvidia.com
+  - svc.dpf.nvidia.com
   resources:
   - serviceinterfacesets/status
   verbs:

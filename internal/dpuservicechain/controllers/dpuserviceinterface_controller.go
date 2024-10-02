@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"time"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
 
@@ -55,9 +55,9 @@ const (
 	dpuServiceInterfaceControllerName = "dpuserviceinterfacecontroller"
 )
 
-// +kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceinterfaces,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceinterfaces/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceinterfaces/finalizers,verbs=update
+// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceinterfaces,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceinterfaces/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceinterfaces/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=events;secrets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kamaji.clastix.io,resources=tenantcontrolplanes,verbs=get;list;watch
 
@@ -68,7 +68,7 @@ func (r *DPUServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling")
 
-	dpuServiceInterface := &sfcv1.DPUServiceInterface{}
+	dpuServiceInterface := &dpuservicev1.DPUServiceInterface{}
 	if err := r.Client.Get(ctx, req.NamespacedName, dpuServiceInterface); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
@@ -83,19 +83,19 @@ func (r *DPUServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.
 	defer func() {
 		log.Info("Patching")
 
-		if err := updateSummary(ctx, r, r.Client, sfcv1.ConditionServiceInterfaceSetReady, dpuServiceInterface); err != nil {
+		if err := updateSummary(ctx, r, r.Client, dpuservicev1.ConditionServiceInterfaceSetReady, dpuServiceInterface); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 		if err := patcher.Patch(ctx, dpuServiceInterface,
 			patch.WithFieldOwner(dpuServiceInterfaceControllerName),
 			patch.WithStatusObservedGeneration{},
-			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(sfcv1.DPUServiceInterfaceConditions)},
+			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(dpuservicev1.DPUServiceInterfaceConditions)},
 		); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
 
-	conditions.EnsureConditions(dpuServiceInterface, sfcv1.DPUServiceInterfaceConditions)
+	conditions.EnsureConditions(dpuServiceInterface, dpuservicev1.DPUServiceInterfaceConditions)
 
 	// Handle deletion reconciliation loop.
 	if !dpuServiceInterface.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -103,9 +103,9 @@ func (r *DPUServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	// Add finalizer if not set.
-	if !controllerutil.ContainsFinalizer(dpuServiceInterface, sfcv1.DPUServiceInterfaceFinalizer) {
+	if !controllerutil.ContainsFinalizer(dpuServiceInterface, dpuservicev1.DPUServiceInterfaceFinalizer) {
 		log.Info("Adding finalizer")
-		controllerutil.AddFinalizer(dpuServiceInterface, sfcv1.DPUServiceInterfaceFinalizer)
+		controllerutil.AddFinalizer(dpuServiceInterface, dpuservicev1.DPUServiceInterfaceFinalizer)
 		return ctrl.Result{}, nil
 	}
 
@@ -115,11 +115,11 @@ func (r *DPUServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.
 // reconcile handles the main reconciliation loop
 //
 //nolint:unparam
-func (r *DPUServiceInterfaceReconciler) reconcile(ctx context.Context, dpuServiceInterface *sfcv1.DPUServiceInterface) (ctrl.Result, error) {
+func (r *DPUServiceInterfaceReconciler) reconcile(ctx context.Context, dpuServiceInterface *dpuservicev1.DPUServiceInterface) (ctrl.Result, error) {
 	if err := reconcileObjectsInDPUClusters(ctx, r, r.Client, dpuServiceInterface); err != nil {
 		conditions.AddFalse(
 			dpuServiceInterface,
-			sfcv1.ConditionServiceInterfaceSetReconciled,
+			dpuservicev1.ConditionServiceInterfaceSetReconciled,
 			conditions.ReasonError,
 			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
 		)
@@ -127,7 +127,7 @@ func (r *DPUServiceInterfaceReconciler) reconcile(ctx context.Context, dpuServic
 	}
 	conditions.AddTrue(
 		dpuServiceInterface,
-		sfcv1.ConditionServiceInterfaceSetReconciled,
+		dpuservicev1.ConditionServiceInterfaceSetReconciled,
 	)
 
 	return ctrl.Result{}, nil
@@ -135,7 +135,7 @@ func (r *DPUServiceInterfaceReconciler) reconcile(ctx context.Context, dpuServic
 
 func (r *DPUServiceInterfaceReconciler) getObjectsInDPUCluster(ctx context.Context, k8sClient client.Client, dpuObject client.Object) ([]unstructured.Unstructured, error) {
 	sis := &unstructured.Unstructured{}
-	sis.SetGroupVersionKind(sfcv1.ServiceInterfaceSetGroupVersionKind)
+	sis.SetGroupVersionKind(dpuservicev1.ServiceInterfaceSetGroupVersionKind)
 	key := client.ObjectKey{Namespace: dpuObject.GetNamespace(), Name: dpuObject.GetName()}
 	err := k8sClient.Get(ctx, key, sis)
 	if err != nil {
@@ -146,8 +146,8 @@ func (r *DPUServiceInterfaceReconciler) getObjectsInDPUCluster(ctx context.Conte
 }
 
 func (r *DPUServiceInterfaceReconciler) createOrUpdateObjectsInDPUCluster(ctx context.Context, k8sClient client.Client, dpuObject client.Object) error {
-	dpuServiceInterface := dpuObject.(*sfcv1.DPUServiceInterface)
-	sis := &sfcv1.ServiceInterfaceSet{
+	dpuServiceInterface := dpuObject.(*dpuservicev1.DPUServiceInterface)
+	sis := &dpuservicev1.ServiceInterfaceSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        dpuServiceInterface.Name,
 			Namespace:   dpuServiceInterface.Namespace,
@@ -157,11 +157,11 @@ func (r *DPUServiceInterfaceReconciler) createOrUpdateObjectsInDPUCluster(ctx co
 		Spec: *dpuServiceInterface.Spec.Template.Spec.DeepCopy(),
 	}
 	sis.ObjectMeta.ManagedFields = nil
-	sis.SetGroupVersionKind(sfcv1.GroupVersion.WithKind("ServiceInterfaceSet"))
+	sis.SetGroupVersionKind(dpuservicev1.GroupVersion.WithKind("ServiceInterfaceSet"))
 	return k8sClient.Patch(ctx, sis, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceInterfaceControllerName))
 }
 
-func (r *DPUServiceInterfaceReconciler) reconcileDelete(ctx context.Context, dpuServiceInterface *sfcv1.DPUServiceInterface) (ctrl.Result, error) {
+func (r *DPUServiceInterfaceReconciler) reconcileDelete(ctx context.Context, dpuServiceInterface *dpuservicev1.DPUServiceInterface) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling delete")
 	if err := reconcileObjectDeletionInDPUClusters(ctx, r, r.Client, dpuServiceInterface); err != nil {
@@ -170,7 +170,7 @@ func (r *DPUServiceInterfaceReconciler) reconcileDelete(ctx context.Context, dpu
 			log.Info(fmt.Sprintf("Requeueing because %s", err.Error()))
 			conditions.AddFalse(
 				dpuServiceInterface,
-				sfcv1.ConditionServiceInterfaceSetReconciled,
+				dpuservicev1.ConditionServiceInterfaceSetReconciled,
 				conditions.ReasonAwaitingDeletion,
 				conditions.ConditionMessage(err.Error()),
 			)
@@ -180,13 +180,13 @@ func (r *DPUServiceInterfaceReconciler) reconcileDelete(ctx context.Context, dpu
 	}
 
 	log.Info("Removing finalizer")
-	controllerutil.RemoveFinalizer(dpuServiceInterface, sfcv1.DPUServiceInterfaceFinalizer)
+	controllerutil.RemoveFinalizer(dpuServiceInterface, dpuservicev1.DPUServiceInterfaceFinalizer)
 	return ctrl.Result{}, nil
 }
 
 func (r *DPUServiceInterfaceReconciler) deleteObjectsInDPUCluster(ctx context.Context, k8sClient client.Client, dpuObject client.Object) error {
-	dpuServiceInterface := dpuObject.(*sfcv1.DPUServiceInterface)
-	sis := &sfcv1.ServiceInterfaceSet{
+	dpuServiceInterface := dpuObject.(*dpuservicev1.DPUServiceInterface)
+	sis := &dpuservicev1.ServiceInterfaceSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dpuServiceInterface.Name,
 			Namespace: dpuServiceInterface.Namespace,
@@ -198,7 +198,7 @@ func (r *DPUServiceInterfaceReconciler) deleteObjectsInDPUCluster(ctx context.Co
 func (r *DPUServiceInterfaceReconciler) getUnreadyObjects(objects []unstructured.Unstructured) ([]types.NamespacedName, error) {
 	unreadyObjs := []types.NamespacedName{}
 	for _, o := range objects {
-		serviceInterfaceSet := &sfcv1.ServiceInterfaceSet{}
+		serviceInterfaceSet := &dpuservicev1.ServiceInterfaceSet{}
 		err := runtime.DefaultUnstructuredConverter.FromUnstructured(o.Object, &serviceInterfaceSet)
 		if err != nil {
 			return nil, fmt.Errorf("convert unstructured to %T: %w", serviceInterfaceSet, err)
@@ -216,7 +216,7 @@ func (r *DPUServiceInterfaceReconciler) SetupWithManager(mgr ctrl.Manager) error
 	tenantControlPlane := &metav1.PartialObjectMetadata{}
 	tenantControlPlane.SetGroupVersionKind(controlplanemeta.TenantControlPlaneGVK)
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&sfcv1.DPUServiceInterface{}).
+		For(&dpuservicev1.DPUServiceInterface{}).
 		// TODO: This doesn't currently work for status updates - need to find a way to increase reconciliation frequency.
 		WatchesMetadata(tenantControlPlane, handler.EnqueueRequestsFromMapFunc(r.DPUClusterToDPUServiceInterface)).
 		Complete(r)
@@ -225,7 +225,7 @@ func (r *DPUServiceInterfaceReconciler) SetupWithManager(mgr ctrl.Manager) error
 // DPUClusterToDPUServiceInterface ensures all DPUServiceInterfaces are updated each time there is an update to a DPUCluster.
 func (r *DPUServiceInterfaceReconciler) DPUClusterToDPUServiceInterface(ctx context.Context, o client.Object) []ctrl.Request {
 	result := []ctrl.Request{}
-	dpuServiceList := &sfcv1.DPUServiceInterfaceList{}
+	dpuServiceList := &dpuservicev1.DPUServiceInterfaceList{}
 	if err := r.Client.List(ctx, dpuServiceList); err != nil {
 		return nil
 	}

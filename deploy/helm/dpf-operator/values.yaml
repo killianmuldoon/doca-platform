@@ -254,7 +254,7 @@ kube-state-metrics:
       - apiGroups:
           - svc.dpf.nvidia.com
           - operator.dpf.nvidia.com
-          - sfc.dpf.nvidia.com
+          - svc.dpf.nvidia.com
           - provisioning.dpf.nvidia.com
         resources:
           - dpuclusters

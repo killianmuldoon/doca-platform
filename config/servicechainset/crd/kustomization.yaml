@@ -2,13 +2,13 @@
 # since it depends on service name and namespace that are out of this kustomize package.
 # It should be run by config/default
 resources:
-- bases/sfc.dpf.nvidia.com_serviceinterfaces.yaml
-- bases/sfc.dpf.nvidia.com_serviceinterfacesets.yaml
-- bases/sfc.dpf.nvidia.com_servicechains.yaml
-- bases/sfc.dpf.nvidia.com_servicechainsets.yaml
-- bases/sfc.dpf.nvidia.com_dpuservicechains.yaml
-- bases/sfc.dpf.nvidia.com_dpuserviceinterfaces.yaml
-- bases/sfc.dpf.nvidia.com_dpuserviceipams.yaml
+- bases/svc.dpf.nvidia.com_serviceinterfaces.yaml
+- bases/svc.dpf.nvidia.com_serviceinterfacesets.yaml
+- bases/svc.dpf.nvidia.com_servicechains.yaml
+- bases/svc.dpf.nvidia.com_servicechainsets.yaml
+- bases/svc.dpf.nvidia.com_dpuservicechains.yaml
+- bases/svc.dpf.nvidia.com_dpuserviceinterfaces.yaml
+- bases/svc.dpf.nvidia.com_dpuserviceipams.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patches:

@@ -29,7 +29,6 @@ import (
 	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -269,8 +268,8 @@ func (r *ServiceChainReconciler) getPodWithLabels(ctx context.Context, namespace
 }
 
 // getServiceInterfaceWithLabels returns ServiceInterface in namespace that belongs to current node with given labels. if more than one or none matches, error out.
-func (r *ServiceChainReconciler) getServiceInterfaceWithLabels(ctx context.Context, namespace string, lbls map[string]string) (*sfcv1.ServiceInterface, error) {
-	sil := &sfcv1.ServiceInterfaceList{}
+func (r *ServiceChainReconciler) getServiceInterfaceWithLabels(ctx context.Context, namespace string, lbls map[string]string) (*dpuservicev1.ServiceInterface, error) {
+	sil := &dpuservicev1.ServiceInterfaceList{}
 	listOpts := []client.ListOption{}
 
 	listOpts = append(listOpts, client.MatchingLabels(lbls))
@@ -283,7 +282,7 @@ func (r *ServiceChainReconciler) getServiceInterfaceWithLabels(ctx context.Conte
 	}
 
 	// filter out serviceInterfaces not on this node
-	matching := make([]*sfcv1.ServiceInterface, 0, len(sil.Items))
+	matching := make([]*dpuservicev1.ServiceInterface, 0, len(sil.Items))
 	for i := range sil.Items {
 		if sil.Items[i].Spec.Node == nil ||
 			*sil.Items[i].Spec.Node != r.NodeName {
@@ -305,7 +304,7 @@ func (r *ServiceChainReconciler) getServiceInterfaceWithLabels(ctx context.Conte
 }
 
 // getPortNameForService returns the ovs port name matching the given service
-func (r *ServiceChainReconciler) getPortNameForService(ctx context.Context, namespace string, svc *sfcv1.Service) (string, error) {
+func (r *ServiceChainReconciler) getPortNameForService(ctx context.Context, namespace string, svc *dpuservicev1.Service) (string, error) {
 	pod, err := r.getPodWithLabels(ctx, namespace, svc.MatchLabels)
 	if err != nil {
 		return "", err
@@ -325,14 +324,14 @@ func (r *ServiceChainReconciler) getPortNameForService(ctx context.Context, name
 }
 
 // getPortNameForServiceInterface returns the ovs port name matching the given service interface
-func (r *ServiceChainReconciler) getPortNameForServiceInterface(ctx context.Context, namespace string, svcIfc *sfcv1.ServiceIfc) (string, error) {
+func (r *ServiceChainReconciler) getPortNameForServiceInterface(ctx context.Context, namespace string, svcIfc *dpuservicev1.ServiceIfc) (string, error) {
 	si, err := r.getServiceInterfaceWithLabels(ctx, namespace, svcIfc.MatchLabels)
 	if err != nil {
 		return "", err
 	}
 
 	condition := si.Namespace + "/" + si.Name
-	if si.Spec.InterfaceType == sfcv1.InterfaceTypeService {
+	if si.Spec.InterfaceType == dpuservicev1.InterfaceTypeService {
 		// get pod matching serviceID
 		pod, err := r.getPodWithLabels(ctx, namespace, map[string]string{dpuservicev1.DPFServiceIDLabelKey: si.Spec.Service.ServiceID})
 		if err != nil {
@@ -360,10 +359,10 @@ func (r *ServiceChainReconciler) getPortNameForServiceInterface(ctx context.Cont
 
 //+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 //+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains/finalizers,verbs=update
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=servicechains,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=servicechains/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=servicechains/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch
 //+kubebuilder:rbac:groups="",resources=nodes;s,verbs=get;list;watch
 
 func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -371,7 +370,7 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	log.Info("reconciling")
 	var err error
 	var hashedName uint64
-	sc := &sfcv1.ServiceChain{}
+	sc := &dpuservicev1.ServiceChain{}
 	if err = r.Client.Get(ctx, req.NamespacedName, sc); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
@@ -497,13 +496,13 @@ func (r *ServiceChainReconciler) SetupWithManager(ctx context.Context, mgr ctrl.
 	}
 
 	p := predicate.NewPredicateFuncs(func(o client.Object) bool {
-		if o.(*sfcv1.ServiceChain).Spec.Node == nil { // NodeName may not be set
+		if o.(*dpuservicev1.ServiceChain).Spec.Node == nil { // NodeName may not be set
 			return false
 		}
-		return *o.(*sfcv1.ServiceChain).Spec.Node == r.NodeName
+		return *o.(*dpuservicev1.ServiceChain).Spec.Node == r.NodeName
 	})
 
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&sfcv1.ServiceChain{}, builder.WithPredicates(p)).
+		For(&dpuservicev1.ServiceChain{}, builder.WithPredicates(p)).
 		Complete(r)
 }

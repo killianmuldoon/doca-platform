@@ -98,8 +98,8 @@ spec:
                 description: Interfaces specifies the DPUServiceInterface to be generated
                   for the generated DPUService.
                 items:
-                  description: ServiceInterface contains the information related to
-                    an interface of the DPUService
+                  description: ServiceInterfaceTemplate contains the information related
+                    to an interface of the DPUService
                   properties:
                     name:
                       description: Name is the name of the interface

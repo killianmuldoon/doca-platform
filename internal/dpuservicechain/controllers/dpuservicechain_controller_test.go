@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
@@ -61,12 +61,12 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			cleanupObjects = append(cleanupObjects, createDPUServiceChain(ctx, dscResourceName, testNS, nil))
 			By("Verify ServiceChainSet is created")
 			Eventually(func(g Gomega) {
-				scs := &sfcv1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
+				scs := &dpuservicev1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)).NotTo(HaveOccurred())
 				cleanupObjects = append(cleanupObjects, scs)
 			}, timeout*30, interval).Should(Succeed())
 			By("Verify ServiceChainSet")
-			scs := &sfcv1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
+			scs := &dpuservicev1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)).NotTo(HaveOccurred())
 			for k, v := range testutils.GetTestLabels() {
 				Expect(scs.Labels[k]).To(Equal(v))
@@ -75,7 +75,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			By("Update DPUServiceChain")
 			labelSelector := &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}
 			Eventually(func(g Gomega) {
-				dsc := &sfcv1.DPUServiceChain{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
+				dsc := &dpuservicev1.DPUServiceChain{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dsc), dsc)).NotTo(HaveOccurred())
 				updatedSpec := getTestServiceChainSetSpec(labelSelector)
 				dsc.Spec.Template.Spec = *updatedSpec
@@ -83,7 +83,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			}).Should(Succeed())
 			By("Verify ServiceChainSet is updated")
 			Eventually(func(g Gomega) {
-				scs := &sfcv1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
+				scs := &dpuservicev1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)).NotTo(HaveOccurred())
 				g.Expect(scs.Spec).To(BeEquivalentTo(*getTestServiceChainSetSpec(labelSelector)))
 			}, timeout*30, interval).Should(Succeed())
@@ -93,21 +93,21 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			cleanupObjects = append(cleanupObjects, createDPUServiceChain(ctx, dscResourceName, testNS, nil))
 			By("Verify ServiceChainSet is created")
 			Eventually(func(g Gomega) {
-				scs := &sfcv1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
+				scs := &dpuservicev1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)).NotTo(HaveOccurred())
 			}, timeout*30, interval).Should(Succeed())
 			By("Delete DPUServiceChain")
-			dsc := &sfcv1.DPUServiceChain{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
+			dsc := &dpuservicev1.DPUServiceChain{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
 			Expect(testClient.Delete(ctx, dsc)).NotTo(HaveOccurred())
 			By("Verify ServiceChainSet is deleted")
 			Eventually(func(g Gomega) {
-				scs := &sfcv1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
+				scs := &dpuservicev1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
 				err := testClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}, timeout*30, interval).Should(Succeed())
 			By("Verify DPUServiceChain is deleted")
 			Eventually(func(g Gomega) {
-				scs := &sfcv1.DPUServiceChain{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
+				scs := &dpuservicev1.DPUServiceChain{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
 				err := testClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}, timeout*30, interval).Should(Succeed())
@@ -115,7 +115,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 	})
 	Context("When checking the status transitions", func() {
 		var testNS *corev1.Namespace
-		var dpuServiceChain *sfcv1.DPUServiceChain
+		var dpuServiceChain *dpuservicev1.DPUServiceChain
 		var kamajiSecret *corev1.Secret
 		var dpfClusterClient client.Client
 		var i *informer.TestInformer
@@ -137,7 +137,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating the informer infrastructure for DPUServiceChain")
-			i = informer.NewInformer(cfg, sfcv1.DPUServiceChainGroupVersionKind, testNS.Name, "dpuservicechains")
+			i = informer.NewInformer(cfg, dpuservicev1.DPUServiceChainGroupVersionKind, testNS.Name, "dpuservicechains")
 			DeferCleanup(i.Cleanup)
 			go i.Run()
 
@@ -149,8 +149,8 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &sfcv1.DPUServiceChain{}
-				newObj := &sfcv1.DPUServiceChain{}
+				oldObj := &dpuservicev1.DPUServiceChain{}
+				newObj := &dpuservicev1.DPUServiceChain{}
 				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -164,13 +164,13 @@ var _ = Describe("ServiceChainSet Controller", func() {
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionServiceChainSetReconciled)),
+					HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReconciled)),
 					HaveField("Status", metav1.ConditionUnknown),
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
 				// Ideally this should have been unknown, but we update this status on defer
 				And(
-					HaveField("Type", string(sfcv1.ConditionServiceChainSetReady)),
+					HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReady)),
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
@@ -180,14 +180,14 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &sfcv1.DPUServiceChain{}
-				newObj := &sfcv1.DPUServiceChain{}
+				oldObj := &dpuservicev1.DPUServiceChain{}
+				newObj := &dpuservicev1.DPUServiceChain{}
 				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(ContainElement(
 					And(
-						HaveField("Type", string(sfcv1.ConditionServiceChainSetReconciled)),
+						HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReconciled)),
 						HaveField("Status", metav1.ConditionUnknown),
 						HaveField("Reason", string(conditions.ReasonPending)),
 					),
@@ -200,12 +200,12 @@ var _ = Describe("ServiceChainSet Controller", func() {
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionServiceChainSetReconciled)),
+					HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReconciled)),
 					HaveField("Status", metav1.ConditionTrue),
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionServiceChainSetReady)),
+					HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReady)),
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
@@ -218,8 +218,8 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &sfcv1.DPUServiceChain{}
-				newObj := &sfcv1.DPUServiceChain{}
+				oldObj := &dpuservicev1.DPUServiceChain{}
+				newObj := &dpuservicev1.DPUServiceChain{}
 				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
@@ -231,12 +231,12 @@ var _ = Describe("ServiceChainSet Controller", func() {
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionServiceChainSetReconciled)),
+					HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReconciled)),
 					HaveField("Status", metav1.ConditionTrue),
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionServiceChainSetReady)),
+					HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReady)),
 					HaveField("Status", metav1.ConditionTrue),
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
@@ -267,14 +267,14 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &sfcv1.DPUServiceChain{}
-				newObj := &sfcv1.DPUServiceChain{}
+				oldObj := &dpuservicev1.DPUServiceChain{}
+				newObj := &dpuservicev1.DPUServiceChain{}
 				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(ContainElement(
 					And(
-						HaveField("Type", string(sfcv1.ConditionServiceChainSetReconciled)),
+						HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReconciled)),
 						HaveField("Status", metav1.ConditionUnknown),
 						HaveField("Reason", string(conditions.ReasonPending)),
 					),
@@ -287,12 +287,12 @@ var _ = Describe("ServiceChainSet Controller", func() {
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionServiceChainSetReconciled)),
+					HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReconciled)),
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonError)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionServiceChainSetReady)),
+					HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReady)),
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
@@ -302,21 +302,21 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		It("DPUServiceChain has condition ServiceChainSetReconciled with AwaitingDeletion Reason when there are still objects in the DPUCluster", func() {
 			By("Ensuring that the DPUServiceChain has been reconciled successfully")
 			Eventually(func(g Gomega) []metav1.Condition {
-				got := &sfcv1.DPUServiceChain{}
+				got := &dpuservicev1.DPUServiceChain{}
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceChain), got)).To(Succeed())
 				return got.Status.Conditions
 			}).WithTimeout(10 * time.Second).Should(ContainElement(
 				And(
-					HaveField("Type", string(sfcv1.ConditionServiceChainSetReconciled)),
+					HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReconciled)),
 					HaveField("Status", metav1.ConditionTrue),
 				),
 			))
 
 			By("Adding finalizer to the underlying object")
-			gotChainSet := &sfcv1.ServiceChainSet{}
+			gotChainSet := &dpuservicev1.ServiceChainSet{}
 			Eventually(dpfClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "chain"}, gotChainSet).Should(Succeed())
 			gotChainSet.SetFinalizers([]string{"test.dpf.nvidia.com/test"})
-			gotChainSet.SetGroupVersionKind(sfcv1.ServiceChainSetGroupVersionKind)
+			gotChainSet.SetGroupVersionKind(dpuservicev1.ServiceChainSetGroupVersionKind)
 			gotChainSet.SetManagedFields(nil)
 			Expect(testClient.Patch(ctx, gotChainSet, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
@@ -327,14 +327,14 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			Eventually(func(g Gomega) []metav1.Condition {
 				ev := &informer.Event{}
 				g.Eventually(i.UpdateEvents).Should(Receive(ev))
-				oldObj := &sfcv1.DPUServiceChain{}
-				newObj := &sfcv1.DPUServiceChain{}
+				oldObj := &dpuservicev1.DPUServiceChain{}
+				newObj := &dpuservicev1.DPUServiceChain{}
 				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
 				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
 
 				g.Expect(oldObj.Status.Conditions).To(ContainElement(
 					And(
-						HaveField("Type", string(sfcv1.ConditionServiceChainSetReconciled)),
+						HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReconciled)),
 					),
 				))
 				return newObj.Status.Conditions
@@ -345,23 +345,23 @@ var _ = Describe("ServiceChainSet Controller", func() {
 					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionServiceChainSetReconciled)),
+					HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReconciled)),
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
 					HaveField("Message", ContainSubstring("1")),
 				),
 				And(
-					HaveField("Type", string(sfcv1.ConditionServiceChainSetReady)),
+					HaveField("Type", string(dpuservicev1.ConditionServiceChainSetReady)),
 					HaveField("Status", metav1.ConditionFalse),
 					HaveField("Reason", string(conditions.ReasonPending)),
 				),
 			))
 
 			By("Removing finalizer from the underlying object to ensure deletion")
-			gotChainSet = &sfcv1.ServiceChainSet{}
+			gotChainSet = &dpuservicev1.ServiceChainSet{}
 			Eventually(dpfClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "chain"}, gotChainSet).Should(Succeed())
 			gotChainSet.SetFinalizers([]string{})
-			gotChainSet.SetGroupVersionKind(sfcv1.ServiceChainSetGroupVersionKind)
+			gotChainSet.SetGroupVersionKind(dpuservicev1.ServiceChainSetGroupVersionKind)
 			gotChainSet.SetManagedFields(nil)
 			Expect(testClient.Patch(ctx, gotChainSet, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
@@ -375,15 +375,15 @@ var _ = Describe("ServiceChainSet Controller", func() {
 	})
 })
 
-func createDPUServiceChain(ctx context.Context, name string, namespace string, labelSelector *metav1.LabelSelector) *sfcv1.DPUServiceChain {
-	dsc := &sfcv1.DPUServiceChain{
+func createDPUServiceChain(ctx context.Context, name string, namespace string, labelSelector *metav1.LabelSelector) *dpuservicev1.DPUServiceChain {
+	dsc := &dpuservicev1.DPUServiceChain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: sfcv1.DPUServiceChainSpec{
-			Template: sfcv1.ServiceChainSetSpecTemplate{
-				ObjectMeta: sfcv1.ObjectMeta{
+		Spec: dpuservicev1.DPUServiceChainSpec{
+			Template: dpuservicev1.ServiceChainSetSpecTemplate{
+				ObjectMeta: dpuservicev1.ObjectMeta{
 					Labels: testutils.GetTestLabels(),
 				},
 				Spec: *getTestServiceChainSetSpec(labelSelector),
@@ -394,26 +394,26 @@ func createDPUServiceChain(ctx context.Context, name string, namespace string, l
 	return dsc
 }
 
-func getTestServiceChainSetSpec(labelSelector *metav1.LabelSelector) *sfcv1.ServiceChainSetSpec {
-	return &sfcv1.ServiceChainSetSpec{
+func getTestServiceChainSetSpec(labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceChainSetSpec {
+	return &dpuservicev1.ServiceChainSetSpec{
 		NodeSelector: labelSelector,
-		Template: sfcv1.ServiceChainSpecTemplate{
+		Template: dpuservicev1.ServiceChainSpecTemplate{
 			Spec: *getTestServiceChainSpec(),
-			ObjectMeta: sfcv1.ObjectMeta{
+			ObjectMeta: dpuservicev1.ObjectMeta{
 				Labels: testutils.GetTestLabels(),
 			},
 		},
 	}
 }
 
-func getTestServiceChainSpec() *sfcv1.ServiceChainSpec {
-	return &sfcv1.ServiceChainSpec{
-		Switches: []sfcv1.Switch{
+func getTestServiceChainSpec() *dpuservicev1.ServiceChainSpec {
+	return &dpuservicev1.ServiceChainSpec{
+		Switches: []dpuservicev1.Switch{
 			{
-				Ports: []sfcv1.Port{
+				Ports: []dpuservicev1.Port{
 					{
-						ServiceInterface: &sfcv1.ServiceIfc{
-							Reference: &sfcv1.ObjectRef{
+						ServiceInterface: &dpuservicev1.ServiceIfc{
+							Reference: &dpuservicev1.ObjectRef{
 								Name: "p0",
 							},
 						},

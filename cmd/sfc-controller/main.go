@@ -21,7 +21,7 @@ import (
 	"os"
 	"time"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	sfccontroller "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/sfccontroller/controllers"
 
 	"github.com/spf13/pflag"
@@ -50,7 +50,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(sfcv1.AddToScheme(scheme))
+	utilruntime.Must(dpuservicev1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 

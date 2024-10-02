@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"net"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -46,11 +46,11 @@ const (
 
 var _ webhook.CustomValidator = &DPUServiceIPAMValidator{}
 
-// +kubebuilder:webhook:path=/validate-sfc-dpf-nvidia-com-v1alpha1-dpuserviceipam,mutating=false,failurePolicy=fail,groups=sfc.dpf.nvidia.com,resources=dpuserviceipams,verbs=create;update,versions=v1alpha1,name=ipam-validator.sfc.dpf.nvidia.com,admissionReviewVersions=v1,sideEffects=None
+// +kubebuilder:webhook:path=/validate-svc-dpf-nvidia-com-v1alpha1-dpuserviceipam,mutating=false,failurePolicy=fail,groups=svc.dpf.nvidia.com,resources=dpuserviceipams,verbs=create;update,versions=v1alpha1,name=ipam-validator.svc.dpf.nvidia.com,admissionReviewVersions=v1,sideEffects=None
 
 func (v *DPUServiceIPAMValidator) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
-		For(&sfcv1.DPUServiceIPAM{}).
+		For(&dpuservicev1.DPUServiceIPAM{}).
 		WithValidator(v).
 		Complete()
 }
@@ -59,7 +59,7 @@ func (v *DPUServiceIPAMValidator) SetupWebhookWithManager(mgr ctrl.Manager) erro
 func (v *DPUServiceIPAMValidator) ValidateCreate(ctx context.Context, obj runtime.Object) (warnings admission.Warnings, err error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	ipam, ok := obj.(*sfcv1.DPUServiceIPAM)
+	ipam, ok := obj.(*dpuservicev1.DPUServiceIPAM)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a DPUServiceIPAM but got a %T", obj))
 	}
@@ -78,7 +78,7 @@ func (v *DPUServiceIPAMValidator) ValidateCreate(ctx context.Context, obj runtim
 func (v *DPUServiceIPAMValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	ipam, ok := newObj.(*sfcv1.DPUServiceIPAM)
+	ipam, ok := newObj.(*dpuservicev1.DPUServiceIPAM)
 	if !ok {
 		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a DPUServiceIPAM but got a %T", newObj))
 	}
@@ -99,7 +99,7 @@ func (v *DPUServiceIPAMValidator) ValidateDelete(ctx context.Context, obj runtim
 }
 
 // validateDPUServiceIPAM validates if a DPUServiceIPAM object is valid
-func validateDPUServiceIPAM(ipam *sfcv1.DPUServiceIPAM) error {
+func validateDPUServiceIPAM(ipam *dpuservicev1.DPUServiceIPAM) error {
 	var errs []error
 
 	if ipam.Spec.IPV4Network == nil && ipam.Spec.IPV4Subnet == nil {
@@ -122,7 +122,7 @@ func validateDPUServiceIPAM(ipam *sfcv1.DPUServiceIPAM) error {
 }
 
 // validateDPUServiceIPAMIPV4Network validates the .spec.IPV4Network of a DPUServiceIPAM object
-func validateDPUServiceIPAMIPV4Network(ipv4Network *sfcv1.IPV4Network) error {
+func validateDPUServiceIPAMIPV4Network(ipv4Network *dpuservicev1.IPV4Network) error {
 	_, network, err := net.ParseCIDR(ipv4Network.Network)
 	if err != nil {
 		return fmt.Errorf("network %s is not a valid network", ipv4Network.Network)
@@ -161,7 +161,7 @@ func validateDPUServiceIPAMIPV4Network(ipv4Network *sfcv1.IPV4Network) error {
 }
 
 // validateDPUServiceIPAMIPV4Subnet validates the .spec.IPV4Subnet of a DPUServiceIPAM object
-func validateDPUServiceIPAMIPV4Subnet(ipv4Subnet *sfcv1.IPV4Subnet) error {
+func validateDPUServiceIPAMIPV4Subnet(ipv4Subnet *dpuservicev1.IPV4Subnet) error {
 	_, network, err := net.ParseCIDR(ipv4Subnet.Subnet)
 	if err != nil {
 		return fmt.Errorf("subnet %s is not a valid network", ipv4Subnet.Subnet)
@@ -186,7 +186,7 @@ func validateDPUServiceIPAMIPV4Subnet(ipv4Subnet *sfcv1.IPV4Subnet) error {
 
 // validateRoutes validate routes:
 // - dst is a valid CIDR
-func validateRoutes(routes []sfcv1.Route, network *net.IPNet, defaultGateway bool) error {
+func validateRoutes(routes []dpuservicev1.Route, network *net.IPNet, defaultGateway bool) error {
 	var errs []error
 	for _, r := range routes {
 		_, routeNet, err := net.ParseCIDR(r.Dst)

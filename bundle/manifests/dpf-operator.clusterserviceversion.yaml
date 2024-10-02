@@ -32,7 +32,7 @@ spec:
       name: dpus.provisioning.dpf.nvidia.com
       version: v1alpha1
     - kind: DPUServiceChain
-      name: dpuservicechains.sfc.dpf.nvidia.com
+      name: dpuservicechains.svc.dpf.nvidia.com
       version: v1alpha1
     - kind: DPUServiceConfiguration
       name: dpuserviceconfigurations.svc.dpf.nvidia.com
@@ -41,10 +41,10 @@ spec:
       name: dpuservicecredentialrequests.svc.dpf.nvidia.com
       version: v1alpha1
     - kind: DPUServiceInterface
-      name: dpuserviceinterfaces.sfc.dpf.nvidia.com
+      name: dpuserviceinterfaces.svc.dpf.nvidia.com
       version: v1alpha1
     - kind: DPUServiceIPAM
-      name: dpuserviceipams.sfc.dpf.nvidia.com
+      name: dpuserviceipams.svc.dpf.nvidia.com
       version: v1alpha1
     - kind: DPUService
       name: dpuservices.svc.dpf.nvidia.com
@@ -56,16 +56,16 @@ spec:
       name: dpusets.provisioning.dpf.nvidia.com
       version: v1alpha1
     - kind: ServiceChain
-      name: servicechains.sfc.dpf.nvidia.com
+      name: servicechains.svc.dpf.nvidia.com
       version: v1alpha1
     - kind: ServiceChainSet
-      name: servicechainsets.sfc.dpf.nvidia.com
+      name: servicechainsets.svc.dpf.nvidia.com
       version: v1alpha1
     - kind: ServiceInterface
-      name: serviceinterfaces.sfc.dpf.nvidia.com
+      name: serviceinterfaces.svc.dpf.nvidia.com
       version: v1alpha1
     - kind: ServiceInterfaceSet
-      name: serviceinterfacesets.sfc.dpf.nvidia.com
+      name: serviceinterfacesets.svc.dpf.nvidia.com
       version: v1alpha1
     - kind: DPFOperatorConfig
       name: dpfoperatorconfigs.operator.dpf.nvidia.com
@@ -284,52 +284,18 @@ spec:
           - update
           - watch
         - apiGroups:
-          - sfc.dpf.nvidia.com
-          resources:
-          - dpuservicechains
-          - dpuserviceinterfaces
-          - dpuserviceipams
-          - servicechains
-          - serviceinterfaces
-          verbs:
-          - create
-          - delete
-          - deletecollection
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - sfc.dpf.nvidia.com
-          resources:
-          - dpuservicechains/finalizers
-          - dpuserviceinterfaces/finalizers
-          - dpuserviceipams/finalizers
-          - servicechains/finalizers
-          - serviceinterfaces/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - sfc.dpf.nvidia.com
-          resources:
-          - dpuservicechains/status
-          - dpuserviceinterfaces/status
-          - dpuserviceipams/status
-          - servicechains/status
-          - serviceinterfaces/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
           - svc.dpf.nvidia.com
           resources:
           - dpudeployments
+          - dpuservicechains
           - dpuserviceconfigurations
           - dpuservicecredentialrequests
+          - dpuserviceinterfaces
+          - dpuserviceipams
           - dpuservices
           - dpuservicetemplates
+          - servicechains
+          - serviceinterfaces
           verbs:
           - create
           - delete
@@ -343,16 +309,26 @@ spec:
           - svc.dpf.nvidia.com
           resources:
           - dpudeployments/finalizers
+          - dpuservicechains/finalizers
           - dpuservicecredentialrequests/finalizers
+          - dpuserviceinterfaces/finalizers
+          - dpuserviceipams/finalizers
           - dpuservices/finalizers
+          - servicechains/finalizers
+          - serviceinterfaces/finalizers
           verbs:
           - update
         - apiGroups:
           - svc.dpf.nvidia.com
           resources:
           - dpudeployments/status
+          - dpuservicechains/status
           - dpuservicecredentialrequests/status
+          - dpuserviceinterfaces/status
+          - dpuserviceipams/status
           - dpuservices/status
+          - servicechains/status
+          - serviceinterfaces/status
           verbs:
           - get
           - patch

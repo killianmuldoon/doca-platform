@@ -23,7 +23,6 @@ import (
 	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
 	testutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils"
 
@@ -67,9 +66,9 @@ var _ = Describe("PodIpam Controller", func() {
 		It("should successfully update Network annotation on Pod - IPAM ref IpPool", func() {
 			By("Create ServiceChain with IPAM Reference")
 			defaultGateway := false
-			ipam := &sfcv1.IPAM{
+			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
-				Reference: &sfcv1.ObjectRef{
+				Reference: &dpuservicev1.ObjectRef{
 					Namespace: ptr.To(defaultNS),
 					Name:      ipamRefName,
 				},
@@ -92,9 +91,9 @@ var _ = Describe("PodIpam Controller", func() {
 		It("should successfully update Network annotation on Pod - IPAM ref CIDRPool", func() {
 			By("Create ServiceChain with IPAM Reference")
 			defaultGateway := true
-			ipam := &sfcv1.IPAM{
+			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
-				Reference: &sfcv1.ObjectRef{
+				Reference: &dpuservicev1.ObjectRef{
 					Namespace: ptr.To(defaultNS),
 					Name:      ipamRefName,
 				},
@@ -117,7 +116,7 @@ var _ = Describe("PodIpam Controller", func() {
 		It("should successfully update Network annotation on Pod - IPAM match labels IpPool", func() {
 			By("Create ServiceChain with IPAM MatchLabels")
 			defaultGateway := false
-			ipam := &sfcv1.IPAM{
+			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
 				MatchLabels:    testutils.GetTestLabels(),
 			}
@@ -139,7 +138,7 @@ var _ = Describe("PodIpam Controller", func() {
 		It("should successfully update Network annotation on Pod - IPAM match labels IpPool pod interface specified via ServiceInterface of type service", func() {
 			By("Create ServiceChain with IPAM MatchLabels")
 			defaultGateway := false
-			ipam := &sfcv1.IPAM{
+			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
 				MatchLabels:    testutils.GetTestLabels(),
 			}
@@ -163,7 +162,7 @@ var _ = Describe("PodIpam Controller", func() {
 		It("should successfully update Network annotation on Pod - IPAM match labels CIDRPool", func() {
 			By("Create ServiceChain with IPAM MatchLabels")
 			defaultGateway := true
-			ipam := &sfcv1.IPAM{
+			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
 				MatchLabels:    testutils.GetTestLabels(),
 			}
@@ -185,15 +184,15 @@ var _ = Describe("PodIpam Controller", func() {
 		It("should successfully update Network annotation on Pod - Multiple networks, Multiple IPAM", func() {
 			By("Create ServiceChain2 with IPAM MatchLabels")
 			defaultGateway := false
-			ipam := &sfcv1.IPAM{
+			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
 				MatchLabels:    testutils.GetTestLabels(),
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, ipam, serviceName, ifcName))
 			By("Create ServiceChain2 with IPAM ref")
-			ipam2 := &sfcv1.IPAM{
+			ipam2 := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
-				Reference: &sfcv1.ObjectRef{
+				Reference: &dpuservicev1.ObjectRef{
 					Namespace: ptr.To(defaultNS),
 					Name:      ipamRefName2,
 				},
@@ -226,7 +225,7 @@ var _ = Describe("PodIpam Controller", func() {
 				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "ippool", defaultGateway)))
 			}).WithTimeout(20 * time.Second).Should(Not(BeNil()))
 			By("Create ServiceChain with IPAM MatchLabels")
-			ipam := &sfcv1.IPAM{
+			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
 				MatchLabels:    testutils.GetTestLabels(),
 			}
@@ -390,19 +389,19 @@ func createCidrPool(ctx context.Context, name string) *nvipamv1.CIDRPool {
 }
 
 //nolint:unparam
-func createServiceChain(ctx context.Context, name string, ipam *sfcv1.IPAM, svcName string, ifcName string) *sfcv1.ServiceChain {
-	scs := &sfcv1.ServiceChain{
+func createServiceChain(ctx context.Context, name string, ipam *dpuservicev1.IPAM, svcName string, ifcName string) *dpuservicev1.ServiceChain {
+	scs := &dpuservicev1.ServiceChain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: defaultNS,
 		},
-		Spec: sfcv1.ServiceChainSpec{
+		Spec: dpuservicev1.ServiceChainSpec{
 			Node: ptr.To(nodeName),
-			Switches: []sfcv1.Switch{
+			Switches: []dpuservicev1.Switch{
 				{
-					Ports: []sfcv1.Port{
+					Ports: []dpuservicev1.Port{
 						{
-							Service: &sfcv1.Service{
+							Service: &dpuservicev1.Service{
 								InterfaceName: ifcName,
 								MatchLabels:   map[string]string{dpuservicev1.DPFServiceIDLabelKey: svcName},
 								IPAM:          ipam,
@@ -417,19 +416,19 @@ func createServiceChain(ctx context.Context, name string, ipam *sfcv1.IPAM, svcN
 	return scs
 }
 
-func createServiceChainWithServiceInterface(ctx context.Context, name string, ipam *sfcv1.IPAM, svcName string, ifcName string) *sfcv1.ServiceChain {
-	scs := &sfcv1.ServiceChain{
+func createServiceChainWithServiceInterface(ctx context.Context, name string, ipam *dpuservicev1.IPAM, svcName string, ifcName string) *dpuservicev1.ServiceChain {
+	scs := &dpuservicev1.ServiceChain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: defaultNS,
 		},
-		Spec: sfcv1.ServiceChainSpec{
+		Spec: dpuservicev1.ServiceChainSpec{
 			Node: ptr.To(nodeName),
-			Switches: []sfcv1.Switch{
+			Switches: []dpuservicev1.Switch{
 				{
-					Ports: []sfcv1.Port{
+					Ports: []dpuservicev1.Port{
 						{
-							ServiceInterface: &sfcv1.ServiceIfc{
+							ServiceInterface: &dpuservicev1.ServiceIfc{
 								MatchLabels: map[string]string{
 									dpuservicev1.DPFServiceIDLabelKey: svcName,
 									serviceInterfaceAnnotKey:          ifcName,
@@ -446,8 +445,8 @@ func createServiceChainWithServiceInterface(ctx context.Context, name string, ip
 	return scs
 }
 
-func createServiceInterfaceForService(ctx context.Context, name string, svcName string, ifcName string) *sfcv1.ServiceInterface {
-	si := &sfcv1.ServiceInterface{
+func createServiceInterfaceForService(ctx context.Context, name string, svcName string, ifcName string) *dpuservicev1.ServiceInterface {
+	si := &dpuservicev1.ServiceInterface{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: defaultNS,
@@ -456,11 +455,11 @@ func createServiceInterfaceForService(ctx context.Context, name string, svcName 
 				serviceInterfaceAnnotKey:          ifcName,
 			},
 		},
-		Spec: sfcv1.ServiceInterfaceSpec{
-			InterfaceType: sfcv1.InterfaceTypeService,
+		Spec: dpuservicev1.ServiceInterfaceSpec{
+			InterfaceType: dpuservicev1.InterfaceTypeService,
 			InterfaceName: &ifcName,
 			Node:          ptr.To(nodeName),
-			Service: &sfcv1.ServiceDef{
+			Service: &dpuservicev1.ServiceDef{
 				ServiceID: serviceName,
 			},
 		},

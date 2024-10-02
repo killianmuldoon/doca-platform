@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"time"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
 
@@ -61,9 +61,9 @@ const (
 	dpuServiceIPAMControllerName = "dpuserviceipamcontroller"
 )
 
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceipams,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceipams/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=dpuserviceipams/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceipams,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceipams/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuserviceipams/finalizers,verbs=update
 //+kubebuilder:rbac:groups=nv-ipam.nvidia.com,resources=ippools,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reconciles changes in a DPUServiceIPAM object
@@ -73,7 +73,7 @@ func (r *DPUServiceIPAMReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling")
 
-	dpuServiceIPAM := &sfcv1.DPUServiceIPAM{}
+	dpuServiceIPAM := &dpuservicev1.DPUServiceIPAM{}
 	if err := r.Client.Get(ctx, req.NamespacedName, dpuServiceIPAM); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
@@ -88,19 +88,19 @@ func (r *DPUServiceIPAMReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	defer func() {
 		log.Info("Patching")
 
-		if err := updateSummary(ctx, r, r.Client, sfcv1.ConditionDPUIPAMObjectReady, dpuServiceIPAM); err != nil {
+		if err := updateSummary(ctx, r, r.Client, dpuservicev1.ConditionDPUIPAMObjectReady, dpuServiceIPAM); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 		if err := patcher.Patch(ctx, dpuServiceIPAM,
 			patch.WithFieldOwner(dpuServiceIPAMControllerName),
 			patch.WithStatusObservedGeneration{},
-			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(sfcv1.DPUServiceIPAMConditions)},
+			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(dpuservicev1.DPUServiceIPAMConditions)},
 		); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
 
-	conditions.EnsureConditions(dpuServiceIPAM, sfcv1.DPUServiceIPAMConditions)
+	conditions.EnsureConditions(dpuServiceIPAM, dpuservicev1.DPUServiceIPAMConditions)
 
 	// Handle deletion reconciliation loop.
 	if !dpuServiceIPAM.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -108,9 +108,9 @@ func (r *DPUServiceIPAMReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Add finalizer if not set.
-	if !controllerutil.ContainsFinalizer(dpuServiceIPAM, sfcv1.DPUServiceIPAMFinalizer) {
+	if !controllerutil.ContainsFinalizer(dpuServiceIPAM, dpuservicev1.DPUServiceIPAMFinalizer) {
 		log.Info("Adding finalizer")
-		controllerutil.AddFinalizer(dpuServiceIPAM, sfcv1.DPUServiceIPAMFinalizer)
+		controllerutil.AddFinalizer(dpuServiceIPAM, dpuservicev1.DPUServiceIPAMFinalizer)
 		return ctrl.Result{}, nil
 	}
 
@@ -120,11 +120,11 @@ func (r *DPUServiceIPAMReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 // reconcile handles the main reconciliation loop
 //
 //nolint:unparam
-func (r *DPUServiceIPAMReconciler) reconcile(ctx context.Context, dpuServiceIPAM *sfcv1.DPUServiceIPAM) (ctrl.Result, error) {
+func (r *DPUServiceIPAMReconciler) reconcile(ctx context.Context, dpuServiceIPAM *dpuservicev1.DPUServiceIPAM) (ctrl.Result, error) {
 	if err := reconcileObjectsInDPUClusters(ctx, r, r.Client, dpuServiceIPAM); err != nil {
 		conditions.AddFalse(
 			dpuServiceIPAM,
-			sfcv1.ConditionDPUIPAMObjectReconciled,
+			dpuservicev1.ConditionDPUIPAMObjectReconciled,
 			conditions.ReasonError,
 			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
 		)
@@ -132,7 +132,7 @@ func (r *DPUServiceIPAMReconciler) reconcile(ctx context.Context, dpuServiceIPAM
 	}
 	conditions.AddTrue(
 		dpuServiceIPAM,
-		sfcv1.ConditionDPUIPAMObjectReconciled,
+		dpuservicev1.ConditionDPUIPAMObjectReconciled,
 	)
 
 	return ctrl.Result{}, nil
@@ -141,7 +141,7 @@ func (r *DPUServiceIPAMReconciler) reconcile(ctx context.Context, dpuServiceIPAM
 // reconcileDelete handles the delete reconciliation loop
 //
 //nolint:unparam
-func (r *DPUServiceIPAMReconciler) reconcileDelete(ctx context.Context, dpuServiceIPAM *sfcv1.DPUServiceIPAM) (ctrl.Result, error) {
+func (r *DPUServiceIPAMReconciler) reconcileDelete(ctx context.Context, dpuServiceIPAM *dpuservicev1.DPUServiceIPAM) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling delete")
 
@@ -151,7 +151,7 @@ func (r *DPUServiceIPAMReconciler) reconcileDelete(ctx context.Context, dpuServi
 			log.Info(fmt.Sprintf("Requeueing because %s", err.Error()))
 			conditions.AddFalse(
 				dpuServiceIPAM,
-				sfcv1.ConditionDPUIPAMObjectReconciled,
+				dpuservicev1.ConditionDPUIPAMObjectReconciled,
 				conditions.ReasonAwaitingDeletion,
 				conditions.ConditionMessage(err.Error()),
 			)
@@ -161,7 +161,7 @@ func (r *DPUServiceIPAMReconciler) reconcileDelete(ctx context.Context, dpuServi
 	}
 
 	log.Info("Removing finalizer")
-	controllerutil.RemoveFinalizer(dpuServiceIPAM, sfcv1.DPUServiceIPAMFinalizer)
+	controllerutil.RemoveFinalizer(dpuServiceIPAM, dpuservicev1.DPUServiceIPAMFinalizer)
 	return ctrl.Result{}, nil
 }
 
@@ -189,7 +189,7 @@ func (r *DPUServiceIPAMReconciler) getObjectsInDPUCluster(ctx context.Context, c
 // createOrUpdateChild is the method called by the reconcileObjectsInDPUClusters function which applies changes to the
 // DPU clusters on DPUServiceIPAM object updates.
 func (r *DPUServiceIPAMReconciler) createOrUpdateObjectsInDPUCluster(ctx context.Context, c client.Client, dpuObject client.Object) error {
-	dpuServiceIPAM, ok := dpuObject.(*sfcv1.DPUServiceIPAM)
+	dpuServiceIPAM, ok := dpuObject.(*dpuservicev1.DPUServiceIPAM)
 	if !ok {
 		return errors.New("error converting input object to DPUServiceIPAM")
 	}
@@ -204,7 +204,7 @@ func (r *DPUServiceIPAMReconciler) createOrUpdateObjectsInDPUCluster(ctx context
 // deleteObjectsInDPUCluster is the method called by the reconcileObjectDeletionInDPUClusters function which deletes
 // objects in the DPU cluster related to the deleted DPUServiceIPAM object.
 func (r *DPUServiceIPAMReconciler) deleteObjectsInDPUCluster(ctx context.Context, c client.Client, dpuObject client.Object) error {
-	dpuServiceIPAM, ok := dpuObject.(*sfcv1.DPUServiceIPAM)
+	dpuServiceIPAM, ok := dpuObject.(*dpuservicev1.DPUServiceIPAM)
 	if !ok {
 		return errors.New("error converting input object to DPUServiceIPAM")
 	}
@@ -238,7 +238,7 @@ func (r *DPUServiceIPAMReconciler) getUnreadyObjects(objects []unstructured.Unst
 }
 
 // deleteDPUServiceOwnedPoolsOfType deletes all the objects owned by the given DPUServiceIPAM object
-func deleteDPUServiceOwnedPoolsOfType(ctx context.Context, c client.Client, dpuServiceIPAM *sfcv1.DPUServiceIPAM, poolType string) error {
+func deleteDPUServiceOwnedPoolsOfType(ctx context.Context, c client.Client, dpuServiceIPAM *dpuservicev1.DPUServiceIPAM, poolType string) error {
 	p := &unstructured.Unstructured{}
 	p.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind(poolType))
 	if err := c.DeleteAllOf(ctx, p, client.InNamespace(dpuServiceIPAM.Namespace), client.MatchingLabels{
@@ -252,7 +252,7 @@ func deleteDPUServiceOwnedPoolsOfType(ctx context.Context, c client.Client, dpuS
 }
 
 // reconcileIPPoolMode reconciles NVIPAM IPPool object and removes any leftover CIDRPool
-func reconcileIPPoolMode(ctx context.Context, c client.Client, dpuServiceIPAM *sfcv1.DPUServiceIPAM) error {
+func reconcileIPPoolMode(ctx context.Context, c client.Client, dpuServiceIPAM *dpuservicev1.DPUServiceIPAM) error {
 	pool := generateIPPool(dpuServiceIPAM)
 	if err := c.Patch(ctx, pool, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceIPAMControllerName)); err != nil {
 		return fmt.Errorf("error while patching %s %s: %w", pool.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(pool), err)
@@ -268,7 +268,7 @@ func reconcileIPPoolMode(ctx context.Context, c client.Client, dpuServiceIPAM *s
 }
 
 // reconcileCIDRPoolMode reconciles NVIPAM CIDRPool object and removes any leftover IPPool
-func reconcileCIDRPoolMode(ctx context.Context, c client.Client, dpuServiceIPAM *sfcv1.DPUServiceIPAM) error {
+func reconcileCIDRPoolMode(ctx context.Context, c client.Client, dpuServiceIPAM *dpuservicev1.DPUServiceIPAM) error {
 	pool := generateCIDRPool(dpuServiceIPAM)
 	if err := c.Patch(ctx, pool, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceIPAMControllerName)); err != nil {
 		return fmt.Errorf("error while patching %s %s: %w", pool.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(pool), err)
@@ -284,7 +284,7 @@ func reconcileCIDRPoolMode(ctx context.Context, c client.Client, dpuServiceIPAM 
 }
 
 // generateIPPool generates an IPPool object for the given dpuServiceIPAM
-func generateIPPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.IPPool {
+func generateIPPool(dpuServiceIPAM *dpuservicev1.DPUServiceIPAM) *nvipamv1.IPPool {
 	routes := make([]nvipamv1.Route, 0, len(dpuServiceIPAM.Spec.IPV4Subnet.Routes))
 	for _, route := range dpuServiceIPAM.Spec.IPV4Subnet.Routes {
 		routes = append(routes, nvipamv1.Route{Dst: route.Dst})
@@ -313,7 +313,7 @@ func generateIPPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.IPPool {
 }
 
 // generateCIDRPool generates a CIDRPool object for the given dpuServiceIPAM
-func generateCIDRPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.CIDRPool {
+func generateCIDRPool(dpuServiceIPAM *dpuservicev1.DPUServiceIPAM) *nvipamv1.CIDRPool {
 	exclusions := make([]nvipamv1.ExcludeRange, 0, len(dpuServiceIPAM.Spec.IPV4Network.Exclusions))
 	for _, ip := range dpuServiceIPAM.Spec.IPV4Network.Exclusions {
 		exclusions = append(exclusions, nvipamv1.ExcludeRange{StartIP: ip, EndIP: ip})
@@ -357,6 +357,6 @@ func generateCIDRPool(dpuServiceIPAM *sfcv1.DPUServiceIPAM) *nvipamv1.CIDRPool {
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPUServiceIPAMReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&sfcv1.DPUServiceIPAM{}).
+		For(&dpuservicev1.DPUServiceIPAM{}).
 		Complete(r)
 }

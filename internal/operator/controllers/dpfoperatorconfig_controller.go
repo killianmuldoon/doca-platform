@@ -88,11 +88,9 @@ type DPFOperatorConfigReconcilerSettings struct {
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices;dpudeployments;dpuservicecredentialrequests;dpuserviceconfigurations;dpuservicetemplates,verbs=get;list;watch;create;update;patch;delete;deletecollection
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/status;dpudeployments/status;dpuservicecredentialrequests/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=dpuservices/finalizers;dpudeployments/finalizers;dpuservicecredentialrequests/finalizers,verbs=update
-
-// ServiceFunctionChain
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=servicechains;serviceinterfaces;dpuserviceinterfaces;dpuservicechains;dpuserviceipams,verbs=get;list;watch;create;update;patch;delete;deletecollection
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces/status;servicechains/status;dpuservicechains/status;dpuserviceinterfaces/status;dpuserviceipams/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces/finalizers;servicechains/finalizers;dpuservicechains/finalizers;dpuserviceinterfaces/finalizers;dpuserviceipams/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=servicechains;serviceinterfaces;dpuserviceinterfaces;dpuservicechains;dpuserviceipams,verbs=get;list;watch;create;update;patch;delete;deletecollection
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfaces/status;servicechains/status;dpuservicechains/status;dpuserviceinterfaces/status;dpuserviceipams/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfaces/finalizers;servicechains/finalizers;dpuservicechains/finalizers;dpuserviceinterfaces/finalizers;dpuserviceipams/finalizers,verbs=update
 
 // Provisioning objects
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=dpusets;dpuflavors;bfbs;dpus;dpuclusters,verbs=create;delete;get;list;watch;patch;update;deletecollection

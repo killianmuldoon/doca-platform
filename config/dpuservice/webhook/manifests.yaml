@@ -10,12 +10,12 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-sfc-dpf-nvidia-com-v1alpha1-dpuserviceipam
+      path: /validate-svc-dpf-nvidia-com-v1alpha1-dpuserviceipam
   failurePolicy: Fail
-  name: ipam-validator.sfc.dpf.nvidia.com
+  name: ipam-validator.svc.dpf.nvidia.com
   rules:
   - apiGroups:
-    - sfc.dpf.nvidia.com
+    - svc.dpf.nvidia.com
     apiVersions:
     - v1alpha1
     operations:

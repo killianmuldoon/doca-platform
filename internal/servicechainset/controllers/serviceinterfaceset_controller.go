@@ -21,7 +21,7 @@ import (
 	"fmt"
 	"maps"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 
 	"github.com/fluxcd/pkg/runtime/patch"
@@ -44,8 +44,8 @@ import (
 )
 
 const (
-	ServiceInterfaceSetNameLabel      = "sfc.dpf.nvidia.com/serviceinterfaceset-name"
-	ServiceInterfaceSetNamespaceLabel = "sfc.dpf.nvidia.com/serviceinterfaceset-namespace"
+	ServiceInterfaceSetNameLabel      = "svc.dpf.nvidia.com/serviceinterfaceset-name"
+	ServiceInterfaceSetNamespaceLabel = "svc.dpf.nvidia.com/serviceinterfaceset-namespace"
 	serviceInterfaceSetControllerName = "service-interface-set-controller"
 )
 
@@ -57,11 +57,11 @@ type ServiceInterfaceSetReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfacesets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfacesets/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfacesets/finalizers,verbs=update
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfacesets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfacesets/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfacesets/finalizers,verbs=update
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
 //+kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
@@ -71,7 +71,7 @@ type ServiceInterfaceSetReconciler struct {
 func (r *ServiceInterfaceSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling")
-	serviceInterfaceSet := &sfcv1.ServiceInterfaceSet{}
+	serviceInterfaceSet := &dpuservicev1.ServiceInterfaceSet{}
 	if err := r.Client.Get(ctx, req.NamespacedName, serviceInterfaceSet); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
@@ -86,40 +86,40 @@ func (r *ServiceInterfaceSetReconciler) Reconcile(ctx context.Context, req ctrl.
 	defer func() {
 		log.Info("Patching")
 
-		if err := updateSummary(ctx, r, r.Client, sfcv1.ConditionServiceInterfacesReady, serviceInterfaceSet); err != nil {
+		if err := updateSummary(ctx, r, r.Client, dpuservicev1.ConditionServiceInterfacesReady, serviceInterfaceSet); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 		if err := patcher.Patch(ctx, serviceInterfaceSet,
 			patch.WithFieldOwner(serviceInterfaceSetControllerName),
 			patch.WithStatusObservedGeneration{},
-			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(sfcv1.ServiceInterfaceSetConditions)},
+			patch.WithOwnedConditions{Conditions: conditions.TypesAsStrings(dpuservicev1.ServiceInterfaceSetConditions)},
 		); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
 	}()
 
-	conditions.EnsureConditions(serviceInterfaceSet, sfcv1.ServiceInterfaceSetConditions)
+	conditions.EnsureConditions(serviceInterfaceSet, dpuservicev1.ServiceInterfaceSetConditions)
 
 	if !serviceInterfaceSet.ObjectMeta.DeletionTimestamp.IsZero() {
-		return reconcileDelete(ctx, serviceInterfaceSet, r.Client, r, sfcv1.ServiceInterfaceSetFinalizer)
+		return reconcileDelete(ctx, serviceInterfaceSet, r.Client, r, dpuservicev1.ServiceInterfaceSetFinalizer)
 	}
 
 	// Add finalizer if not set.
-	if !controllerutil.ContainsFinalizer(serviceInterfaceSet, sfcv1.ServiceInterfaceSetFinalizer) {
+	if !controllerutil.ContainsFinalizer(serviceInterfaceSet, dpuservicev1.ServiceInterfaceSetFinalizer) {
 		log.Info("Adding finalizer")
-		controllerutil.AddFinalizer(serviceInterfaceSet, sfcv1.ServiceInterfaceSetFinalizer)
+		controllerutil.AddFinalizer(serviceInterfaceSet, dpuservicev1.ServiceInterfaceSetFinalizer)
 		return ctrl.Result{}, nil
 	}
 
 	return r.reconcile(ctx, serviceInterfaceSet)
 }
 
-func (r *ServiceInterfaceSetReconciler) reconcile(ctx context.Context, serviceInterfaceSet *sfcv1.ServiceInterfaceSet) (ctrl.Result, error) {
+func (r *ServiceInterfaceSetReconciler) reconcile(ctx context.Context, serviceInterfaceSet *dpuservicev1.ServiceInterfaceSet) (ctrl.Result, error) {
 	res, err := reconcileSet(ctx, serviceInterfaceSet, r.Client, serviceInterfaceSet.Spec.NodeSelector, r)
 	if err != nil {
 		conditions.AddFalse(
 			serviceInterfaceSet,
-			sfcv1.ConditionServiceInterfacesReconciled,
+			dpuservicev1.ConditionServiceInterfacesReconciled,
 			conditions.ReasonError,
 			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
 		)
@@ -127,7 +127,7 @@ func (r *ServiceInterfaceSetReconciler) reconcile(ctx context.Context, serviceIn
 	}
 	conditions.AddTrue(
 		serviceInterfaceSet,
-		sfcv1.ConditionServiceInterfacesReconciled,
+		dpuservicev1.ConditionServiceInterfacesReconciled,
 	)
 
 	return res, nil
@@ -135,7 +135,7 @@ func (r *ServiceInterfaceSetReconciler) reconcile(ctx context.Context, serviceIn
 
 func (r *ServiceInterfaceSetReconciler) getChildMap(ctx context.Context, set client.Object) (map[string]client.Object, error) {
 	serviceInterfaceMap := make(map[string]client.Object)
-	serviceInterfaceList := &sfcv1.ServiceInterfaceList{}
+	serviceInterfaceList := &dpuservicev1.ServiceInterfaceList{}
 	if err := r.List(ctx, serviceInterfaceList, client.MatchingLabels{
 		ServiceInterfaceSetNameLabel:      set.GetName(),
 		ServiceInterfaceSetNamespaceLabel: set.GetNamespace(),
@@ -151,16 +151,16 @@ func (r *ServiceInterfaceSetReconciler) getChildMap(ctx context.Context, set cli
 func (r *ServiceInterfaceSetReconciler) createOrUpdateChild(ctx context.Context, set client.Object, nodeName string) error {
 	log := ctrllog.FromContext(ctx)
 
-	serviceInterfaceSet := set.(*sfcv1.ServiceInterfaceSet)
+	serviceInterfaceSet := set.(*dpuservicev1.ServiceInterfaceSet)
 	labels := map[string]string{
 		ServiceInterfaceSetNameLabel:      serviceInterfaceSet.Name,
 		ServiceInterfaceSetNamespaceLabel: serviceInterfaceSet.Namespace,
 	}
 	maps.Copy(labels, serviceInterfaceSet.Spec.Template.ObjectMeta.Labels)
 
-	owner := metav1.NewControllerRef(serviceInterfaceSet, sfcv1.GroupVersion.WithKind("ServiceInterfaceSet"))
+	owner := metav1.NewControllerRef(serviceInterfaceSet, dpuservicev1.GroupVersion.WithKind("ServiceInterfaceSet"))
 
-	serviceInterface := &sfcv1.ServiceInterface{
+	serviceInterface := &dpuservicev1.ServiceInterface{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            fmt.Sprintf("%s-%s", serviceInterfaceSet.Name, nodeName),
 			Namespace:       serviceInterfaceSet.Namespace,
@@ -168,38 +168,38 @@ func (r *ServiceInterfaceSetReconciler) createOrUpdateChild(ctx context.Context,
 			Annotations:     serviceInterfaceSet.Annotations,
 			OwnerReferences: []metav1.OwnerReference{*owner},
 		},
-		Spec: sfcv1.ServiceInterfaceSpec{
+		Spec: dpuservicev1.ServiceInterfaceSpec{
 			Node:          ptr.To(nodeName),
 			InterfaceType: serviceInterfaceSet.Spec.Template.Spec.InterfaceType,
 			InterfaceName: serviceInterfaceSet.Spec.Template.Spec.InterfaceName,
 		},
 	}
 	if serviceInterfaceSet.Spec.Template.Spec.Vlan != nil {
-		serviceInterface.Spec.Vlan = &sfcv1.VLAN{
+		serviceInterface.Spec.Vlan = &dpuservicev1.VLAN{
 			VlanID:             serviceInterfaceSet.Spec.Template.Spec.Vlan.VlanID,
 			ParentInterfaceRef: serviceInterfaceSet.Spec.Template.Spec.Vlan.ParentInterfaceRef + "-" + nodeName,
 		}
 	}
 	if serviceInterfaceSet.Spec.Template.Spec.VF != nil {
-		serviceInterface.Spec.VF = &sfcv1.VF{
+		serviceInterface.Spec.VF = &dpuservicev1.VF{
 			VFID:               serviceInterfaceSet.Spec.Template.Spec.VF.VFID,
 			PFID:               serviceInterfaceSet.Spec.Template.Spec.VF.PFID,
 			ParentInterfaceRef: serviceInterfaceSet.Spec.Template.Spec.VF.ParentInterfaceRef + "-" + nodeName,
 		}
 	}
 	if serviceInterfaceSet.Spec.Template.Spec.PF != nil {
-		serviceInterface.Spec.PF = &sfcv1.PF{
+		serviceInterface.Spec.PF = &dpuservicev1.PF{
 			ID: serviceInterfaceSet.Spec.Template.Spec.PF.ID,
 		}
 	}
 	if serviceInterfaceSet.Spec.Template.Spec.Service != nil {
-		serviceInterface.Spec.Service = &sfcv1.ServiceDef{
+		serviceInterface.Spec.Service = &dpuservicev1.ServiceDef{
 			ServiceID: serviceInterfaceSet.Spec.Template.Spec.Service.ServiceID,
 			Network:   serviceInterfaceSet.Spec.Template.Spec.Service.Network,
 		}
 	}
 	serviceInterface.SetManagedFields(nil)
-	serviceInterface.SetGroupVersionKind(sfcv1.GroupVersion.WithKind("ServiceInterface"))
+	serviceInterface.SetGroupVersionKind(dpuservicev1.GroupVersion.WithKind("ServiceInterface"))
 	if err := r.Client.Patch(ctx, serviceInterface, client.Apply, client.ForceOwnership, client.FieldOwner(serviceInterfaceSetControllerName)); err != nil {
 		return err
 	}
@@ -210,7 +210,7 @@ func (r *ServiceInterfaceSetReconciler) createOrUpdateChild(ctx context.Context,
 
 func (r *ServiceInterfaceSetReconciler) getObjectsInDPUCluster(ctx context.Context, k8sClient client.Client, dpuObject client.Object) ([]unstructured.Unstructured, error) {
 	serviceInterfaceSet := &unstructured.Unstructured{}
-	serviceInterfaceSet.SetGroupVersionKind(sfcv1.ServiceInterfaceSetGroupVersionKind)
+	serviceInterfaceSet.SetGroupVersionKind(dpuservicev1.ServiceInterfaceSetGroupVersionKind)
 	key := client.ObjectKey{Namespace: dpuObject.GetNamespace(), Name: dpuObject.GetName()}
 	err := k8sClient.Get(ctx, key, serviceInterfaceSet)
 	if err != nil {
@@ -234,7 +234,7 @@ func (r *ServiceInterfaceSetReconciler) getUnreadyObjects(objects []unstructured
 }
 
 func (r *ServiceInterfaceSetReconciler) setReadyStatus(serviceSet client.Object, numberApplied, numberReady int32) {
-	obj := serviceSet.(*sfcv1.ServiceInterfaceSet)
+	obj := serviceSet.(*dpuservicev1.ServiceInterfaceSet)
 	// TODO add NumberReady state as soon as we have the state of a ServiceInterface
 	obj.Status.NumberApplied = numberApplied
 }
@@ -242,8 +242,8 @@ func (r *ServiceInterfaceSetReconciler) setReadyStatus(serviceSet client.Object,
 // SetupWithManager sets up the controller with the Manager.
 func (r *ServiceInterfaceSetReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&sfcv1.ServiceInterfaceSet{}).
-		Owns(&sfcv1.ServiceInterface{}).
+		For(&dpuservicev1.ServiceInterfaceSet{}).
+		Owns(&dpuservicev1.ServiceInterface{}).
 		Watches(&corev1.Node{},
 			handler.EnqueueRequestsFromMapFunc(r.nodeToServiceInterfaceSetReq),
 			builder.WithPredicates(predicate.LabelChangedPredicate{})).
@@ -251,7 +251,7 @@ func (r *ServiceInterfaceSetReconciler) SetupWithManager(mgr ctrl.Manager) error
 }
 
 func (r *ServiceInterfaceSetReconciler) nodeToServiceInterfaceSetReq(ctx context.Context, resource client.Object) []reconcile.Request {
-	serviceInterfaceSetList := &sfcv1.ServiceInterfaceSetList{}
+	serviceInterfaceSetList := &dpuservicev1.ServiceInterfaceSetList{}
 	if err := r.List(ctx, serviceInterfaceSetList); err != nil {
 		return nil
 	}

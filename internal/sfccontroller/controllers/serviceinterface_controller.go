@@ -23,7 +23,7 @@ import (
 	"os/exec"
 	"time"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -34,7 +34,7 @@ import (
 )
 
 const (
-	ServiceInterfaceFinalizer = "sfc.dpf.nvidia.com/ServiceInterface-finalizer"
+	ServiceInterfaceFinalizer = "svc.dpf.nvidia.com/ServiceInterface-finalizer"
 	RequeueIntervalSuccess    = 20 * time.Second
 	RequeueIntervalError      = 5 * time.Second
 )
@@ -69,11 +69,11 @@ func runOVSVsctl(args ...string) error {
 	return nil
 }
 
-// +kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=ServiceInterfaces,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=ServiceInterfaces/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=ServiceInterfaces/finalizers,verbs=update
-// +kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=sfc.dpf.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
+// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=ServiceInterfaces,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=ServiceInterfaces/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=ServiceInterfaces/finalizers,verbs=update
+// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpf.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 func DelPort(portName string) error {
 	return runOVSVsctl("-t", "5", "--if-exist", "del-port", portName)
@@ -100,25 +100,25 @@ func AddPatchPort(brA, brB, metadata string) error {
 	return err
 }
 
-func FigureOutName(ctx context.Context, serviceInterface *sfcv1.ServiceInterface) string {
+func FigureOutName(ctx context.Context, serviceInterface *dpuservicev1.ServiceInterface) string {
 	log := ctrllog.FromContext(ctx)
 	portName := ""
 
 	switch serviceInterface.Spec.InterfaceType {
-	case sfcv1.InterfaceTypePhysical:
+	case dpuservicev1.InterfaceTypePhysical:
 		log.Info("matched on physical")
 		portName = *serviceInterface.Spec.InterfaceName
-	case sfcv1.InterfaceTypePF:
+	case dpuservicev1.InterfaceTypePF:
 		log.Info("matched on pf")
 		portName = fmt.Sprintf("pf%dhpf", serviceInterface.Spec.PF.ID)
-	case sfcv1.InterfaceTypeVF:
+	case dpuservicev1.InterfaceTypeVF:
 		log.Info("matched on vf")
 		portName = fmt.Sprintf("pf%dvf%d", serviceInterface.Spec.VF.PFID, serviceInterface.Spec.VF.VFID)
-	case sfcv1.InterfaceTypeVLAN:
+	case dpuservicev1.InterfaceTypeVLAN:
 		log.Info("matched on vlan skipping")
 		// TODO for MVP it is out of scope
 		// revisit this once we do not have collisions on patches.
-	case sfcv1.InterfaceTypeService:
+	case dpuservicev1.InterfaceTypeService:
 		// service interfaces add/remove from ovs is handled part of CNI ADD/DEL flow
 		log.Info("matched on service skipping")
 	}
@@ -126,10 +126,10 @@ func FigureOutName(ctx context.Context, serviceInterface *sfcv1.ServiceInterface
 	return portName
 }
 
-func AddInterfacesToOvs(ctx context.Context, serviceInterface *sfcv1.ServiceInterface, metadata string) error {
+func AddInterfacesToOvs(ctx context.Context, serviceInterface *dpuservicev1.ServiceInterface, metadata string) error {
 	log := ctrllog.FromContext(ctx)
 
-	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypeOVN {
+	if serviceInterface.Spec.InterfaceType == dpuservicev1.InterfaceTypeOVN {
 		log.Info("matched on ovn")
 		err := AddPatchPort("br-ovn", "br-sfc", metadata)
 		if err != nil {
@@ -152,11 +152,11 @@ func AddInterfacesToOvs(ctx context.Context, serviceInterface *sfcv1.ServiceInte
 	return nil
 }
 
-func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *sfcv1.ServiceInterface) error {
+func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *dpuservicev1.ServiceInterface) error {
 	log := ctrllog.FromContext(ctx)
 	log.Info("deleteInterfacesFromOvs")
 
-	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypeOVN {
+	if serviceInterface.Spec.InterfaceType == dpuservicev1.InterfaceTypeOVN {
 		log.Info("matched on ovn")
 		// match on ovs-cni naming
 		portBrA := "puplinkbrovn"
@@ -174,7 +174,7 @@ func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *sfcv1.Servic
 		return nil
 	}
 
-	if serviceInterface.Spec.InterfaceType == sfcv1.InterfaceTypePhysical {
+	if serviceInterface.Spec.InterfaceType == dpuservicev1.InterfaceTypePhysical {
 		log.Info("ignoring delete on physical interfaces.")
 		return nil
 	}
@@ -196,7 +196,7 @@ func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *sfcv1.Servic
 func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("reconciling")
-	serviceInterface := &sfcv1.ServiceInterface{}
+	serviceInterface := &dpuservicev1.ServiceInterface{}
 	if err := r.Client.Get(ctx, req.NamespacedName, serviceInterface); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
@@ -260,6 +260,6 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 // SetupWithManager sets up the controller with the Manager.
 func (r *ServiceInterfaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&sfcv1.ServiceInterface{}).
+		For(&dpuservicev1.ServiceInterface{}).
 		Complete(r)
 }

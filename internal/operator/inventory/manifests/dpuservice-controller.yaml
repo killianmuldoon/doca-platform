@@ -146,13 +146,13 @@ spec:
                 description: ServiceChains contains the configuration related to the
                   DPUServiceChains that the DPUDeployment creates.
                 items:
-                  description: Switch holds the ports that are connected in switch
-                    topology
+                  description: DPUDeploymentSwitch holds the ports that are connected
+                    in switch topology
                   properties:
                     ports:
                       description: Ports contains the ports of the switch
                       items:
-                        description: Port defines how a port can be configured
+                        description: DPUDeploymentPort defines how a port can be configured
                         properties:
                           service:
                             description: |-
@@ -306,7 +306,7 @@ spec:
                   - serviceTemplate
                   type: object
                 description: |-
-                  Services contains the Service related configuration. The key is the deploymentServiceName and the value is its
+                  Services contains the DPUDeploymentService related configuration. The key is the deploymentServiceName and the value is its
                   configuration. All underlying objects must specify the same deploymentServiceName in order to be able to be consumed by the
                   DPUDeployment.
                 type: object
@@ -1209,8 +1209,8 @@ spec:
                 description: Interfaces specifies the DPUServiceInterface to be generated
                   for the generated DPUService.
                 items:
-                  description: ServiceInterface contains the information related to
-                    an interface of the DPUService
+                  description: ServiceInterfaceTemplate contains the information related
+                    to an interface of the DPUService
                   properties:
                     name:
                       description: Name is the name of the interface
@@ -1424,50 +1424,6 @@ rules:
   - update
   - watch
 - apiGroups:
-  - sfc.dpf.nvidia.com
-  resources:
-  - dpuservicechains
-  - dpuserviceinterfaces
-  verbs:
-  - create
-  - delete
-  - deletecollection
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - sfc.dpf.nvidia.com
-  resources:
-  - dpuservicechains/finalizers
-  - dpuserviceinterfaces/finalizers
-  - dpuserviceipams/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - sfc.dpf.nvidia.com
-  resources:
-  - dpuservicechains/status
-  - dpuserviceinterfaces/status
-  - dpuserviceipams/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - sfc.dpf.nvidia.com
-  resources:
-  - dpuserviceipams
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
   - svc.dpf.nvidia.com
   resources:
   - dpudeployments
@@ -1483,7 +1439,10 @@ rules:
   - svc.dpf.nvidia.com
   resources:
   - dpudeployments/finalizers
+  - dpuservicechains/finalizers
   - dpuservicecredentialrequests/finalizers
+  - dpuserviceinterfaces/finalizers
+  - dpuserviceipams/finalizers
   - dpuservices/finalizers
   verbs:
   - update
@@ -1491,7 +1450,10 @@ rules:
   - svc.dpf.nvidia.com
   resources:
   - dpudeployments/status
+  - dpuservicechains/status
   - dpuservicecredentialrequests/status
+  - dpuserviceinterfaces/status
+  - dpuserviceipams/status
   - dpuservices/status
   verbs:
   - get
@@ -1500,10 +1462,13 @@ rules:
 - apiGroups:
   - svc.dpf.nvidia.com
   resources:
-  - dpuservicecredentialrequests
+  - dpuservicechains
+  - dpuserviceinterfaces
+  - dpuservices
   verbs:
   - create
   - delete
+  - deletecollection
   - get
   - list
   - patch
@@ -1512,11 +1477,11 @@ rules:
 - apiGroups:
   - svc.dpf.nvidia.com
   resources:
-  - dpuservices
+  - dpuservicecredentialrequests
+  - dpuserviceipams
   verbs:
   - create
   - delete
-  - deletecollection
   - get
   - list
   - patch
@@ -1719,12 +1684,12 @@ webhooks:
     service:
       name: dpuservice-webhook-service
       namespace: dpuservice-controller-system
-      path: /validate-sfc-dpf-nvidia-com-v1alpha1-dpuserviceipam
+      path: /validate-svc-dpf-nvidia-com-v1alpha1-dpuserviceipam
   failurePolicy: Fail
-  name: ipam-validator.sfc.dpf.nvidia.com
+  name: ipam-validator.svc.dpf.nvidia.com
   rules:
   - apiGroups:
-    - sfc.dpf.nvidia.com
+    - svc.dpf.nvidia.com
     apiVersions:
     - v1alpha1
     operations:

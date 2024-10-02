@@ -27,7 +27,6 @@ import (
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
@@ -73,9 +72,9 @@ var (
 		&provisioningv1.DPUSetList{},
 		&provisioningv1.DPUList{},
 		&provisioningv1.BFBList{},
-		&sfcv1.DPUServiceIPAMList{},
-		&sfcv1.DPUServiceChainList{},
-		&sfcv1.DPUServiceInterfaceList{},
+		&dpuservicev1.DPUServiceIPAMList{},
+		&dpuservicev1.DPUServiceChainList{},
+		&dpuservicev1.DPUServiceInterfaceList{},
 		&operatorv1.DPFOperatorConfigList{},
 		&appsv1.DeploymentList{},
 		&appsv1.DaemonSetList{},
@@ -401,7 +400,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				for i := range dpuControlPlanes {
 					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
 					g.Expect(err).ToNot(HaveOccurred())
-					scs := &sfcv1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceInterfaceName, Namespace: dpuServiceInterfaceNamespace}}
+					scs := &dpuservicev1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceInterfaceName, Namespace: dpuServiceInterfaceNamespace}}
 					g.Expect(dpuClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)).NotTo(HaveOccurred())
 				}
 			}, time.Second*300, time.Millisecond*250).Should(Succeed())
@@ -425,7 +424,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				for i := range dpuControlPlanes {
 					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
 					g.Expect(err).ToNot(HaveOccurred())
-					scs := &sfcv1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceChainName, Namespace: dpuServiceChainNamespace}}
+					scs := &dpuservicev1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceChainName, Namespace: dpuServiceChainNamespace}}
 					g.Expect(dpuClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)).NotTo(HaveOccurred())
 				}
 			}, time.Second*300, time.Millisecond*250).Should(Succeed())
@@ -435,10 +434,10 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			if skipCleanup {
 				Skip("Skip cleanup resources")
 			}
-			dsi := &sfcv1.DPUServiceInterface{}
+			dsi := &dpuservicev1.DPUServiceInterface{}
 			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceInterfaceNamespace, Name: dpuServiceInterfaceName}, dsi)).To(Succeed())
 			Expect(testClient.Delete(ctx, dsi)).To(Succeed())
-			dsc := &sfcv1.DPUServiceChain{}
+			dsc := &dpuservicev1.DPUServiceChain{}
 			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceChainNamespace, Name: dpuServiceChainName}, dsc)).To(Succeed())
 			Expect(testClient.Delete(ctx, dsc)).To(Succeed())
 			// Get the control plane secrets.
@@ -448,11 +447,11 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				for i := range dpuControlPlanes {
 					dpuClient, err := dpuControlPlanes[i].NewClient(ctx, testClient)
 					g.Expect(err).ToNot(HaveOccurred())
-					serviceChainSetList := sfcv1.ServiceChainSetList{}
+					serviceChainSetList := dpuservicev1.ServiceChainSetList{}
 					g.Expect(dpuClient.List(ctx, &serviceChainSetList,
 						&client.ListOptions{Namespace: dpuServiceChainNamespace})).To(Succeed())
 					g.Expect(serviceChainSetList.Items).To(BeEmpty())
-					serviceInterfaceSetList := sfcv1.ServiceInterfaceSetList{}
+					serviceInterfaceSetList := dpuservicev1.ServiceInterfaceSetList{}
 					g.Expect(dpuClient.List(ctx, &serviceInterfaceSetList,
 						&client.ListOptions{Namespace: dpuServiceInterfaceNamespace})).To(Succeed())
 					g.Expect(serviceInterfaceSetList.Items).To(BeEmpty())
@@ -533,7 +532,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: hostDPUServiceName}, svc)).To(Succeed())
 			Expect(testClient.Delete(ctx, svc)).To(Succeed())
 
-			dsi := &sfcv1.DPUServiceInterface{}
+			dsi := &dpuservicev1.DPUServiceInterface{}
 			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: "net1-service"}, dsi)).To(Succeed())
 			Expect(utils.CleanupAndWait(ctx, testClient, dsi)).To(Succeed())
 
@@ -605,13 +604,13 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Expect(testClient.Create(ctx, testNS)).To(Succeed())
 
 			By("creating the invalid DPUServiceIPAM CR")
-			dpuServiceIPAM := &sfcv1.DPUServiceIPAM{
+			dpuServiceIPAM := &dpuservicev1.DPUServiceIPAM{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "some-name",
 					Namespace: dpuServiceIPAMNamespace,
 				},
 			}
-			dpuServiceIPAM.SetGroupVersionKind(sfcv1.DPUServiceIPAMGroupVersionKind)
+			dpuServiceIPAM.SetGroupVersionKind(dpuservicev1.DPUServiceIPAMGroupVersionKind)
 			dpuServiceIPAM.SetLabels(cleanupLabels)
 			err := testClient.Create(ctx, dpuServiceIPAM)
 			Expect(err).To(HaveOccurred())
@@ -652,7 +651,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				Skip("Skip cleanup resources")
 			}
 			By("deleting the DPUServiceIPAM")
-			dpuServiceIPAM := &sfcv1.DPUServiceIPAM{}
+			dpuServiceIPAM := &dpuservicev1.DPUServiceIPAM{}
 			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceIPAMNamespace, Name: dpuServiceIPAMWithIPPoolName}, dpuServiceIPAM)).To(Succeed())
 			Expect(testClient.Delete(ctx, dpuServiceIPAM)).To(Succeed())
 
@@ -707,7 +706,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				Skip("Skip cleanup resources")
 			}
 			By("deleting the DPUServiceIPAM")
-			dpuServiceIPAM := &sfcv1.DPUServiceIPAM{}
+			dpuServiceIPAM := &dpuservicev1.DPUServiceIPAM{}
 			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceIPAMNamespace, Name: dpuServiceIPAMWithCIDRPoolName}, dpuServiceIPAM)).To(Succeed())
 			Expect(testClient.Delete(ctx, dpuServiceIPAM)).To(Succeed())
 
@@ -764,7 +763,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					})).To(Succeed())
 				g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
 
-				gotDPUServiceChainList := &sfcv1.DPUServiceChainList{}
+				gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
 				g.Expect(testClient.List(ctx,
 					gotDPUServiceChainList,
 					client.InNamespace(dpuDeployment.GetNamespace()),
@@ -773,7 +772,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					})).To(Succeed())
 				g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
 
-				gotDPUServiceInterfaceList := &sfcv1.DPUServiceInterfaceList{}
+				gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
 				g.Expect(testClient.List(ctx,
 					gotDPUServiceInterfaceList,
 					client.InNamespace(dpuDeployment.GetNamespace()),
@@ -813,7 +812,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					})).To(Succeed())
 				g.Expect(gotDPUServiceList.Items).To(BeEmpty())
 
-				gotDPUServiceChainList := &sfcv1.DPUServiceChainList{}
+				gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
 				g.Expect(testClient.List(ctx,
 					gotDPUServiceChainList,
 					client.InNamespace(dpuDeployment.GetNamespace()),
@@ -822,7 +821,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 					})).To(Succeed())
 				g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
 
-				gotDPUServiceInterfaceList := &sfcv1.DPUServiceInterfaceList{}
+				gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
 				g.Expect(testClient.List(ctx,
 					gotDPUServiceInterfaceList,
 					client.InNamespace(dpuDeployment.GetNamespace()),

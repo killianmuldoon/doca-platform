@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"strings"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -103,7 +102,7 @@ type DPUServiceCredentialRequestSpec struct {
 
 	// ObjectMeta defines the metadata of the secret.
 	// +optional
-	ObjectMeta *sfcv1.ObjectMeta `json:"metadata,omitempty"`
+	ObjectMeta *ObjectMeta `json:"metadata,omitempty"`
 }
 
 // NamespacedObjectReference contains enough information to locate the referenced Kubernetes resource object in any

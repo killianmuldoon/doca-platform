@@ -64,11 +64,11 @@ type DPUServiceTemplateSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=50
 	// +optional
-	Interfaces []ServiceInterface `json:"interfaces,omitempty"`
+	Interfaces []ServiceInterfaceTemplate `json:"interfaces,omitempty"`
 }
 
-// ServiceInterface contains the information related to an interface of the DPUService
-type ServiceInterface struct {
+// ServiceInterfaceTemplate contains the information related to an interface of the DPUService
+type ServiceInterfaceTemplate struct {
 	// Name is the name of the interface
 	// +required
 	Name string `json:"name"`

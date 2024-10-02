@@ -19,7 +19,7 @@ package webhooks
 import (
 	"context"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -33,7 +33,7 @@ var _ = Describe("DPUServiceIPAM Validating Webhook", func() {
 
 	BeforeEach(func() {
 		s := scheme.Scheme
-		Expect(sfcv1.AddToScheme(s)).To(Succeed())
+		Expect(dpuservicev1.AddToScheme(s)).To(Succeed())
 		fakeclient := fake.NewClientBuilder().WithScheme(s).Build()
 		webhook = &DPUServiceIPAMValidator{
 			Client: fakeclient,
@@ -53,7 +53,7 @@ var _ = Describe("DPUServiceIPAM Validating Webhook", func() {
 		Expect(err).To(HaveOccurred())
 	})
 
-	DescribeTable("Validates the .spec.ipv4Network correctly", func(ipam *sfcv1.DPUServiceIPAM, expectError bool) {
+	DescribeTable("Validates the .spec.ipv4Network correctly", func(ipam *dpuservicev1.DPUServiceIPAM, expectError bool) {
 		_, err := webhook.ValidateCreate(context.Background(), ipam)
 		if expectError {
 			Expect(err).To(HaveOccurred())
@@ -61,70 +61,70 @@ var _ = Describe("DPUServiceIPAM Validating Webhook", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 	},
-		Entry("bad network", func() *sfcv1.DPUServiceIPAM {
+		Entry("bad network", func() *dpuservicev1.DPUServiceIPAM {
 			return getFullyPopulatedDPUServiceIPAM()
 		}(), true),
 
-		Entry("bad network", func() *sfcv1.DPUServiceIPAM {
+		Entry("bad network", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Subnet = nil
 			ipam.Spec.IPV4Network.Network = "bad-network"
 			return ipam
 		}(), true),
-		Entry("bad prefixSize", func() *sfcv1.DPUServiceIPAM {
+		Entry("bad prefixSize", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Subnet = nil
 			ipam.Spec.IPV4Network.PrefixSize = 10
 			return ipam
 		}(), true),
-		Entry("bad exclusion - invalid IP", func() *sfcv1.DPUServiceIPAM {
+		Entry("bad exclusion - invalid IP", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Subnet = nil
 			ipam.Spec.IPV4Network.Exclusions[0] = "bad-ip"
 			return ipam
 		}(), true),
-		Entry("bad exclusion - IP not part of the network", func() *sfcv1.DPUServiceIPAM {
+		Entry("bad exclusion - IP not part of the network", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Subnet = nil
 			ipam.Spec.IPV4Network.Exclusions[0] = "10.0.0.0"
 			return ipam
 		}(), true),
-		Entry("bad allocation - invalid subnet", func() *sfcv1.DPUServiceIPAM {
+		Entry("bad allocation - invalid subnet", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Subnet = nil
 			ipam.Spec.IPV4Network.Allocations["dpu-node-1"] = "bad-subnet"
 			return ipam
 		}(), true),
-		Entry("bad allocation - subnet not part of the network due to IP", func() *sfcv1.DPUServiceIPAM {
+		Entry("bad allocation - subnet not part of the network due to IP", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Subnet = nil
 			ipam.Spec.IPV4Network.Allocations["dpu-node-1"] = "10.0.0.0/24"
 			return ipam
 		}(), true),
-		Entry("bad allocation - subnet not part of the network due to mask size", func() *sfcv1.DPUServiceIPAM {
+		Entry("bad allocation - subnet not part of the network due to mask size", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Subnet = nil
 			ipam.Spec.IPV4Network.Allocations["dpu-node-1"] = "192.168.1.0/10"
 			return ipam
 		}(), true),
-		Entry("valid config", func() *sfcv1.DPUServiceIPAM {
+		Entry("valid config", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Subnet = nil
 			return ipam
 		}(), false),
-		Entry("bad route - dest not a valid cidr", func() *sfcv1.DPUServiceIPAM {
+		Entry("bad route - dest not a valid cidr", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Subnet = nil
 			ipam.Spec.IPV4Network.Routes[0].Dst = "not-a-cidr"
 			return ipam
 		}(), true),
-		Entry("invalid route - default gateway true", func() *sfcv1.DPUServiceIPAM {
+		Entry("invalid route - default gateway true", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Subnet = nil
 			ipam.Spec.IPV4Network.Routes[0].Dst = ipv4DefaultRoute
 			return ipam
 		}(), true),
-		Entry("invalid route - not same family", func() *sfcv1.DPUServiceIPAM {
+		Entry("invalid route - not same family", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Subnet = nil
 			ipam.Spec.IPV4Network.Routes[0].Dst = "2001:db8:3333:4444::0/64"
@@ -132,7 +132,7 @@ var _ = Describe("DPUServiceIPAM Validating Webhook", func() {
 		}(), true),
 	)
 
-	DescribeTable("Validates the .spec.ipv4Subnet correctly", func(ipam *sfcv1.DPUServiceIPAM, expectError bool) {
+	DescribeTable("Validates the .spec.ipv4Subnet correctly", func(ipam *dpuservicev1.DPUServiceIPAM, expectError bool) {
 		_, err := webhook.ValidateCreate(context.Background(), ipam)
 		if expectError {
 			Expect(err).To(HaveOccurred())
@@ -140,42 +140,42 @@ var _ = Describe("DPUServiceIPAM Validating Webhook", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 	},
-		Entry("bad subnet", func() *sfcv1.DPUServiceIPAM {
+		Entry("bad subnet", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Network = nil
 			ipam.Spec.IPV4Subnet.Subnet = "bad-subnet"
 			return ipam
 		}(), true),
-		Entry("bad gateway - invalid IP ", func() *sfcv1.DPUServiceIPAM {
+		Entry("bad gateway - invalid IP ", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Network = nil
 			ipam.Spec.IPV4Subnet.Gateway = "bad-gateway"
 			return ipam
 		}(), true),
-		Entry("bad gateway - IP not part of subnet", func() *sfcv1.DPUServiceIPAM {
+		Entry("bad gateway - IP not part of subnet", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Network = nil
 			ipam.Spec.IPV4Subnet.Gateway = "10.0.0.0"
 			return ipam
 		}(), true),
-		Entry("valid config", func() *sfcv1.DPUServiceIPAM {
+		Entry("valid config", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Network = nil
 			return ipam
 		}(), false),
-		Entry("bad route - dest not a valid cidr", func() *sfcv1.DPUServiceIPAM {
+		Entry("bad route - dest not a valid cidr", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Network = nil
 			ipam.Spec.IPV4Subnet.Routes[0].Dst = "not-a-cidr"
 			return ipam
 		}(), true),
-		Entry("invalid route - default gateway true", func() *sfcv1.DPUServiceIPAM {
+		Entry("invalid route - default gateway true", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Network = nil
 			ipam.Spec.IPV4Subnet.Routes[0].Dst = ipv4DefaultRoute
 			return ipam
 		}(), true),
-		Entry("invalid route - not same family", func() *sfcv1.DPUServiceIPAM {
+		Entry("invalid route - not same family", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Network = nil
 			ipam.Spec.IPV4Subnet.Routes[0].Dst = "2011:db8:3333:4444::0/64"
@@ -185,13 +185,13 @@ var _ = Describe("DPUServiceIPAM Validating Webhook", func() {
 })
 
 // getFullyPopulatedDPUServiceIPAM returns an invalid but fully populated (for the validation context) DPUServiceIPAM
-func getFullyPopulatedDPUServiceIPAM() *sfcv1.DPUServiceIPAM {
-	return &sfcv1.DPUServiceIPAM{
+func getFullyPopulatedDPUServiceIPAM() *dpuservicev1.DPUServiceIPAM {
+	return &dpuservicev1.DPUServiceIPAM{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "some-object",
 		},
-		Spec: sfcv1.DPUServiceIPAMSpec{
-			IPV4Network: &sfcv1.IPV4Network{
+		Spec: dpuservicev1.DPUServiceIPAMSpec{
+			IPV4Network: &dpuservicev1.IPV4Network{
 				Network:      "192.168.0.0/20",
 				GatewayIndex: 1,
 				PrefixSize:   24,
@@ -204,14 +204,14 @@ func getFullyPopulatedDPUServiceIPAM() *sfcv1.DPUServiceIPAM {
 					"dpu-node-2": "192.168.2.0/24",
 				},
 				DefaultGateway: true,
-				Routes:         []sfcv1.Route{{Dst: "5.5.5.0/16"}},
+				Routes:         []dpuservicev1.Route{{Dst: "5.5.5.0/16"}},
 			},
-			IPV4Subnet: &sfcv1.IPV4Subnet{
+			IPV4Subnet: &dpuservicev1.IPV4Subnet{
 				Subnet:         "192.168.0.0/20",
 				Gateway:        "192.168.0.1",
 				PerNodeIPCount: 256,
 				DefaultGateway: true,
-				Routes:         []sfcv1.Route{{Dst: "5.5.5.0/16"}},
+				Routes:         []dpuservicev1.Route{{Dst: "5.5.5.0/16"}},
 			},
 		},
 	}

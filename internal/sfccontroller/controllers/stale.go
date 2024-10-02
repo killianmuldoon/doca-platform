@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"time"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -68,7 +68,7 @@ func (r *StaleFlowsRemover) removeStaleFlows(ctx context.Context) error {
 		return fmt.Errorf("failed to get flow cookies: %w", err)
 	}
 	desiredCookiesSet := sets.New[string]()
-	serviceChainList := &sfcv1.ServiceChainList{}
+	serviceChainList := &dpuservicev1.ServiceChainList{}
 	if err = r.client.List(ctx, serviceChainList); err != nil {
 		return fmt.Errorf("failed to list service chains: %w", err)
 	}

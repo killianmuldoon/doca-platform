@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"reflect"
 
-	sfcv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/servicechain/v1alpha1"
+	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -30,7 +30,7 @@ var (
 	ErrUnstructuredFieldNotFound = fmt.Errorf("field not found")
 )
 
-// DPUServiceInterfaceChangePredicate detects changes to a sfcv1.DPUServiceInterface object.
+// DPUServiceInterfaceChangePredicate detects changes to a dpuservicev1.DPUServiceInterface object.
 type DPUServiceInterfaceChangePredicate struct {
 	predicate.Funcs
 }
@@ -40,12 +40,12 @@ func (DPUServiceInterfaceChangePredicate) Update(e event.UpdateEvent) bool {
 		return false
 	}
 
-	oldInterface, ok := e.ObjectOld.(*sfcv1.DPUServiceInterface)
+	oldInterface, ok := e.ObjectOld.(*dpuservicev1.DPUServiceInterface)
 	if !ok {
 		return false
 	}
 
-	newInterface, ok := e.ObjectNew.(*sfcv1.DPUServiceInterface)
+	newInterface, ok := e.ObjectNew.(*dpuservicev1.DPUServiceInterface)
 	if !ok {
 		return false
 	}
