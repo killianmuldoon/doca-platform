@@ -152,7 +152,7 @@ func (c *Cluster) run(ctx context.Context) error {
 		operatorv1.DPFOperatorConfigGroupVersionKind,    // DPFOperatorConfig
 		provisioningv1.GroupVersion.WithKind("Dpu"),     // DPU
 		provisioningv1.GroupVersion.WithKind("DpuSet"),  // DPUSet
-		provisioningv1.GroupVersion.WithKind("Bfb"),     // BFB
+		provisioningv1.GroupVersion.WithKind("BFB"),     // BFB
 
 		controlplanemeta.TenantControlPlaneGVK, // Kamaji control plane
 	}

@@ -34,10 +34,10 @@ import (
 )
 
 type bfbDownloadingState struct {
-	bfb *provisioningv1.Bfb
+	bfb *provisioningv1.BFB
 }
 
-func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BfbStatus, error) {
+func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BFBStatus, error) {
 	state := st.bfb.Status.DeepCopy()
 	bfbTaskName := cutil.GenerateBFBTaskName(*st.bfb)
 
@@ -48,13 +48,13 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 			butil.DownloadingTaskMap.Delete(bfbTaskName)
 			butil.DownloadingTaskMap.Delete(bfbTaskName + "cancel")
 		}
-		state.Phase = provisioningv1.BfbDeleting
+		state.Phase = provisioningv1.BFBDeleting
 		return *state, nil
 	}
 
-	exist, err := IsBfbExist(ctx, st.bfb.Spec.FileName)
+	exist, err := IsBFBExist(ctx, st.bfb.Spec.FileName)
 	if err != nil {
-		state.Phase = provisioningv1.BfbError
+		state.Phase = provisioningv1.BFBError
 		return *state, err
 	}
 
@@ -70,16 +70,16 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 		// Check task result
 		if _, err := result.GetResult(); err != nil {
 			if errors.Is(err, context.Canceled) {
-				state.Phase = provisioningv1.BfbDeleting
+				state.Phase = provisioningv1.BFBDeleting
 				return *state, nil
 			} else {
-				state.Phase = provisioningv1.BfbError
+				state.Phase = provisioningv1.BFBError
 				return *state, err
 			}
 		}
 	} else if !exist {
-		// Start Bfb downloading task
-		bfbTask := butil.BfbTask{
+		// Start BFB downloading task
+		bfbTask := butil.BFBTask{
 			TaskName: bfbTaskName,
 			Url:      st.bfb.Spec.URL,
 			FileName: st.bfb.Spec.FileName,
@@ -89,19 +89,19 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 		// Store the cancel function in the map
 		butil.DownloadingTaskMap.Store(bfbTaskName+"cancel", cancel)
 		// Start the download with the new context
-		downloadBfb(taskCtx, bfbTask)
+		downloadBFB(taskCtx, bfbTask)
 	} else {
-		// There is no related downloading task and Bfb file exists in cache
-		state.Phase = provisioningv1.BfbReady
+		// There is no related downloading task and BFB file exists in cache
+		state.Phase = provisioningv1.BFBReady
 	}
 
 	return *state, nil
 }
 
-func downloadBfb(ctx context.Context, bfbTask butil.BfbTask) {
+func downloadBFB(ctx context.Context, bfbTask butil.BFBTask) {
 	bfbDownloader := future.New(func() (any, error) {
 		logger := log.FromContext(ctx)
-		logger.V(3).Info("BfbPackage", "start downloading", bfbTask.FileName)
+		logger.V(3).Info("BFBPackage", "start downloading", bfbTask.FileName)
 
 		// Create a temporary file
 		tempFile, err := os.CreateTemp(string(os.PathSeparator)+cutil.BFBBaseDir, "bfb-*.tmp")
@@ -129,7 +129,7 @@ func downloadBfb(ctx context.Context, bfbTask butil.BfbTask) {
 		for {
 			select {
 			case <-ctx.Done():
-				logger.V(3).Info("BfbPackage", "context canceled", bfbTask.FileName)
+				logger.V(3).Info("BFBPackage", "context canceled", bfbTask.FileName)
 				return nil, nil
 			default:
 				n, err := resp.Body.Read(buf)
@@ -163,13 +163,13 @@ func downloadBfb(ctx context.Context, bfbTask butil.BfbTask) {
 			return nil, err
 		}
 
-		logger.V(3).Info("createBfbPackage", "finish", bfbTask.FileName)
+		logger.V(3).Info("createBFBPackage", "finish", bfbTask.FileName)
 		return true, nil
 	})
 	butil.DownloadingTaskMap.Store(bfbTask.TaskName, bfbDownloader)
 }
 
-func IsBfbExist(ctx context.Context, fileName string) (bool, error) {
+func IsBFBExist(ctx context.Context, fileName string) (bool, error) {
 	logger := log.FromContext(ctx)
 	bfbFilePath := cutil.GenerateBFBFilePath(fileName)
 	_, err := os.Stat(bfbFilePath)

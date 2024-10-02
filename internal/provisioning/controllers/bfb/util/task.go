@@ -22,7 +22,7 @@ import (
 
 var DownloadingTaskMap sync.Map
 
-type BfbTask struct {
+type BFBTask struct {
 	TaskName string
 	Url      string
 	FileName string

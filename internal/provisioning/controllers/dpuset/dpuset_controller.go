@@ -317,7 +317,7 @@ func (r *DpuSetReconciler) createDpu(ctx context.Context, dpuSet *provisioningv1
 		},
 		Spec: provisioningv1.DpuSpec{
 			NodeName:            node.Name,
-			BFB:                 dpuSet.Spec.DpuTemplate.Spec.Bfb.BFBName,
+			BFB:                 dpuSet.Spec.DpuTemplate.Spec.BFB.Name,
 			NodeEffect:          dpuSet.Spec.DpuTemplate.Spec.NodeEffect,
 			Cluster:             dpuSet.Spec.DpuTemplate.Spec.Cluster,
 			DPUFlavor:           dpuSet.Spec.DpuTemplate.Spec.DPUFlavor,
@@ -436,7 +436,7 @@ func (r *DpuSetReconciler) needUpdate(ctx context.Context, dpuSet provisioningv1
 		}
 	}
 
-	return dpu.Spec.BFB != dpuSet.Spec.DpuTemplate.Spec.Bfb.BFBName || dpu.Spec.DPUFlavor != dpuSet.Spec.DpuTemplate.Spec.DPUFlavor, nil
+	return dpu.Spec.BFB != dpuSet.Spec.DpuTemplate.Spec.BFB.Name || dpu.Spec.DPUFlavor != dpuSet.Spec.DpuTemplate.Spec.DPUFlavor, nil
 }
 
 func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningv1.DpuSet,

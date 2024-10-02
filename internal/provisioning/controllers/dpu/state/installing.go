@@ -106,7 +106,7 @@ func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client
 		Namespace: st.dpu.Namespace,
 		Name:      st.dpu.Spec.BFB,
 	}
-	bfb := &provisioningv1.Bfb{}
+	bfb := &provisioningv1.BFB{}
 	if err := client.Get(ctx, nn, bfb); err != nil {
 		if apierrors.IsNotFound(err) {
 			// BFB does not exist, dpu keeps in installing state.
@@ -222,7 +222,7 @@ func createGRPCConnection(ctx context.Context, client client.Client, dpu *provis
 	return conn, nil
 }
 
-func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv1.Dpu, bfb *provisioningv1.Bfb) {
+func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv1.Dpu, bfb *provisioningv1.BFB) {
 	dmsTaskName := generateDMSTaskName(dpu)
 	dmsTask := future.New(func() (any, error) {
 		logger := log.FromContext(ctx)

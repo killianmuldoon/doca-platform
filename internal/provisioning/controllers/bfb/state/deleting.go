@@ -30,10 +30,10 @@ import (
 )
 
 type bfbDeletingState struct {
-	bfb *provisioningv1.Bfb
+	bfb *provisioningv1.BFB
 }
 
-func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BfbStatus, error) {
+func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BFBStatus, error) {
 	state := st.bfb.Status.DeepCopy()
 	// make sure the bfb task is deleted from the downloading task map
 	bfbtaskName := cutil.GenerateBFBTaskName(*st.bfb)
@@ -46,7 +46,7 @@ func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client) (p
 		return *state, err
 	}
 
-	if err := DeleteTmpBfbFiles(bfbFile); err != nil {
+	if err := DeleteTmpBFBFiles(bfbFile); err != nil {
 		return *state, err
 	}
 
@@ -58,7 +58,7 @@ func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client) (p
 	return *state, nil
 }
 
-func DeleteTmpBfbFiles(bfbFile string) error {
+func DeleteTmpBFBFiles(bfbFile string) error {
 	// Remove all .tmp files in the directory
 	dir := filepath.Dir(bfbFile)
 	tmpFiles, err := filepath.Glob(filepath.Join(dir, "bfb-*.tmp"))

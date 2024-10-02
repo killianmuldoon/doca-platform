@@ -21,38 +21,38 @@ import (
 )
 
 const (
-	// BfbKind is the kind of the Bfb object
-	BfbKind = "Bfb"
+	// BFBKind is the kind of the BFB object
+	BFBKind = "BFB"
 )
 
-// BfbGroupVersionKind is the GroupVersionKind of the Bfb object
-var BfbGroupVersionKind = GroupVersion.WithKind(BfbKind)
+// BFBGroupVersionKind is the GroupVersionKind of the BFB object
+var BFBGroupVersionKind = GroupVersion.WithKind(BFBKind)
 
-// BfbPhase describes current state of Bfb CR.
+// BFBPhase describes current state of BFB CR.
 // Only one of the following state may be specified.
 // Default is Initializing.
 // +kubebuilder:validation:Enum=Initializing;Downloading;Ready;Deleting;Error
-type BfbPhase string
+type BFBPhase string
 
-// These are the valid statuses of Bfb.
+// These are the valid statuses of BFB.
 const (
 	BFBFinalizer = "provisioning.dpf.nvidia.com/bfb-protection"
 
-	// Bfb CR is created
-	BfbInitializing BfbPhase = "Initializing"
+	// BFB CR is created
+	BFBInitializing BFBPhase = "Initializing"
 	// Downloading BFB file
-	BfbDownloading BfbPhase = "Downloading"
+	BFBDownloading BFBPhase = "Downloading"
 	// Finished downloading BFB file, ready for DPU to use
-	BfbReady BfbPhase = "Ready"
+	BFBReady BFBPhase = "Ready"
 	// Delete BFB
-	BfbDeleting BfbPhase = "Deleting"
+	BFBDeleting BFBPhase = "Deleting"
 	// Error happens during BFB downloading
-	BfbError BfbPhase = "Error"
+	BFBError BFBPhase = "Error"
 )
 
-// BfbSpec defines the content of Bfb
+// BFBSpec defines the content of the BFB
 // +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
-type BfbSpec struct {
+type BFBSpec struct {
 	// Specifies bfb file name on the volume or
 	// use CRD name in case it is omitted.
 	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9\_\-\.]+\.bfb$`
@@ -65,38 +65,38 @@ type BfbSpec struct {
 	URL string `json:"url"`
 }
 
-// BfbStatus defines the observed state of Bfb
-type BfbStatus struct {
-	// The current state of Bfb.
+// BFBStatus defines the observed state of BFB
+type BFBStatus struct {
+	// The current state of BFB.
 	// +kubebuilder:default=Initializing
 	// +required
-	Phase BfbPhase `json:"phase"`
+	Phase BFBPhase `json:"phase"`
 }
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// Bfb is the Schema for the bfbs API
-type Bfb struct {
+// BFB is the Schema for the bfbs API
+type BFB struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec BfbSpec `json:"spec,omitempty"`
+	Spec BFBSpec `json:"spec,omitempty"`
 
 	// +kubebuilder:default={phase: Initializing}
 	// +optional
-	Status BfbStatus `json:"status,omitempty"`
+	Status BFBStatus `json:"status,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// BfbList contains a list of Bfb
-type BfbList struct {
+// BFBList contains a list of BFB
+type BFBList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Bfb `json:"items"`
+	Items           []BFB `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&Bfb{}, &BfbList{})
+	SchemeBuilder.Register(&BFB{}, &BFBList{})
 }

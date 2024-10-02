@@ -47,7 +47,7 @@ import (
 var _ = Describe("Dpu", func() {
 	const (
 		DefaultNS  = "dpf-provisioning-test"
-		DefaultBfb = "dpf-provisioning-bfb-test"
+		DefaultBFB = "dpf-provisioning-bfb-test"
 	)
 
 	var (
@@ -75,7 +75,7 @@ var _ = Describe("Dpu", func() {
 		}
 	}
 
-	var createBfb = func(ctx context.Context, name string) (*provisioningv1.Bfb, string) {
+	var createBFB = func(ctx context.Context, name string) (*provisioningv1.BFB, string) {
 		const BFBPathFileSize = "/bf-bundle-dummy.bfb"
 		var (
 			server        *httptest.Server
@@ -120,7 +120,7 @@ var _ = Describe("Dpu", func() {
 		By("server is listening:" + server.URL)
 
 		By("creating the obj")
-		obj := &provisioningv1.Bfb{
+		obj := &provisioningv1.BFB{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: testNS.Name,
@@ -129,13 +129,13 @@ var _ = Describe("Dpu", func() {
 		obj.Spec.URL = server.URL + BFBPathFileSize
 		Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 
-		obj_fetched := &provisioningv1.Bfb{}
+		obj_fetched := &provisioningv1.BFB{}
 
 		By("expecting the Status (Ready)")
-		Eventually(func(g Gomega) provisioningv1.BfbPhase {
+		Eventually(func(g Gomega) provisioningv1.BFBPhase {
 			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), obj_fetched)).To(Succeed())
 			return obj_fetched.Status.Phase
-		}).WithTimeout(30 * time.Second).Should(Equal(provisioningv1.BfbReady))
+		}).WithTimeout(30 * time.Second).WithPolling(100 * time.Millisecond).Should(Equal(provisioningv1.BFBReady))
 		_, err = os.Stat(cutil.GenerateBFBFilePath(obj_fetched.Spec.FileName))
 		Expect(err).NotTo(HaveOccurred())
 
@@ -147,7 +147,7 @@ var _ = Describe("Dpu", func() {
 		return obj, symlinkTarget
 	}
 
-	var destroyBfb = func(ctx context.Context, obj *provisioningv1.Bfb, symlinkTarget string) {
+	var destroyBFB = func(ctx context.Context, obj *provisioningv1.BFB, symlinkTarget string) {
 
 		By("Cleaning the bfb")
 		Expect(k8sClient.Delete(ctx, obj)).To(Succeed())
@@ -343,7 +343,7 @@ var _ = Describe("Dpu", func() {
 			By("creating the obj")
 			obj := createObj("obj-dpu")
 			obj.Spec.NodeName = testNode.Name
-			obj.Spec.BFB = DefaultBfb
+			obj.Spec.BFB = DefaultBFB
 			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
 				Drain: &provisioningv1.Drain{
 					AutomaticNodeReboot: true,
@@ -408,7 +408,7 @@ var _ = Describe("Dpu", func() {
 		It("attaching to node (Node Effect) is NoEffect", func() {
 			By("creating the obj")
 			obj := createObj("obj-dpu")
-			obj.Spec.BFB = DefaultBfb
+			obj.Spec.BFB = DefaultBFB
 			obj.Spec.NodeName = testNode.Name
 			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
 				NoEffect: true,
@@ -476,7 +476,7 @@ var _ = Describe("Dpu", func() {
 			Expect(obj_fetched.Status.Phase).Should(Equal(provisioningv1.DPUPending))
 
 			By("creating the bfb")
-			testBfb, symlinkTarget := createBfb(ctx, DefaultBfb)
+			testBFB, symlinkTarget := createBFB(ctx, DefaultBFB)
 
 			By("expecting the Status (DMSRunning)")
 			Eventually(func(g Gomega) []metav1.Condition {
@@ -511,13 +511,13 @@ var _ = Describe("Dpu", func() {
 			Expect(testutils.CleanupAndWait(ctx, k8sClient, cleanupObjs...)).To(Succeed())
 
 			By("Cleaning the bfb")
-			destroyBfb(ctx, testBfb, symlinkTarget)
+			destroyBFB(ctx, testBFB, symlinkTarget)
 		})
 
 		It("attaching to node w/o Labels (Node Effect) is CustomLabel", func() {
 			By("creating the obj")
 			obj := createObj("obj-dpu")
-			obj.Spec.BFB = DefaultBfb
+			obj.Spec.BFB = DefaultBFB
 			obj.Spec.NodeName = testNode.Name
 			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
 				CustomLabel: map[string]string{
@@ -595,7 +595,7 @@ var _ = Describe("Dpu", func() {
 			Expect(node_fetched.Labels).To(HaveKeyWithValue("version", "1.2.3"))
 
 			By("creating the bfb")
-			testBfb, symlinkTarget := createBfb(ctx, DefaultBfb)
+			testBFB, symlinkTarget := createBFB(ctx, DefaultBFB)
 
 			By("expecting the Status (DMSRunning)")
 			Eventually(func(g Gomega) []metav1.Condition {
@@ -630,7 +630,7 @@ var _ = Describe("Dpu", func() {
 			Expect(testutils.CleanupAndWait(ctx, k8sClient, cleanupObjs...)).To(Succeed())
 
 			By("Cleaning the bfb")
-			destroyBfb(ctx, testBfb, symlinkTarget)
+			destroyBFB(ctx, testBFB, symlinkTarget)
 		})
 
 		It("attaching to node with Labels (Node Effect) is CustomLabel", func() {
@@ -642,7 +642,7 @@ var _ = Describe("Dpu", func() {
 
 			By("creating the obj")
 			obj := createObj("obj-dpu")
-			obj.Spec.BFB = DefaultBfb
+			obj.Spec.BFB = DefaultBFB
 			obj.Spec.NodeName = node_obj.Name
 			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
 				CustomLabel: map[string]string{
@@ -721,7 +721,7 @@ var _ = Describe("Dpu", func() {
 			Expect(node_fetched.Labels).To(HaveKeyWithValue("version", "1.2.3"))
 
 			By("creating the bfb")
-			testBfb, symlinkTarget := createBfb(ctx, DefaultBfb)
+			testBFB, symlinkTarget := createBFB(ctx, DefaultBFB)
 
 			By("expecting the Status (DMSRunning)")
 			Eventually(func(g Gomega) []metav1.Condition {
@@ -756,13 +756,13 @@ var _ = Describe("Dpu", func() {
 			Expect(testutils.CleanupAndWait(ctx, k8sClient, cleanupObjs...)).To(Succeed())
 
 			By("Cleaning the bfb")
-			destroyBfb(ctx, testBfb, symlinkTarget)
+			destroyBFB(ctx, testBFB, symlinkTarget)
 		})
 
 		It("attaching to node w/o Taints (Node Effect) is Taint", func() {
 			By("creating the obj")
 			obj := createObj("obj-dpu")
-			obj.Spec.BFB = DefaultBfb
+			obj.Spec.BFB = DefaultBFB
 			obj.Spec.NodeName = testNode.Name
 			taint_obj := &corev1.Taint{
 				Key:       "testTaint1",
@@ -850,7 +850,7 @@ var _ = Describe("Dpu", func() {
 			Expect(testNode.Spec.Taints[0]).Should(Equal(taint_error_obj))
 
 			By("creating the bfb")
-			testBfb, symlinkTarget := createBfb(ctx, DefaultBfb)
+			testBFB, symlinkTarget := createBFB(ctx, DefaultBFB)
 
 			By("expecting the Status (DMSRunning)")
 			Eventually(func(g Gomega) []metav1.Condition {
@@ -885,7 +885,7 @@ var _ = Describe("Dpu", func() {
 			Expect(testutils.CleanupAndWait(ctx, k8sClient, cleanupObjs...)).To(Succeed())
 
 			By("Cleaning the bfb")
-			destroyBfb(ctx, testBfb, symlinkTarget)
+			destroyBFB(ctx, testBFB, symlinkTarget)
 		})
 	})
 })
@@ -1212,7 +1212,7 @@ var _ = Describe("DMS Pod", func() {
 			By("creating DMS Pod")
 			option := util.DPUOptions{
 				DMSImageWithTag: "gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server:latest",
-				BfbPvc:          "bfb-pvc",
+				BFBPVC:          "bfb-pvc",
 			}
 			err := dms.CreateDMSPod(ctx, k8sClient, obj_dpu, option)
 			Expect(err).NotTo(HaveOccurred())

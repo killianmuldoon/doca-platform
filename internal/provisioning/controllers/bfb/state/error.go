@@ -25,13 +25,13 @@ import (
 )
 
 type bfbErrorState struct {
-	bfb *provisioningv1.Bfb
+	bfb *provisioningv1.BFB
 }
 
-func (st *bfbErrorState) Handle(ctx context.Context, _ client.Client) (provisioningv1.BfbStatus, error) {
+func (st *bfbErrorState) Handle(ctx context.Context, _ client.Client) (provisioningv1.BFBStatus, error) {
 	state := st.bfb.Status.DeepCopy()
 	if isDeleting(st.bfb) {
-		state.Phase = provisioningv1.BfbDeleting
+		state.Phase = provisioningv1.BFBDeleting
 		return *state, nil
 	}
 	return *state, nil

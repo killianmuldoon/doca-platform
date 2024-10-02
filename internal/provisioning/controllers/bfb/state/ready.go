@@ -27,18 +27,18 @@ import (
 )
 
 type bfbReadyState struct {
-	bfb *provisioningv1.Bfb
+	bfb *provisioningv1.BFB
 }
 
-func (st *bfbReadyState) Handle(ctx context.Context, _ client.Client) (provisioningv1.BfbStatus, error) {
+func (st *bfbReadyState) Handle(ctx context.Context, _ client.Client) (provisioningv1.BFBStatus, error) {
 	state := st.bfb.Status.DeepCopy()
 	if isDeleting(st.bfb) {
-		state.Phase = provisioningv1.BfbDeleting
+		state.Phase = provisioningv1.BFBDeleting
 		return *state, nil
 	}
 
 	if exist, err := checkingBFBFile(*st.bfb); !exist {
-		state.Phase = provisioningv1.BfbDownloading
+		state.Phase = provisioningv1.BFBDownloading
 		return *state, err
 	}
 
@@ -46,7 +46,7 @@ func (st *bfbReadyState) Handle(ctx context.Context, _ client.Client) (provision
 }
 
 // check whether BFB file exist
-func checkingBFBFile(bfb provisioningv1.Bfb) (bool, error) {
+func checkingBFBFile(bfb provisioningv1.BFB) (bool, error) {
 	fullFileName := cutil.GenerateBFBFilePath(bfb.Spec.FileName)
 	if _, err := os.Stat(fullFileName); err != nil {
 		return false, err

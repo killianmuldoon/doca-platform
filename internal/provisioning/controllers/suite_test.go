@@ -122,9 +122,9 @@ var _ = BeforeSuite(func() {
 		}})
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&provisioningv1.Bfb{}).SetupWebhookWithManager(k8sManager)
+	err = (&provisioningv1.BFB{}).SetupWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
-	bfbReconciler := &bfb.BfbReconciler{
+	bfbReconciler := &bfb.BFBReconciler{
 		Client: k8sManager.GetClient(),
 		Scheme: k8sManager.GetScheme(),
 	}

@@ -1,5 +1,5 @@
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
-kind: Bfb
+kind: BFB
 metadata:
   name: bf-bundle-2.7.0
   namespace: dpf-operator-system

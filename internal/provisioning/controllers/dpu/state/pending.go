@@ -46,7 +46,7 @@ func (st *dpuPendingState) Handle(ctx context.Context, client client.Client, _ d
 		Namespace: st.dpu.Namespace,
 		Name:      st.dpu.Spec.BFB,
 	}
-	bfb := &provisioningv1.Bfb{}
+	bfb := &provisioningv1.BFB{}
 	if err := client.Get(ctx, nn, bfb); err != nil {
 		logger.Error(err, fmt.Sprintf("get bfb %s failed", nn.String()))
 		cond := cutil.DPUCondition(provisioningv1.DPUCondBFBReady, "GetBFBFailed", err.Error())
@@ -56,7 +56,7 @@ func (st *dpuPendingState) Handle(ctx context.Context, client client.Client, _ d
 	}
 
 	// checking whether bfb is ready
-	if bfb.Status.Phase != provisioningv1.BfbReady {
+	if bfb.Status.Phase != provisioningv1.BFBReady {
 		return *state, nil
 	}
 

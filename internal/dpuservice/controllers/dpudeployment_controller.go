@@ -131,7 +131,7 @@ func (r *DPUDeploymentReconciler) DPUServiceTemplateToDPUDeployment(ctx context.
 
 // dpuDeploymentDependencies is a struct that holds the parsed dependencies a DPUDeployment has.
 type dpuDeploymentDependencies struct {
-	BFB                      *provisioningv1.Bfb
+	BFB                      *provisioningv1.BFB
 	DPUFlavor                *provisioningv1.DPUFlavor
 	DPUServiceConfigurations map[string]*dpuservicev1.DPUServiceConfiguration
 	DPUServiceTemplates      map[string]*dpuservicev1.DPUServiceTemplate
@@ -333,7 +333,7 @@ func cleanAllStaleDependencies(ctx context.Context, c client.Client, dpuDeployme
 	for _, obj := range []client.ObjectList{
 		&dpuservicev1.DPUServiceConfigurationList{},
 		&dpuservicev1.DPUServiceTemplateList{},
-		&provisioningv1.BfbList{},
+		&provisioningv1.BFBList{},
 		&provisioningv1.DPUFlavorList{},
 	} {
 		if err := c.List(ctx,
@@ -376,8 +376,8 @@ func cleanAllStaleDependencies(ctx context.Context, c client.Client, dpuDeployme
 					return fmt.Errorf("error while patching %s %s: %w", dpuServiceTemplate.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuServiceTemplate), err)
 				}
 			}
-		case *provisioningv1.BfbList:
-			objs := obj.(*provisioningv1.BfbList).Items
+		case *provisioningv1.BFBList:
+			objs := obj.(*provisioningv1.BFBList).Items
 			for _, bfb := range objs {
 				if bfb.Name == deps.BFB.Name {
 					continue
@@ -470,10 +470,10 @@ func getDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuser
 		DPUServiceTemplates:      make(map[string]*dpuservicev1.DPUServiceTemplate),
 	}
 
-	bfb := &provisioningv1.Bfb{}
+	bfb := &provisioningv1.BFB{}
 	key := client.ObjectKey{Namespace: dpuDeployment.Namespace, Name: dpuDeployment.Spec.DPUs.BFB}
 	if err := c.Get(ctx, key, bfb); err != nil {
-		return deps, fmt.Errorf("error while getting %s %s: %w", provisioningv1.BfbGroupVersionKind.String(), key.String(), err)
+		return deps, fmt.Errorf("error while getting %s %s: %w", provisioningv1.BFBGroupVersionKind.String(), key.String(), err)
 	}
 	deps.BFB = bfb
 
@@ -727,8 +727,8 @@ func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 			DpuTemplate: provisioningv1.DpuTemplate{
 				Annotations: dpuSetSettings.DPUAnnotations,
 				Spec: provisioningv1.DPUSpec{
-					Bfb: provisioningv1.BFBSpec{
-						BFBName: bfb,
+					BFB: provisioningv1.BFBReference{
+						Name: bfb,
 					},
 					DPUFlavor: dpuFlavor,
 				},
@@ -1022,7 +1022,7 @@ func releaseAllDependencies(ctx context.Context, c client.Client, dpuDeployment 
 	for _, obj := range []client.ObjectList{
 		&dpuservicev1.DPUServiceConfigurationList{},
 		&dpuservicev1.DPUServiceTemplateList{},
-		&provisioningv1.BfbList{},
+		&provisioningv1.BFBList{},
 		&provisioningv1.DPUFlavorList{},
 	} {
 		if err := c.List(ctx,
@@ -1055,8 +1055,8 @@ func releaseAllDependencies(ctx context.Context, c client.Client, dpuDeployment 
 					return fmt.Errorf("error while patching %s %s: %w", o.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&o), err)
 				}
 			}
-		case *provisioningv1.BfbList:
-			objs := obj.(*provisioningv1.BfbList).Items
+		case *provisioningv1.BFBList:
+			objs := obj.(*provisioningv1.BFBList).Items
 			for _, o := range objs {
 				patcher := patch.NewSerialPatcher(&o, c)
 				unmarkDependency(&o)

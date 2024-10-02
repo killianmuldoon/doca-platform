@@ -1,5 +1,5 @@
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
-kind: Bfb
+kind: BFB
 metadata:
   name: doca-23.09
 spec:

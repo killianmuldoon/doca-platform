@@ -72,7 +72,7 @@ const (
 	ProvisioningGroupName = "provisioning.dpf.nvidia.com"
 )
 
-func GenerateBFBTaskName(bfb provisioningv1.Bfb) string {
+func GenerateBFBTaskName(bfb provisioningv1.BFB) string {
 	return fmt.Sprintf("%s-%s", bfb.Namespace, bfb.Name)
 }
 

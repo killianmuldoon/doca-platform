@@ -37,7 +37,7 @@ var (
 	bfbMgr ctrl.Manager
 )
 
-func (r *Bfb) SetupWebhookWithManager(mgr ctrl.Manager) error {
+func (r *BFB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	bfbMgr = mgr
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(r).
@@ -46,10 +46,10 @@ func (r *Bfb) SetupWebhookWithManager(mgr ctrl.Manager) error {
 
 //+kubebuilder:webhook:path=/mutate-provisioning-dpf-nvidia-com-v1alpha1-bfb,mutating=true,failurePolicy=fail,sideEffects=None,groups=provisioning.dpf.nvidia.com,resources=bfbs,verbs=create;update,versions=v1alpha1,name=mbfb.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Defaulter = &Bfb{}
+var _ webhook.Defaulter = &BFB{}
 
 // Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *Bfb) Default() {
+func (r *BFB) Default() {
 	bfblog.V(4).Info("default", "name", r.Name)
 	if r.Spec.FileName == "" {
 		r.Spec.FileName = fmt.Sprintf("%s-%s%s", r.Namespace, r.Name, BFBFileNameExtension)
@@ -59,24 +59,24 @@ func (r *Bfb) Default() {
 // TODO(user): change verbs to "verbs=create;update;delete" if you want to enable deletion validation.
 //+kubebuilder:webhook:path=/validate-provisioning-dpf-nvidia-com-v1alpha1-bfb,mutating=false,failurePolicy=fail,sideEffects=None,groups=provisioning.dpf.nvidia.com,resources=bfbs,verbs=create;update;delete,versions=v1alpha1,name=vbfb.kb.io,admissionReviewVersions=v1
 
-var _ webhook.Validator = &Bfb{}
+var _ webhook.Validator = &BFB{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
-func (r *Bfb) ValidateCreate() (admission.Warnings, error) {
+func (r *BFB) ValidateCreate() (admission.Warnings, error) {
 	bfblog.V(4).Info("validate create", "name", r.Name)
 
 	return nil, nil
 }
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
-func (r *Bfb) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
+func (r *BFB) ValidateUpdate(old runtime.Object) (admission.Warnings, error) {
 	bfblog.V(4).Info("validate update", "name", r.Name)
 
 	return nil, nil
 }
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
-func (r *Bfb) ValidateDelete() (admission.Warnings, error) {
+func (r *BFB) ValidateDelete() (admission.Warnings, error) {
 	bfblog.V(4).Info("validate delete", "name", r.Name)
 
 	dpusetList := &DpuSetList{}
@@ -85,7 +85,7 @@ func (r *Bfb) ValidateDelete() (admission.Warnings, error) {
 	}
 	var ref []string
 	for _, ds := range dpusetList.Items {
-		if ds.Spec.DpuTemplate.Spec.Bfb.BFBName == r.Name {
+		if ds.Spec.DpuTemplate.Spec.BFB.Name == r.Name {
 			ref = append(ref, ds.Name)
 		}
 	}

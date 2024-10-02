@@ -25,28 +25,28 @@ import (
 )
 
 type State interface {
-	Handle(ctx context.Context, client client.Client) (provisioningv1.BfbStatus, error)
+	Handle(ctx context.Context, client client.Client) (provisioningv1.BFBStatus, error)
 }
 
-func GetBfbState(bfb *provisioningv1.Bfb) State {
+func GetBFBState(bfb *provisioningv1.BFB) State {
 	switch bfb.Status.Phase {
-	case provisioningv1.BfbInitializing:
+	case provisioningv1.BFBInitializing:
 		return &bfbInitializingState{
 			bfb,
 		}
-	case provisioningv1.BfbDownloading:
+	case provisioningv1.BFBDownloading:
 		return &bfbDownloadingState{
 			bfb,
 		}
-	case provisioningv1.BfbReady:
+	case provisioningv1.BFBReady:
 		return &bfbReadyState{
 			bfb,
 		}
-	case provisioningv1.BfbDeleting:
+	case provisioningv1.BFBDeleting:
 		return &bfbDeletingState{
 			bfb,
 		}
-	case provisioningv1.BfbError:
+	case provisioningv1.BFBError:
 		return &bfbErrorState{
 			bfb,
 		}
@@ -57,6 +57,6 @@ func GetBfbState(bfb *provisioningv1.Bfb) State {
 	}
 }
 
-func isDeleting(bfb *provisioningv1.Bfb) bool {
+func isDeleting(bfb *provisioningv1.BFB) bool {
 	return !bfb.DeletionTimestamp.IsZero()
 }

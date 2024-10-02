@@ -25,16 +25,16 @@ import (
 )
 
 type bfbInitializingState struct {
-	bfb *provisioningv1.Bfb
+	bfb *provisioningv1.BFB
 }
 
-func (st *bfbInitializingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BfbStatus, error) {
+func (st *bfbInitializingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BFBStatus, error) {
 	state := st.bfb.Status.DeepCopy()
 	if isDeleting(st.bfb) {
-		state.Phase = provisioningv1.BfbDeleting
+		state.Phase = provisioningv1.BFBDeleting
 		return *state, nil
 	}
 
-	state.Phase = provisioningv1.BfbDownloading
+	state.Phase = provisioningv1.BFBDownloading
 	return *state, nil
 }

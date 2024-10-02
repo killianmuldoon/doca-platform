@@ -72,7 +72,7 @@ var (
 		&dpuservicev1.DPUServiceTemplateList{},
 		&provisioningv1.DpuSetList{},
 		&provisioningv1.DpuList{},
-		&provisioningv1.BfbList{},
+		&provisioningv1.BFBList{},
 		&sfcv1.DPUServiceIPAMList{},
 		&sfcv1.DPUServiceChainList{},
 		&sfcv1.DPUServiceInterfaceList{},

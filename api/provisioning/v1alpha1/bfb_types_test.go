@@ -29,28 +29,28 @@ import (
 
 // These tests are written in BDD-style using Ginkgo framework. Refer to
 // http://onsi.github.io/ginkgo to learn more.
-var _ = Describe("Bfb", func() {
+var _ = Describe("BFB", func() {
 
 	const (
 		DefaultObjName = "obj-bfb"
 		DefaultURL     = "http://example.com/dummy.bfb"
 	)
 
-	var getObjKey = func(obj *Bfb) types.NamespacedName {
+	var getObjKey = func(obj *BFB) types.NamespacedName {
 		return types.NamespacedName{
 			Name:      obj.Name,
 			Namespace: obj.Namespace,
 		}
 	}
 
-	var createObj = func(name string) *Bfb {
-		return &Bfb{
+	var createObj = func(name string) *BFB {
+		return &BFB{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: "default",
 			},
-			Spec:   BfbSpec{},
-			Status: BfbStatus{},
+			Spec:   BFBSpec{},
+			Status: BFBStatus{},
 		}
 	}
 
@@ -72,7 +72,7 @@ var _ = Describe("Bfb", func() {
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &Bfb{}
+			obj_fetched := &BFB{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched).To(Equal(obj))
@@ -102,7 +102,7 @@ var _ = Describe("Bfb", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &Bfb{}
+			obj_fetched := &BFB{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched).To(Equal(obj))
@@ -157,7 +157,7 @@ var _ = Describe("Bfb", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			obj_fetched := &Bfb{}
+			obj_fetched := &BFB{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched.Spec.URL).To(Equal(ref_value))
@@ -219,7 +219,7 @@ var _ = Describe("Bfb", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			obj_fetched := &Bfb{}
+			obj_fetched := &BFB{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj_fetched.Spec.FileName).To(Equal(ref_value))
@@ -228,7 +228,7 @@ var _ = Describe("Bfb", func() {
 		It("create from yaml", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
-kind: Bfb
+kind: BFB
 metadata:
   name: obj-bfb
   namespace: default
@@ -236,7 +236,7 @@ spec:
   file_name: "bf-bundle-2.7.0-33.bfb"
   url: "http://bfb-server.dpf-operator-system/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_unsigned.bfb"
 `)
-			obj := &Bfb{}
+			obj := &BFB{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -247,14 +247,14 @@ spec:
 		It("create from yaml minimal", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
-kind: Bfb
+kind: BFB
 metadata:
   name: obj-bfb
   namespace: default
 spec:
   url: "http://bfb-server.dpf-operator-system/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_unsigned.bfb"
 `)
-			obj := &Bfb{}
+			obj := &BFB{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -265,12 +265,12 @@ spec:
 		It("create from yaml validation issue (w/o url)", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
-kind: Bfb
+kind: BFB
 metadata:
   name: obj-bfb
   namespace: default
 `)
-			obj := &Bfb{}
+			obj := &BFB{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -280,14 +280,14 @@ metadata:
 		It("create from yaml validation issue (url is empty)", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
-kind: Bfb
+kind: BFB
 metadata:
   name: obj-bfb
   namespace: default
 spec:
   url: ""
 `)
-			obj := &Bfb{}
+			obj := &BFB{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -299,13 +299,13 @@ spec:
 			obj.Spec.URL = DefaultURL
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj.Status.Phase).To(BeEquivalentTo(BfbInitializing))
+			Expect(obj.Status.Phase).To(BeEquivalentTo(BFBInitializing))
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &Bfb{}
+			obj_fetched := &BFB{}
 			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Status.Phase).To(BeEquivalentTo(BfbInitializing))
+			Expect(obj_fetched.Status.Phase).To(BeEquivalentTo(BFBInitializing))
 		})
 	})
 })

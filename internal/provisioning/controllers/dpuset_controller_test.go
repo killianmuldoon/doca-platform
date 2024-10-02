@@ -127,8 +127,8 @@ spec:
       nvidia.com/dpuOperator-override-powercycle-command: "cycle"
     spec:
       dpuFlavor: "hbn"
-      BFB:
-        bfb: "doca-24.04"
+      bfb:
+        name: "doca-24.04"
       nodeEffect:
         taint:
           key: "dpu"

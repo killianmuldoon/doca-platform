@@ -147,7 +147,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 			By("checking that dependencies are marked")
 			Eventually(func(g Gomega) {
 				for obj, key := range map[client.Object]client.ObjectKey{
-					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(bfb),
 					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
 					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
 					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
@@ -202,7 +202,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 			By("checking that the dependencies are released")
 			Eventually(func(g Gomega) {
 				for obj, key := range map[client.Object]client.ObjectKey{
-					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(bfb),
 					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
 					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
 					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
@@ -314,8 +314,8 @@ var _ = Describe("DPUDeployment Controller", func() {
 		Context("When checking updateDependencies()", func() {
 			var (
 				dpuDeployment                *dpuservicev1.DPUDeployment
-				bfb                          *provisioningv1.Bfb
-				extraBFB                     *provisioningv1.Bfb
+				bfb                          *provisioningv1.BFB
+				extraBFB                     *provisioningv1.BFB
 				dpuFlavor                    *provisioningv1.DPUFlavor
 				extraDPUFlavor               *provisioningv1.DPUFlavor
 				dpuServiceConfiguration      *dpuservicev1.DPUServiceConfiguration
@@ -364,8 +364,8 @@ var _ = Describe("DPUDeployment Controller", func() {
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, extraDPUServiceTemplate)
 
 				objGVK = map[client.Object]schema.GroupVersionKind{
-					bfb:                          provisioningv1.BfbGroupVersionKind,
-					extraBFB:                     provisioningv1.BfbGroupVersionKind,
+					bfb:                          provisioningv1.BFBGroupVersionKind,
+					extraBFB:                     provisioningv1.BFBGroupVersionKind,
 					dpuFlavor:                    provisioningv1.DPUFlavorGroupVersionKind,
 					extraDPUFlavor:               provisioningv1.DPUFlavorGroupVersionKind,
 					dpuServiceConfiguration:      dpuservicev1.DPUServiceConfigurationGroupVersionKind,
@@ -390,7 +390,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("Checking the current dependencies after update")
 				for obj, key := range map[client.Object]client.ObjectKey{
-					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(bfb),
 					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
 					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
 					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
@@ -402,7 +402,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("Checking the rest of the objects after update")
 				for obj, key := range map[client.Object]client.ObjectKey{
-					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(extraBFB),
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(extraBFB),
 					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(extraDPUFlavor),
 					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(extraDPUServiceConfiguration),
 					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(extraDPUServiceTemplate),
@@ -422,7 +422,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("Checking the current dependencies after update")
 				for obj, key := range map[client.Object]client.ObjectKey{
-					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(bfb),
 					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
 					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
 					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
@@ -434,7 +434,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("Checking the rest of the objects after update")
 				for obj, key := range map[client.Object]client.ObjectKey{
-					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(extraBFB),
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(extraBFB),
 					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(extraDPUFlavor),
 					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(extraDPUServiceConfiguration),
 					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(extraDPUServiceTemplate),
@@ -461,7 +461,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("Checking the current dependencies after update")
 				for obj, key := range map[client.Object]client.ObjectKey{
-					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(extraBFB),
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(extraBFB),
 					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(extraDPUFlavor),
 					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(extraDPUServiceConfiguration),
 					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(extraDPUServiceTemplate),
@@ -473,7 +473,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("Checking the rest of the objects after update")
 				for obj, key := range map[client.Object]client.ObjectKey{
-					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(bfb),
 					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
 					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
 					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
@@ -502,7 +502,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("Checking the current dependencies after update")
 				for obj, key := range map[client.Object]client.ObjectKey{
-					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(bfb),
 					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
 					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
 					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
@@ -517,7 +517,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("Checking the rest of the objects after update")
 				for obj, key := range map[client.Object]client.ObjectKey{
-					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(extraBFB),
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(extraBFB),
 					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(extraDPUFlavor),
 					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(extraDPUServiceConfiguration),
 					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(extraDPUServiceTemplate),
@@ -559,7 +559,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("Checking the current dependencies after update")
 				for obj, key := range map[client.Object]client.ObjectKey{
-					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(extraBFB),
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(extraBFB),
 					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(extraDPUFlavor),
 					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(extraDPUServiceConfiguration),
 					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(extraDPUServiceTemplate),
@@ -574,7 +574,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("Checking the rest of the objects after update")
 				for obj, key := range map[client.Object]client.ObjectKey{
-					&provisioningv1.Bfb{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(bfb),
 					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
 					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
 					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
@@ -638,8 +638,8 @@ var _ = Describe("DPUDeployment Controller", func() {
 								"annotationkey1": "annotationvalue1",
 							},
 							Spec: provisioningv1.DPUSpec{
-								Bfb: provisioningv1.BFBSpec{
-									BFBName: "somebfb",
+								BFB: provisioningv1.BFBReference{
+									Name: "somebfb",
 								},
 								DPUFlavor: "someflavor",
 							},
@@ -662,8 +662,8 @@ var _ = Describe("DPUDeployment Controller", func() {
 								"annotationkey2": "annotationvalue2",
 							},
 							Spec: provisioningv1.DPUSpec{
-								Bfb: provisioningv1.BFBSpec{
-									BFBName: "somebfb",
+								BFB: provisioningv1.BFBReference{
+									Name: "somebfb",
 								},
 								DPUFlavor: "someflavor",
 							},
@@ -885,8 +885,8 @@ var _ = Describe("DPUDeployment Controller", func() {
 								"annotationkey3": "annotationvalue3",
 							},
 							Spec: provisioningv1.DPUSpec{
-								Bfb: provisioningv1.BFBSpec{
-									BFBName: "somebfb",
+								BFB: provisioningv1.BFBReference{
+									Name: "somebfb",
 								},
 								DPUFlavor: "someflavor",
 							},
@@ -2493,13 +2493,13 @@ func getMinimalDPUDeployment(namespace string) *dpuservicev1.DPUDeployment {
 	}
 }
 
-func getMinimalBFB(namespace string) *provisioningv1.Bfb {
-	return &provisioningv1.Bfb{
+func getMinimalBFB(namespace string) *provisioningv1.BFB {
+	return &provisioningv1.BFB{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "somebfb",
 			Namespace: namespace,
 		},
-		Spec: provisioningv1.BfbSpec{
+		Spec: provisioningv1.BFBSpec{
 			URL: "http://somewebserver/somebfb.bfb",
 		},
 	}

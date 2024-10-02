@@ -31,7 +31,7 @@ type DPUOptions struct {
 	HostnetworkImageWithTag  string
 	PrarprouterdImageWithTag string
 	ImagePullSecrets         []corev1.LocalObjectReference
-	BfbPvc                   string
+	BFBPVC                   string
 	DMSTimeout               int
 	DMSPodTimeout            time.Duration
 }

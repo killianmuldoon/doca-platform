@@ -21,8 +21,8 @@ metadata:
 spec:
   group: provisioning.dpf.nvidia.com
   names:
-    kind: Bfb
-    listKind: BfbList
+    kind: BFB
+    listKind: BFBList
     plural: bfbs
     singular: bfb
   scope: Namespaced
@@ -30,7 +30,7 @@ spec:
   - name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: Bfb is the Schema for the bfbs API
+        description: BFB is the Schema for the bfbs API
         properties:
           apiVersion:
             description: |-
@@ -50,7 +50,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: BfbSpec defines the content of Bfb
+            description: BFBSpec defines the content of the BFB
             properties:
               file_name:
                 description: |-
@@ -71,11 +71,11 @@ spec:
           status:
             default:
               phase: Initializing
-            description: BfbStatus defines the observed state of Bfb
+            description: BFBStatus defines the observed state of BFB
             properties:
               phase:
                 default: Initializing
-                description: The current state of Bfb.
+                description: The current state of BFB.
                 enum:
                 - Initializing
                 - Downloading
@@ -731,16 +731,16 @@ spec:
                     type: object
                   spec:
                     properties:
-                      BFB:
-                        properties:
-                          bfb:
-                            type: string
-                        type: object
                       automaticNodeReboot:
                         description: |-
                           Specifies if the DPU controller should automatically reboot the node on upgrades,
                           this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic
                         type: boolean
+                      bfb:
+                        properties:
+                          name:
+                            type: string
+                        type: object
                       dpuFlavor:
                         type: string
                       k8s_cluster:

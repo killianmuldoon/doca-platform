@@ -177,7 +177,7 @@ func main() {
 	dpuOptions := util.DPUOptions{
 		DMSImageWithTag:         dmsImage,
 		HostnetworkImageWithTag: hostnetworkImage,
-		BfbPvc:                  bfbPVC,
+		BFBPVC:                  bfbPVC,
 		DMSTimeout:              dmsTimeout,
 		DMSPodTimeout:           dmsPodTimeout,
 		ImagePullSecrets:        imagePullSecretsReferences,
@@ -200,12 +200,12 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DpuSet")
 		os.Exit(1)
 	}
-	if err = (&bfb.BfbReconciler{
+	if err = (&bfb.BFBReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor(bfb.BfbControllerName),
+		Recorder: mgr.GetEventRecorderFor(bfb.BFBControllerName),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Bfb")
+		setupLog.Error(err, "unable to create controller", "controller", "BFB")
 		os.Exit(1)
 	}
 	if err = (&dpucluster.DPUClusterReconciler{
@@ -216,8 +216,8 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DPUCluster")
 		os.Exit(1)
 	}
-	if err = (&provisioningv1.Bfb{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "Bfb")
+	if err = (&provisioningv1.BFB{}).SetupWebhookWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create webhook", "webhook", "BFB")
 		os.Exit(1)
 	}
 	if err = (&provisioningv1.Dpu{}).SetupWebhookWithManager(mgr); err != nil {

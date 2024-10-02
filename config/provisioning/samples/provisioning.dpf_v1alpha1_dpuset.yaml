@@ -14,8 +14,8 @@ spec:
     type: RollingUpdate
   dpuTemplate:
     spec:
-      BFB:
-        bfb: "doca-23.09"
+      bfb:
+        name: "doca-23.09"
       nodeEffect:
         #custom_label:
         #  dpu-provisoning: "running"

@@ -62,15 +62,15 @@ type RollingUpdateDpu struct {
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
 
-type BFBSpec struct {
-	BFBName string `json:"bfb,omitempty"`
+type BFBReference struct {
+	Name string `json:"name,omitempty"`
 }
 
 type DPUSpec struct {
-	Bfb        BFBSpec     `json:"BFB,omitempty"`
-	NodeEffect *NodeEffect `json:"nodeEffect,omitempty"`
-	Cluster    K8sCluster  `json:"k8s_cluster"`
-	DPUFlavor  string      `json:"dpuFlavor"`
+	BFB        BFBReference `json:"bfb,omitempty"`
+	NodeEffect *NodeEffect  `json:"nodeEffect,omitempty"`
+	Cluster    K8sCluster   `json:"k8s_cluster"`
+	DPUFlavor  string       `json:"dpuFlavor"`
 	// Specifies if the DPU controller should automatically reboot the node on upgrades,
 	// this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic
 	// +optional

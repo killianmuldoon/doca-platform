@@ -361,7 +361,7 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 					Name: "bfb",
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: option.BfbPvc,
+							ClaimName: option.BFBPVC,
 						},
 					},
 				},

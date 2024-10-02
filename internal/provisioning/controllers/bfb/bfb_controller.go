@@ -36,11 +36,11 @@ import (
 
 const (
 	// controller name that will be used when reporting events
-	BfbControllerName = "bfb"
+	BFBControllerName = "bfb"
 )
 
-// BfbReconciler reconciles a Bfb object
-type BfbReconciler struct {
+// BFBReconciler reconciles a BFB object
+type BFBReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	Recorder record.EventRecorder
@@ -50,11 +50,11 @@ type BfbReconciler struct {
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=bfbs/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=provisioning.dpf.nvidia.com,resources=bfbs/finalizers,verbs=update
 
-func (r *BfbReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *BFBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
 	logger.V(4).Info("Reconcile", "BFB", req.Name)
 
-	bfb := &provisioningv1.Bfb{}
+	bfb := &provisioningv1.BFB{}
 	if err := r.Get(ctx, req.NamespacedName, bfb); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
@@ -72,7 +72,7 @@ func (r *BfbReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, nil
 	}
 
-	currentState := state.GetBfbState(bfb)
+	currentState := state.GetBFBState(bfb)
 	nextState, err := currentState.Handle(ctx, r.Client)
 	if err != nil {
 		logger.Error(err, "BFB statue handle error", "bfb", bfb.Name, "state", bfb.Status.Phase)
@@ -85,7 +85,7 @@ func (r *BfbReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			logger.Error(err, "Failed to update BFB", "BFB", bfb)
 			return ctrl.Result{}, errors.Wrap(err, "failed to update BFB")
 		}
-	} else if nextState.Phase != provisioningv1.BfbError {
+	} else if nextState.Phase != provisioningv1.BFBError {
 		// requeue if bfb is not in error state
 		// TODO: move the state checking in state machine
 		return ctrl.Result{RequeueAfter: cutil.RequeueInterval}, nil
@@ -94,9 +94,8 @@ func (r *BfbReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *BfbReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	//r.downloadManager = queue.NewPool(int(r.BfbOptions.WorkerNum), queue.WithFn(handler.HandleDownloadTask))
+func (r *BFBReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&provisioningv1.Bfb{}).
+		For(&provisioningv1.BFB{}).
 		Complete(r)
 }
