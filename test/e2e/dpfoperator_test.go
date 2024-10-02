@@ -465,9 +465,19 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceNamespace}}
 			testNS.SetLabels(cleanupLabels)
 			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testNS))).To(Succeed())
+
+			By("create a DPUServiceInterface")
+			dsi := getUnstructuredFromFile("application/dpuserviceinterface_service_type.yaml")
+			dsi.SetName("net1-service")
+			dsi.SetNamespace(dpuServiceNamespace)
+			dsi.SetLabels(cleanupLabels)
+			Expect(testClient.Create(ctx, dsi)).To(Succeed())
+
 			By("create a DPUService to be deployed on the DPUCluster")
 			// Create DPUCluster DPUService and check it's correctly reconciled.
 			dpuService := getDPUService(dpuServiceNamespace, dpuServiceName, false)
+			Expect(unstructured.SetNestedSlice(dpuService.UnstructuredContent(), []interface{}{"net1-service"}, "spec", "interfaces")).Should(Succeed())
+			Expect(unstructured.SetNestedField(dpuService.UnstructuredContent(), "my-service", "spec", "serviceID")).Should(Succeed())
 			dpuService.SetLabels(cleanupLabels)
 			Expect(testClient.Create(ctx, dpuService)).To(Succeed())
 
@@ -522,6 +532,10 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			// Delete the host cluster DPUService.
 			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: hostDPUServiceName}, svc)).To(Succeed())
 			Expect(testClient.Delete(ctx, svc)).To(Succeed())
+
+			dsi := &sfcv1.DPUServiceInterface{}
+			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: "net1-service"}, dsi)).To(Succeed())
+			Expect(utils.CleanupAndWait(ctx, testClient, dsi)).To(Succeed())
 
 			// Check the DPUCluster DPUService is correctly deleted.
 			Eventually(func(g Gomega) {

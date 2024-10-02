@@ -44,9 +44,13 @@ const (
 	// DPFImagePullSecretLabelKey marks a secret as being an ImagePullSecret used by DPF which should be mirrored to DPUClusters.
 	DPFImagePullSecretLabelKey = "dpf.nvidia.com/image-pull-secret"
 
-	// DPUServiceInterfaceAnnotationKey is the annotation key that is used to store
-	// the name of the DPUService that the DPUServiceInterface is consumed by.
+	// DPUServiceInterfaceAnnotationKey is the key used to add an annotation to a
+	// the DPUServiceInterface to indicate that it is consumed by a DPUService.
 	DPUServiceInterfaceAnnotationKey = "dpf.nvidia.com/consumed-by"
+
+	// InterfaceIndexKey is the key used to index the DPUService by the interfaces
+	// it consumes.
+	InterfaceIndexKey = ".metadata.interfaces"
 )
 
 var DPUServiceGroupVersionKind = GroupVersion.WithKind(DPUServiceKind)

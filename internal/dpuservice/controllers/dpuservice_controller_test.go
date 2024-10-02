@@ -193,6 +193,9 @@ var _ = Describe("DPUService Controller", func() {
 				g.Expect(testClient.List(ctx, gotDpuServices)).To(Succeed())
 				g.Expect(gotDpuServices.Items).To(BeEmpty())
 			}).WithTimeout(30 * time.Second).Should(BeNil())
+
+			g := NewWithT(GinkgoT())
+			assertDPUServiceAnnotationsClean(g, testClient, dpuServices)
 		})
 		It("should successfully create the DPUService with serviceID and interfaces", func() {
 			By("creating the DPUService with serviceID and interfaces")
@@ -309,6 +312,17 @@ func assertAppProject(g Gomega, testClient client.Client, argoCDNamespace string
 			Namespace: "*",
 		}}
 	g.Expect(gotDestinations).To(ConsistOf(expectedDestinations))
+}
+
+func assertDPUServiceAnnotationsClean(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService) {
+	for _, dpuService := range dpuServices {
+		interfaces := dpuService.Spec.Interfaces
+		for _, name := range interfaces {
+			dsi := &sfcv1.DPUServiceInterface{}
+			g.Expect(testClient.Get(ctx, types.NamespacedName{Name: name, Namespace: dpuService.Namespace}, dsi)).To(Succeed())
+			g.Expect(dsi.GetAnnotations()[dpuservicev1.DPUServiceInterfaceAnnotationKey]).To(Not(Equal(dpuService.Name)))
+		}
+	}
 }
 
 func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, dpuServiceInterfaces []*sfcv1.DPUServiceInterface, clusters []controlplane.DPFCluster) {

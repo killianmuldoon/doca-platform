@@ -33,6 +33,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/kubeconfig"
 	controlplanemeta "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane/metadata"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/dpuservice/predicates"
 	dpuserviceutils "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/dpuservice/utils"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 
@@ -47,10 +48,12 @@ import (
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // DPUServiceReconciler reconciles a DPUService object
@@ -90,12 +93,31 @@ var applyPatchOptions = []client.PatchOption{
 }
 
 // SetupWithManager sets up the controller with the Manager.
-func (r *DPUServiceReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DPUServiceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
+	// Index the HelmRelease by the Source reference they point to.
+	if err := mgr.GetFieldIndexer().IndexField(ctx, &dpuservicev1.DPUService{}, dpuservicev1.InterfaceIndexKey,
+		func(o client.Object) []string {
+			obj := o.(*dpuservicev1.DPUService)
+			namespacedNames, err := getInterfaceNamespacedNames(obj)
+			if err != nil {
+				return nil
+			}
+			return namespacedNames
+		},
+	); err != nil {
+		return err
+	}
+
 	tenantControlPlane := &metav1.PartialObjectMetadata{}
 	tenantControlPlane.SetGroupVersionKind(controlplanemeta.TenantControlPlaneGVK)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dpuservicev1.DPUService{}).
 		Watches(&argov1.Application{}, handler.EnqueueRequestsFromMapFunc(r.ArgoApplicationToDPUService)).
+		Watches(
+			&sfcv1.DPUServiceInterface{},
+			handler.EnqueueRequestsFromMapFunc(r.requestsForDPUServiceInterfaceChange),
+			builder.WithPredicates(predicates.DPUServiceInterfaceChangePredicate{}),
+		).
 		// TODO: This doesn't currently work for status updates - need to find a way to increase reconciliation frequency.
 		WatchesMetadata(tenantControlPlane, handler.EnqueueRequestsFromMapFunc(r.DPUClusterToDPUService)).
 		Complete(r)
@@ -164,6 +186,15 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 		return res, nil
 	}
 
+	//Delete the DPUServiceInterfaces annotations.
+	if dpuService.Spec.Interfaces != nil {
+		for _, interfaceName := range dpuService.Spec.Interfaces {
+			if err := r.deleteInterfaceAnnotation(ctx, interfaceName, dpuService); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
 	if err := r.reconcileDeleteImagePullSecrets(ctx, dpuService); err != nil {
 		return ctrl.Result{}, err
 	}
@@ -177,6 +208,28 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 	controllerutil.RemoveFinalizer(dpuService, dpuservicev1.DPUServiceFinalizer)
 
 	return ctrl.Result{}, nil
+}
+
+func (r *DPUServiceReconciler) deleteInterfaceAnnotation(ctx context.Context, interfaceName string, dpuService *dpuservicev1.DPUService) error {
+	dpuServiceInterface := &sfcv1.DPUServiceInterface{}
+	if err := r.Client.Get(ctx, types.NamespacedName{Name: interfaceName, Namespace: dpuService.Namespace}, dpuServiceInterface); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+
+	annotations := dpuServiceInterface.GetAnnotations()
+	if annotations != nil && annotations[dpuservicev1.DPUServiceInterfaceAnnotationKey] == dpuService.Name {
+		delete(annotations, dpuservicev1.DPUServiceInterfaceAnnotationKey)
+		dpuServiceInterface.SetManagedFields(nil)
+		// Set the GroupVersionKind to the DPUServiceInterface.
+		dpuServiceInterface.SetGroupVersionKind(sfcv1.DPUServiceInterfaceGroupVersionKind)
+		if err := r.Client.Patch(ctx, dpuServiceInterface, client.Apply, applyPatchOptions...); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (r *DPUServiceReconciler) reconcileDeleteApplications(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) {
@@ -822,6 +875,42 @@ func (r *DPUServiceReconciler) ArgoApplicationToDPUService(ctx context.Context, 
 			Name:      name,
 		},
 	}}
+}
+
+func (r *DPUServiceReconciler) requestsForDPUServiceInterfaceChange(ctx context.Context, o client.Object) []reconcile.Request {
+	dsi, ok := o.(*sfcv1.DPUServiceInterface)
+	if !ok {
+		err := fmt.Errorf("expected a DPUServiceInterface but got %T", o)
+		ctrl.LoggerFrom(ctx).Error(err, "failed to get requests for DPUServiceInterface change")
+		return nil
+	}
+
+	var list dpuservicev1.DPUServiceList
+	if err := r.List(ctx, &list, client.MatchingFields{
+		dpuservicev1.InterfaceIndexKey: client.ObjectKeyFromObject(dsi).String(),
+	}); err != nil {
+		ctrl.LoggerFrom(ctx).Error(err, "failed to list DPUService objects for DPUServiceInterface change")
+		return nil
+	}
+
+	reqs := []reconcile.Request{}
+	for i := range list.Items {
+		reqs = append(reqs, reconcile.Request{NamespacedName: client.ObjectKeyFromObject(&list.Items[i])})
+	}
+	return reqs
+}
+
+func getInterfaceNamespacedNames(dpuservice *dpuservicev1.DPUService) ([]string, error) {
+	if dpuservice.Spec.Interfaces == nil {
+		return nil, fmt.Errorf("no interfaces in DPUService")
+	}
+	namespacedNames := []string{}
+	for _, interfaceName := range dpuservice.Spec.Interfaces {
+		namespacedNames = append(namespacedNames, types.NamespacedName{
+			Name:      interfaceName,
+			Namespace: dpuservice.Namespace}.String())
+	}
+	return namespacedNames, nil
 }
 
 // isDPUServiceInterfaceInUse checks if the DPUServiceInterface is in use by another DPUService.

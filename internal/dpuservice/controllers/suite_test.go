@@ -120,7 +120,7 @@ var _ = BeforeSuite(func() {
 	err = (&DPUServiceReconciler{
 		Client: testClient,
 		Scheme: testManager.GetScheme(),
-	}).SetupWithManager(testManager)
+	}).SetupWithManager(ctx, testManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&DPUDeploymentReconciler{
