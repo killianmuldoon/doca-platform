@@ -371,11 +371,11 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	var err error
 	var hashedName uint64
 	sc := &dpuservicev1.ServiceChain{}
+	hashedName = hash(req.NamespacedName.String())
 	if err = r.Client.Get(ctx, req.NamespacedName, sc); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
 			// Always ensure delete operation in case of errors
-			hashedName = hash(req.NamespacedName.String())
 			flowErrors := delFlows(fmt.Sprintf("cookie=%d/-1", hashedName))
 			if flowErrors != nil {
 				log.Error(flowErrors, "failed to delete flows")
