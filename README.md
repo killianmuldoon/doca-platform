@@ -2,11 +2,15 @@
 
 DOCA Platform Foundation (DPF) is a system that orchestrates NVIDIA Data Processing Units (DPU) using a Kubernetes API. It provisions and manages DPU devices and orchestrates specialized DPUServices which run on those devices.
 
-DPF manages DPUs installed in nodes that are part of a Kuberntes cluster.
+DPF manages DPUs installed in nodes that are part of a Kubernetes cluster.
 
 ## Glossary
 - **Target cluster**: A Kubernetes cluster on which DPF is installed.
 - **DPU Cluster**: A Kubernetes cluster in which each node is a DPU.
+
+## API reference
+
+The DPF API is documented [here](docs/api.md).
 
 ## Quick start
 The quickest way to get up and running with DPF is to follow the [cloud deployment guide](./docs/dev/cloud-dev-setup.md)

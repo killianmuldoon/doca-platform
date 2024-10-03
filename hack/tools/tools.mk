@@ -29,6 +29,7 @@ HELM_VER ?= v3.13.3
 SKAFFOLD_VER ?= v2.10.0
 MINIKUBE_VER ?= v1.33.1
 OPERATOR_SDK_VER ?= v1.35.0
+GEN_API_REF_DOCS_VERSION ?= 0ad85c56e5a611240525e8b4a641b9cee33acd9a
 
 ## Tool Binaries
 KUBECTL ?= kubectl
@@ -43,6 +44,7 @@ HELM ?= $(TOOLSDIR)/helm-$(HELM_VER)
 SKAFFOLD ?= $(TOOLSDIR)/skaffold-$(SKAFFOLD_VER)
 MINIKUBE ?= $(TOOLSDIR)/minikube-$(MINIKUBE_VER)
 OPERATOR_SDK ?= $(TOOLSDIR)/operator-sdk-$(OPERATOR_SDK_VER)
+GEN_CRD_API_REFERENCE_DOCS ?=  $(TOOLSDIR)/crd-ref-docs-$(GEN_API_REF_DOCS_VERSION)
 
 ##@ Tools
 .PHONY: kustomize
@@ -95,6 +97,10 @@ $(HELM): | $(TOOLSDIR)
 	$Q mv $(TOOLSDIR)/helm $(TOOLSDIR)/helm-$(HELM_VER)
 	$Q rm -f $(GET_HELM)
 
+# Find or download gen-crd-api-reference-docs
+gen-crd-api-reference-docs: $(GEN_CRD_API_REFERENCE_DOCS)
+$(GEN_CRD_API_REFERENCE_DOCS): | $(TOOLSDIR)
+	$(call go-install-tool,$(GEN_CRD_API_REFERENCE_DOCS),github.com/elastic/crd-ref-docs,$(GEN_API_REF_DOCS_VERSION))
 
 # skaffold is used to run a debug build of the network operator for dev work.
 .PHONY: skaffold
