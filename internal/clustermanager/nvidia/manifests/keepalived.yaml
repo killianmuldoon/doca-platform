@@ -12,6 +12,10 @@ data:
       weight 0
     }
 
+    static_ipaddress {
+      VIRTUAL_IP dev INTERFACE
+    }
+
     vrrp_instance dpu-cluster-control-plane {
         state BACKUP
         interface INTERFACE
