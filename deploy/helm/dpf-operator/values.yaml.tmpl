@@ -92,6 +92,8 @@ node-feature-discovery:
 ## kamaji configuration.
 kamaji-etcd:
   enabled: true
+  ## Disable etc defragmentation job.
+  autoCompactionRetention: 0
   affinity:
     nodeAffinity:
       requiredDuringSchedulingIgnoredDuringExecution:
