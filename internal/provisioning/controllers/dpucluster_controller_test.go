@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package provisioning_controller
+package controller
 
 import (
 	"context"
@@ -97,12 +97,12 @@ var _ = Describe("DPUCluster", func() {
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &provisioningv1.DPUCluster{}
+			objFetched := &provisioningv1.DPUCluster{}
 
 			By("checking the finalizer")
 			Eventually(func(g Gomega) []string {
-				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
-				return obj_fetched.Finalizers
+				g.Expect(k8sClient.Get(ctx, getObjKey(obj), objFetched)).To(Succeed())
+				return objFetched.Finalizers
 			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{provisioningv1.FinalizerInternalCleanUp}))
 			time.Sleep(10 * time.Second)
 		})
@@ -130,12 +130,12 @@ spec:
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &provisioningv1.DPUCluster{}
+			objFetched := &provisioningv1.DPUCluster{}
 
 			By("checking the finalizer")
 			Eventually(func(g Gomega) []string {
-				g.Expect(k8sClient.Get(ctx, getObjKey(obj), obj_fetched)).To(Succeed())
-				return obj_fetched.Finalizers
+				g.Expect(k8sClient.Get(ctx, getObjKey(obj), objFetched)).To(Succeed())
+				return objFetched.Finalizers
 			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{provisioningv1.FinalizerInternalCleanUp}))
 		})
 	})

@@ -72,10 +72,10 @@ var _ = Describe("BFB", func() {
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &BFB{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &BFB{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched).To(Equal(obj))
+			Expect(objFetched).To(Equal(obj))
 		})
 
 		It("delete object", func() {
@@ -102,10 +102,10 @@ var _ = Describe("BFB", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &BFB{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &BFB{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched).To(Equal(obj))
+			Expect(objFetched).To(Equal(obj))
 		})
 
 		It("spec.url is mandatory", func() {
@@ -145,10 +145,10 @@ var _ = Describe("BFB", func() {
 		})
 
 		It("spec.url is immutable", func() {
-			ref_value := DefaultURL
+			refValue := DefaultURL
 
 			obj := createObj(DefaultObjName)
-			obj.Spec.URL = ref_value
+			obj.Spec.URL = refValue
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
@@ -157,10 +157,10 @@ var _ = Describe("BFB", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			obj_fetched := &BFB{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &BFB{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.URL).To(Equal(ref_value))
+			Expect(objFetched.Spec.URL).To(Equal(refValue))
 		})
 
 		It("spec.fileName default", func() {
@@ -206,10 +206,10 @@ var _ = Describe("BFB", func() {
 		})
 
 		It("spec.fileName is immutable", func() {
-			ref_value := "dummy.bfb"
+			refValue := "dummy.bfb"
 
 			obj := createObj(DefaultObjName)
-			obj.Spec.FileName = ref_value
+			obj.Spec.FileName = refValue
 			obj.Spec.URL = DefaultURL
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
@@ -219,10 +219,10 @@ var _ = Describe("BFB", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			obj_fetched := &BFB{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &BFB{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.FileName).To(Equal(ref_value))
+			Expect(objFetched.Spec.FileName).To(Equal(refValue))
 		})
 
 		It("create from yaml", func() {
@@ -302,10 +302,10 @@ spec:
 			Expect(obj.Status.Phase).To(BeEquivalentTo(BFBInitializing))
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &BFB{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &BFB{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Status.Phase).To(BeEquivalentTo(BFBInitializing))
+			Expect(objFetched.Status.Phase).To(BeEquivalentTo(BFBInitializing))
 		})
 	})
 })

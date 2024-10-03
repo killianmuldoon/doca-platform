@@ -66,7 +66,7 @@ const (
 )
 
 type BFConfig struct {
-	KUBEADM_JOIN   string
+	KUBEADM_JOIN   string //nolint:stylecheck
 	HOSTNAME       string
 	UbuntuPassword string
 	NVConfigParams map[string]string

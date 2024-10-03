@@ -24,6 +24,6 @@ var DownloadingTaskMap sync.Map
 
 type BFBTask struct {
 	TaskName string
-	Url      string
+	URL      string
 	FileName string
 }

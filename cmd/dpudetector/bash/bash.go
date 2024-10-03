@@ -25,8 +25,8 @@ import (
 	log "github.com/golang/glog"
 )
 
-func GetPSID(pci_address string) (string, error) {
-	cmd := "flint -d " + pci_address + " q"
+func GetPSID(pciAddress string) (string, error) {
+	cmd := "flint -d " + pciAddress + " q"
 	out, stderr, err := RunCommand(cmd)
 	if err != nil || len(stderr) > 0 || len(out) == 0 {
 		return "", fmt.Errorf("Get PSID failed, stdout: %v, stderr: %v, error: %v", out, stderr, err)

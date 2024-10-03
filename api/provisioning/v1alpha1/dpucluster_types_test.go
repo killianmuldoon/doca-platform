@@ -72,10 +72,10 @@ var _ = Describe("DPUCluster", func() {
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &DPUCluster{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPUCluster{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched).To(Equal(obj))
+			Expect(objFetched).To(Equal(obj))
 		})
 
 		It("delete object", func() {
@@ -102,10 +102,10 @@ var _ = Describe("DPUCluster", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &DPUCluster{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPUCluster{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched).To(Equal(obj))
+			Expect(objFetched).To(Equal(obj))
 		})
 
 		It("spec.type validation", func() {
@@ -139,10 +139,10 @@ var _ = Describe("DPUCluster", func() {
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 			Expect(obj.Spec.MaxNodes).To(BeEquivalentTo(1000))
 
-			obj_fetched := &DPUCluster{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPUCluster{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.MaxNodes).To(BeEquivalentTo(1000))
+			Expect(objFetched.Spec.MaxNodes).To(BeEquivalentTo(1000))
 		})
 
 		It("spec.maxNodes validation", func() {
@@ -179,7 +179,7 @@ var _ = Describe("DPUCluster", func() {
 		})
 
 		It("spec.kubeconfig can be updated from unassigned value", func() {
-			new_value := `dummy_new_kubeconfig`
+			newValue := `dummy_new_kubeconfig`
 
 			obj := createObj(DefaultObjName)
 			obj.Spec.Type = DefaultObjType
@@ -187,64 +187,64 @@ var _ = Describe("DPUCluster", func() {
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &DPUCluster{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPUCluster{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.Kubeconfig).To(Equal(""))
+			Expect(objFetched.Spec.Kubeconfig).To(Equal(""))
 
-			obj.Spec.Kubeconfig = new_value
+			obj.Spec.Kubeconfig = newValue
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.Kubeconfig).To(Equal(new_value))
+			Expect(objFetched.Spec.Kubeconfig).To(Equal(newValue))
 		})
 
 		It("spec.kubeconfig can be updated from assigned empty value", func() {
-			ref_value := ``
-			new_value := `dummy_new_kubeconfig`
+			refValue := ``
+			newValue := `dummy_new_kubeconfig`
 
 			obj := createObj(DefaultObjName)
 			obj.Spec.Type = DefaultObjType
-			obj.Spec.Kubeconfig = ref_value
+			obj.Spec.Kubeconfig = refValue
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &DPUCluster{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPUCluster{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.Kubeconfig).To(Equal(""))
+			Expect(objFetched.Spec.Kubeconfig).To(Equal(""))
 
-			obj.Spec.Kubeconfig = new_value
+			obj.Spec.Kubeconfig = newValue
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.Kubeconfig).To(Equal(new_value))
+			Expect(objFetched.Spec.Kubeconfig).To(Equal(newValue))
 		})
 
 		It("spec.kubeconfig is immutable", func() {
-			ref_value := `kubeconfig-test`
-			new_value := `kubeconfig-test-new`
+			refValue := `kubeconfig-test`
+			newValue := `kubeconfig-test-new`
 
 			obj := createObj(DefaultObjName)
 			obj.Spec.Type = DefaultObjType
-			obj.Spec.Kubeconfig = ref_value
+			obj.Spec.Kubeconfig = refValue
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj.Spec.Kubeconfig = new_value
+			obj.Spec.Kubeconfig = newValue
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			obj_fetched := &DPUCluster{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPUCluster{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.Kubeconfig).To(Equal(ref_value))
+			Expect(objFetched.Spec.Kubeconfig).To(Equal(refValue))
 		})
 
 		It("create from yaml", func() {
@@ -271,12 +271,12 @@ spec:
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &DPUCluster{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPUCluster{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.Type).To(BeEquivalentTo(string(StaticCluster)))
-			Expect(obj_fetched.Spec.MaxNodes).To(BeEquivalentTo(10))
-			Expect(obj_fetched.Spec.Version).To(BeEquivalentTo("v1.31.0"))
+			Expect(objFetched.Spec.Type).To(BeEquivalentTo(string(StaticCluster)))
+			Expect(objFetched.Spec.MaxNodes).To(BeEquivalentTo(10))
+			Expect(objFetched.Spec.Version).To(BeEquivalentTo("v1.31.0"))
 		})
 
 		It("status.phase default", func() {
@@ -287,10 +287,10 @@ spec:
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 			Expect(obj.Status.Phase).To(BeEquivalentTo(PhasePending))
 
-			obj_fetched := &DPUCluster{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPUCluster{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Status.Phase).To(BeEquivalentTo(PhasePending))
+			Expect(objFetched.Status.Phase).To(BeEquivalentTo(PhasePending))
 		})
 	})
 })

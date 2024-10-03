@@ -738,7 +738,7 @@ func (r *DPUServiceReconciler) ensureApplication(ctx context.Context, dpuService
 
 // config is used to marshal the config section of the argoCD secret data.
 type config struct {
-	TlsClientConfig tlsClientConfig `json:"tlsClientConfig"`
+	TLSClientConfig tlsClientConfig `json:"tlsClientConfig"`
 }
 
 // tlsClientConfig is used to marshal the tlsClientConfig section of the argoCD secret data.config.
@@ -752,7 +752,7 @@ type tlsClientConfig struct {
 func createArgoSecretFromKubeconfig(kubeconfig *kubeconfig.Type, dpfOperatorConfigNamespace, clusterName string) (*corev1.Secret, error) {
 	clusterConfigName := kubeconfig.Clusters[0].Name
 	clusterConfigServer := kubeconfig.Clusters[0].Cluster.Server
-	secretConfig, err := json.Marshal(config{TlsClientConfig: tlsClientConfig{
+	secretConfig, err := json.Marshal(config{TLSClientConfig: tlsClientConfig{
 		CaData:   kubeconfig.Clusters[0].Cluster.CertificateAuthorityData,
 		KeyData:  kubeconfig.Users[0].User.ClientKeyData,
 		CertData: kubeconfig.Users[0].User.ClientCertificateData,

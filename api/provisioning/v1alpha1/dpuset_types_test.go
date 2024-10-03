@@ -65,10 +65,10 @@ var _ = Describe("DPUSet", func() {
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &DPUSet{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPUSet{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched).To(Equal(obj))
+			Expect(objFetched).To(Equal(obj))
 		})
 
 		It("delete object", func() {
@@ -92,32 +92,32 @@ var _ = Describe("DPUSet", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &DPUSet{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPUSet{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched).To(Equal(obj))
+			Expect(objFetched).To(Equal(obj))
 		})
 
 		It("spec.dpuTemplate.spec.cluster is mutable", func() {
-			ref_value := `dummy_cluster`
-			new_value := `dummy_new_cluster`
+			refValue := `dummy_cluster`
+			newValue := `dummy_new_cluster`
 
 			obj := createObj("obj-4")
 			obj.Spec.DPUTemplate.Spec.Cluster = K8sCluster{
-				Name:      ref_value,
+				Name:      refValue,
 				NameSpace: `default`,
 			}
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj.Spec.DPUTemplate.Spec.Cluster.Name = new_value
+			obj.Spec.DPUTemplate.Spec.Cluster.Name = newValue
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &DPUSet{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPUSet{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.DPUTemplate.Spec.Cluster.Name).To(Equal(new_value))
+			Expect(objFetched.Spec.DPUTemplate.Spec.Cluster.Name).To(Equal(newValue))
 		})
 
 		It("create from yaml", func() {

@@ -50,6 +50,6 @@ func (ch *clusterHandler) CleanUpCluster(context.Context, *provisioningv1.DPUClu
 	return true, nil
 }
 
-func (cm clusterHandler) Type() string {
+func (ch clusterHandler) Type() string {
 	return "static"
 }

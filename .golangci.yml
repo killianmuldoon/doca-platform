@@ -22,6 +22,7 @@ linters:
     - nakedret
     - prealloc
     - staticcheck
+    - stylecheck
     - typecheck
     - unconvert
     - unparam
@@ -53,7 +54,7 @@ linters-settings:
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/ovnkubernetesoperator/controllers
         alias: ovnkubernetesoperatorcontroller
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/servicechainset/controllers
-        alias: sfcsetcontroller        
+        alias: sfcsetcontroller
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/dpuservice/controllers
         alias: dpuservicecontroller
       - pkg: gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1
@@ -90,10 +91,24 @@ linters-settings:
       # Controller Runtime
       - pkg: sigs.k8s.io/controller-runtime
         alias: ctrl
+  stylecheck:
+    # STxxxx checks in https://staticcheck.io/docs/configuration/options/#checks
+    # Default: ["*"]
+    # TODO: Enable each of these checks.
+    # Disable linters related to error string formatting and comment on packages and exported objects, fields and functions.
+    checks: [ "all", "-ST1020", "-ST1021", "-ST1022", "-ST1000", "-ST1005"]
+    dot-import-whitelist:
+      - github.com/onsi/ginkgo/v2
+      - github.com/onsi/gomega
+
 
 issues:
+  max-issues-per-linter: 0
   exclude-use-default: false
   exclude-rules:
+    - path: internal/argocd
+      linters:
+        - stylecheck
     - path: _test\.go
       linters:
         - dupl

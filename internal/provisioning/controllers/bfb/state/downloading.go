@@ -81,7 +81,7 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 		// Start BFB downloading task
 		bfbTask := butil.BFBTask{
 			TaskName: bfbTaskName,
-			Url:      st.bfb.Spec.URL,
+			URL:      st.bfb.Spec.URL,
 			FileName: st.bfb.Spec.FileName,
 		}
 		// Create a new context for this download task
@@ -110,7 +110,7 @@ func downloadBFB(ctx context.Context, bfbTask butil.BFBTask) {
 		}
 		defer os.Remove(tempFile.Name()) //nolint: errcheck
 
-		req, err := http.NewRequestWithContext(ctx, "GET", bfbTask.Url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", bfbTask.URL, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -120,7 +120,7 @@ func downloadBFB(ctx context.Context, bfbTask butil.BFBTask) {
 			return nil, err
 		}
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("failed to get: %s status: %d", bfbTask.Url, resp.StatusCode)
+			return nil, fmt.Errorf("failed to get: %s status: %d", bfbTask.URL, resp.StatusCode)
 		}
 		defer resp.Body.Close() //nolint: errcheck
 

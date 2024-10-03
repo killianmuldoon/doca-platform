@@ -65,10 +65,10 @@ var _ = Describe("DPU", func() {
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &DPU{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPU{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched).To(Equal(obj))
+			Expect(objFetched).To(Equal(obj))
 		})
 
 		It("delete object", func() {
@@ -92,10 +92,10 @@ var _ = Describe("DPU", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &DPU{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPU{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched).To(Equal(obj))
+			Expect(objFetched).To(Equal(obj))
 		})
 
 		It("spec.nodeEffect default", func() {
@@ -103,18 +103,18 @@ var _ = Describe("DPU", func() {
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &DPU{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPU{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.NodeEffect.Drain).NotTo(BeNil())
-			Expect(obj_fetched.Spec.NodeEffect.Drain.AutomaticNodeReboot).To(BeTrue())
+			Expect(objFetched.Spec.NodeEffect.Drain).NotTo(BeNil())
+			Expect(objFetched.Spec.NodeEffect.Drain.AutomaticNodeReboot).To(BeTrue())
 		})
 
 		It("spec.nodeName is immutable", func() {
-			ref_value := "dummy_node"
+			refValue := "dummy_node"
 
 			obj := createObj("obj-5")
-			obj.Spec.NodeName = ref_value
+			obj.Spec.NodeName = refValue
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -122,17 +122,17 @@ var _ = Describe("DPU", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			obj_fetched := &DPU{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPU{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.NodeName).To(Equal(ref_value))
+			Expect(objFetched.Spec.NodeName).To(Equal(refValue))
 		})
 
 		It("spec.pciAddress is immutable", func() {
-			ref_value := "spec.pciAddress"
+			refValue := "spec.pci_address"
 
 			obj := createObj("obj-6")
-			obj.Spec.PCIAddress = ref_value
+			obj.Spec.PCIAddress = refValue
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -140,58 +140,58 @@ var _ = Describe("DPU", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			obj_fetched := &DPU{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPU{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.PCIAddress).To(Equal(ref_value))
+			Expect(objFetched.Spec.PCIAddress).To(Equal(refValue))
 		})
 
 		It("spec.Cluster is mutable", func() {
-			ref_value := `dummy_cluster`
-			new_value := `dummy_new_cluster`
+			refValue := `dummy_cluster`
+			newValue := `dummy_new_cluster`
 
 			obj := createObj("obj-7")
 			obj.Spec.Cluster = K8sCluster{
-				Name:      ref_value,
+				Name:      refValue,
 				NameSpace: `default`,
 			}
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj.Spec.Cluster.Name = new_value
+			obj.Spec.Cluster.Name = newValue
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj_fetched := &DPU{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPU{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.Cluster.Name).To(Equal(new_value))
+			Expect(objFetched.Spec.Cluster.Name).To(Equal(newValue))
 		})
 
 		It("spec.cluster can be updated from unassigned state", func() {
-			new_value_name := `dummy_new_cluster_name`
-			new_value_namespace := `dummy_new_cluster_namespace`
+			newValueName := `dummy_new_cluster_name`
+			newValueNamespace := `dummy_new_cluster_namespace`
 
 			obj := createObj("obj-dpu")
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj_fetched := &DPU{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPU{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.Cluster.Name).To(Equal(""))
-			Expect(obj_fetched.Spec.Cluster.NameSpace).To(Equal(""))
+			Expect(objFetched.Spec.Cluster.Name).To(Equal(""))
+			Expect(objFetched.Spec.Cluster.NameSpace).To(Equal(""))
 
-			obj.Spec.Cluster.Name = new_value_name
-			obj.Spec.Cluster.NameSpace = new_value_namespace
+			obj.Spec.Cluster.Name = newValueName
+			obj.Spec.Cluster.NameSpace = newValueNamespace
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Spec.Cluster.Name).To(Equal(new_value_name))
-			Expect(obj_fetched.Spec.Cluster.NameSpace).To(Equal(new_value_namespace))
+			Expect(objFetched.Spec.Cluster.Name).To(Equal(newValueName))
+			Expect(objFetched.Spec.Cluster.NameSpace).To(Equal(newValueNamespace))
 		})
 
 		It("create from yaml", func() {
@@ -245,10 +245,10 @@ metadata:
 			Expect(err).NotTo(HaveOccurred())
 			Expect(obj.Status.Phase).To(BeEquivalentTo(DPUInitializing))
 
-			obj_fetched := &DPU{}
-			err = k8sClient.Get(ctx, getObjKey(obj), obj_fetched)
+			objFetched := &DPU{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj_fetched.Status.Phase).To(BeEquivalentTo(DPUInitializing))
+			Expect(objFetched.Status.Phase).To(BeEquivalentTo(DPUInitializing))
 		})
 	})
 })

@@ -20,7 +20,7 @@ import "fmt"
 
 type DPU struct {
 	Index      int
-	DeviceId   string
+	DeviceID   string
 	PCIAddress string
 	PSID       string
 	PF0Name    string
@@ -28,5 +28,5 @@ type DPU struct {
 
 func (dpu DPU) String() string {
 	return fmt.Sprintf("DPU(index: %d, device id: %s, PS id: %s, PCI address: %s, PF0 name: %s)",
-		dpu.Index, dpu.DeviceId, dpu.PSID, dpu.PCIAddress, dpu.PF0Name)
+		dpu.Index, dpu.DeviceID, dpu.PSID, dpu.PCIAddress, dpu.PF0Name)
 }

@@ -45,7 +45,7 @@ const (
 	ApplySetToolingAnnotationValue = "dpf-operator/v0"
 
 	// ApplySetParentIDLabel is the key of the label that makes object an ApplySet parent object.
-	// Its value MUST use the format specified in v1ApplySetIdFormat below
+	// Its value MUST use the format specified in v1ApplySetIDFormat below
 	ApplySetParentIDLabel = "applyset.kubernetes.io/id"
 
 	// applysetPartOfLabel is the key of the label which indicates that the object is a member of an ApplySet.
@@ -56,11 +56,11 @@ const (
 	// sorted list of Group Kind + Namespace Name.
 	ApplySetInventoryAnnotationKey = "applyset.kubernetes.io/inventory"
 
-	// v1ApplySetIdFormat is the format required for the value of ApplySetParentIDLabel (and applysetPartOfLabel).
+	// v1ApplySetIDFormat is the format required for the value of ApplySetParentIDLabel (and applysetPartOfLabel).
 	// The %s segment is the unique ID of the object itself, which MUST be the base64 encoding
 	// (using the URL safe encoding of RFC4648) of the hash of the GKNN of the object it is on, in the form:
 	// base64(sha256(<name>.<namespace>.<kind>.<group>)).
-	v1ApplySetIdFormat = "applyset-%s-v1"
+	v1ApplySetIDFormat = "applyset-%s-v1"
 )
 
 // GroupKindNamespaceName contains information required to uniquely identify an object as part of an ApplySet.
@@ -88,7 +88,7 @@ func ApplySetID(namespace string, component Component) string {
 	hashed := sha256.Sum256([]byte(unencoded))
 	b64 := base64.RawURLEncoding.EncodeToString(hashed[:])
 	// Label values must start and end with alphanumeric values, so add a known-safe prefix and suffix.
-	return fmt.Sprintf(v1ApplySetIdFormat, b64)
+	return fmt.Sprintf(v1ApplySetIDFormat, b64)
 }
 
 // applySetParentForComponent returns a Secret object which is the parent for a given component.

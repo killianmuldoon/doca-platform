@@ -75,7 +75,7 @@ var _ = Describe("PodIpam Controller", func() {
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, ipam, serviceName, ifcName))
 			By("Create IpPool")
-			cleanupObjects = append(cleanupObjects, createIpPool(ctx, ipamRefName))
+			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
 			By("Create Pod with Network Annotation")
 			cleanupObjects = append(cleanupObjects, createPodWithNetworkAnnotation(ctx, singleNetAnnotation(ifcName)))
 			By("Check that Pod annotation has been updated")
@@ -122,7 +122,7 @@ var _ = Describe("PodIpam Controller", func() {
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, ipam, serviceName, ifcName))
 			By("Create IpPool")
-			cleanupObjects = append(cleanupObjects, createIpPool(ctx, ipamRefName))
+			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
 			By("Create Pod with Network Annotation")
 			cleanupObjects = append(cleanupObjects, createPodWithNetworkAnnotation(ctx, singleNetAnnotation(ifcName)))
 			By("Check that Pod annotation has been updated")
@@ -144,7 +144,7 @@ var _ = Describe("PodIpam Controller", func() {
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, serviceName, ipam, serviceName, ifcName))
 			By("Create IpPool")
-			cleanupObjects = append(cleanupObjects, createIpPool(ctx, ipamRefName))
+			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
 			By("Create ServiceInterface")
 			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(ctx, strings.Join([]string{serviceName, ifcName}, "-"), serviceName, ifcName))
 			By("Create Pod with Network Annotation")
@@ -199,9 +199,9 @@ var _ = Describe("PodIpam Controller", func() {
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName2, ipam2, serviceName, ifcName2))
 			By("Create IpPool1")
-			cleanupObjects = append(cleanupObjects, createIpPool(ctx, ipamRefName))
+			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
 			By("Create IpPool2")
-			cleanupObjects = append(cleanupObjects, createIpPool(ctx, ipamRefName2))
+			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName2))
 			By("Create Pod with Network Annotation - multiple networks")
 			cleanupObjects = append(cleanupObjects, createPodWithNetworkAnnotation(ctx, multipleNetAnnotation()))
 			By("Check that Pod annotation has been updated")
@@ -237,7 +237,7 @@ var _ = Describe("PodIpam Controller", func() {
 				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "ippool", defaultGateway)))
 			}).WithTimeout(20 * time.Second).Should(Not(BeNil()))
 			By("Create IpPool")
-			cleanupObjects = append(cleanupObjects, createIpPool(ctx, ipamRefName))
+			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
 			By("Check that Pod annotation has been updated")
 			Eventually(func(g Gomega) {
 				pod := &corev1.Pod{}
@@ -355,7 +355,7 @@ func createPodWithNetworkAnnotation(ctx context.Context, networkAnnot string) *c
 	return pod
 }
 
-func createIpPool(ctx context.Context, name string) *nvipamv1.IPPool {
+func createIPPool(ctx context.Context, name string) *nvipamv1.IPPool {
 	pool := &nvipamv1.IPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

@@ -25,7 +25,6 @@ import (
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
-	gutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/future"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/reboot"
 
@@ -70,18 +69,18 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 		return *state, err
 	}
 
-	_, cond := gutil.GetDPUCondition(state, provisioningv1.DPUCondOSInstalled.String())
+	_, cond := cutil.GetDPUCondition(state, provisioningv1.DPUCondOSInstalled.String())
 	if cond == nil || cond.Status != metav1.ConditionTrue {
 		err := fmt.Errorf("trying to reboot the host before %s", provisioningv1.DPUCondOSInstalled.String())
-		c := gutil.DPUCondition(provisioningv1.DPUCondRebooted, "InvalidState", err.Error())
+		c := cutil.DPUCondition(provisioningv1.DPUCondRebooted, "InvalidState", err.Error())
 		c.Status = metav1.ConditionFalse
-		gutil.SetDPUCondition(state, c)
+		cutil.SetDPUCondition(state, c)
 		return *state, err
 	}
 
 	duration := int(metav1.Now().Sub(cond.LastTransitionTime.Time).Seconds())
 	// If we can not get uptime, the host should be rebooting
-	uptime, err := HostUptime(st.dpu.Namespace, gutil.GenerateDMSPodName(st.dpu.Name), "")
+	uptime, err := HostUptime(st.dpu.Namespace, cutil.GenerateDMSPodName(st.dpu.Name), "")
 	if err != nil {
 		return *state, err
 	}
@@ -112,12 +111,12 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 			return *state, nil
 		} else if rebootType == reboot.PowerCycle {
 			logger.Info(fmt.Sprintf("powercycle with command %q", cmd))
-			if _, err := gutil.RemoteExec(st.dpu.Namespace, gutil.GenerateDMSPodName(st.dpu.Name), "", cmd); err != nil {
+			if _, err := cutil.RemoteExec(st.dpu.Namespace, cutil.GenerateDMSPodName(st.dpu.Name), "", cmd); err != nil {
 				// TODO: broadcast an event
 				return *state, err
 			}
 		} else if rebootType == reboot.WarmReboot {
-			if pci_address, err := cutil.GetPCIAddrFromLabel(dpu.Labels, true); err != nil {
+			if pciAddress, err := cutil.GetPCIAddrFromLabel(dpu.Labels, true); err != nil {
 				logger.Error(err, "Failed to get pci address from node label", "dms", err)
 				return *state, err
 			} else {
@@ -133,31 +132,31 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 						}
 					}
 				} else {
-					rebootHandler(ctx, st.dpu, pci_address, cmd)
+					rebootHandler(ctx, st.dpu, pciAddress, cmd)
 				}
 			}
 		}
 	} else {
 		logger.Info("waiting for manual power cycle or reboot")
-		c := gutil.DPUCondition(provisioningv1.DPUCondRebooted, "WaitingForManualPowerCycleOrReboot", "")
+		c := cutil.DPUCondition(provisioningv1.DPUCondRebooted, "WaitingForManualPowerCycleOrReboot", "")
 		c.Status = metav1.ConditionFalse
-		gutil.SetDPUCondition(state, c)
+		cutil.SetDPUCondition(state, c)
 		return *state, nil
 	}
 
 	return *state, nil
 }
 
-func rebootHandler(ctx context.Context, dpu *provisioningv1.DPU, pci_address string, cmd string) {
+func rebootHandler(ctx context.Context, dpu *provisioningv1.DPU, pciAddress string, cmd string) {
 	logger := log.FromContext(ctx)
 	rebootTaskName := generateRebootTaskName(dpu)
 	logger.V(3).Info(fmt.Sprintf("BF-SLR for %s", rebootTaskName))
-	bfSLRCmd := fmt.Sprintf("bf-slr.sh %s %s", pci_address, cmd)
+	bfSLRCmd := fmt.Sprintf("bf-slr.sh %s %s", pciAddress, cmd)
 
 	dmsTask := future.New(func() (any, error) {
 		// Shutdown ARM
 		logger.V(3).Info(fmt.Sprintf("Bluefield System-Level-Reset ARM shutdown command: %s for dpu: %s", bfSLRCmd, dpu.Name))
-		if _, err := gutil.RemoteExec(dpu.Namespace, gutil.GenerateDMSPodName(dpu.Name), "", bfSLRCmd); err != nil {
+		if _, err := cutil.RemoteExec(dpu.Namespace, cutil.GenerateDMSPodName(dpu.Name), "", bfSLRCmd); err != nil {
 			logger.Error(err, fmt.Sprintf("Failed to shutdown arm: %v", err))
 			return future.Ready, err
 		}
@@ -167,7 +166,7 @@ func rebootHandler(ctx context.Context, dpu *provisioningv1.DPU, pci_address str
 }
 
 func HostUptime(ns, name, container string) (int, error) {
-	uptimeStr, err := gutil.RemoteExec(ns, name, container, "cat /proc/uptime")
+	uptimeStr, err := cutil.RemoteExec(ns, name, container, "cat /proc/uptime")
 	if err != nil {
 		return -1, err
 	}

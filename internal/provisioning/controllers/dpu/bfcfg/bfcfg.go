@@ -37,8 +37,8 @@ var (
 )
 
 type BFCFGData struct {
-	KUBEADM_JOIN               string
-	HOSTNAME                   string
+	KUBEADM_JOIN               string //nolint:stylecheck
+	HOSTNAME                   string //nolint:stylecheck
 	BFGCFGParams               []string
 	UbuntuPassword             string
 	NVConfigParams             string
@@ -47,8 +47,8 @@ type BFCFGData struct {
 	OVSRawScript               string
 	KernelParameters           string
 	ContainerdRegistryEndpoint string
-	SF_NUM                     int
-	HOST_K8S_NODENAME          string
+	SF_NUM                     int    //nolint:stylecheck
+	HOST_K8S_NODENAME          string //nolint:stylecheck
 }
 
 type BFCFGWriteFile struct {

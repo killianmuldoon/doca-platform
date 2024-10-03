@@ -54,7 +54,7 @@ func CreateHostNetworkSetupPod(ctx context.Context, client client.Client, dpu *p
 	logger := log.FromContext(ctx)
 	hostnetworkPodName := cutil.GenerateHostnetworkPodName(dpu.Name)
 
-	num_of_vfs := NumofVFDefaultValue
+	numVFs := NumofVFDefaultValue
 	flavor := &provisioningv1.DPUFlavor{}
 	if err := client.Get(ctx, types.NamespacedName{
 		Namespace: dpu.Namespace,
@@ -64,11 +64,11 @@ func CreateHostNetworkSetupPod(ctx context.Context, client client.Client, dpu *p
 	}
 
 	if num, ok := getNumOfVFsFromFlavor(flavor); ok {
-		num_of_vfs = num
+		numVFs = num
 	}
 
 	removePrefix := false
-	pci_address, err := cutil.GetPCIAddrFromLabel(dpu.Labels, removePrefix)
+	pciAddress, err := cutil.GetPCIAddrFromLabel(dpu.Labels, removePrefix)
 	if err != nil {
 		logger.Error(err, "Failed to get pci address from node label", "dms", err)
 		return err
@@ -102,11 +102,11 @@ func CreateHostNetworkSetupPod(ctx context.Context, client client.Client, dpu *p
 					Env: []corev1.EnvVar{
 						{
 							Name:  "device_pci_address",
-							Value: pci_address,
+							Value: pciAddress,
 						},
 						{
 							Name:  "num_of_vfs",
-							Value: num_of_vfs,
+							Value: numVFs,
 						},
 					},
 

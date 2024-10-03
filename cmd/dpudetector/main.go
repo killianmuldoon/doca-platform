@@ -49,20 +49,20 @@ func main() {
 	// 0xa2d6: MT42822 BlueField-2 integrated ConnectX-6 Dx network controller
 	deviceList := []string{"0xa2dc", "0xa2d6"}
 
-	if err := discovery_DPU(deviceList); err != nil {
+	if err := discoveryDPU(deviceList); err != nil {
 		glog.Errorf("DPU discovery failed, error: %v", err)
 	}
 
 	ticker := time.NewTicker(Interval * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
-		if err := discovery_DPU(deviceList); err != nil {
+		if err := discoveryDPU(deviceList); err != nil {
 			glog.Errorf("DPU discovery failed, error: %v", err)
 		}
 	}
 }
 
-func discovery_DPU(deviceList []string) error {
+func discoveryDPU(deviceList []string) error {
 	discoveryStart := time.Now()
 	dpuMap := make(map[string]dpu.DPU, 0)
 	dpuIndex := 0
@@ -96,7 +96,7 @@ func discovery_DPU(deviceList []string) error {
 					}
 					dpu := dpu.DPU{
 						PCIAddress: labelPCIAddr, // 0000-04-00
-						DeviceId:   device,       // 0xa2dc
+						DeviceID:   device,       // 0xa2dc
 						Index:      dpuIndex,     // 0
 						PSID:       psid,         // MT_0000000375
 						PF0Name:    pf0Name,      // ens1f0np0

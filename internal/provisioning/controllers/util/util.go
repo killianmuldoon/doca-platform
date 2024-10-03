@@ -80,8 +80,8 @@ func GenerateBFBFilePath(filename string) string {
 	return string(os.PathSeparator) + BFBBaseDir + string(os.PathSeparator) + filename
 }
 
-func GenerateBFBVersionFromURL(bfbUrl string) string {
-	base := path.Base(bfbUrl)
+func GenerateBFBVersionFromURL(bfbURL string) string {
+	base := path.Base(bfbURL)
 	version := strings.TrimSuffix(base, path.Ext(base))
 	return version
 }
@@ -158,32 +158,32 @@ func RemoteExec(ns, name, container, cmd string) (string, error) {
 		return "", err
 	}
 
-	out_buf := new(bytes.Buffer)
-	err_buf := new(bytes.Buffer)
+	outBuf := new(bytes.Buffer)
+	errBuf := new(bytes.Buffer)
 	if err := executor.StreamWithContext(context.Background(), remotecommand.StreamOptions{
 		Stdin:  nil,
-		Stdout: bufio.NewWriter(out_buf),
-		Stderr: bufio.NewWriter(err_buf),
+		Stdout: bufio.NewWriter(outBuf),
+		Stderr: bufio.NewWriter(errBuf),
 		Tty:    false,
 	}); err != nil {
-		return err_buf.String(), err
+		return errBuf.String(), err
 	}
 
-	return out_buf.String(), nil
+	return outBuf.String(), nil
 }
 
 func GetPCIAddrFromLabel(labels map[string]string, removePrefix bool) (string, error) {
 	// the value of pci address from the node label likes: 0000_4b_00
-	if pci_address, ok := labels[DPUPCIAddressLabel]; ok {
+	if pciAddress, ok := labels[DPUPCIAddressLabel]; ok {
 		if removePrefix {
 			// remove 0000- prefix
-			underscoreIndex := strings.Index(pci_address, "-")
+			underscoreIndex := strings.Index(pciAddress, "-")
 			if underscoreIndex != -1 {
-				pci_address = pci_address[underscoreIndex+1:]
+				pciAddress = pciAddress[underscoreIndex+1:]
 			}
 		}
 		// replace - to :
-		result := strings.ReplaceAll(pci_address, "-", ":")
+		result := strings.ReplaceAll(pciAddress, "-", ":")
 		// 4b:00
 		return result, nil
 	}
