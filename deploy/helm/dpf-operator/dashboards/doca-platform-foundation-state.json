@@ -1622,6 +1622,344 @@
         }
       ],
       "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "applyToRow": true,
+              "mode": "gradient",
+              "type": "color-background",
+              "wrapText": false
+            },
+            "filterable": true,
+            "inspect": false,
+            "minWidth": 50
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Issued At"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocalNoDateIfToday"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Expiration"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "dateTimeAsLocalNoDateIfToday"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "id": 149,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "enablePagination": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "frameIndex": 0,
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Status"
+          }
+        ]
+      },
+      "pluginVersion": "11.1.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "dpuservicecredentialrequest_info",
+          "format": "table",
+          "fullMetaSearch": false,
+          "hide": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "interval": "",
+          "legendFormat": "Auto",
+          "range": false,
+          "refId": "info",
+          "useBackend": false
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "dpuservicecredentialrequest_expiration * 1000",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "expiration"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "dpuservicecredentialrequest_issued_at * 1000",
+          "format": "table",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "__auto",
+          "range": false,
+          "refId": "issued_at"
+        }
+      ],
+      "title": "DPUServiceCredentialRequests",
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "uid",
+            "mode": "inner"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Value": true,
+              "Value #A": true,
+              "Value #B": false,
+              "Value #info": true,
+              "__name__": true,
+              "__name__ 1": true,
+              "__name__ 2": true,
+              "__name__ 3": true,
+              "__name__ 4": true,
+              "app_kubernetes_io_component": true,
+              "app_kubernetes_io_component 1": true,
+              "app_kubernetes_io_component 2": true,
+              "app_kubernetes_io_component 3": true,
+              "app_kubernetes_io_component 4": true,
+              "app_kubernetes_io_instance": true,
+              "app_kubernetes_io_instance 1": true,
+              "app_kubernetes_io_instance 2": true,
+              "app_kubernetes_io_instance 3": true,
+              "app_kubernetes_io_instance 4": true,
+              "app_kubernetes_io_managed_by": true,
+              "app_kubernetes_io_managed_by 1": true,
+              "app_kubernetes_io_managed_by 2": true,
+              "app_kubernetes_io_managed_by 3": true,
+              "app_kubernetes_io_managed_by 4": true,
+              "app_kubernetes_io_name": true,
+              "app_kubernetes_io_name 1": true,
+              "app_kubernetes_io_name 2": true,
+              "app_kubernetes_io_name 3": true,
+              "app_kubernetes_io_name 4": true,
+              "app_kubernetes_io_part_of": true,
+              "app_kubernetes_io_part_of 1": true,
+              "app_kubernetes_io_part_of 2": true,
+              "app_kubernetes_io_part_of 3": true,
+              "app_kubernetes_io_part_of 4": true,
+              "app_kubernetes_io_version": true,
+              "app_kubernetes_io_version 1": true,
+              "app_kubernetes_io_version 2": true,
+              "app_kubernetes_io_version 3": true,
+              "app_kubernetes_io_version 4": true,
+              "creation_timestamp": true,
+              "creation_timestamp 1": true,
+              "creation_timestamp 2": true,
+              "customresource_group": true,
+              "customresource_group 1": true,
+              "customresource_group 2": true,
+              "customresource_group 4": true,
+              "customresource_kind": true,
+              "customresource_kind 1": true,
+              "customresource_kind 2": true,
+              "customresource_kind 4": true,
+              "customresource_version": true,
+              "customresource_version 1": true,
+              "customresource_version 2": true,
+              "customresource_version 3": true,
+              "customresource_version 4": true,
+              "deploy_in_cluster": true,
+              "helm_sh_chart": true,
+              "helm_sh_chart 1": true,
+              "helm_sh_chart 2": true,
+              "helm_sh_chart 3": true,
+              "helm_sh_chart 4": true,
+              "instance": true,
+              "instance 1": true,
+              "instance 2": true,
+              "instance 3": true,
+              "instance 4": true,
+              "job": true,
+              "job 1": true,
+              "job 2": true,
+              "job 3": true,
+              "job 4": true,
+              "name 1": false,
+              "name 2": true,
+              "name 3": true,
+              "name 4": true,
+              "namespace 1": false,
+              "namespace 2": true,
+              "namespace 3": true,
+              "namespace 4": true,
+              "node": true,
+              "node 1": true,
+              "node 2": true,
+              "node 3": true,
+              "node 4": true,
+              "service": true,
+              "service 1": true,
+              "service 2": true,
+              "service 3": true,
+              "service 4": true,
+              "status": false,
+              "type": true,
+              "uid": true,
+              "{__name__=\"dpuservice_status_conditions\", app_kubernetes_io_component=\"metrics\", app_kubernetes_io_instance=\"dpf-operator\", app_kubernetes_io_managed_by=\"Helm\", app_kubernetes_io_name=\"kube-state-metrics\", app_kubernetes_io_part_of=\"kube-state-metrics\", app_kubernetes_io_version=\"2.13.0\", creation_timestamp=\"2024-09-02T13:54:06Z\", customresource_group=\"svc.dpf.nvidia.com\", customresource_kind=\"DPUService\", customresource_version=\"v1alpha1\", helm_sh_chart=\"kube-state-metrics-5.25.1\", instance=\"10.244.0.35:8080\", job=\"kubernetes-service-endpoints\", name=\"flannel\", namespace=\"dpf-operator-system\", node=\"dpf-test\", service=\"dpf-operator-kube-state-metrics\", status=\"False\", type=\"Ready\", uid=\"31cb2ccc-175b-4983-8b12-bb27708a5155\"}": false
+            },
+            "includeByName": {},
+            "indexByName": {
+              "Time 1": 8,
+              "Time 2": 24,
+              "Time 3": 43,
+              "Value #expiration": 6,
+              "Value #info": 61,
+              "Value #issued_at": 5,
+              "__name__ 1": 9,
+              "__name__ 2": 25,
+              "__name__ 3": 44,
+              "app_kubernetes_io_component 1": 10,
+              "app_kubernetes_io_component 2": 26,
+              "app_kubernetes_io_component 3": 45,
+              "app_kubernetes_io_instance 1": 11,
+              "app_kubernetes_io_instance 2": 27,
+              "app_kubernetes_io_instance 3": 46,
+              "app_kubernetes_io_managed_by 1": 12,
+              "app_kubernetes_io_managed_by 2": 28,
+              "app_kubernetes_io_managed_by 3": 47,
+              "app_kubernetes_io_name 1": 13,
+              "app_kubernetes_io_name 2": 29,
+              "app_kubernetes_io_name 3": 48,
+              "app_kubernetes_io_part_of 1": 14,
+              "app_kubernetes_io_part_of 2": 30,
+              "app_kubernetes_io_part_of 3": 49,
+              "app_kubernetes_io_version 1": 15,
+              "app_kubernetes_io_version 2": 31,
+              "app_kubernetes_io_version 3": 50,
+              "customresource_group 1": 16,
+              "customresource_group 2": 32,
+              "customresource_group 3": 51,
+              "customresource_kind 1": 17,
+              "customresource_kind 2": 33,
+              "customresource_kind 3": 52,
+              "customresource_version 1": 18,
+              "customresource_version 2": 34,
+              "customresource_version 3": 53,
+              "helm_sh_chart 1": 19,
+              "helm_sh_chart 2": 35,
+              "helm_sh_chart 3": 54,
+              "instance 1": 20,
+              "instance 2": 36,
+              "instance 3": 55,
+              "job 1": 21,
+              "job 2": 37,
+              "job 3": 56,
+              "name 1": 1,
+              "name 2": 38,
+              "name 3": 57,
+              "namespace 1": 0,
+              "namespace 2": 39,
+              "namespace 3": 58,
+              "node 1": 22,
+              "node 2": 40,
+              "node 3": 59,
+              "secret": 2,
+              "service 1": 23,
+              "service 2": 41,
+              "service 3": 60,
+              "service_account": 3,
+              "target_cluster_name": 4,
+              "type": 42,
+              "uid": 7
+            },
+            "renameByName": {
+              "Value #A": "",
+              "Value #B": "Duration",
+              "Value #C": "Expiration",
+              "Value #D": "Issued At",
+              "Value #expiration": "Expiration",
+              "Value #issued_at": "Issued At",
+              "chart_version": "Chart Version",
+              "deploy_in_cluster": "Host Cluster Service",
+              "name 1": "Name",
+              "namespace 1": "Namespace",
+              "secret": "Secret",
+              "service_account": "Service Account",
+              "status": "Status",
+              "target_cluster_name": "Target Cluster"
+            }
+          }
+        }
+      ],
+      "type": "table"
     }
   ],
   "refresh": "1m",
@@ -1927,6 +2265,6 @@
   "timezone": "browser",
   "title": "DOCA Platform Foundation State",
   "uid": "bdwdkx2p9kqgwd",
-  "version": 1,
+  "version": 3,
   "weekStart": ""
 }
