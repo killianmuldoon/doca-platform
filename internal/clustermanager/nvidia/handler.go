@@ -344,6 +344,10 @@ func expectedTCP(dc *provisioningv1.DPUCluster, scheme *runtime.Scheme, nodePort
 					"LimitRanger",
 				},
 			},
+			Addons: kamaji.AddonsSpec{
+				CoreDNS:   &kamaji.AddonSpec{},
+				KubeProxy: &kamaji.AddonSpec{},
+			},
 		},
 	}
 	if dc.Spec.ClusterEndpoint != nil && dc.Spec.ClusterEndpoint.Keepalived != nil {
