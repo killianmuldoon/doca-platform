@@ -1,4 +1,4 @@
-FROM --platform=${BUILDPLATFORM} docker.io/library/golang:1.22 AS ovnkubernetes-builder
+FROM docker.io/library/golang:1.22 AS ovnkubernetes-builder
 
 ARG TARGETARCH
 ARG gcflags
@@ -35,7 +35,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     -gcflags="${gcflags}" \
     -o dpucniprovisioner ./cmd/dpucniprovisioner
 
-FROM --platform=${BUILDPLATFORM} ubuntu:24.04
+FROM ubuntu:24.04
 
 ARG TARGETARCH
 

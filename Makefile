@@ -117,7 +117,7 @@ $(OVS_CNI_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-sfc-cni.git $(OVS_CNI_DIR) $(OVS_CNI_REVISION)
 
 # OVN Kubernetes dependencies to be able to build its docker image
-OVNKUBERNETES_REF=9eb6a711281f8f5bfe621ef96459ef5328e4c0d2
+OVNKUBERNETES_REF=2948520a6abb62f57b9c45618cb93a16d4c204d9
 OVNKUBERNETES_DIR=$(REPOSDIR)/ovn-kubernetes-$(OVNKUBERNETES_REF)
 $(OVNKUBERNETES_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN= $(CURDIR)/hack/scripts/git-clone-repo.sh https://github.com/aserdean/ovn-kubernetes $(OVNKUBERNETES_DIR) $(OVNKUBERNETES_REF)
@@ -131,7 +131,7 @@ $(SOS_REPORT_DIR): | $(REPOSDIR)
 	cp -Rp ./hack/tools/dpf-tools/* $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF}/
 
 ##@ Development
-GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded release-defaults dummydpuservice nvidia-cluster-manager static-cluster-manager dpu-detector
+GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded release-defaults dummydpuservice nvidia-cluster-manager static-cluster-manager dpu-detector ovn-kubernetes
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -181,24 +181,6 @@ generate-manifests-operator: controller-gen kustomize envsubst helm ## Generate 
 	$(HELM) repo add clastix https://clastix.github.io/charts
 	$(HELM) dependency build $(OPERATOR_HELM_CHART)
 
-.PHONY: generate-manifests-ovnkubernetes-operator
-generate-manifests-ovnkubernetes-operator: controller-gen kustomize envsubst ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes operator controller.
-	$(MAKE) clean-generated-yaml SRC_DIRS="./config/ovnkubernetesoperator/crd/bases"
-	$(CONTROLLER_GEN) \
-	paths="./cmd/ovnkubernetesoperator/..." \
-	paths="./internal/ovnkubernetesoperator/..." \
-	paths="./internal/ovnkubernetesoperator/webhooks" \
-	paths="./api/ovnkubernetesoperator/..." \
-	crd:crdVersions=v1 \
-	rbac:roleName=manager-role \
-	output:crd:dir=./config/ovnkubernetesoperator/crd/bases \
-	output:rbac:dir=./config/ovnkubernetesoperator/rbac \
-	output:webhook:dir=./config/ovnkubernetesoperator/webhook \
-	webhook
-	cd config/ovnkubernetesoperator/manager && $(KUSTOMIZE) edit set image controller=$(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
-	rm -rf deploy/helm/dpf-ovn-kubernetes-operator/crds/* && find config/ovnkubernetesoperator/crd/bases/ -type f -exec cp {} deploy/helm/dpf-ovn-kubernetes-operator/crds/ \;
-	$(ENVSUBST) < deploy/helm/dpf-ovn-kubernetes-operator/values.yaml.tmpl > deploy/helm/dpf-ovn-kubernetes-operator/values.yaml
-
 .PHONY: generate-manifests-dpuservice
 generate-manifests-dpuservice: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/dpuservice/crd/bases"
@@ -235,11 +217,6 @@ generate-manifests-operator-embedded:kustomize envsubst generate-manifests-dpuse
 	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
 	$(KUSTOMIZE) build config/nvidia-cluster-manager/default > $(EMBEDDED_MANIFESTS_DIR)/nvidia-cluster-manager.yaml
 	$(KUSTOMIZE) build config/static-cluster-manager/default > $(EMBEDDED_MANIFESTS_DIR)/static-cluster-manager.yaml
-
-.PHONY: generate-manifests-ovnkubernetes-operator-embedded
-generate-manifests-ovnkubernetes-operator-embedded: kustomize generate-manifests-dpucniprovisioner generate-manifests-hostcniprovisioner ## Generates manifests that are embedded into the OVN Kubernetes Operator binary.
-	$(KUSTOMIZE) build config/hostcniprovisioner/default > ./internal/ovnkubernetesoperator/controllers/manifests/hostcniprovisioner.yaml
-	$(KUSTOMIZE) build config/dpucniprovisioner/default > ./internal/ovnkubernetesoperator/controllers/manifests/dpucniprovisioner.yaml
 
 .PHONY: generate-manifests-servicechainset
 generate-manifests-servicechainset: controller-gen kustomize envsubst ## Generate manifests e.g. CRD, RBAC. for the servicechainset controller.
@@ -303,8 +280,12 @@ generate-manifests-static-cluster-manager: controller-gen kustomize ## Generate 
 	cd config/static-cluster-manager/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-dpu-detector
-generate-manifests-dpu-detector: kustomize
+generate-manifests-dpu-detector: kustomize ## Generate manifests for dpu-detector
 	cd config/dpu-detector && $(KUSTOMIZE) edit set image dpu-detector=$(DMS_IMAGE):$(TAG)
+
+.PHONY: generate-manifests-ovn-kubernetes
+generate-manifests-ovn-kubernetes: $(OVNKUBERNETES_DIR) envsubst ## Generate manifests for ovn-kubernetes
+	$(ENVSUBST) < $(OVNKUBERNETES_HELM_CHART)/values.yaml.tmpl > $(OVNKUBERNETES_HELM_CHART)/values.yaml
 
 .PHONY: generate-operator-bundle
 generate-operator-bundle: helm operator-sdk generate-manifests-operator ## Generate bundle manifests and metadata, then validate generated files.
@@ -478,15 +459,15 @@ verify-copyright: ## Verify copyrights for project files
 	$Q $(CURDIR)/hack/scripts/copyright-validation.sh
 
 .PHONY: lint-helm
-lint-helm: lint-helm-dpu-networking lint-helm-ovnkubernetes-operator lint-helm-dummydpuservice
+lint-helm: lint-helm-dpu-networking lint-helm-ovn-kubernetes lint-helm-dummydpuservice
 
 .PHONY: lint-helm-dpu-networking
 lint-helm-dpu-networking: helm ## Run helm lint for servicechainset chart
 	$Q $(HELM) lint $(DPU_NETWORKING_HELM_CHART)
 
-.PHONY: lint-helm-ovnkubernetes-operator
-lint-helm-ovnkubernetes-operator: helm ## Run helm lint for OVN Kubernetes Operator chart
-	$Q $(HELM) lint $(DPFOVNKUBERNETESOPERATOR_HELM_CHART)
+.PHONY: lint-helm-ovn-kubernetes
+lint-helm-ovn-kubernetes: generate-manifests-ovn-kubernetes helm $(OVNKUBERNETES_DIR) ## Run helm lint for OVN Kubernetes Operator chart
+	$Q $(HELM) lint $(OVNKUBERNETES_HELM_CHART)
 
 .PHONY: lint-helm-dummydpuservice
 lint-helm-dummydpuservice: helm ## Run helm lint for dummydpuservice chart
@@ -570,10 +551,6 @@ binary-hostcniprovisioner: ## Build the Host CNI Provisioner binary.
 binary-sfc-controller: ## Build the Host CNI Provisioner binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/sfc-controller gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/sfc-controller
 
-.PHONY: binary-ovnkubernetes-operator
-binary-binary-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-embedded ## Build the OVN Kubernetes operator.
-	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ovnkubernetesoperator gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/ovnkubernetesoperator
-
 .PHONY: binary-ipallocator
 binary-ipallocator: ## Build the IP allocator binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ipallocator gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/ipallocator
@@ -618,9 +595,6 @@ OPERATOR_BUNDLE_IMAGE ?= $(OPERATOR_BUNDLE_REGISTRY)/$(OPERATOR_BUNDLE_NAME)
 # Images that are running on DPU worker nodes (arm64)
 DPUCNIPROVISIONER_IMAGE_NAME ?= dpu-cni-provisioner
 DPUCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(DPUCNIPROVISIONER_IMAGE_NAME)
-
-DPFOVNKUBERNETESOPERATOR_IMAGE_NAME ?= dpf-ovn-kubernetes-operator-controller-manager
-export DPFOVNKUBERNETESOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOVNKUBERNETESOPERATOR_IMAGE_NAME)
 
 DUMMYDPUSERVICE_IMAGE_NAME ?= dummydpuservice
 export DUMMYDPUSERVICE_IMAGE ?= $(REGISTRY)/$(DUMMYDPUSERVICE_IMAGE_NAME)
@@ -776,20 +750,6 @@ docker-create-manifest-for-ovn-kubernetes:
 	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
 	docker manifest create --amend $(OVNKUBERNETES_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(OVNKUBERNETES_IMAGE):$(TAG))
 
-.PHONY: docker-build-ovnkubernetes-operator
-docker-build-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-embedded ## Build docker images for the operator-controller
-	docker buildx build \
-		--load \
-		--provenance=false \
-		--platform linux/${ARCH} \
-		--build-arg builder_image=$(BUILD_IMAGE) \
-		--build-arg base_image=$(BASE_IMAGE) \
-		--build-arg ldflags=$(GO_LDFLAGS) \
-		--build-arg gcflags=$(GO_GCFLAGS) \
-		--build-arg package=./cmd/ovnkubernetesoperator \
-		-t $(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG) \
-		.
-
 .PHONY: docker-build-hostnetwork
 docker-build-hostnetwork: ## Build docker image with the hostnetwork.
 	docker buildx build \
@@ -877,9 +837,6 @@ docker-build-operator-bundle: generate-operator-bundle
 docker-push-operator-bundle: ## Push the bundle image.
 	docker push $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
 
-.PHONY: docker-push-ovnkubernetes-operator
-docker-push-ovnkubernetes-operator: ## Push the docker image for the OVN Kubernetes operator.
-	docker push $(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
 
 .PHONY: docker-push-dummydpuservice
 docker-push-dummydpuservice: ## Push the docker image for dummydpuservice
@@ -891,7 +848,7 @@ docker-push-dummydpuservice: ## Push the docker image for dummydpuservice
 # By default the helm registry is assumed to be an OCI registry. This variable should be overwritten when using a https helm repository.
 export HELM_REGISTRY ?= oci://$(REGISTRY)
 
-HELM_TARGETS ?= dpu-networking operator
+HELM_TARGETS ?= dpu-networking operator ovn-kubernetes
 
 # metadata for the operator helm chart
 OPERATOR_HELM_CHART_NAME ?= dpf-operator
@@ -903,9 +860,9 @@ DPU_NETWORKING_HELM_CHART ?= $(HELMDIR)/$(DPU_NETWORKING_HELM_CHART_NAME)
 DPU_NETWORKING_HELM_CHART_VER ?= $(TAG)
 
 ## metadata for dpf-ovn-kubernetes-operator.
-export DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME = dpf-ovn-kubernetes-operator
-DPFOVNKUBERNETESOPERATOR_HELM_CHART ?= $(HELMDIR)/$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME)
-DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER ?= $(TAG)
+export OVNKUBERNETES_HELM_CHART_NAME = ovn-kubernetes-chart
+OVNKUBERNETES_HELM_CHART ?= $(OVNKUBERNETES_DIR)/helm/ovn-kubernetes/
+OVNKUBERNETES_HELM_CHART_VER ?= $(TAG)
 
 # metadata for dummydpuservice.
 DUMMYDPUSERVICE_HELM_CHART_NAME = dummydpuservice-chart
@@ -926,9 +883,9 @@ helm-package-operator: $(CHARTSDIR) helm ## Package helm chart for DPF Operator
 		$(HELM) package $(OPERATOR_HELM_CHART) --version $$tag --destination $(CHARTSDIR); \
 	done
 
-.PHONY: helm-package-ovnkubernetes-operator
-helm-package-ovnkubernetes-operator: $(CHARTSDIR) helm ## Package helm chart for OVN Kubernetes Operator
-	$(HELM) package $(DPFOVNKUBERNETESOPERATOR_HELM_CHART) --version $(DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER) --destination $(CHARTSDIR)
+.PHONY: helm-package-ovn-kubernetes
+helm-package-ovn-kubernetes: $(OVNKUBERNETES_DIR) $(CHARTSDIR) helm ## Package helm chart for OVN Kubernetes Operator
+	$(HELM) package $(OVNKUBERNETES_HELM_CHART) --version $(OVNKUBERNETES_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-dummydpuservice
 helm-package-dummydpuservice: $(DPUSERVICESDIR) helm generate-manifests-dummydpuservice ## Package helm chart for dummydpuservice
@@ -947,9 +904,9 @@ helm-push-operator: $(CHARTSDIR) helm ## Push helm chart for dpf-operator
 helm-push-dpu-networking: $(CHARTSDIR) helm ## Push helm chart for service chain controller
 	$(HELM) push $(CHARTSDIR)/$(DPU_NETWORKING_HELM_CHART_NAME)-$(DPU_NETWORKING_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
-.PHONY: helm-push-ovnkubernetes-operator
-helm-push-ovnkubernetes-operator: $(CHARTSDIR) helm ## Push helm chart for DPF OVN Kubernetes Operator
-	$(HELM) push $(CHARTSDIR)/$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME)-chart-$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+.PHONY: helm-push-ovn-kubernetes
+helm-push-ovn-kubernetes: $(CHARTSDIR) helm ## Push helm chart for DPF OVN Kubernetes Operator
+	$(HELM) push $(CHARTSDIR)/$(OVNKUBERNETES_HELM_CHART_NAME)-$(OVNKUBERNETES_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-dummydpuservice
 helm-push-dummydpuservice: $(CHARTSDIR) helm ## Push helm chart for dummydpuservice
@@ -981,7 +938,3 @@ dev-dpuservice: minikube skaffold kustomize ## Deploy dpuservice controller to d
 dev-operator: minikube skaffold kustomize generate-manifests-operator-embedded ## Deploy operator controller to dev cluster using skaffold
 	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false --cleanup=false
 
-dev-ovnkubernetes-operator: minikube skaffold kustomize generate-manifests-ovnkubernetes-operator-embedded ## Deploy operator controller to dev cluster using skaffold
-	# Ensure the manager's kustomization has the correct image name and has not been changed by generation.
-	git restore config/ovnkubernetesoperator/manager/kustomization.yaml
-	$(SKAFFOLD) debug -p ovnkubernetes-operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
