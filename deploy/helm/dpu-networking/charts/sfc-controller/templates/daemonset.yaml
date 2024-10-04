@@ -53,9 +53,12 @@ spec:
           mountPath: /var/run/systemd
         - name: systemd-dbus
           mountPath: /var/run/dbus/system_bus_socket
-        volumeMounts:
-        - name: ovs
-          mountPath: /var/run/openvswitch/
+        - mountPath: /lib
+          name: lib
+        - mountPath: /usr/bin/ovs-vsctl
+          name: ovs-vsctl
+        - mountPath: /usr/bin/ovs-ofctl
+          name: ovs-ofctl
         image: {{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag
           | default .Chart.AppVersion }}
         securityContext:
@@ -96,3 +99,15 @@ spec:
       - name: systemd-dbus
         hostPath:
           path: /var/run/dbus/system_bus_socket
+      - hostPath:
+          path: /usr/bin/ovs-vsctl
+          type: File
+        name: ovs-vsctl
+      - hostPath:
+          path: /usr/bin/ovs-ofctl
+          type: File
+        name: ovs-ofctl
+      - hostPath:
+          path: /lib
+          type: Directory
+        name: lib

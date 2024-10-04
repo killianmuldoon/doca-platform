@@ -1,6 +1,7 @@
-ARG base_image
+ARG TARGETARCH
+ARG hbn_nvcr_tag
 
-FROM --platform=${TARGETPLATFORM} ${base_image}
+FROM nvcr.io/nvidia/doca/doca_hbn:${hbn_nvcr_tag}
 
 RUN apt update && \
     apt install -y python3-pyinotify

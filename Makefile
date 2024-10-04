@@ -82,34 +82,6 @@ HELMDIR ?= $(shell pwd)/deploy/helm
 $(LOCALBIN) $(CHARTSDIR) $(DPUSERVICESDIR) $(REPOSDIR):
 	@mkdir -p $@
 
-## OVN Kubernetes Images
-# We build 2 images for OVN Kubernetes. One for the DPU enabled nodes and another for the non DPU enabled ones. The
-# reason we have to build 2 images is because the original code modifications that were done to support the DPU workers
-# were not implemented in a way that they are non disruptive for the default flow. We thought we would not need to change
-# the image running on the non DPU nodes but in fact that wasn't the case and we understood that very down the line.
-# Given that this solution is not supposed to go beyond MVP, the solution with the 2 images should be sufficient for now.
-# In case this solution needs to last longer, we should work on refactoring OVN Kubernetes and consolidate everything
-# in one image and improve the maintainability of our fork.
-
-# TODO: Find a way to build the base image via https://github.com/openshift/ovn-kubernetes/blob/release-4.14/Dockerfile
-# You need to follow the commands below to produce the base image:
-# 1. Setup OpenShift cluster 4.14 (this is what the tests were done against)
-# 2. Run these commands to get the relevant images:
-#    * `kubectl get ds -n openshift-ovn-kubernetes -o jsonpath='{.spec.template.spec.containers[?(@.name=="ovnkube-controller")].image}' ovnkube-node`
-#    * `kubectl get ds -n openshift-ovn-kubernetes -o jsonpath='{.spec.template.spec.containers[?(@.name=="ovn-controller")].image}' ovnkube-node`
-#    * In case these two match, we can use a single image. Otherwise, we might need to split this Dockerfile into two so
-#      that each container gets its own image.
-# 3. Login into the OpenShift node and retag the image to `harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:<SHA256_OF_INPUT_IMAGE>`
-#    e.g. podman tag quay.io/openshift-release-dev/ocp-v4.0-art-dev@sha256:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e harbor.mellanox.com/cloud-orchestration-dev/dpf/ovn-kubernetes-base:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e
-# 4. Push the image
-OVNKUBERNETES_BASE_IMAGE=gitlab-master.nvidia.com:5005/doca-platform-foundation/doca-platform-foundation/ovn-kubernetes-base:ca01b0a7e924b17765df8145d8669611d513e3edb2ac6f3cd518d04b6d01de6e
-# Points to branch dpf-23.09.0
-OVN_REVISION=89fb67b6222d1e6a48fed3ae6d6ac486326c6ab2
-# Points to branch dpf-4.14
-OVNKUBERNETES_DPU_REVISION=33f3f2bd91cc68305a39add3dfdaa0142121b69e
-# Points to branch dpf-4.14-non-dpu
-OVNKUBERNETES_NON_DPU_REVISION=f73cdc1f764b36a1f4df9849e15f32eb0e0082c1
-
 .PHONY: clean
 clean: ; $(info  Cleaning...)	 @ ## Clean non-essential files from the repo
 	@rm -rf $(CHARTSDIR)
@@ -145,22 +117,14 @@ $(OVS_CNI_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-sfc-cni.git $(OVS_CNI_DIR) $(OVS_CNI_REVISION)
 
 # OVN Kubernetes dependencies to be able to build its docker image
-OVNKUBERNETES_DPU_DIR=$(REPOSDIR)/ovn-kubernetes-dpu-$(OVNKUBERNETES_DPU_REVISION)
-$(OVNKUBERNETES_DPU_DIR): | $(REPOSDIR)
-	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn-kubernetes.git $(OVNKUBERNETES_DPU_DIR) $(OVNKUBERNETES_DPU_REVISION)
-
-OVNKUBERNETES_NON_DPU_DIR=$(REPOSDIR)/ovn-kubernetes-non-dpu-$(OVNKUBERNETES_NON_DPU_REVISION)
-$(OVNKUBERNETES_NON_DPU_DIR): | $(REPOSDIR)
-	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn-kubernetes.git $(OVNKUBERNETES_NON_DPU_DIR) $(OVNKUBERNETES_NON_DPU_REVISION)
-
-OVN_DIR=$(REPOSDIR)/ovn-$(OVN_REVISION)
-$(OVN_DIR): | $(REPOSDIR)
-	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/ovn.git $(OVN_DIR) $(OVN_REVISION)
+OVNKUBERNETES_REF=9eb6a711281f8f5bfe621ef96459ef5328e4c0d2
+OVNKUBERNETES_DIR=$(REPOSDIR)/ovn-kubernetes-$(OVNKUBERNETES_REF)
+$(OVNKUBERNETES_DIR): | $(REPOSDIR)
+	GITLAB_TOKEN= $(CURDIR)/hack/scripts/git-clone-repo.sh https://github.com/aserdean/ovn-kubernetes $(OVNKUBERNETES_DIR) $(OVNKUBERNETES_REF)
 
 DOCA_SOSREPORT_REPO_URL=https://github.com/NVIDIA/doca-sosreport/archive/$(DOCA_SOSREPORT_REF).tar.gz
 DOCA_SOSREPORT_REF=6b4289b9f0d9f26af177b0d1c4c009ca74bb514a
 SOS_REPORT_DIR=$(REPOSDIR)/doca-sosreport-$(DOCA_SOSREPORT_REF)
-OVN_DIR=$(REPOSDIR)/ovn-$(OVN_REVISION)
 $(SOS_REPORT_DIR): | $(REPOSDIR)
 	curl -sL ${DOCA_SOSREPORT_REPO_URL} \
 	| tar -xz -C ${REPOSDIR} && \
@@ -366,7 +330,7 @@ generate-operator-bundle: helm operator-sdk generate-manifests-operator ## Gener
 	rm bundle/manifests/*
 
 	# Next generate the operator bundle.
-    # Note we need to explicitly set stdin to null using < /dev/null.
+	# Note we need to explicitly set stdin to null using < /dev/null.
 	$(OPERATOR_SDK) generate bundle \
 	--overwrite --package dpf-operator --version $(BUNDLE_VERSION) --default-channel=$(BUNDLE_VERSION) --channels=$(BUNDLE_VERSION) \
 	--deploy-dir hack/charts/dpf-operator --crds-dir deploy/helm/dpf-operator/templates/crds 	</dev/null
@@ -411,7 +375,7 @@ test-report: envtest gotestsum ## Run tests and generate a junit style report
 .PHONY: test-release-e2e-quick
 test-release-e2e-quick: # Build images required for the quick DPF e2e test.
 	# Build and push the dpuservice, provisioning, operator and operator-bundle images.
-    # The quick test will only run on amd64 nodes.
+	# The quick test will only run on amd64 nodes.
 	$(MAKE) docker-build-dpf-system-for-$(ARCH) docker-push-dpf-system-for-$(ARCH)
 
 	# Build and push all the helm charts
@@ -554,20 +518,18 @@ GO_GCFLAGS ?= ""
 GO_LDFLAGS ?= "-extldflags '-static'"
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
 DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset nvidia-cluster-manager static-cluster-manager
-DPU_ARCH_BUILD_TARGETS ?= ipallocator
+DPU_ARCH_BUILD_TARGETS ?= 
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
 # The BUNDLE_VERSION is the same as the TAG but the first character is stripped. This is used to strip a leading `v` which is invalid for Bundle versions.
 $(eval BUNDLE_VERSION := $$$(TAG))
 
 HOST_ARCH = amd64
-# Note: If you make this variable configurable, ensure that the custom base image that is built in
-# docker-build-base-image-ovs is fetching binaries with the correct architecture.
 DPU_ARCH = arm64
 
 # Use distroless as minimal base image to package the manager binary
 # Refer to https://github.com/GoogleContainerTools/distroless for more details
-BASE_IMAGE = gcr.io/distroless/static:nonroot
+BASE_IMAGE = gcr.io/distroless/base:nonroot
 ALPINE_IMAGE = alpine:3.19
 
 .PHONY: binaries
@@ -626,8 +588,8 @@ binary-detector: ## Build the DPU detector binary.
 
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=operator-bundle hostnetwork dms
-DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn hbn-sidecar ovs-cni ipallocator
-MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system
+DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn hbn-sidecar ovs-cni
+MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
@@ -635,19 +597,8 @@ docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build do
 DPF_SYSTEM_IMAGE_NAME ?= dpf-system
 export DPF_SYSTEM_IMAGE ?= $(REGISTRY)/$(DPF_SYSTEM_IMAGE_NAME)
 
-OVS_BASE_IMAGE_NAME = base-image-ovs
-OVS_BASE_IMAGE = $(REGISTRY)/$(OVS_BASE_IMAGE_NAME)
-
-SYSTEMD_BASE_IMAGE_NAME = base-image-systemd
-SYSTEMD_BASE_IMAGE = $(REGISTRY)/$(SYSTEMD_BASE_IMAGE_NAME)
-
-# Images that are running on the DPU enabled host cluster nodes (workers)
-OVNKUBERNETES_DPU_IMAGE_NAME = ovn-kubernetes-dpu
-export OVNKUBERNETES_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_DPU_IMAGE_NAME)
-
-# Images that are running on the non DPU host cluster nodes (control plane)
-OVNKUBERNETES_NON_DPU_IMAGE_NAME = ovn-kubernetes-non-dpu
-export OVNKUBERNETES_NON_DPU_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_NON_DPU_IMAGE_NAME)
+OVNKUBERNETES_IMAGE_NAME = ovn-kubernetes
+export OVNKUBERNETES_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_IMAGE_NAME)
 
 SFC_CONTROLLER_IMAGE_NAME ?= sfc-controller-manager
 export SFC_CONTROLLER_IMAGE ?= $(REGISTRY)/$(SFC_CONTROLLER_IMAGE_NAME)
@@ -763,47 +714,18 @@ docker-create-manifest-for-dpf-tools:
 	docker manifest create --amend $(DPF_TOOLS_BUILD_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(DPF_TOOLS_BUILD_IMAGE):$(TAG))
 
 .PHONY: docker-build-sfc-controller
-docker-build-sfc-controller: docker-build-base-image-ovs ## Build docker images for the sfc-controller
+docker-build-sfc-controller: ## Build docker images for the sfc-controller
 	docker buildx build \
 		--load \
 		--provenance=false \
 		--platform=linux/$(DPU_ARCH) \
 		--build-arg builder_image=$(BUILD_IMAGE) \
-		--build-arg base_image=$(OVS_BASE_IMAGE):$(TAG) \
+		--build-arg base_image=$(BASE_IMAGE) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/sfc-controller \
 		. \
 		-t $(SFC_CONTROLLER_IMAGE):$(TAG)
-
-.PHONY: docker-build-dpucniprovisioner
-docker-build-dpucniprovisioner: docker-build-base-image-ovs ## Build docker images for the DPU CNI Provisioner
-	docker buildx build \
-		--load \
-		--provenance=false \
-		--platform=linux/$(DPU_ARCH) \
-		--build-arg builder_image=$(BUILD_IMAGE) \
-		--build-arg base_image=$(OVS_BASE_IMAGE):$(TAG) \
-		--build-arg ldflags=$(GO_LDFLAGS) \
-		--build-arg gcflags=$(GO_GCFLAGS) \
-		--build-arg package=./cmd/dpucniprovisioner \
-		. \
-		-t $(DPUCNIPROVISIONER_IMAGE):$(TAG)
-
-.PHONY: docker-build-hostcniprovisioner
-docker-build-hostcniprovisioner: docker-build-base-image-systemd ## Build docker images for the HOST CNI Provisioner
-	# Base image can't be distroless because of the readiness probe that is using cat which doesn't exist in distroless
-	docker buildx build \
-		--load \
-		--provenance=false \
-		--platform=linux/$(HOST_ARCH) \
-		--build-arg builder_image=$(BUILD_IMAGE) \
-		--build-arg base_image=$(SYSTEMD_BASE_IMAGE):$(TAG) \
-		--build-arg ldflags=$(GO_LDFLAGS) \
-		--build-arg gcflags=$(GO_GCFLAGS) \
-		--build-arg package=./cmd/hostcniprovisioner \
-		. \
-		-t $(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
 # TODO: This image should be part of a DPF Utils image.
 .PHONY: docker-build-ipallocator
@@ -821,34 +743,14 @@ docker-build-ipallocator: ## Build docker image for the IP Allocator
 		. \
 		-t $(IPALLOCATOR_IMAGE):$(TAG)
 
-.PHONY: docker-build-base-image-ovs
-docker-build-base-image-ovs: ## Build base docker image with OVS dependencies
-	docker buildx build \
-		--load \
-		--provenance=false \
-		--platform linux/${DPU_ARCH} \
-		-f Dockerfile.ovs \
-		. \
-		-t $(OVS_BASE_IMAGE):$(TAG)
-
-.PHONY: docker-build-base-image-systemd
-docker-build-base-image-systemd: ## Build base docker image with systemd dependencies
-	docker buildx build \
-		--load \
-		--provenance=false \
-		--platform linux/${HOST_ARCH} \
-		-f Dockerfile.systemd \
-		. \
-		-t $(SYSTEMD_BASE_IMAGE):$(TAG)
-
 .PHONY: docker-build-hbn-sidecar
-docker-build-hbn-sidecar: docker-build-base-image-ovs ## Build HBN sidecar DPU service image
+docker-build-hbn-sidecar: ## Build HBN sidecar DPU service image
 	cd $(HBN_DPUSERVICE_DIR) && \
 	docker buildx build \
 		--load \
 		--provenance=false \
-		--platform linux/${DPU_ARCH} \
-		--build-arg base_image=$(OVS_BASE_IMAGE):$(TAG) \
+		--platform=linux/${DPU_ARCH} \
+		--build-arg hbn_nvcr_tag=$(HBN_NVCR_TAG) \
 		-f Dockerfile.sidecar \
 		. \
 		-t $(HBN_SIDECAR_IMAGE):$(TAG)
@@ -866,30 +768,38 @@ docker-build-ovs-cni: $(OVS_CNI_DIR) ## Builds the OVS CNI image
 		-t $(OVS_CNI_IMAGE):${TAG} \
 		.
 
-.PHONY: docker-build-ovnkubernetes-dpu
-docker-build-ovnkubernetes-dpu: $(OVNKUBERNETES_DPU_DIR) $(OVN_DIR) ## Builds the custom OVN Kubernetes image that is used for the DPU (worker) nodes
-	docker buildx build \
-		--load \
-		--provenance=false \
-		--platform linux/${HOST_ARCH} \
-		--build-arg base_image=${OVNKUBERNETES_BASE_IMAGE} \
-		--build-arg ovn_dir=$(shell realpath --relative-to $(CURDIR) $(OVN_DIR)) \
-		--build-arg ovn_kubernetes_dir=$(shell realpath --relative-to $(CURDIR) $(OVNKUBERNETES_DPU_DIR)) \
-		-f Dockerfile.ovn-kubernetes-dpu \
-		. \
-		-t $(OVNKUBERNETES_DPU_IMAGE):$(TAG)
 
-.PHONY: docker-build-ovnkubernetes-non-dpu
-docker-build-ovnkubernetes-non-dpu: $(OVNKUBERNETES_NON_DPU_DIR) ## Builds the custom OVN Kubernetes image that is used for the non DPU (control plane) nodes
+.PHONY: docker-build-ovn-kubernetes # Build a multi-arch image for DPF System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
+docker-build-ovn-kubernetes: $(addprefix docker-build-ovn-kubernetes-for-,$(DPF_SYSTEM_ARCH))
+
+docker-build-ovn-kubernetes-for-%: $(OVNKUBERNETES_DIR)
+	# Provenance false ensures this target builds an image rather than a manifest when using buildx.
 	docker buildx build \
 		--load \
 		--provenance=false \
-		--platform linux/${HOST_ARCH} \
-		--build-arg base_image=${OVNKUBERNETES_BASE_IMAGE} \
-		--build-arg ovn_kubernetes_dir=$(shell realpath --relative-to $(CURDIR) $(OVNKUBERNETES_NON_DPU_DIR)) \
-		-f Dockerfile.ovn-kubernetes-non-dpu \
+		--platform=linux/$* \
+		--build-arg goarch=$* \
+		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
+		--build-arg ovn_kubernetes_dir=$(subst $(CURDIR)/,,$(OVNKUBERNETES_DIR)) \
+		-f Dockerfile.ovn-kubernetes \
 		. \
-		-t $(OVNKUBERNETES_NON_DPU_IMAGE):$(TAG)
+		-t $(OVNKUBERNETES_IMAGE):$(TAG)-$*
+
+.PHONY: docker-push-ovn-kubernetes # Push a multi-arch image for ovn-kubernetes using `docker manifest`. The variable DPF_SYSTEM_ARCH defines which architectures this target pushes for.
+docker-push-ovn-kubernetes: $(addprefix docker-push-ovn-kubernetes-for-,$(DPF_SYSTEM_ARCH))
+	docker manifest push --purge $(OVNKUBERNETES_IMAGE):$(TAG)
+
+docker-push-ovn-kubernetes-for-%:
+	# Tag and push the arch-specific image with the single arch-agnostic tag.
+	docker tag $(OVNKUBERNETES_IMAGE):$(TAG)-$* $(OVNKUBERNETES_IMAGE):$(TAG)
+	docker push $(OVNKUBERNETES_IMAGE):$(TAG)
+	# This must be called in a separate target to ensure the shell command is called in the correct order.
+	$(MAKE) docker-create-manifest-for-ovn-kubernetes
+
+docker-create-manifest-for-ovn-kubernetes:
+	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
+	docker manifest create --amend $(OVNKUBERNETES_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(OVNKUBERNETES_IMAGE):$(TAG))
 
 .PHONY: docker-build-ovnkubernetes-operator
 docker-build-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-embedded ## Build docker images for the operator-controller
@@ -904,7 +814,6 @@ docker-build-ovnkubernetes-operator: generate-manifests-ovnkubernetes-operator-e
 		--build-arg package=./cmd/ovnkubernetesoperator \
 		-t $(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG) \
 		.
-		
 
 .PHONY: docker-build-hostnetwork
 docker-build-hostnetwork: ## Build docker image with the hostnetwork.
@@ -994,14 +903,6 @@ docker-push-hostcniprovisioner: ## Push the docker image for Host CNI Provisione
 .PHONY: docker-push-ipallocator
 docker-push-ipallocator: ## Push the docker image for IP Allocator.
 	docker push $(IPALLOCATOR_IMAGE):$(TAG)
-
-.PHONY: docker-push-ovnkubernetes-dpu
-docker-push-ovnkubernetes-dpu: ## Push the custom OVN Kubernetes image that is used for the DPU (worker) nodes
-	docker push $(OVNKUBERNETES_DPU_IMAGE):$(TAG)
-
-.PHONY: docker-push-ovnkubernetes-non-dpu
-docker-push-ovnkubernetes-non-dpu: ## Push the custom OVN Kubernetes image that is used for the non DPU (control plane) nodes
-	docker push $(OVNKUBERNETES_NON_DPU_IMAGE):$(TAG)
 
 # TODO: Consider whether this should be part of the docker-build-all- build targets.
 .PHONY: docker-build-operator-bundle # Build the docker image for the Operator bundle. Not included in docker-build-all.

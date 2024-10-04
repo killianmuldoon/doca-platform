@@ -12,8 +12,8 @@ sriovDPImage: ${SRIOVDP_IMAGE}:${SRIOVDP_TAG}
 nvipamImage: ${NVIPAM_IMAGE}:${NVIPAM_TAG}
 
 ## These images are no longer published with the DPF release process. They should only be used from the demo release tag.
-customOVNKubernetesDPUImage: ${OVNKUBERNETES_DPU_IMAGE}:${TAG}
-customOVNKubernetesNonDPUImage: ${OVNKUBERNETES_NON_DPU_IMAGE}:${TAG}
+customOVNKubernetesDPUImage: ${OVNKUBERNETES_IMAGE}:${TAG}
+customOVNKubernetesNonDPUImage: ${OVNKUBERNETES_IMAGE}:${TAG}
 
 ## Helm charts built as part of the DPF release.
 dpuNetworkingHelmChart: ${HELM_REGISTRY}/${DPU_NETWORKING_HELM_CHART_NAME}:${TAG}
