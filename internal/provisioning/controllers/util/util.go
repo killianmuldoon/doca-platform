@@ -397,6 +397,11 @@ func GeneratePodToleration(nodeEffect provisioningv1.NodeEffect) []corev1.Tolera
 			Effect:   corev1.TaintEffectNoExecute,
 		},
 		{
+			Key:      TolerationNotReadyKey,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
 			Key:      TolerationUnreachableyKey,
 			Operator: corev1.TolerationOpExists,
 			Effect:   corev1.TaintEffectNoExecute,
