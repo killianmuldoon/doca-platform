@@ -131,7 +131,7 @@ $(SOS_REPORT_DIR): | $(REPOSDIR)
 	cp -Rp ./hack/tools/dpf-tools/* $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF}/
 
 ##@ Development
-GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded release-defaults hbn-dpuservice dummydpuservice nvidia-cluster-manager static-cluster-manager dpu-detector
+GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded ovnkubernetes-operator ovnkubernetes-operator-embedded release-defaults dummydpuservice nvidia-cluster-manager static-cluster-manager dpu-detector
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -305,10 +305,6 @@ generate-manifests-static-cluster-manager: controller-gen kustomize ## Generate 
 .PHONY: generate-manifests-dpu-detector
 generate-manifests-dpu-detector: kustomize
 	cd config/dpu-detector && $(KUSTOMIZE) edit set image dpu-detector=$(DMS_IMAGE):$(TAG)
-
-.PHONY: generate-manifests-hbn-dpuservice
-generate-manifests-hbn-dpuservice: envsubst
-	$(ENVSUBST) < deploy/dpuservices/hbn/chart/values.yaml.tmpl > deploy/dpuservices/hbn/chart/values.yaml
 
 .PHONY: generate-operator-bundle
 generate-operator-bundle: helm operator-sdk generate-manifests-operator ## Generate bundle manifests and metadata, then validate generated files.
@@ -588,7 +584,7 @@ binary-detector: ## Build the DPU detector binary.
 
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=operator-bundle hostnetwork dms
-DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller hbn hbn-sidecar ovs-cni
+DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller ovs-cni
 MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes
 
 .PHONY: docker-build-all
@@ -625,15 +621,6 @@ DPUCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(DPUCNIPROVISIONER_IMAGE_NAME)
 
 DPFOVNKUBERNETESOPERATOR_IMAGE_NAME ?= dpf-ovn-kubernetes-operator-controller-manager
 export DPFOVNKUBERNETESOPERATOR_IMAGE ?= $(REGISTRY)/$(DPFOVNKUBERNETESOPERATOR_IMAGE_NAME)
-
-HBN_DPUSERVICE_DIR ?= deploy/dpuservices/hbn
-HBN_IMAGE_NAME ?= hbn
-export HBN_IMAGE ?= $(REGISTRY)/$(HBN_IMAGE_NAME)
-export HBN_NVCR_TAG ?= 2.2.0-doca2.7.0
-export HBN_TAG ?= $(HBN_NVCR_TAG)-dpf-$(TAG)
-
-HBN_SIDECAR_IMAGE_NAME ?= hbn-sidecar
-export HBN_SIDECAR_IMAGE ?= $(REGISTRY)/$(HBN_SIDECAR_IMAGE_NAME)
 
 DUMMYDPUSERVICE_IMAGE_NAME ?= dummydpuservice
 export DUMMYDPUSERVICE_IMAGE ?= $(REGISTRY)/$(DUMMYDPUSERVICE_IMAGE_NAME)
@@ -743,18 +730,6 @@ docker-build-ipallocator: ## Build docker image for the IP Allocator
 		. \
 		-t $(IPALLOCATOR_IMAGE):$(TAG)
 
-.PHONY: docker-build-hbn-sidecar
-docker-build-hbn-sidecar: ## Build HBN sidecar DPU service image
-	cd $(HBN_DPUSERVICE_DIR) && \
-	docker buildx build \
-		--load \
-		--provenance=false \
-		--platform=linux/${DPU_ARCH} \
-		--build-arg hbn_nvcr_tag=$(HBN_NVCR_TAG) \
-		-f Dockerfile.sidecar \
-		. \
-		-t $(HBN_SIDECAR_IMAGE):$(TAG)
-
 .PHONY: docker-build-ovs-cni
 docker-build-ovs-cni: $(OVS_CNI_DIR) ## Builds the OVS CNI image
 	cd $(OVS_CNI_DIR) && \
@@ -839,19 +814,6 @@ docker-build-dms: ## Build docker image with the hostnetwork.
 		.
 		
 
-.PHONY: docker-build-hbn
-docker-build-hbn: ## Build docker image for HBN.
-	## Note this image only ever builds for arm64.
-	cd $(HBN_DPUSERVICE_DIR) && \
-	docker buildx build \
-		--load \
-		--provenance=false \
-		--build-arg hbn_nvcr_tag=$(HBN_NVCR_TAG) \
-		-t $(HBN_IMAGE):$(HBN_TAG) \
-		-f Dockerfile \
-		.
-		
-
 .PHONY: docker-build-dummydpuservice
 docker-build-dummydpuservice: ## Build docker images for the dummydpuservice
 	docker buildx build \
@@ -875,10 +837,6 @@ docker-push-dpf-system: ## This is a no-op to allow using DOCKER_BUILD_TARGETS.
 .PHONY: docker-push-sfc-controller
 docker-push-sfc-controller:
 	docker push $(SFC_CONTROLLER_IMAGE):$(TAG)
-
-.PHONY: docker-push-hbn-sidecar
-docker-push-hbn-sidecar: ## Push the docker image for HBN sidecar.
-	docker push $(HBN_SIDECAR_IMAGE):$(TAG)
 
 .PHONY: docker-push-ovs-cni
 docker-push-ovs-cni: ## Push the docker image for ovs-cni
@@ -923,10 +881,6 @@ docker-push-operator-bundle: ## Push the bundle image.
 docker-push-ovnkubernetes-operator: ## Push the docker image for the OVN Kubernetes operator.
 	docker push $(DPFOVNKUBERNETESOPERATOR_IMAGE):$(TAG)
 
-.PHONY: docker-push-hbn
-docker-push-hbn: ## Push the docker image for HBN
-	docker push $(HBN_IMAGE):$(HBN_TAG)
-
 .PHONY: docker-push-dummydpuservice
 docker-push-dummydpuservice: ## Push the docker image for dummydpuservice
 	docker push $(DUMMYDPUSERVICE_IMAGE):$(TAG)
@@ -937,7 +891,7 @@ docker-push-dummydpuservice: ## Push the docker image for dummydpuservice
 # By default the helm registry is assumed to be an OCI registry. This variable should be overwritten when using a https helm repository.
 export HELM_REGISTRY ?= oci://$(REGISTRY)
 
-HELM_TARGETS ?= dpu-networking operator hbn-dpuservice
+HELM_TARGETS ?= dpu-networking operator
 
 # metadata for the operator helm chart
 OPERATOR_HELM_CHART_NAME ?= dpf-operator
@@ -952,11 +906,6 @@ DPU_NETWORKING_HELM_CHART_VER ?= $(TAG)
 export DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME = dpf-ovn-kubernetes-operator
 DPFOVNKUBERNETESOPERATOR_HELM_CHART ?= $(HELMDIR)/$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME)
 DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER ?= $(TAG)
-
-## metadata for hbn dpuservice.
-export HBN_HELM_CHART_NAME = hbn
-HBN_HELM_CHART ?= $(DPUSERVICESDIR)/$(HBN_HELM_CHART_NAME)/chart
-HBN_HELM_CHART_VER ?= $(TAG)
 
 # metadata for dummydpuservice.
 DUMMYDPUSERVICE_HELM_CHART_NAME = dummydpuservice-chart
@@ -981,10 +930,6 @@ helm-package-operator: $(CHARTSDIR) helm ## Package helm chart for DPF Operator
 helm-package-ovnkubernetes-operator: $(CHARTSDIR) helm ## Package helm chart for OVN Kubernetes Operator
 	$(HELM) package $(DPFOVNKUBERNETESOPERATOR_HELM_CHART) --version $(DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER) --destination $(CHARTSDIR)
 
-.PHONY: helm-package-hbn-dpuservice
-helm-package-hbn-dpuservice: $(DPUSERVICESDIR) helm generate-manifests-hbn-dpuservice ## Package helm chart for HBN
-	$(HELM) package $(HBN_HELM_CHART) --version $(HBN_HELM_CHART_VER) --destination $(CHARTSDIR)
-
 .PHONY: helm-package-dummydpuservice
 helm-package-dummydpuservice: $(DPUSERVICESDIR) helm generate-manifests-dummydpuservice ## Package helm chart for dummydpuservice
 	$(HELM) package $(DUMMYDPUSERVICE_HELM_CHART) --version $(TAG) --destination $(CHARTSDIR)
@@ -1006,12 +951,8 @@ helm-push-dpu-networking: $(CHARTSDIR) helm ## Push helm chart for service chain
 helm-push-ovnkubernetes-operator: $(CHARTSDIR) helm ## Push helm chart for DPF OVN Kubernetes Operator
 	$(HELM) push $(CHARTSDIR)/$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_NAME)-chart-$(DPFOVNKUBERNETESOPERATOR_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
-.PHONY: helm-push-hbn-dpuservice
-helm-push-hbn-dpuservice: $(CHARTSDIR) helm ## Push helm chart for HBN
-	$(HELM) push $(CHARTSDIR)/$(HBN_HELM_CHART_NAME)-chart-$(TAG).tgz $(HELM_REGISTRY)
-
 .PHONY: helm-push-dummydpuservice
-helm-push-dummydpuservice: $(CHARTSDIR) helm ## Push helm chart for HBN
+helm-push-dummydpuservice: $(CHARTSDIR) helm ## Push helm chart for dummydpuservice
 	$(HELM) push $(CHARTSDIR)/$(DUMMYDPUSERVICE_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
 
 ##@ Development Environment

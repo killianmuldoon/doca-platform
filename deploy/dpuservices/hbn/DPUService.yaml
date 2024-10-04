@@ -1,98 +1,106 @@
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUService
 metadata:
-  name: hbn-dpuservice
-  namespace: hbn
+  name: doca-hbn
+  namespace: dpf-operator-system
 spec:
-  serviceID: hbn
   serviceDaemonSet:
-    nodeSelector:
-      nodeSelectorTerms:
-      - matchExpressions:
-          - key: dpu
-            operator: In
-            values:
-              - dpu
-    updateStrategy:
-      type: RollingUpdate
-      rollingUpdate:
-        maxUnavailable: 2
     labels:
-      dpuservice.dpu.nvidia.com/name: hbn
+      dpuservice.dpf.nvidia.com/name: doca-hbh
     annotations:
-      dpuservice.dpu.nvidia.com/name: hbn
+      dpuservice.dpf.nvidia.com/name: doca-hbn
+      # TODO: 
+      #  - remove interface requests related to "mybrn" and use interfaces DPUService interfaces instead
+      #  - align nv-ipam pool names with OVN and deployemnt guide
+      k8s.v1.cni.cncf.io/networks: |-
+        [
+        {"name": "mybrhbn", "interface": "p0_sf"},
+        {"name": "mybrhbn", "interface": "p1_sf"},
+        {"name": "mybrhbn", "interface": "pf2dpu2_sf"},
+        {"name": "iprequest", "interface": "ip_lo", "cni-args": {"poolNames": ["loopback"], "poolType": "cidrpool"}},
+        {"name": "iprequest", "interface": "ip_pf2dpu2", "cni-args": {"poolNames": ["pf2dpu"], "poolType": "cidrpool", "allocateDefaultGateway": true}}
+        ]
   helmChart:
     source:
-      repoURL:  nvidia.com/dpf
-      version: v0.1.0
-      chart: hbn-chart
+      repoURL: https://helm.ngc.nvidia.com/nvstaging/doca # TODO: update to the public namespace
+      version: 1.0.0-dev # TODO: update to the GA version
+      chart: doca-hbn
     values:
-      hbnNodesConf:
-        hbnNodesConfigJson: |-
-          {
-            "host1": {
-              "lo_ip": "10.10.10.1/32",
-              "lo_ipv6": "2010:10:10::1/128",
-              "vlan_ip": "30.30.30.1/24",
-              "vlan_ipv6": "2030:30:30::1/64",
-              "vlan_id": "101",
-              "bgp_autonomous_system": "65501",
-              "bgp_router_id": "10.10.10.1"
-            },
-            "clx-host-068-dpu.maas": {
-              "lo_ip": "10.10.10.2/32",
-              "lo_ipv6": "2010:10:10::2/128",
-              "vlan_ip": "30.30.30.2/24",
-              "vlan_ipv6": "2030:30:30::2/64",
-              "vlan_id": "102",
-              "bgp_autonomous_system": "65502",
-              "bgp_router_id": "10.10.10.2"
-            },
-            "host3": {
-              "lo_ip": "10.10.10.3/32",
-              "lo_ipv6": "2010:10:10::3/128",
-              "vlan_ip": "30.30.30.3/24",
-              "vlan_ipv6": "2030:30:30::3/64",
-              "vlan_id": "103",
-              "bgp_autonomous_system": "65503",
-              "bgp_router_id": "10.10.10.3"
-            }
-          }
-
-      # 8) Startup template for HBN pod. Can be set in DPUService `.spec.values.j2StartupTemplate.startupYamlJ2`
-      j2StartupTemplate:
-        startupYamlJ2: |-
+      # TODO: remove imagePullSecrets from the example before GA releaes
+      imagePullSecrets:
+        - name: dpf-pull-secret
+      # TODO: remove image settings from the example before GA releaes
+      image:
+        repository: nvcr.io/nvstaging/doca/doca_hbn
+        tag: 2.dev.191-doca2.9.0
+      resources:
+        memory: 6Gi
+        nvidia.com/bf_sf: 3
+      configuration:
+        # The "perDPUValuesYAML" field should contain a string with a YAML list.
+        # This list is used to compute template values for a specific DPU.
+        # The elements of the list should be sorted by priority, with the first element having
+        # the lowest priority and the last element having the highest priority.
+        # The resulting values for the DPU are computed by traversing the list from the beginning to the end.
+        # Typically, the first element will match all hosts (*) and should contain default values.
+        # More specific selectors should be placed closer to the end of the list.
+        # The resulting values for the hostname will include merged values from all matching patterns,
+        # with values from patterns closer to the end of the list taking precedence.
+        perDPUValuesYAML: |
+          - hostnamePattern: "*"
+            values:
+              bgp_autonomous_system: 65111
+              bgp_peer_group: hbn
+          - hostnamePattern: "myhost-a*"
+            values:
+              bgp_autonomous_system: 65112
+        # The "startupYAMLJ2" field includes a JINJA2 template for the startup configuration,
+        # where DPU-specific values calculated from "perDPUValuesYAML" are inserted into the template within the "config" object.
+        # These values can be referenced using "{{ config.bgp_autonomous_system }}",
+        # where "bgp_autonomous_system" is the variable name from "perDPUValuesYAML".
+        #
+        # IP addresses requested from the "iprequest" network (using the "k8s.v1.cni.cncf.io/networks" annotation)
+        # are accessible via the "ipaddresses" object in the template.
+        #
+        # Example:
+        #       k8s.v1.cni.cncf.io/networks: |-
+        #         [{"name": "iprequest", "interface": "ip_lo", 
+        #           "cni-args":{"poolNames": ["loopback"], "poolType": "cidrpool"}},
+        #          {"name": "iprequest", "interface": "ip_pf2dpu2", 
+        #           "cni-args":{"poolNames": ["pf2dpu"], "poolType": "cidrpool", "allocateDefaultGateway": true}}]
+        #
+        # You can access the IP address assigned by this request using this syntax within the template:
+        #  - "{{ ipaddresses.ip_pf2dpu2.ip }}" - allocated IP only, e.g. 10.10.10.55
+        #  - "{{ ipaddresses.ip_pf2dpu2.cidr }}" -allocated IP with prefix size, e.g. 10.10.10.55/24
+        #  - "{{ ipaddresses.ip_pf2dpu2.prefixlen }}" - length of the prefix for the allocation, e.g. 24
+        #  - "{{ ipaddresses.ip_lo.ip }}" - allocated IP only, e.g. 22.22.22.1
+        startupYAMLJ2: |
           - header:
               model: BLUEFIELD
               nvue-api-version: nvue_v1
               rev-id: 1.0
-              version: HBN 2.1.0
+              version: HBN 2.4.0
           - set:
-              bridge:
-                domain:
-                  br_default:
-                    vlan:
-                      '{{ config.vlan_id }}': {}
               interface:
                 lo:
                   ip:
                     address:
-                      {{ config.lo_ip }}: {}
-                      {{ config.lo_ipv6 }}: {}
+                      {{ ipaddresses.ip_lo.ip }}/32: {}
                   type: loopback
-                p0_sf:
+                p0_sf,p1_sf:
                   type: swp
-                vlan{{ config.vlan_id }}:
-                  base-interface: br_default
+                pf2dpu2_sf:
                   ip:
                     address:
-                      {{ config.vlan_ip }}: {}
-                      {{ config.vlan_ipv6 }}: {}
-                  type: svi
-                  vlan: {{ config.vlan_id }}
+                      {{ ipaddresses.ip_pf2dpu2.cidr }}: {}
+                  type: swp
               router:
                 bgp:
+                  autonomous-system: {{ config.bgp_autonomous_system }}
                   enable: on
+                  graceful-restart:
+                    mode: full
+                  router-id: {{ ipaddresses.ip_lo.ip }}
               vrf:
                 default:
                   router:
@@ -108,19 +116,17 @@ spec:
                           redistribute:
                             connected:
                               enable: on
-                      autonomous-system: {{ config.bgp_autonomous_system }}
                       enable: on
                       neighbor:
                         p0_sf:
-                          address-family:
-                            ipv4-unicast:
-                              enable: on
-                            ipv6-unicast:
-                              enable: on
-                          remote-as: external
+                          peer-group: {{ config.bgp_peer_group }}
+                          type: unnumbered
+                        p1_sf:
+                          peer-group: {{ config.bgp_peer_group }}
                           type: unnumbered
                       path-selection:
                         multipath:
                           aspath-ignore: on
-                      router-id: {{ config.bgp_router_id }}
-
+                      peer-group:
+                        {{ config.bgp_peer_group }}:
+                          remote-as: external
