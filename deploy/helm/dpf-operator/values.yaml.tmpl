@@ -40,14 +40,14 @@ argo-cd:
   global:
     affinity:
       nodeAffinity:
-        requiredDuringSchedulingIgnoredDuringExecution:
-          nodeSelectorTerms:
-            - matchExpressions:
-                - key: "node-role.kubernetes.io/master"
-                  operator: Exists
-            - matchExpressions:
-                - key: "node-role.kubernetes.io/control-plane"
-                  operator: Exists
+        # -- Default node affinity rules. Either: `none`, `soft` or `hard`
+        type: soft
+        # -- Default match expressions for node affinity
+        matchExpressions:
+          - key: "node-role.kubernetes.io/master"
+            operator: Exists
+          - key: "node-role.kubernetes.io/control-plane"
+            operator: Exists
     tolerations:
       - key: node-role.kubernetes.io/master
         operator: Exists
