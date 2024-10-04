@@ -19,15 +19,17 @@ package controllers
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 
+	"dario.cat/mergo"
 	"gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/types"
 )
 
 // addNetworkAnnotationToServiceDaemonSet adds the network annotation to the ServiceDaemonSet.
 // It returns a copy of the ServiceDaemonSet with the network annotation added.
-func addNetworkAnnotationToServiceDaemonSet(dpuService *dpuservicev1.DPUService, networks []types.NetworkSelectionElement) (*dpuservicev1.ServiceDaemonSetValues, error) {
+func addNetworkAnnotationToServiceDaemonSet(dpuService *dpuservicev1.DPUService, networks map[string]types.NetworkSelectionElement) (*dpuservicev1.ServiceDaemonSetValues, error) {
 	service := dpuService.DeepCopy()
 	if service.Spec.ServiceDaemonSet == nil {
 		service.Spec.ServiceDaemonSet = &dpuservicev1.ServiceDaemonSetValues{}
@@ -43,17 +45,20 @@ func addNetworkAnnotationToServiceDaemonSet(dpuService *dpuservicev1.DPUService,
 	}
 
 	// look for any existing annotations
-	if existingNetworks, ok := service.Spec.ServiceDaemonSet.Annotations[networkAnnotationKey]; ok {
-		// Unmarshal existing networks into networks.
-		// This effectively merges the existing networks with the new ones.
-		// If there are any duplicates, the existing networks take precedence
-		err := json.Unmarshal([]byte(existingNetworks), &networks)
+	var existingNetworks []types.NetworkSelectionElement
+	if n, ok := service.Spec.ServiceDaemonSet.Annotations[networkAnnotationKey]; ok {
+		err := json.Unmarshal([]byte(n), &existingNetworks)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal existing networks: %v, expected format is a list of objects", err)
 		}
 	}
 
-	values, err := json.Marshal(networks)
+	result, err := mergeIntoSlice(networks, existingNetworks)
+	if err != nil {
+		return nil, err
+	}
+
+	values, err := json.Marshal(result)
 	if err != nil {
 		return nil, err
 	}
@@ -97,4 +102,34 @@ func newNetworkSelectionElement(dpuServiceInterface *dpuservicev1.DPUServiceInte
 		Namespace:        ns,
 		InterfaceRequest: interfaceName,
 	}
+}
+
+func mergeIntoSlice(networks map[string]types.NetworkSelectionElement, existingNetworks []types.NetworkSelectionElement) ([]types.NetworkSelectionElement, error) {
+	result := make([]types.NetworkSelectionElement, 0)
+	for _, e := range existingNetworks {
+		if n, ok := networks[e.Name]; !ok {
+			result = append(result, e)
+		} else {
+			// existing network take precedence.
+			// Note that override only work if the value is not empty in src
+			if err := mergo.Merge(&n, &e, mergo.WithOverride, mergo.WithoutDereference); err != nil {
+				return nil, err
+			}
+			result = append(result, n)
+		}
+		delete(networks, e.Name)
+	}
+	for _, n := range networks {
+		result = append(result, n)
+	}
+	slices.SortFunc(result, func(a, b types.NetworkSelectionElement) int {
+		if a.Name < b.Name {
+			return -1
+		}
+		if a.Name > b.Name {
+			return 1
+		}
+		return 0
+	})
+	return result, nil
 }

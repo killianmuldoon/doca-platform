@@ -3,6 +3,7 @@ module gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundatio
 go 1.22.1
 
 require (
+	dario.cat/mergo v1.0.1
 	github.com/Masterminds/sprig/v3 v3.2.3
 	github.com/Mellanox/maintenance-operator/api v0.1.0
 	github.com/cert-manager/cert-manager v1.15.2

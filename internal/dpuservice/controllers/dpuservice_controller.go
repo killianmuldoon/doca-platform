@@ -436,11 +436,12 @@ func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, 
 // reconcileInterfaces reconciles the DPUServiceInterfaces associated with the DPUService.
 func (r *DPUServiceReconciler) reconcileInterfaces(ctx context.Context, dpuService *dpuservicev1.DPUService) (*dpuservicev1.ServiceDaemonSetValues, error) {
 	log := ctrllog.FromContext(ctx)
-	networks := []multusTypes.NetworkSelectionElement{}
+	networks := map[string]multusTypes.NetworkSelectionElement{}
 
 	if dpuService.Spec.Interfaces == nil {
-		return nil, nil
+		return dpuService.Spec.ServiceDaemonSet, nil
 	}
+
 	for _, interfaceName := range dpuService.Spec.Interfaces {
 		dpuServiceInterface := &dpuservicev1.DPUServiceInterface{}
 		if err := r.Client.Get(ctx, types.NamespacedName{Name: interfaceName, Namespace: dpuService.Namespace}, dpuServiceInterface); err != nil {
@@ -478,8 +479,8 @@ func (r *DPUServiceReconciler) reconcileInterfaces(ctx context.Context, dpuServi
 			}
 		}
 
-		// get network name from DPUServiceInterface
-		networks = append(networks, newNetworkSelectionElement(dpuServiceInterface))
+		_, name := service.GetNetwork()
+		networks[name] = newNetworkSelectionElement(dpuServiceInterface)
 	}
 
 	serviceDaemonSet, err := addNetworkAnnotationToServiceDaemonSet(dpuService, networks)

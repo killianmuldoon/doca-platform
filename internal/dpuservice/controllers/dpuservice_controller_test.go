@@ -218,6 +218,97 @@ var _ = Describe("DPUService Controller", func() {
 	})
 })
 
+var _ = Describe("DPUService Controller reconcile interfaces", func() {
+	var (
+		testNS              *corev1.Namespace
+		dpuServiceInterface *dpuservicev1.DPUServiceInterface
+		cleanupObjs         []client.Object
+	)
+	BeforeEach(func() {
+		By("creating the namespaces")
+		testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+		Expect(testClient.Create(ctx, testNS)).To(Succeed())
+
+		dpuServiceInterface = getMinimalDPUServiceInterface(testNS.Name)
+		Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, dpuServiceInterface))).To(Succeed())
+		cleanupObjs = append(cleanupObjs, dpuServiceInterface)
+	})
+	AfterEach(func() {
+		By("Cleanup the Namespace and Secrets")
+		Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjs...)).To(Succeed())
+		Expect(testClient.Delete(ctx, testNS)).To(Succeed())
+	})
+
+	DescribeTable("reconcile serviceDaemonSet values",
+		func(dpuService *dpuservicev1.DPUService, interfaceName string, expected *dpuservicev1.ServiceDaemonSetValues) {
+			if interfaceName != "" {
+				dpuService.Spec.Interfaces = []string{interfaceName}
+				dpuService.Namespace = testNS.Name
+			}
+			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
+			values, err := r.reconcileInterfaces(ctx, dpuService)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(values).To(Equal(expected))
+		},
+		Entry("empty values", &dpuservicev1.DPUService{
+			Spec: dpuservicev1.DPUServiceSpec{
+				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{},
+			},
+		}, "", &dpuservicev1.ServiceDaemonSetValues{
+			Annotations: nil,
+			Labels:      nil,
+		}),
+		Entry("values with annotations", &dpuservicev1.DPUService{
+			Spec: dpuservicev1.DPUServiceSpec{
+				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+					Annotations: map[string]string{
+						networkAnnotationKey: `[{"name":"mybrsfc","namespace":"my-namespace","interface":"net1","cni-args":null}]`,
+					},
+				},
+			},
+		}, "", &dpuservicev1.ServiceDaemonSetValues{
+			Annotations: map[string]string{
+				networkAnnotationKey: `[{"name":"mybrsfc","namespace":"my-namespace","interface":"net1","cni-args":null}]`,
+			},
+			Labels: nil,
+		}),
+		Entry("values with labels", &dpuservicev1.DPUService{
+			Spec: dpuservicev1.DPUServiceSpec{
+				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+					Labels: map[string]string{
+						dpuservicev1.DPFServiceIDLabelKey: "service-one",
+					},
+				},
+			},
+		}, "", &dpuservicev1.ServiceDaemonSetValues{
+			Annotations: nil,
+			Labels: map[string]string{
+				dpuservicev1.DPFServiceIDLabelKey: "service-one",
+			},
+		}),
+		Entry("DPUService with interfaces", &dpuservicev1.DPUService{
+			Spec: dpuservicev1.DPUServiceSpec{
+				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+					Annotations: map[string]string{
+						networkAnnotationKey: `[{"name":"iprequest","interface":"myip1","cni-args":{"allocateDefaultGateway":true,"poolNames":["pool1"],"poolType":"cidrpool"}}]`,
+					},
+					Labels: map[string]string{
+						dpuservicev1.DPFServiceIDLabelKey: "service-one",
+					},
+				},
+			},
+		}, "dpu-service-interface", &dpuservicev1.ServiceDaemonSetValues{
+			Annotations: map[string]string{
+				networkAnnotationKey: `[{"name":"iprequest","interface":"myip1","cni-args":{"allocateDefaultGateway":true,"poolNames":["pool1"],"poolType":"cidrpool"}},` +
+					`{"name":"mybrsfc","namespace":"my-namespace","interface":"net1","cni-args":null}]`,
+			},
+			Labels: map[string]string{
+				dpuservicev1.DPFServiceIDLabelKey: "service-one",
+			},
+		}),
+	)
+})
+
 func assertDPUService(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService) {
 	for i := range dpuServices {
 		gotDPUService := &dpuservicev1.DPUService{}
@@ -736,7 +827,7 @@ func getMinimalDPUServiceInterface(namespace string) *dpuservicev1.DPUServiceInt
 							InterfaceName: ptr.To("net1"),
 							Service: &dpuservicev1.ServiceDef{
 								ServiceID: "service-one",
-								Network:   "mybrsfc",
+								Network:   "my-namespace/mybrsfc",
 							},
 						},
 					},
