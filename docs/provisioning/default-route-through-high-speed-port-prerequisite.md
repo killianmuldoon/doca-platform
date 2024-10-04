@@ -53,9 +53,9 @@ get_high_speed_interface() {
 }
 
 # Function to get IP address of a given interface
-get_interface_ip() {
+get_interface_dhcp_ip() {
     local iface=$1
-    ip addr show "$iface" | awk '/inet / {print $2}' | cut -d/ -f1
+    ip addr show "$iface" | grep "dynamic" | awk '/inet / {print $2}' | cut -d/ -f1
 }
 
 # Function to get the default gateway for a given interface's subnet
@@ -64,23 +64,36 @@ get_default_gateway() {
     ip route | awk -v iface="$iface" '$0 ~ iface && /default/ {print $3}'
 }
 
+# Function that adjusts the metric of a default route
+adjust_default_route_metric() {
+   local interface=$1
+   local metric=$2
+    local gateway=$3
+
+   remove_default_route $1
+   sleep 2
+   add_default_route $1 $2 $3
+}
+
 # Function to add default route with a specified metric
 add_default_route() {
     local interface=$1
     local metric=$2
-    ip route add default dev "$interface" metric "$metric" || true
+    local gateway=$3
+    ip route add default dev "$interface" via "$gateway" metric "$metric"
 }
 
 # Function to remove default route
 remove_default_route() {
     local interface=$1
-    ip route del default dev "$interface" || true
+    ip route del default dev "$interface"
 }
 
 # Function to check if a default route exists for an interface
 route_exists() {
     local interface=$1
-    ip route show | grep -q "default .* dev $interface"
+    local metric=$2
+    ip route show | grep -q "default .* dev $interface metric $metric"
 }
 
 # Find the high-speed interface before entering the loop
@@ -93,12 +106,14 @@ fi
 
 PING_COUNT=2
 
-CURRENT_METRIC=$(ip route | awk '/default/ {print $5; exit}')
+CURRENT_METRIC=$(ip route show default | head -n 1 | awk -F 'metric' '{print $2}' | tr -d " ")
 NEW_METRIC=$((CURRENT_METRIC - 1))
 NEW_METRIC=$((NEW_METRIC < 1 ? 1 : NEW_METRIC))
+NEW_LOW_METRIC=$NEW_METRIC
+NEW_HIGH_METRIC=$((NEW_METRIC + 2))
 
 while true; do
-    INTERFACE_IP=$(get_interface_ip "$HIGH_SPEED_INTERFACE")
+    INTERFACE_IP=$(get_interface_dhcp_ip "$HIGH_SPEED_INTERFACE")
 
     if [[ -z "$INTERFACE_IP" ]]; then
         logger "WARNING: No IP address assigned to $HIGH_SPEED_INTERFACE."
@@ -116,22 +131,23 @@ while true; do
 
     if ping -I "$INTERFACE_IP" -c "$PING_COUNT" "$DEFAULT_GATEWAY" > /dev/null; then
         logger "INFO: Default gateway $DEFAULT_GATEWAY is reachable via $HIGH_SPEED_INTERFACE."
-        if ! route_exists "$HIGH_SPEED_INTERFACE"; then
-            add_default_route "$HIGH_SPEED_INTERFACE" "$NEW_METRIC"
-            logger "INFO: Added default route via $HIGH_SPEED_INTERFACE with metric $NEW_METRIC."
+        if ! route_exists "$HIGH_SPEED_INTERFACE" "$NEW_LOW_METRIC"; then
+            adjust_default_route_metric "$HIGH_SPEED_INTERFACE" "$NEW_LOW_METRIC" "$DEFAULT_GATEWAY"
+            logger "INFO: Added default route via $HIGH_SPEED_INTERFACE with metric $NEW_LOW_METRIC."
         else
             logger "INFO: Default route via $HIGH_SPEED_INTERFACE already exists."
         fi
     else
         logger "ERROR: Default gateway $DEFAULT_GATEWAY is not reachable via $HIGH_SPEED_INTERFACE."
-        if route_exists "$HIGH_SPEED_INTERFACE"; then
-            remove_default_route "$HIGH_SPEED_INTERFACE"
+        if route_exists "$HIGH_SPEED_INTERFACE" "$NEW_HIGH_METRIC"; then
+            adjust_default_route_metric "$HIGH_SPEED_INTERFACE" "$NEW_HIGH_METRIC" "$DEFAULT_GATEWAY"
             logger "INFO: Removed default route via $HIGH_SPEED_INTERFACE."
         else
             logger "INFO: No default route to remove for $HIGH_SPEED_INTERFACE."
         fi
     fi
-    
+
     sleep 2
 
 done
+```
