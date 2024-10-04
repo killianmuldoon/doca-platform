@@ -233,13 +233,8 @@ DPF Operator Deployment
               - ResourceQuota
               - LimitRanger
           networkProfile:
-            port: 6443
             certSANs:
               - dpu-cplane-tenant1.clastix.labs
-            serviceCidr: 10.96.0.0/16
-            podCidr: 10.36.0.0/16
-            dnsServiceIPs:
-              - 10.96.0.10
           addons:
             coreDNS: {}
             kubeProxy: {}

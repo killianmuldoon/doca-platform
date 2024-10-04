@@ -132,7 +132,7 @@ export TENANT_DOMAIN=clastix.labs
 export TENANT_VERSION=v1.29.0
 export TENANT_PORT=6443 # port used to expose the tenant api server
 export TENANT_PROXY_PORT=8132 # port used to expose the konnectivity server
-export TENANT_POD_CIDR=10.36.0.0/16
+export TENANT_POD_CIDR=10.244.0.0/16
 export TENANT_SVC_CIDR=10.96.0.0/16
 export TENANT_DNS_SERVICE=10.96.0.10
 ```

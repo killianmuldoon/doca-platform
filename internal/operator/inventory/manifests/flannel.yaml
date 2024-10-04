@@ -9,5 +9,3 @@ spec:
       repoURL: oci://example.com
       chart: flannel
       version: v0.25.1
-    values:
-      podCidr: "10.36.0.0/16"
