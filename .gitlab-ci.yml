@@ -50,9 +50,11 @@ lint:
     when: always
     paths:
       - hack/tools/bin
+      - hack/repos
       - .gocache
       - .golangci-cache
   before_script:
+    - rm -rf hack/repos
     # Create the directory which is used to cache golangci-lint results.
     # Added to .gitignore.
     - mkdir -p .golangci-cache
