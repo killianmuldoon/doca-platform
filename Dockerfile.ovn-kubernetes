@@ -1,4 +1,4 @@
-FROM docker.io/library/golang:1.22 AS ovnkubernetes-builder
+FROM --platform=${BUILDPLATFORM} docker.io/library/golang:1.22 AS ovnkubernetes-builder
 
 ARG TARGETARCH
 ARG gcflags
@@ -9,7 +9,7 @@ RUN apt update && apt install -y make git
 ARG ovn_kubernetes_dir
 COPY ${ovn_kubernetes_dir} ovn-kubernetes
 RUN cd ovn-kubernetes/dist/images && \
-    make bld
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} make bld
 
 ARG ipallocator_dir
 COPY ./ ./

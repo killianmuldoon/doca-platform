@@ -117,7 +117,7 @@ $(OVS_CNI_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-sfc-cni.git $(OVS_CNI_DIR) $(OVS_CNI_REVISION)
 
 # OVN Kubernetes dependencies to be able to build its docker image
-OVNKUBERNETES_REF=2948520a6abb62f57b9c45618cb93a16d4c204d9
+OVNKUBERNETES_REF=8bb425d085aa144549f18ab851198af5efac9a24
 OVNKUBERNETES_DIR=$(REPOSDIR)/ovn-kubernetes-$(OVNKUBERNETES_REF)
 $(OVNKUBERNETES_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN= $(CURDIR)/hack/scripts/git-clone-repo.sh https://github.com/aserdean/ovn-kubernetes $(OVNKUBERNETES_DIR) $(OVNKUBERNETES_REF)
@@ -717,7 +717,6 @@ docker-build-ovs-cni: $(OVS_CNI_DIR) ## Builds the OVS CNI image
 		-t $(OVS_CNI_IMAGE):${TAG} \
 		.
 
-
 .PHONY: docker-build-ovn-kubernetes # Build a multi-arch image for DPF System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
 docker-build-ovn-kubernetes: $(addprefix docker-build-ovn-kubernetes-for-,$(DPF_SYSTEM_ARCH))
 
@@ -727,7 +726,6 @@ docker-build-ovn-kubernetes-for-%: $(OVNKUBERNETES_DIR)
 		--load \
 		--provenance=false \
 		--platform=linux/$* \
-		--build-arg goarch=$* \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg ovn_kubernetes_dir=$(subst $(CURDIR)/,,$(OVNKUBERNETES_DIR)) \
@@ -861,7 +859,7 @@ DPU_NETWORKING_HELM_CHART_VER ?= $(TAG)
 
 ## metadata for dpf-ovn-kubernetes-operator.
 export OVNKUBERNETES_HELM_CHART_NAME = ovn-kubernetes-chart
-OVNKUBERNETES_HELM_CHART ?= $(OVNKUBERNETES_DIR)/helm/ovn-kubernetes/
+OVNKUBERNETES_HELM_CHART ?= $(OVNKUBERNETES_DIR)/helm/ovn-kubernetes
 OVNKUBERNETES_HELM_CHART_VER ?= $(TAG)
 
 # metadata for dummydpuservice.
