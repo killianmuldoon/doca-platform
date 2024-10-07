@@ -46,7 +46,6 @@ lint:
     GOCACHE: $CI_PROJECT_DIR/.gocache/go-build # avoid rebuilding all the artifacts golangci-lint requires
   cache:
     key: lint
-    untracked: true
     when: always
     paths:
       - hack/tools/bin
@@ -78,7 +77,6 @@ verify:
     TAG: v0.1.0
   cache:
     key: verify
-    untracked: true
     when: always
     paths:
       - hack/tools/bin
@@ -89,7 +87,7 @@ verify:
     # Added to .gitignore.
     - mkdir -p .gocache
   script:
-    -  make verify-generate verify-copyright
+    - make verify-generate verify-copyright
   after_script:
     - git diff
 
@@ -100,7 +98,6 @@ test:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $UNIT_TEST == "true"
   cache:
     key: test
-    untracked: true
     when: always
     paths:
       - hack/tools/bin
@@ -132,7 +129,6 @@ e2e:
     - e2e
   cache:
     key: e2e
-    untracked: true
     when: always
     paths:
       - hack/tools/bin
@@ -174,7 +170,6 @@ e2e-dpf-standalone:
     - dpf/dpu
   cache:
     key: e2e
-    untracked: true
     when: always
     paths:
       - hack/tools/bin

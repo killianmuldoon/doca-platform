@@ -468,7 +468,7 @@ lint-helm-dpu-networking: helm ## Run helm lint for servicechainset chart
 	$Q $(HELM) lint $(DPU_NETWORKING_HELM_CHART)
 
 .PHONY: lint-helm-ovn-kubernetes
-lint-helm-ovn-kubernetes: generate-manifests-ovn-kubernetes helm $(OVNKUBERNETES_DIR) ## Run helm lint for OVN Kubernetes Operator chart
+lint-helm-ovn-kubernetes: generate-manifests-ovn-kubernetes helm ## Run helm lint for OVN Kubernetes Operator chart
 	$Q $(HELM) lint $(OVNKUBERNETES_HELM_CHART)
 
 .PHONY: lint-helm-dummydpuservice
