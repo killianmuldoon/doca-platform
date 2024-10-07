@@ -97,6 +97,7 @@ func (p *dpuDetectorObjects) GenerateManifests(vars Variables, options ...Genera
 	if err := NewEdits().
 		AddForAll(NamespaceEdit(vars.Namespace)).
 		AddForKindS(DaemonsetKind, ImagePullSecretsEditForDaemonSetEdit(vars.ImagePullSecrets...)).
+		AddForKindS(DaemonSetKind, TolerationsEdit(nodeNotReadyTolerations)).
 		Apply(objsCopy); err != nil {
 		return nil, err
 	}

@@ -58,6 +58,7 @@ const (
 
 	kubernetesNodeRoleMaster       = "node-role.kubernetes.io/master"
 	kubernetesNodeRoleControlPlane = "node-role.kubernetes.io/control-plane"
+	nodeNotReadyTaint              = "node.kubernetes.io/not-ready"
 )
 
 var (
@@ -91,6 +92,18 @@ var (
 		},
 		{
 			Key:      kubernetesNodeRoleControlPlane,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+	}
+	nodeNotReadyTolerations = []corev1.Toleration{
+		{
+			Key:      nodeNotReadyTaint,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      nodeNotReadyTaint,
 			Operator: corev1.TolerationOpExists,
 			Effect:   corev1.TaintEffectNoSchedule,
 		},
