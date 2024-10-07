@@ -313,12 +313,29 @@ write_files:
 
         modify_mirrors
 {{ end }}
+  - path: /opt/dpf/remove-90-kubelet-bluefield.sh
+    permissions: '0755'
+    content: |
+        #!/bin/bash
+
+        file_path="/usr/lib/systemd/system/kubelet.service.d/90-kubelet-bluefield.conf"
+
+        if [[ -f "$file_path" ]]; then
+          cp -p "$file_path" "${file_path}.bak"
+          echo "Backup created: ${file_path}.bak"
+
+          rm "$file_path"
+          echo "Original file removed: $file_path"
+        else
+          echo "File does not exist: $file_path"
+        fi
 
 runcmd:
   - [ hostnamectl, set-hostname, {{.HOSTNAME}} ]
   - [ modprobe, br_netfilter ]
   - [ sysctl, -p ]
   - [ systemctl, stop, kubelet ]
+  - [ /opt/dpf/remove-90-kubelet-bluefield.sh ]
   - [ systemctl, daemon-reload ]
   - [ systemctl, enable, containerd ]
   - [ systemctl, start, containerd ]
