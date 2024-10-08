@@ -57,7 +57,7 @@ type BFBSpec struct {
 	// use CRD name in case it is omitted.
 	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9\_\-\.]+\.bfb$`
 	// +optional
-	FileName string `json:"filename,omitempty"`
+	FileName string `json:"fileName,omitempty"`
 
 	// The url of the bfb image to download.
 	// +kubebuilder:validation:Pattern=`^(http|https)://.+\.bfb$`

@@ -40,7 +40,7 @@ spec:
           spec:
             description: BFBSpec defines the content of the BFB
             properties:
-              filename:
+              fileName:
                 description: |-
                   Specifies bfb file name on the volume or
                   use CRD name in case it is omitted.
