@@ -211,7 +211,7 @@ func createGRPCConnection(ctx context.Context, client client.Client, dpu *provis
 		RootCAs:      certPool,
 	}
 
-	serverAddress := pod.Status.PodIP + ":" + dms.ContainerPortStr
+	serverAddress := dms.Address(pod.Status.PodIP)
 
 	// Create a gRPC connection using grpc.NewClient
 	conn, err := grpc.NewClient(serverAddress, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))

@@ -45,10 +45,13 @@ const (
 )
 
 const (
-	ContainerPort    int32  = 9339
-	ContainerPortStr string = "9339"
-	DMSImageFolder   string = "/bfb-folder"
+	ContainerPort  int32  = 9339
+	DMSImageFolder string = "/bfb-folder"
 )
+
+func Address(ip string) string {
+	return fmt.Sprintf("%s:%d", ip, ContainerPort)
+}
 
 func createIssuer(ctx context.Context, client client.Client, name string, namespace string, secretName string, owner *metav1.OwnerReference) error {
 	issuer := &certmanagerv1.Issuer{
@@ -301,8 +304,8 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 	}
 
 	logger.V(3).Info(fmt.Sprintf("create %s DMS pod", dmsPodName))
-	dmsCommand := fmt.Sprintf("./rshim.sh && %s -bind_address %s:%s -v 99 -auth cert -ca /etc/ssl/certs/server/ca.crt -key /etc/ssl/certs/server/tls.key -cert /etc/ssl/certs/server/tls.crt -password %s -username %s -image_folder %s -target_pci %s -exec_timeout %d -disable_unbind_at_activate -reboot_status_check none",
-		dmsPath, nodeInternalIP, ContainerPortStr, password, username, DMSImageFolder, pciAddress, option.DMSTimeout)
+	dmsCommand := fmt.Sprintf("./rshim.sh && %s -bind_address %s:%d -v 99 -auth cert -ca /etc/ssl/certs/server/ca.crt -key /etc/ssl/certs/server/tls.key -cert /etc/ssl/certs/server/tls.crt -password %s -username %s -image_folder %s -target_pci %s -exec_timeout %d -disable_unbind_at_activate -reboot_status_check none",
+		dmsPath, nodeInternalIP, ContainerPort, password, username, DMSImageFolder, pciAddress, option.DMSTimeout)
 
 	hostPathType := corev1.HostPathDirectory
 	pod := &corev1.Pod{

@@ -19,6 +19,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"net"
 	"time"
 
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
@@ -75,6 +76,19 @@ func (st *dmsDeploymentState) Handle(ctx context.Context, client client.Client, 
 	}
 	switch pod.Status.Phase {
 	case corev1.PodRunning:
+		// a simple probe to check if the DMS server is ready
+		addr := dms.Address(pod.Status.PodIP)
+		conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
+		if err != nil {
+			logger.V(3).Info(fmt.Sprintf("the DMS server %s (%s) is not ready yet, err: %v", addr, dmsPodName, err))
+			return *state, nil
+		}
+		defer func() {
+			if err := conn.Close(); err != nil {
+				logger.Error(fmt.Errorf("failed to close connection of %s (%s), err: %v", addr, dmsPodName, err), "")
+			}
+		}()
+
 		state.Phase = provisioningv1.DPUOSInstalling
 		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondDMSRunning, "", ""))
 	case corev1.PodFailed:
