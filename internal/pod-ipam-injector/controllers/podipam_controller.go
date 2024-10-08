@@ -67,7 +67,6 @@ func (s *svcPortEntry) getIPAM() *dpuservicev1.IPAM {
 }
 
 const (
-	bridgeSfcNAD           = "mybrsfc"
 	ipamPoolNamesParam     = "poolNames"
 	podIpamControllerName  = "podIpamcontroller"
 	networkAttachmentAnnot = "k8s.v1.cni.cncf.io/networks"
@@ -122,24 +121,15 @@ func (r *PodIpamReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		}
 		ifcToSvc[net.InterfaceRequest] = nil
 	}
-	err = r.getServicesFromChainForPod(ctx, ifcToSvc, pod.Spec.NodeName, pod)
+	err = r.mutateMapWithServicesForPod(ctx, ifcToSvc, pod.Spec.NodeName, pod)
 	if err != nil {
 		log.Error(err, "Fail to get DPUDeploymentService from Chain, requeue.")
 		return ctrl.Result{RequeueAfter: reconcileRetryTime}, nil
 	}
-	for ifc, spe := range ifcToSvc {
-		if spe == nil {
-			log.Info("No DPUDeploymentService definition for requested interface found. Requeing", "interface", ifc)
-			return ctrl.Result{RequeueAfter: reconcileRetryTime}, nil
-		}
-		ipam := spe.getIPAM()
-		if ipam == nil {
-			log.Info("No IPAM requested for interface", "interface", ifc)
-			continue
-		}
-		if ipam.Reference == nil && len(ipam.MatchLabels) < 1 {
-			return ctrl.Result{}, fmt.Errorf("service IPAM should have Reference or MatchLabels. Interface:%s", ifc)
-		}
+
+	requeue, err := validateSvc(ctx, ifcToSvc)
+	if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	ifcToPoolCfg, err := r.getPoolsConfig(ctx, ifcToSvc)
@@ -147,46 +137,47 @@ func (r *PodIpamReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// No IpPool/CidrPool found requeuing
 		return ctrl.Result{RequeueAfter: reconcileRetryTime}, nil
 	}
-	return r.updatePodAnnotation(ctx, pod, ifcToPoolCfg)
+	err = r.updatePodAnnotation(ctx, pod, ifcToPoolCfg)
+	return requeue, err
 }
 
 func (r *PodIpamReconciler) updatePodAnnotation(ctx context.Context, pod *corev1.Pod,
-	ifcToPoolCfg map[string]*poolConfig) (ctrl.Result, error) {
+	ifcToPoolCfg map[string]*poolConfig) error {
 	log := log.FromContext(ctx)
 	networks, err := multusclient.GetPodNetwork(pod)
 	if err != nil {
 		log.Error(err, "failed to get networks from pod")
-		return ctrl.Result{}, err
+		return err
 	}
 	changed := false
 	for _, net := range networks {
-		if net.Name == bridgeSfcNAD {
-			pollCfg, ok := ifcToPoolCfg[net.InterfaceRequest]
-			if ok {
-				cniArgs := make(map[string]interface{})
-				cniArgs["allocateDefaultGateway"] = pollCfg.AssignGW
-				cniArgs["poolNames"] = []string{pollCfg.PoolName}
-				cniArgs["poolType"] = pollCfg.PoolType
-				net.CNIArgs = &cniArgs
-				changed = true
-			}
+		if pollCfg, ok := ifcToPoolCfg[net.InterfaceRequest]; ok {
+			cniArgs := make(map[string]interface{})
+			cniArgs["allocateDefaultGateway"] = pollCfg.AssignGW
+			cniArgs["poolNames"] = []string{pollCfg.PoolName}
+			cniArgs["poolType"] = pollCfg.PoolType
+			net.CNIArgs = &cniArgs
+			changed = true
 		}
 	}
 	if !changed {
-		return ctrl.Result{}, nil
+		return nil
 	}
 	j, err := json.Marshal(networks)
 	if err != nil {
 		log.Error(err, "failed to marshal networks to json")
-		return ctrl.Result{}, err
+		return err
 	}
 	pod.Annotations[networkAttachmentAnnot] = string(j)
 	pod.ObjectMeta.ManagedFields = nil
 	pod.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Pod"))
-	return ctrl.Result{}, r.Client.Patch(ctx, pod, client.Apply, client.ForceOwnership, client.FieldOwner(podIpamControllerName))
+	return r.Client.Patch(ctx, pod, client.Apply, client.ForceOwnership, client.FieldOwner(podIpamControllerName))
 }
 
-func (r *PodIpamReconciler) getServicesFromChainForPod(ctx context.Context, ifcToSvc map[string]*svcPortEntry, node string, pod *corev1.Pod) error {
+// mutateMapWithServicesForPod returns a map of interfaces to service entries for the given pod.
+// The map is populated with service entries that are associated with the pod's node.
+// The service entries are populated based on the serviceChain CRs in the pod's namespace.
+func (r *PodIpamReconciler) mutateMapWithServicesForPod(ctx context.Context, ifcToSvc map[string]*svcPortEntry, node string, pod *corev1.Pod) error {
 	scList := &dpuservicev1.ServiceChainList{}
 	if err := r.Client.List(ctx, scList, client.InNamespace(pod.Namespace)); err != nil {
 		return err
@@ -285,7 +276,6 @@ func (r *PodIpamReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func getBrSFCNetworks(ctx context.Context, pod *corev1.Pod) ([]*multustypes.NetworkSelectionElement, error) {
 	log := log.FromContext(ctx)
-	var sfcNets []*multustypes.NetworkSelectionElement
 	networks, err := multusclient.GetPodNetwork(pod)
 	if err != nil {
 		if _, ok := err.(*multusclient.NoK8sNetworkError); ok {
@@ -295,12 +285,7 @@ func getBrSFCNetworks(ctx context.Context, pod *corev1.Pod) ([]*multustypes.Netw
 		log.Error(err, "failed to get networks from pod")
 		return nil, err
 	}
-	for _, net := range networks {
-		if net.Name == bridgeSfcNAD {
-			sfcNets = append(sfcNets, net)
-		}
-	}
-	return sfcNets, nil
+	return networks, nil
 }
 
 func (r *PodIpamReconciler) getPoolsConfig(ctx context.Context, ifcToSvc map[string]*svcPortEntry) (map[string]*poolConfig, error) {
@@ -396,4 +381,28 @@ func (r *PodIpamReconciler) getPoolByMatchLabel(ctx context.Context, ipam *dpuse
 	}
 	// No IpPool/CidrPool found requeuing
 	return "", "", fmt.Errorf("no IPPool or CidrPool found for Labels %v", ipam.MatchLabels)
+}
+
+func validateSvc(ctx context.Context, ifcToSvc map[string]*svcPortEntry) (ctrl.Result, error) {
+	log := log.FromContext(ctx)
+	requeue := ctrl.Result{}
+	for ifc, spe := range ifcToSvc {
+		if spe == nil {
+			// No service found for interface, register a requeue for next retry
+			// In case the service is added later
+			requeue = ctrl.Result{RequeueAfter: reconcileRetryTime}
+			// Remove the interface from the map as it has no service
+			delete(ifcToSvc, ifc)
+			continue
+		}
+		ipam := spe.getIPAM()
+		if ipam == nil {
+			log.Info("No IPAM requested for interface", "interface", ifc)
+			continue
+		}
+		if ipam.Reference == nil && len(ipam.MatchLabels) < 1 {
+			return requeue, fmt.Errorf("service IPAM should have Reference or MatchLabels. Interface:%s", ifc)
+		}
+	}
+	return requeue, nil
 }

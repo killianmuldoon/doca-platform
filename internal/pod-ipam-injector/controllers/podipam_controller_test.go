@@ -305,15 +305,15 @@ func singleNetAnnotation(ifcName string) string {
 }
 
 func multipleNetAnnotation() string {
-	return fmt.Sprintf(`[{"name":"mybrsfc","interface": "%s"}, {"name":"othernet"},
-	{"name":"mybrsfc","interface": "%s"}]`, ifcName, ifcName2)
+	return fmt.Sprintf(`[{"name":"mybrsfc","interface": "%s"}, {"name":"othernet","interface": "dummy"},
+	{"name":"second-network","interface": "%s"}]`, ifcName, ifcName2)
 }
 
 func expectedMultipleNetAnnotation(pooltype string, assignGW bool) string {
 	s := fmt.Sprintf(
 		"[{\"name\":\"mybrsfc\",\"namespace\":\"default\",\"interface\":\"sfceth1\",\"cni-args\":{\"allocateDefaultGateway\":%v,\"poolNames\":[\"pool-1\"],\"poolType\":\"%s\"}},"+
-			"{\"name\":\"othernet\",\"namespace\":\"default\",\"cni-args\":null},"+
-			"{\"name\":\"mybrsfc\",\"namespace\":\"default\",\"interface\":\"sfceth2\",\"cni-args\":{\"allocateDefaultGateway\":%v,\"poolNames\":[\"pool-2\"],\"poolType\":\"%s\"}}]",
+			"{\"name\":\"othernet\",\"namespace\":\"default\",\"interface\":\"dummy\",\"cni-args\":null},"+
+			"{\"name\":\"second-network\",\"namespace\":\"default\",\"interface\":\"sfceth2\",\"cni-args\":{\"allocateDefaultGateway\":%v,\"poolNames\":[\"pool-2\"],\"poolType\":\"%s\"}}]",
 		assignGW, pooltype, assignGW, pooltype)
 	return s
 }
