@@ -16,6 +16,7 @@ hack/charts
 hack/repos
 
 # Repos created by e2e tests.
+scans
 artifacts
 .gocache
 .golangci-cache

@@ -236,3 +236,24 @@ triage:
   image: registry.gitlab.com/gitlab-ci-utils/curl-jq:2.0.0
   script:
     - ./hack/scripts/periodic_test_triage.sh
+
+scan:
+  stage: test
+  needs: [release]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $CONTAINER_SCAN == "true"
+      when: always
+  tags:
+    - type/shell
+    - imagescan
+  artifacts:
+    when: always
+    paths:
+      - /tmp/scans/results
+  before_script:
+    - ./hack/scripts/ci_helm_docker_login.sh
+  script:
+    - make generate-manifests-release-defaults
+    - ./hack/scripts/container-scanner.sh
