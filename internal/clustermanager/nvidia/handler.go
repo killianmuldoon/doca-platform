@@ -113,12 +113,14 @@ func (cm *clusterHandler) reconcileKeepalived(ctx context.Context, dc *provision
 		VirtualRouterID int
 		VirtualIP       string
 		NodePort        int32
+		NodeSelector    map[string]string
 	}{
 		Name:            fmt.Sprintf("%s-keepalived", dc.Name),
 		Interface:       dc.Spec.ClusterEndpoint.Keepalived.Interface,
 		VirtualRouterID: dc.Spec.ClusterEndpoint.Keepalived.VirtualRouterID,
 		VirtualIP:       dc.Spec.ClusterEndpoint.Keepalived.VIP,
 		NodePort:        nodePort,
+		NodeSelector:    dc.Spec.ClusterEndpoint.Keepalived.NodeSelector,
 	}
 	tc, tcCancel := context.WithTimeout(ctx, 5*time.Second)
 	defer tcCancel()
