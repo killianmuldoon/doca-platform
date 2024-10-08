@@ -43,12 +43,17 @@ spec:
       set Open_vSwitch . other_config:max-revalidator=5000 -- \
       --if-exists del-br ovsbr1 -- \
       --if-exists del-br ovsbr2 -- \
-      --may-exist add-br br-p0 -- \
-      --may-exist set bridge br-p0 datapath_type=netdev -- \
-      --may-exist add-port br-p0 p0 -- \
-      set interface p0 type=dpdk -- \
-      --may-exist add-port br-p0 pf0hpf -- \
-      set interface pf0hpf type=dpdk
+      --may-exist add-br br-sfc -- \
+      set bridge br-sfc datapath_type=netdev -- \
+      set bridge br-sfc fail_mode=secure -- \
+      --may-exist add-port br-sfc p0 -- \
+      set Interface p0 type=dpdk
+
+      ovs-vsctl set Open_vSwitch . external-ids:ovn-bridge-datapath-type=netdev -- \
+      add-br br-ovn -- \
+      set bridge br-ovn datapath_type=netdev -- \
+      add-port br-ovn pf0hpf -- \
+      set Interface pf0hpf type=dpdk
 
       ovs-vsctl --may-exist add-br br-comm-ch -- \
       set bridge br-comm-ch datapath_type=netdev -- \
