@@ -21,6 +21,7 @@ import (
 
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -28,7 +29,7 @@ type State interface {
 	Handle(ctx context.Context, client client.Client) (provisioningv1.BFBStatus, error)
 }
 
-func GetBFBState(bfb *provisioningv1.BFB) State {
+func GetBFBState(bfb *provisioningv1.BFB, recorder record.EventRecorder) State {
 	switch bfb.Status.Phase {
 	case provisioningv1.BFBInitializing:
 		return &bfbInitializingState{
@@ -37,6 +38,7 @@ func GetBFBState(bfb *provisioningv1.BFB) State {
 	case provisioningv1.BFBDownloading:
 		return &bfbDownloadingState{
 			bfb,
+			recorder,
 		}
 	case provisioningv1.BFBReady:
 		return &bfbReadyState{
@@ -45,6 +47,7 @@ func GetBFBState(bfb *provisioningv1.BFB) State {
 	case provisioningv1.BFBDeleting:
 		return &bfbDeletingState{
 			bfb,
+			recorder,
 		}
 	case provisioningv1.BFBError:
 		return &bfbErrorState{

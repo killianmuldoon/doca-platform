@@ -18,19 +18,24 @@ package state
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	butil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/bfb/util"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/events"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type bfbDeletingState struct {
-	bfb *provisioningv1.BFB
+	bfb      *provisioningv1.BFB
+	recorder record.EventRecorder
 }
 
 func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BFBStatus, error) {
@@ -43,10 +48,14 @@ func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client) (p
 	bfbFile := cutil.GenerateBFBFilePath(st.bfb.Spec.FileName)
 	err := os.Remove(bfbFile)
 	if err != nil && !os.IsNotExist(err) {
+		msg := fmt.Sprintf("Deleting BFB: (%s/%s) failed", st.bfb.Namespace, st.bfb.Name)
+		st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDeleteBFBReason, msg)
 		return *state, err
 	}
 
 	if err := DeleteTmpBFBFiles(bfbFile); err != nil {
+		msg := fmt.Sprintf("Deleting BFB: (%s/%s) temp file failed", st.bfb.Namespace, st.bfb.Name)
+		st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDeleteBFBReason, msg)
 		return *state, err
 	}
 

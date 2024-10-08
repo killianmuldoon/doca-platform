@@ -130,7 +130,7 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 			for _, index := range dpuIndexMap {
 				if err = r.createDPU(ctx, dpuSet, node, index); err != nil {
 					msg := fmt.Sprintf("Failed to created DPU index %v on node %s", index, node.Name)
-					r.Recorder.Eventf(dpuSet, corev1.EventTypeWarning, events.EventReasonFailedCreateDPUReason, msg)
+					r.Recorder.Eventf(dpuSet, corev1.EventTypeWarning, events.EventFailedCreateDPUReason, msg)
 					logger.Error(err, msg)
 					return ctrl.Result{}, errors.Wrap(err, "failed to create DPU")
 				}
@@ -146,11 +146,11 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 		if err := r.Delete(ctx, &dpu); err != nil {
 			msg := fmt.Sprintf("Failed to Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, nodeName)
 			logger.Error(err, msg)
-			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulDeleteDPUReason, msg)
+			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulDeleteDPUReason, msg)
 			return ctrl.Result{}, errors.Wrap(err, "failed to delete DPU")
 		}
 		msg := fmt.Sprintf("Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, nodeName)
-		r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulDeleteDPUReason, msg)
+		r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulDeleteDPUReason, msg)
 		logger.V(3).Info(msg)
 	}
 
@@ -336,7 +336,7 @@ func (r *DPUSetReconciler) createDPU(ctx context.Context, dpuSet *provisioningv1
 	}
 	msg := fmt.Sprintf("Created DPU: (%s/%s)", dpu.Namespace, dpu.Name)
 	logger.V(2).Info(msg)
-	r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulCreateDPUReason, msg)
+	r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulCreateDPUReason, msg)
 
 	return nil
 }
@@ -349,11 +349,11 @@ func (r *DPUSetReconciler) rolloutRecreate(ctx context.Context, dpuSet *provisio
 		} else if update {
 			if err := r.Delete(ctx, &dpu); err != nil {
 				msg := fmt.Sprintf("Failed to Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, dpu.Spec.NodeName)
-				r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonFailedDeleteDPUReason, msg)
+				r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventFailedDeleteDPUReason, msg)
 				return err
 			}
 			msg := fmt.Sprintf("Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, dpu.Spec.NodeName)
-			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulDeleteDPUReason, msg)
+			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulDeleteDPUReason, msg)
 		}
 	}
 	return nil
@@ -393,16 +393,16 @@ func (r *DPUSetReconciler) rolloutRolling(ctx context.Context, dpuSet *provision
 		successMsg := fmt.Sprintf("Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, dpu.Spec.NodeName)
 		if isUnavailable(&dpu) {
 			if err := r.Delete(ctx, &dpu); err != nil {
-				r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonFailedDeleteDPUReason, failedMsg)
+				r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventFailedDeleteDPUReason, failedMsg)
 				return err
 			}
-			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulDeleteDPUReason, successMsg)
+			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulDeleteDPUReason, successMsg)
 		} else if unavaiable < scaledValue {
 			if err := r.Delete(ctx, &dpu); err != nil {
-				r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonFailedDeleteDPUReason, failedMsg)
+				r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventFailedDeleteDPUReason, failedMsg)
 				return err
 			}
-			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventReasonSuccessfulDeleteDPUReason, successMsg)
+			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulDeleteDPUReason, successMsg)
 			unavaiable++
 		}
 	}

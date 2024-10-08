@@ -18,12 +18,19 @@ package events
 
 // Define events for DPU provisioning resources.
 const (
-	// EventReasonFailedCreateDPUReason indicates that DPU create execution failed.
-	EventReasonFailedCreateDPUReason = "FailedCreate"
-	// EventReasonSuccessfulCreateDPUReason indicates that DPU is successfully created.
-	EventReasonSuccessfulCreateDPUReason = "SuccessfulCreate"
-	// EventReasonFailedDeleteDPUReason indicates that DPU delete execution failed.
-	EventReasonFailedDeleteDPUReason = "FailedDelete"
-	// EventReasonSuccessfulDeleteDPUReason indicates that DPU is successfully deleted.
-	EventReasonSuccessfulDeleteDPUReason = "SuccessfulDelete"
+	// EventFailedCreateDPUReason indicates that DPU create execution failed.
+	EventFailedCreateDPUReason = "FailedCreate"
+	// EventSuccessfulCreateDPUReason indicates that DPU is successfully created.
+	EventSuccessfulCreateDPUReason = "SuccessfulCreate"
+	// EventFailedDeleteDPUReason indicates that DPU delete execution failed.
+	EventFailedDeleteDPUReason = "FailedDelete"
+	// EventSuccessfulDeleteDPUReason indicates that DPU is successfully deleted.
+	EventSuccessfulDeleteDPUReason = "SuccessfulDelete"
+
+	// EventFailedDeleteBFBReason indicates that BFB delete execution failed.
+	EventFailedDeleteBFBReason = "FailedDelete"
+	// EventFailedDownloadBFBReason indicates that BFB download execution failed.
+	EventFailedDownloadBFBReason = "FailedDownload"
+	// EventSuccessfulDownloadBFBReason indicates that BFB is successfully downloaded.
+	EventSuccessfulDownloadBFBReason = "SuccessfulDownload"
 )

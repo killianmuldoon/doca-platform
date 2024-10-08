@@ -26,15 +26,19 @@ import (
 
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	butil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/bfb/util"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/events"
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/future"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type bfbDownloadingState struct {
-	bfb *provisioningv1.BFB
+	bfb      *provisioningv1.BFB
+	recorder record.EventRecorder
 }
 
 func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BFBStatus, error) {
@@ -55,6 +59,8 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 	exist, err := IsBFBExist(ctx, st.bfb.Spec.FileName)
 	if err != nil {
 		state.Phase = provisioningv1.BFBError
+		msg := fmt.Sprintf("Download BFB: (%s/%s) failed with error :%s", st.bfb.Namespace, st.bfb.Name, err.Error())
+		st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDownloadBFBReason, msg)
 		return *state, err
 	}
 
@@ -73,6 +79,8 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 				state.Phase = provisioningv1.BFBDeleting
 				return *state, nil
 			} else {
+				msg := fmt.Sprintf("Download BFB: (%s/%s) failed with error :%s", st.bfb.Namespace, st.bfb.Name, err.Error())
+				st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDownloadBFBReason, msg)
 				state.Phase = provisioningv1.BFBError
 				return *state, err
 			}
@@ -93,6 +101,8 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 	} else {
 		// There is no related downloading task and BFB file exists in cache
 		state.Phase = provisioningv1.BFBReady
+		msg := fmt.Sprintf("Download BFB: (%s/%s) successful", st.bfb.Namespace, st.bfb.Name)
+		st.recorder.Eventf(st.bfb, corev1.EventTypeNormal, events.EventSuccessfulDownloadBFBReason, msg)
 	}
 
 	return *state, nil
