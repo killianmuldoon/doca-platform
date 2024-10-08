@@ -94,28 +94,6 @@ spec:
                 required:
                 - source
                 type: object
-              interfaces:
-                description: Interfaces specifies the DPUServiceInterface to be generated
-                  for the generated DPUService.
-                items:
-                  description: ServiceInterfaceTemplate contains the information related
-                    to an interface of the DPUService
-                  properties:
-                    name:
-                      description: Name is the name of the interface
-                      type: string
-                    network:
-                      description: |-
-                        Network is the Network Attachment Definition in the form of "namespace/name"
-                        or just "name" if the namespace is the same as the ServiceInterface.
-                      type: string
-                  required:
-                  - name
-                  - network
-                  type: object
-                maxItems: 50
-                minItems: 1
-                type: array
               resourceRequirements:
                 additionalProperties:
                   anyOf:

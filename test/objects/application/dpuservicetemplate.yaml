@@ -10,6 +10,3 @@ spec:
       repoURL: https://github.com/argoproj/argocd-example-apps
       path: helm-guestbook
       version: HEAD
-  interfaces:
-  - name: app-iface
-    network: mynad

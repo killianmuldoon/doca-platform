@@ -11,3 +11,6 @@ spec:
         labelKey: labelVal
       annotations:
         annKey: annVal
+  interfaces:
+  - name: app-iface
+    network: mynad

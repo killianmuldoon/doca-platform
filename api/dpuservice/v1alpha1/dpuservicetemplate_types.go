@@ -60,22 +60,6 @@ type DPUServiceTemplateSpec struct {
 	// ResourceRequirements contains the overall resources required by this particular service to run on a single node
 	// +optional
 	ResourceRequirements corev1.ResourceList `json:"resourceRequirements,omitempty"`
-	// Interfaces specifies the DPUServiceInterface to be generated for the generated DPUService.
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=50
-	// +optional
-	Interfaces []ServiceInterfaceTemplate `json:"interfaces,omitempty"`
-}
-
-// ServiceInterfaceTemplate contains the information related to an interface of the DPUService
-type ServiceInterfaceTemplate struct {
-	// Name is the name of the interface
-	// +required
-	Name string `json:"name"`
-	// Network is the Network Attachment Definition in the form of "namespace/name"
-	// or just "name" if the namespace is the same as the ServiceInterface.
-	// +required
-	Network string `json:"network"`
 }
 
 // DPUServiceTemplateStatus defines the observed state of DPUServiceTemplate

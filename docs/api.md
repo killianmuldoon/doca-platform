@@ -1640,6 +1640,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `deploymentServiceName` _string_ | DeploymentServiceName is the name of the DPU service this configuration refers to. It must match<br />.spec.deploymentServiceName of a DPUServiceTemplate object and one of the keys in .spec.services of a<br />DPUDeployment object. |  |  |
 | `serviceConfiguration` _[ServiceConfiguration](#serviceconfiguration)_ | ServiceConfiguration contains fields that are configured on the generated DPUService. |  |  |
+| `interfaces` _[ServiceInterfaceTemplate](#serviceinterfacetemplate) array_ | Interfaces specifies the DPUServiceInterface to be generated for the generated DPUService. |  | MaxItems: 50 <br />MinItems: 1 <br /> |
 
 
 #### DPUServiceConfigurationStatus
@@ -1993,7 +1994,6 @@ _Appears in:_
 | `deploymentServiceName` _string_ | DeploymentServiceName is the name of the DPU service this configuration refers to. It must match<br />.spec.deploymentServiceName of a DPUServiceConfiguration object and one of the keys in .spec.services of a<br />DPUDeployment object. |  |  |
 | `helmChart` _[HelmChart](#helmchart)_ | HelmChart reflects the Helm related configuration. The user is supposed to configure the values that are static<br />across any DPUServiceConfiguration used with this DPUServiceTemplate in a DPUDeployment. These values act as a<br />baseline and are merged with values specified in the DPUServiceConfiguration. In case of conflict, the<br />DPUServiceConfiguration values take precedence. |  |  |
 | `resourceRequirements` _[ResourceList](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#resourcelist-v1-core)_ | ResourceRequirements contains the overall resources required by this particular service to run on a single node |  |  |
-| `interfaces` _[ServiceInterfaceTemplate](#serviceinterfacetemplate) array_ | Interfaces specifies the DPUServiceInterface to be generated for the generated DPUService. |  | MaxItems: 50 <br />MinItems: 1 <br /> |
 
 
 #### DPUServiceTemplateStatus
@@ -2692,12 +2692,12 @@ ServiceInterfaceTemplate contains the information related to an interface of the
 
 
 _Appears in:_
-- [DPUServiceTemplateSpec](#dpuservicetemplatespec)
+- [DPUServiceConfigurationSpec](#dpuserviceconfigurationspec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `name` _string_ | Name is the name of the interface |  |  |
-| `network` _string_ | Network is the Network Attachment Definition in the form of "namespace/name"<br />or just "name" if the namespace is the same as the ServiceInterface. |  |  |
+| `network` _string_ | Network is the Network Attachment Definition in the form of "namespace/name"<br />or just "name" if the namespace is the same as the namespace the pod is running. |  |  |
 
 
 #### Strategy

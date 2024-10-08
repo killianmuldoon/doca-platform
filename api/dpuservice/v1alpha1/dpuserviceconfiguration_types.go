@@ -55,6 +55,22 @@ type DPUServiceConfigurationSpec struct {
 	// ServiceConfiguration contains fields that are configured on the generated DPUService.
 	// +optional
 	ServiceConfiguration ServiceConfiguration `json:"serviceConfiguration,omitempty"`
+	// Interfaces specifies the DPUServiceInterface to be generated for the generated DPUService.
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=50
+	// +optional
+	Interfaces []ServiceInterfaceTemplate `json:"interfaces,omitempty"`
+}
+
+// ServiceInterfaceTemplate contains the information related to an interface of the DPUService
+type ServiceInterfaceTemplate struct {
+	// Name is the name of the interface
+	// +required
+	Name string `json:"name"`
+	// Network is the Network Attachment Definition in the form of "namespace/name"
+	// or just "name" if the namespace is the same as the namespace the pod is running.
+	// +required
+	Network string `json:"network"`
 }
 
 // ServiceConfiguration contains fields that are configured on the generated DPUService.

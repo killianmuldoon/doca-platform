@@ -913,11 +913,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 			It("should create the correct DPUServiceInterfaces", func() {
 				By("Creating the dependencies")
 				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
-				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
-				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
-
-				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
-				dpuServiceTemplate.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
+				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
 					{
 						Name:    "someinterface",
 						Network: "nad1",
@@ -927,6 +923,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 						Network: "nad2",
 					},
 				}
+				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
@@ -989,14 +989,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
-			It("should update the existing DPUServiceInterfaces on update of the DPUServiceTemplate", func() {
+			It("should update the existing DPUServiceInterfaces on update of the DPUServiceConfiguration", func() {
 				By("Creating the dependencies")
 				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
-				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
-				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
-
-				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
-				dpuServiceTemplate.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
+				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
 					{
 						Name:    "someinterface",
 						Network: "nad1",
@@ -1006,6 +1002,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 						Network: "nad2",
 					},
 				}
+				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
@@ -1021,9 +1021,9 @@ var _ = Describe("DPUDeployment Controller", func() {
 					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 
-				By("modifying the DPUServiceTemplate object and checking the outcome")
-				Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceTemplate), dpuServiceTemplate)).To(Succeed())
-				dpuServiceTemplate.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
+				By("modifying the DPUServiceConfiguration object and checking the outcome")
+				Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceConfiguration), dpuServiceConfiguration)).To(Succeed())
+				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
 					{
 						Name:    "someinterface",
 						Network: "nad3",
@@ -1033,9 +1033,9 @@ var _ = Describe("DPUDeployment Controller", func() {
 						Network: "nad4",
 					},
 				}
-				dpuServiceTemplate.SetManagedFields(nil)
-				dpuServiceTemplate.SetGroupVersionKind(dpuservicev1.DPUServiceTemplateGroupVersionKind)
-				Expect(testClient.Patch(ctx, dpuServiceTemplate, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
+				dpuServiceConfiguration.SetManagedFields(nil)
+				dpuServiceConfiguration.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
+				Expect(testClient.Patch(ctx, dpuServiceConfiguration, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
 
 				By("checking that the DPUServiceInterfaces are updated")
 				Eventually(func(g Gomega) {
@@ -1091,14 +1091,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
-			It("should delete DPUServiceInterfaces that are no longer part of the DPUServiceTemplate", func() {
+			It("should delete DPUServiceInterfaces that are no longer part of the DPUServiceConfiguration", func() {
 				By("Creating the dependencies")
 				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
-				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
-				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
-
-				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
-				dpuServiceTemplate.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
+				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
 					{
 						Name:    "someinterface",
 						Network: "nad1",
@@ -1108,6 +1104,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 						Network: "nad2",
 					},
 				}
+				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
@@ -1123,17 +1123,17 @@ var _ = Describe("DPUDeployment Controller", func() {
 					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 
-				By("modifying the DPUServiceTemplate object and checking the outcome")
-				Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceTemplate), dpuServiceTemplate)).To(Succeed())
-				dpuServiceTemplate.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
+				By("modifying the DPUServiceConfiguration object and checking the outcome")
+				Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceConfiguration), dpuServiceConfiguration)).To(Succeed())
+				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
 					{
 						Name:    "someinterface",
 						Network: "nad1",
 					},
 				}
-				dpuServiceTemplate.SetManagedFields(nil)
-				dpuServiceTemplate.SetGroupVersionKind(dpuservicev1.DPUServiceTemplateGroupVersionKind)
-				Expect(testClient.Patch(ctx, dpuServiceTemplate, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
+				dpuServiceConfiguration.SetManagedFields(nil)
+				dpuServiceConfiguration.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
+				Expect(testClient.Patch(ctx, dpuServiceConfiguration, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
 
 				By("checking that the DPUServiceInterfaces are updated")
 				Eventually(func(g Gomega) {
@@ -1173,19 +1173,19 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
-			It("should create new DPUServiceInterfaces on update of the DPUServiceTemplate", func() {
+			It("should create new DPUServiceInterfaces on update of the DPUServiceConfiguration", func() {
 				By("Creating the dependencies")
 				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
-				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
-				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
-
-				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
-				dpuServiceTemplate.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
+				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
 					{
 						Name:    "someinterface",
 						Network: "nad1",
 					},
 				}
+				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
@@ -1201,9 +1201,9 @@ var _ = Describe("DPUDeployment Controller", func() {
 					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 
-				By("modifying the DPUServiceTemplate object and checking the outcome")
-				Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceTemplate), dpuServiceTemplate)).To(Succeed())
-				dpuServiceTemplate.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
+				By("modifying the DPUServiceConfiguration object and checking the outcome")
+				Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceConfiguration), dpuServiceConfiguration)).To(Succeed())
+				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
 					{
 						Name:    "someinterface",
 						Network: "nad1",
@@ -1213,9 +1213,9 @@ var _ = Describe("DPUDeployment Controller", func() {
 						Network: "nad2",
 					},
 				}
-				dpuServiceTemplate.SetManagedFields(nil)
-				dpuServiceTemplate.SetGroupVersionKind(dpuservicev1.DPUServiceTemplateGroupVersionKind)
-				Expect(testClient.Patch(ctx, dpuServiceTemplate, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
+				dpuServiceConfiguration.SetManagedFields(nil)
+				dpuServiceConfiguration.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
+				Expect(testClient.Patch(ctx, dpuServiceConfiguration, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
 
 				By("checking that the DPUServiceInterfaces are updated")
 				Eventually(func(g Gomega) {
@@ -1296,6 +1296,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels["labelkey1"] = "labelval1"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.DeployInCluster = ptr.To[bool](true)
 				dpuServiceConfiguration.Spec.ServiceConfiguration.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key1":"value1"}`)}
+				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{{Name: "if1", Network: "nad1"}}
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
@@ -1307,6 +1308,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = make(map[string]string)
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels["labelkey2"] = "labelval2"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key2":"value2"}`)}
+				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{{Name: "if2", Network: "nad2"}, {Name: "if3", Network: "nad3"}}
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
@@ -1317,6 +1319,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations["annkey3"] = "annval3"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = make(map[string]string)
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels["labelkey3"] = "labelval3"
+				dpuServiceConfiguration.Spec.Interfaces = nil
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
@@ -1324,7 +1327,6 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceTemplate.Name = "service-1"
 				dpuServiceTemplate.Spec.DeploymentServiceName = "service-1"
 				dpuServiceTemplate.Spec.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key1":"someothervalue"}`)}
-				dpuServiceTemplate.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{{Name: "if1", Network: "nad1"}}
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
@@ -1332,14 +1334,13 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceTemplate.Name = "service-2"
 				dpuServiceTemplate.Spec.DeploymentServiceName = "service-2"
 				dpuServiceTemplate.Spec.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key3":"value3"}`)}
-				dpuServiceTemplate.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{{Name: "if2", Network: "nad2"}, {Name: "if3", Network: "nad3"}}
+
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
 				dpuServiceTemplate = getMinimalDPUServiceTemplate(testNS.Name)
 				dpuServiceTemplate.Name = "service-3"
 				dpuServiceTemplate.Spec.DeploymentServiceName = "service-3"
-				dpuServiceTemplate.Spec.Interfaces = nil
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
@@ -2538,12 +2539,6 @@ func getMinimalDPUServiceTemplate(namespace string) *dpuservicev1.DPUServiceTemp
 					Chart:   "somechart",
 				},
 			},
-			Interfaces: []dpuservicev1.ServiceInterfaceTemplate{
-				{
-					Name:    "someinterface",
-					Network: "somenad",
-				},
-			},
 		},
 	}
 }
@@ -2556,6 +2551,12 @@ func getMinimalDPUServiceConfiguration(namespace string) *dpuservicev1.DPUServic
 		},
 		Spec: dpuservicev1.DPUServiceConfigurationSpec{
 			DeploymentServiceName: "someservice",
+			Interfaces: []dpuservicev1.ServiceInterfaceTemplate{
+				{
+					Name:    "someinterface",
+					Network: "somenad",
+				},
+			},
 		},
 	}
 }

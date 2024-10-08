@@ -660,7 +660,7 @@ func reconcileDPUServiceInterfaces(ctx context.Context, c client.Client, dpuDepl
 
 	// Create or update DPUServiceInterfaces to match what is defined in the DPUDeployment
 	for dpuServiceName := range dpuDeployment.Spec.Services {
-		for _, serviceInterface := range dependencies.DPUServiceTemplates[dpuServiceName].Spec.Interfaces {
+		for _, serviceInterface := range dependencies.DPUServiceConfigurations[dpuServiceName].Spec.Interfaces {
 			dpuServiceInterface := generateDPUServiceInterface(client.ObjectKeyFromObject(dpuDeployment),
 				owner,
 				dpuServiceName,
