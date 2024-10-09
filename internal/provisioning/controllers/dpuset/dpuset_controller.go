@@ -163,10 +163,7 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 
 	switch dpuSet.Spec.Strategy.Type {
 	case provisioningv1.RecreateStrategyType:
-		if err := r.rolloutRecreate(ctx, dpuSet, dpuMap); err != nil {
-			logger.Error(err, "Failed to rollout DPU", "DPUSet", dpuSet)
-			return ctrl.Result{}, errors.Wrap(err, "failed to rollout DPU")
-		}
+		// do nothing, waiting for user delete DPU object manually.
 	case provisioningv1.RollingUpdateStrategyType:
 		if err := r.rolloutRolling(ctx, dpuSet, dpuMap, len(nodeMap)); err != nil {
 			logger.Error(err, "Failed to rollout DPU", "DPUSet", dpuSet)
@@ -338,24 +335,6 @@ func (r *DPUSetReconciler) createDPU(ctx context.Context, dpuSet *provisioningv1
 	logger.V(2).Info(msg)
 	r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulCreateDPUReason, msg)
 
-	return nil
-}
-
-func (r *DPUSetReconciler) rolloutRecreate(ctx context.Context, dpuSet *provisioningv1.DPUSet,
-	dpuMap map[string]provisioningv1.DPU) error {
-	for _, dpu := range dpuMap {
-		if update, err := r.needUpdate(ctx, *dpuSet, dpu); err != nil {
-			return err
-		} else if update {
-			if err := r.Delete(ctx, &dpu); err != nil {
-				msg := fmt.Sprintf("Failed to Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, dpu.Spec.NodeName)
-				r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventFailedDeleteDPUReason, msg)
-				return err
-			}
-			msg := fmt.Sprintf("Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, dpu.Spec.NodeName)
-			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulDeleteDPUReason, msg)
-		}
-	}
 	return nil
 }
 
