@@ -119,7 +119,6 @@ write_files:
 
             sleep 1
             ip link set ${COMM_CH_BR_NAME} up
-            dhclient ${COMM_CH_BR_NAME}
 
         fi
   - path: /etc/systemd/system/kubelet.service.d/10-bf.conf
