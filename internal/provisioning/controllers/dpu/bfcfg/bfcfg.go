@@ -49,7 +49,8 @@ type BFCFGData struct {
 	ContainerdRegistryEndpoint string
 	SF_NUM                     int    //nolint:stylecheck
 	HOST_K8S_NODENAME          string //nolint:stylecheck
-	LinuxCloud                 bool   // DPU rebool for linux cloud environment
+	// AdditionalReboot adds an extra reboot during the DPU provisioning. This is required in some environments.
+	AdditionalReboot bool
 }
 
 type BFCFGWriteFile struct {
@@ -59,12 +60,12 @@ type BFCFGWriteFile struct {
 	Permissions string
 }
 
-func Generate(flavor *provisioningv1.DPUFlavor, dpuName, joinCmd string, hostK8sNodeName string, linuxCloud bool) ([]byte, error) {
+func Generate(flavor *provisioningv1.DPUFlavor, dpuName, joinCmd string, hostK8sNodeName string, additionalReboot bool) ([]byte, error) {
 	config := &BFCFGData{
 		KUBEADM_JOIN:      joinCmd,
 		HOSTNAME:          dpuName,
 		HOST_K8S_NODENAME: hostK8sNodeName,
-		LinuxCloud:        linuxCloud,
+		AdditionalReboot:  additionalReboot,
 		KernelParameters:  strings.TrimSpace(strings.Join(flavor.Spec.Grub.KernelParameters, " ")),
 	}
 

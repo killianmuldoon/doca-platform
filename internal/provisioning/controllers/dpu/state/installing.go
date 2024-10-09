@@ -413,7 +413,7 @@ func generateBFConfig(ctx context.Context, dpu *provisioningv1.DPU, node *corev1
 		return nil, err
 	}
 
-	linuxCloud := false
+	additionalReboot := false
 	cmd, _, err := reboot.GenerateCmd(node.Annotations, dpu.Annotations)
 	if err != nil {
 		logger.Error(err, "failed to generate ipmitool command")
@@ -421,10 +421,10 @@ func generateBFConfig(ctx context.Context, dpu *provisioningv1.DPU, node *corev1
 	}
 
 	if cmd == reboot.Skip {
-		linuxCloud = true
+		additionalReboot = true
 	}
 
-	buf, err := bfcfg.Generate(flavor, dpu.Name, joinCommand, dpu.Spec.NodeName, linuxCloud)
+	buf, err := bfcfg.Generate(flavor, dpu.Name, joinCommand, dpu.Spec.NodeName, additionalReboot)
 	if err != nil {
 		return nil, err
 	}

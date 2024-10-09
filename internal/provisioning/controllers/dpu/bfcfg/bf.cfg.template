@@ -262,7 +262,7 @@ write_files:
         #! /bin/bash
         set -e
         update-grub
-{{- if .LinuxCloud}}
+{{- if .AdditionalReboot}}
         reboot
 {{end}}
 {{end}}
