@@ -35,6 +35,7 @@ import (
 	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/dms"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/future"
+	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util/reboot"
 
 	"github.com/openconfig/gnmi/proto/gnmi"
 	ospb "github.com/openconfig/gnoi/os"
@@ -55,7 +56,7 @@ import (
 
 const (
 	TemplateFile            = "bf.cfg.template"
-	CloudInitDefaultTimeout = 300
+	CloudInitDefaultTimeout = 90
 	// The maximum size of the bf.cfg file is expanded to 128k since DOCA 2.8
 	MaxBFSize     = 1024 * 128
 	MaxRetryCount = 10
@@ -275,7 +276,14 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: dpu.Spec.Cluster.NameSpace, Name: dpu.Spec.Cluster.Name}, dc); err != nil {
 			return "", fmt.Errorf("failed to get DPUCluster, err: %v", err)
 		}
-		data, err := generateBFConfig(ctx, dpu, flavor, dc)
+		node := &corev1.Node{}
+		if err := k8sClient.Get(ctx, types.NamespacedName{
+			Namespace: "",
+			Name:      dpu.Spec.NodeName,
+		}, node); err != nil {
+			return nil, err
+		}
+		data, err := generateBFConfig(ctx, dpu, node, flavor, dc)
 		if err != nil || data == nil {
 			logger.Error(err, fmt.Sprintf("failed bf.cfg creation for %s/%s", dpu.Namespace, dpu.Name))
 			return nil, err
@@ -397,7 +405,7 @@ func generateDMSTaskName(dpu *provisioningv1.DPU) string {
 	return fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)
 }
 
-func generateBFConfig(ctx context.Context, dpu *provisioningv1.DPU, flavor *provisioningv1.DPUFlavor, dc *provisioningv1.DPUCluster) ([]byte, error) {
+func generateBFConfig(ctx context.Context, dpu *provisioningv1.DPU, node *corev1.Node, flavor *provisioningv1.DPUFlavor, dc *provisioningv1.DPUCluster) ([]byte, error) {
 	logger := log.FromContext(ctx)
 
 	joinCommand, err := generateJoinCommand(dc)
@@ -405,7 +413,18 @@ func generateBFConfig(ctx context.Context, dpu *provisioningv1.DPU, flavor *prov
 		return nil, err
 	}
 
-	buf, err := bfcfg.Generate(flavor, dpu.Name, joinCommand, dpu.Spec.NodeName)
+	linuxCloud := false
+	cmd, _, err := reboot.GenerateCmd(node.Annotations, dpu.Annotations)
+	if err != nil {
+		logger.Error(err, "failed to generate ipmitool command")
+		return nil, err
+	}
+
+	if cmd == reboot.Skip {
+		linuxCloud = true
+	}
+
+	buf, err := bfcfg.Generate(flavor, dpu.Name, joinCommand, dpu.Spec.NodeName, linuxCloud)
 	if err != nil {
 		return nil, err
 	}

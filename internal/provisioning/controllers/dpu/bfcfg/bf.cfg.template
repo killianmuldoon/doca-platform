@@ -263,7 +263,9 @@ write_files:
         #! /bin/bash
         set -e
         update-grub
+{{- if .LinuxCloud}}
         reboot
+{{end}}
 {{end}}
 
 {{- if .ContainerdRegistryEndpoint }}

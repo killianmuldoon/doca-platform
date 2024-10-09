@@ -46,7 +46,7 @@ const (
 
 const (
 	ContainerPort  int32  = 9339
-	DMSImageFolder string = "/bfb-folder"
+	DMSImageFolder string = "/bfb"
 )
 
 func Address(ip string) string {
