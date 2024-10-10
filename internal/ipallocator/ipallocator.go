@@ -17,12 +17,14 @@ limitations under the License.
 package ipallocator
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/types"
@@ -71,6 +73,9 @@ type NVIPAMIPAllocatorRequest struct {
 	// PoolType is the type of the NVIPAM pool we should request an IP from. If empty, we defer to the default defined
 	// by NVIPAM.
 	PoolType NVIPAMPoolType `json:"poolType,omitempty"`
+	// AllocateIPWIthIndex instructs NVIPAM to allocate the IP with the given index from the chunk of the pool that is
+	// allocated for the node
+	AllocateIPWIthIndex *int32 `json:"allocateIPWithIndex,omitempty"`
 }
 
 // NVIPAMPoolType are the supported NVIPAM pools types
@@ -105,7 +110,10 @@ func New(cninet *libcni.CNIConfig, podName string, podNamespace string, podUID s
 // ParseRequests parses requests from the given input. This input is supposed to be a list of json objects.
 func (a *NVIPAMIPAllocator) ParseRequests(requests string) ([]NVIPAMIPAllocatorRequest, error) {
 	reqs := []NVIPAMIPAllocatorRequest{}
-	if err := json.Unmarshal([]byte(requests), &reqs); err != nil {
+
+	dec := json.NewDecoder(bytes.NewReader([]byte(requests)))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&reqs); err != nil {
 		return nil, fmt.Errorf("error while parsing requests: %w", err)
 	}
 
@@ -126,6 +134,14 @@ func (a *NVIPAMIPAllocator) ParseRequests(requests string) ([]NVIPAMIPAllocatorR
 			continue
 		}
 		names[req.Name] = struct{}{}
+
+		if req.PoolType != "" && req.PoolType != PoolTypeCIDRPool && req.PoolType != PoolTypeIPPool {
+			errs = append(errs, fmt.Errorf("poolType is specified to a non supported type %s", req.PoolType))
+		}
+
+		if req.AllocateIPWIthIndex != nil && *req.AllocateIPWIthIndex < 0 {
+			errs = append(errs, fmt.Errorf("allocateIPWithIndex must not be negative, but it is %d", *req.AllocateIPWIthIndex))
+		}
 	}
 
 	return reqs, kerrors.NewAggregate(errs)
@@ -134,6 +150,10 @@ func (a *NVIPAMIPAllocator) ParseRequests(requests string) ([]NVIPAMIPAllocatorR
 // allocate allocates an IP from the NVIPAM given the input request
 func (a *NVIPAMIPAllocator) Allocate(ctx context.Context, req NVIPAMIPAllocatorRequest) error {
 	rt := a.constructRuntimeConf(req.Name)
+
+	if req.AllocateIPWIthIndex != nil {
+		rt.Args = append(rt.Args, [2]string{"allocateIPWithIndex", strconv.Itoa(int(*req.AllocateIPWIthIndex))})
+	}
 
 	netconf, err := libcni.ConfFromBytes([]byte(fmt.Sprintf(netConf, req.Name, req.PoolName, req.PoolType)))
 	if err != nil {

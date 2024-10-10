@@ -28,6 +28,7 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("IPAllocator", func() {
@@ -80,8 +81,9 @@ var _ = Describe("IPAllocator", func() {
 		Entry("empty string", ``, true, nil),
 		Entry("no name", `[{"poolName":"some"}]`, true, nil),
 		Entry("duplicate name", `[{"name":"req1","poolName":"pool1","poolType":"ippool"},{"name":"req1","poolName":"pool2","poolType":"cidrpool"}]:`, true, nil),
-		Entry("uknown field", `[{"name":"req1","poolName":pool1,"badField":"val"}]`, true, nil),
-		Entry("bad poolType", `[{"name":"req1","poolName":pool1","poolType":"whateverpool"}]:`, true, nil),
+		Entry("uknown field", `[{"name":"req1","poolName":"pool1","badField":"val"}]`, true, nil),
+		Entry("bad poolType", `[{"name":"req1","poolName":"pool1","poolType":"whateverpool"}]`, true, nil),
+		Entry("bad allocateWithIndex", `[{"name":"req1","poolName":"pool1","poolType":"cidrpool","allocateIPWithIndex":-1}]`, true, nil),
 	)
 	It("should call CNI ADD with correct parameters", func() {
 		rawExec := &fakes.RawExec{}
@@ -105,13 +107,14 @@ var _ = Describe("IPAllocator", func() {
 		allocator.FileSystemRoot = tmpDir
 
 		req := ipallocator.NVIPAMIPAllocatorRequest{
-			Name:     "req1",
-			PoolName: "some-pool",
-			PoolType: ipallocator.PoolTypeIPPool,
+			Name:                "req1",
+			PoolName:            "some-pool",
+			PoolType:            ipallocator.PoolTypeIPPool,
+			AllocateIPWIthIndex: ptr.To[int32](2),
 		}
 		Expect(allocator.Allocate(context.Background(), req)).To(Succeed())
 		Expect(rawExec.ExecPluginCall.Received.Environ).To(ContainElement("CNI_COMMAND=ADD"))
-		Expect(rawExec.ExecPluginCall.Received.Environ).To(ContainElement("CNI_ARGS=K8S_POD_NAME=some-pod;K8S_POD_NAMESPACE=some-namespace;K8S_POD_UID=6e29ade3-5ec4-436d-a5bd-c53ec3ca816e"))
+		Expect(rawExec.ExecPluginCall.Received.Environ).To(ContainElement("CNI_ARGS=K8S_POD_NAME=some-pod;K8S_POD_NAMESPACE=some-namespace;K8S_POD_UID=6e29ade3-5ec4-436d-a5bd-c53ec3ca816e;allocateIPWithIndex=2"))
 		Expect(rawExec.ExecPluginCall.Received.StdinData).To(Equal([]byte(`{"cniVersion":"0.4.0","ipam":{"poolName":"some-pool","poolType":"ippool","type":"nv-ipam"},"name":"req1","type":"nv-ipam"}`)))
 		Expect(rawExec.FindInPathCall.Received.Paths).To(ContainElement(filepath.Join(tmpDir, ipallocator.CNIBinDir)))
 		Expect(rawExec.FindInPathCall.Received.Plugin).To(Equal("nv-ipam"))
@@ -327,9 +330,10 @@ var _ = Describe("IPAllocator", func() {
 
 		By("Calling Allocate() for the first request")
 		req1 := ipallocator.NVIPAMIPAllocatorRequest{
-			Name:     "req1",
-			PoolName: "some-pool",
-			PoolType: ipallocator.PoolTypeIPPool,
+			Name:                "req1",
+			PoolName:            "some-pool",
+			PoolType:            ipallocator.PoolTypeIPPool,
+			AllocateIPWIthIndex: ptr.To[int32](2),
 		}
 		Expect(allocator.Allocate(context.Background(), req1)).To(Succeed())
 		By("Calling Allocate() for the second request")
