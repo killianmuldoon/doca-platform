@@ -41,16 +41,16 @@ const (
 	password             string = "admin"
 	issuerKind           string = "Issuer"
 	selfSignedIssuerName string = "dpf-provisioning-selfsigned-issuer"
-	NumofVFDefaultValue  string = "16"
+	dmsServerIP          string = "0.0.0.0"
+	dmsServerPort        int32  = 9339
 )
 
 const (
-	ContainerPort  int32  = 9339
 	DMSImageFolder string = "/bfb"
 )
 
 func Address(ip string) string {
-	return fmt.Sprintf("%s:%d", ip, ContainerPort)
+	return fmt.Sprintf("%s:%d", ip, dmsServerPort)
 }
 
 func createIssuer(ctx context.Context, client client.Client, name string, namespace string, secretName string, owner *metav1.OwnerReference) error {
@@ -305,7 +305,7 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 
 	logger.V(3).Info(fmt.Sprintf("create %s DMS pod", dmsPodName))
 	dmsCommand := fmt.Sprintf("./rshim.sh && %s -bind_address %s:%d -v 99 -auth cert -ca /etc/ssl/certs/server/ca.crt -key /etc/ssl/certs/server/tls.key -cert /etc/ssl/certs/server/tls.crt -password %s -username %s -image_folder %s -target_pci %s -exec_timeout %d -disable_unbind_at_activate -reboot_status_check none",
-		dmsPath, nodeInternalIP, ContainerPort, password, username, DMSImageFolder, pciAddress, option.DMSTimeout)
+		dmsPath, dmsServerIP, dmsServerPort, password, username, DMSImageFolder, pciAddress, option.DMSTimeout)
 
 	hostPathType := corev1.HostPathDirectory
 	pod := &corev1.Pod{
@@ -323,7 +323,7 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 					ImagePullPolicy: corev1.PullAlways,
 					Ports: []corev1.ContainerPort{
 						{
-							ContainerPort: ContainerPort,
+							ContainerPort: dmsServerPort,
 						},
 					},
 					VolumeMounts: []corev1.VolumeMount{
