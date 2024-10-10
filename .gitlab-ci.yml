@@ -257,3 +257,5 @@ scan:
   script:
     - make generate-manifests-release-defaults
     - ./hack/scripts/container-scanner.sh
+  after_script:
+    - ./hack/scripts/slack-notification.sh
