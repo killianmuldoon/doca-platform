@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package webhooks
 
 import (
 	"context"
+
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,30 +29,28 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// These tests are written in BDD-style using Ginkgo framework. Refer to
-// http://onsi.github.io/ginkgo to learn more.
 var _ = Describe("DPUCluster", func() {
 
 	const (
 		DefaultObjName = "obj-dpucluster"
-		DefaultObjType = string(StaticCluster)
+		DefaultObjType = string(provisioningv1.StaticCluster)
 	)
 
-	var getObjKey = func(obj *DPUCluster) types.NamespacedName {
+	var getObjKey = func(obj *provisioningv1.DPUCluster) types.NamespacedName {
 		return types.NamespacedName{
 			Name:      obj.Name,
 			Namespace: obj.Namespace,
 		}
 	}
 
-	var createObj = func(name string) *DPUCluster {
-		return &DPUCluster{
+	var createObj = func(name string) *provisioningv1.DPUCluster {
+		return &provisioningv1.DPUCluster{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: "default",
 			},
-			Spec:   DPUClusterSpec{},
-			Status: DPUClusterStatus{},
+			Spec:   provisioningv1.DPUClusterSpec{},
+			Status: provisioningv1.DPUClusterStatus{},
 		}
 	}
 
@@ -72,7 +72,7 @@ var _ = Describe("DPUCluster", func() {
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			objFetched := &DPUCluster{}
+			objFetched := &provisioningv1.DPUCluster{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
@@ -102,7 +102,7 @@ var _ = Describe("DPUCluster", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			objFetched := &DPUCluster{}
+			objFetched := &provisioningv1.DPUCluster{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
@@ -139,7 +139,7 @@ var _ = Describe("DPUCluster", func() {
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 			Expect(obj.Spec.MaxNodes).To(BeEquivalentTo(1000))
 
-			objFetched := &DPUCluster{}
+			objFetched := &provisioningv1.DPUCluster{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.MaxNodes).To(BeEquivalentTo(1000))
@@ -187,7 +187,7 @@ var _ = Describe("DPUCluster", func() {
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			objFetched := &DPUCluster{}
+			objFetched := &provisioningv1.DPUCluster{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.Kubeconfig).To(Equal(""))
@@ -212,7 +212,7 @@ var _ = Describe("DPUCluster", func() {
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			objFetched := &DPUCluster{}
+			objFetched := &provisioningv1.DPUCluster{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.Kubeconfig).To(Equal(""))
@@ -241,7 +241,7 @@ var _ = Describe("DPUCluster", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			objFetched := &DPUCluster{}
+			objFetched := &provisioningv1.DPUCluster{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.Kubeconfig).To(Equal(refValue))
@@ -264,17 +264,17 @@ spec:
       virtualRouterID: 1
       interface: br-dpu
 `)
-			obj := &DPUCluster{}
+			obj := &provisioningv1.DPUCluster{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			objFetched := &DPUCluster{}
+			objFetched := &provisioningv1.DPUCluster{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(objFetched.Spec.Type).To(BeEquivalentTo(string(StaticCluster)))
+			Expect(objFetched.Spec.Type).To(BeEquivalentTo(string(provisioningv1.StaticCluster)))
 			Expect(objFetched.Spec.MaxNodes).To(BeEquivalentTo(10))
 			Expect(objFetched.Spec.Version).To(BeEquivalentTo("v1.31.0"))
 		})
@@ -285,12 +285,12 @@ spec:
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
-			Expect(obj.Status.Phase).To(BeEquivalentTo(PhasePending))
+			Expect(obj.Status.Phase).To(BeEquivalentTo(provisioningv1.PhasePending))
 
-			objFetched := &DPUCluster{}
+			objFetched := &provisioningv1.DPUCluster{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(objFetched.Status.Phase).To(BeEquivalentTo(PhasePending))
+			Expect(objFetched.Status.Phase).To(BeEquivalentTo(provisioningv1.PhasePending))
 		})
 	})
 })

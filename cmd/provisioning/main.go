@@ -28,6 +28,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpucluster"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpuset"
+	provisioningwebhooks "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/webhooks"
 
 	maintenancev1alpha1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -218,19 +219,19 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DPUCluster")
 		os.Exit(1)
 	}
-	if err = (&provisioningv1.BFB{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&provisioningwebhooks.BFB{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "BFB")
 		os.Exit(1)
 	}
-	if err = (&provisioningv1.DPU{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&provisioningwebhooks.DPU{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DPU")
 		os.Exit(1)
 	}
-	if err = (&provisioningv1.DPUSet{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&provisioningwebhooks.DPUSet{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DPUSet")
 		os.Exit(1)
 	}
-	if err = (&provisioningv1.DPUFlavor{}).SetupWebhookWithManager(mgr); err != nil {
+	if err = (&provisioningwebhooks.DPUFlavor{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DPUFlavor")
 		os.Exit(1)
 	}

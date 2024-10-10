@@ -40,9 +40,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
-// These tests use Ginkgo (BDD-style Go testing framework). Refer to
-// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
-
 var cfg *rest.Config
 var testClient client.Client
 var testEnv *envtest.Environment

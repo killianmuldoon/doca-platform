@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package webhooks
 
 import (
 	"context"
+
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,25 +29,23 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// These tests are written in BDD-style using Ginkgo framework. Refer to
-// http://onsi.github.io/ginkgo to learn more.
 var _ = Describe("DPUSet", func() {
 
-	var getObjKey = func(obj *DPUSet) types.NamespacedName {
+	var getObjKey = func(obj *provisioningv1.DPUSet) types.NamespacedName {
 		return types.NamespacedName{
 			Name:      obj.Name,
 			Namespace: obj.Namespace,
 		}
 	}
 
-	var createObj = func(name string) *DPUSet {
-		return &DPUSet{
+	var createObj = func(name string) *provisioningv1.DPUSet {
+		return &provisioningv1.DPUSet{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: "default",
 			},
-			Spec:   DPUSetSpec{},
-			Status: DPUSetStatus{},
+			Spec:   provisioningv1.DPUSetSpec{},
+			Status: provisioningv1.DPUSetStatus{},
 		}
 	}
 
@@ -65,7 +65,7 @@ var _ = Describe("DPUSet", func() {
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			objFetched := &DPUSet{}
+			objFetched := &provisioningv1.DPUSet{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
@@ -92,7 +92,7 @@ var _ = Describe("DPUSet", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			objFetched := &DPUSet{}
+			objFetched := &provisioningv1.DPUSet{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
@@ -103,7 +103,7 @@ var _ = Describe("DPUSet", func() {
 			newValue := `dummy_new_cluster`
 
 			obj := createObj("obj-4")
-			obj.Spec.DPUTemplate.Spec.Cluster = K8sCluster{
+			obj.Spec.DPUTemplate.Spec.Cluster = provisioningv1.K8sCluster{
 				Name:      refValue,
 				NameSpace: `default`,
 			}
@@ -114,7 +114,7 @@ var _ = Describe("DPUSet", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			objFetched := &DPUSet{}
+			objFetched := &provisioningv1.DPUSet{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.DPUTemplate.Spec.Cluster.Name).To(Equal(newValue))
@@ -151,7 +151,7 @@ spec:
         nodeLabels:
           "dpf.node.dpu/role": "worker"
 `)
-			obj := &DPUSet{}
+			obj := &provisioningv1.DPUSet{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -166,7 +166,7 @@ metadata:
   name: obj-6
   namespace: default
 `)
-			obj := &DPUSet{}
+			obj := &provisioningv1.DPUSet{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)

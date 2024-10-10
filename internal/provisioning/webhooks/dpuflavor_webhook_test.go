@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package webhooks
 
 import (
 	"context"
+
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,8 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// These tes`s `are written in BDD-style using Ginkgo framework. Refer to
-// http://onsi.github.io/ginkgo to learn more.
 var _ = Describe("DPUFlavor", func() {
 
 	var (
@@ -36,20 +36,20 @@ var _ = Describe("DPUFlavor", func() {
 		DefaultSysctl = []string{`net.mc_forwarding=2048kB`}
 	)
 
-	var getObjKey = func(obj *DPUFlavor) types.NamespacedName {
+	var getObjKey = func(obj *provisioningv1.DPUFlavor) types.NamespacedName {
 		return types.NamespacedName{
 			Name:      obj.Name,
 			Namespace: obj.Namespace,
 		}
 	}
 
-	var createObj = func(name string) *DPUFlavor {
-		return &DPUFlavor{
+	var createObj = func(name string) *provisioningv1.DPUFlavor {
+		return &provisioningv1.DPUFlavor{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: "default",
 			},
-			Spec: DPUFlavorSpec{},
+			Spec: provisioningv1.DPUFlavorSpec{},
 		}
 	}
 
@@ -69,7 +69,7 @@ var _ = Describe("DPUFlavor", func() {
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			objFetched := &DPUFlavor{}
+			objFetched := &provisioningv1.DPUFlavor{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
@@ -98,7 +98,7 @@ var _ = Describe("DPUFlavor", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			objFetched := &DPUFlavor{}
+			objFetched := &provisioningv1.DPUFlavor{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
@@ -114,7 +114,7 @@ var _ = Describe("DPUFlavor", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			objFetched := &DPUFlavor{}
+			objFetched := &provisioningv1.DPUFlavor{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
@@ -125,7 +125,7 @@ var _ = Describe("DPUFlavor", func() {
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			objFetched := &DPUFlavor{}
+			objFetched := &provisioningv1.DPUFlavor{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
@@ -152,7 +152,7 @@ var _ = Describe("DPUFlavor", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			objFetched := &DPUFlavor{}
+			objFetched := &provisioningv1.DPUFlavor{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.Grub.KernelParameters[0]).To(Equal(refValue[0]))
@@ -172,7 +172,7 @@ var _ = Describe("DPUFlavor", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			objFetched := &DPUFlavor{}
+			objFetched := &provisioningv1.DPUFlavor{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.Sysctl.Parameters[0]).To(Equal(refValue[0]))
@@ -185,7 +185,7 @@ var _ = Describe("DPUFlavor", func() {
 			obj := createObj("obj-8")
 			obj.Spec.Grub.KernelParameters = DefaultGrub
 			obj.Spec.Sysctl.Parameters = DefaultSysctl
-			obj.Spec.NVConfig = []DPUFlavorNVConfig{
+			obj.Spec.NVConfig = []provisioningv1.DPUFlavorNVConfig{
 				{Parameters: refValue},
 			}
 			err := k8sClient.Create(ctx, obj)
@@ -195,7 +195,7 @@ var _ = Describe("DPUFlavor", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			objFetched := &DPUFlavor{}
+			objFetched := &provisioningv1.DPUFlavor{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.NVConfig[0].Parameters[0]).To(Equal(refValue[0]))
@@ -216,7 +216,7 @@ var _ = Describe("DPUFlavor", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			objFetched := &DPUFlavor{}
+			objFetched := &provisioningv1.DPUFlavor{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.OVS.RawConfigScript).To(Equal(refValue))
@@ -237,7 +237,7 @@ var _ = Describe("DPUFlavor", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			objFetched := &DPUFlavor{}
+			objFetched := &provisioningv1.DPUFlavor{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.BFCfgParameters[0]).To(Equal(refValue[0]))
@@ -250,7 +250,7 @@ var _ = Describe("DPUFlavor", func() {
 			obj := createObj("obj-11")
 			obj.Spec.Grub.KernelParameters = DefaultGrub
 			obj.Spec.Sysctl.Parameters = DefaultSysctl
-			obj.Spec.ConfigFiles = []ConfigFile{
+			obj.Spec.ConfigFiles = []provisioningv1.ConfigFile{
 				{Path: refValue},
 			}
 			err := k8sClient.Create(ctx, obj)
@@ -260,7 +260,7 @@ var _ = Describe("DPUFlavor", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			objFetched := &DPUFlavor{}
+			objFetched := &provisioningv1.DPUFlavor{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.ConfigFiles[0].Path).To(Equal(refValue))
@@ -281,7 +281,7 @@ var _ = Describe("DPUFlavor", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			objFetched := &DPUFlavor{}
+			objFetched := &provisioningv1.DPUFlavor{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.ContainerdConfig.RegistryEndpoint).To(Equal(refValue))
@@ -347,7 +347,7 @@ spec:
         CREATE_OVS_BRIDGES="no"
     permissions: "0755"
 `)
-			obj := &DPUFlavor{}
+			obj := &provisioningv1.DPUFlavor{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -362,7 +362,7 @@ metadata:
   name: obj-14
   namespace: default
 `)
-			obj := &DPUFlavor{}
+			obj := &provisioningv1.DPUFlavor{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)

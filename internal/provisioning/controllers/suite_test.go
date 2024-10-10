@@ -30,6 +30,7 @@ import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpucluster"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpuset"
+	provisioningwebhooks "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/webhooks"
 
 	nvidiaNodeMaintenancev1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -46,9 +47,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
-
-// These tests use Ginkgo (BDD-style Go testing framework). Refer to
-// http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
 
 var (
 	cfg       *rest.Config
@@ -122,7 +120,7 @@ var _ = BeforeSuite(func() {
 		}})
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&provisioningv1.BFB{}).SetupWebhookWithManager(k8sManager)
+	err = (&provisioningwebhooks.BFB{}).SetupWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 	bfbReconciler := &bfb.BFBReconciler{
 		Client: k8sManager.GetClient(),
@@ -131,7 +129,7 @@ var _ = BeforeSuite(func() {
 	err = bfbReconciler.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&provisioningv1.DPU{}).SetupWebhookWithManager(k8sManager)
+	err = (&provisioningwebhooks.DPU{}).SetupWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 	dpuReconciler := &dpu.DPUReconciler{
 		Client: k8sManager.GetClient(),
@@ -140,7 +138,7 @@ var _ = BeforeSuite(func() {
 	err = dpuReconciler.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&provisioningv1.DPUSet{}).SetupWebhookWithManager(k8sManager)
+	err = (&provisioningwebhooks.DPUSet{}).SetupWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 	dpusetReconciler := &dpuset.DPUSetReconciler{
 		Client: k8sManager.GetClient(),
@@ -149,7 +147,7 @@ var _ = BeforeSuite(func() {
 	err = dpusetReconciler.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&provisioningv1.DPUFlavor{}).SetupWebhookWithManager(k8sManager)
+	err = (&provisioningwebhooks.DPUFlavor{}).SetupWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
 	dpuclusterReconciler := &dpucluster.DPUClusterReconciler{

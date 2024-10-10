@@ -31,8 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// These tests are written in BDD-style using Ginkgo framework. Refer to
-// http://onsi.github.io/ginkgo to learn more.
 var _ = Describe("DPUCluster", func() {
 
 	const (

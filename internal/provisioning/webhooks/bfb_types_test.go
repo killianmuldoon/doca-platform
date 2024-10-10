@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package webhooks
 
 import (
 	"context"
+
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,8 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// These tests are written in BDD-style using Ginkgo framework. Refer to
-// http://onsi.github.io/ginkgo to learn more.
 var _ = Describe("BFB", func() {
 
 	const (
@@ -36,21 +36,21 @@ var _ = Describe("BFB", func() {
 		DefaultURL     = "http://example.com/dummy.bfb"
 	)
 
-	var getObjKey = func(obj *BFB) types.NamespacedName {
+	var getObjKey = func(obj *provisioningv1.BFB) types.NamespacedName {
 		return types.NamespacedName{
 			Name:      obj.Name,
 			Namespace: obj.Namespace,
 		}
 	}
 
-	var createObj = func(name string) *BFB {
-		return &BFB{
+	var createObj = func(name string) *provisioningv1.BFB {
+		return &provisioningv1.BFB{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: "default",
 			},
-			Spec:   BFBSpec{},
-			Status: BFBStatus{},
+			Spec:   provisioningv1.BFBSpec{},
+			Status: provisioningv1.BFBStatus{},
 		}
 	}
 
@@ -72,7 +72,7 @@ var _ = Describe("BFB", func() {
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			objFetched := &BFB{}
+			objFetched := &provisioningv1.BFB{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
@@ -102,7 +102,7 @@ var _ = Describe("BFB", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			objFetched := &BFB{}
+			objFetched := &provisioningv1.BFB{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
@@ -157,7 +157,7 @@ var _ = Describe("BFB", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			objFetched := &BFB{}
+			objFetched := &provisioningv1.BFB{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.URL).To(Equal(refValue))
@@ -219,7 +219,7 @@ var _ = Describe("BFB", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			objFetched := &BFB{}
+			objFetched := &provisioningv1.BFB{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.FileName).To(Equal(refValue))
@@ -236,7 +236,7 @@ spec:
   fileName: "bf-bundle-2.7.0-33.bfb"
   url: "http://bfb-server.dpf-operator-system/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_unsigned.bfb"
 `)
-			obj := &BFB{}
+			obj := &provisioningv1.BFB{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -254,7 +254,7 @@ metadata:
 spec:
   url: "http://bfb-server.dpf-operator-system/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_unsigned.bfb"
 `)
-			obj := &BFB{}
+			obj := &provisioningv1.BFB{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -270,7 +270,7 @@ metadata:
   name: obj-bfb
   namespace: default
 `)
-			obj := &BFB{}
+			obj := &provisioningv1.BFB{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -287,7 +287,7 @@ metadata:
 spec:
   url: ""
 `)
-			obj := &BFB{}
+			obj := &provisioningv1.BFB{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -299,13 +299,13 @@ spec:
 			obj.Spec.URL = DefaultURL
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj.Status.Phase).To(BeEquivalentTo(BFBInitializing))
+			Expect(obj.Status.Phase).To(BeEquivalentTo(provisioningv1.BFBInitializing))
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			objFetched := &BFB{}
+			objFetched := &provisioningv1.BFB{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(objFetched.Status.Phase).To(BeEquivalentTo(BFBInitializing))
+			Expect(objFetched.Status.Phase).To(BeEquivalentTo(provisioningv1.BFBInitializing))
 		})
 	})
 })

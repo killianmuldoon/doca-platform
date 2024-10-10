@@ -173,13 +173,6 @@ generate-manifests-operator: controller-gen kustomize envsubst helm ## Generate 
 	$(KUSTOMIZE) build config/operator-additional-crds -o  deploy/helm/dpf-operator/templates/crds/;
 	## Set the image name and tag in the operator helm chart values
 	$(ENVSUBST) < deploy/helm/dpf-operator/values.yaml.tmpl > deploy/helm/dpf-operator/values.yaml
-	## Update the helm dependencies for the chart.
-	$(HELM) repo add argo https://argoproj.github.io/argo-helm
-	$(HELM) repo add nfd https://kubernetes-sigs.github.io/node-feature-discovery/charts
-	$(HELM) repo add prometheus https://prometheus-community.github.io/helm-charts
-	$(HELM) repo add grafana https://grafana.github.io/helm-charts
-	$(HELM) repo add clastix https://clastix.github.io/charts
-	$(HELM) dependency build $(OPERATOR_HELM_CHART)
 
 .PHONY: generate-manifests-dpuservice
 generate-manifests-dpuservice: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
@@ -290,7 +283,7 @@ generate-manifests-ovn-kubernetes: $(OVNKUBERNETES_DIR) envsubst ## Generate man
 	$(ENVSUBST) < $(OVNKUBERNETES_HELM_CHART)/values.yaml.tmpl > $(OVNKUBERNETES_HELM_CHART)/values.yaml
 
 .PHONY: generate-operator-bundle
-generate-operator-bundle: helm operator-sdk generate-manifests-operator ## Generate bundle manifests and metadata, then validate generated files.
+generate-operator-bundle: helm operator-sdk generate-manifests-operator helm-package-operator ## Generate bundle manifests and metadata, then validate generated files.
 	# First template the actual manifests to include using helm.
 	mkdir -p hack/charts/dpf-operator/
 	$(HELM) template --namespace $(OPERATOR_NAMESPACE) \
@@ -879,6 +872,13 @@ helm-package-dpu-networking: $(CHARTSDIR) helm ## Package helm chart for service
 OPERATOR_CHART_TAGS ?=$(TAG)
 .PHONY: helm-package-operator
 helm-package-operator: $(CHARTSDIR) helm ## Package helm chart for DPF Operator
+	## Update the helm dependencies for the chart.
+	$(HELM) repo add argo https://argoproj.github.io/argo-helm
+	$(HELM) repo add nfd https://kubernetes-sigs.github.io/node-feature-discovery/charts
+	$(HELM) repo add prometheus https://prometheus-community.github.io/helm-charts
+	$(HELM) repo add grafana https://grafana.github.io/helm-charts
+	$(HELM) repo add clastix https://clastix.github.io/charts
+	$(HELM) dependency build $(OPERATOR_HELM_CHART)
 	for tag in $(OPERATOR_CHART_TAGS); do \
 		$(HELM) package $(OPERATOR_HELM_CHART) --version $$tag --destination $(CHARTSDIR); \
 	done

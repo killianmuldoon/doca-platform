@@ -1361,26 +1361,6 @@ webhooks:
     service:
       name: dpf-provisioning-webhook-service
       namespace: dpf-provisioning
-      path: /mutate-provisioning-dpu-nvidia-com-v1alpha1-dpu
-  failurePolicy: Fail
-  name: mdpu.kb.io
-  rules:
-  - apiGroups:
-    - provisioning.dpu.nvidia.com
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - dpus
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: dpf-provisioning-webhook-service
-      namespace: dpf-provisioning
       path: /mutate-provisioning-dpu-nvidia-com-v1alpha1-dpuset
   failurePolicy: Fail
   name: mdpuset.kb.io

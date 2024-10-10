@@ -14,10 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package v1alpha1
+package webhooks
 
 import (
 	"context"
+
+	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,25 +29,23 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// These tests are written in BDD-style using Ginkgo framework. Refer to
-// http://onsi.github.io/ginkgo to learn more.
 var _ = Describe("DPU", func() {
 
-	var getObjKey = func(obj *DPU) types.NamespacedName {
+	var getObjKey = func(obj *provisioningv1.DPU) types.NamespacedName {
 		return types.NamespacedName{
 			Name:      obj.Name,
 			Namespace: obj.Namespace,
 		}
 	}
 
-	var createObj = func(name string) *DPU {
-		return &DPU{
+	var createObj = func(name string) *provisioningv1.DPU {
+		return &provisioningv1.DPU{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      name,
 				Namespace: "default",
 			},
-			Spec:   DPUSpec{},
-			Status: DPUStatus{},
+			Spec:   provisioningv1.DPUSpec{},
+			Status: provisioningv1.DPUStatus{},
 		}
 	}
 
@@ -65,7 +65,7 @@ var _ = Describe("DPU", func() {
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			objFetched := &DPU{}
+			objFetched := &provisioningv1.DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
@@ -92,7 +92,7 @@ var _ = Describe("DPU", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			objFetched := &DPU{}
+			objFetched := &provisioningv1.DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
@@ -103,7 +103,7 @@ var _ = Describe("DPU", func() {
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			objFetched := &DPU{}
+			objFetched := &provisioningv1.DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.NodeEffect.Drain).NotTo(BeNil())
@@ -122,7 +122,7 @@ var _ = Describe("DPU", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			objFetched := &DPU{}
+			objFetched := &provisioningv1.DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.NodeName).To(Equal(refValue))
@@ -140,7 +140,7 @@ var _ = Describe("DPU", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
-			objFetched := &DPU{}
+			objFetched := &provisioningv1.DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.PCIAddress).To(Equal(refValue))
@@ -151,7 +151,7 @@ var _ = Describe("DPU", func() {
 			newValue := `dummy_new_cluster`
 
 			obj := createObj("obj-7")
-			obj.Spec.Cluster = K8sCluster{
+			obj.Spec.Cluster = provisioningv1.K8sCluster{
 				Name:      refValue,
 				NameSpace: `default`,
 			}
@@ -162,7 +162,7 @@ var _ = Describe("DPU", func() {
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			objFetched := &DPU{}
+			objFetched := &provisioningv1.DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.Cluster.Name).To(Equal(newValue))
@@ -177,7 +177,7 @@ var _ = Describe("DPU", func() {
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			objFetched := &DPU{}
+			objFetched := &provisioningv1.DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.Cluster.Name).To(Equal(""))
@@ -217,7 +217,7 @@ spec:
       value: "provisioning"
       effect: NoSchedule
 `)
-			obj := &DPU{}
+			obj := &provisioningv1.DPU{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -232,7 +232,7 @@ metadata:
   name: obj-9
   namespace: default
 `)
-			obj := &DPU{}
+			obj := &provisioningv1.DPU{}
 			err := yaml.UnmarshalStrict(yml, obj)
 			Expect(err).To(Succeed())
 			err = k8sClient.Create(ctx, obj)
@@ -243,12 +243,12 @@ metadata:
 			obj := createObj("obj-10")
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(obj.Status.Phase).To(BeEquivalentTo(DPUInitializing))
+			Expect(obj.Status.Phase).To(BeEquivalentTo(provisioningv1.DPUInitializing))
 
-			objFetched := &DPU{}
+			objFetched := &provisioningv1.DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(objFetched.Status.Phase).To(BeEquivalentTo(DPUInitializing))
+			Expect(objFetched.Status.Phase).To(BeEquivalentTo(provisioningv1.DPUInitializing))
 		})
 	})
 })
