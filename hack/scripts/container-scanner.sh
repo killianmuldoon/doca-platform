@@ -79,6 +79,15 @@ for image in $images; do
   # Pull the image from repo
   docker pull "${image}"
 
+  # Capture the return code of the docker pull command
+  pull_return_code=$?
+
+  # Check if the docker pull was successful
+  if [[ $pull_return_code -ne 0 ]]; then
+    echo "[ERROR] Failed to pull image ${image} with return code $pull_return_code"
+    exit 1
+  fi
+
   # Extract just the name and tag of the image for the archive and log file
   image_name=$(basename $image)
   archive_name="${image_name//:/_}.tar"
