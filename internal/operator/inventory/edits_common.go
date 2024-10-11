@@ -137,8 +137,8 @@ func LabelsEdit(labelsToAdd map[string]string) UnstructuredEdit {
 		if labels == nil {
 			labels = map[string]string{}
 		}
-		for k, v := range labelsToAdd {
-			labels[k] = v
+		for k, v := range labels {
+			labelsToAdd[k] = v
 		}
 		un.SetLabels(labelsToAdd)
 		return nil

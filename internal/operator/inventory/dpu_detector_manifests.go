@@ -21,6 +21,7 @@ import (
 	_ "embed"
 	"fmt"
 
+	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -41,7 +42,7 @@ type dpuDetectorObjects struct {
 }
 
 func (p *dpuDetectorObjects) Name() string {
-	return "DPFDPUDetector"
+	return "dpudetector"
 }
 
 // Parse returns typed objects for the DPU Detector daemonset.
@@ -87,6 +88,13 @@ func (p *dpuDetectorObjects) GenerateManifests(vars Variables, options ...Genera
 		option.Apply(opts)
 	}
 
+	labelsToAdd := map[string]string{operatorv1.DPFComponentLabelKey: p.Name()}
+	applySetID := ApplySetID(vars.Namespace, p)
+	// Add the ApplySet to the manifests if this hasn't been disabled.
+	if !opts.skipApplySet {
+		labelsToAdd[applysetPartOfLabel] = applySetID
+	}
+
 	// make a copy of the objects
 	objsCopy := make([]*unstructured.Unstructured, 0, len(p.objects))
 	for i := range p.objects {
@@ -98,12 +106,16 @@ func (p *dpuDetectorObjects) GenerateManifests(vars Variables, options ...Genera
 		AddForAll(NamespaceEdit(vars.Namespace)).
 		AddForKindS(DaemonsetKind, ImagePullSecretsEditForDaemonSetEdit(vars.ImagePullSecrets...)).
 		AddForKindS(DaemonSetKind, TolerationsEdit(nodeNotReadyTolerations)).
+		AddForAll(LabelsEdit(labelsToAdd)).
 		Apply(objsCopy); err != nil {
 		return nil, err
 	}
 
 	// return as Objects
-	ret := make([]client.Object, 0, len(objsCopy))
+	ret := []client.Object{}
+	if !opts.skipApplySet {
+		ret = append(ret, applySetParentForComponent(p, applySetID, vars, applySetInventoryString(objsCopy...)))
+	}
 	for i := range objsCopy {
 		ret = append(ret, objsCopy[i])
 	}

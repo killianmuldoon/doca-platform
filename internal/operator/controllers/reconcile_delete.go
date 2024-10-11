@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
@@ -36,13 +35,10 @@ import (
 
 // The DPFOperatorConfig reconciler is responsible for ensuring that the entire DPF system is uninstalled on deletion.
 // This deletion follows a specified order - DPUServices must be fully deleted before the dpuservice-controller is deleted.
-//
-//nolint:unparam
-func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (ctrl.Result, error) {
+func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling delete")
 	vars := inventory.VariablesFromDPFOperatorConfig(r.Defaults, dpfOperatorConfig)
-	// also need to ensure argoCD components are deleted.
 
 	log.Info("Ensuring DPF system DPUServices are deleted")
 	var errs []error
@@ -59,23 +55,22 @@ func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOp
 		log.Error(kerrors.NewAggregate(errs), "Waiting for System DPUServices to be deleted")
 		conditions.AddFalse(dpfOperatorConfig, operatorv1.SystemComponentsReconciledCondition, conditions.ReasonAwaitingDeletion,
 			conditions.ConditionMessage(fmt.Sprintf("System DPUServices awaiting deletion: %s", kerrors.NewAggregate(errs))))
-		return ctrl.Result{}, kerrors.NewAggregate(errs)
+		return kerrors.NewAggregate(errs)
 	}
 
 	log.Info("Ensuring DPF system components are deleted")
 	// Delete objects for components deployed to the management cluster.
-	if err := r.deleteObjects(ctx, r.Inventory.DPUService, vars); err != nil {
-		errs = append(errs, err)
+	for _, component := range r.Inventory.AllComponents() {
+		err := r.deleteObjects(ctx, component, vars)
+		if err != nil {
+			errs = append(errs, err)
+		}
 	}
-	if err := r.deleteObjects(ctx, r.Inventory.DPFProvisioning, vars); err != nil {
-		errs = append(errs, err)
-	}
-
 	if len(errs) > 0 {
 		log.Error(kerrors.NewAggregate(errs), "Waiting for system components to be deleted")
 		conditions.AddFalse(dpfOperatorConfig, operatorv1.SystemComponentsReconciledCondition, conditions.ReasonAwaitingDeletion,
 			conditions.ConditionMessage(fmt.Sprintf("System components awaiting deletion: %s", kerrors.NewAggregate(errs).Error())))
-		return ctrl.Result{}, kerrors.NewAggregate(errs)
+		return kerrors.NewAggregate(errs)
 	}
 
 	conditions.AddTrue(dpfOperatorConfig, operatorv1.SystemComponentsReconciledCondition)
@@ -83,7 +78,7 @@ func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOp
 	log.Info("Removing finalizer")
 	controllerutil.RemoveFinalizer(dpfOperatorConfig, operatorv1.DPFOperatorConfigFinalizer)
 	// We should have an ownerReference chain in order to delete subordinate objects.
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func (r *DPFOperatorConfigReconciler) deleteObjects(ctx context.Context, component inventory.Component, vars inventory.Variables) error {

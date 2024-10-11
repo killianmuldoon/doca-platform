@@ -36,6 +36,7 @@ func newClusterManagerObjects(name string, data []byte) *clusterManagerObjects {
 		return NewEdits().
 			AddForAll(NamespaceEdit(vars.Namespace), LabelsEdit(labelsToAdd)).
 			AddForKindS(DeploymentKind, ImagePullSecretsEditForDeploymentEdit(vars.ImagePullSecrets...)).
+			AddForKindS(DeploymentKind, TolerationsEdit(controlPlaneTolerations)).
 			AddForKindS(DeploymentKind, NodeAffinityEdit(&controlPlaneNodeAffinity)).
 			AddForKindS(DeploymentKind, ImageForDeploymentContainerEdit("manager", vars.Images[name])).
 			Apply(objs)
