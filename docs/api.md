@@ -1438,7 +1438,6 @@ _Appears in:_
 | `dpus` _[DPUs](#dpus)_ | DPUs contains the DPU related configuration |  |  |
 | `services` _object (keys:string, values:[DPUDeploymentServiceConfiguration](#dpudeploymentserviceconfiguration))_ | Services contains the DPUDeploymentService related configuration. The key is the deploymentServiceName and the value is its<br />configuration. All underlying objects must specify the same deploymentServiceName in order to be able to be consumed by the<br />DPUDeployment. |  |  |
 | `serviceChains` _[DPUDeploymentSwitch](#dpudeploymentswitch) array_ | ServiceChains contains the configuration related to the DPUServiceChains that the DPUDeployment creates. |  | MaxItems: 50 <br />MinItems: 1 <br /> |
-| `strategy` _[Strategy](#strategy)_ | Strategy contains configuration related to the rolling update that the DPUDeployment can do whenever a DPUService<br />or a DPUSet related setting has changed. |  |  |
 
 
 #### DPUDeploymentStatus
@@ -2023,7 +2022,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `nodeSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#labelselector-v1-meta)_ | NodeSelector defines the nodes that the DPUSet should target |  |  |
-| `dpuSelector` _object (keys:string, values:string)_ | DPUSelector defines the DPUs that the DPUSet should target<br />TODO: Revisit if this one is needed at all or we can use the nodeSelector directly. If it's not the case, drop<br />this field and the field in the DPUSet. Based on the current implementation, it looks like we could remove it. |  |  |
+| `dpuSelector` _object (keys:string, values:string)_ | DPUSelector defines the DPUs that the DPUSet should target |  |  |
 | `dpuAnnotations` _object (keys:string, values:string)_ | DPUAnnotations is the annotations to be added to the DPU object created by the DPUSet. |  |  |
 
 
@@ -2698,23 +2697,6 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `name` _string_ | Name is the name of the interface |  |  |
 | `network` _string_ | Network is the Network Attachment Definition in the form of "namespace/name"<br />or just "name" if the namespace is the same as the namespace the pod is running. |  |  |
-
-
-#### Strategy
-
-
-
-Strategy contains configuration related to the rolling update that the DPUDeployment can do whenever a DPUService
-or a DPUSet related setting has changed.
-
-
-
-_Appears in:_
-- [DPUDeploymentSpec](#dpudeploymentspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `rollingUpdate` _[RollingUpdateDaemonSet](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#rollingupdatedaemonset-v1-apps)_ | RollingUpdate specifies the parameters related to the rolling update |  |  |
 
 
 #### Switch

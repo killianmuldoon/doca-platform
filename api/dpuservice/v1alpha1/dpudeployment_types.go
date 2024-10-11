@@ -19,7 +19,6 @@ package v1alpha1
 import (
 	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
 
-	appsv1 "k8s.io/api/apps/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -95,10 +94,6 @@ type DPUDeploymentSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=50
 	ServiceChains []DPUDeploymentSwitch `json:"serviceChains"`
-	// Strategy contains configuration related to the rolling update that the DPUDeployment can do whenever a DPUService
-	// or a DPUSet related setting has changed.
-	// +optional
-	Strategy Strategy `json:"strategy,omitempty"`
 }
 
 // DPUs contains the DPU related configuration
@@ -120,8 +115,6 @@ type DPUSet struct {
 	// +optional
 	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
 	// DPUSelector defines the DPUs that the DPUSet should target
-	// TODO: Revisit if this one is needed at all or we can use the nodeSelector directly. If it's not the case, drop
-	// this field and the field in the DPUSet. Based on the current implementation, it looks like we could remove it.
 	// +optional
 	DPUSelector map[string]string `json:"dpuSelector,omitempty"`
 	// DPUAnnotations is the annotations to be added to the DPU object created by the DPUSet.
@@ -172,13 +165,6 @@ type DPUDeploymentService struct {
 	// IPAM defines the IPAM configuration that is configured in the Service Function Chain
 	// +optional
 	IPAM *IPAM `json:"ipam,omitempty"`
-}
-
-// Strategy contains configuration related to the rolling update that the DPUDeployment can do whenever a DPUService
-// or a DPUSet related setting has changed.
-type Strategy struct {
-	// RollingUpdate specifies the parameters related to the rolling update
-	RollingUpdate appsv1.RollingUpdateDaemonSet `json:"rollingUpdate"`
 }
 
 // DPUDeploymentStatus defines the observed state of DPUDeployment

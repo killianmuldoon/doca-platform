@@ -961,7 +961,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment-dpudeployment-someservice",
+												ServiceID: "dpudeployment/dpudeployment/someservice",
 												Network:   "nad1",
 											},
 											InterfaceName: ptr.To[string]("someinterface"),
@@ -977,7 +977,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment-dpudeployment-someservice",
+												ServiceID: "dpudeployment/dpudeployment/someservice",
 												Network:   "nad2",
 											},
 											InterfaceName: ptr.To[string]("someotherinterface"),
@@ -1063,7 +1063,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment-dpudeployment-someservice",
+												ServiceID: "dpudeployment/dpudeployment/someservice",
 												Network:   "nad3",
 											},
 											InterfaceName: ptr.To[string]("someinterface"),
@@ -1079,7 +1079,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment-dpudeployment-someservice",
+												ServiceID: "dpudeployment/dpudeployment/someservice",
 												Network:   "nad4",
 											},
 											InterfaceName: ptr.To[string]("someotherinterface"),
@@ -1161,7 +1161,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment-dpudeployment-someservice",
+												ServiceID: "dpudeployment/dpudeployment/someservice",
 												Network:   "nad1",
 											},
 											InterfaceName: ptr.To[string]("someinterface"),
@@ -1243,7 +1243,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment-dpudeployment-someservice",
+												ServiceID: "dpudeployment/dpudeployment/someservice",
 												Network:   "nad1",
 											},
 											InterfaceName: ptr.To[string]("someinterface"),
@@ -1259,7 +1259,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment-dpudeployment-someservice",
+												ServiceID: "dpudeployment/dpudeployment/someservice",
 												Network:   "nad2",
 											},
 											InterfaceName: ptr.To[string]("someotherinterface"),
@@ -1391,7 +1391,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 								Values: &runtime.RawExtension{Raw: []byte(`{"key1":"value1"}`)},
 							},
-							ServiceID: ptr.To[string]("dpudeployment-dpudeployment-service-1"),
+							ServiceID: ptr.To[string]("dpudeployment/dpudeployment/service-1"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels:      map[string]string{"labelkey1": "labelval1"},
 								Annotations: map[string]string{"annkey1": "annval1"},
@@ -1409,7 +1409,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 								Values: &runtime.RawExtension{Raw: []byte(`{"key2":"value2","key3":"value3"}`)},
 							},
-							ServiceID: ptr.To[string]("dpudeployment-dpudeployment-service-2"),
+							ServiceID: ptr.To[string]("dpudeployment/dpudeployment/service-2"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels:      map[string]string{"labelkey2": "labelval2"},
 								Annotations: map[string]string{"annkey2": "annval2"},
@@ -1425,7 +1425,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("dpudeployment-dpudeployment-service-3"),
+							ServiceID: ptr.To[string]("dpudeployment/dpudeployment/service-3"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels:      map[string]string{"labelkey3": "labelval3"},
 								Annotations: map[string]string{"annkey3": "annval3"},
@@ -1488,7 +1488,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID:  ptr.To[string]("dpudeployment-dpudeployment-service-1"),
+							ServiceID:  ptr.To[string]("dpudeployment/dpudeployment/service-1"),
 							Interfaces: []string{"dpudeployment-service-1-someinterface"},
 						},
 						{
@@ -1500,7 +1500,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID:       ptr.To[string]("dpudeployment-dpudeployment-service-2"),
+							ServiceID:       ptr.To[string]("dpudeployment/dpudeployment/service-2"),
 							DeployInCluster: ptr.To[bool](true),
 							Interfaces:      []string{"dpudeployment-service-2-someinterface"},
 						},
@@ -1553,7 +1553,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								Chart:   "somechart",
 							},
 						},
-						ServiceID:  ptr.To[string]("dpudeployment-dpudeployment-service-2"),
+						ServiceID:  ptr.To[string]("dpudeployment/dpudeployment/service-2"),
 						Interfaces: []string{"dpudeployment-service-2-someinterface"},
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
@@ -1609,7 +1609,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID:  ptr.To[string]("dpudeployment-dpudeployment-service-1"),
+							ServiceID:  ptr.To[string]("dpudeployment/dpudeployment/service-1"),
 							Interfaces: []string{"dpudeployment-service-1-someinterface"},
 						},
 						{
@@ -1621,7 +1621,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID:  ptr.To[string]("dpudeployment-dpudeployment-service-2"),
+							ServiceID:  ptr.To[string]("dpudeployment/dpudeployment/service-2"),
 							Interfaces: []string{"dpudeployment-service-2-someinterface"},
 						},
 					}))
@@ -1854,7 +1854,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 														Service: &dpuservicev1.Service{
 															InterfaceName: "someinterface",
 															MatchLabels: map[string]string{
-																"sfc.nvidia.com/service": "dpudeployment-dpudeployment-somedpuservice",
+																"sfc.nvidia.com/service": "dpudeployment/dpudeployment/somedpuservice",
 															},
 														},
 													},
@@ -1862,7 +1862,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 														Service: &dpuservicev1.Service{
 															InterfaceName: "someinterface2",
 															MatchLabels: map[string]string{
-																"sfc.nvidia.com/service": "dpudeployment-dpudeployment-somedpuservice2",
+																"sfc.nvidia.com/service": "dpudeployment/dpudeployment/somedpuservice2",
 															},
 															IPAM: &dpuservicev1.IPAM{
 																MatchLabels: map[string]string{
@@ -1879,7 +1879,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 														Service: &dpuservicev1.Service{
 															InterfaceName: "someotherinterface",
 															MatchLabels: map[string]string{
-																"sfc.nvidia.com/service": "dpudeployment-dpudeployment-someotherservice",
+																"sfc.nvidia.com/service": "dpudeployment/dpudeployment/someotherservice",
 															},
 														},
 													},
