@@ -1029,11 +1029,11 @@ func verifyImageConfigurationForDPUServices(configIn *operatorv1.DPFOperatorConf
 		}
 	}).WithTimeout(120 * time.Second).Should(Succeed())
 	Eventually(func(g Gomega) {
-		Expect(testClient.Get(ctx, client.ObjectKeyFromObject(modifiedConfig), modifiedConfig)).To(Succeed())
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(modifiedConfig), modifiedConfig)).To(Succeed())
 		resetConfig := modifiedConfig.DeepCopy()
 		resetConfig.Spec = originalConfig.Spec
 		// Revert the image versions to their previous values.
-		Expect(testClient.Patch(ctx, resetConfig, client.MergeFrom(modifiedConfig))).To(Succeed())
+		g.Expect(testClient.Patch(ctx, resetConfig, client.MergeFrom(modifiedConfig))).To(Succeed())
 		// Ensure the changes are reverted before continuing.
 	}).Should(Succeed())
 }
