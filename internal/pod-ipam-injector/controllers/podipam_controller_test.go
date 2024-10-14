@@ -46,7 +46,7 @@ const (
 	multusKey                = "k8s.v1.cni.cncf.io/networks"
 	nodeName                 = "worker-1"
 	serviceName              = "firewall"
-	serviceInterfaceAnnotKey = "sfc.nvidia.com/interface"
+	serviceInterfaceAnnotKey = "svc.dpu.nvidia.com/interface"
 )
 
 //nolint:dupl

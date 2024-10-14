@@ -757,19 +757,19 @@ var _ = Describe("unit test DPUService functions", func() {
 
 			o, err := argoCDValuesFromDPUService(serviceDaemonSetValues, dpuService)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(o.Raw).To(Equal([]byte(expectedValues)))
+			Expect(o.Raw).To(BeEquivalentTo([]byte(expectedValues)))
 		},
 			Entry("no values no servicedaemonset",
 				ptr.To[string]("someservice"),
 				`{}`,
 				nil,
-				`{"serviceDaemonSet":{"labels":{"sfc.nvidia.com/service":"someservice"}}}`,
+				`{"serviceDaemonSet":{"labels":{"svc.dpu.nvidia.com/service":"someservice"}}}`,
 			),
 			Entry("values but no serviceDaemonSet specified",
 				ptr.To[string]("someservice"),
 				`{"key":"value"}`,
 				nil,
-				`{"key":"value","serviceDaemonSet":{"labels":{"sfc.nvidia.com/service":"someservice"}}}`,
+				`{"key":"value","serviceDaemonSet":{"labels":{"svc.dpu.nvidia.com/service":"someservice"}}}`,
 			),
 			Entry("values with serviceDaemonSet specified",
 				ptr.To[string]("someservice"),
@@ -779,7 +779,7 @@ var _ = Describe("unit test DPUService functions", func() {
 						"some": "annotation",
 					},
 				},
-				`{"key":"value","serviceDaemonSet":{"annotations":{"some":"annotation"},"labels":{"sfc.nvidia.com/service":"someservice"}}}`,
+				`{"key":"value","serviceDaemonSet":{"annotations":{"some":"annotation"},"labels":{"svc.dpu.nvidia.com/service":"someservice"}}}`,
 			),
 			Entry("values that have serviceDaemonSet overrides with serviceDaemonSet specified",
 				ptr.To[string]("someservice"),
@@ -792,7 +792,7 @@ var _ = Describe("unit test DPUService functions", func() {
 						Type: appsv1.OnDeleteDaemonSetStrategyType,
 					},
 				},
-				`{"serviceDaemonSet":{"annotations":{"diff":"annotation","some":"annotation"},"labels":{"sfc.nvidia.com/service":"someservice","some":"label"},"updateStrategy":{"type":"OnDelete"}}}`,
+				`{"serviceDaemonSet":{"annotations":{"diff":"annotation","some":"annotation"},"labels":{"some":"label","svc.dpu.nvidia.com/service":"someservice"},"updateStrategy":{"type":"OnDelete"}}}`,
 			),
 		)
 	})

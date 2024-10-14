@@ -39,7 +39,7 @@ const (
 	// DPUServiceNamespaceLabelKey is the label key that is used to store the namespace of the DPUService.
 	DPUServiceNamespaceLabelKey = "dpu.nvidia.com/dpuservice-namespace"
 	// DPFServiceIDLabelKey is a label of DPU Service pods with a value of service identifier.
-	DPFServiceIDLabelKey = "sfc.nvidia.com/service"
+	DPFServiceIDLabelKey = "svc.dpu.nvidia.com/service"
 
 	// DPFImagePullSecretLabelKey marks a secret as being an ImagePullSecret used by DPF which should be mirrored to DPUClusters.
 	DPFImagePullSecretLabelKey = "dpu.nvidia.com/image-pull-secret"

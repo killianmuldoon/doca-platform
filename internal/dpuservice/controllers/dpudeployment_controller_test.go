@@ -1854,7 +1854,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 														Service: &dpuservicev1.Service{
 															InterfaceName: "someinterface",
 															MatchLabels: map[string]string{
-																"sfc.nvidia.com/service": "dpudeployment/dpudeployment/somedpuservice",
+																"svc.dpu.nvidia.com/service": "dpudeployment/dpudeployment/somedpuservice",
 															},
 														},
 													},
@@ -1862,7 +1862,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 														Service: &dpuservicev1.Service{
 															InterfaceName: "someinterface2",
 															MatchLabels: map[string]string{
-																"sfc.nvidia.com/service": "dpudeployment/dpudeployment/somedpuservice2",
+																"svc.dpu.nvidia.com/service": "dpudeployment/dpudeployment/somedpuservice2",
 															},
 															IPAM: &dpuservicev1.IPAM{
 																MatchLabels: map[string]string{
@@ -1879,7 +1879,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 														Service: &dpuservicev1.Service{
 															InterfaceName: "someotherinterface",
 															MatchLabels: map[string]string{
-																"sfc.nvidia.com/service": "dpudeployment/dpudeployment/someotherservice",
+																"svc.dpu.nvidia.com/service": "dpudeployment/dpudeployment/someotherservice",
 															},
 														},
 													},

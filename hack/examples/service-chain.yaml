@@ -8,14 +8,14 @@ spec:
     - ports:
       - service:
           matchLabels:
-            sfc.nvidia.com/service: hbn
+            svc.dpu.nvidia.com/service: hbn
           interface: net1
       - serviceInterface:
           matchLabels:
             uplink: port0
       - service:
           matchLabels:
-            sfc.nvidia.com/service: hbn
+            svc.dpu.nvidia.com/service: hbn
           interface: net2
     - ports:
       - serviceInterface:
@@ -23,6 +23,6 @@ spec:
             uplink: p0
       - service:
           matchLabels:
-            sfc.nvidia.com/service: hbn
+            svc.dpu.nvidia.com/service: hbn
           interface: net2
   node: k8smaster
