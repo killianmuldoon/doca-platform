@@ -2196,7 +2196,6 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `service` _[Service](#service)_ |  |  |  |
 | `serviceInterface` _[ServiceIfc](#serviceifc)_ |  |  |  |
 
 
@@ -2215,19 +2214,6 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `dst` _string_ | The destination of the route, in CIDR notation |  |  |
-
-
-#### Service
-
-_Underlying type:_ _[struct{InterfaceName string "json:\"interface\""; Reference *ObjectRef "json:\"reference,omitempty\""; MatchLabels map[string]string "json:\"matchLabels,omitempty\""; IPAM *IPAM "json:\"ipam,omitempty\""}](#struct{interfacename-string-"json:\"interface\"";-reference-*objectref-"json:\"reference,omitempty\"";-matchlabels-map[string]string-"json:\"matchlabels,omitempty\"";-ipam-*ipam-"json:\"ipam,omitempty\""})_
-
-
-
-
-
-_Appears in:_
-- [Port](#port)
-
 
 
 #### ServiceChain

@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
 	nvipamv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/nvipam/api/v1alpha1"
@@ -42,6 +43,7 @@ var cfg *rest.Config
 var testClient client.Client
 var testEnv *envtest.Environment
 var ctx, testManagerCancelFunc = context.WithCancel(ctrl.SetupSignalHandler())
+var origReconcileRetryTime = reconcileRetryTime
 
 func TestServiceChainSet(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -94,6 +96,8 @@ var _ = BeforeSuite(func() {
 			}})
 	Expect(err).ToNot(HaveOccurred())
 
+	// set reconcile time to 1 second to speed up test execution (less polling for results)
+	reconcileRetryTime = 1 * time.Second
 	reconciler := &PodIpamReconciler{
 		Client: testClient,
 		Scheme: testManager.GetScheme(),
@@ -115,5 +119,6 @@ var _ = AfterSuite(func() {
 		testManagerCancelFunc()
 	}
 	err := testEnv.Stop()
+	reconcileRetryTime = origReconcileRetryTime
 	Expect(err).NotTo(HaveOccurred())
 })

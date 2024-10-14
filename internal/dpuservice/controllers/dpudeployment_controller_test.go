@@ -958,6 +958,12 @@ var _ = Describe("DPUDeployment Controller", func() {
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment/dpudeployment/someservice",
+												ServiceInterfaceInterfaceNameLabel: "someinterface",
+											},
+										},
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
@@ -974,6 +980,12 @@ var _ = Describe("DPUDeployment Controller", func() {
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment/dpudeployment/someservice",
+												ServiceInterfaceInterfaceNameLabel: "someotherinterface",
+											},
+										},
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
@@ -1060,6 +1072,12 @@ var _ = Describe("DPUDeployment Controller", func() {
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment/dpudeployment/someservice",
+												ServiceInterfaceInterfaceNameLabel: "someinterface",
+											},
+										},
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
@@ -1076,6 +1094,12 @@ var _ = Describe("DPUDeployment Controller", func() {
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment/dpudeployment/someservice",
+												ServiceInterfaceInterfaceNameLabel: "someotherinterface",
+											},
+										},
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
@@ -1158,6 +1182,12 @@ var _ = Describe("DPUDeployment Controller", func() {
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment/dpudeployment/someservice",
+												ServiceInterfaceInterfaceNameLabel: "someinterface",
+											},
+										},
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
@@ -1240,6 +1270,12 @@ var _ = Describe("DPUDeployment Controller", func() {
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment/dpudeployment/someservice",
+												ServiceInterfaceInterfaceNameLabel: "someinterface",
+											},
+										},
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
@@ -1256,6 +1292,12 @@ var _ = Describe("DPUDeployment Controller", func() {
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment/dpudeployment/someservice",
+												ServiceInterfaceInterfaceNameLabel: "someotherinterface",
+											},
+										},
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
@@ -1851,18 +1893,18 @@ var _ = Describe("DPUDeployment Controller", func() {
 											{
 												Ports: []dpuservicev1.Port{
 													{
-														Service: &dpuservicev1.Service{
-															InterfaceName: "someinterface",
+														ServiceInterface: dpuservicev1.ServiceIfc{
 															MatchLabels: map[string]string{
-																"svc.dpu.nvidia.com/service": "dpudeployment/dpudeployment/somedpuservice",
+																dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment/dpudeployment/somedpuservice",
+																ServiceInterfaceInterfaceNameLabel: "someinterface",
 															},
 														},
 													},
 													{
-														Service: &dpuservicev1.Service{
-															InterfaceName: "someinterface2",
+														ServiceInterface: dpuservicev1.ServiceIfc{
 															MatchLabels: map[string]string{
-																"svc.dpu.nvidia.com/service": "dpudeployment/dpudeployment/somedpuservice2",
+																dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment/dpudeployment/somedpuservice2",
+																ServiceInterfaceInterfaceNameLabel: "someinterface2",
 															},
 															IPAM: &dpuservicev1.IPAM{
 																MatchLabels: map[string]string{
@@ -1876,10 +1918,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 											{
 												Ports: []dpuservicev1.Port{
 													{
-														Service: &dpuservicev1.Service{
-															InterfaceName: "someotherinterface",
+														ServiceInterface: dpuservicev1.ServiceIfc{
 															MatchLabels: map[string]string{
-																"svc.dpu.nvidia.com/service": "dpudeployment/dpudeployment/someotherservice",
+																dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment/dpudeployment/someotherservice",
+																ServiceInterfaceInterfaceNameLabel: "someotherinterface",
 															},
 														},
 													},
@@ -1888,7 +1930,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 											{
 												Ports: []dpuservicev1.Port{
 													{
-														ServiceInterface: &dpuservicev1.ServiceIfc{
+														ServiceInterface: dpuservicev1.ServiceIfc{
 															MatchLabels: map[string]string{
 																"key": "value",
 															},

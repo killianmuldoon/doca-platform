@@ -42,31 +42,9 @@ type Switch struct {
 }
 
 // Port defines the port configuration
-// +kubebuilder:validation:XValidation:rule="(has(self.service) && !has(self.serviceInterface)) || (!has(self.service) && has(self.serviceInterface))", message="either service or serviceInterface must be specified"
 type Port struct {
-	// +optional
-	Service *Service `json:"service,omitempty"`
-	// +optional
-	ServiceInterface *ServiceIfc `json:"serviceInterface,omitempty"`
-}
-
-// +kubebuilder:validation:XValidation:rule="(has(self.reference) && !has(self.matchLabels)) || (!has(self.reference) && has(self.matchLabels))", message="either reference or matchLabels must be specified"
-type Service struct {
-	// Interface name
 	// +required
-	InterfaceName string `json:"interface"`
-	// TODO: What is this field supposed to be?
-	// +optional
-	Reference *ObjectRef `json:"reference,omitempty"`
-	// MatchLabels is a map of string keys and values that are used to select
-	// an object.
-	// +kubebuilder:validation:MinProperties=1
-	// +kubebuilder:validation:MaxProperties=50
-	// +optional
-	MatchLabels map[string]string `json:"matchLabels,omitempty"`
-	// IPAM defines the IPAM configuration
-	// +optional
-	IPAM *IPAM `json:"ipam,omitempty"`
+	ServiceInterface ServiceIfc `json:"serviceInterface"`
 }
 
 // ServiceIfc defines the service interface configuration

@@ -56,6 +56,9 @@ const (
 	ParentDPUDeploymentNameLabel = "dpu.nvidia.com/dpudeployment-name"
 	// DependentDPUDeploymentNameLabel contains the name of the DPUDeployment object that relies on this resource
 	DependentDPUDeploymentNameLabel = "dpu.nvidia.com/consumed-by-dpudeployment-name"
+
+	// ServiceInterfaceInterfaceNameLabel label identifies a specific interface of a DPUService.
+	ServiceInterfaceInterfaceNameLabel = "svc.dpu.nvidia.com/interface"
 )
 
 //+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpudeployments,verbs=get;list;watch;update;patch
@@ -863,6 +866,12 @@ func generateDPUServiceInterface(dpuDeploymentNamespacedName types.NamespacedNam
 				Spec: dpuservicev1.ServiceInterfaceSetSpec{
 					// TODO: Figure out what to do with NodeSelector
 					Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+						ObjectMeta: dpuservicev1.ObjectMeta{
+							Labels: map[string]string{
+								dpuservicev1.DPFServiceIDLabelKey:  getServiceID(dpuDeploymentNamespacedName, dpuServiceName),
+								ServiceInterfaceInterfaceNameLabel: serviceInterface.Name,
+							},
+						},
 						Spec: dpuservicev1.ServiceInterfaceSpec{
 							InterfaceType: dpuservicev1.InterfaceTypeService,
 							Service: &dpuservicev1.ServiceDef{
@@ -893,17 +902,18 @@ func convertToSFCSwitch(dpuDeploymentNamespacedName types.NamespacedName, sw dpu
 		outPort := dpuservicev1.Port{}
 
 		if inPort.Service != nil {
-			outPort.Service = &dpuservicev1.Service{}
+			// construct ServiceIfc that references serviceInterface for the service
 			if inPort.Service.IPAM != nil {
-				outPort.Service.IPAM = inPort.Service.IPAM.DeepCopy()
+				outPort.ServiceInterface.IPAM = inPort.Service.IPAM.DeepCopy()
 			}
-			outPort.Service.MatchLabels = make(map[string]string)
-			outPort.Service.MatchLabels[dpuservicev1.DPFServiceIDLabelKey] = getServiceID(dpuDeploymentNamespacedName, inPort.Service.Name)
-			outPort.Service.InterfaceName = inPort.Service.InterfaceName
+			outPort.ServiceInterface.MatchLabels = map[string]string{
+				dpuservicev1.DPFServiceIDLabelKey:  getServiceID(dpuDeploymentNamespacedName, inPort.Service.Name),
+				ServiceInterfaceInterfaceNameLabel: inPort.Service.InterfaceName,
+			}
 		}
 
 		if inPort.ServiceInterface != nil {
-			outPort.ServiceInterface = inPort.ServiceInterface.DeepCopy()
+			outPort.ServiceInterface = *inPort.ServiceInterface.DeepCopy()
 		}
 
 		o.Ports = append(o.Ports, outPort)

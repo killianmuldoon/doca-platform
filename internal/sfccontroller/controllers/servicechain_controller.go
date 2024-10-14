@@ -303,26 +303,6 @@ func (r *ServiceChainReconciler) getServiceInterfaceWithLabels(ctx context.Conte
 	return matching[0], nil
 }
 
-// getPortNameForService returns the ovs port name matching the given service
-func (r *ServiceChainReconciler) getPortNameForService(ctx context.Context, namespace string, svc *dpuservicev1.Service) (string, error) {
-	pod, err := r.getPodWithLabels(ctx, namespace, svc.MatchLabels)
-	if err != nil {
-		return "", err
-	}
-
-	condition := pod.Namespace + "/" + pod.Name + "/" + svc.InterfaceName
-	port, err := findInterface(condition)
-	if err != nil {
-		return "", err
-	}
-
-	if port == "" {
-		return "", fmt.Errorf("port with condition %s not found", condition)
-	}
-
-	return port, nil
-}
-
 // getPortNameForServiceInterface returns the ovs port name matching the given service interface
 func (r *ServiceChainReconciler) getPortNameForServiceInterface(ctx context.Context, namespace string, svcIfc *dpuservicev1.ServiceIfc) (string, error) {
 	si, err := r.getServiceInterfaceWithLabels(ctx, namespace, svcIfc.MatchLabels)
@@ -393,25 +373,13 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	for swPos, sw := range sc.Spec.Switches {
 		ports = append(ports, [][]string{{}}...)
 		for _, port := range sw.Ports {
-			if port.Service != nil {
-				servicePort, err := r.getPortNameForService(ctx, sc.Namespace, port.Service)
-				if err != nil {
-					log.Error(err, "failed to get port")
-					return requeueFlows()
-				}
-				if servicePort != "" {
-					ports[swPos] = append(ports[swPos], servicePort)
-				}
+			intfName, err := r.getPortNameForServiceInterface(ctx, sc.Namespace, &port.ServiceInterface)
+			if err != nil {
+				log.Error(err, "failed to get interface")
+				return requeueFlows()
 			}
-			if port.ServiceInterface != nil {
-				intfName, err := r.getPortNameForServiceInterface(ctx, sc.Namespace, port.ServiceInterface)
-				if err != nil {
-					log.Error(err, "failed to get interface")
-					return requeueFlows()
-				}
-				if intfName != "" {
-					ports[swPos] = append(ports[swPos], intfName)
-				}
+			if intfName != "" {
+				ports[swPos] = append(ports[swPos], intfName)
 			}
 		}
 	}

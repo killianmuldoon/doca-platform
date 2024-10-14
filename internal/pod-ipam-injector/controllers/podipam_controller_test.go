@@ -64,6 +64,9 @@ var _ = Describe("PodIpam Controller", func() {
 		})
 
 		It("should successfully update Network annotation on Pod - IPAM ref IpPool", func() {
+			By("Create ServiceInterface for Service")
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(
+				ctx, strings.Join([]string{serviceName, ifcName}, "-"), serviceName, ifcName))
 			By("Create ServiceChain with IPAM Reference")
 			defaultGateway := false
 			ipam := &dpuservicev1.IPAM{
@@ -73,7 +76,7 @@ var _ = Describe("PodIpam Controller", func() {
 					Name:      ipamRefName,
 				},
 			}
-			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, ipam, serviceName, ifcName))
+			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName1, ipam, serviceName, ifcName))
 			By("Create IpPool")
 			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
 			By("Create Pod with Network Annotation")
@@ -83,12 +86,15 @@ var _ = Describe("PodIpam Controller", func() {
 				pod := &corev1.Pod{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
 				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "ippool", defaultGateway)))
-			}).WithTimeout(30 * time.Second).Should(BeNil())
+			}).WithTimeout(2 * time.Second).Should(BeNil())
 			By("Turning the Pod State to Succeed")
 			changePodState(ctx, corev1.PodSucceeded)
 		})
 
 		It("should successfully update Network annotation on Pod - IPAM ref CIDRPool", func() {
+			By("Create ServiceInterface for Service")
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(
+				ctx, strings.Join([]string{serviceName, ifcName}, "-"), serviceName, ifcName))
 			By("Create ServiceChain with IPAM Reference")
 			defaultGateway := true
 			ipam := &dpuservicev1.IPAM{
@@ -98,7 +104,7 @@ var _ = Describe("PodIpam Controller", func() {
 					Name:      ipamRefName,
 				},
 			}
-			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, ipam, serviceName, ifcName))
+			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName1, ipam, serviceName, ifcName))
 			By("Create CIDRPool")
 			cleanupObjects = append(cleanupObjects, createCidrPool(ctx, ipamRefName))
 			By("Create Pod with Network Annotation")
@@ -108,19 +114,22 @@ var _ = Describe("PodIpam Controller", func() {
 				pod := &corev1.Pod{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
 				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "cidrpool", defaultGateway)))
-			}).WithTimeout(30 * time.Second).Should(BeNil())
+			}).WithTimeout(2 * time.Second).Should(BeNil())
 			By("Turning the Pod State to Succeed")
 			changePodState(ctx, corev1.PodSucceeded)
 		})
 
 		It("should successfully update Network annotation on Pod - IPAM match labels IpPool", func() {
+			By("Create ServiceInterface for Service")
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(
+				ctx, strings.Join([]string{serviceName, ifcName}, "-"), serviceName, ifcName))
 			By("Create ServiceChain with IPAM MatchLabels")
 			defaultGateway := false
 			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
 				MatchLabels:    testutils.GetTestLabels(),
 			}
-			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, ipam, serviceName, ifcName))
+			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName1, ipam, serviceName, ifcName))
 			By("Create IpPool")
 			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
 			By("Create Pod with Network Annotation")
@@ -130,12 +139,15 @@ var _ = Describe("PodIpam Controller", func() {
 				pod := &corev1.Pod{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
 				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "ippool", defaultGateway)))
-			}).WithTimeout(30 * time.Second).Should(BeNil())
+			}).WithTimeout(2 * time.Second).Should(BeNil())
 			By("Turning the Pod State to Succeed")
 			changePodState(ctx, corev1.PodSucceeded)
 		})
 
 		It("should successfully update Network annotation on Pod - IPAM match labels IpPool pod interface specified via ServiceInterface of type service", func() {
+			By("Create ServiceInterface for Service")
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(
+				ctx, strings.Join([]string{serviceName, ifcName}, "-"), serviceName, ifcName))
 			By("Create ServiceChain with IPAM MatchLabels")
 			defaultGateway := false
 			ipam := &dpuservicev1.IPAM{
@@ -145,8 +157,6 @@ var _ = Describe("PodIpam Controller", func() {
 			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, serviceName, ipam, serviceName, ifcName))
 			By("Create IpPool")
 			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
-			By("Create ServiceInterface")
-			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(ctx, strings.Join([]string{serviceName, ifcName}, "-"), serviceName, ifcName))
 			By("Create Pod with Network Annotation")
 			cleanupObjects = append(cleanupObjects, createPodWithNetworkAnnotation(ctx, singleNetAnnotation(ifcName)))
 			By("Check that Pod annotation has been updated")
@@ -154,19 +164,22 @@ var _ = Describe("PodIpam Controller", func() {
 				pod := &corev1.Pod{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
 				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "ippool", defaultGateway)))
-			}).WithTimeout(30 * time.Second).Should(BeNil())
+			}).WithTimeout(2 * time.Second).Should(BeNil())
 			By("Turning the Pod State to Succeed")
 			changePodState(ctx, corev1.PodSucceeded)
 		})
 
 		It("should successfully update Network annotation on Pod - IPAM match labels CIDRPool", func() {
+			By("Create ServiceInterface for Service")
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(
+				ctx, strings.Join([]string{serviceName, ifcName}, "-"), serviceName, ifcName))
 			By("Create ServiceChain with IPAM MatchLabels")
 			defaultGateway := true
 			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
 				MatchLabels:    testutils.GetTestLabels(),
 			}
-			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, ipam, serviceName, ifcName))
+			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName1, ipam, serviceName, ifcName))
 			By("Create CIDRPool")
 			cleanupObjects = append(cleanupObjects, createCidrPool(ctx, ipamRefName))
 			By("Create Pod with Network Annotation")
@@ -176,19 +189,24 @@ var _ = Describe("PodIpam Controller", func() {
 				pod := &corev1.Pod{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
 				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "cidrpool", defaultGateway)))
-			}).WithTimeout(30 * time.Second).Should(BeNil())
+			}).WithTimeout(2 * time.Second).Should(BeNil())
 			By("Turning the Pod State to Succeed")
 			changePodState(ctx, corev1.PodSucceeded)
 		})
 
 		It("should successfully update Network annotation on Pod - Multiple networks, Multiple IPAM", func() {
-			By("Create ServiceChain2 with IPAM MatchLabels")
+			By("Create ServiceInterfaces for Service")
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(
+				ctx, strings.Join([]string{serviceName, ifcName}, "-"), serviceName, ifcName))
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(
+				ctx, strings.Join([]string{serviceName, ifcName2}, "-"), serviceName, ifcName2))
+			By("Create ServiceChain1 with IPAM MatchLabels")
 			defaultGateway := false
 			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
 				MatchLabels:    testutils.GetTestLabels(),
 			}
-			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, ipam, serviceName, ifcName))
+			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName1, ipam, serviceName, ifcName))
 			By("Create ServiceChain2 with IPAM ref")
 			ipam2 := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
@@ -197,7 +215,7 @@ var _ = Describe("PodIpam Controller", func() {
 					Name:      ipamRefName2,
 				},
 			}
-			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName2, ipam2, serviceName, ifcName2))
+			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName2, ipam2, serviceName, ifcName2))
 			By("Create IpPool1")
 			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
 			By("Create IpPool2")
@@ -209,7 +227,7 @@ var _ = Describe("PodIpam Controller", func() {
 				pod := &corev1.Pod{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
 				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedMultipleNetAnnotation("ippool", defaultGateway)))
-			}).WithTimeout(60 * time.Second).Should(BeNil())
+			}).WithTimeout(2 * time.Second).Should(BeNil())
 			By("Turning the Pod State to Succeed")
 			changePodState(ctx, corev1.PodSucceeded)
 		})
@@ -223,19 +241,28 @@ var _ = Describe("PodIpam Controller", func() {
 				pod := &corev1.Pod{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
 				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "ippool", defaultGateway)))
-			}).WithTimeout(20 * time.Second).Should(Not(BeNil()))
+			}).WithTimeout(2 * time.Second).Should(Not(BeNil()))
 			By("Create ServiceChain with IPAM MatchLabels")
 			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
 				MatchLabels:    testutils.GetTestLabels(),
 			}
-			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, ipam, serviceName, ifcName))
+			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName1, ipam, serviceName, ifcName))
 			By("Verify Pod annotations is not updated")
 			Consistently(func(g Gomega) {
 				pod := &corev1.Pod{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
 				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "ippool", defaultGateway)))
-			}).WithTimeout(20 * time.Second).Should(Not(BeNil()))
+			}).WithTimeout(2 * time.Second).Should(Not(BeNil()))
+			By("Create ServiceInterface for Service")
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(
+				ctx, strings.Join([]string{serviceName, ifcName}, "-"), serviceName, ifcName))
+			By("Verify Pod annotations is not updated")
+			Consistently(func(g Gomega) {
+				pod := &corev1.Pod{}
+				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
+				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "ippool", defaultGateway)))
+			}).WithTimeout(2 * time.Second).Should(Not(BeNil()))
 			By("Create IpPool")
 			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
 			By("Check that Pod annotation has been updated")
@@ -243,12 +270,12 @@ var _ = Describe("PodIpam Controller", func() {
 				pod := &corev1.Pod{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
 				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "ippool", defaultGateway)))
-			}).WithTimeout(30 * time.Second).Should(BeNil())
+			}).WithTimeout(2 * time.Second).Should(BeNil())
 			By("Turning the Pod State to Succeed")
 			changePodState(ctx, corev1.PodSucceeded)
 		})
 
-		It("should not update Network annotation on Pod - no br-sfc network", func() {
+		It("should not update Network annotation on Pod - no network", func() {
 			By("Create Pod without Network Annotation")
 			cleanupObjects = append(cleanupObjects, createPodWithNetworkAnnotation(ctx, ""))
 			By("Check that Pod annotation has not been updated")
@@ -256,7 +283,7 @@ var _ = Describe("PodIpam Controller", func() {
 				pod := &corev1.Pod{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
 				g.Expect(pod.Annotations[multusKey]).To(Equal(""))
-			}).WithTimeout(10 * time.Second).Should(BeNil())
+			}).WithTimeout(2 * time.Second).Should(BeNil())
 			By("Turning the Pod State to Succeed")
 			changePodState(ctx, corev1.PodSucceeded)
 		})
@@ -270,14 +297,17 @@ var _ = Describe("PodIpam Controller", func() {
 				pod := &corev1.Pod{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
 				g.Expect(pod.Annotations[multusKey]).To(Equal(annotation))
-			}).WithTimeout(10 * time.Second).Should(BeNil())
+			}).WithTimeout(2 * time.Second).Should(BeNil())
 			By("Turning the Pod State to Succeed")
 			changePodState(ctx, corev1.PodSucceeded)
 		})
 
 		It("should not update Network annotation on Pod - no IPAM requested", func() {
+			By("Create ServiceInterface for Service")
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(
+				ctx, strings.Join([]string{serviceName, ifcName}, "-"), serviceName, ifcName))
 			By("Create ServiceChain without IPAM")
-			cleanupObjects = append(cleanupObjects, createServiceChain(ctx, svcName1, nil, serviceName, ifcName))
+			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName1, nil, serviceName, ifcName))
 			By("Create Pod with Network Annotation")
 			cleanupObjects = append(cleanupObjects, createPodWithNetworkAnnotation(ctx, singleNetAnnotation(ifcName)))
 			By("Check that Pod annotation has been updated")
@@ -285,7 +315,7 @@ var _ = Describe("PodIpam Controller", func() {
 				pod := &corev1.Pod{}
 				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
 				g.Expect(pod.Annotations[multusKey]).To(Equal(singleNetAnnotation(ifcName)))
-			}).WithTimeout(10 * time.Second).Should(BeNil())
+			}).WithTimeout(2 * time.Second).Should(BeNil())
 			By("Turning the Pod State to Succeed")
 			changePodState(ctx, corev1.PodSucceeded)
 		})
@@ -388,34 +418,7 @@ func createCidrPool(ctx context.Context, name string) *nvipamv1.CIDRPool {
 	return pool
 }
 
-//nolint:unparam
-func createServiceChain(ctx context.Context, name string, ipam *dpuservicev1.IPAM, svcName string, ifcName string) *dpuservicev1.ServiceChain {
-	scs := &dpuservicev1.ServiceChain{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: defaultNS,
-		},
-		Spec: dpuservicev1.ServiceChainSpec{
-			Node: ptr.To(nodeName),
-			Switches: []dpuservicev1.Switch{
-				{
-					Ports: []dpuservicev1.Port{
-						{
-							Service: &dpuservicev1.Service{
-								InterfaceName: ifcName,
-								MatchLabels:   map[string]string{dpuservicev1.DPFServiceIDLabelKey: svcName},
-								IPAM:          ipam,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	Expect(testClient.Create(ctx, scs)).NotTo(HaveOccurred())
-	return scs
-}
-
+// nolint:unparam
 func createServiceChainWithServiceInterface(ctx context.Context, name string, ipam *dpuservicev1.IPAM, svcName string, ifcName string) *dpuservicev1.ServiceChain {
 	scs := &dpuservicev1.ServiceChain{
 		ObjectMeta: metav1.ObjectMeta{
@@ -428,7 +431,7 @@ func createServiceChainWithServiceInterface(ctx context.Context, name string, ip
 				{
 					Ports: []dpuservicev1.Port{
 						{
-							ServiceInterface: &dpuservicev1.ServiceIfc{
+							ServiceInterface: dpuservicev1.ServiceIfc{
 								MatchLabels: map[string]string{
 									dpuservicev1.DPFServiceIDLabelKey: svcName,
 									serviceInterfaceAnnotKey:          ifcName,
@@ -445,6 +448,7 @@ func createServiceChainWithServiceInterface(ctx context.Context, name string, ip
 	return scs
 }
 
+//nolint:unparam
 func createServiceInterfaceForService(ctx context.Context, name string, svcName string, ifcName string) *dpuservicev1.ServiceInterface {
 	si := &dpuservicev1.ServiceInterface{
 		ObjectMeta: metav1.ObjectMeta{

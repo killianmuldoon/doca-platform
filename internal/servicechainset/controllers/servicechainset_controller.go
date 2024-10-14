@@ -163,7 +163,7 @@ func (r *ServiceChainSetReconciler) createOrUpdateChild(ctx context.Context, set
 		for j, port := range serviceChain.Ports {
 			ports[j] = *port.DeepCopy()
 			// Continue if serviceInterface reference name is not present.
-			if port.ServiceInterface == nil || port.ServiceInterface.Reference == nil {
+			if port.ServiceInterface.Reference == nil {
 				continue
 			}
 			// Continue if reference name is empty.

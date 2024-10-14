@@ -412,7 +412,7 @@ func getTestServiceChainSpec() *dpuservicev1.ServiceChainSpec {
 			{
 				Ports: []dpuservicev1.Port{
 					{
-						ServiceInterface: &dpuservicev1.ServiceIfc{
+						ServiceInterface: dpuservicev1.ServiceIfc{
 							Reference: &dpuservicev1.ObjectRef{
 								Name: "p0",
 							},

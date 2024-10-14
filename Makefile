@@ -138,7 +138,7 @@ generate: ## Run all generate-* targets: generate-modules generate-manifests-* a
 	$(MAKE) generate-mocks generate-modules generate-manifests generate-go-deepcopy generate-operator-bundle generate-api-docs
 
 .PHONY: generate-api-docs
-generate-api-docs: $(GEN_CRD_API_REFERENCE_DOCS) ## Generate docs for the API.
+generate-api-docs: gen-crd-api-reference-docs ## Generate docs for the API.
 	$(GEN_CRD_API_REFERENCE_DOCS) --renderer=markdown --source-path=api --config=hack/tools/api-docs/config.yaml --output-path=docs/api.md
 
 
