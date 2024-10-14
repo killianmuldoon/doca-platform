@@ -104,19 +104,19 @@ func (r *PodIpamReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		// Pod is not pending
 		return ctrl.Result{}, nil
 	}
-	sfcNets, err := getBrSFCNetworks(ctx, pod)
+	podNets, err := getPodNetworks(ctx, pod)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	if len(sfcNets) == 0 {
-		log.Info("Pod without br-sfc network")
+	if len(podNets) == 0 {
+		log.Info("Pod without secondary network")
 		return ctrl.Result{}, nil
 	}
 	ifcToSvc := make(map[string]*svcPortEntry)
-	for _, net := range sfcNets {
+	for _, net := range podNets {
 		// No Interface requested
 		if net.InterfaceRequest == "" {
-			log.Info("Pod with br-sfc network, but without interface requested")
+			log.Info("Pod with secondary network, but without interface requested")
 			return ctrl.Result{RequeueAfter: reconcileRetryTime}, nil
 		}
 		ifcToSvc[net.InterfaceRequest] = nil
@@ -274,7 +274,7 @@ func (r *PodIpamReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func getBrSFCNetworks(ctx context.Context, pod *corev1.Pod) ([]*multustypes.NetworkSelectionElement, error) {
+func getPodNetworks(ctx context.Context, pod *corev1.Pod) ([]*multustypes.NetworkSelectionElement, error) {
 	log := log.FromContext(ctx)
 	networks, err := multusclient.GetPodNetwork(pod)
 	if err != nil {
