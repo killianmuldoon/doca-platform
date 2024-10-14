@@ -4,6 +4,11 @@
 bfb_modify_os()
 {
 mkdir -p /mnt/opt/dpf
+cat << \EOF > /mnt/etc/cloud/cloud.cfg.d/dpf.cfg
+network:
+  config: disabled
+EOF
+
 cat << \EOF > /mnt/var/lib/cloud/seed/nocloud-net/user-data
 #cloud-config
 debug:
@@ -24,29 +29,35 @@ chpasswd:
 {{end}}
 
 write_files:
-  - path: /etc/netplan/99-dpf.yaml
+  - path: /etc/netplan/60-mlnx.yaml
+    permissions: '0600'
+    content: ""
+
+  - path: /etc/netplan/99-dpf-comm-ch.yaml
     permissions: '0600'
     content: |
         network:
-            bridges:
-                br-comm-ch:
-                    dhcp4: true
-                    openvswitch: {}
-            renderer: NetworkManager
-            version: 2
-  - path: /etc/netplan/50-cloud-init.yaml
+          renderer: networkd
+          version: 2
+          bridges:
+            br-comm-ch:
+              dhcp4: yes
+              openvswitch: {}
+
+  - path: /etc/netplan/98-oob-tmfifo.yaml
     permissions: '0600'
     content: |
         network:
-            ethernets:
-                oob_net0:
-                    dhcp4: false
-                tmfifo_net0:
-                    addresses:
-                    - 192.168.100.2/30
-                    dhcp4: false
-            renderer: NetworkManager
-            version: 2
+          renderer: networkd
+          version: 2
+          ethernets:
+            oob_net0:
+              dhcp4: false
+            tmfifo_net0:
+              addresses:
+              - 192.168.100.2/30
+              dhcp4: false
+
   - path: /etc/modules-load.d/br_netfilter.conf
     permissions: '0644'
     content: |
