@@ -259,3 +259,18 @@ scan:
     - ./hack/scripts/container-scanner.sh
   after_script:
     - ./hack/scripts/slack-notification.sh
+
+e2e-dpf-standalone-vm:
+  interruptible: false
+  stage: test
+  needs: []
+  variables:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_STANDALONE_VM == "true"
+      when: always
+  image: registry.gitlab.com/gitlab-ci-utils/curl-jq:2.0.0
+  before_script:
+    - apk add --no-cache sshpass openssh
+  script:
+    - sshpass -V
+    - ./hack/scripts/nic-cloud-gitlab-runner.sh
