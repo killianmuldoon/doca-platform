@@ -37,6 +37,8 @@ fi
 
 GITLAB_RUNNER_USER="${GITLAB_RUNNER_USER:-"gitlab-runner"}"
 INSTALL_DOCKER="${INSTALL_DOCKER:-"true"}"
+REGISTER_DOCKER_RUNNER="${REGISTER_DOCKER_RUNNER:-"true"}"
+
 
 ## GLOBAL VARS
 PROJECT_ID="112105"
@@ -130,30 +132,31 @@ sudo gitlab-runner register  --non-interactive \
   --executor="shell" || log_and_exit "Failed to register shell gitlab-runner"
 
 
-## Register docker runner
-register_token=$(curl --silent --request POST --url "https://gitlab-master.nvidia.com/api/v4/user/runners" \
-  --data "runner_type=project_type" \
-  --data "project_id=$PROJECT_ID" \
-  --data "description=$(hostname) - $(ip route show default | awk '/^default/ {print $9}')" \
-  --data "tag_list=$DOCKER_TAG_LIST" \
-  --data "run_untagged=true" \
-  --header "PRIVATE-TOKEN: $GITLAB_RUNNER_API_TOKEN" | jq -r '.token')
+if [[ "$REGISTER_DOCKER_RUNNER" == "true" ]]; then
+  ## Register docker runner
+  register_token=$(curl --silent --request POST --url "https://gitlab-master.nvidia.com/api/v4/user/runners" \
+    --data "runner_type=project_type" \
+    --data "project_id=$PROJECT_ID" \
+    --data "description=$(hostname) - $(ip route show default | awk '/^default/ {print $9}')" \
+    --data "tag_list=$DOCKER_TAG_LIST" \
+    --data "run_untagged=true" \
+    --header "PRIVATE-TOKEN: $GITLAB_RUNNER_API_TOKEN" | jq -r '.token')
 
-sudo gitlab-runner register  --non-interactive \
-  --url https://gitlab-master.nvidia.com \
-  --token "$register_token" \
-  --executor="docker" \
-  --docker-tlsverify=false \
-  --docker-image golang:1.22.0 \
-  --docker-privileged=false \
-  --docker-disable-entrypoint-overwrite=false \
-  --docker-oom-kill-disable=false \
-  --docker-disable-cache=false \
-  --docker-volumes="/mnt/gitlab-runner/cache:/cache" \
-  --docker-shm-size=0 \
-  --docker-network-mtu=0 \
-  --docker-cpus="4" \
-  --docker-memory="4000000000" || log_and_exit "Failed to register docker gitlab-runner"
-
+  sudo gitlab-runner register  --non-interactive \
+    --url https://gitlab-master.nvidia.com \
+    --token "$register_token" \
+    --executor="docker" \
+    --docker-tlsverify=false \
+    --docker-image golang:1.22.0 \
+    --docker-privileged=false \
+    --docker-disable-entrypoint-overwrite=false \
+    --docker-oom-kill-disable=false \
+    --docker-disable-cache=false \
+    --docker-volumes="/mnt/gitlab-runner/cache:/cache" \
+    --docker-shm-size=0 \
+    --docker-network-mtu=0 \
+    --docker-cpus="4" \
+    --docker-memory="4000000000" || log_and_exit "Failed to register docker gitlab-runner"
+fi
 # Done
 echo "GitLab runner setup completed successfully"
