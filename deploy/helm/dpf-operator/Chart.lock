@@ -4,7 +4,7 @@ dependencies:
   version: 7.6.8
 - name: node-feature-discovery
   repository: https://kubernetes-sigs.github.io/node-feature-discovery/charts
-  version: 0.16.4
+  version: 0.16.5
 - name: kube-state-metrics
   repository: https://prometheus-community.github.io/helm-charts
   version: 5.25.1
@@ -23,5 +23,5 @@ dependencies:
 - name: maintenance-operator-chart
   repository: oci://ghcr.io/mellanox
   version: 0.1.1
-digest: sha256:247d5e2306be1fc692585657c91576112d76c7b970445d6586ea3ae50ffed0d8
-generated: "2024-10-04T08:47:11.027518+01:00"
+digest: sha256:d4aeb521905e4255e7753b225d8ed7aae16662f9e4976d91433a3e1f6fc3fd73
+generated: "2024-10-15T09:10:42.060205+02:00"

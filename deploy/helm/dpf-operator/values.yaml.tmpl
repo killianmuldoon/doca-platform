@@ -61,6 +61,12 @@ node-feature-discovery:
   enabled: true
   worker:
     enable: true
+    hostNetwork: true
+    metricsPort: 9081
+    healthPort: 9082
+    tolerations:
+      - key: node.kubernetes.io/not-ready
+        operator: Exists
     config:
       sources:
         pci:
