@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
@@ -73,36 +72,20 @@ var _ = Describe("DPU", func() {
 		}
 	}
 
-	var createBFB = func(ctx context.Context, name string) (*provisioningv1.BFB, string) {
+	var createBFB = func(ctx context.Context, name string) *provisioningv1.BFB {
 		const BFBPathFileSize = "/bf-bundle-dummy.bfb"
 		var (
-			server        *httptest.Server
-			symlink       string
-			symlinkTarget string
+			server *httptest.Server
 		)
 
 		By("creating location for bfb files")
-		symlink = string(os.PathSeparator) + cutil.BFBBaseDir
-		_, err := os.Stat(symlink)
+		_, err := os.Stat(cutil.BFBBaseDir)
 		if err == nil {
-			AbortSuite("Setup is not suitable. Remove " + symlink + " that is used by test and rerun.")
+			AbortSuite("Setup is not suitable. Remove " + cutil.BFBBaseDir + " that is used by test and rerun.")
 		}
 
-		symlinkTarget, err = os.MkdirTemp(os.TempDir(), "dpf-bfb-*")
+		err = os.Mkdir(cutil.BFBBaseDir, 0755)
 		Expect(err).ToNot(HaveOccurred())
-
-		err = os.Symlink(symlinkTarget, symlink)
-		if err != nil {
-			if os.IsPermission(err) {
-				err := exec.Command("sh", "-c", "sudo ln -s "+symlinkTarget+" "+symlink).Run()
-				Expect(err).ToNot(HaveOccurred())
-			} else {
-				Expect(err).ToNot(HaveOccurred())
-			}
-		}
-		symlink = string(os.PathSeparator) + cutil.BFBBaseDir
-		_, err = os.Stat(symlink)
-		Expect(err).NotTo(HaveOccurred())
 
 		mux := http.NewServeMux()
 		handler := func(w http.ResponseWriter, r *http.Request) {
@@ -142,21 +125,17 @@ var _ = Describe("DPU", func() {
 		t := time.AfterFunc(2000*time.Millisecond, server.Close)
 		defer t.Stop()
 
-		return obj, symlinkTarget
+		return obj
 	}
 
-	var destroyBFB = func(ctx context.Context, obj *provisioningv1.BFB, symlinkTarget string) {
+	var destroyBFB = func(ctx context.Context, obj *provisioningv1.BFB) {
 
 		By("Cleaning the bfb")
 		Expect(k8sClient.Delete(ctx, obj)).To(Succeed())
 
 		By("cleanup location for bfb files")
-		symlink := string(os.PathSeparator) + cutil.BFBBaseDir
-		Expect(os.RemoveAll(symlinkTarget)).To(Succeed())
-		err := os.Remove(symlink)
-		if err != nil {
-			Expect(exec.Command("sh", "-c", "sudo rm "+symlink).Run()).To(Succeed())
-		}
+		// Remove folder after closing http server
+		Expect(os.RemoveAll(cutil.BFBBaseDir)).To(Succeed())
 	}
 
 	var createDPUCluster = func(ctx context.Context, name string) *provisioningv1.DPUCluster {
@@ -474,7 +453,7 @@ var _ = Describe("DPU", func() {
 			Expect(objFetched.Status.Phase).Should(Equal(provisioningv1.DPUPending))
 
 			By("creating the bfb")
-			testBFB, symlinkTarget := createBFB(ctx, DefaultBFB)
+			testBFB := createBFB(ctx, DefaultBFB)
 
 			By("expecting the Status (DMSRunning)")
 			Eventually(func(g Gomega) []metav1.Condition {
@@ -509,7 +488,7 @@ var _ = Describe("DPU", func() {
 			Expect(testutils.CleanupAndWait(ctx, k8sClient, cleanupObjs...)).To(Succeed())
 
 			By("Cleaning the bfb")
-			destroyBFB(ctx, testBFB, symlinkTarget)
+			destroyBFB(ctx, testBFB)
 		})
 
 		It("attaching to node w/o Labels (Node Effect) is CustomLabel", func() {
@@ -593,7 +572,7 @@ var _ = Describe("DPU", func() {
 			Expect(nodeFetched.Labels).To(HaveKeyWithValue("version", "1.2.3"))
 
 			By("creating the bfb")
-			testBFB, symlinkTarget := createBFB(ctx, DefaultBFB)
+			testBFB := createBFB(ctx, DefaultBFB)
 
 			By("expecting the Status (DMSRunning)")
 			Eventually(func(g Gomega) []metav1.Condition {
@@ -628,7 +607,7 @@ var _ = Describe("DPU", func() {
 			Expect(testutils.CleanupAndWait(ctx, k8sClient, cleanupObjs...)).To(Succeed())
 
 			By("Cleaning the bfb")
-			destroyBFB(ctx, testBFB, symlinkTarget)
+			destroyBFB(ctx, testBFB)
 		})
 
 		It("attaching to node with Labels (Node Effect) is CustomLabel", func() {
@@ -719,7 +698,7 @@ var _ = Describe("DPU", func() {
 			Expect(nodeFetched.Labels).To(HaveKeyWithValue("version", "1.2.3"))
 
 			By("creating the bfb")
-			testBFB, symlinkTarget := createBFB(ctx, DefaultBFB)
+			testBFB := createBFB(ctx, DefaultBFB)
 
 			By("expecting the Status (DMSRunning)")
 			Eventually(func(g Gomega) []metav1.Condition {
@@ -754,7 +733,7 @@ var _ = Describe("DPU", func() {
 			Expect(testutils.CleanupAndWait(ctx, k8sClient, cleanupObjs...)).To(Succeed())
 
 			By("Cleaning the bfb")
-			destroyBFB(ctx, testBFB, symlinkTarget)
+			destroyBFB(ctx, testBFB)
 		})
 
 		It("attaching to node w/o Taints (Node Effect) is Taint", func() {
@@ -848,7 +827,7 @@ var _ = Describe("DPU", func() {
 			Expect(testNode.Spec.Taints[0]).Should(Equal(taintErrorObj))
 
 			By("creating the bfb")
-			testBFB, symlinkTarget := createBFB(ctx, DefaultBFB)
+			testBFB := createBFB(ctx, DefaultBFB)
 
 			By("expecting the Status (DMSRunning)")
 			Eventually(func(g Gomega) []metav1.Condition {
@@ -883,7 +862,7 @@ var _ = Describe("DPU", func() {
 			Expect(testutils.CleanupAndWait(ctx, k8sClient, cleanupObjs...)).To(Succeed())
 
 			By("Cleaning the bfb")
-			destroyBFB(ctx, testBFB, symlinkTarget)
+			destroyBFB(ctx, testBFB)
 		})
 	})
 })

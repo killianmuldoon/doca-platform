@@ -22,7 +22,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
@@ -47,10 +46,8 @@ var _ = Describe("BFB", func() {
 	)
 
 	var (
-		testNS        *corev1.Namespace
-		server        *httptest.Server
-		symlink       string
-		symlinkTarget string
+		testNS *corev1.Namespace
+		server *httptest.Server
 	)
 
 	var getObjKey = func(obj *provisioningv1.BFB) types.NamespacedName {
@@ -72,34 +69,18 @@ var _ = Describe("BFB", func() {
 	}
 
 	BeforeEach(func() {
-		// TODO: This test can not be run on Mac due to permissions issues. Needs to be reworked.
-		Skip("this test needs to be reworked to run on more setups")
 		By("creating the namespaces")
 		testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: DefaultNS}}
 		Expect(client.IgnoreAlreadyExists(k8sClient.Create(ctx, testNS))).To(Succeed())
 
 		By("creating location for bfb files")
-		symlink = string(os.PathSeparator) + cutil.BFBBaseDir
-		_, err := os.Stat(symlink)
+		_, err := os.Stat(cutil.BFBBaseDir)
 		if err == nil {
-			AbortSuite("Setup is not suitable. Remove " + symlink + " that is used by test and rerun.")
+			AbortSuite("Setup is not suitable. Remove " + cutil.BFBBaseDir + " that is used by test and rerun.")
 		}
 
-		symlinkTarget, err = os.MkdirTemp(os.TempDir(), "dpf-bfb-*")
+		err = os.Mkdir(cutil.BFBBaseDir, 0755)
 		Expect(err).ToNot(HaveOccurred())
-
-		err = os.Symlink(symlinkTarget, symlink)
-		if err != nil {
-			if os.IsPermission(err) {
-				err := exec.Command("sh", "-c", "sudo ln -s "+symlinkTarget+" "+symlink).Run()
-				Expect(err).ToNot(HaveOccurred())
-			} else {
-				Expect(err).ToNot(HaveOccurred())
-			}
-		}
-		symlink = string(os.PathSeparator) + cutil.BFBBaseDir
-		_, err = os.Stat(symlink)
-		Expect(err).NotTo(HaveOccurred())
 
 		By("creating server for bfb download")
 		data512KB := make([]byte, 512*1024)
@@ -130,17 +111,14 @@ var _ = Describe("BFB", func() {
 		By("deleting the namespace")
 		Expect(k8sClient.Delete(ctx, testNS)).To(Succeed())
 
-		By("cleanup location for bfb files")
-		Expect(os.RemoveAll(symlinkTarget)).To(Succeed())
-		err := os.Remove(symlink)
-		if err != nil {
-			Expect(exec.Command("sh", "-c", "sudo rm "+symlink).Run()).To(Succeed())
-		}
-
 		By("closing server")
 		// Sleep is needed to overcome potential race with http handler initialization
 		t := time.AfterFunc(2000*time.Millisecond, server.Close)
 		defer t.Stop()
+
+		By("cleanup location for bfb files")
+		// Remove folder after closing http server
+		Expect(os.RemoveAll(cutil.BFBBaseDir)).To(Succeed())
 	})
 
 	Context("obj test context", func() {

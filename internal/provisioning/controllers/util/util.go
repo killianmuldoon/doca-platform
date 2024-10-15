@@ -47,7 +47,6 @@ import (
 
 const (
 	RequeueInterval                 = 5 * time.Second
-	BFBBaseDir                      = "bfb"
 	CFGExtension                    = ".cfg"
 	DPUSetNameLabel                 = "provisioning.dpu.nvidia.com/dpuset-name"
 	DPUSetNamespaceLabel            = "provisioning.dpu.nvidia.com/dpuset-namespace"
@@ -70,6 +69,11 @@ const (
 	// ProvisioningGroupName is the provisioning group, used to identify provisioning as
 	// additional Requestors in NodeMaintenance CR.
 	ProvisioningGroupName = "provisioning.dpu.nvidia.com"
+)
+
+var (
+	// Location of BFB binary files
+	BFBBaseDir = "bfb"
 )
 
 func GenerateBFCFGFileName(dpuName string) string {

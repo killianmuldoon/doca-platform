@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -31,6 +32,7 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpucluster"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpuset"
+	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	provisioningwebhooks "github.com/nvidia/doca-platform/internal/provisioning/webhooks"
 
 	nvidiaNodeMaintenancev1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
@@ -79,6 +81,9 @@ var _ = BeforeSuite(func() {
 		},
 	}
 
+	// Set internal provisioning controller variables
+	cutil.BFBBaseDir = filepath.Join(os.TempDir(), "dpf-bfb")
+
 	var err error
 	// cfg is defined in this file globally.
 	cfg, err = testEnv.Start()
@@ -125,8 +130,9 @@ var _ = BeforeSuite(func() {
 	err = (&provisioningwebhooks.BFB{}).SetupWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 	bfbReconciler := &bfb.BFBReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: k8sManager.GetEventRecorderFor(bfb.BFBControllerName),
 	}
 	err = bfbReconciler.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
@@ -136,6 +142,7 @@ var _ = BeforeSuite(func() {
 	dpuReconciler := &dpu.DPUReconciler{
 		Client:    k8sManager.GetClient(),
 		Scheme:    k8sManager.GetScheme(),
+		Recorder:  k8sManager.GetEventRecorderFor(dpu.DPUControllerName),
 		Allocator: alloc,
 	}
 	err = dpuReconciler.SetupWithManager(k8sManager)
@@ -144,8 +151,9 @@ var _ = BeforeSuite(func() {
 	err = (&provisioningwebhooks.DPUSet{}).SetupWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 	dpusetReconciler := &dpuset.DPUSetReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
+		Client:   k8sManager.GetClient(),
+		Scheme:   k8sManager.GetScheme(),
+		Recorder: k8sManager.GetEventRecorderFor(dpuset.DPUSetControllerName),
 	}
 	err = dpusetReconciler.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
@@ -156,6 +164,7 @@ var _ = BeforeSuite(func() {
 	dpuclusterReconciler := &dpucluster.DPUClusterReconciler{
 		Client:    k8sManager.GetClient(),
 		Scheme:    k8sManager.GetScheme(),
+		Recorder:  k8sManager.GetEventRecorderFor(dpucluster.DPUClusterControllerName),
 		Allocator: alloc,
 	}
 	err = dpuclusterReconciler.SetupWithManager(k8sManager)
