@@ -64,8 +64,9 @@ func main() {
 		setupLog.Error(err, "unable to parse release defaults")
 		os.Exit(1)
 	}
-	customOVNKubernetesDPUImage = defaults.CustomOVNKubernetesDPUImage
-	customOVNKubernetesNonDPUImage = defaults.CustomOVNKubernetesNonDPUImage
+	// TODO: This doesn't work as these should be distinct images.
+	customOVNKubernetesDPUImage = defaults.CustomOVNKubernetesImage
+	customOVNKubernetesNonDPUImage = defaults.CustomOVNKubernetesImage
 
 	var metricsAddr string
 	var enableLeaderElection bool

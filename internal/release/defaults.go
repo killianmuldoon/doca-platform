@@ -42,10 +42,7 @@ type Defaults struct {
 
 	// CustomOVNKubernetesDPUImage is the default custom OVN Kubernetes image that should be deployed to the DPU
 	// enabled workers.
-	CustomOVNKubernetesDPUImage string `yaml:"customOVNKubernetesDPUImage"`
-	// CustomOVNKubernetesNonDPUImage is the default custom OVN Kubernetes image that should be deployed to the non DPU
-	// nodes.
-	CustomOVNKubernetesNonDPUImage string `yaml:"customOVNKubernetesNonDPUImage"`
+	CustomOVNKubernetesImage string `yaml:"customOVNKubernetesImage"`
 }
 
 // Parse parses the defaults from the embedded generated YAML file
@@ -55,11 +52,8 @@ func (d *Defaults) Parse() error {
 	if err != nil {
 		return err
 	}
-	if len(d.CustomOVNKubernetesDPUImage) == 0 {
+	if len(d.CustomOVNKubernetesImage) == 0 {
 		return errors.New("customOVNKubernetesDPUImage can't be empty")
-	}
-	if len(d.CustomOVNKubernetesNonDPUImage) == 0 {
-		return errors.New("customOVNKubernetesNonDPUImage can't be empty")
 	}
 	if len(d.DMSImage) == 0 {
 		return errors.New("dmsImage can't be empty")
