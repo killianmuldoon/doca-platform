@@ -76,6 +76,12 @@ node-feature-discovery:
             - "class"
             - "vendor"
             - "device"
+    livenessProbe:
+      grpc:
+        port: 9082
+    readinessProbe:
+      grpc:
+        port: 9082
   gc:
     affinity:
       nodeAffinity:
