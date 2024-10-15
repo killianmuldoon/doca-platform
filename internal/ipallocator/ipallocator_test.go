@@ -114,8 +114,8 @@ var _ = Describe("IPAllocator", func() {
 		}
 		Expect(allocator.Allocate(context.Background(), req)).To(Succeed())
 		Expect(rawExec.ExecPluginCall.Received.Environ).To(ContainElement("CNI_COMMAND=ADD"))
-		Expect(rawExec.ExecPluginCall.Received.Environ).To(ContainElement("CNI_ARGS=K8S_POD_NAME=some-pod;K8S_POD_NAMESPACE=some-namespace;K8S_POD_UID=6e29ade3-5ec4-436d-a5bd-c53ec3ca816e;allocateIPWithIndex=2"))
-		Expect(rawExec.ExecPluginCall.Received.StdinData).To(Equal([]byte(`{"cniVersion":"0.4.0","ipam":{"poolName":"some-pool","poolType":"ippool","type":"nv-ipam"},"name":"req1","type":"nv-ipam"}`)))
+		Expect(rawExec.ExecPluginCall.Received.Environ).To(ContainElement("CNI_ARGS=K8S_POD_NAME=some-pod;K8S_POD_NAMESPACE=some-namespace;K8S_POD_UID=6e29ade3-5ec4-436d-a5bd-c53ec3ca816e"))
+		Expect(rawExec.ExecPluginCall.Received.StdinData).To(Equal([]byte(`{"args":{"cni":{"allocateIPWithIndex":2}},"cniVersion":"0.4.0","ipam":{"poolName":"some-pool","poolType":"ippool","type":"nv-ipam"},"name":"req1","type":"nv-ipam"}`)))
 		Expect(rawExec.FindInPathCall.Received.Paths).To(ContainElement(filepath.Join(tmpDir, ipallocator.CNIBinDir)))
 		Expect(rawExec.FindInPathCall.Received.Plugin).To(Equal("nv-ipam"))
 	})

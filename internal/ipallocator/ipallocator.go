@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/types"
@@ -37,21 +36,6 @@ const sharedResultDirectory = "/tmp/ips"
 
 // CNIBinDir is the directory which contains the CNI binaries
 const CNIBinDir = "/opt/cni/bin"
-
-// TODO: Use 1.0.0 after a release is cut that will include https://github.com/containernetworking/cni/pull/1052 so that
-// we can parse 1.0.0 cni netConf from bytes.
-var netConf = `
-{
-	"cniVersion": "0.4.0",
-	"name": "%s",
-	"type": "nv-ipam",
-	"ipam": {
-		"type": "nv-ipam",
-		"poolName": "%s",
-		"poolType": "%s"
-	}
-}
-`
 
 // IPAllocator uses the CNI spec to allocate an IP from NVIPAM
 type NVIPAMIPAllocator struct {
@@ -147,15 +131,45 @@ func (a *NVIPAMIPAllocator) ParseRequests(requests string) ([]NVIPAMIPAllocatorR
 	return reqs, kerrors.NewAggregate(errs)
 }
 
+// generateNetConfBytes generates a network configuration for the given input
+// TODO: Use 1.0.0 after a release is cut that will include https://github.com/containernetworking/cni/pull/1052 so that
+// we can parse 1.0.0 cni netConf from bytes.
+func generateNetConfBytes(netName string, poolName string, poolType NVIPAMPoolType, allocateIPWithIndex *int32) ([]byte, error) {
+	m := make(map[string]interface{})
+	m["cniVersion"] = "0.4.0"
+	m["name"] = netName
+	m["type"] = "nv-ipam"
+	m["ipam"] = map[string]interface{}{
+		"type":     "nv-ipam",
+		"poolName": poolName,
+		"poolType": poolType,
+	}
+
+	if allocateIPWithIndex != nil {
+		m["args"] = map[string]interface{}{
+			"cni": map[string]interface{}{
+				"allocateIPWithIndex": *allocateIPWithIndex,
+			},
+		}
+	}
+
+	bytes, err := json.Marshal(m)
+	if err != nil {
+		return nil, fmt.Errorf("error while marshaling netConf: %w", err)
+	}
+	return bytes, nil
+}
+
 // allocate allocates an IP from the NVIPAM given the input request
 func (a *NVIPAMIPAllocator) Allocate(ctx context.Context, req NVIPAMIPAllocatorRequest) error {
 	rt := a.constructRuntimeConf(req.Name)
 
-	if req.AllocateIPWIthIndex != nil {
-		rt.Args = append(rt.Args, [2]string{"allocateIPWithIndex", strconv.Itoa(int(*req.AllocateIPWIthIndex))})
+	netConfBytes, err := generateNetConfBytes(req.Name, req.PoolName, req.PoolType, req.AllocateIPWIthIndex)
+	if err != nil {
+		return fmt.Errorf("error while generating netconfig bytes: %w", err)
 	}
 
-	netconf, err := libcni.ConfFromBytes([]byte(fmt.Sprintf(netConf, req.Name, req.PoolName, req.PoolType)))
+	netconf, err := libcni.ConfFromBytes(netConfBytes)
 	if err != nil {
 		return fmt.Errorf("error while unmarshaling netconf: %w", err)
 	}
@@ -192,7 +206,12 @@ func (a *NVIPAMIPAllocator) Allocate(ctx context.Context, req NVIPAMIPAllocatorR
 func (a *NVIPAMIPAllocator) Deallocate(ctx context.Context, req NVIPAMIPAllocatorRequest) error {
 	rt := a.constructRuntimeConf(req.Name)
 
-	netconf, err := libcni.ConfFromBytes([]byte(fmt.Sprintf(netConf, req.Name, req.PoolName, req.PoolType)))
+	netConfBytes, err := generateNetConfBytes(req.Name, req.PoolName, req.PoolType, req.AllocateIPWIthIndex)
+	if err != nil {
+		return fmt.Errorf("error while generating netconfig bytes: %w", err)
+	}
+
+	netconf, err := libcni.ConfFromBytes(netConfBytes)
 	if err != nil {
 		return fmt.Errorf("error while unmarshaling netconf: %w", err)
 	}
