@@ -221,6 +221,36 @@ write_files:
 
         [Install]
         WantedBy=multi-user.target
+  - path: /etc/systemd/resolved.conf.d/01-dpf.conf
+    permissions: '0644'
+    content: |
+        [Resolve]
+        DNSStubListener=no
+
+  - path: /opt/dpf/cleanup-dns.sh
+    permissions: '0755'
+    content: |
+        #!/bin/bash
+
+        set -euo pipefail
+
+        resolvconf_filepath="/etc/resolv.conf"
+        resolved_filepath="/var/run/systemd/resolve/resolv.conf"
+
+        if [[ -f "${resolvconf_filepath}" ]]; then
+          cp -p "${resolvconf_filepath}" "${resolvconf_filepath}.bak"
+          echo "Backup created: ${resolvconf_filepath}.bak"
+
+          rm "${resolvconf_filepath}"
+          echo "Original file removed: ${resolvconf_filepath}"
+        else
+          echo "File does not exist: ${resolvconf_filepath}"
+        fi
+
+        ln -s ${resolved_filepath} ${resolvconf_filepath}
+
+        systemctl mask dnsmasq
+
 {{- if .NVConfigParams}}
   - path: /opt/dpf/set-nvconfig-params.sh
     permissions: '0755'
@@ -348,6 +378,7 @@ runcmd:
   - [ sysctl, -p ]
   - [ systemctl, stop, kubelet ]
   - [ /opt/dpf/remove-90-kubelet-bluefield.sh ]
+  - [ /opt/dpf/cleanup-dns.sh ]
   - [ systemctl, daemon-reload ]
   - [ systemctl, enable, containerd ]
   - [ systemctl, start, containerd ]
