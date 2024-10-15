@@ -1,7 +1,21 @@
----
-subtitle: Deployment Guide
-title: DOCA Platform Foundations
----
+# DOCA Platform Foundations
+
+## Deployment Guide
+
+<!-- toc -->
+- [Introduction](#introduction)
+- [Installation](#installation)
+  - [Demo Release Requirements and Known Limitations](#demo-release-requirements-and-known-limitations)
+- [Logical Design](#logical-design)
+- [Network Topology](#network-topology)
+- [Deployment and Configuration](#deployment-and-configuration)
+  - [Kubernetes Deployment](#kubernetes-deployment)
+  - [DPF Prerequisites Deployment](#dpf-prerequisites-deployment)
+  - [DPF Deployment](#dpf-deployment)
+    - [DPF Operator Deployment](#dpf-operator-deployment)
+    - [DPF Operator Configuration](#dpf-operator-configuration)
+  - [Deletion and clean up](#deletion-and-clean-up)
+<!-- /toc -->
 
 # Introduction
 

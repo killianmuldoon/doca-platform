@@ -1,5 +1,11 @@
 # How to generate a sosreport within nodes without SSH in a DPF cluster
 
+<!-- toc -->
+- [Environment](#environment)
+- [Issue](#issue)
+- [Generating a sos report with a debug pod](#generating-a-sos-report-with-a-debug-pod)
+<!-- /toc -->
+
 ## Environment
 
 - DOCA Platform Foundation Kubernets cluster

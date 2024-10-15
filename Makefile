@@ -135,12 +135,15 @@ GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
-	$(MAKE) generate-mocks generate-modules generate-manifests generate-go-deepcopy generate-operator-bundle generate-api-docs
+	$(MAKE) generate-mocks generate-modules generate-manifests generate-go-deepcopy generate-operator-bundle generate-api-docs generate-mdtoc
 
 .PHONY: generate-api-docs
 generate-api-docs: gen-crd-api-reference-docs ## Generate docs for the API.
 	$(GEN_CRD_API_REFERENCE_DOCS) --renderer=markdown --source-path=api --config=hack/tools/api-docs/config.yaml --output-path=docs/api.md
 
+.PHONY: generate-mdtoc
+generate-mdtoc: mdtoc ## Generate table of contents for our documentation.
+	git grep -rl -e '<!-- toc -->' | grep '\.md$$' | xargs $(MDTOC) --inplace
 
 .PHONY: generate-mocks
 generate-mocks: mockgen ## Generate mocks

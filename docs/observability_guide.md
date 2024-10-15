@@ -1,6 +1,15 @@
 # DOCA Platform Foundations
 
 ## Observability Guide
+
+<!-- toc -->
+- [Introduction](#introduction)
+  - [Purpose of kube-state-metrics](#purpose-of-kube-state-metrics)
+- [Enabling Observability Components](#enabling-observability-components)
+  - [Included Grafana Dashboards](#included-grafana-dashboards)
+- [Setting the Grafana Admin Password](#setting-the-grafana-admin-password)
+- [Note on Storage Solution](#note-on-storage-solution)
+<!-- /toc -->
  
 ### Introduction
 
