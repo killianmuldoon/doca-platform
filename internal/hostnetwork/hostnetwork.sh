@@ -114,10 +114,6 @@ while true; do
     # Add VF0 of the PF0 device to the bridge
     add_vf_to_bridge ${pf_device_p0}
 
-    sysctl -w net.ipv4.ip_forward=1
-    iptables -I FORWARD -i ${bridge_name} -j ACCEPT
-    iptables -I FORWARD -o ${bridge_name} -j ACCEPT
-
     touch /tmp/hostnetwork_succeed
     sleep 5
 done
