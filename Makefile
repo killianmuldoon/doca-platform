@@ -622,7 +622,7 @@ docker-build-dpf-system-for-%:
 		--build-arg base_image=$(BASE_IMAGE) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
-		-f dpf-system.Dockerfile \
+		-f Dockerfile.dpf-system \
 		. \
 		-t $(DPF_SYSTEM_IMAGE):$(TAG)-$*
 

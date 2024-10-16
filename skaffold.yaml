@@ -18,7 +18,7 @@ profiles:
               package: ./cmd/dpuservice
               builder_image: golang:1.22
               base_image: gcr.io/distroless/static:nonroot
-            dockerfile: dpf-system.Dockerfile
+            dockerfile: Dockerfile.dpf-system
     manifests:
       ## Deploy the manager.
       kustomize:
@@ -48,7 +48,7 @@ profiles:
               package: ./cmd/operator
               builder_image: golang:1.22
               base_image: gcr.io/distroless/static:nonroot
-            dockerfile: dpf-system.Dockerfile
+            dockerfile: Dockerfile.dpf-system
     deploy:
       helm:
         releases:
