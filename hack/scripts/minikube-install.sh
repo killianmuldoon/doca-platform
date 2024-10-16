@@ -27,6 +27,7 @@ MINIKUBE_BIN="${MINIKUBE_BIN:-"unknown"}"
 # Docker is used as the minikube driver to enable using hollow nodes.
 MINIKUBE_DRIVER="${MINIKUBE_DRIVER:-"unknown"}"
 USE_MINIKUBE_DOCKER="${USE_MINIKUBE_DOCKER:-"true"}"
+MINIKUBE_CACHE_ADD_IMAGES="${MINIKUBE_CACHE_ADD_IMAGES:-"true"}"
 NUM_NODES="${NUM_NODES:-"1"}"
 NODE_MEMORY="${NODE_MEMORY:-"8g"}"
 NODE_CPUS="${NODE_CPUS:-"4"}"
@@ -99,6 +100,25 @@ if [[ "$ADD_CONTROL_PLANE_TAINTS" == "true" ]]; then
   kubectl -n kube-system patch deploy coredns -p '{"spec":{"template":{"spec":{"tolerations":[{"key":"node-role.kubernetes.io/master","operator":"Exists","effect":"NoSchedule"},{"key":"node-role.kubernetes.io/control-plane","operator":"Exists","effect":"NoSchedule"}]}}}}'
   kubectl taint node "${CLUSTER_NAME}" node-role.kubernetes.io/control-plane:NoSchedule
   kubectl taint node "${CLUSTER_NAME}" node-role.kubernetes.io/master:NoSchedule
+fi
+
+imagesToCache="
+quay.io/jetstack/cert-manager-controller:v1.13.3
+cfssl/cfssl:latest
+quay.io/argoproj/argocd:v2.11.1
+clastix/kubectl:v1.29
+public.ecr.aws/docker/library/redis:7.2.4-alpine
+quay.io/metallb/speaker:v0.9.6
+quay.io/metallb/controller:v0.9.6
+gcr.io/k8s-minikube/storage-provisioner:v5
+quay.io/jetstack/cert-manager-cainjector:v1.13.3
+"
+
+if [[ "$MINIKUBE_CACHE_ADD_IMAGES" == "true" ]]; then
+  echo "Adding images to the minikube cache."
+  for image in $imagesToCache;
+    do ${MINIKUBE_BIN} -p ${CLUSTER_NAME} --stderrthreshold=1 cache add $image ;
+  done
 fi
 
 ## Update the MetalLB configuration to give it some IPs to give out. Take them from the same range as minikube uses.
