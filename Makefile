@@ -683,6 +683,7 @@ docker-build-sfc-controller: ## Build docker images for the sfc-controller
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/sfc-controller \
+		-f Dockerfile \
 		. \
 		-t $(SFC_CONTROLLER_IMAGE):$(TAG)
 
@@ -699,6 +700,7 @@ docker-build-ipallocator: ## Build docker image for the IP Allocator
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/ipallocator \
+		  -f Dockerfile \
 		. \
 		-t $(IPALLOCATOR_IMAGE):$(TAG)
 
@@ -781,6 +783,7 @@ docker-build-dummydpuservice: ## Build docker images for the dummydpuservice
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg package=./cmd/dummydpuservice \
+		-f Dockerfile \
 		. \
 		-t $(DUMMYDPUSERVICE_IMAGE):$(TAG)
 
