@@ -21,8 +21,8 @@ import (
 	"os"
 	"time"
 
-	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
-	sfccontroller "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/sfccontroller/controllers"
+	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
+	sfccontroller "github.com/nvidia/doca-platform/internal/sfccontroller/controllers"
 
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"

@@ -24,7 +24,7 @@ import (
 	"testing"
 	"time"
 
-	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
+	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

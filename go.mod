@@ -1,4 +1,4 @@
-module gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation
+module github.com/nvidia/doca-platform
 
 go 1.22.1
 

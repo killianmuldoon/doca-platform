@@ -22,11 +22,11 @@ import (
 	"fmt"
 	"strings"
 
-	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
-	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
+	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
+	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/conditions"
+	"github.com/nvidia/doca-platform/internal/operator/inventory"
+	"github.com/nvidia/doca-platform/internal/release"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	appsv1 "k8s.io/api/apps/v1"

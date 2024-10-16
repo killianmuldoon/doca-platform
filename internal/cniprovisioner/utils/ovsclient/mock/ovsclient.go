@@ -29,7 +29,7 @@ import (
 	net "net"
 	reflect "reflect"
 
-	ovsclient "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/ovsclient"
+	ovsclient "github.com/nvidia/doca-platform/internal/cniprovisioner/utils/ovsclient"
 	gomock "go.uber.org/mock/gomock"
 )
 

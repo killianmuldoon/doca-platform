@@ -25,8 +25,8 @@ import (
 	"strings"
 	"time"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/dpudetector/bash"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/cmd/dpudetector/dpu"
+	"github.com/nvidia/doca-platform/cmd/dpudetector/bash"
+	"github.com/nvidia/doca-platform/cmd/dpudetector/dpu"
 
 	"github.com/golang/glog"
 )

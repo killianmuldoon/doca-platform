@@ -21,9 +21,9 @@ import (
 	"fmt"
 	"strings"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
+	"github.com/nvidia/doca-platform/internal/conditions"
+	"github.com/nvidia/doca-platform/internal/controlplane"
+	"github.com/nvidia/doca-platform/internal/operator/utils"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

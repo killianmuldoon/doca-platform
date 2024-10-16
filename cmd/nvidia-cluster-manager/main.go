@@ -23,10 +23,10 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
-	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/clustermanager/controller"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/clustermanager/nvidia"
-	kamaji "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/kamaji/api/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/clustermanager/controller"
+	"github.com/nvidia/doca-platform/internal/clustermanager/nvidia"
+	kamaji "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"

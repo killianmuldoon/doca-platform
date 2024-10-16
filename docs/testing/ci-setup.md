@@ -1,4 +1,6 @@
 ## DPF Operator CI setup
+TODO: Remove this doc before moving to github
+
 
 The DPF operator is currently tested using gitlab runners on specific bare metal machines. The runners can be viewed at https://gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/-/settings/ci_cd under #Runners.
 The bare metal machines are running Ubuntu 22.04.

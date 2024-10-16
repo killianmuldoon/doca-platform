@@ -28,12 +28,12 @@ import (
 	"strings"
 	"time"
 
-	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/ovnkubernetesoperator/v1alpha1"
-	dpucniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/dpu/config"
-	hostcniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/host/config"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/controlplane"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/ovnkubernetesoperator/consts"
+	ovnkubernetesoperatorv1 "github.com/nvidia/doca-platform/api/ovnkubernetesoperator/v1alpha1"
+	dpucniprovisionerconfig "github.com/nvidia/doca-platform/internal/cniprovisioner/dpu/config"
+	hostcniprovisionerconfig "github.com/nvidia/doca-platform/internal/cniprovisioner/host/config"
+	"github.com/nvidia/doca-platform/internal/controlplane"
+	"github.com/nvidia/doca-platform/internal/operator/utils"
+	"github.com/nvidia/doca-platform/internal/ovnkubernetesoperator/consts"
 
 	"github.com/google/go-cmp/cmp"
 	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"

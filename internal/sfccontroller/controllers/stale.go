@@ -22,7 +22,7 @@ import (
 	"strconv"
 	"time"
 
-	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
+	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"

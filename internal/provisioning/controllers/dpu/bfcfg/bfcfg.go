@@ -25,7 +25,7 @@ import (
 	"strings"
 	"text/template"
 
-	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 
 	"github.com/Masterminds/sprig/v3"
 )

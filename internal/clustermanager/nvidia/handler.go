@@ -24,12 +24,12 @@ import (
 	"text/template"
 	"time"
 
-	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/clustermanager/controller"
-	kamaji "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/kamaji/api/v1alpha1"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
-	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/clustermanager/controller"
+	kamaji "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/operator/inventory"
+	"github.com/nvidia/doca-platform/internal/operator/utils"
+	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
 	"github.com/Masterminds/sprig/v3"
 	appsv1 "k8s.io/api/apps/v1"

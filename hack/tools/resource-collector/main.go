@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/test/utils/collector"
+	"github.com/nvidia/doca-platform/test/utils/collector"
 
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"

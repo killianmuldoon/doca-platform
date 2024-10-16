@@ -27,8 +27,8 @@ import (
 	"strconv"
 	"time"
 
-	hostcniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/host"
-	networkhelperMock "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/networkhelper/mock"
+	hostcniprovisioner "github.com/nvidia/doca-platform/internal/cniprovisioner/host"
+	networkhelperMock "github.com/nvidia/doca-platform/internal/cniprovisioner/utils/networkhelper/mock"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

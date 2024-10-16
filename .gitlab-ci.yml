@@ -44,6 +44,7 @@ lint:
     # TODO: Remove this one when bug upstream is fixed. golangci-lint should not rely on GOCACHE and instead use
     # GOLANGCI_LINT_CACHE for all of its caching.
     GOCACHE: $CI_PROJECT_DIR/.gocache/go-build # avoid rebuilding all the artifacts golangci-lint requires
+    GOLANGCI_LINT_GOGC: 30 # Accept longer runtimes for lower memory usage to avoid lint jobs being oom-killed
   cache:
     key: lint
     when: always

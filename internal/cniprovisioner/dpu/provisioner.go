@@ -24,9 +24,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/networkhelper"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/ovsclient"
-	dpu "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/state"
+	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/networkhelper"
+	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/ovsclient"
+	dpu "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/state"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"

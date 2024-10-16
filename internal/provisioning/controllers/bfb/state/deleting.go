@@ -22,10 +22,10 @@ import (
 	"os"
 	"path/filepath"
 
-	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
-	butil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/bfb/util"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/events"
-	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	butil "github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb/util"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/events"
+	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"

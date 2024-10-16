@@ -21,7 +21,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/ipallocator"
+	"github.com/nvidia/doca-platform/internal/ipallocator"
 
 	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/invoke/fakes"

@@ -28,11 +28,11 @@ import (
 	"os/signal"
 	"sync"
 
-	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/dpu"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/networkhelper"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/ovsclient"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/readyz"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/ipallocator"
+	dpucniprovisioner "github.com/nvidia/doca-platform/internal/cniprovisioner/dpu"
+	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/networkhelper"
+	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/ovsclient"
+	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/readyz"
+	"github.com/nvidia/doca-platform/internal/ipallocator"
 
 	"github.com/vishvananda/netlink"
 	"k8s.io/client-go/kubernetes"

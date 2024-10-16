@@ -23,10 +23,10 @@ import (
 	"os"
 	"time"
 
-	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/ovnkubernetesoperator/v1alpha1"
-	ovnkubernetesoperatorcontroller "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/ovnkubernetesoperator/controllers"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/ovnkubernetesoperator/webhooks"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
+	ovnkubernetesoperatorv1 "github.com/nvidia/doca-platform/api/ovnkubernetesoperator/v1alpha1"
+	ovnkubernetesoperatorcontroller "github.com/nvidia/doca-platform/internal/ovnkubernetesoperator/controllers"
+	"github.com/nvidia/doca-platform/internal/ovnkubernetesoperator/webhooks"
+	"github.com/nvidia/doca-platform/internal/release"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"

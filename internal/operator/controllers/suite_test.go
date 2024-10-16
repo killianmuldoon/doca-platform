@@ -24,11 +24,11 @@ import (
 	"runtime"
 	"testing"
 
-	dpuservicev1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/dpuservice/v1alpha1"
-	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
-	argov1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/argocd/api/application/v1alpha1"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/inventory"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
+	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
+	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
+	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/operator/inventory"
+	"github.com/nvidia/doca-platform/internal/release"
 
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"

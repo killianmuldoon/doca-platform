@@ -17,8 +17,8 @@ limitations under the License.
 package inventory
 
 import (
-	operatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/operator/v1alpha1"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
+	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/release"
 )
 
 func newDefaultVariables(defaults *release.Defaults) Variables {

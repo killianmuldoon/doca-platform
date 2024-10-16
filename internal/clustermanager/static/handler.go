@@ -20,9 +20,9 @@ import (
 	"context"
 	"fmt"
 
-	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/clustermanager/controller"
-	cutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/util"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/clustermanager/controller"
+	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )

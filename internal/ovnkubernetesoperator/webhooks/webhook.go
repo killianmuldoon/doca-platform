@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"slices"
 
-	ovnkubernetesoperatorv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/ovnkubernetesoperator/v1alpha1"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/ovnkubernetesoperator/consts"
+	ovnkubernetesoperatorv1 "github.com/nvidia/doca-platform/api/ovnkubernetesoperator/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/ovnkubernetesoperator/consts"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"

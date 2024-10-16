@@ -24,9 +24,9 @@ import (
 	"path/filepath"
 	"time"
 
-	dpucniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/dpu"
-	networkhelperMock "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/networkhelper/mock"
-	ovsclientMock "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/ovsclient/mock"
+	dpucniprovisioner "github.com/nvidia/doca-platform/internal/cniprovisioner/dpu"
+	networkhelperMock "github.com/nvidia/doca-platform/internal/cniprovisioner/utils/networkhelper/mock"
+	ovsclientMock "github.com/nvidia/doca-platform/internal/cniprovisioner/utils/ovsclient/mock"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

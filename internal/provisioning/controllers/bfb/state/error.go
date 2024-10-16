@@ -19,7 +19,7 @@ package state
 import (
 	"context"
 
-	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )

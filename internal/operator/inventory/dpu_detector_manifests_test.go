@@ -20,8 +20,8 @@ import (
 	_ "embed"
 	"testing"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/operator/utils"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/release"
+	"github.com/nvidia/doca-platform/internal/operator/utils"
+	"github.com/nvidia/doca-platform/internal/release"
 
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"

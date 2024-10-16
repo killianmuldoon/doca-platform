@@ -19,7 +19,7 @@ package v1alpha1
 import (
 	"strings"
 
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/conditions"
+	"github.com/nvidia/doca-platform/internal/conditions"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

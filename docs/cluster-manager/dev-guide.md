@@ -2,13 +2,13 @@ This guide helps the developers to:
 * develope the dpf-standalone 
 * run tests in a dpf-standalone environment or other test environments
 
-Before you go through this doc, please make sure your code includes [commit 1cf079](https://gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/-/commit/1cf079b727957b6dc26fb118ebccfc05d341855e). As DPF is being actively developed, this doc might be out of date at any time, let me know if you need my help. 
+As DPF is being actively developed, this doc might be out of date at any time, let me know if you need my help. 
 
 # Key changes
 ## A DPUCluster CR is mandatory for DPU provisioning
 Before Oct Rel, creating a kamaji `TenantControlPlane` CR is all you need to create a DPU cluster, the `provisioning-controller` recognises the created cluster by reading a Secret managed by kamaji.
 
-In Oct Rel, the `provisioning-controller` finds DPU clusters by watching the `DPUCluster` CR, it no longer interacts with kamaji directly. To provision a DPU, you must create a `DPUCluster` CR and deploy either the [nvidia-cluster-manger](https://gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/-/tree/main/cmd/nvidia-cluster-manager?ref_type=heads) or the [static-cluster-manager](https://gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/-/tree/main/cmd/static-cluster-manager?ref_type=heads). The nvidia-cluster-manager is prefered in an e2e test, because it includes import FRs like [FR #3825824](https://redmine.mellanox.com/issues/3825824) and [FR #3971787](https://redmine.mellanox.com/issues/3971787).
+In Oct Rel, the `provisioning-controller` finds DPU clusters by watching the `DPUCluster` CR, it no longer interacts with kamaji directly. To provision a DPU, you must create a `DPUCluster` CR and deploy either the [nvidia-cluster-manger](../../cmd/nvidia-cluster-manager) or the [static-cluster-manager](../../cmd/static-cluster-manager). The nvidia-cluster-manager is preferred in an e2e test, because it includes import FRs like [FR #3825824](https://redmine.mellanox.com/issues/3825824) and [FR #3971787](https://redmine.mellanox.com/issues/3971787).
 
 # Create DPUCluster CR
 ## Option 1: Use the nvidia-cluster-manager to manage the DPU cluster

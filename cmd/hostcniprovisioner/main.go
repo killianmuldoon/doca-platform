@@ -28,10 +28,10 @@ import (
 	"os/signal"
 	"sync"
 
-	hostcniprovisioner "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/host"
-	hostcniprovisionerconfig "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/host/config"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/networkhelper"
-	"gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/cniprovisioner/utils/readyz"
+	hostcniprovisioner "github.com/nvidia/doca-platform/internal/cniprovisioner/host"
+	hostcniprovisionerconfig "github.com/nvidia/doca-platform/internal/cniprovisioner/host/config"
+	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/networkhelper"
+	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/readyz"
 
 	"github.com/vishvananda/netlink"
 	"k8s.io/klog/v2"
