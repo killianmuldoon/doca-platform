@@ -290,8 +290,18 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		}
 		cfgInstall := gos.NewInstallOperation()
 		// DMS has a default rule: bf cfg file must end with .cfg
-		cfgversion := fmt.Sprintf("%s%s", dpu.Name, cutil.CFGExtension)
-		cfgInstall.Version(cfgversion)
+		// cfgVersion is the BF CFG file name used in DMS
+		cfgVersion := cutil.GenerateBFCFGFileName(dpu.Name)
+
+		// Make sure there is no old bf cfg file in the shared volume
+		cfgFile := cutil.GenerateBFBCFGFilePath(cfgVersion)
+		if err := os.Remove(cfgFile); err != nil && !os.IsNotExist(err) {
+			msg := fmt.Sprintf("Delete old BFB CFG file %s failed", cfgFile)
+			logger.Error(err, msg)
+			return nil, err
+		}
+
+		cfgInstall.Version(cfgVersion)
 		cfgInstall.Reader(bytes.NewReader(data))
 		if response, err := gnoigo.Execute(ctx, gnoiClient, cfgInstall); err != nil {
 			return nil, err
@@ -309,7 +319,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		activateOp := gos.NewActivateOperation()
 		noReboot := false
 		activateOp.NoReboot(noReboot)
-		activateOp.Version(fmt.Sprintf("%s;%s", bfb.Spec.FileName, cfgversion))
+		activateOp.Version(fmt.Sprintf("%s;%s", bfb.Spec.FileName, cfgVersion))
 
 		logger.V(3).Info("starting execute activate operation")
 		var response *ospb.ActivateResponse

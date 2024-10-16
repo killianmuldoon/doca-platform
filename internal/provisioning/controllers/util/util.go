@@ -72,6 +72,14 @@ const (
 	ProvisioningGroupName = "provisioning.dpu.nvidia.com"
 )
 
+func GenerateBFCFGFileName(dpuName string) string {
+	return fmt.Sprintf("%s%s", dpuName, CFGExtension)
+}
+
+func GenerateBFBCFGFilePath(filename string) string {
+	return string(os.PathSeparator) + BFBBaseDir + string(os.PathSeparator) + filename
+}
+
 func GenerateBFBTaskName(bfb provisioningv1.BFB) string {
 	return fmt.Sprintf("%s-%s", bfb.Namespace, bfb.Name)
 }

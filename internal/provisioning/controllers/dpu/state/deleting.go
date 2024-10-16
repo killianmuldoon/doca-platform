@@ -19,6 +19,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"os"
 
 	provisioningv1 "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/api/provisioning/v1alpha1"
 	dutil "gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/internal/provisioning/controllers/dpu/util"
@@ -41,6 +42,16 @@ func (st *dpuDeletingState) Handle(ctx context.Context, client crclient.Client, 
 	state := st.dpu.Status.DeepCopy()
 
 	if err := RemoveNodeEffect(ctx, client, *st.dpu.Spec.NodeEffect, st.dpu.Spec.NodeName, st.dpu.Namespace); err != nil {
+		return *state, err
+	}
+
+	cfgVersion := cutil.GenerateBFCFGFileName(st.dpu.Name)
+
+	// Make sure there is no old bf cfg file in the shared volume
+	cfgFile := cutil.GenerateBFBCFGFilePath(cfgVersion)
+	if err := os.Remove(cfgFile); err != nil && !os.IsNotExist(err) {
+		msg := fmt.Sprintf("Delete BFB CFG file %s failed", cfgFile)
+		logger.Error(err, msg)
 		return *state, err
 	}
 
