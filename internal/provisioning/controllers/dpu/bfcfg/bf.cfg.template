@@ -113,17 +113,11 @@ write_files:
         }
 
         if [ "$CMD" = "setup" ]; then
-
-            # Create SF on P0 for SFC, sf index starts from 1
-            for i in $(seq 1 $((PF_TOTAL_SF-2))); do
+            # Create SF on P0 for SFC
+            # System SF(index 0) has been removed, so DPF will create SF from index 0
+            for i in $(seq 0 $((PF_TOTAL_SF-1))); do
                 /sbin/mlnx-sf --action create --device 0000:03:00.0 --sfnum ${i} || true
             done
-            # Create SF on P1 for SFC, sf index starts from 1
-            if [ -d "/sys/bus/pci/devices/0000:03:00.1" ]; then
-                for i in $(seq 1 $((PF_TOTAL_SF))); do
-                    /sbin/mlnx-sf --action create --device 0000:03:00.1 --sfnum ${i} || true
-                done
-            fi
 
             create_bridge ${COMM_CH_BR_NAME}
             add_iface_to_bridge ${COMM_CH_BR_NAME} ${COMM_CH_REP_HOST}
