@@ -221,6 +221,12 @@ write_files:
         [Resolve]
         DNSStubListener=no
 
+  - path: /etc/NetworkManager/conf.d/90-dpf.conf
+    permissions: '0644'
+    content: |
+        [main]
+        dns=none
+
   - path: /opt/dpf/cleanup-dns.sh
     permissions: '0755'
     content: |
