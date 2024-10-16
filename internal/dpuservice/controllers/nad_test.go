@@ -76,8 +76,8 @@ var _ = Describe("NetworkSelectionElement", func() {
 		}),
 	)
 	DescribeTable("Validate AddNetworkAnnotationToServiceDaemonSet",
-		func(dpuService *dpuservicev1.DPUService, networks map[string]types.NetworkSelectionElement, expected *dpuservicev1.ServiceDaemonSetValues, expectedErr error) {
-			resp, err := addNetworkAnnotationToServiceDaemonSet(dpuService, networks)
+		func(dpuService *dpuservicev1.DPUService, networkSelectionByInterface map[string]types.NetworkSelectionElement, expected *dpuservicev1.ServiceDaemonSetValues, expectedErr error) {
+			resp, err := addNetworkAnnotationToServiceDaemonSet(dpuService, networkSelectionByInterface)
 			if expectedErr != nil {
 				Expect(err).To(HaveOccurred())
 				Expect(err).To(Equal(expectedErr))
@@ -101,7 +101,7 @@ var _ = Describe("NetworkSelectionElement", func() {
 				networkAnnotationKey: `[{"name":"mybrsfc","namespace":"my-namespace","interface":"net1"}]`,
 			},
 		}, nil),
-		Entry("networks contains network", &dpuservicev1.DPUService{
+		Entry("networks contains network for interface", &dpuservicev1.DPUService{
 			Spec: dpuservicev1.DPUServiceSpec{
 				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 					Annotations: map[string]string{
@@ -110,7 +110,7 @@ var _ = Describe("NetworkSelectionElement", func() {
 				},
 			},
 		}, map[string]types.NetworkSelectionElement{
-			"mybrsfc": {
+			"net1": {
 				Name:             "mybrsfc",
 				Namespace:        "my-namespace",
 				InterfaceRequest: "net1",
@@ -120,7 +120,7 @@ var _ = Describe("NetworkSelectionElement", func() {
 				networkAnnotationKey: `[{"name":"mybrsfc","namespace":"my-namespace","interface":"net1","cni-args":null}]`,
 			},
 		}, nil),
-		Entry("networks conflicts, ServiceDaemonSet takes precedence", &dpuservicev1.DPUService{
+		Entry("networks contains network with interface that conflicts, ServiceDaemonSet takes precedence", &dpuservicev1.DPUService{
 			Spec: dpuservicev1.DPUServiceSpec{
 				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 					Annotations: map[string]string{
@@ -130,10 +130,10 @@ var _ = Describe("NetworkSelectionElement", func() {
 				},
 			},
 		}, map[string]types.NetworkSelectionElement{
-			"mybrsfc": {
-				Name:             "mybrsfc",
+			"net1": {
+				Name:             "myotherbrsfc",
 				Namespace:        "my-namespace",
-				InterfaceRequest: "net2",
+				InterfaceRequest: "net1",
 				CNIArgs: &map[string]interface{}{
 					"allocateDefaultGateway": true,
 				},
@@ -144,7 +144,7 @@ var _ = Describe("NetworkSelectionElement", func() {
 					`{"name":"mybrsfc","namespace":"my-namespace","interface":"net1","cni-args":{"allocateDefaultGateway":true}}]`,
 			},
 		}, nil),
-		Entry("networks conflicts, reset cni args", &dpuservicev1.DPUService{
+		Entry("networks contains network with interface that conflicts, reset cni args", &dpuservicev1.DPUService{
 			Spec: dpuservicev1.DPUServiceSpec{
 				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 					Annotations: map[string]string{
@@ -154,10 +154,10 @@ var _ = Describe("NetworkSelectionElement", func() {
 				},
 			},
 		}, map[string]types.NetworkSelectionElement{
-			"mybrsfc": {
+			"net1": {
 				Name:             "mybrsfc",
 				Namespace:        "my-namespace",
-				InterfaceRequest: "net2",
+				InterfaceRequest: "net1",
 				CNIArgs: &map[string]interface{}{
 					"allocateDefaultGateway": true,
 				},
@@ -168,7 +168,7 @@ var _ = Describe("NetworkSelectionElement", func() {
 					`{"name":"mybrsfc","namespace":"my-namespace","interface":"net1","cni-args":{}}]`,
 			},
 		}, nil),
-		Entry("merge 2 distinct networks", &dpuservicev1.DPUService{
+		Entry("merge 2 networks for different interfaces", &dpuservicev1.DPUService{
 			Spec: dpuservicev1.DPUServiceSpec{
 				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 					Annotations: map[string]string{
@@ -177,15 +177,35 @@ var _ = Describe("NetworkSelectionElement", func() {
 				},
 			},
 		}, map[string]types.NetworkSelectionElement{
-			"anotherbrsfc": {
-				Name:             "anotherbrsfc",
+			"net2": {
+				Name:             "mybrsfc1",
 				Namespace:        "my-namespace",
 				InterfaceRequest: "net2",
 			},
 		}, &dpuservicev1.ServiceDaemonSetValues{
 			Annotations: map[string]string{
-				networkAnnotationKey: `[{"name":"anotherbrsfc","namespace":"my-namespace","interface":"net2","cni-args":null}` +
-					`,{"name":"mybrsfc","namespace":"my-namespace","interface":"net1","cni-args":null}]`,
+				networkAnnotationKey: `[{"name":"mybrsfc","namespace":"my-namespace","interface":"net1","cni-args":null}` +
+					`,{"name":"mybrsfc1","namespace":"my-namespace","interface":"net2","cni-args":null}]`,
+			},
+		}, nil),
+		Entry("2 interfaces in the same network", &dpuservicev1.DPUService{
+			Spec: dpuservicev1.DPUServiceSpec{
+				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+					Annotations: map[string]string{
+						networkAnnotationKey: `[{"name":"mybrsfc","namespace":"my-namespace","interface":"net1"}]`,
+					},
+				},
+			},
+		}, map[string]types.NetworkSelectionElement{
+			"net2": {
+				Name:             "mybrsfc",
+				Namespace:        "my-namespace",
+				InterfaceRequest: "net2",
+			},
+		}, &dpuservicev1.ServiceDaemonSetValues{
+			Annotations: map[string]string{
+				networkAnnotationKey: `[{"name":"mybrsfc","namespace":"my-namespace","interface":"net1","cni-args":null}` +
+					`,{"name":"mybrsfc","namespace":"my-namespace","interface":"net2","cni-args":null}]`,
 			},
 		}, nil),
 	)

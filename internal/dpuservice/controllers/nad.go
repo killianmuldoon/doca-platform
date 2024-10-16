@@ -29,7 +29,7 @@ import (
 
 // addNetworkAnnotationToServiceDaemonSet adds the network annotation to the ServiceDaemonSet.
 // It returns a copy of the ServiceDaemonSet with the network annotation added.
-func addNetworkAnnotationToServiceDaemonSet(dpuService *dpuservicev1.DPUService, networks map[string]types.NetworkSelectionElement) (*dpuservicev1.ServiceDaemonSetValues, error) {
+func addNetworkAnnotationToServiceDaemonSet(dpuService *dpuservicev1.DPUService, networkSelectionByInterface map[string]types.NetworkSelectionElement) (*dpuservicev1.ServiceDaemonSetValues, error) {
 	service := dpuService.DeepCopy()
 	if service.Spec.ServiceDaemonSet == nil {
 		service.Spec.ServiceDaemonSet = &dpuservicev1.ServiceDaemonSetValues{}
@@ -39,21 +39,21 @@ func addNetworkAnnotationToServiceDaemonSet(dpuService *dpuservicev1.DPUService,
 		service.Spec.ServiceDaemonSet.Annotations = map[string]string{}
 	}
 
-	if len(networks) == 0 {
+	if len(networkSelectionByInterface) == 0 {
 		// return serviceDaemonSet as is
 		return service.Spec.ServiceDaemonSet, nil
 	}
 
 	// look for any existing annotations
-	var existingNetworks []types.NetworkSelectionElement
+	var existingNetworkSelections []types.NetworkSelectionElement
 	if n, ok := service.Spec.ServiceDaemonSet.Annotations[networkAnnotationKey]; ok {
-		err := json.Unmarshal([]byte(n), &existingNetworks)
+		err := json.Unmarshal([]byte(n), &existingNetworkSelections)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal existing networks: %v, expected format is a list of objects", err)
 		}
 	}
 
-	result, err := mergeIntoSlice(networks, existingNetworks)
+	result, err := mergeIntoSlice(networkSelectionByInterface, existingNetworkSelections)
 	if err != nil {
 		return nil, err
 	}
@@ -104,10 +104,10 @@ func newNetworkSelectionElement(dpuServiceInterface *dpuservicev1.DPUServiceInte
 	}
 }
 
-func mergeIntoSlice(networks map[string]types.NetworkSelectionElement, existingNetworks []types.NetworkSelectionElement) ([]types.NetworkSelectionElement, error) {
+func mergeIntoSlice(networkSelectionByInterface map[string]types.NetworkSelectionElement, existingNetworks []types.NetworkSelectionElement) ([]types.NetworkSelectionElement, error) {
 	result := make([]types.NetworkSelectionElement, 0)
 	for _, e := range existingNetworks {
-		if n, ok := networks[e.Name]; !ok {
+		if n, ok := networkSelectionByInterface[e.InterfaceRequest]; !ok {
 			result = append(result, e)
 		} else {
 			// existing network take precedence.
@@ -117,9 +117,9 @@ func mergeIntoSlice(networks map[string]types.NetworkSelectionElement, existingN
 			}
 			result = append(result, n)
 		}
-		delete(networks, e.Name)
+		delete(networkSelectionByInterface, e.InterfaceRequest)
 	}
-	for _, n := range networks {
+	for _, n := range networkSelectionByInterface {
 		result = append(result, n)
 	}
 	slices.SortFunc(result, func(a, b types.NetworkSelectionElement) int {
