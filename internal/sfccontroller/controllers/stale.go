@@ -29,16 +29,16 @@ import (
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type StaleFlowsRemover struct {
+type StaleObjectRemover struct {
 	duration time.Duration
 	client   client.Client
 }
 
-func NewStaleFlowsRemover(duration time.Duration, client client.Client) *StaleFlowsRemover {
-	return &StaleFlowsRemover{duration: duration, client: client}
+func NewStaleObjectRemover(duration time.Duration, client client.Client) *StaleObjectRemover {
+	return &StaleObjectRemover{duration: duration, client: client}
 }
 
-func (r *StaleFlowsRemover) Start(ctx context.Context) error {
+func (r *StaleObjectRemover) Start(ctx context.Context) error {
 	log := ctrllog.FromContext(ctx)
 	log.Info("setup stale flows cleaner")
 	ticker := time.NewTicker(r.duration)
@@ -53,6 +53,10 @@ func (r *StaleFlowsRemover) Start(ctx context.Context) error {
 			if err != nil {
 				log.Error(err, "failed to remove stale flows")
 			}
+			err = r.removeStalePorts(ctx)
+			if err != nil {
+				log.Error(err, "failed to remove stale ports")
+			}
 		}
 	}
 }
@@ -60,7 +64,7 @@ func (r *StaleFlowsRemover) Start(ctx context.Context) error {
 // removeStaleFlows compares the derived OpenFlow cookies from the current CRs
 // and compares them against actual OpenFlow cookies in the OVS flows.
 // The difference is treated as stale flows and removed.
-func (r *StaleFlowsRemover) removeStaleFlows(ctx context.Context) error {
+func (r *StaleObjectRemover) removeStaleFlows(ctx context.Context) error {
 	log := ctrllog.FromContext(ctx)
 	log.Info("running stale flows cleaner")
 	currentCookiesSet, err := getFlowCookies()
@@ -93,5 +97,47 @@ func (r *StaleFlowsRemover) removeStaleFlows(ctx context.Context) error {
 			return fmt.Errorf("failed to delete flow cookie %s : %w", flowCookie, flowErrors)
 		}
 	}
+	return nil
+}
+
+// removeStalePorts
+// Removes ports on br-sfc which are not defined by ServiceInterface CRs
+// two type of set of ports will be skipped
+//
+//	physical ports added by CRs (this is to ensure we are not deleting the port backing the ESwitch manager)
+//	patch ports added by DPF CNI
+func (r *StaleObjectRemover) removeStalePorts(ctx context.Context) error {
+	log := ctrllog.FromContext(ctx)
+	currentPorts, err := getSfcOvsPorts()
+	if err != nil {
+		return fmt.Errorf("failed to list ports on br-sfc: %w", err)
+	}
+
+	desiredPortSet := sets.New[string]()
+	serviceInterfaceList := &dpuservicev1.ServiceInterfaceList{}
+	if err = r.client.List(ctx, serviceInterfaceList); err != nil {
+		return fmt.Errorf("failed to list ServiceInterfaceList: %w", err)
+	}
+
+	for _, serviceInterface := range serviceInterfaceList.Items {
+		if serviceInterface.Spec.InterfaceType == dpuservicev1.InterfaceTypeOVN {
+			desiredPortSet.Insert(OvnPatchPeer)
+		} else {
+			portName := FigureOutName(ctx, &serviceInterface)
+			desiredPortSet.Insert(portName)
+		}
+	}
+
+	unwantedPortsSet := currentPorts.Difference(desiredPortSet)
+	log.Info(fmt.Sprintf("found stale ports: %s", unwantedPortsSet.UnsortedList()))
+
+	for ovsPortName := range unwantedPortsSet {
+		deleteError := DelPort(ovsPortName)
+		if deleteError != nil {
+			return fmt.Errorf("failed to delete port: %s, with error: %w", ovsPortName, deleteError)
+		}
+		log.V(5).Info(fmt.Sprintf("deleted OVS port with name: %s", ovsPortName))
+	}
+
 	return nil
 }

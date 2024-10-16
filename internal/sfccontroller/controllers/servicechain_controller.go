@@ -24,7 +24,7 @@ import (
 	"hash/fnv"
 	"os"
 	"os/exec"
-	"slices"
+	"regexp"
 	"strings"
 	"time"
 
@@ -183,23 +183,37 @@ func delFlows(flows string) error {
 // Utility function that returns an set of OpenFlow cookies for currently existing flows in the bridge.
 func getFlowCookies() (sets.Set[string], error) {
 	// ToDo: 1. This way of invoking ovs-ofctl via shell, should be changed, when we have a library for this. Leaving it "as is" for now.
-	// ToDo: 2. A new separate MR will remove grep and cut with golang based regex parsing of ovs-ofctl output. Remove this todo then.
 	// Output of ovs-ofctl dump-flows are of the format
 	// cookie=0x4dde72514b4ec14d, duration=3.703s, table=0, n_packets=501, n_bytes=157752, idle_age=30, priority=20,in_port=1 actions=learn(table=0,....),output:NXM_OF_IN_PORT[]),output:2,output:246
-	ovsOfCtlCommand := "ovs-ofctl -t 10 --names dump-flows br-sfc | grep cookie | tr -d ' ' | cut -d \",\" -f 1 | cut -d \"=\" -f 2 | uniq"
-	cmd := exec.Command("sh", "-c", ovsOfCtlCommand)
+	ovsOfctlPath, err := exec.LookPath("ovs-ofctl")
+	if err != nil {
+		return nil, err
+	}
+	args := []string{"-t", "5", "dump-flows", "br-sfc"}
+	cmd := exec.Command(ovsOfctlPath, args...)
 	var stderr, output bytes.Buffer
 	cmd.Stderr = &stderr
 	cmd.Stdout = &output
-	err := cmd.Run()
+	err = cmd.Run()
 	if err != nil {
-		return nil, fmt.Errorf("error running command %s failed: err=%w stderr=%s", ovsOfCtlCommand, err, stderr.String())
+		return nil, fmt.Errorf("error running ovs-ofctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
 	}
+	flowSet := sets.New[string]()
 	ovsFlowCookieSlice := strings.Split(output.String(), "\n")
-	ovsFlowCookieSlice = slices.DeleteFunc(ovsFlowCookieSlice, func(e string) bool { // Delete empty elements if any
-		return e == ""
-	})
-	return sets.New(ovsFlowCookieSlice...), nil
+	re := regexp.MustCompile(`cookie=([a-zA-Z0-9x]+),`)
+	for _, ovsFlowCookie := range ovsFlowCookieSlice[1:] {
+		// skip empty lines
+		if len(ovsFlowCookie) == 0 {
+			continue
+		}
+		match := re.FindStringSubmatch(ovsFlowCookie)
+		if len(match) > 1 {
+			flowSet.Insert(match[1])
+		} else {
+			return nil, fmt.Errorf("error entry: %v no cookie found.", ovsFlowCookie)
+		}
+	}
+	return flowSet, nil
 }
 
 // Utility function which takes in a multiline string called flows

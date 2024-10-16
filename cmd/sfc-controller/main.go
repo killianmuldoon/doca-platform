@@ -178,7 +178,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	staleFlowsRemover := sfccontroller.NewStaleFlowsRemover(staleFlowsRemovalPeriod, mgr.GetClient())
+	staleFlowsRemover := sfccontroller.NewStaleObjectRemover(staleFlowsRemovalPeriod, mgr.GetClient())
 	if err = mgr.Add(staleFlowsRemover); err != nil {
 		setupLog.Error(err, "cannot add runnable to manager")
 	}
