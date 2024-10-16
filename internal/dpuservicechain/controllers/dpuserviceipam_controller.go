@@ -33,7 +33,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -340,7 +339,7 @@ func generateCIDRPool(dpuServiceIPAM *dpuservicev1.DPUServiceIPAM) *nvipamv1.CID
 		},
 		Spec: nvipamv1.CIDRPoolSpec{
 			CIDR:                 dpuServiceIPAM.Spec.IPV4Network.Network,
-			GatewayIndex:         ptr.To[int32](dpuServiceIPAM.Spec.IPV4Network.GatewayIndex),
+			GatewayIndex:         dpuServiceIPAM.Spec.IPV4Network.GatewayIndex,
 			PerNodeNetworkPrefix: dpuServiceIPAM.Spec.IPV4Network.PrefixSize,
 			NodeSelector:         dpuServiceIPAM.Spec.NodeSelector,
 			Exclusions:           exclusions,

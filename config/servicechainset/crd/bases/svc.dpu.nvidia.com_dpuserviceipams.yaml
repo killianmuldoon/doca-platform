@@ -134,7 +134,6 @@ spec:
                       type: object
                     type: array
                 required:
-                - gatewayIndex
                 - network
                 - prefixSize
                 type: object

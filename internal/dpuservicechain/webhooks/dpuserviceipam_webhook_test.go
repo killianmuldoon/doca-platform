@@ -25,6 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -193,7 +194,7 @@ func getFullyPopulatedDPUServiceIPAM() *dpuservicev1.DPUServiceIPAM {
 		Spec: dpuservicev1.DPUServiceIPAMSpec{
 			IPV4Network: &dpuservicev1.IPV4Network{
 				Network:      "192.168.0.0/20",
-				GatewayIndex: 1,
+				GatewayIndex: ptr.To[int32](1),
 				PrefixSize:   24,
 				Exclusions: []string{
 					"192.168.0.10",

@@ -178,7 +178,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			dpuServiceIPAM.Name = "pool-1"
 			dpuServiceIPAM.Spec.IPV4Network = &dpuservicev1.IPV4Network{
 				Network:      "192.168.0.0/20",
-				GatewayIndex: 1,
+				GatewayIndex: ptr.To[int32](1),
 				PrefixSize:   24,
 				Exclusions:   []string{"192.168.0.1", "192.168.0.2"},
 				Allocations: map[string]string{
@@ -275,7 +275,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 				dpuServiceIPAM.Spec.IPV4Subnet = nil
 				dpuServiceIPAM.Spec.IPV4Network = &dpuservicev1.IPV4Network{
 					Network:      "192.168.0.0/20",
-					GatewayIndex: 1,
+					GatewayIndex: ptr.To[int32](1),
 					PrefixSize:   24,
 				}
 				dpuServiceIPAM.SetManagedFields(nil)
@@ -298,7 +298,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			dpuServiceIPAM.Name = "pool-1"
 			dpuServiceIPAM.Spec.IPV4Network = &dpuservicev1.IPV4Network{
 				Network:      "192.168.0.0/20",
-				GatewayIndex: 1,
+				GatewayIndex: ptr.To[int32](1),
 				PrefixSize:   24,
 			}
 
