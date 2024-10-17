@@ -159,10 +159,9 @@ e2e-provisioning:
   needs: [release]
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-      allow_failure: true
       when: on_success
     - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST_FULL == "true"
-      when: always
+      when: on_success
   variables:
     DPF_E2E_NUM_DPU_NODES: 1
     PIPELINE_NAME: "Periodic e2e dpf-standalone tests"
@@ -229,15 +228,14 @@ dpf-standalone-test:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_DPF_STABLE_RELEASE == "true"
       when: always
   variables:
-    PIPELINE_NAME: "dpf-standalone-test"
+    PIPELINE_NAME: "DPF standalone test"
   tags:
-    - release
+    - type/shell
   before_script:
     - ./hack/scripts/ci_helm_docker_login.sh
   script:
-    - mkdir downloaded-logs
     - >
-      docker run --pull=always --rm --net=host -v $(pwd)/downloaded-logs:/dpf-standalone/downloaded-logs $DPF_STANDALONE_IMAGE
+      docker run --pull=always --rm --net=host $DPF_STANDALONE_IMAGE
       -e operator_version=$TAG
       -e ngc_key="$NGC_API_KEY"
       -e target_host="$DPF_STANDALONE_CI_HOST"

@@ -321,7 +321,7 @@ func (r *DPUSetReconciler) createDPU(ctx context.Context, dpuSet *provisioningv1
 		},
 	}
 	// do we really need this?
-	for k, v := range dpuSet.Annotations {
+	for k, v := range dpuSet.Spec.DPUTemplate.Annotations {
 		dpu.Annotations[k] = v
 	}
 	if v, ok := dpuSet.Spec.DPUTemplate.Annotations[reboot.HostPowerCycleRequireKey]; ok {

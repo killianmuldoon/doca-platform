@@ -27,6 +27,7 @@ import (
 	"slices"
 	"strings"
 
+	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
@@ -147,14 +148,15 @@ func (c *Cluster) run(ctx context.Context) error {
 		corev1.SchemeGroupVersion.WithKind("Node"),   // Nodes
 		corev1.SchemeGroupVersion.WithKind("Secret"), // Secrets
 		corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"),
-		appsv1.SchemeGroupVersion.WithKind("DaemonSet"), // DaemonSet
-		argov1.ApplicationSchemaGroupVersionKind,        // ArgoApplications
-		operatorv1.DPFOperatorConfigGroupVersionKind,    // DPFOperatorConfig
-		provisioningv1.GroupVersion.WithKind("DPU"),     // DPU
-		provisioningv1.GroupVersion.WithKind("DPUSet"),  // DPUSet
-		provisioningv1.GroupVersion.WithKind("BFB"),     // BFB
-
-		controlplanemeta.TenantControlPlaneGVK, // Kamaji control plane
+		appsv1.SchemeGroupVersion.WithKind("DaemonSet"),            // DaemonSet
+		argov1.ApplicationSchemaGroupVersionKind,                   // ArgoApplications
+		operatorv1.DPFOperatorConfigGroupVersionKind,               // DPFOperatorConfig
+		provisioningv1.GroupVersion.WithKind("DPU"),                // DPU
+		provisioningv1.GroupVersion.WithKind("DPUSet"),             // DPUSet
+		provisioningv1.GroupVersion.WithKind("BFB"),                // BFB
+		provisioningv1.GroupVersion.WithKind("DPUCluster"),         // DPUCluster
+		dpuservicev1.GroupVersion.WithKind("DPUCredentialRequest"), // DPUCredentialRequest
+		controlplanemeta.TenantControlPlaneGVK,                     // Kamaji control plane
 	}
 	namespacesToCollectEvents := []string{
 		"dpf-operator-system",

@@ -1,62 +1,10 @@
-apiVersion: kamaji.clastix.io/v1alpha1
-kind: TenantControlPlane
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
+kind: DPUCluster
 metadata:
-  name: dpu-cplane-tenant1
-  namespace: dpu-cplane-tenant1
-  labels:
-    tenant.clastix.io: dpu-cplane-tenant1
+  name: dpu-cluster-0
+  namespace: dpf-operator-system
 spec:
-  dataStore: default
-  controlPlane:
-    deployment:
-      replicas: 3
-      additionalMetadata:
-        labels:
-          tenant.clastix.io: dpu-cplane-tenant1
-      extraArgs:
-        apiServer: []
-        controllerManager: []
-        scheduler: []
-      affinity:
-        nodeAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-            nodeSelectorTerms:
-              - matchExpressions:
-                  - key: node-role.kubernetes.io/master
-                    operator: Exists
-              - matchExpressions:
-                  - key: node-role.kubernetes.io/control-plane
-                    operator: Exists
-      tolerations:
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/master
-          operator: Exists
-        - effect: NoSchedule
-          key: node-role.kubernetes.io/control-plane
-          operator: Exists
-    service:
-      additionalMetadata:
-        labels:
-          tenant.clastix.io: dpu-cplane-tenant1
-      serviceType: LoadBalancer
-  kubernetes:
-    version: v1.29.3
-    kubelet:
-      cgroupfs: systemd
-    admissionControllers:
-      - ResourceQuota
-      - LimitRanger
-  networkProfile:
-    certSANs:
-      - dpu-cplane-tenant1.clastix.labs
-  addons:
-    coreDNS: {}
-    kubeProxy: {}
-    konnectivity:
-      server:
-        port: 8132
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits: {}
+  type: static
+  maxNodes: 1000
+  version: v1.30.2
+  kubeconfig: dpu-cluster-1-admin-kubeconfig
