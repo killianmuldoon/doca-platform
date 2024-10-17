@@ -256,7 +256,7 @@ dpf-standalone-stable-release:
     - dpf-standalone-test
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_DPF_STABLE_RELEASE == "true"
-      when: always
+      when: on_success
   variables:
     PIPELINE_NAME: "dpf-standalone-release"
     OPERATOR_CHART_TAGS: "v0.1.0-dev-stable"
@@ -267,7 +267,7 @@ dpf-standalone-stable-release:
     - rm -rf artifacts
     - ./hack/scripts/ci_helm_docker_login.sh
   script:
-    - make helm-package-operator helm-push-operator
+    - make generate helm-package-operator helm-push-operator
     - docker pull $DPF_STANDALONE_IMAGE
     - docker tag $DPF_STANDALONE_IMAGE $REGISTRY/dpf-standalone:"$OPERATOR_CHART_TAGS"
     - docker push $REGISTRY/dpf-standalone:"$OPERATOR_CHART_TAGS"
@@ -315,7 +315,6 @@ e2e-dpf-standalone-vm:
   interruptible: false
   stage: test
   needs: []
-  variables:
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_STANDALONE_VM == "true"
       when: always
