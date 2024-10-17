@@ -432,12 +432,14 @@ func generateJoinCommand(dc *provisioningv1.DPUCluster) (string, error) {
 	if _, err := os.Stat(fp); err != nil {
 		return "", fmt.Errorf("failed to stat kubeconfig file, err: %v", err)
 	}
+	var stdout, stderr bytes.Buffer
 	cmd := exec.Command("kubeadm", "token", "create", "--print-join-command", fmt.Sprintf("--kubeconfig=%s", fp))
-	output, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("failed to run \"kubeadm token create\", err: %v", err)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to run \"kubeadm token create\", err: %v, stderr: %s", err, stderr.String())
 	}
-	joinCommand := strings.TrimRight(string(output), "\r\n") + " --v=5"
+	joinCommand := strings.TrimRight(stdout.String(), "\r\n") + " --v=5"
 	return joinCommand, nil
 }
 
