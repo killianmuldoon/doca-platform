@@ -62,8 +62,6 @@ node-feature-discovery:
   worker:
     enable: true
     hostNetwork: true
-    metricsPort: 9081
-    healthPort: 9082
     tolerations:
       - key: node.kubernetes.io/not-ready
         operator: Exists
@@ -76,12 +74,6 @@ node-feature-discovery:
             - "class"
             - "vendor"
             - "device"
-    livenessProbe:
-      grpc:
-        port: 9082
-    readinessProbe:
-      grpc:
-        port: 9082
   gc:
     affinity:
       nodeAffinity:
