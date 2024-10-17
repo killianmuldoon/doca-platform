@@ -465,6 +465,14 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			testNS.SetLabels(cleanupLabels)
 			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testNS))).To(Succeed())
 
+			By("create ImagePullSecret for DPUService in user namespace")
+			testNSImagePullSecret := imagePullSecret.DeepCopy()
+			testNSImagePullSecret.Namespace = dpuServiceNamespace
+			labels := testNSImagePullSecret.GetLabels()
+			labels[dpuservicev1.DPFImagePullSecretLabelKey] = ""
+			testNSImagePullSecret.SetLabels(labels)
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testNSImagePullSecret))).ToNot(HaveOccurred())
+
 			By("create a DPUServiceInterface")
 			dsi := getUnstructuredFromFile("application/dpuserviceinterface_service_type.yaml")
 			dsi.SetName("net1-service")

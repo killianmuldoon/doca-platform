@@ -598,7 +598,10 @@ func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, cl
 
 	// First get the secrets with the correct label.
 	secrets := &corev1.SecretList{}
-	err := r.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})
+	err := r.List(ctx, secrets,
+		client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey},
+		client.InNamespace(service.GetNamespace()),
+	)
 	if err != nil {
 		return err
 	}
@@ -614,7 +617,7 @@ func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, cl
 			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      secret.Name,
-				Namespace: service.Namespace,
+				Namespace: secret.Namespace,
 				Labels:    secret.Labels,
 			},
 			Immutable: secret.Immutable,
