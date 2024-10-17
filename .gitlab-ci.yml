@@ -27,6 +27,7 @@ variables:
   REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/doca-platform-foundation/e2e
   TAG: v0.1.0-$CI_COMMIT_SHORT_SHA-test
   GOPATH: $CI_PROJECT_DIR/.gocache
+  DPF_STANDALONE_IMAGE: nvcr.io/nvstaging/mellanox/dpf-standalone:latest
 
 stages:
   - verify
@@ -153,7 +154,7 @@ e2e:
     - ./hack/scripts/slack-notification.sh
     - make clean-test-env
 
-e2e-dpf-standalone:
+e2e-provisioning:
   stage: test
   needs: [release]
   rules:
@@ -163,8 +164,6 @@ e2e-dpf-standalone:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST_FULL == "true"
       when: always
   variables:
-    # The helm bundles and operator-sdk require a remote repository in the e2e environment.
-    ANSIBLE_PASSWORD: $TMP_ANSIBLE_PASSWORD
     DPF_E2E_NUM_DPU_NODES: 1
     PIPELINE_NAME: "Periodic e2e dpf-standalone tests"
   tags:
@@ -183,7 +182,7 @@ e2e-dpf-standalone:
     # artifacts are not correctly delete when gitlab restarts jobs.
     - rm -rf artifacts
     - ./hack/scripts/ci_helm_docker_login.sh
-    - docker run --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone:latest -e ansible_password=$ANSIBLE_PASSWORD -u root reset.yml
+    - docker run --rm --net=host $DPF_STANDALONE_IMAGE -e ansible_password=$VM_PASSWORD -u root reset.yml
     - make test-env-dpf-standalone
     - ./hack/scripts/create-artefact-secrets.sh
   script:
@@ -192,14 +191,11 @@ e2e-dpf-standalone:
     - make test-e2e
   after_script:
     - ./hack/scripts/slack-notification.sh
-    - docker run --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone:latest -e ansible_password=$ANSIBLE_PASSWORD -u root reset.yml
+    - docker run --rm --net=host $DPF_STANDALONE_IMAGE -e ansible_password=$VM_PASSWORD -u root reset.yml
 
 release:
   interruptible: false
   stage: build
-  # We have a known issue in the OVS CNI build that can lead to the build getting stuck. Retry helps improve the
-  # probability of having a successful nightly release. Even if the known issue is fixed, we should keep that retry for
-  # transient errors (e.g. network).
   retry: 2
   needs: []
   rules:
@@ -221,6 +217,60 @@ release:
   script:
     - ./hack/scripts/ci_helm_docker_login.sh
     - timeout 30m make release
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+
+dpf-standalone-test:
+  interruptible: false
+  stage: build
+  needs:
+    - release
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_DPF_STABLE_RELEASE == "true"
+      when: always
+  variables:
+    PIPELINE_NAME: "dpf-standalone-test"
+  tags:
+    - release
+  before_script:
+    - ./hack/scripts/ci_helm_docker_login.sh
+  script:
+    - mkdir downloaded-logs
+    - >
+      docker run --pull=always --rm --net=host -v $(pwd)/downloaded-logs:/dpf-standalone/downloaded-logs $DPF_STANDALONE_IMAGE
+      -e operator_version=$TAG
+      -e ngc_key="$NGC_API_KEY"
+      -e target_host="$DPF_STANDALONE_CI_HOST"
+      -e ansible_user=root
+      -e ansible_ssh_pass="$DPF_STANDALONE_CI_PASS"
+      -e '{"deploy_test_service": true, "reboot_on_reset": true}'
+      reinstall.yml
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+
+dpf-standalone-stable-release:
+  interruptible: false
+  stage: build
+  needs:
+    - release
+    - dpf-standalone-test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_DPF_STABLE_RELEASE == "true"
+      when: always
+  variables:
+    PIPELINE_NAME: "dpf-standalone-release"
+    OPERATOR_CHART_TAGS: "v0.1.0-dev-stable"
+  tags:
+  - release
+  before_script:
+    # artifacts are not correctly delete when gitlab restarts jobs.
+    - rm -rf artifacts
+    - ./hack/scripts/ci_helm_docker_login.sh
+  script:
+    - make helm-package-operator helm-push-operator
+    - docker pull $DPF_STANDALONE_IMAGE
+    - docker tag $DPF_STANDALONE_IMAGE $REGISTRY/dpf-standalone:"$OPERATOR_CHART_TAGS"
+    - docker push $REGISTRY/dpf-standalone:"$OPERATOR_CHART_TAGS"
   after_script:
     - ./hack/scripts/slack-notification.sh
 

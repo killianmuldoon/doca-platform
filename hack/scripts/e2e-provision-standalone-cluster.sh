@@ -29,8 +29,8 @@ if [[ -z "$NGC_API_KEY" ]]; then
 fi
 
 ## This is a secret and should be preset in the environment.
-if [[ -z "$ANSIBLE_PASSWORD" ]]; then
-    echo "ANSIBLE_PASSWORD not set"
+if [[ -z "$VM_PASSWORD" ]]; then
+    echo "VM_PASSWORD not set"
     exit 1
 fi
 
@@ -41,7 +41,7 @@ cp /auto/sw_mc_soc_release/doca_dpu/doca_2.7.0/GA/bfbs/qp/bf-bundle*ubuntu-22.04
 # Run DPF Standalone from https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-standalone
 docker run --pull=always --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone:latest \
     -u root \
-    -e ansible_password=$ANSIBLE_PASSWORD \
+    -e ansible_password=$VM_PASSWORD \
     -e ngc_key=$NGC_API_KEY \
     -e '{"deploy_dpf_bfb_pvc": false}' \
     -e '{"deploy_dpf_create_node_feature_rule": false}' \
