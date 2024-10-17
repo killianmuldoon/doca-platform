@@ -179,7 +179,7 @@ prometheus:
       kubernetes_sd_configs:
         - role: pod
       relabel_configs:
-        - source_labels: [__meta_kubernetes_pod_label_dpu.nvidia.com_component]
+        - source_labels: [__meta_kubernetes_pod_label_dpu_nvidia_com_component]
           action: keep
           regex: ".*-controller-manager"
         - source_labels: [__meta_kubernetes_pod_container_port_name]
