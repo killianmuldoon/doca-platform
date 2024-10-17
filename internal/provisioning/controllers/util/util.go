@@ -468,3 +468,14 @@ func NewCondition(condType string, err error, reason, message string) *metav1.Co
 func AdminKubeConfigPath(dc provisioningv1.DPUCluster) string {
 	return filepath.Join("/kubeconfig", fmt.Sprintf("%s_%s_%s", dc.Name, dc.Namespace, dc.UID))
 }
+
+// if label2 does not contain all the key-value pairs of lable1, then return true.
+// otherwise return false
+func NeedUpdateLabels(label1 map[string]string, label2 map[string]string) bool {
+	for k, v := range label1 {
+		if w, ok := label2[k]; !ok || w != v {
+			return true
+		}
+	}
+	return false
+}

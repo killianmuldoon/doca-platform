@@ -37,8 +37,8 @@ var (
 )
 
 type BFCFGData struct {
-	KUBEADM_JOIN               string //nolint:stylecheck
-	HOSTNAME                   string //nolint:stylecheck
+	KubeadmJoinCMD             string
+	DPUHostName                string
 	BFGCFGParams               []string
 	UbuntuPassword             string
 	NVConfigParams             string
@@ -47,8 +47,7 @@ type BFCFGData struct {
 	OVSRawScript               string
 	KernelParameters           string
 	ContainerdRegistryEndpoint string
-	SF_NUM                     int    //nolint:stylecheck
-	HOST_K8S_NODENAME          string //nolint:stylecheck
+	SFNum                      int
 	// AdditionalReboot adds an extra reboot during the DPU provisioning. This is required in some environments.
 	AdditionalReboot bool
 }
@@ -60,13 +59,12 @@ type BFCFGWriteFile struct {
 	Permissions string
 }
 
-func Generate(flavor *provisioningv1.DPUFlavor, dpuName, joinCmd string, hostK8sNodeName string, additionalReboot bool) ([]byte, error) {
+func Generate(flavor *provisioningv1.DPUFlavor, dpuName, joinCmd string, additionalReboot bool) ([]byte, error) {
 	config := &BFCFGData{
-		KUBEADM_JOIN:      joinCmd,
-		HOSTNAME:          dpuName,
-		HOST_K8S_NODENAME: hostK8sNodeName,
-		AdditionalReboot:  additionalReboot,
-		KernelParameters:  strings.TrimSpace(strings.Join(flavor.Spec.Grub.KernelParameters, " ")),
+		KubeadmJoinCMD:   joinCmd,
+		DPUHostName:      dpuName,
+		AdditionalReboot: additionalReboot,
+		KernelParameters: strings.TrimSpace(strings.Join(flavor.Spec.Grub.KernelParameters, " ")),
 	}
 
 	config.ContainerdRegistryEndpoint = flavor.Spec.ContainerdConfig.RegistryEndpoint
@@ -88,7 +86,7 @@ func Generate(flavor *provisioningv1.DPUFlavor, dpuName, joinCmd string, hostK8s
 	config.OVSRawScript = flavor.Spec.OVS.RawConfigScript
 
 	if num, ok := getPFTotalSFFromFlavor(flavor); ok {
-		config.SF_NUM = num
+		config.SFNum = num
 	}
 
 	buf := bytes.NewBuffer(nil)

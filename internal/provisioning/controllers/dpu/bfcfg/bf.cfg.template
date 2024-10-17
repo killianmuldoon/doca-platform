@@ -75,7 +75,7 @@ write_files:
     content: |
         #!/bin/bash
         set -ex
-        PF_TOTAL_SF={{.SF_NUM}}
+        PF_TOTAL_SF={{.SFNum}}
         CMD=$1
         COMM_CH_BR_NAME=br-comm-ch
         COMM_CH_REP_HOST=pf0vf0
@@ -174,7 +174,7 @@ write_files:
 
         while true
         do
-            {{.KUBEADM_JOIN}} && touch /opt/dpf/joined_cluster_successfully && exit 0
+            {{.KubeadmJoinCMD}} && touch /opt/dpf/joined_cluster_successfully && exit 0
             sleep 5 # Wait for 5 seconds before retrying
             if [ -e "/etc/kubernetes/pki/ca.crt" ]; then
                 rm -rf /etc/kubernetes/pki/ca.crt
@@ -373,7 +373,7 @@ write_files:
         fi
 
 runcmd:
-  - [ hostnamectl, set-hostname, {{.HOSTNAME}} ]
+  - [ hostnamectl, set-hostname, {{.DPUHostName}} ]
   - [ modprobe, br_netfilter ]
   - [ sysctl, -p ]
   - [ systemctl, stop, kubelet ]

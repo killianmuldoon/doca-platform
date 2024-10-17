@@ -967,7 +967,7 @@ _Appears in:_
 | `Pending` | In this state, the controller will check whether BFB is ready.<br /> |
 | `DMSDeployment` | In DPUDMSDeployment state, the controller will create DMS pod and proxy pod.<br /> |
 | `OS Installing` | In DPUOSInstalling state, the controller will call DMS gNOI interface to do dpu provisioning.<br /> |
-| `DPU Cluster Config` | In DPUClusterConfig state, The controller will verify DPU joined successfully to Kamaji cluster.<br /> |
+| `DPU Cluster Config` | In DPUClusterConfig state, The controller will verify DPU joined successfully to DPU cluster.<br /> |
 | `Host Network Configuration` | Setup host network<br /> |
 | `Ready` | DPUReady means the DPU is ready to use.<br /> |
 | `Error` | DPUError means error occurred.<br /> |

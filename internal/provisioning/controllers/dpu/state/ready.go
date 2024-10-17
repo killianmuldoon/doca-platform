@@ -76,38 +76,30 @@ func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, optio
 
 	newClient, err := cutil.RetrieveK8sClientUsingKubeConfig(ctx, client, tenantNamespace, tenantName)
 	if err != nil {
-		updateFalseDPUCondReady(state, "KamajiClientGetError", err.Error())
+		updateFalseDPUCondReady(state, "DPUClusterClientGetError", err.Error())
 		return *state, err
 	}
 
 	node := &corev1.Node{}
 	if err := newClient.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: dpuName}, node); err != nil {
-		updateFalseDPUCondReady(state, "KamajiNodeGetError", err.Error())
+		updateFalseDPUCondReady(state, "DPUNodeGetError", err.Error())
 		return *state, err
 	}
 
 	if !cutil.IsNodeReady(node) {
-		updateFalseDPUCondReady(state, "DPUNodeNotReady", fmt.Errorf("kamaji Node %s is not Ready", node).Error())
-		return *state, err
+		updateFalseDPUCondReady(state, "DPUNodeNotReady", fmt.Errorf("DPU Node %s is not Ready", node.Name).Error())
+		logger.V(3).Info(fmt.Sprintf("DPU Node is not Ready: %v", node))
+		return *state, nil
 	} else {
 		cond := cutil.DPUCondition(provisioningv1.DPUCondReady, "DPUNodeReady", "")
 		cutil.SetDPUCondition(state, cond)
-		if needUpdateNodeLabel(dpu.Spec.Cluster.NodeLabels, node.Labels) {
+		if cutil.NeedUpdateLabels(dpu.Spec.Cluster.NodeLabels, node.Labels) {
 			state.Phase = provisioningv1.DPUClusterConfig
 			logger.V(3).Info(fmt.Sprintf("node %s needs to update label", node.Name))
 			return *state, nil
 		}
 		return *state, nil
 	}
-}
-
-func needUpdateNodeLabel(dpulabel map[string]string, nodeLabel map[string]string) bool {
-	for k, v := range dpulabel {
-		if w, ok := nodeLabel[k]; !ok || w != v {
-			return true
-		}
-	}
-	return false
 }
 
 // Check if the DMS pod exist, if not, restore the missing pod

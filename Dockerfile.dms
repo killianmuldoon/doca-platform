@@ -30,12 +30,20 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 
 FROM nvcr.io/nvidia/doca/doca:2.8.0-full-rt-host
 
+ARG TARGETARCH
+ARG MFT_VERSION=4.29.0-131
+
 RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends libusb-1.0-0 ipmitool rshim wget screen
+    apt-get install -y --no-install-recommends libusb-1.0-0 ipmitool rshim curl screen
 
-RUN wget https://www.mellanox.com/downloads/MFT/mft-4.29.0-131-x86_64-deb.tgz && tar zxvf mft-4.29.0-131-x86_64-deb.tgz
-
-RUN cd mft-4.29.0-131-x86_64-deb && ./install.sh --without-kernel
+RUN case ${TARGETARCH} in \
+        amd64) ARCH=x86_64 ;; \
+        arm64) ARCH=arm64 ;; \
+        *) echo "Unsupported architecture: ${TARGETARCH}" && exit 1 ;; \
+    esac && \
+    curl -fsSL https://www.mellanox.com/downloads/MFT/mft-${MFT_VERSION}-${ARCH}-deb.tgz | tar -xz -C /tmp && \
+    cd /tmp/mft-${MFT_VERSION}-${ARCH}-deb && \
+    ./install.sh --without-kernel
 
 RUN mkdir -p /bfb-folder
 

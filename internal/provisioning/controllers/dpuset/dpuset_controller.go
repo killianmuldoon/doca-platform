@@ -19,7 +19,6 @@ package dpuset
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -399,7 +398,8 @@ func (r *DPUSetReconciler) needUpdate(ctx context.Context, dpuSet provisioningv1
 	// update dpu node label
 	newLabel := dpuSet.Spec.DPUTemplate.Spec.Cluster.NodeLabels
 	oldLabel := dpu.Spec.Cluster.NodeLabels
-	if !reflect.DeepEqual(newLabel, oldLabel) {
+
+	if cutil.NeedUpdateLabels(newLabel, oldLabel) {
 		if dpu.Spec.Cluster.NodeLabels == nil {
 			dpu.Spec.Cluster.NodeLabels = make(map[string]string)
 		}
@@ -411,7 +411,7 @@ func (r *DPUSetReconciler) needUpdate(ctx context.Context, dpuSet provisioningv1
 		if err := patcher.Patch(ctx, &dpu); err != nil {
 			return false, err
 		} else {
-			logger.V(3).Info(fmt.Sprintf("dpu %s label update to %v", dpu.Name, newLabel))
+			logger.V(3).Info(fmt.Sprintf("DPU (%s/%s) label update to %v", dpu.Namespace, dpu.Name, newLabel))
 		}
 	}
 

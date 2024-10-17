@@ -61,7 +61,7 @@ func (r *DPUFlavor) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 		return admission.Warnings{}, apierrors.NewBadRequest(fmt.Sprintf("invalid object type expected DPUFlavor got %s", obj.GetObjectKind().GroupVersionKind().String()))
 	}
 
-	dpuflavorlog.Info("validate create", "name", dpuFlavor.Name)
+	dpuflavorlog.V(4).Info("validate create", "name", dpuFlavor.Name)
 	return nil, validateNVConfig(dpuFlavor)
 }
 
@@ -71,7 +71,7 @@ func (r *DPUFlavor) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.O
 	if !ok {
 		return admission.Warnings{}, apierrors.NewBadRequest(fmt.Sprintf("invalid object type expected DPUFlavor got %s", newObj.GetObjectKind().GroupVersionKind().String()))
 	}
-	dpuflavorlog.Info("validate update", "name", dpuFlavor.Name)
+	dpuflavorlog.V(4).Info("validate update", "name", dpuFlavor.Name)
 	// This is a no-op as this type is immutable. The immutability validation is done inside the CRD definition.
 	return nil, nil
 }
@@ -83,7 +83,7 @@ func (r *DPUFlavor) ValidateDelete(ctx context.Context, obj runtime.Object) (adm
 		return admission.Warnings{}, apierrors.NewBadRequest(fmt.Sprintf("invalid object type expected DPUFlavor got %s", obj.GetObjectKind().GroupVersionKind().String()))
 	}
 
-	dpuflavorlog.Info("validate delete", "name", dpuFlavor.Name)
+	dpuflavorlog.V(4).Info("validate delete", "name", dpuFlavor.Name)
 	dpuSetList := &provisioningv1.DPUSetList{}
 	if err := manager.GetClient().List(context.TODO(), dpuSetList, &client.ListOptions{Namespace: dpuFlavor.Namespace}); err != nil {
 		return nil, fmt.Errorf("list DPUSets failed, err: %v", err)

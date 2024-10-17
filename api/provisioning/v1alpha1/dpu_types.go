@@ -48,7 +48,7 @@ const (
 	DPUDMSDeployment DPUPhase = "DMSDeployment"
 	// In DPUOSInstalling state, the controller will call DMS gNOI interface to do dpu provisioning.
 	DPUOSInstalling DPUPhase = "OS Installing"
-	// In DPUClusterConfig state, The controller will verify DPU joined successfully to Kamaji cluster.
+	// In DPUClusterConfig state, The controller will verify DPU joined successfully to DPU cluster.
 	DPUClusterConfig DPUPhase = "DPU Cluster Config"
 	// Setup host network
 	DPUHostNetworkConfiguration DPUPhase = "Host Network Configuration"

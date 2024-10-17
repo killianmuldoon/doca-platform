@@ -66,30 +66,8 @@ const (
 	HostNameDPULabelKey = "provisioning.dpu.nvidia.com/host"
 )
 
-type BFConfig struct {
-	KUBEADM_JOIN   string //nolint:stylecheck
-	HOSTNAME       string
-	UbuntuPassword string
-	NVConfigParams map[string]string
-	Sysctl         []string
-	ConfigFiles    []BFCfgWriteFile
-	OVSRawScript   string
-}
-
-type BFCfgWriteFile struct {
-	Path        string
-	IsAppend    bool
-	Content     string
-	Permissions string
-}
-
 type dpuOSInstallingState struct {
 	dpu *provisioningv1.DPU
-}
-
-type ExecuteResult struct {
-	Response *ospb.InstallResponse
-	Err      error
 }
 
 func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
@@ -434,7 +412,7 @@ func generateBFConfig(ctx context.Context, dpu *provisioningv1.DPU, node *corev1
 		additionalReboot = true
 	}
 
-	buf, err := bfcfg.Generate(flavor, dpu.Name, joinCommand, dpu.Spec.NodeName, additionalReboot)
+	buf, err := bfcfg.Generate(flavor, dpu.Name, joinCommand, additionalReboot)
 	if err != nil {
 		return nil, err
 	}
