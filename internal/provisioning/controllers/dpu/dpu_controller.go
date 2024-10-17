@@ -22,6 +22,7 @@ import (
 	"reflect"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/state"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
@@ -48,7 +49,8 @@ type DPUReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 	util.DPUOptions
-	Recorder record.EventRecorder
+	Recorder  record.EventRecorder
+	Allocator allocator.Allocator
 }
 
 //+kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpus,verbs=get;list;watch;create;update;patch;delete
@@ -97,8 +99,11 @@ func (r *DPUReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 		return ctrl.Result{}, nil
 	}
+	// This is to cache the DPUs that are created with the cluster field set in their manifests, such DPUs will not go through the Allocate() procedure in Initialization phase
+	// PS: Users are able to create DPUs without DPUSets, which is not officially supported but also not forbidden. If the cluster field is empty, a DPUCluster will be allocated for it as usual.
+	r.Allocator.SaveAssignedDPU(dpu)
 
-	currentState := state.GetDPUState(dpu)
+	currentState := state.GetDPUState(dpu, r.Allocator)
 	nextState, err := currentState.Handle(ctx, r.Client, r.DPUOptions)
 	if err != nil {
 		logger.Error(err, "Statue handle error", "dpu", err)

@@ -26,6 +26,7 @@ import (
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpucluster"
@@ -120,6 +121,7 @@ var _ = BeforeSuite(func() {
 		}})
 	Expect(err).ToNot(HaveOccurred())
 
+	alloc := allocator.NewAllocator(k8sManager.GetClient())
 	err = (&provisioningwebhooks.BFB{}).SetupWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 	bfbReconciler := &bfb.BFBReconciler{
@@ -132,8 +134,9 @@ var _ = BeforeSuite(func() {
 	err = (&provisioningwebhooks.DPU{}).SetupWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 	dpuReconciler := &dpu.DPUReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
+		Client:    k8sManager.GetClient(),
+		Scheme:    k8sManager.GetScheme(),
+		Allocator: alloc,
 	}
 	err = dpuReconciler.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
@@ -151,8 +154,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	dpuclusterReconciler := &dpucluster.DPUClusterReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
+		Client:    k8sManager.GetClient(),
+		Scheme:    k8sManager.GetScheme(),
+		Allocator: alloc,
 	}
 	err = dpuclusterReconciler.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())

@@ -22,6 +22,7 @@ import (
 	"os"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
@@ -34,7 +35,8 @@ import (
 )
 
 type dpuDeletingState struct {
-	dpu *provisioningv1.DPU
+	dpu   *provisioningv1.DPU
+	alloc allocator.Allocator
 }
 
 func (st *dpuDeletingState) Handle(ctx context.Context, client crclient.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
@@ -109,6 +111,7 @@ func (st *dpuDeletingState) Handle(ctx context.Context, client crclient.Client, 
 	if objects, err := cutil.GetObjects(client, deleteObjects); err != nil {
 		return *state, err
 	} else {
+		st.alloc.ReleaseDPU(st.dpu)
 		for _, object := range objects {
 			logger.V(3).Info(fmt.Sprintf("delete object %s/%s", object.GetNamespace(), object.GetName()))
 			if err := cutil.DeleteObject(client, object); err != nil {

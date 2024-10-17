@@ -23,6 +23,7 @@ import (
 	"sync"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
 	corev1 "k8s.io/api/core/v1"
@@ -50,6 +51,7 @@ type DPUClusterReconciler struct {
 	Scheme       *runtime.Scheme
 	Recorder     record.EventRecorder
 	adminClients sync.Map
+	Allocator    allocator.Allocator
 }
 
 //+kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpuclusters,verbs=get;list;watch;create;update;patch;delete
@@ -71,6 +73,7 @@ func (r *DPUClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		if !controllerutil.ContainsFinalizer(dc, provisioningv1.FinalizerInternalCleanUp) {
 			return ctrl.Result{}, nil
 		}
+		r.Allocator.RemoveCluster(dc)
 		if err := r.deleteAdminClient(dc); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to delete admin client, err: %v", err)
 		}
@@ -88,6 +91,7 @@ func (r *DPUClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 			return ctrl.Result{}, fmt.Errorf("failed to add finalizer, err: %v", err)
 		}
 	}
+	r.Allocator.SaveCluster(dc)
 
 	if dc.Status.Phase == provisioningv1.PhasePending {
 		dc.Status.Phase = provisioningv1.PhaseCreating

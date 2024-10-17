@@ -23,6 +23,7 @@ import (
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
@@ -177,6 +178,7 @@ func main() {
 		}
 	}
 
+	alloc := allocator.NewAllocator(mgr.GetClient())
 	dpuOptions := util.DPUOptions{
 		DMSImageWithTag:         dmsImage,
 		HostnetworkImageWithTag: hostnetworkImage,
@@ -191,6 +193,7 @@ func main() {
 		Scheme:     mgr.GetScheme(),
 		Recorder:   mgr.GetEventRecorderFor(dpu.DPUControllerName),
 		DPUOptions: dpuOptions,
+		Allocator:  alloc,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPU")
 		os.Exit(1)
@@ -212,9 +215,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&dpucluster.DPUClusterReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor(dpucluster.DPUClusterControllerName),
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		Recorder:  mgr.GetEventRecorderFor(dpucluster.DPUClusterControllerName),
+		Allocator: alloc,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPUCluster")
 		os.Exit(1)

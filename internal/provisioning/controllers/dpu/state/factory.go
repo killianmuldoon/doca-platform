@@ -20,6 +20,7 @@ import (
 	"context"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -29,11 +30,12 @@ type State interface {
 	Handle(ctx context.Context, client client.Client, option util.DPUOptions) (provisioningv1.DPUStatus, error)
 }
 
-func GetDPUState(dpu *provisioningv1.DPU) State {
+func GetDPUState(dpu *provisioningv1.DPU, alloc allocator.Allocator) State {
 	switch dpu.Status.Phase {
 	case provisioningv1.DPUInitializing:
 		return &dpuInitializingState{
 			dpu,
+			alloc,
 		}
 	case provisioningv1.DPUNodeEffect:
 		return &dpuNodeEffectState{
@@ -66,6 +68,7 @@ func GetDPUState(dpu *provisioningv1.DPU) State {
 	case provisioningv1.DPUDeleting:
 		return &dpuDeletingState{
 			dpu,
+			alloc,
 		}
 	case provisioningv1.DPURebooting:
 		return &dpuRebootingState{
@@ -79,6 +82,7 @@ func GetDPUState(dpu *provisioningv1.DPU) State {
 
 	return &dpuInitializingState{
 		dpu,
+		alloc,
 	}
 }
 

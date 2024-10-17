@@ -19,48 +19,39 @@ package state
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type dpuInitializingState struct {
-	dpu *provisioningv1.DPU
+	dpu   *provisioningv1.DPU
+	alloc allocator.Allocator
 }
 
 func (st *dpuInitializingState) Handle(ctx context.Context, c client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
+	logger := log.FromContext(ctx)
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
 		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
-	// allocate the first DPUCluster (in alphabetical order) to this DPU
-	dcList := &provisioningv1.DPUClusterList{}
-	if err := c.List(ctx, dcList); err != nil {
-		return *state, fmt.Errorf("failed to list DPUCluster, err: %v", err)
-	}
-	if len(dcList.Items) == 0 {
+	if st.dpu.Spec.Cluster.Name == "" {
+		rst, err := st.alloc.Allocate(ctx, st.dpu)
+		if err != nil {
+			logger.Error(fmt.Errorf("failed to allocate DPUCluster, err: %v", err), "")
+			cond := cutil.NewCondition(provisioningv1.DPUCondInitialized.String(), err, "DPUClusterNotReady", err.Error())
+			cutil.SetDPUCondition(state, cond)
+			return *state, nil
+		}
+		logger.V(3).Info("allocate cluster %s for DPU %s", rst, cutil.GetNamespacedName(st.dpu))
 		return *state, nil
-	}
-	sort.Slice(dcList.Items, func(i, j int) bool { return dcList.Items[i].Name < dcList.Items[j].Name })
-	dc := dcList.Items[0]
-	if dc.Status.Phase != provisioningv1.PhaseReady {
-		state.Phase = provisioningv1.DPUInitializing
-		cond := cutil.DPUCondition(provisioningv1.DPUCondInitialized, "DPUClusterNotReady", "")
-		cond.Status = metav1.ConditionFalse
-		cutil.SetDPUCondition(state, cond)
-		return *state, nil
-	}
-	st.dpu.Spec.Cluster.Name = dc.Name
-	st.dpu.Spec.Cluster.NameSpace = dc.Namespace
-	if err := c.Update(ctx, st.dpu); err != nil {
-		return *state, fmt.Errorf("failed to set cluster, err: %v", err)
 	}
 
 	state.Phase = provisioningv1.DPUNodeEffect
