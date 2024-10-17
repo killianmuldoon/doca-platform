@@ -28,10 +28,8 @@ import (
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
 	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -78,17 +76,6 @@ func (r *DPUReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		}
 		logger.Error(err, "Failed to get DPU", "DPU", dpu)
 		return ctrl.Result{}, errors.Wrap(err, "failed to get DPU")
-	}
-
-	node := &corev1.Node{}
-	if err := r.Get(ctx, types.NamespacedName{
-		Name: dpu.Spec.NodeName,
-	}, node); err != nil {
-		if apierrors.IsNotFound(err) {
-			return ctrl.Result{}, nil
-		}
-		logger.Error(err, "Failed to get node", "Node", dpu.Spec.NodeName)
-		return ctrl.Result{}, errors.Wrap(err, "failed to get node")
 	}
 
 	// Add finalizer if not set and DPU is not currently deleting.
