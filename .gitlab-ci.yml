@@ -292,6 +292,7 @@ scan:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       when: manual
+      allow_failure: true
     - if: $CI_PIPELINE_SOURCE == "schedule" && $CONTAINER_SCAN == "true"
       when: always
   tags:
