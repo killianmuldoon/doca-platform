@@ -119,3 +119,13 @@ All contributions comply with the [Developer Certificate of Origin](https://deve
     
     (d) I understand and agree that this project and the contribution are public and that a record of the contribution (including all personal information I submit with it, including my sign-off) is maintained indefinitely and may be redistributed consistent with this project or the open source license(s) involved.
   ```
+
+## Log Convention
+
+- `klog.V(0).InfoS` = `klog.InfoS` - Generally useful for this to always be visible to a cluster operator
+- `klog.V(1).InfoS` - A reasonable default log level if you don't want verbosity.
+- `klog.V(2).InfoS` - Useful steady state information about the service and important log messages that may correlate to significant changes in the system. This is the recommended default log level for most systems.
+- `klog.V(3).InfoS` - Extended information about changes
+- `klog.V(4).InfoS` - Debug level verbosity
+
+xref: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md#what-method-to-use
