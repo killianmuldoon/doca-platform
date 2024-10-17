@@ -66,7 +66,6 @@ func (r *StaleObjectRemover) Start(ctx context.Context) error {
 // The difference is treated as stale flows and removed.
 func (r *StaleObjectRemover) removeStaleFlows(ctx context.Context) error {
 	log := ctrllog.FromContext(ctx)
-	log.Info("running stale flows cleaner")
 	currentCookiesSet, err := getFlowCookies()
 	if err != nil {
 		return fmt.Errorf("failed to get flow cookies: %w", err)
@@ -86,12 +85,12 @@ func (r *StaleObjectRemover) removeStaleFlows(ctx context.Context) error {
 		len(currentCookiesSet), len(desiredCookiesSet),
 		currentCookiesSet.UnsortedList(), desiredCookiesSet.UnsortedList())
 	// TODO: Use a logger which has debug level. eg: logrus
-	log.V(5).Info(msg) // debug level, info is level 0.
+	log.V(4).Info(msg) // debug level, info is level 0.
 
 	unwantedCookiesSet := currentCookiesSet.Difference(desiredCookiesSet)
 
 	for flowCookie := range unwantedCookiesSet {
-		log.V(5).Info(fmt.Sprintf("remove cookie=%s/-1", flowCookie))
+		log.Info(fmt.Sprintf("remove cookie=%s/-1", flowCookie))
 		flowErrors := delFlows(fmt.Sprintf("cookie=%s/-1", flowCookie))
 		if flowErrors != nil {
 			return fmt.Errorf("failed to delete flow cookie %s : %w", flowCookie, flowErrors)
@@ -129,14 +128,14 @@ func (r *StaleObjectRemover) removeStalePorts(ctx context.Context) error {
 	}
 
 	unwantedPortsSet := currentPorts.Difference(desiredPortSet)
-	log.Info(fmt.Sprintf("found stale ports: %s", unwantedPortsSet.UnsortedList()))
+	log.V(4).Info(fmt.Sprintf("found stale ports: %s", unwantedPortsSet.UnsortedList()))
 
 	for ovsPortName := range unwantedPortsSet {
 		deleteError := DelPort(ovsPortName)
 		if deleteError != nil {
 			return fmt.Errorf("failed to delete port: %s, with error: %w", ovsPortName, deleteError)
 		}
-		log.V(5).Info(fmt.Sprintf("deleted OVS port with name: %s", ovsPortName))
+		log.Info(fmt.Sprintf("deleted OVS port with name: %s", ovsPortName))
 	}
 
 	return nil
