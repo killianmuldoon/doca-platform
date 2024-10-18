@@ -136,10 +136,13 @@ func (r *ServiceInterfaceSetReconciler) reconcile(ctx context.Context, serviceIn
 func (r *ServiceInterfaceSetReconciler) getChildMap(ctx context.Context, set client.Object) (map[string]client.Object, error) {
 	serviceInterfaceMap := make(map[string]client.Object)
 	serviceInterfaceList := &dpuservicev1.ServiceInterfaceList{}
-	if err := r.List(ctx, serviceInterfaceList, client.MatchingLabels{
-		ServiceInterfaceSetNameLabel:      set.GetName(),
-		ServiceInterfaceSetNamespaceLabel: set.GetNamespace(),
-	}); err != nil {
+	if err := r.List(ctx, serviceInterfaceList,
+		client.MatchingLabels{
+			ServiceInterfaceSetNameLabel:      set.GetName(),
+			ServiceInterfaceSetNamespaceLabel: set.GetNamespace(),
+		},
+		client.InNamespace(set.GetNamespace()),
+	); err != nil {
 		return serviceInterfaceMap, err
 	}
 	for _, serviceInterface := range serviceInterfaceList.Items {

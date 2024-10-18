@@ -135,10 +135,13 @@ func (r *ServiceChainSetReconciler) reconcile(ctx context.Context, serviceChainS
 func (r *ServiceChainSetReconciler) getChildMap(ctx context.Context, set client.Object) (map[string]client.Object, error) {
 	serviceChainMap := make(map[string]client.Object)
 	serviceChainList := &dpuservicev1.ServiceChainList{}
-	if err := r.List(ctx, serviceChainList, client.MatchingLabels{
-		ServiceChainSetNameLabel:      set.GetName(),
-		ServiceChainSetNamespaceLabel: set.GetNamespace(),
-	}); err != nil {
+	if err := r.List(ctx, serviceChainList,
+		client.MatchingLabels{
+			ServiceChainSetNameLabel:      set.GetName(),
+			ServiceChainSetNamespaceLabel: set.GetNamespace(),
+		},
+		client.InNamespace(set.GetNamespace()),
+	); err != nil {
 		return serviceChainMap, err
 	}
 	for _, serviceChain := range serviceChainList.Items {
