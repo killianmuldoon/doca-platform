@@ -88,6 +88,13 @@ clean: ; $(info  Cleaning...)	 @ ## Clean non-essential files from the repo
 	@rm -rf $(TOOLSDIR)
 	@rm -rf $(REPOSDIR)
 
+# Note: This helps resolve errors with `docker manifest create`
+.PHONY: clean-images-for-registry
+clean-images-for-registry: ## Clean release deletes local images with the $REGISTRY
+	for image in $$(docker images $$REGISTRY/* --format "{{.ID}}"); do \
+	docker rmi -f $$image ; \
+	done
+
 ##@ Dependencies
 
 # kamaji is the underlying control plane provider
@@ -200,9 +207,11 @@ generate-manifests-dpucniprovisioner: kustomize ## Generates DPU CNI provisioner
 generate-manifests-hostcniprovisioner: kustomize ## Generates Host CNI provisioner manifests
 	cd config/hostcniprovisioner/default &&	$(KUSTOMIZE) edit set image controller=$(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
+RELEASE_FILE = ./internal/release/manifests/defaults.yaml
+
 .PHONY: generate-manifests-release-defaults
 generate-manifests-release-defaults: envsubst ## Generates manifests that contain the default values that should be used by the operators
-	$(ENVSUBST) < ./internal/release/templates/defaults.yaml.tmpl > ./internal/release/manifests/defaults.yaml
+	$(ENVSUBST) <  ./internal/release/templates/defaults.yaml.tmpl > $(RELEASE_FILE)
 
 TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
@@ -561,7 +570,7 @@ binary-detector: ## Build the DPU detector binary.
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=operator-bundle hostnetwork dms
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
-MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes
+MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
@@ -595,8 +604,8 @@ DPUCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(DPUCNIPROVISIONER_IMAGE_NAME)
 DUMMYDPUSERVICE_IMAGE_NAME ?= dummydpuservice
 export DUMMYDPUSERVICE_IMAGE ?= $(REGISTRY)/$(DUMMYDPUSERVICE_IMAGE_NAME)
 
-DPF_TOOLS_BUILD_IMAGE_NAME ?= dpf-tools
-DPF_TOOLS_BUILD_IMAGE ?= $(REGISTRY)/$(DPF_TOOLS_BUILD_IMAGE_NAME)
+DPF_TOOLS_IMAGE_NAME ?= dpf-tools
+export DPF_TOOLS_IMAGE ?= $(REGISTRY)/$(DPF_TOOLS_IMAGE_NAME)
 
 ## External images that are set by the DPF Operator
 export MULTUS_IMAGE=ghcr.io/k8snetworkplumbingwg/multus-cni
@@ -652,23 +661,23 @@ docker-build-dpf-tools-for-%: $(SOS_REPORT_DIR)
 	--provenance=false \
 	--platform=linux/$* \
 	. \
-	-t ${DPF_TOOLS_BUILD_IMAGE}:${TAG}-$* \
+	-t ${DPF_TOOLS_IMAGE}:${TAG}-$* \
 	${DPF_TOOLS_BUILD_ARGS}
 
 .PHONY: docker-push-dpf-tools # Push a multi-arch image for DPF tools using `docker manifest`. The variable DPF_SYSTEM_ARCH defines which architectures this target pushes for.
 docker-push-dpf-tools: $(addprefix docker-push-dpf-tools-for-,$(DPF_SYSTEM_ARCH))
-	docker manifest push --purge $(DPF_TOOLS_BUILD_IMAGE):$(TAG)
+	docker manifest push --purge $(DPF_TOOLS_IMAGE):$(TAG)
 
 docker-push-dpf-tools-for-%:
 	# Tag and push the arch-specific image with the single arch-agnostic tag.
-	docker tag $(DPF_TOOLS_BUILD_IMAGE):$(TAG)-$* $(DPF_TOOLS_BUILD_IMAGE):$(TAG)
-	docker push $(DPF_TOOLS_BUILD_IMAGE):$(TAG)
+	docker tag $(DPF_TOOLS_IMAGE):$(TAG)-$* $(DPF_TOOLS_IMAGE):$(TAG)
+	docker push $(DPF_TOOLS_IMAGE):$(TAG)
 	# This must be called in a separate target to ensure the shell command is called in the correct order.
 	$(MAKE) docker-create-manifest-for-dpf-tools
 
 docker-create-manifest-for-dpf-tools:
 	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
-	docker manifest create --amend $(DPF_TOOLS_BUILD_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(DPF_TOOLS_BUILD_IMAGE):$(TAG))
+	docker manifest create --amend $(DPF_TOOLS_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(DPF_TOOLS_IMAGE):$(TAG))
 
 # TODO: This image should be part of a DPF Utils image.
 .PHONY: docker-build-ipallocator

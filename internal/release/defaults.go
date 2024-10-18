@@ -28,10 +28,10 @@ var defaultsContent []byte
 
 // Defaults structure contains the default artifacts that the operators should deploy
 type Defaults struct {
-	DMSImage              string `yaml:"dmsImage"`
-	HostNetworkSetupImage string `yaml:"hostNetworkSetupImage"`
-	DPFSystemImage        string `yaml:"dpfSystemImage"`
-
+	DMSImage               string `yaml:"dmsImage"`
+	HostNetworkSetupImage  string `yaml:"hostNetworkSetupImage"`
+	DPFSystemImage         string `yaml:"dpfSystemImage"`
+	DPFToolsImage          string `yaml:"dpfToolsImage"`
 	DPUNetworkingHelmChart string `yaml:"dpuNetworkingHelmChart"`
 
 	MultusImage  string `yaml:"multusImage"`
@@ -62,6 +62,9 @@ func (d *Defaults) Parse() error {
 	}
 	if len(d.DPFSystemImage) == 0 {
 		return errors.New("dpfSystemImage can't be empty")
+	}
+	if len(d.DPFToolsImage) == 0 {
+		return errors.New("dpfToolsImage can't be empty")
 	}
 	if len(d.DPUNetworkingHelmChart) == 0 {
 		return errors.New("DPUNetworkingHelmChart can't be empty")
