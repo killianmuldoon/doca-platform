@@ -23,7 +23,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// StubComponent is a type for testing GenerateManifests and ApplySet behaviour.
+// StubComponent is a type for testing GenerateManifests and ApplySet behavior.
 type StubComponent struct {
 	objs []*unstructured.Unstructured
 	name string

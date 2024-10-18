@@ -377,9 +377,9 @@ func (p *HostCNIProvisioner) removeOVNKubernetesLeftovers() error {
 		return fmt.Errorf("error parsing IPNet %s: %w", hostToServiceHostMasqueradeIP, err)
 	}
 
-	err = p.deleteNeighbourIfExists(ovnMasqueradeIP.IP, originalBrEx)
+	err = p.deleteNeighborIfExists(ovnMasqueradeIP.IP, originalBrEx)
 	if err != nil {
-		return fmt.Errorf("error deleting neighbour %s %s: %w", ovnMasqueradeIP.IP.String(), originalBrEx, err)
+		return fmt.Errorf("error deleting neighbor %s %s: %w", ovnMasqueradeIP.IP.String(), originalBrEx, err)
 	}
 
 	dummyNextHopMasqueradeIP, err := netlink.ParseIPNet(hostToServiceDummyNextHopMasqueradeIP)
@@ -387,9 +387,9 @@ func (p *HostCNIProvisioner) removeOVNKubernetesLeftovers() error {
 		return fmt.Errorf("error parsing IPNet %s: %w", hostToServiceDummyNextHopMasqueradeIP, err)
 	}
 
-	err = p.deleteNeighbourIfExists(dummyNextHopMasqueradeIP.IP, originalBrEx)
+	err = p.deleteNeighborIfExists(dummyNextHopMasqueradeIP.IP, originalBrEx)
 	if err != nil {
-		return fmt.Errorf("error deleting neighbour %s %s: %w", dummyNextHopMasqueradeIP.IP.String(), originalBrEx, err)
+		return fmt.Errorf("error deleting neighbor %s %s: %w", dummyNextHopMasqueradeIP.IP.String(), originalBrEx, err)
 	}
 
 	hostMasqueradeIP, err := netlink.ParseIPNet(hostToServiceHostMasqueradeIP)
@@ -475,19 +475,19 @@ func (p *HostCNIProvisioner) addDummyLinkIfNotExists(link string) error {
 	return nil
 }
 
-// deleteNeighbourIfExists deletes a neighbour if it exists
-func (p *HostCNIProvisioner) deleteNeighbourIfExists(ip net.IP, device string) error {
-	hasNeigh, err := p.networkHelper.NeighbourExists(ip, device)
+// deleteNeighborIfExists deletes a neighbor if it exists
+func (p *HostCNIProvisioner) deleteNeighborIfExists(ip net.IP, device string) error {
+	hasNeigh, err := p.networkHelper.NeighborExists(ip, device)
 	if err != nil {
-		return fmt.Errorf("error checking whether neighbour exists: %w", err)
+		return fmt.Errorf("error checking whether neighbor exists: %w", err)
 	}
 	if !hasNeigh {
-		klog.Infof("Neighbour %s %s doesn't exist, skipping deletion", ip.String(), device)
+		klog.Infof("Neighbor %s %s doesn't exist, skipping deletion", ip.String(), device)
 		return nil
 	}
-	err = p.networkHelper.DeleteNeighbour(ip, device)
+	err = p.networkHelper.DeleteNeighbor(ip, device)
 	if err != nil {
-		return fmt.Errorf("error deleting neighbour: %w", err)
+		return fmt.Errorf("error deleting neighbor: %w", err)
 	}
 	return nil
 }

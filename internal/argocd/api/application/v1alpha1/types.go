@@ -993,7 +993,7 @@ type ExecProviderConfig struct {
 }
 
 // ClusterConfig is the configuration attributes. This structure is subset of the go-client
-// rest.Config with annotations added for marshalling.
+// rest.Config with annotations added for marshaling.
 type ClusterConfig struct {
 	// Server requires Basic authentication
 	Username string `json:"username,omitempty" protobuf:"bytes,1,opt,name=username"`

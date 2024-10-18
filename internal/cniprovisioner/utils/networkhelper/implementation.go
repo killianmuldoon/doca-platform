@@ -136,10 +136,10 @@ func (n *networkHelper) DeleteLinkIPAddress(link string, ipNet *net.IPNet) error
 	return nil
 }
 
-// DeleteNeighbour deletes a neighbour
-func (n *networkHelper) DeleteNeighbour(ip net.IP, device string) error {
+// DeleteNeighbor deletes a neighbor
+func (n *networkHelper) DeleteNeighbor(ip net.IP, device string) error {
 	if ip == nil {
-		return errors.New("ip is empty, can't delete neighbour")
+		return errors.New("ip is empty, can't delete neighbor")
 	}
 	l, err := netlink.LinkByName(device)
 	if err != nil {
@@ -156,20 +156,20 @@ func (n *networkHelper) DeleteNeighbour(ip net.IP, device string) error {
 	return nil
 }
 
-// NeighbourExists checks whether an neighbour entry exists
-func (n *networkHelper) NeighbourExists(ip net.IP, device string) (bool, error) {
+// NeighborExists checks whether an neighbor entry exists
+func (n *networkHelper) NeighborExists(ip net.IP, device string) (bool, error) {
 	if ip == nil {
-		return false, errors.New("ip is empty, can't check whether neighbour exists")
+		return false, errors.New("ip is empty, can't check whether neighbor exists")
 	}
 	l, err := netlink.LinkByName(device)
 	if err != nil {
 		return false, fmt.Errorf("netlink.LinkByName() failed: %w", err)
 	}
-	neighbours, err := netlink.NeighList(l.Attrs().Index, netlink.FAMILY_V4)
+	neighbors, err := netlink.NeighList(l.Attrs().Index, netlink.FAMILY_V4)
 	if err != nil {
 		return false, fmt.Errorf("netlink.NeighList() failed: %w", err)
 	}
-	for _, neigh := range neighbours {
+	for _, neigh := range neighbors {
 		if neigh.IP.String() == ip.String() {
 			return true, nil
 		}
@@ -296,6 +296,7 @@ func (n *networkHelper) GetPFRepMACAddress(device string) (net.HardwareAddr, err
 	}
 
 	for _, p := range ports {
+		//nolint:misspell
 		if p.PortFlavour == nl.DEVLINK_PORT_FLAVOUR_PCI_PF && p.Fn != nil {
 			return p.Fn.HwAddr, nil
 		}

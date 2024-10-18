@@ -82,10 +82,10 @@ var _ = Describe("Host CNI Provisioner", func() {
 			networkhelper.EXPECT().DummyLinkExists("pf0vf1").Return(false, nil)
 			networkhelper.EXPECT().AddDummyLink("pf0vf1")
 
-			networkhelper.EXPECT().NeighbourExists(net.ParseIP("169.254.169.1"), "br-ex").Return(true, nil)
-			networkhelper.EXPECT().DeleteNeighbour(net.ParseIP("169.254.169.1"), "br-ex")
-			networkhelper.EXPECT().NeighbourExists(net.ParseIP("169.254.169.4"), "br-ex").Return(true, nil)
-			networkhelper.EXPECT().DeleteNeighbour(net.ParseIP("169.254.169.4"), "br-ex")
+			networkhelper.EXPECT().NeighborExists(net.ParseIP("169.254.169.1"), "br-ex").Return(true, nil)
+			networkhelper.EXPECT().DeleteNeighbor(net.ParseIP("169.254.169.1"), "br-ex")
+			networkhelper.EXPECT().NeighborExists(net.ParseIP("169.254.169.4"), "br-ex").Return(true, nil)
+			networkhelper.EXPECT().DeleteNeighbor(net.ParseIP("169.254.169.4"), "br-ex")
 			hostMasqueradeIP, _ := netlink.ParseIPNet("169.254.169.2/29")
 			networkhelper.EXPECT().LinkIPAddressExists("br-ex", hostMasqueradeIP).Return(true, nil)
 			networkhelper.EXPECT().DeleteLinkIPAddress("br-ex", hostMasqueradeIP)
@@ -445,11 +445,11 @@ func assertFakeFilesystem(tmpDir string, expectedEntries map[string]verifyFSEntr
 func networkHelperMockAll(networkHelper *networkhelperMock.MockNetworkHelper) {
 	networkHelper.EXPECT().AddDummyLink(gomock.Any()).AnyTimes()
 	networkHelper.EXPECT().DeleteLinkIPAddress(gomock.Any(), gomock.Any()).AnyTimes()
-	networkHelper.EXPECT().DeleteNeighbour(gomock.Any(), gomock.Any()).AnyTimes()
+	networkHelper.EXPECT().DeleteNeighbor(gomock.Any(), gomock.Any()).AnyTimes()
 	networkHelper.EXPECT().DeleteRoute(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	networkHelper.EXPECT().DummyLinkExists(gomock.Any()).AnyTimes()
 	networkHelper.EXPECT().LinkIPAddressExists(gomock.Any(), gomock.Any()).AnyTimes()
-	networkHelper.EXPECT().NeighbourExists(gomock.Any(), gomock.Any()).AnyTimes()
+	networkHelper.EXPECT().NeighborExists(gomock.Any(), gomock.Any()).AnyTimes()
 	networkHelper.EXPECT().RouteExists(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes()
 	networkHelper.EXPECT().SetLinkIPAddress(gomock.Any(), gomock.Any()).AnyTimes()
 }

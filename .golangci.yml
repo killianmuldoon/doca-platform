@@ -29,6 +29,8 @@ linters:
     - unused
 
 linters-settings:
+  misspell:
+    locale: US
   gci:
     sections:
       - standard # Standard packages.

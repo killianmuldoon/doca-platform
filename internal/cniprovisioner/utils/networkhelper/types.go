@@ -36,10 +36,10 @@ type NetworkHelper interface {
 	LinkIPAddressExists(link string, ipNet *net.IPNet) (bool, error)
 	// DeleteLinkIPAddress deletes the given IP of a link
 	DeleteLinkIPAddress(link string, ipNet *net.IPNet) error
-	// DeleteNeighbour deletes a neighbour
-	DeleteNeighbour(ip net.IP, device string) error
-	// NeighbourExists checks whether an neighbour entry exists
-	NeighbourExists(ip net.IP, device string) (bool, error)
+	// DeleteNeighbor deletes a neighbor
+	DeleteNeighbor(ip net.IP, device string) error
+	// NeighborExists checks whether an neighbor entry exists
+	NeighborExists(ip net.IP, device string) (bool, error)
 	// AddRoute adds a route
 	AddRoute(network *net.IPNet, gateway net.IP, device string, metric *int) error
 	// DeleteRoute deletes a route
@@ -52,7 +52,7 @@ type NetworkHelper interface {
 	DummyLinkExists(link string) (bool, error)
 	// LinkExists checks if a link exists
 	LinkExists(link string) (bool, error)
-	// GetPFRepMacAddress returns the MAC address of the PF Representor provided as input. When you run this function in
+	// GetPFRepMACAddress returns the MAC address of the PF Representor provided as input. When you run this function in
 	// the DPU, it will give you the MAC address of the PF Representor on the host.
 	GetPFRepMACAddress(device string) (net.HardwareAddr, error)
 }

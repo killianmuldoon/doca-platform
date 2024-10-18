@@ -321,7 +321,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		for {
 			select {
 			case <-ctx.Done():
-				logger.Error(ctx.Err(), fmt.Sprintf("DMS %s RebootStatusOperation timed out or was cancelled", dmsTaskName))
+				logger.Error(ctx.Err(), fmt.Sprintf("DMS %s RebootStatusOperation timed out or was canceled", dmsTaskName))
 				return nil, ctx.Err()
 			case <-ticker.C:
 				rebootStatusOp := gsystem.NewRebootStatusOperation().Subcomponents([]*tpb.Path{{Elem: []*tpb.PathElem{{Name: "CPU"}}}})

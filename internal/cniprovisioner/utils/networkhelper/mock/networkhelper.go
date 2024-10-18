@@ -97,18 +97,18 @@ func (mr *MockNetworkHelperMockRecorder) DeleteLinkIPAddress(link, ipNet any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteLinkIPAddress", reflect.TypeOf((*MockNetworkHelper)(nil).DeleteLinkIPAddress), link, ipNet)
 }
 
-// DeleteNeighbour mocks base method.
-func (m *MockNetworkHelper) DeleteNeighbour(ip net.IP, device string) error {
+// DeleteNeighbor mocks base method.
+func (m *MockNetworkHelper) DeleteNeighbor(ip net.IP, device string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "DeleteNeighbour", ip, device)
+	ret := m.ctrl.Call(m, "DeleteNeighbor", ip, device)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// DeleteNeighbour indicates an expected call of DeleteNeighbour.
-func (mr *MockNetworkHelperMockRecorder) DeleteNeighbour(ip, device any) *gomock.Call {
+// DeleteNeighbor indicates an expected call of DeleteNeighbor.
+func (mr *MockNetworkHelperMockRecorder) DeleteNeighbor(ip, device any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNeighbour", reflect.TypeOf((*MockNetworkHelper)(nil).DeleteNeighbour), ip, device)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteNeighbor", reflect.TypeOf((*MockNetworkHelper)(nil).DeleteNeighbor), ip, device)
 }
 
 // DeleteRoute mocks base method.
@@ -185,19 +185,19 @@ func (mr *MockNetworkHelperMockRecorder) LinkIPAddressExists(link, ipNet any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkIPAddressExists", reflect.TypeOf((*MockNetworkHelper)(nil).LinkIPAddressExists), link, ipNet)
 }
 
-// NeighbourExists mocks base method.
-func (m *MockNetworkHelper) NeighbourExists(ip net.IP, device string) (bool, error) {
+// NeighborExists mocks base method.
+func (m *MockNetworkHelper) NeighborExists(ip net.IP, device string) (bool, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NeighbourExists", ip, device)
+	ret := m.ctrl.Call(m, "NeighborExists", ip, device)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// NeighbourExists indicates an expected call of NeighbourExists.
-func (mr *MockNetworkHelperMockRecorder) NeighbourExists(ip, device any) *gomock.Call {
+// NeighborExists indicates an expected call of NeighborExists.
+func (mr *MockNetworkHelperMockRecorder) NeighborExists(ip, device any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NeighbourExists", reflect.TypeOf((*MockNetworkHelper)(nil).NeighbourExists), ip, device)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NeighborExists", reflect.TypeOf((*MockNetworkHelper)(nil).NeighborExists), ip, device)
 }
 
 // RenameLink mocks base method.

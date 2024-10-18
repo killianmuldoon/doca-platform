@@ -43,7 +43,7 @@ var (
 	DPFComponentLabelKey = "dpu.nvidia.com/component"
 )
 
-// Overrides exposes a set of fields which impact the recommended behaviour of the DPF Operator
+// Overrides exposes a set of fields which impact the recommended behavior of the DPF Operator
 type Overrides struct {
 	// Paused disables all reconciliation of the DPFOperatorConfig when set to true.
 	// +optional

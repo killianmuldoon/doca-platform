@@ -259,7 +259,7 @@ _Appears in:_
 
 
 
-Overrides exposes a set of fields which impact the recommended behaviour of the DPF Operator
+Overrides exposes a set of fields which impact the recommended behavior of the DPF Operator
 
 
 

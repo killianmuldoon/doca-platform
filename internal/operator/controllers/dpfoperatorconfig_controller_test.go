@@ -324,7 +324,7 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 			g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), gotConfig)).To(Succeed())
 			g.Expect(gotConfig.Finalizers).To(BeEmpty())
 
-			// Expect secrets to not have been labelled.
+			// Expect secrets to not have been labeled.
 			secrets := &corev1.SecretList{}
 			g.Expect(testClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey}, client.InNamespace(testNS.Name))).To(Succeed())
 			g.Expect(secrets.Items).To(BeEmpty())
@@ -349,7 +349,7 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 			return gotConfig.Finalizers
 		}).WithTimeout(30 * time.Second).Should(ConsistOf([]string{operatorv1.DPFOperatorConfigFinalizer}))
 
-		// Expect the secrets to have been correctly labelled.
+		// Expect the secrets to have been correctly labeled.
 		g.Eventually(func(g Gomega) {
 			secrets := &corev1.SecretList{}
 			g.Expect(testClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey}, client.InNamespace(testNS.Name))).To(Succeed())
