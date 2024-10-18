@@ -59,7 +59,7 @@ func reconcileSet(
 	ctx context.Context,
 	set client.Object,
 	k8sClient client.Client,
-	selector *metav1.LabelSelector,
+	selector metav1.LabelSelector,
 	reconciler serviceSetReconciler,
 ) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
@@ -116,9 +116,9 @@ func deleteSet(ctx context.Context, set client.Object, k8sClient client.Client,
 	return nil
 }
 
-func getNodeList(ctx context.Context, k8sClient client.Client, selector *metav1.LabelSelector) (*corev1.NodeList, error) {
+func getNodeList(ctx context.Context, k8sClient client.Client, selector metav1.LabelSelector) (*corev1.NodeList, error) {
 	nodeList := &corev1.NodeList{}
-	nodeSelector, err := metav1.LabelSelectorAsSelector(selector)
+	nodeSelector, err := metav1.LabelSelectorAsSelector(&selector)
 	if err != nil {
 		return nil, err
 	}

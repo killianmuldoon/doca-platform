@@ -109,7 +109,7 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 	}
 
 	// Get node map by nodeSelector
-	nodeMap, err := r.getNodeMap(ctx, dpuSet.Spec.NodeSelector)
+	nodeMap, err := r.getNodeMap(ctx, &dpuSet.Spec.NodeSelector)
 	if err != nil {
 		logger.Error(err, "Failed to get Node list", "DPUSet", dpuSet)
 		return ctrl.Result{}, errors.Wrap(err, "failed to get Node list")

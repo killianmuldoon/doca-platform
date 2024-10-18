@@ -58,7 +58,8 @@ func (c *DPUServiceChain) SetConditions(conditions []metav1.Condition) {
 // DPUServiceChainSpec defines the desired state of DPUServiceChainSpec
 type DPUServiceChainSpec struct {
 	// Select the Clusters with specific labels, ServiceChainSet CRs will be created only for these Clusters
-	ClusterSelector *metav1.LabelSelector       `json:"clusterSelector,omitempty"`
+	// +optional
+	ClusterSelector metav1.LabelSelector        `json:"clusterSelector"`
 	Template        ServiceChainSetSpecTemplate `json:"template"`
 }
 

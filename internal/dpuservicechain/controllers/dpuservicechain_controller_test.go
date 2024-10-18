@@ -58,7 +58,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully reconcile the DPUServiceChain ", func() {
 			By("Create DPUServiceChain")
-			cleanupObjects = append(cleanupObjects, createDPUServiceChain(ctx, dscResourceName, testNS, nil))
+			cleanupObjects = append(cleanupObjects, createDPUServiceChain(ctx, dscResourceName, testNS, metav1.LabelSelector{}))
 			By("Verify ServiceChainSet is created")
 			Eventually(func(g Gomega) {
 				scs := &dpuservicev1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
@@ -71,9 +71,9 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			for k, v := range testutils.GetTestLabels() {
 				Expect(scs.Labels[k]).To(Equal(v))
 			}
-			Expect(scs.Spec).To(BeEquivalentTo(*getTestServiceChainSetSpec(nil)))
+			Expect(scs.Spec).To(BeEquivalentTo(*getTestServiceChainSetSpec(metav1.LabelSelector{})))
 			By("Update DPUServiceChain")
-			labelSelector := &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}
+			labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}
 			Eventually(func(g Gomega) {
 				dsc := &dpuservicev1.DPUServiceChain{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dsc), dsc)).NotTo(HaveOccurred())
@@ -90,7 +90,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully delete the DPUServiceChain and ServiceChainSet", func() {
 			By("Create DPUServiceChain")
-			cleanupObjects = append(cleanupObjects, createDPUServiceChain(ctx, dscResourceName, testNS, nil))
+			cleanupObjects = append(cleanupObjects, createDPUServiceChain(ctx, dscResourceName, testNS, metav1.LabelSelector{}))
 			By("Verify ServiceChainSet is created")
 			Eventually(func(g Gomega) {
 				scs := &dpuservicev1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dscResourceName, Namespace: testNS}}
@@ -142,7 +142,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			go i.Run()
 
 			By("Creating a DPUServiceChain")
-			dpuServiceChain = createDPUServiceChain(ctx, "chain", testNS.Name, nil)
+			dpuServiceChain = createDPUServiceChain(ctx, "chain", testNS.Name, metav1.LabelSelector{})
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceChain)
 		})
 		It("DPUServiceChain has most conditions with Pending Reason at start of the reconciliation loop", func() {
@@ -375,7 +375,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 	})
 })
 
-func createDPUServiceChain(ctx context.Context, name string, namespace string, labelSelector *metav1.LabelSelector) *dpuservicev1.DPUServiceChain {
+func createDPUServiceChain(ctx context.Context, name string, namespace string, labelSelector metav1.LabelSelector) *dpuservicev1.DPUServiceChain {
 	dsc := &dpuservicev1.DPUServiceChain{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -394,7 +394,7 @@ func createDPUServiceChain(ctx context.Context, name string, namespace string, l
 	return dsc
 }
 
-func getTestServiceChainSetSpec(labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceChainSetSpec {
+func getTestServiceChainSetSpec(labelSelector metav1.LabelSelector) *dpuservicev1.ServiceChainSetSpec {
 	return &dpuservicev1.ServiceChainSetSpec{
 		NodeSelector: labelSelector,
 		Template: dpuservicev1.ServiceChainSpecTemplate{

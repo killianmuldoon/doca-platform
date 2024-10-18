@@ -58,7 +58,8 @@ func (c *DPUServiceInterface) SetConditions(conditions []metav1.Condition) {
 // DPUServiceInterfaceSpec defines the desired state of DPUServiceInterfaceSpec
 type DPUServiceInterfaceSpec struct {
 	// Select the Clusters with specific labels, ServiceInterfaceSet CRs will be created only for these Clusters
-	ClusterSelector *metav1.LabelSelector           `json:"clusterSelector,omitempty"`
+	// +optional
+	ClusterSelector metav1.LabelSelector            `json:"clusterSelector"`
 	Template        ServiceInterfaceSetSpecTemplate `json:"template"`
 }
 

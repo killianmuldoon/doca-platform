@@ -64,7 +64,8 @@ type DPUServiceIPAMSpec struct {
 	IPV4Subnet *IPV4Subnet `json:"ipv4Subnet,omitempty"`
 
 	// ClusterSelector determines in which clusters the DPUServiceIPAM controller should apply the configuration.
-	ClusterSelector *metav1.LabelSelector `json:"clusterSelector,omitempty"`
+	// +optional
+	ClusterSelector metav1.LabelSelector `json:"clusterSelector"`
 	// NodeSelector determines in which DPU nodes the DPUServiceIPAM controller should apply the configuration.
 	NodeSelector *corev1.NodeSelector `json:"nodeSelector,omitempty"`
 }

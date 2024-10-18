@@ -127,7 +127,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
 			dpuDeployment.Spec.DPUs.DPUSets = []dpuservicev1.DPUSet{
 				{
-					NodeSelector: &metav1.LabelSelector{
+					NodeSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"nodekey1": "nodevalue1",
 						},
@@ -592,7 +592,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 			BeforeEach(func() {
 				initialDPUSetSettings = []dpuservicev1.DPUSet{
 					{
-						NodeSelector: &metav1.LabelSelector{
+						NodeSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"nodekey1": "nodevalue1",
 							},
@@ -605,7 +605,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						},
 					},
 					{
-						NodeSelector: &metav1.LabelSelector{
+						NodeSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"nodekey2": "nodevalue2",
 							},
@@ -621,7 +621,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				expectedDPUSetSpecs = []provisioningv1.DPUSetSpec{
 					{
-						NodeSelector: &metav1.LabelSelector{
+						NodeSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"nodekey1": "nodevalue1",
 							},
@@ -645,7 +645,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						},
 					},
 					{
-						NodeSelector: &metav1.LabelSelector{
+						NodeSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"nodekey2": "nodevalue2",
 							},
@@ -829,7 +829,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				By("modifying the DPUDeployment object and checking the outcome")
 				dpuDeployment.Spec.DPUs.DPUSets[1].DPUAnnotations["newkey"] = "newvalue"
 				dpuDeployment.Spec.DPUs.DPUSets = append(dpuDeployment.Spec.DPUs.DPUSets, dpuservicev1.DPUSet{
-					NodeSelector: &metav1.LabelSelector{
+					NodeSelector: metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"nodekey3": "nodevalue3",
 						},
@@ -868,7 +868,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}
 					expectedDPUSetSpecs[1].DPUTemplate.Annotations["newkey"] = "newvalue"
 					expectedDPUSetSpecs = append(expectedDPUSetSpecs, provisioningv1.DPUSetSpec{
-						NodeSelector: &metav1.LabelSelector{
+						NodeSelector: metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"nodekey3": "nodevalue3",
 							},

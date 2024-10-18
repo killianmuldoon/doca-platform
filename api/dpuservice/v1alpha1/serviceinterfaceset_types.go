@@ -65,7 +65,7 @@ type ServiceInterfaceSetSpec struct {
 	// Select the Nodes with specific labels, ServiceInterface CRs will be
 	// created only for these Nodes
 	// +optional
-	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
+	NodeSelector metav1.LabelSelector `json:"nodeSelector"`
 
 	// Template holds the template for the erviceInterfaceSpec
 	// +required

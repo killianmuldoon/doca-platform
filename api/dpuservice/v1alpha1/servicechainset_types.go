@@ -64,7 +64,7 @@ type ServiceChainSetSpec struct {
 	// Select the Nodes with specific labels, ServiceChain CRs will be created
 	// only for these Nodes
 	// +optional
-	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
+	NodeSelector metav1.LabelSelector `json:"nodeSelector"`
 	// ServiceChainSpecTemplate holds the template for the ServiceChainSpec
 	// +required
 	Template ServiceChainSpecTemplate `json:"template"`

@@ -50,7 +50,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceInterfaceSet without Node Selector", func() {
 			By("Create ServiceInterfaceSet, without Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, nil))
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, metav1.LabelSelector{}))
 			By("Verify ServiceInterface not created, no nodes")
 			Consistently(func(g Gomega) {
 				serviceInterfaceList := &dpuservicev1.ServiceInterfaceList{}
@@ -74,7 +74,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceInterfaceSet with Node Selector", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Create 3 nodes")
@@ -92,7 +92,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceInterfaceSet with Node Selector and remove Service Interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Create 3 nodes")
@@ -121,7 +121,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceInterfaceSet after update", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Create 3 nodes")
@@ -165,7 +165,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		})
 		It("should successfully delete the ServiceInterfaceSet", func() {
 			By("Creating ServiceInterfaceSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Creating 2 nodes")
@@ -202,53 +202,53 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		})
 		It("should successfully create the ServiceInterfaceSet with vlan interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeVLAN))
 		})
 		It("should successfully create the ServiceInterfaceSet with pf interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypePF))
 		})
 		It("should successfully create the ServiceInterfaceSet with vf interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeVF))
 		})
 		It("should successfully create the ServiceInterfaceSet with physical interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypePhysical))
 		})
 		It("should successfully create the ServiceInterfaceSet with ovn interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeOVN))
 		})
 		It("should successfully create the ServiceInterfaceSet with service interface", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createTypedServiceInterfaceSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeService))
 		})
 
 		It("should fail to create the ServiceInterfaceSet with missing vlan interface", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeVLAN)
+			createInvalidTypedServiceInterfaceSet(ctx, metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeVLAN)
 		})
 		It("should fail to create the ServiceInterfaceSet with missing pf interface", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypePF)
+			createInvalidTypedServiceInterfaceSet(ctx, metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypePF)
 		})
 		It("should fail to create the ServiceInterfaceSet with missing vf interface", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeVF)
+			createInvalidTypedServiceInterfaceSet(ctx, metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeVF)
 		})
 		It("should fail to create the ServiceInterfaceSet with missing physical interface", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypePhysical)
+			createInvalidTypedServiceInterfaceSet(ctx, metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypePhysical)
 		})
 		It("should fail to create the ServiceInterfaceSet with missing service definition", func() {
-			createInvalidTypedServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeService)
+			createInvalidTypedServiceInterfaceSet(ctx, metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, dpuservicev1.InterfaceTypeService)
 		})
 		It("should successfully create the ServiceInterfaceSet and have all conditions set", func() {
 			By("creating ServiceInterfaceSet, with Node Selector")
-			obj := createServiceInterfaceSet(ctx, &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}})
+			obj := createServiceInterfaceSet(ctx, metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}})
 			cleanupObjects = append(cleanupObjects, obj)
 			Eventually(func(g Gomega) {
 				assertServiceInterfaceSetCondition(g, testClient, obj)
@@ -313,7 +313,7 @@ func assertServiceInterface(g Gomega, sc *dpuservicev1.ServiceInterface, testSpe
 	}
 }
 
-func createServiceInterfaceSet(ctx context.Context, labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceInterfaceSet {
+func createServiceInterfaceSet(ctx context.Context, labelSelector metav1.LabelSelector) *dpuservicev1.ServiceInterfaceSet {
 	sis := serviceInterfaceSpec(labelSelector)
 	sis.Spec.Template.Spec = *getTestServiceInterfaceSpec()
 
@@ -321,7 +321,7 @@ func createServiceInterfaceSet(ctx context.Context, labelSelector *metav1.LabelS
 	return sis
 }
 
-func createTypedServiceInterfaceSet(ctx context.Context, labelSelector *metav1.LabelSelector, typ string) *dpuservicev1.ServiceInterfaceSet {
+func createTypedServiceInterfaceSet(ctx context.Context, labelSelector metav1.LabelSelector, typ string) *dpuservicev1.ServiceInterfaceSet {
 	sis := serviceInterfaceSpec(labelSelector)
 	sis.Spec.Template.Spec = getTypedTestServiceInterfaceSpec(typ)
 
@@ -329,14 +329,14 @@ func createTypedServiceInterfaceSet(ctx context.Context, labelSelector *metav1.L
 	return sis
 }
 
-func createInvalidTypedServiceInterfaceSet(ctx context.Context, labelSelector *metav1.LabelSelector, typ string) {
+func createInvalidTypedServiceInterfaceSet(ctx context.Context, labelSelector metav1.LabelSelector, typ string) {
 	sis := serviceInterfaceSpec(labelSelector)
 	sis.Spec.Template.Spec = getInvalidTestServiceInterfaceSpec(typ)
 
 	Expect(testClient.Create(ctx, sis)).To(HaveOccurred())
 }
 
-func serviceInterfaceSpec(labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceInterfaceSet {
+func serviceInterfaceSpec(labelSelector metav1.LabelSelector) *dpuservicev1.ServiceInterfaceSet {
 	sis := &dpuservicev1.ServiceInterfaceSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      svcIfcSetName,

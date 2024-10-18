@@ -58,7 +58,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		})
 		It("should successfully reconcile the DPUServiceInterface ", func() {
 			By("Create DPUServiceInterface")
-			cleanupObjects = append(cleanupObjects, createDPUServiceInterface(ctx, dsiResourceName, testNS, nil))
+			cleanupObjects = append(cleanupObjects, createDPUServiceInterface(ctx, dsiResourceName, testNS, metav1.LabelSelector{}))
 			By("Verify ServiceInterfaceSet is created")
 			Eventually(func(g Gomega) {
 				scs := &dpuservicev1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: dsiResourceName, Namespace: testNS}}
@@ -71,9 +71,9 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			for k, v := range testutils.GetTestLabels() {
 				Expect(scs.Labels[k]).To(Equal(v))
 			}
-			Expect(scs.Spec).To(BeEquivalentTo(*getTestServiceInterfaceSetSpec(nil)))
+			Expect(scs.Spec).To(BeEquivalentTo(*getTestServiceInterfaceSetSpec(metav1.LabelSelector{})))
 			By("Update DPUServiceInterface")
-			labelSelector := &metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}
+			labelSelector := metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}
 			Eventually(func(g Gomega) {
 				dsc := &dpuservicev1.DPUServiceInterface{ObjectMeta: metav1.ObjectMeta{Name: dsiResourceName, Namespace: testNS}}
 				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dsc), dsc)).NotTo(HaveOccurred())
@@ -90,7 +90,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		})
 		It("should successfully delete the DPUServiceInterface and ServiceInterfaceSet", func() {
 			By("Create DPUServiceInterface")
-			cleanupObjects = append(cleanupObjects, createDPUServiceInterface(ctx, dsiResourceName, testNS, nil))
+			cleanupObjects = append(cleanupObjects, createDPUServiceInterface(ctx, dsiResourceName, testNS, metav1.LabelSelector{}))
 			By("Verify ServiceInterfaceSet is created")
 			Eventually(func(g Gomega) {
 				scs := &dpuservicev1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: dsiResourceName, Namespace: testNS}}
@@ -142,7 +142,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			go i.Run()
 
 			By("Creating a DPUServiceInterface")
-			dpuServiceInterface = createDPUServiceInterface(ctx, "interface", testNS.Name, nil)
+			dpuServiceInterface = createDPUServiceInterface(ctx, "interface", testNS.Name, metav1.LabelSelector{})
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceInterface)
 		})
 		It("DPUServiceInterface has all the conditions with Pending Reason at start of the reconciliation loop", func() {
@@ -374,7 +374,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 	})
 })
 
-func createDPUServiceInterface(ctx context.Context, name string, namespace string, labelSelector *metav1.LabelSelector) *dpuservicev1.DPUServiceInterface {
+func createDPUServiceInterface(ctx context.Context, name string, namespace string, labelSelector metav1.LabelSelector) *dpuservicev1.DPUServiceInterface {
 	dsc := &dpuservicev1.DPUServiceInterface{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -412,7 +412,7 @@ func getTestServiceInterfaceSpec() *dpuservicev1.ServiceInterfaceSpec {
 	}
 }
 
-func getTestServiceInterfaceSetSpec(labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceInterfaceSetSpec {
+func getTestServiceInterfaceSetSpec(labelSelector metav1.LabelSelector) *dpuservicev1.ServiceInterfaceSetSpec {
 	return &dpuservicev1.ServiceInterfaceSetSpec{
 		NodeSelector: labelSelector,
 		Template: dpuservicev1.ServiceInterfaceSpecTemplate{
