@@ -46,7 +46,7 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.HostedControlPlaneManagerName: defaults.DPFSystemImage,
 			operatorv1.ServiceSetControllerName:      defaults.DPFSystemImage,
 			operatorv1.OVSCNIName:                    defaults.OVSCNIImage,
-			operatorv1.SFCControllerName:             defaults.SFCControllerImage,
+			operatorv1.SFCControllerName:             defaults.DPFSystemImage,
 
 			// External images of components which are deployed by the DPF Operator.
 			operatorv1.MultusName:            defaults.MultusImage,

@@ -2,7 +2,6 @@
 dmsImage: example.com/dms-server:v0.1.0
 hostNetworkSetupImage: example.com/hostnetworksetup:v0.1.0
 dpfSystemImage: example.com/dpf-system:v0.1.0
-sfcControllerImage: example.com/sfc-controller-manager:v0.1.0
 ovsCniImage: example.com/ovs-cni-plugin:v0.1.0
 customOVNKubernetesImage: example.com/ovn-kubernetes:v0.1.0
 

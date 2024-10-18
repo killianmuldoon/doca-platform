@@ -493,7 +493,7 @@ release: generate ## Build and push helm and container images for release.
 GO_GCFLAGS ?= ""
 GO_LDFLAGS ?= "-extldflags '-static'"
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
-DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset nvidia-cluster-manager static-cluster-manager
+DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset nvidia-cluster-manager static-cluster-manager sfc-controller
 DPU_ARCH_BUILD_TARGETS ?= 
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
@@ -548,7 +548,7 @@ binary-hostcniprovisioner: ## Build the Host CNI Provisioner binary.
 
 .PHONY: binary-sfc-controller
 binary-sfc-controller: ## Build the Host CNI Provisioner binary.
-	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/sfc-controller github.com/nvidia/doca-platform/cmd/sfc-controller
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/sfc-controller github.com/nvidia/doca-platform/cmd/sfc-controller
 
 .PHONY: binary-ipallocator
 binary-ipallocator: ## Build the IP allocator binary.
@@ -560,7 +560,7 @@ binary-detector: ## Build the DPU detector binary.
 
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=operator-bundle hostnetwork dms
-DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) sfc-controller ovs-cni
+DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
 MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes
 
 .PHONY: docker-build-all
@@ -571,9 +571,6 @@ export DPF_SYSTEM_IMAGE ?= $(REGISTRY)/$(DPF_SYSTEM_IMAGE_NAME)
 
 OVNKUBERNETES_IMAGE_NAME = ovn-kubernetes
 export OVNKUBERNETES_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_IMAGE_NAME)
-
-SFC_CONTROLLER_IMAGE_NAME ?= sfc-controller-manager
-export SFC_CONTROLLER_IMAGE ?= $(REGISTRY)/$(SFC_CONTROLLER_IMAGE_NAME)
 
 OVS_CNI_IMAGE_NAME ?= ovs-cni-plugin
 export OVS_CNI_IMAGE ?= $(REGISTRY)/$(OVS_CNI_IMAGE_NAME)
@@ -672,21 +669,6 @@ docker-push-dpf-tools-for-%:
 docker-create-manifest-for-dpf-tools:
 	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
 	docker manifest create --amend $(DPF_TOOLS_BUILD_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(DPF_TOOLS_BUILD_IMAGE):$(TAG))
-
-.PHONY: docker-build-sfc-controller
-docker-build-sfc-controller: ## Build docker images for the sfc-controller
-	docker buildx build \
-		--load \
-		--provenance=false \
-		--platform=linux/$(DPU_ARCH) \
-		--build-arg builder_image=$(BUILD_IMAGE) \
-		--build-arg base_image=$(BASE_IMAGE) \
-		--build-arg ldflags=$(GO_LDFLAGS) \
-		--build-arg gcflags=$(GO_GCFLAGS) \
-		--build-arg package=./cmd/sfc-controller \
-		-f Dockerfile \
-		. \
-		-t $(SFC_CONTROLLER_IMAGE):$(TAG)
 
 # TODO: This image should be part of a DPF Utils image.
 .PHONY: docker-build-ipallocator
@@ -793,10 +775,6 @@ docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the 
 
 .PHONY: docker-push-dpf-system
 docker-push-dpf-system: ## This is a no-op to allow using DOCKER_BUILD_TARGETS.
-
-.PHONY: docker-push-sfc-controller
-docker-push-sfc-controller:
-	docker push $(SFC_CONTROLLER_IMAGE):$(TAG)
 
 .PHONY: docker-push-ovs-cni
 docker-push-ovs-cni: ## Push the docker image for ovs-cni
