@@ -923,8 +923,8 @@ _Appears in:_
 | `bfcfgParameters` _string array_ |  |  |  |
 | `configFiles` _[ConfigFile](#configfile) array_ |  |  |  |
 | `containerdConfig` _[ContainerdConfig](#containerdconfig)_ |  |  |  |
-| `dpuDeploymentResources` _[ResourceList](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#resourcelist-v1-core)_ | DPUDeploymentResources indicates the resources available for DPUServices to consume after the BFB with this<br />particular flavor and the DPF system components have been installed on a DPU. These resources do not take into<br />account potential resources consumed by other DPUServices. The DPUDeployment Controller takes into account that<br />field to understand if a DPUService can be installed on a given DPU. |  |  |
-| `resourceRequirements` _[ResourceList](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#resourcelist-v1-core)_ | ResourceRequirements indicates the minimum amount of resources needed for a BFB with that flavor to be installed<br />on a DPU. Using this field, the controller can understand if that flavor can be installed on a particular DPU. |  |  |
+| `dpuResources` _[ResourceList](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#resourcelist-v1-core)_ | DPUResources indicates the minimum amount of resources needed for a BFB with that flavor to be installed on a<br />DPU. Using this field, the controller can understand if that flavor can be installed on a particular DPU. It<br />should be set to the total amount of resources the system needs + the resources that should be made available for<br />DPUServices to consume. |  |  |
+| `systemReservedResources` _[ResourceList](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#resourcelist-v1-core)_ | SystemReservedResources indicates the resources that are consumed by the system (OS, OVS, DPF system etc) and are<br />not made available for DPUServices to consume. DPUServices can consume the difference between DPUResources and<br />SystemReservedResources. This field must not be specified if dpuResources are not specified. |  |  |
 
 
 #### DPUList

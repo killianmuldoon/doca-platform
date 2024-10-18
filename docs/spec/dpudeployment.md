@@ -34,9 +34,9 @@ theoretical example is about 2 services, one of them producing work and the othe
 
 ## Capabilities
 
-* Validates dependencies to ensure that they are configured correctly and reports errors in the `DPUDeployment` status
+- Validates dependencies to ensure that they are configured correctly and reports errors in the `DPUDeployment` status
   conditions accordingly.
-* Validates that requested `DPUService` resources fit the DPUs they are targeting and report errors in the
+- Validates that requested `DPUService` resources fit the DPUs they are targeting and report errors in the
   `DPUDeployment` status conditions accordingly.
 
 ## Created Child Custom Resources
@@ -44,23 +44,23 @@ theoretical example is about 2 services, one of them producing work and the othe
 When applying a valid `DPUDeployment` that has all of its dependencies set correctly and available, there will be a
 couple of objects that are going to be created automatically:
 
-* `DPUSet`: Deploys a given `BFB` with configuration provided by the given `DPUFlavor` to the target `DPUs`. A
+- `DPUSet`: Deploys a given `BFB` with configuration provided by the given `DPUFlavor` to the target `DPUs`. A
   `DPUDeployment` may create multiple such objects, depending on what is specified in its `spec`.
-* `DPUServiceInterface`: Used to construct a Service Chain on the DPU. A `DPUDeployment` may create multiple such
+- `DPUServiceInterface`: Used to construct a Service Chain on the DPU. A `DPUDeployment` may create multiple such
   objects, depending on what is specified in the [DPUServiceConfiguration](#dpuserviceconfiguration).
-* `DPUServiceChain`: Used to define a Service Chain on the DPU that references the interfaces created above. A
+- `DPUServiceChain`: Used to define a Service Chain on the DPU that references the interfaces created above. A
   `DPUDeployment` creates a single `DPUServiceChain`.
-* `DPUService`: Deploys a service as Pod in each DPU. A `DPUDeployment` may create multiple such objects, depending on
+- `DPUService`: Deploys a service as Pod in each DPU. A `DPUDeployment` may create multiple such objects, depending on
   what is specified in its `spec`.
 
 ## Prerequisite Custom Resources With Examples
 
 There are several Custom Resources that are required in order to make use of the `DPUDeployment`. These are:
 
-* [DPUServiceTemplate](#dpuservicetemplate)
-* [DPUServiceConfiguration](#dpuserviceconfiguration)
-* [DPUFlavor](#dpuflavor)
-* [BFB](#bfb)
+- [DPUServiceTemplate](#dpuservicetemplate)
+- [DPUServiceConfiguration](#dpuserviceconfiguration)
+- [DPUFlavor](#dpuflavor)
+- [BFB](#bfb)
 
 ### DPUServiceTemplate
 
@@ -204,7 +204,8 @@ spec:
 ### DPUFlavor
 
 A `DPUFlavor` describes the configuration to be applied on the DPU during the provisioning. This is a very minimal
-`DPUFlavor` as the purpose of this document is to demonstrate the capabilities of the `DPUDeployment`.
+`DPUFlavor` as the purpose of this document is to demonstrate the capabilities of the `DPUDeployment`. Given that, there
+are 2 fields set that are related to the `DPUDeployment`.
 
 ```yaml
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
@@ -213,14 +214,31 @@ metadata:
   name: producer-consumer
   namespace: customer-namespace
 spec:
-  # dpuDeploymentResources are the resources that are available for a `DPUDeployment` to consume on the DPU that this
-  # `DPUFlavor` is applied. If the total resources requested by the underlying `DPUServices` of that `DPUDeployment` are
-  # more than what is declared in this field, the `DPUDeployment` Controller will not create the underlying resources
-  # and report an error in the status field of the `DPUDeployment` Custom Resource.
-  dpuDeploymentResources:
+  # dpuResources indicates the minimum amount of resources needed for a BFB with that flavor to be installed on a
+  # DPU. Using this field, the controller can understand if that flavor can be installed on a particular DPU. It
+  # should be set to the total amount of resources the system needs + the resources that should be made available for
+  # DPUServices to consume.
+  dpuResources:
     cpu: 16
     memory: 16Gi
     nvidia.com/sf: 20
+  # systemReservedResources indicates the resources that are consumed by the system (OS, OVS, DPF system etc) and are
+  # not made available for DPUServices to consume. DPUServices can consume the difference between DPUResources and
+  # SystemReservedResources. This field must not be specified if dpuResources are not specified.
+  systemReservedResources:
+    cpu: 4
+    memory: 4Gi
+    nvidia.com/sf: 4
+```
+
+The above configuration translates to the following resources being available for the `DPUServices` deployed by the
+`DPUDeployment`.
+
+```yaml
+allocatableResources:
+  cpu: 12
+  memory: 12Gi
+  nvidia.com/sf: 16
 ```
 
 ### BFB

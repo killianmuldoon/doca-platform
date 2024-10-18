@@ -46,16 +46,17 @@ type DPUFlavorSpec struct {
 	ConfigFiles []ConfigFile `json:"configFiles,omitempty"`
 	// +optional
 	ContainerdConfig ContainerdConfig `json:"containerdConfig,omitempty"`
-	// DPUDeploymentResources indicates the resources available for DPUServices to consume after the BFB with this
-	// particular flavor and the DPF system components have been installed on a DPU. These resources do not take into
-	// account potential resources consumed by other DPUServices. The DPUDeployment Controller takes into account that
-	// field to understand if a DPUService can be installed on a given DPU.
+	// DPUResources indicates the minimum amount of resources needed for a BFB with that flavor to be installed on a
+	// DPU. Using this field, the controller can understand if that flavor can be installed on a particular DPU. It
+	// should be set to the total amount of resources the system needs + the resources that should be made available for
+	// DPUServices to consume.
 	// +optional
-	DPUDeploymentResources corev1.ResourceList `json:"dpuDeploymentResources,omitempty"`
-	// ResourceRequirements indicates the minimum amount of resources needed for a BFB with that flavor to be installed
-	// on a DPU. Using this field, the controller can understand if that flavor can be installed on a particular DPU.
+	DPUResources corev1.ResourceList `json:"dpuResources,omitempty"`
+	// SystemReservedResources indicates the resources that are consumed by the system (OS, OVS, DPF system etc) and are
+	// not made available for DPUServices to consume. DPUServices can consume the difference between DPUResources and
+	// SystemReservedResources. This field must not be specified if dpuResources are not specified.
 	// +optional
-	ResourceRequirements corev1.ResourceList `json:"resourceRequirements,omitempty"`
+	SystemReservedResources corev1.ResourceList `json:"systemReservedResources,omitempty"`
 }
 
 type DPUFlavorGrub struct {

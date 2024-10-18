@@ -1679,10 +1679,65 @@ var _ = Describe("DPUDeployment Controller", func() {
 					Expect(err).ToNot(HaveOccurred())
 				}
 			},
+				Entry("DPUFlavor doesn't specify dpuResources", &dpuDeploymentDependencies{
+					DPUFlavor: &provisioningv1.DPUFlavor{
+						Spec: provisioningv1.DPUFlavorSpec{},
+					},
+					DPUServiceTemplates: map[string]*dpuservicev1.DPUServiceTemplate{
+						"service-1": {
+							Spec: dpuservicev1.DPUServiceTemplateSpec{
+								ResourceRequirements: corev1.ResourceList{
+									"cpu":    resource.MustParse("1"),
+									"memory": resource.MustParse("3Gi"),
+								},
+							},
+						},
+						"service-2": {
+							Spec: dpuservicev1.DPUServiceTemplateSpec{
+								ResourceRequirements: corev1.ResourceList{
+									"cpu":    resource.MustParse("1"),
+									"memory": resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				}, false),
+				Entry("DPUFlavor specifies dpuResources that fit but not systemReservedResources", &dpuDeploymentDependencies{
+					DPUFlavor: &provisioningv1.DPUFlavor{
+						Spec: provisioningv1.DPUFlavorSpec{
+							DPUResources: corev1.ResourceList{
+								"cpu":    resource.MustParse("2"),
+								"memory": resource.MustParse("4Gi"),
+							},
+						},
+					},
+					DPUServiceTemplates: map[string]*dpuservicev1.DPUServiceTemplate{
+						"service-1": {
+							Spec: dpuservicev1.DPUServiceTemplateSpec{
+								ResourceRequirements: corev1.ResourceList{
+									"cpu":    resource.MustParse("1"),
+									"memory": resource.MustParse("3Gi"),
+								},
+							},
+						},
+						"service-2": {
+							Spec: dpuservicev1.DPUServiceTemplateSpec{
+								ResourceRequirements: corev1.ResourceList{
+									"cpu":    resource.MustParse("1"),
+									"memory": resource.MustParse("1Gi"),
+								},
+							},
+						},
+					},
+				}, false),
 				Entry("requested resources fit leaving buffer", &dpuDeploymentDependencies{
 					DPUFlavor: &provisioningv1.DPUFlavor{
 						Spec: provisioningv1.DPUFlavorSpec{
-							DPUDeploymentResources: corev1.ResourceList{
+							DPUResources: corev1.ResourceList{
+								"cpu":    resource.MustParse("2"),
+								"memory": resource.MustParse("4Gi"),
+							},
+							SystemReservedResources: corev1.ResourceList{
 								"cpu":    resource.MustParse("1"),
 								"memory": resource.MustParse("2Gi"),
 							},
@@ -1710,9 +1765,13 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Entry("requested resources fit exactly", &dpuDeploymentDependencies{
 					DPUFlavor: &provisioningv1.DPUFlavor{
 						Spec: provisioningv1.DPUFlavorSpec{
-							DPUDeploymentResources: corev1.ResourceList{
-								"cpu":    resource.MustParse("2"),
-								"memory": resource.MustParse("2Gi"),
+							DPUResources: corev1.ResourceList{
+								"cpu":    resource.MustParse("3"),
+								"memory": resource.MustParse("3Gi"),
+							},
+							SystemReservedResources: corev1.ResourceList{
+								"cpu":    resource.MustParse("1"),
+								"memory": resource.MustParse("1Gi"),
 							},
 						},
 					},
@@ -1738,9 +1797,13 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Entry("requested resources don't fit", &dpuDeploymentDependencies{
 					DPUFlavor: &provisioningv1.DPUFlavor{
 						Spec: provisioningv1.DPUFlavorSpec{
-							DPUDeploymentResources: corev1.ResourceList{
+							DPUResources: corev1.ResourceList{
 								"cpu":    resource.MustParse("1"),
 								"memory": resource.MustParse("2Gi"),
+							},
+							SystemReservedResources: corev1.ResourceList{
+								"cpu":    resource.MustParse("0.5"),
+								"memory": resource.MustParse("1Gi"),
 							},
 						},
 					},
@@ -1766,8 +1829,11 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Entry("requested resource doesn't exist", &dpuDeploymentDependencies{
 					DPUFlavor: &provisioningv1.DPUFlavor{
 						Spec: provisioningv1.DPUFlavorSpec{
-							DPUDeploymentResources: corev1.ResourceList{
+							DPUResources: corev1.ResourceList{
 								"cpu": resource.MustParse("1"),
+							},
+							SystemReservedResources: corev1.ResourceList{
+								"cpu": resource.MustParse("0.5"),
 							},
 						},
 					},
@@ -2301,8 +2367,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
 			dpuFlavor := getMinimalDPUFlavor(testNS.Name)
-			dpuFlavor.Spec.DPUDeploymentResources = make(corev1.ResourceList)
-			dpuFlavor.Spec.DPUDeploymentResources["cpu"] = resource.MustParse("5")
+			dpuFlavor.Spec.DPUResources = corev1.ResourceList{"cpu": resource.MustParse("5")}
 			Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
 

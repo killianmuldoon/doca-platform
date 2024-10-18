@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -28,6 +29,7 @@ import (
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
 	"github.com/nvidia/doca-platform/internal/dpuservice/utils"
+	dpfutils "github.com/nvidia/doca-platform/internal/utils"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
@@ -433,33 +435,35 @@ func unmarkDependency(o client.Object) {
 // verifyResourceFitting verifies that the user provided resources for DPUServices can fit the resources defined in the
 // DPUFlavor
 func verifyResourceFitting(dependencies *dpuDeploymentDependencies) error {
-	totalResources := make(corev1.ResourceList)
-	for k, v := range dependencies.DPUFlavor.Spec.DPUDeploymentResources {
-		totalResources[k] = v
+	availableResources, err := dpfutils.GetAllocatableResources(dependencies.DPUFlavor.Spec.DPUResources, dependencies.DPUFlavor.Spec.SystemReservedResources)
+	if err != nil {
+		return fmt.Errorf("can't calculate available DPU resources: %w", err)
 	}
 
+	if availableResources == nil {
+		return nil
+	}
+
+	requestedResources := make(corev1.ResourceList)
 	for _, dpuServiceTemplate := range dependencies.DPUServiceTemplates {
 		for resourceName, requiredQuantity := range dpuServiceTemplate.Spec.ResourceRequirements {
-			totalResource := resource.Quantity{}
-			if resource, ok := totalResources[resourceName]; ok {
-				totalResource = resource
+			requestedResource := resource.Quantity{}
+			if resource, ok := requestedResources[resourceName]; ok {
+				requestedResource = resource
 			}
 
-			totalResource.Sub(requiredQuantity)
-			totalResources[resourceName] = totalResource
+			requestedResource.Add(requiredQuantity)
+			requestedResources[resourceName] = requestedResource
 		}
 	}
 
-	additionalResourcesRequired := []string{}
-	for resourceName, quantity := range totalResources {
-		if quantity.Sign() < 0 {
-			quantity.Neg()
-			additionalResourcesRequired = append(additionalResourcesRequired, fmt.Sprintf("%s: %s", resourceName, quantity.String()))
+	_, err = dpfutils.GetAllocatableResources(availableResources, requestedResources)
+	if err != nil {
+		e := &dpfutils.ResourcesExceedError{}
+		if errors.As(err, &e) {
+			return fmt.Errorf("there are not enough resources for DPUServices to fit in this DPUDeployment:  Additional resources needed: %v", e.AdditionalResourcesRequired)
 		}
-	}
-
-	if len(additionalResourcesRequired) > 0 {
-		return fmt.Errorf("there are not enough resources for DPUServices to fit in this DPUDeployment. Additional resources needed: %v", additionalResourcesRequired)
+		return fmt.Errorf("can't calculate if requested resources fit: %w", err)
 	}
 
 	return nil

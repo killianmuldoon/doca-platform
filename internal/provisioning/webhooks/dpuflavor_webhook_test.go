@@ -23,7 +23,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -368,5 +370,56 @@ metadata:
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 		})
+		DescribeTable("resource validation works as expected", func(dpuResources corev1.ResourceList, systemReservedResources corev1.ResourceList, expectError bool) {
+			obj := &provisioningv1.DPUFlavor{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "resources",
+					Namespace:    "default",
+				},
+				Spec: provisioningv1.DPUFlavorSpec{
+					DPUResources:            dpuResources,
+					SystemReservedResources: systemReservedResources,
+				},
+			}
+			err := k8sClient.Create(ctx, obj)
+			if expectError {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+			Entry("nothing specified",
+				nil,
+				nil,
+				false),
+			Entry("dpuResources specified",
+				corev1.ResourceList{"cpu": resource.MustParse("5")},
+				nil,
+				false),
+			Entry("dpuResources and systemReservedResources specified",
+				corev1.ResourceList{"cpu": resource.MustParse("5")},
+				corev1.ResourceList{"cpu": resource.MustParse("5")},
+				false),
+			Entry("systemReservedResources specified",
+				nil,
+				corev1.ResourceList{"cpu": resource.MustParse("5")},
+				true),
+			Entry("dpuResources and systemReservedResources specified - missing resource in dpuResource",
+				corev1.ResourceList{"cpu": resource.MustParse("5")},
+				corev1.ResourceList{"cpu": resource.MustParse("5"), "memory": resource.MustParse("5Gi")},
+				true),
+			Entry("dpuResources and systemReservedResources specified - missing resource in systemReservedResources",
+				corev1.ResourceList{"cpu": resource.MustParse("5"), "memory": resource.MustParse("5Gi")},
+				corev1.ResourceList{"cpu": resource.MustParse("5")},
+				false),
+			Entry("dpuResources and systemReservedResources specified - resource in dpuResource exceeds resource in systemReservedResources",
+				corev1.ResourceList{"cpu": resource.MustParse("7")},
+				corev1.ResourceList{"cpu": resource.MustParse("5")},
+				false),
+			Entry("dpuResources and systemReservedResources specified - resource in systemReservedResources exceeds resource in dpuResource",
+				corev1.ResourceList{"cpu": resource.MustParse("5")},
+				corev1.ResourceList{"cpu": resource.MustParse("7")},
+				true),
+		)
 	})
 })

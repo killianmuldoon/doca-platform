@@ -18,10 +18,12 @@ package webhooks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	dpfutils "github.com/nvidia/doca-platform/internal/utils"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -62,6 +64,11 @@ func (r *DPUFlavor) ValidateCreate(ctx context.Context, obj runtime.Object) (adm
 	}
 
 	dpuflavorlog.V(4).Info("validate create", "name", dpuFlavor.Name)
+
+	if err := validateResources(dpuFlavor); err != nil {
+		return admission.Warnings{}, apierrors.NewBadRequest(fmt.Sprintf("resources are misconfigured: %s", err.Error()))
+	}
+
 	return nil, validateNVConfig(dpuFlavor)
 }
 
@@ -123,6 +130,23 @@ func validateNVConfig(flavor *provisioningv1.DPUFlavor) error {
 	// TODO: support regex device?
 	if nvcfg.Device != nil && strings.TrimSpace(*nvcfg.Device) != "*" {
 		return fmt.Errorf("nvconfig[*].device must be \"*\"")
+	}
+	return nil
+}
+
+// validateResources validates the resource related fields
+func validateResources(flavor *provisioningv1.DPUFlavor) error {
+	if flavor.Spec.SystemReservedResources != nil && flavor.Spec.DPUResources == nil {
+		return errors.New("spec.systemReservedResources must not be specified if spec.dpuResources are not specified")
+	}
+
+	_, err := dpfutils.GetAllocatableResources(flavor.Spec.DPUResources, flavor.Spec.SystemReservedResources)
+	if err != nil {
+		e := &dpfutils.ResourcesExceedError{}
+		if errors.As(err, &e) {
+			return fmt.Errorf("reserved resource specified in spec.systemReservedResources exceed the ones defined in spec.dpuResources: Additional resources needed in spec.dpuResources: %v", e.AdditionalResourcesRequired)
+		}
+		return err
 	}
 	return nil
 }

@@ -476,15 +476,15 @@ func (in *DPUFlavorSpec) DeepCopyInto(out *DPUFlavorSpec) {
 		copy(*out, *in)
 	}
 	out.ContainerdConfig = in.ContainerdConfig
-	if in.DPUDeploymentResources != nil {
-		in, out := &in.DPUDeploymentResources, &out.DPUDeploymentResources
+	if in.DPUResources != nil {
+		in, out := &in.DPUResources, &out.DPUResources
 		*out = make(corev1.ResourceList, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val.DeepCopy()
 		}
 	}
-	if in.ResourceRequirements != nil {
-		in, out := &in.ResourceRequirements, &out.ResourceRequirements
+	if in.SystemReservedResources != nil {
+		in, out := &in.SystemReservedResources, &out.SystemReservedResources
 		*out = make(corev1.ResourceList, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val.DeepCopy()
