@@ -127,7 +127,7 @@ func (p *DPUCNIProvisioner) RunOnce() error {
 	return nil
 }
 
-// stop stops the provisioner
+// Stop stops the provisioner
 func (p *DPUCNIProvisioner) Stop() {
 	p.dhcpCmd.Stop()
 	klog.Info("Provisioner stopped")

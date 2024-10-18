@@ -94,11 +94,8 @@ linters-settings:
       - pkg: sigs.k8s.io/controller-runtime
         alias: ctrl
   stylecheck:
-    # STxxxx checks in https://staticcheck.io/docs/configuration/options/#checks
-    # Default: ["*"]
-    # TODO: Enable each of these checks.
-    # Disable linters related to error string formatting and comment on packages and exported objects, fields and functions.
-    checks: [ "all", "-ST1020", "-ST1021", "-ST1022", "-ST1000", "-ST1005"]
+    # Disable ST1000: https://staticcheck.dev/docs/checks#ST1000
+    checks: [ "all",  "-ST1000" ]
     dot-import-whitelist:
       - github.com/onsi/ginkgo/v2
       - github.com/onsi/gomega
@@ -106,11 +103,14 @@ linters-settings:
 
 issues:
   max-issues-per-linter: 0
+  max-same-issues: 0
   exclude-use-default: false
+  # Exclude vendored directories from linting.
+  exclude-dirs:
+    - internal/argocd/api
+    - internal/kamaji/api
+    - internal/nvipam/api
   exclude-rules:
-    - path: internal/argocd
-      linters:
-        - stylecheck
     - path: _test\.go
       linters:
         - dupl

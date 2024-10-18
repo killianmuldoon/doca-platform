@@ -42,7 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// controller name that will be used when reporting events
+// DPUClusterControllerName is the controllers name that will be used when reporting events
 const DPUClusterControllerName = "dpucluster"
 
 // DPUClusterReconciler reconciles a DPUCluster object

@@ -63,12 +63,7 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 	}
 	node := &corev1.Node{}
 	if err := client.Get(ctx, nn, node); err != nil {
-		if apierrors.IsNotFound(err) {
-			return *state, err
-
-		} else {
-			return *state, fmt.Errorf("Faild to Get Node %v", err)
-		}
+		return *state, fmt.Errorf("get node %s: %v", nodeName, err)
 	}
 
 	if len(nodeEffect.CustomLabel) != 0 {

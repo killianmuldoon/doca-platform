@@ -29,7 +29,7 @@ func GetPSID(pciAddress string) (string, error) {
 	cmd := "flint -d " + pciAddress + " q"
 	out, stderr, err := RunCommand(cmd)
 	if err != nil || len(stderr) > 0 || len(out) == 0 {
-		return "", fmt.Errorf("Get PSID failed, stdout: %v, stderr: %v, error: %v", out, stderr, err)
+		return "", fmt.Errorf("get PSID, stdout: %v, stderr: %v, error: %v", out, stderr, err)
 	}
 
 	lines := strings.Split(out, "\n")
@@ -40,14 +40,14 @@ func GetPSID(pciAddress string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("Can not get PSID, stdout: %v, stderr: %v, error: %v", out, stderr, err)
+	return "", fmt.Errorf("get PSID, stdout: %v, stderr: %v, error: %v", out, stderr, err)
 }
 
 func RunCommand(cmdString string, background ...bool) (string, string, error) {
 	if len(cmdString) == 0 {
 		return "", "", fmt.Errorf("no command")
 	}
-	log.Infof("run command: ", cmdString)
+	log.Infof("Run command: %s", cmdString)
 
 	var err error
 	var stdout bytes.Buffer
@@ -58,7 +58,7 @@ func RunCommand(cmdString string, background ...bool) (string, string, error) {
 
 	err = cmd.Start()
 	if err != nil {
-		return "", "", fmt.Errorf("stoutpipe failed to open")
+		return "", "", fmt.Errorf("open stdout pipe: %v", err)
 	}
 
 	if len(background) == 0 || !background[0] {

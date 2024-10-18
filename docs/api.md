@@ -821,7 +821,7 @@ _Appears in:_
 
 _Underlying type:_ _string_
 
-
+DPUFlavorFileOp defines the operation to be performed on the file
 
 _Validation:_
 - Enum: [override append]
@@ -1241,7 +1241,7 @@ _Appears in:_
 
 
 
-Spec to control the desired behavior of rolling update.
+RollingUpdateDPU is the rolling update strategy for a DPUSet.
 
 
 
@@ -1611,7 +1611,7 @@ DPUServiceConfigurationList contains a list of DPUServiceConfiguration
 
 
 
-DPUServiceConfigurationServiceDaemonSet reflects the Helm related configuration
+DPUServiceConfigurationServiceDaemonSetValues reflects the Helm related configuration
 
 
 
@@ -1679,7 +1679,7 @@ _Appears in:_
 
 
 
-DPUServiceList contains a list of DPUServiceCredentialRequest
+DPUServiceCredentialRequestList contains a list of DPUServiceCredentialRequest
 
 
 
@@ -1718,7 +1718,7 @@ _Appears in:_
 
 
 
-DPUServiceStatus defines the observed state of DPUServiceCredentialRequest
+DPUServiceCredentialRequestStatus defines the observed state of DPUServiceCredentialRequest
 
 
 
@@ -2130,7 +2130,7 @@ _Appears in:_
 
 
 
-NamespacedObjectReference contains enough information to locate the referenced Kubernetes resource object in any
+NamespacedName contains enough information to locate the referenced Kubernetes resource object in any
 namespace.
 
 
@@ -2417,7 +2417,7 @@ _Appears in:_
 
 
 
-HelmChart reflects the helm related configuration
+ServiceConfigurationHelmChart reflects the helm related configuration
 
 
 

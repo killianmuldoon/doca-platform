@@ -188,7 +188,7 @@ func getPFIP() (*net.IPNet, error) {
 func getVTEPCIDR() (*net.IPNet, error) {
 	vtepCIDRRaw := os.Getenv("VTEP_CIDR")
 	if vtepCIDRRaw == "" {
-		return nil, errors.New("required VTEP_CIDR environment variable is not set.")
+		return nil, errors.New("required VTEP_CIDR environment variable is not set")
 	}
 
 	_, vtepCIDR, err := net.ParseCIDR(vtepCIDRRaw)
@@ -203,7 +203,7 @@ func getVTEPCIDR() (*net.IPNet, error) {
 func getHostCIDR() (*net.IPNet, error) {
 	hostCIDRRaw := os.Getenv("HOST_CIDR")
 	if hostCIDRRaw == "" {
-		return nil, errors.New("required HOST_CIDR environment variable is not set.")
+		return nil, errors.New("required HOST_CIDR environment variable is not set")
 	}
 
 	_, hostCIDR, err := net.ParseCIDR(hostCIDRRaw)

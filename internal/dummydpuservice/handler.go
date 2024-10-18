@@ -69,7 +69,7 @@ func marshalRespData(podInfo PodInfo, clientIP string) ([]byte, error) {
 		CallCount: counter})
 }
 
-// HanNewHTTPHandler returns default HTTP handler implementation for dummy service
+// NewHTTPHandler returns default HTTP handler implementation for dummy service
 func NewHTTPHandler(podInfo PodInfo) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		log.Printf("request from: %s, url %s", r.RemoteAddr, r.URL.String())

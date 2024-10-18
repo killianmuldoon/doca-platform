@@ -194,6 +194,6 @@ func IsBFBExist(ctx context.Context, fileName string) (bool, error) {
 		logger.V(3).Info(fmt.Sprintf("md5sum of %s is %s", fileName, md5Value))
 		return true, nil
 	} else {
-		return false, fmt.Errorf("Failed to get md5sum %v", md5err)
+		return false, fmt.Errorf("compute md5sum %v", md5err)
 	}
 }

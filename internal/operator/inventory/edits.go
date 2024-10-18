@@ -54,7 +54,7 @@ func (e *Edits) AddForAll(edits ...UnstructuredEdit) *Edits {
 	return e
 }
 
-// AddForAll addds UnstructuredEdits that will be called on all objects of the specified kind during Apply call
+// AddForKind adds UnstructuredEdits that will be called on all objects of the specified kind during Apply call
 func (e *Edits) AddForKind(kind ObjectKind, edits ...UnstructuredEdit) *Edits {
 	e.perKindEdits[kind] = append(e.perKindEdits[kind], edits...)
 	return e

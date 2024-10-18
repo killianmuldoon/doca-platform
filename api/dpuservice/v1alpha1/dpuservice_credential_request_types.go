@@ -105,7 +105,7 @@ type DPUServiceCredentialRequestSpec struct {
 	ObjectMeta *ObjectMeta `json:"metadata,omitempty"`
 }
 
-// NamespacedObjectReference contains enough information to locate the referenced Kubernetes resource object in any
+// NamespacedName contains enough information to locate the referenced Kubernetes resource object in any
 // namespace.
 type NamespacedName struct {
 	// Name of the object.
@@ -132,7 +132,7 @@ func (n *NamespacedName) GetNamespace() string {
 	return *n.Namespace
 }
 
-// DPUServiceStatus defines the observed state of DPUServiceCredentialRequest
+// DPUServiceCredentialRequestStatus defines the observed state of DPUServiceCredentialRequest
 type DPUServiceCredentialRequestStatus struct {
 	// Conditions defines current service state.
 	// +optional
@@ -204,7 +204,7 @@ func (c *DPUServiceCredentialRequest) SetConditions(conditions []metav1.Conditio
 	c.Status.Conditions = conditions
 }
 
-// DPUServiceList contains a list of DPUServiceCredentialRequest
+// DPUServiceCredentialRequestList contains a list of DPUServiceCredentialRequest
 // +kubebuilder:object:root=true
 type DPUServiceCredentialRequestList struct {
 	metav1.TypeMeta `json:",inline"`

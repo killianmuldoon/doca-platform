@@ -571,7 +571,7 @@ func ensureNoOriginalOVNKubernetesPodsRunning(ctx context.Context, c client.Clie
 		return fmt.Errorf("error while getting %s %s: %w", ovnKubernetesDaemonset.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
 	if ovnKubernetesDaemonset.Status.NumberMisscheduled != 0 {
-		return errors.New("original OVN Kubernetes pods are still running on nodes they shouldn't.")
+		return errors.New("original OVN Kubernetes pods are still running on nodes they shouldn't")
 	}
 	return nil
 }
@@ -768,7 +768,7 @@ func ensureHostCNIProvisionerReady(ctx context.Context, c client.Client, hostCNI
 		return fmt.Errorf("error while getting %s %s: %w", hostCNIProvisionerDaemonSet.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
 	if !isCNIProvisionerReady(hostCNIProvisionerDaemonSet) {
-		return errors.New("Host CNI Provisioner is not yet ready")
+		return errors.New("host CNI Provisioner is not ready yet")
 	}
 	return nil
 }

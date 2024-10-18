@@ -165,11 +165,7 @@ func createGRPCConnection(ctx context.Context, client client.Client, dpu *provis
 	// Retrieve the DMS Server secret
 	dmsServerSecret := &corev1.Secret{}
 	if err := client.Get(ctx, types.NamespacedName{Namespace: dpu.Namespace, Name: cutil.GenerateDMSServerSecretName(dpu.Name)}, dmsServerSecret); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("Server secret not found: %v", err)
-		} else {
-			return nil, fmt.Errorf("failed to get Server secret: %v", err)
-		}
+		return nil, fmt.Errorf("get server secret: %v", err)
 	}
 
 	// Extract the CA certificate from the Server secret

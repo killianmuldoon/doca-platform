@@ -47,6 +47,8 @@ spec:
                 items:
                   properties:
                     operation:
+                      description: DPUFlavorFileOp defines the operation to be performed
+                        on the file
                       enum:
                       - override
                       - append

@@ -37,7 +37,7 @@ const sharedResultDirectory = "/tmp/ips"
 // CNIBinDir is the directory which contains the CNI binaries
 const CNIBinDir = "/opt/cni/bin"
 
-// IPAllocator uses the CNI spec to allocate an IP from NVIPAM
+// NVIPAMIPAllocator uses the CNI spec to allocate an IP from NVIPAM
 type NVIPAMIPAllocator struct {
 	cninet       *libcni.CNIConfig
 	podName      string
@@ -160,7 +160,7 @@ func generateNetConfBytes(netName string, poolName string, poolType NVIPAMPoolTy
 	return bytes, nil
 }
 
-// allocate allocates an IP from the NVIPAM given the input request
+// Allocate allocates an IP from the NVIPAM given the input request
 func (a *NVIPAMIPAllocator) Allocate(ctx context.Context, req NVIPAMIPAllocatorRequest) error {
 	rt := a.constructRuntimeConf(req.Name)
 

@@ -177,7 +177,7 @@ func HandleNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect p
 		maintenance := &maintenancev1alpha1.NodeMaintenance{}
 		if err := k8sClient.Get(ctx, maintenanceNN, maintenance); err != nil {
 			if !apierrors.IsNotFound(err) {
-				return fmt.Errorf("Error getting NodeMaintenance %v", maintenance)
+				return fmt.Errorf("get NodeMaintenance for node %s: %v", nodeName, err)
 			}
 		}
 		if err := cutil.DeleteObject(k8sClient, maintenance); err != nil {

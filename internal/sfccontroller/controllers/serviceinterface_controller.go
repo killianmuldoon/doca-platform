@@ -114,6 +114,7 @@ func getSfcOvsPorts() (sets.Set[string], error) {
 	return setPorts, nil
 }
 
+// DelPort deletes a port from the ovs bridge
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=ServiceInterfaces,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=ServiceInterfaces/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=ServiceInterfaces/finalizers,verbs=update

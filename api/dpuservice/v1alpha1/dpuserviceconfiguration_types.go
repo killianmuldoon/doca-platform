@@ -90,7 +90,7 @@ type ServiceConfiguration struct {
 	DeployInCluster *bool `json:"deployInCluster,omitempty"`
 }
 
-// HelmChart reflects the helm related configuration
+// ServiceConfigurationHelmChart reflects the helm related configuration
 type ServiceConfigurationHelmChart struct {
 	// Values specifies Helm values to be passed to Helm template, defined as a map. This takes precedence over Values.
 	// +kubebuilder:pruning:PreserveUnknownFields
@@ -98,7 +98,7 @@ type ServiceConfigurationHelmChart struct {
 	Values *runtime.RawExtension `json:"values,omitempty"`
 }
 
-// DPUServiceConfigurationServiceDaemonSet reflects the Helm related configuration
+// DPUServiceConfigurationServiceDaemonSetValues reflects the Helm related configuration
 type DPUServiceConfigurationServiceDaemonSetValues struct {
 	// Labels specifies labels which are added to the ServiceDaemonSet.
 	// +optional

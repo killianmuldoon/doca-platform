@@ -56,7 +56,7 @@ type DPUSetStrategy struct {
 	RollingUpdate *RollingUpdateDPU `json:"rollingUpdate,omitempty"`
 }
 
-// Spec to control the desired behavior of rolling update.
+// RollingUpdateDPU is the rolling update strategy for a DPUSet.
 type RollingUpdateDPU struct {
 	// +optional
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`

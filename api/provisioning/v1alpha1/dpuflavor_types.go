@@ -82,6 +82,7 @@ type DPUFlavorOVS struct {
 	RawConfigScript string `json:"rawConfigScript,omitempty"`
 }
 
+// DPUFlavorFileOp defines the operation to be performed on the file
 // +kubebuilder:validation:Enum=override;append
 type DPUFlavorFileOp string
 

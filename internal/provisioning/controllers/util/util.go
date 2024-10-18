@@ -449,6 +449,7 @@ func IsClusterCreated(conditions []metav1.Condition) bool {
 	return cond.Status == metav1.ConditionTrue
 }
 
+// NewCondition creates a new metav1.Condition with the given parameters.
 // todo: merge with DPUCondition()
 func NewCondition(condType string, err error, reason, message string) *metav1.Condition {
 	cond := &metav1.Condition{
@@ -469,7 +470,8 @@ func AdminKubeConfigPath(dc provisioningv1.DPUCluster) string {
 	return filepath.Join("/kubeconfig", fmt.Sprintf("%s_%s_%s", dc.Name, dc.Namespace, dc.UID))
 }
 
-// if label2 does not contain all the key-value pairs of lable1, then return true.
+// NeedUpdateLabels compares two labels.
+// If label 2 does not contain all the key-value pairs of label 1, then return true.
 // otherwise return false
 func NeedUpdateLabels(label1 map[string]string, label2 map[string]string) bool {
 	for k, v := range label1 {

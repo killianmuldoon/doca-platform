@@ -210,7 +210,7 @@ func getFlowCookies() (sets.Set[string], error) {
 		if len(match) > 1 {
 			flowSet.Insert(match[1])
 		} else {
-			return nil, fmt.Errorf("error entry: %v no cookie found.", ovsFlowCookie)
+			return nil, fmt.Errorf("cookie %s not found", ovsFlowCookie)
 		}
 	}
 	return flowSet, nil
