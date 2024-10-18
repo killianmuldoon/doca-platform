@@ -438,11 +438,11 @@ clean-test-env: minikube ## Clean test environment (teardown minikube cluster)
 GOLANGCI_LINT_GOGC ?= "100"
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint linter & yamllint
-	GOGC=$(GOLANGCI_LINT_GOGC) $(GOLANGCI_LINT) run --timeout 5m
+	GOOS=linux GOGC=$(GOLANGCI_LINT_GOGC) $(GOLANGCI_LINT) run --timeout 5m
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	$(GOLANGCI_LINT) run --fix
+	GOOS=linux $(GOLANGCI_LINT) run --fix
 
 .PHONY: verify-generate
 verify-generate: generate ## Verify auto-generated code did not change
