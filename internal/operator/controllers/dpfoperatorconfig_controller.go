@@ -242,7 +242,10 @@ func (r *DPFOperatorConfigReconciler) reconcileImagePullSecrets(ctx context.Cont
 
 	// remove labels from pull secrets which are no longer in the DPFOperatorConfig.
 	secretList := &corev1.SecretList{}
-	if err := r.Client.List(ctx, secretList, client.HasLabels([]string{dpuservicev1.DPFImagePullSecretLabelKey})); err != nil {
+	if err := r.Client.List(ctx, secretList,
+		client.HasLabels([]string{dpuservicev1.DPFImagePullSecretLabelKey}),
+		client.InNamespace(config.GetNamespace()),
+	); err != nil {
 		return err
 	}
 	for _, secret := range secretList.Items {

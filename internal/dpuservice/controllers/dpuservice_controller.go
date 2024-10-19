@@ -643,7 +643,10 @@ func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, cl
 
 		// Cleanup orphaned secrets.
 		inClusterSecrets := &corev1.SecretList{}
-		if err := dpuClusterClient.List(ctx, inClusterSecrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey}); err != nil {
+		if err := dpuClusterClient.List(ctx, inClusterSecrets,
+			client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey},
+			client.InNamespace(service.GetNamespace()),
+		); err != nil {
 			return err
 		}
 		for _, secret := range inClusterSecrets.Items {
