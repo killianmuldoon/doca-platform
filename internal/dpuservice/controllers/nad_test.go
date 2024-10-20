@@ -22,7 +22,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/types"
-	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("NetworkSelectionElement", func() {
@@ -38,10 +37,10 @@ var _ = Describe("NetworkSelectionElement", func() {
 						Template: dpuservicev1.ServiceInterfaceSpecTemplate{
 							Spec: dpuservicev1.ServiceInterfaceSpec{
 								InterfaceType: dpuservicev1.InterfaceTypeService,
-								InterfaceName: ptr.To("net1"),
 								Service: &dpuservicev1.ServiceDef{
-									ServiceID: "service-one",
-									Network:   "mybrsfc",
+									ServiceID:     "service-one",
+									Network:       "mybrsfc",
+									InterfaceName: "net1",
 								},
 							},
 						},
@@ -59,10 +58,10 @@ var _ = Describe("NetworkSelectionElement", func() {
 						Template: dpuservicev1.ServiceInterfaceSpecTemplate{
 							Spec: dpuservicev1.ServiceInterfaceSpec{
 								InterfaceType: dpuservicev1.InterfaceTypeService,
-								InterfaceName: ptr.To("net1"),
 								Service: &dpuservicev1.ServiceDef{
-									ServiceID: "service-one",
-									Network:   "my-namespace/mybrsfc",
+									ServiceID:     "service-one",
+									Network:       "my-namespace/mybrsfc",
+									InterfaceName: "net1",
 								},
 							},
 						},

@@ -461,10 +461,10 @@ func createServiceInterfaceForService(ctx context.Context, name string, svcName 
 		},
 		Spec: dpuservicev1.ServiceInterfaceSpec{
 			InterfaceType: dpuservicev1.InterfaceTypeService,
-			InterfaceName: &ifcName,
 			Node:          ptr.To(nodeName),
 			Service: &dpuservicev1.ServiceDef{
-				ServiceID: serviceName,
+				ServiceID:     serviceName,
+				InterfaceName: ifcName,
 			},
 		},
 	}

@@ -331,12 +331,12 @@ func (r *ServiceChainReconciler) getPortNameForServiceInterface(ctx context.Cont
 		if err != nil {
 			return "", err
 		}
-		if si.Spec.InterfaceName == nil || *si.Spec.InterfaceName == "" {
-			return "", errors.New("nil or empty interface name for serviceInterface of type service")
+		if si.Spec.Service.InterfaceName == "" {
+			return "", errors.New("empty interface name for serviceInterface of type service")
 		}
 		// construct condition which identifies ovs port for the interface that is associated
 		// with service and serviceInterface.
-		condition = pod.Namespace + "/" + pod.Name + "/" + *si.Spec.InterfaceName
+		condition = pod.Namespace + "/" + pod.Name + "/" + si.Spec.Service.InterfaceName
 	}
 
 	port, err := findInterface(condition)

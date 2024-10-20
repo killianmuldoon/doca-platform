@@ -157,7 +157,7 @@ func FigureOutName(ctx context.Context, serviceInterface *dpuservicev1.ServiceIn
 	switch serviceInterface.Spec.InterfaceType {
 	case dpuservicev1.InterfaceTypePhysical:
 		log.Info("matched on physical")
-		portName = *serviceInterface.Spec.InterfaceName
+		portName = serviceInterface.Spec.Physical.InterfaceName
 	case dpuservicev1.InterfaceTypePF:
 		log.Info("matched on pf")
 		portName = fmt.Sprintf("pf%dhpf", serviceInterface.Spec.PF.ID)

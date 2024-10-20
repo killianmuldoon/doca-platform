@@ -186,8 +186,8 @@ func (r *PodIpamReconciler) mutateMapWithServicesForPod(ctx context.Context, pod
 					// no support for object reference
 					// we add entry if the pod matched serviceID label AND the interface name matches.
 					if podMatchLabels(pod, map[string]string{dpuservicev1.DPFServiceIDLabelKey: svcIfc.Spec.Service.ServiceID}) {
-						if _, ok := podIfcToSvcIfc[*svcIfc.Spec.InterfaceName]; ok {
-							podIfcToSvcIfc[*svcIfc.Spec.InterfaceName] = &port.ServiceInterface
+						if _, ok := podIfcToSvcIfc[svcIfc.Spec.Service.InterfaceName]; ok {
+							podIfcToSvcIfc[svcIfc.Spec.Service.InterfaceName] = &port.ServiceInterface
 						}
 					}
 				}

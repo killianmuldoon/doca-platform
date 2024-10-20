@@ -23,7 +23,6 @@ import (
 
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 )
@@ -68,10 +67,10 @@ func createInterface(service string) *dpuservicev1.DPUServiceInterface {
 					Template: dpuservicev1.ServiceInterfaceSpecTemplate{
 						Spec: dpuservicev1.ServiceInterfaceSpec{
 							InterfaceType: dpuservicev1.InterfaceTypeService,
-							InterfaceName: ptr.To("net1"),
 							Service: &dpuservicev1.ServiceDef{
-								ServiceID: service,
-								Network:   "mybrsfc",
+								ServiceID:     service,
+								Network:       "mybrsfc",
+								InterfaceName: "net1",
 							},
 						},
 					},

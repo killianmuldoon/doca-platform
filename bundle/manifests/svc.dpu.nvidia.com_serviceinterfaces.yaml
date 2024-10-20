@@ -51,9 +51,6 @@ spec:
           spec:
             description: ServiceInterfaceSpec defines the desired state of ServiceInterface
             properties:
-              interfaceName:
-                description: The interface name
-                type: string
               interfaceType:
                 description: The interface type ("vlan", "physical", "pf", "vf", "ovn",
                   "service")
@@ -77,9 +74,21 @@ spec:
                 required:
                 - pfID
                 type: object
+              physical:
+                description: The physical interface definition
+                properties:
+                  interfaceName:
+                    description: The interface name
+                    type: string
+                required:
+                - interfaceName
+                type: object
               service:
                 description: The Service definition
                 properties:
+                  interfaceName:
+                    description: The interface name
+                    type: string
                   network:
                     description: |-
                       Network is the Network Attachment Definition in the form of "namespace/name"
@@ -89,6 +98,7 @@ spec:
                     description: ServiceID is the DPU Service Identifier
                     type: string
                 required:
+                - interfaceName
                 - network
                 - serviceID
                 type: object
@@ -128,13 +138,11 @@ spec:
             x-kubernetes-validations:
             - message: '`for interfaceType=vlan, vlan must be set; for interfaceType=pf,
                 pf must be set; for interfaceType=vf, vf must be set; for interfaceType=physical,
-                interfaceName must be set; for interfaceType=service, service and
-                interfaceName must be set`'
+                physical must be set; for interfaceType=service, service must be set`'
               rule: (self.interfaceType == 'vlan' && has(self.vlan)) || (self.interfaceType
                 == 'pf' && has(self.pf)) || (self.interfaceType == 'vf' && has(self.vf))
-                || (self.interfaceType == 'physical' && has(self.interfaceName)) ||
-                (self.interfaceType == 'service' && has(self.service) && has(self.interfaceName))
-                || (self.interfaceType == 'ovn')
+                || (self.interfaceType == 'physical' && has(self.physical)) || (self.interfaceType
+                == 'service' && has(self.service)) || (self.interfaceType == 'ovn')
           status:
             description: ServiceInterfaceStatus defines the observed state of ServiceInterface
             type: object

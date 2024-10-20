@@ -2183,6 +2183,22 @@ _Appears in:_
 | `pfID` _integer_ | The PF ID |  |  |
 
 
+#### Physical
+
+
+
+Physical Identifies a physical interface
+
+
+
+_Appears in:_
+- [ServiceInterfaceSpec](#serviceinterfacespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `interfaceName` _string_ | The interface name |  |  |
+
+
 #### Port
 
 
@@ -2463,6 +2479,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `serviceID` _string_ | ServiceID is the DPU Service Identifier |  |  |
 | `network` _string_ | Network is the Network Attachment Definition in the form of "namespace/name"<br />or just "name" if the namespace is the same as the ServiceInterface. |  |  |
+| `interfaceName` _string_ | The interface name |  |  |
 
 
 #### ServiceIfc
@@ -2630,7 +2647,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `node` _string_ | Node where this interface exists |  |  |
 | `interfaceType` _string_ | The interface type ("vlan", "physical", "pf", "vf", "ovn", "service") |  | Enum: [vlan physical pf vf ovn service] <br /> |
-| `interfaceName` _string_ | The interface name |  |  |
+| `physical` _[Physical](#physical)_ | The physical interface definition |  |  |
 | `vlan` _[VLAN](#vlan)_ | The VLAN definition |  |  |
 | `vf` _[VF](#vf)_ | The VF definition |  |  |
 | `pf` _[PF](#pf)_ | The PF definition |  |  |

@@ -93,10 +93,7 @@ func updateAnnotationsWithNetworks(service *dpuservicev1.DPUService, dpuServiceI
 
 func newNetworkSelectionElement(dpuServiceInterface *dpuservicev1.DPUServiceInterface) types.NetworkSelectionElement {
 	ns, name := dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service.GetNetwork()
-	var interfaceName string
-	if dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().InterfaceName != nil {
-		interfaceName = *dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().InterfaceName
-	}
+	interfaceName := dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service.InterfaceName
 	return types.NetworkSelectionElement{
 		Name:             name,
 		Namespace:        ns,

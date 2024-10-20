@@ -39,7 +39,7 @@ const (
 )
 
 // ServiceInterfaceSpec defines the desired state of ServiceInterface
-// +kubebuilder:validation:XValidation:rule="(self.interfaceType == 'vlan' && has(self.vlan)) || (self.interfaceType == 'pf' && has(self.pf)) || (self.interfaceType == 'vf' && has(self.vf)) || (self.interfaceType == 'physical' && has(self.interfaceName)) || (self.interfaceType == 'service' && has(self.service) && has(self.interfaceName)) || (self.interfaceType == 'ovn')", message="`for interfaceType=vlan, vlan must be set; for interfaceType=pf, pf must be set; for interfaceType=vf, vf must be set; for interfaceType=physical, interfaceName must be set; for interfaceType=service, service and interfaceName must be set`"
+// +kubebuilder:validation:XValidation:rule="(self.interfaceType == 'vlan' && has(self.vlan)) || (self.interfaceType == 'pf' && has(self.pf)) || (self.interfaceType == 'vf' && has(self.vf)) || (self.interfaceType == 'physical' && has(self.physical)) || (self.interfaceType == 'service' && has(self.service)) || (self.interfaceType == 'ovn')", message="`for interfaceType=vlan, vlan must be set; for interfaceType=pf, pf must be set; for interfaceType=vf, vf must be set; for interfaceType=physical, physical must be set; for interfaceType=service, service must be set`"
 type ServiceInterfaceSpec struct {
 	// Node where this interface exists
 	// +optional
@@ -48,9 +48,9 @@ type ServiceInterfaceSpec struct {
 	// +kubebuilder:validation:Enum={"vlan", "physical", "pf", "vf", "ovn", "service"}
 	// +required
 	InterfaceType string `json:"interfaceType"`
-	// The interface name
+	// The physical interface definition
 	// +optional
-	InterfaceName *string `json:"interfaceName,omitempty"`
+	Physical *Physical `json:"physical,omitempty"`
 	// The VLAN definition
 	// +optional
 	Vlan *VLAN `json:"vlan,omitempty"`
@@ -65,6 +65,13 @@ type ServiceInterfaceSpec struct {
 	Service *ServiceDef `json:"service,omitempty"`
 }
 
+// Physical Identifies a physical interface
+type Physical struct {
+	// The interface name
+	// +required
+	InterfaceName string `json:"interfaceName"`
+}
+
 // ServiceDef Identifes the service and network for the ServiceInterface
 type ServiceDef struct {
 	// ServiceID is the DPU Service Identifier
@@ -74,6 +81,9 @@ type ServiceDef struct {
 	// or just "name" if the namespace is the same as the ServiceInterface.
 	// +required
 	Network string `json:"network"`
+	// The interface name
+	// +required
+	InterfaceName string `json:"interfaceName"`
 }
 
 // GetNetwork returns the namespace and name of the network

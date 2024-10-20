@@ -11,7 +11,7 @@ spec:
       template:
         spec:
           interfaceType: service
-          interfaceName: net1
           service:
             serviceID: "my-service"
             network: "my-network"
+            interfaceName: net1

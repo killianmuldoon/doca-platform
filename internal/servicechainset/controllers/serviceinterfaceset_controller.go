@@ -171,8 +171,13 @@ func (r *ServiceInterfaceSetReconciler) createOrUpdateChild(ctx context.Context,
 		Spec: dpuservicev1.ServiceInterfaceSpec{
 			Node:          ptr.To(nodeName),
 			InterfaceType: serviceInterfaceSet.Spec.Template.Spec.InterfaceType,
-			InterfaceName: serviceInterfaceSet.Spec.Template.Spec.InterfaceName,
 		},
+	}
+
+	if serviceInterfaceSet.Spec.Template.Spec.Physical != nil {
+		serviceInterface.Spec.Physical = &dpuservicev1.Physical{
+			InterfaceName: serviceInterfaceSet.Spec.Template.Spec.Physical.InterfaceName,
+		}
 	}
 	if serviceInterfaceSet.Spec.Template.Spec.Vlan != nil {
 		serviceInterface.Spec.Vlan = &dpuservicev1.VLAN{
@@ -194,8 +199,9 @@ func (r *ServiceInterfaceSetReconciler) createOrUpdateChild(ctx context.Context,
 	}
 	if serviceInterfaceSet.Spec.Template.Spec.Service != nil {
 		serviceInterface.Spec.Service = &dpuservicev1.ServiceDef{
-			ServiceID: serviceInterfaceSet.Spec.Template.Spec.Service.ServiceID,
-			Network:   serviceInterfaceSet.Spec.Template.Spec.Service.Network,
+			ServiceID:     serviceInterfaceSet.Spec.Template.Spec.Service.ServiceID,
+			Network:       serviceInterfaceSet.Spec.Template.Spec.Service.Network,
+			InterfaceName: serviceInterfaceSet.Spec.Template.Spec.Service.InterfaceName,
 		}
 	}
 	serviceInterface.SetManagedFields(nil)

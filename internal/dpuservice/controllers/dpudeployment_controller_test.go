@@ -967,10 +967,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment/dpudeployment/someservice",
-												Network:   "nad1",
+												ServiceID:     "dpudeployment/dpudeployment/someservice",
+												Network:       "nad1",
+												InterfaceName: "someinterface",
 											},
-											InterfaceName: ptr.To[string]("someinterface"),
 										},
 									},
 								},
@@ -989,10 +989,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment/dpudeployment/someservice",
-												Network:   "nad2",
+												ServiceID:     "dpudeployment/dpudeployment/someservice",
+												Network:       "nad2",
+												InterfaceName: "someotherinterface",
 											},
-											InterfaceName: ptr.To[string]("someotherinterface"),
 										},
 									},
 								},
@@ -1081,10 +1081,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment/dpudeployment/someservice",
-												Network:   "nad3",
+												ServiceID:     "dpudeployment/dpudeployment/someservice",
+												Network:       "nad3",
+												InterfaceName: "someinterface",
 											},
-											InterfaceName: ptr.To[string]("someinterface"),
 										},
 									},
 								},
@@ -1103,10 +1103,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment/dpudeployment/someservice",
-												Network:   "nad4",
+												ServiceID:     "dpudeployment/dpudeployment/someservice",
+												Network:       "nad4",
+												InterfaceName: "someotherinterface",
 											},
-											InterfaceName: ptr.To[string]("someotherinterface"),
 										},
 									},
 								},
@@ -1191,10 +1191,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment/dpudeployment/someservice",
-												Network:   "nad1",
+												ServiceID:     "dpudeployment/dpudeployment/someservice",
+												Network:       "nad1",
+												InterfaceName: "someinterface",
 											},
-											InterfaceName: ptr.To[string]("someinterface"),
 										},
 									},
 								},
@@ -1279,10 +1279,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment/dpudeployment/someservice",
-												Network:   "nad1",
+												ServiceID:     "dpudeployment/dpudeployment/someservice",
+												Network:       "nad1",
+												InterfaceName: "someinterface",
 											},
-											InterfaceName: ptr.To[string]("someinterface"),
 										},
 									},
 								},
@@ -1301,10 +1301,10 @@ var _ = Describe("DPUDeployment Controller", func() {
 										Spec: dpuservicev1.ServiceInterfaceSpec{
 											InterfaceType: dpuservicev1.InterfaceTypeService,
 											Service: &dpuservicev1.ServiceDef{
-												ServiceID: "dpudeployment/dpudeployment/someservice",
-												Network:   "nad2",
+												ServiceID:     "dpudeployment/dpudeployment/someservice",
+												Network:       "nad2",
+												InterfaceName: "someotherinterface",
 											},
-											InterfaceName: ptr.To[string]("someotherinterface"),
 										},
 									},
 								},

@@ -824,10 +824,10 @@ func getMinimalDPUServiceInterface(namespace string) *dpuservicev1.DPUServiceInt
 					Template: dpuservicev1.ServiceInterfaceSpecTemplate{
 						Spec: dpuservicev1.ServiceInterfaceSpec{
 							InterfaceType: dpuservicev1.InterfaceTypeService,
-							InterfaceName: ptr.To("net1"),
 							Service: &dpuservicev1.ServiceDef{
-								ServiceID: "service-one",
-								Network:   "my-namespace/mybrsfc",
+								ServiceID:     "service-one",
+								Network:       "my-namespace/mybrsfc",
+								InterfaceName: "net1",
 							},
 						},
 					},

@@ -31,7 +31,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -396,7 +395,6 @@ func createDPUServiceInterface(ctx context.Context, name string, namespace strin
 func getTestServiceInterfaceSpec() *dpuservicev1.ServiceInterfaceSpec {
 	return &dpuservicev1.ServiceInterfaceSpec{
 		InterfaceType: dpuservicev1.InterfaceTypeVF,
-		InterfaceName: ptr.To("enp33s0f0np0v0"),
 		Vlan: &dpuservicev1.VLAN{
 			VlanID:             102,
 			ParentInterfaceRef: "p0",

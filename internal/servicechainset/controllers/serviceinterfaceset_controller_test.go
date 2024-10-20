@@ -29,7 +29,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -140,7 +139,6 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(sis), sis)).NotTo(HaveOccurred())
 			updatedSpec := &dpuservicev1.ServiceInterfaceSpec{
 				InterfaceType: dpuservicev1.InterfaceTypeVLAN,
-				InterfaceName: ptr.To("eth1.100"),
 				Vlan: &dpuservicev1.VLAN{
 					VlanID:             100,
 					ParentInterfaceRef: "p7",
@@ -357,7 +355,6 @@ func serviceInterfaceSpec(labelSelector metav1.LabelSelector) *dpuservicev1.Serv
 func getTestServiceInterfaceSpec() *dpuservicev1.ServiceInterfaceSpec {
 	return &dpuservicev1.ServiceInterfaceSpec{
 		InterfaceType: dpuservicev1.InterfaceTypeVF,
-		InterfaceName: ptr.To("enp33s0f0np0v0"),
 		Vlan: &dpuservicev1.VLAN{
 			VlanID:             102,
 			ParentInterfaceRef: "p0",
@@ -378,7 +375,6 @@ func getTypedTestServiceInterfaceSpec(typ string) dpuservicev1.ServiceInterfaceS
 	switch typ {
 	case dpuservicev1.InterfaceTypeVLAN:
 		sfc.InterfaceType = dpuservicev1.InterfaceTypeVLAN
-		sfc.InterfaceName = ptr.To("eth1.100")
 		sfc.Vlan = &dpuservicev1.VLAN{
 			VlanID:             102,
 			ParentInterfaceRef: "p0",
@@ -397,15 +393,17 @@ func getTypedTestServiceInterfaceSpec(typ string) dpuservicev1.ServiceInterfaceS
 		}
 	case dpuservicev1.InterfaceTypePhysical:
 		sfc.InterfaceType = dpuservicev1.InterfaceTypePhysical
-		sfc.InterfaceName = ptr.To("enp33s0f0np0v0")
+		sfc.Physical = &dpuservicev1.Physical{
+			InterfaceName: "enp33s0f0np0",
+		}
 	case dpuservicev1.InterfaceTypeOVN:
 		sfc.InterfaceType = dpuservicev1.InterfaceTypeOVN
 	case dpuservicev1.InterfaceTypeService:
 		sfc.InterfaceType = dpuservicev1.InterfaceTypeService
-		sfc.InterfaceName = ptr.To("net1")
 		sfc.Service = &dpuservicev1.ServiceDef{
-			ServiceID: "awsome-firewall",
-			Network:   "mybrsfc",
+			ServiceID:     "awsome-firewall",
+			Network:       "mybrsfc",
+			InterfaceName: "net1",
 		}
 	}
 
@@ -422,7 +420,7 @@ func getInvalidTestServiceInterfaceSpec(typ string) dpuservicev1.ServiceInterfac
 	case dpuservicev1.InterfaceTypeVF:
 		sfc.VF = nil
 	case dpuservicev1.InterfaceTypePhysical:
-		sfc.InterfaceName = nil
+		sfc.Physical = nil
 	case dpuservicev1.InterfaceTypeService:
 		sfc.Service = nil
 	}
