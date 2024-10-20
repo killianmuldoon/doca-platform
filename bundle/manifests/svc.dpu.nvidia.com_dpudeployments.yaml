@@ -158,32 +158,15 @@ spec:
                                   matchLabels:
                                     additionalProperties:
                                       type: string
+                                    description: Labels matching service IPAM
                                     maxProperties: 50
                                     minProperties: 1
                                     type: object
-                                  reference:
-                                    properties:
-                                      name:
-                                        description: Name of the object
-                                        maxLength: 253
-                                        minLength: 1
-                                        type: string
-                                      namespace:
-                                        description: Namespace of the object
-                                        maxLength: 253
-                                        minLength: 1
-                                        type: string
-                                    required:
-                                    - name
-                                    type: object
                                   setDefaultRoute:
                                     type: boolean
+                                required:
+                                - matchLabels
                                 type: object
-                                x-kubernetes-validations:
-                                - message: either reference or matchLabels must be
-                                    specified
-                                  rule: (has(self.reference) && !has(self.matchLabels))
-                                    || (!has(self.reference) && has(self.matchLabels))
                               name:
                                 description: Name is the name of the service as defined
                                   in the DPUDeployment Spec
@@ -206,58 +189,25 @@ spec:
                                   matchLabels:
                                     additionalProperties:
                                       type: string
+                                    description: Labels matching service IPAM
                                     maxProperties: 50
                                     minProperties: 1
                                     type: object
-                                  reference:
-                                    properties:
-                                      name:
-                                        description: Name of the object
-                                        maxLength: 253
-                                        minLength: 1
-                                        type: string
-                                      namespace:
-                                        description: Namespace of the object
-                                        maxLength: 253
-                                        minLength: 1
-                                        type: string
-                                    required:
-                                    - name
-                                    type: object
                                   setDefaultRoute:
                                     type: boolean
+                                required:
+                                - matchLabels
                                 type: object
-                                x-kubernetes-validations:
-                                - message: either reference or matchLabels must be
-                                    specified
-                                  rule: (has(self.reference) && !has(self.matchLabels))
-                                    || (!has(self.reference) && has(self.matchLabels))
                               matchLabels:
                                 additionalProperties:
                                   type: string
+                                description: Labels matching service interface
                                 maxProperties: 50
                                 minProperties: 1
                                 type: object
-                              reference:
-                                properties:
-                                  name:
-                                    description: Name of the object
-                                    maxLength: 253
-                                    minLength: 1
-                                    type: string
-                                  namespace:
-                                    description: Namespace of the object
-                                    maxLength: 253
-                                    minLength: 1
-                                    type: string
-                                required:
-                                - name
-                                type: object
+                            required:
+                            - matchLabels
                             type: object
-                            x-kubernetes-validations:
-                            - message: either reference or matchLabels must be specified
-                              rule: (has(self.reference) && !has(self.matchLabels))
-                                || (!has(self.reference) && has(self.matchLabels))
                         type: object
                         x-kubernetes-validations:
                         - message: either service or serviceInterface must be specified

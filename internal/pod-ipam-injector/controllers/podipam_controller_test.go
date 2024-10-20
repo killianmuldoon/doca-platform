@@ -40,13 +40,22 @@ const (
 	defaultNS                = "default"
 	ifcName                  = "sfceth1"
 	ifcName2                 = "sfceth2"
-	ipamRefName              = "pool-1"
-	ipamRefName2             = "pool-2"
+	ipamName                 = "pool-1"
+	ipamName2                = "pool-2"
 	podName                  = "test-pod"
 	multusKey                = "k8s.v1.cni.cncf.io/networks"
 	nodeName                 = "worker-1"
 	serviceName              = "firewall"
 	serviceInterfaceAnnotKey = "svc.dpu.nvidia.com/interface"
+)
+
+var (
+	ipamLabels = map[string]string{
+		"svc.dpu.nvidia.com/pool": ipamName,
+	}
+	ipamLabels2 = map[string]string{
+		"svc.dpu.nvidia.com/pool": ipamName2,
+	}
 )
 
 //nolint:dupl
@@ -63,62 +72,6 @@ var _ = Describe("PodIpam Controller", func() {
 			Expect(testutils.CleanupAndWait(ctx, testClient, cleanupObjects...)).To(Succeed())
 		})
 
-		It("should successfully update Network annotation on Pod - IPAM ref IpPool", func() {
-			By("Create ServiceInterface for Service")
-			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(
-				ctx, strings.Join([]string{serviceName, ifcName}, "-"), serviceName, ifcName))
-			By("Create ServiceChain with IPAM Reference")
-			defaultGateway := false
-			ipam := &dpuservicev1.IPAM{
-				DefaultGateway: ptr.To(defaultGateway),
-				Reference: &dpuservicev1.ObjectRef{
-					Namespace: ptr.To(defaultNS),
-					Name:      ipamRefName,
-				},
-			}
-			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName1, ipam, serviceName, ifcName))
-			By("Create IpPool")
-			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
-			By("Create Pod with Network Annotation")
-			cleanupObjects = append(cleanupObjects, createPodWithNetworkAnnotation(ctx, singleNetAnnotation(ifcName)))
-			By("Check that Pod annotation has been updated")
-			Eventually(func(g Gomega) {
-				pod := &corev1.Pod{}
-				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
-				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "ippool", defaultGateway)))
-			}).WithTimeout(2 * time.Second).Should(BeNil())
-			By("Turning the Pod State to Succeed")
-			changePodState(ctx, corev1.PodSucceeded)
-		})
-
-		It("should successfully update Network annotation on Pod - IPAM ref CIDRPool", func() {
-			By("Create ServiceInterface for Service")
-			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(
-				ctx, strings.Join([]string{serviceName, ifcName}, "-"), serviceName, ifcName))
-			By("Create ServiceChain with IPAM Reference")
-			defaultGateway := true
-			ipam := &dpuservicev1.IPAM{
-				DefaultGateway: ptr.To(defaultGateway),
-				Reference: &dpuservicev1.ObjectRef{
-					Namespace: ptr.To(defaultNS),
-					Name:      ipamRefName,
-				},
-			}
-			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName1, ipam, serviceName, ifcName))
-			By("Create CIDRPool")
-			cleanupObjects = append(cleanupObjects, createCidrPool(ctx, ipamRefName))
-			By("Create Pod with Network Annotation")
-			cleanupObjects = append(cleanupObjects, createPodWithNetworkAnnotation(ctx, singleNetAnnotation(ifcName)))
-			By("Check that Pod annotation has been updated")
-			Eventually(func(g Gomega) {
-				pod := &corev1.Pod{}
-				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
-				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "cidrpool", defaultGateway)))
-			}).WithTimeout(2 * time.Second).Should(BeNil())
-			By("Turning the Pod State to Succeed")
-			changePodState(ctx, corev1.PodSucceeded)
-		})
-
 		It("should successfully update Network annotation on Pod - IPAM match labels IpPool", func() {
 			By("Create ServiceInterface for Service")
 			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(
@@ -127,36 +80,11 @@ var _ = Describe("PodIpam Controller", func() {
 			defaultGateway := false
 			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
-				MatchLabels:    testutils.GetTestLabels(),
+				MatchLabels:    ipamLabels,
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName1, ipam, serviceName, ifcName))
 			By("Create IpPool")
-			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
-			By("Create Pod with Network Annotation")
-			cleanupObjects = append(cleanupObjects, createPodWithNetworkAnnotation(ctx, singleNetAnnotation(ifcName)))
-			By("Check that Pod annotation has been updated")
-			Eventually(func(g Gomega) {
-				pod := &corev1.Pod{}
-				g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: defaultNS, Name: podName}, pod)).To(Succeed())
-				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "ippool", defaultGateway)))
-			}).WithTimeout(2 * time.Second).Should(BeNil())
-			By("Turning the Pod State to Succeed")
-			changePodState(ctx, corev1.PodSucceeded)
-		})
-
-		It("should successfully update Network annotation on Pod - IPAM match labels IpPool pod interface specified via ServiceInterface of type service", func() {
-			By("Create ServiceInterface for Service")
-			cleanupObjects = append(cleanupObjects, createServiceInterfaceForService(
-				ctx, strings.Join([]string{serviceName, ifcName}, "-"), serviceName, ifcName))
-			By("Create ServiceChain with IPAM MatchLabels")
-			defaultGateway := false
-			ipam := &dpuservicev1.IPAM{
-				DefaultGateway: ptr.To(defaultGateway),
-				MatchLabels:    testutils.GetTestLabels(),
-			}
-			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, serviceName, ipam, serviceName, ifcName))
-			By("Create IpPool")
-			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
+			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamName, ipamLabels))
 			By("Create Pod with Network Annotation")
 			cleanupObjects = append(cleanupObjects, createPodWithNetworkAnnotation(ctx, singleNetAnnotation(ifcName)))
 			By("Check that Pod annotation has been updated")
@@ -177,11 +105,11 @@ var _ = Describe("PodIpam Controller", func() {
 			defaultGateway := true
 			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
-				MatchLabels:    testutils.GetTestLabels(),
+				MatchLabels:    ipamLabels,
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName1, ipam, serviceName, ifcName))
 			By("Create CIDRPool")
-			cleanupObjects = append(cleanupObjects, createCidrPool(ctx, ipamRefName))
+			cleanupObjects = append(cleanupObjects, createCidrPool(ctx, ipamName, ipamLabels))
 			By("Create Pod with Network Annotation")
 			cleanupObjects = append(cleanupObjects, createPodWithNetworkAnnotation(ctx, singleNetAnnotation(ifcName)))
 			By("Check that Pod annotation has been updated")
@@ -204,22 +132,19 @@ var _ = Describe("PodIpam Controller", func() {
 			defaultGateway := false
 			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
-				MatchLabels:    testutils.GetTestLabels(),
+				MatchLabels:    ipamLabels,
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName1, ipam, serviceName, ifcName))
 			By("Create ServiceChain2 with IPAM ref")
 			ipam2 := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
-				Reference: &dpuservicev1.ObjectRef{
-					Namespace: ptr.To(defaultNS),
-					Name:      ipamRefName2,
-				},
+				MatchLabels:    ipamLabels2,
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName2, ipam2, serviceName, ifcName2))
 			By("Create IpPool1")
-			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
+			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamName, ipamLabels))
 			By("Create IpPool2")
-			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName2))
+			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamName2, ipamLabels2))
 			By("Create Pod with Network Annotation - multiple networks")
 			cleanupObjects = append(cleanupObjects, createPodWithNetworkAnnotation(ctx, multipleNetAnnotation()))
 			By("Check that Pod annotation has been updated")
@@ -245,7 +170,7 @@ var _ = Describe("PodIpam Controller", func() {
 			By("Create ServiceChain with IPAM MatchLabels")
 			ipam := &dpuservicev1.IPAM{
 				DefaultGateway: ptr.To(defaultGateway),
-				MatchLabels:    testutils.GetTestLabels(),
+				MatchLabels:    ipamLabels,
 			}
 			cleanupObjects = append(cleanupObjects, createServiceChainWithServiceInterface(ctx, svcName1, ipam, serviceName, ifcName))
 			By("Verify Pod annotations is not updated")
@@ -264,7 +189,7 @@ var _ = Describe("PodIpam Controller", func() {
 				g.Expect(pod.Annotations[multusKey]).To(Equal(expectedSingleNetAnnotation(ifcName, "ippool", defaultGateway)))
 			}).WithTimeout(2 * time.Second).Should(Not(BeNil()))
 			By("Create IpPool")
-			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamRefName))
+			cleanupObjects = append(cleanupObjects, createIPPool(ctx, ipamName, ipamLabels))
 			By("Check that Pod annotation has been updated")
 			Eventually(func(g Gomega) {
 				pod := &corev1.Pod{}
@@ -385,12 +310,12 @@ func createPodWithNetworkAnnotation(ctx context.Context, networkAnnot string) *c
 	return pod
 }
 
-func createIPPool(ctx context.Context, name string) *nvipamv1.IPPool {
+func createIPPool(ctx context.Context, name string, labels map[string]string) *nvipamv1.IPPool {
 	pool := &nvipamv1.IPPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: defaultNS,
-			Labels:    testutils.GetTestLabels(),
+			Labels:    labels,
 		},
 		Spec: nvipamv1.IPPoolSpec{
 			Subnet:           "192.168.0.0/16",
@@ -402,12 +327,12 @@ func createIPPool(ctx context.Context, name string) *nvipamv1.IPPool {
 	return pool
 }
 
-func createCidrPool(ctx context.Context, name string) *nvipamv1.CIDRPool {
+func createCidrPool(ctx context.Context, name string, labels map[string]string) *nvipamv1.CIDRPool {
 	pool := &nvipamv1.CIDRPool{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: defaultNS,
-			Labels:    testutils.GetTestLabels(),
+			Labels:    labels,
 		},
 		Spec: nvipamv1.CIDRPoolSpec{
 			CIDR:                 "192.168.100.0/24",

@@ -81,6 +81,12 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			By("Creating the DPUServiceIPAM resource")
 			dpuServiceIPAM := getMinimalDPUServiceIPAM(testNS.Name)
 			dpuServiceIPAM.Name = "pool-1"
+			dpuServiceIPAM.Spec.Labels = map[string]string{
+				"some-label": "someValue",
+			}
+			dpuServiceIPAM.Spec.Annotations = map[string]string{
+				"some-annot": "someValue",
+			}
 			dpuServiceIPAM.Spec.IPV4Subnet = &dpuservicev1.IPV4Subnet{
 				Subnet:         "192.168.0.0/20",
 				Gateway:        "192.168.0.1",
@@ -109,6 +115,8 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, got)).To(Succeed())
 				g.Expect(got.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpuserviceipam-name", "pool-1"))
 				g.Expect(got.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpuserviceipam-namespace", testNS.Name))
+				g.Expect(got.Labels).To(HaveKeyWithValue("some-label", "someValue"))
+				g.Expect(got.Annotations).To(HaveKeyWithValue("some-annot", "someValue"))
 				g.Expect(got.Spec.Subnet).To(Equal("192.168.0.0/20"))
 				g.Expect(got.Spec.PerNodeBlockSize).To(Equal(256))
 				g.Expect(got.Spec.Gateway).To(Equal("192.168.0.1"))
@@ -176,6 +184,12 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			By("Creating the DPUServiceIPAM resource")
 			dpuServiceIPAM := getMinimalDPUServiceIPAM(testNS.Name)
 			dpuServiceIPAM.Name = "pool-1"
+			dpuServiceIPAM.Spec.Labels = map[string]string{
+				"some-label": "someValue",
+			}
+			dpuServiceIPAM.Spec.Annotations = map[string]string{
+				"some-annot": "someValue",
+			}
 			dpuServiceIPAM.Spec.IPV4Network = &dpuservicev1.IPV4Network{
 				Network:      "192.168.0.0/20",
 				GatewayIndex: ptr.To[int32](1),
@@ -209,6 +223,8 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, got)).To(Succeed())
 				g.Expect(got.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpuserviceipam-name", "pool-1"))
 				g.Expect(got.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpuserviceipam-namespace", testNS.Name))
+				g.Expect(got.Labels).To(HaveKeyWithValue("some-label", "someValue"))
+				g.Expect(got.Annotations).To(HaveKeyWithValue("some-annot", "someValue"))
 				g.Expect(got.Spec.CIDR).To(Equal("192.168.0.0/20"))
 				g.Expect(got.Spec.PerNodeNetworkPrefix).To(Equal(int32(24)))
 				g.Expect(got.Spec.GatewayIndex).To(Equal(ptr.To[int32](1)))

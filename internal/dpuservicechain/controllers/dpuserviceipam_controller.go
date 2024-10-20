@@ -20,6 +20,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
@@ -288,14 +289,13 @@ func generateIPPool(dpuServiceIPAM *dpuservicev1.DPUServiceIPAM) *nvipamv1.IPPoo
 	for _, route := range dpuServiceIPAM.Spec.IPV4Subnet.Routes {
 		routes = append(routes, nvipamv1.Route{Dst: route.Dst})
 	}
+
 	pool := &nvipamv1.IPPool{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dpuServiceIPAM.Name,
-			Namespace: dpuServiceIPAM.Namespace,
-			Labels: map[string]string{
-				ParentDPUServiceIPAMNameLabel:      dpuServiceIPAM.Name,
-				ParentDPUServiceIPAMNamespaceLabel: dpuServiceIPAM.Namespace,
-			},
+			Name:        dpuServiceIPAM.Name,
+			Namespace:   dpuServiceIPAM.Namespace,
+			Labels:      getPoolLabels(dpuServiceIPAM),
+			Annotations: dpuServiceIPAM.Spec.Annotations,
 		},
 		Spec: nvipamv1.IPPoolSpec{
 			Subnet:           dpuServiceIPAM.Spec.IPV4Subnet.Subnet,
@@ -330,12 +330,10 @@ func generateCIDRPool(dpuServiceIPAM *dpuservicev1.DPUServiceIPAM) *nvipamv1.CID
 
 	pool := &nvipamv1.CIDRPool{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dpuServiceIPAM.Name,
-			Namespace: dpuServiceIPAM.Namespace,
-			Labels: map[string]string{
-				ParentDPUServiceIPAMNameLabel:      dpuServiceIPAM.Name,
-				ParentDPUServiceIPAMNamespaceLabel: dpuServiceIPAM.Namespace,
-			},
+			Name:        dpuServiceIPAM.Name,
+			Namespace:   dpuServiceIPAM.Namespace,
+			Labels:      getPoolLabels(dpuServiceIPAM),
+			Annotations: dpuServiceIPAM.Spec.Annotations,
 		},
 		Spec: nvipamv1.CIDRPoolSpec{
 			CIDR:                 dpuServiceIPAM.Spec.IPV4Network.Network,
@@ -351,6 +349,18 @@ func generateCIDRPool(dpuServiceIPAM *dpuservicev1.DPUServiceIPAM) *nvipamv1.CID
 	pool.ObjectMeta.ManagedFields = nil
 	pool.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind(nvipamv1.CIDRPoolKind))
 	return pool
+}
+
+func getPoolLabels(dpuServiceIPAM *dpuservicev1.DPUServiceIPAM) map[string]string {
+	commonLabels := map[string]string{
+		ParentDPUServiceIPAMNameLabel:      dpuServiceIPAM.Name,
+		ParentDPUServiceIPAMNamespaceLabel: dpuServiceIPAM.Namespace,
+	}
+	poolLabels := map[string]string{}
+	maps.Copy(poolLabels, dpuServiceIPAM.Spec.Labels)
+	maps.Copy(poolLabels, commonLabels)
+
+	return poolLabels
 }
 
 // SetupWithManager sets up the controller with the Manager.

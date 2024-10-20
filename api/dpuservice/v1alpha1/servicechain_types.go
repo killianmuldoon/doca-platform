@@ -48,29 +48,24 @@ type Port struct {
 }
 
 // ServiceIfc defines the service interface configuration
-// +kubebuilder:validation:XValidation:rule="(has(self.reference) && !has(self.matchLabels)) || (!has(self.reference) && has(self.matchLabels))", message="either reference or matchLabels must be specified"
 type ServiceIfc struct {
-	// TODO: What is this field supposed to be?
-	// +optional
-	Reference *ObjectRef `json:"reference,omitempty"`
+	// Labels matching service interface
 	// +kubebuilder:validation:MinProperties=1
 	// +kubebuilder:validation:MaxProperties=50
-	// +optional
-	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+	// +required
+	MatchLabels map[string]string `json:"matchLabels"`
 	// IPAM defines the IPAM configuration when referencing a serviceInterface of type 'service'
 	// +optional
 	IPAM *IPAM `json:"ipam,omitempty"`
 }
 
 // IPAM defines the IPAM configuration
-// +kubebuilder:validation:XValidation:rule="(has(self.reference) && !has(self.matchLabels)) || (!has(self.reference) && has(self.matchLabels))", message="either reference or matchLabels must be specified"
 type IPAM struct {
-	// +optional
-	Reference *ObjectRef `json:"reference,omitempty"`
+	// Labels matching service IPAM
 	// +kubebuilder:validation:MinProperties=1
 	// +kubebuilder:validation:MaxProperties=50
-	// +optional
-	MatchLabels map[string]string `json:"matchLabels,omitempty"`
+	// +required
+	MatchLabels map[string]string `json:"matchLabels"`
 	// +optional
 	DefaultGateway *bool `json:"defaultGateway,omitempty"`
 	// +optional

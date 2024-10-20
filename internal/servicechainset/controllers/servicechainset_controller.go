@@ -158,24 +158,8 @@ func (r *ServiceChainSetReconciler) createOrUpdateChild(ctx context.Context, set
 	maps.Copy(labels, serviceChainSet.Spec.Template.ObjectMeta.Labels)
 
 	switches := make([]dpuservicev1.Switch, len(serviceChainSet.Spec.Template.Spec.Switches))
-	for i, serviceChain := range serviceChainSet.Spec.Template.Spec.Switches {
-		ports := make([]dpuservicev1.Port, len(serviceChain.Ports))
-		for j, port := range serviceChain.Ports {
-			ports[j] = *port.DeepCopy()
-			// Continue if serviceInterface reference name is not present.
-			if port.ServiceInterface.Reference == nil {
-				continue
-			}
-			// Continue if reference name is empty.
-			if port.ServiceInterface.Reference.Name == "" {
-				continue
-			}
-
-			ports[j].ServiceInterface.Reference.Name = fmt.Sprintf("%s-%s", port.ServiceInterface.Reference.Name, nodeName)
-		}
-		switches[i] = dpuservicev1.Switch{
-			Ports: ports,
-		}
+	for i, serviceChainSwitch := range serviceChainSet.Spec.Template.Spec.Switches {
+		switches[i] = *serviceChainSwitch.DeepCopy()
 	}
 
 	owner := metav1.NewControllerRef(serviceChainSet, dpuservicev1.GroupVersion.WithKind("ServiceChainSet"))

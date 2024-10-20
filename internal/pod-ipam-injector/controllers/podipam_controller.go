@@ -282,51 +282,14 @@ func (r *PodIpamReconciler) getPoolConfig(ctx context.Context, ipam *dpuservicev
 	if ipam.DefaultGateway != nil {
 		poolCfg.AssignGW = *ipam.DefaultGateway
 	}
-	var pool, poolType string
-	var err error
-	if ipam.Reference != nil {
-		pool, poolType, err = r.getPoolByRef(ctx, ipam)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		pool, poolType, err = r.getPoolByMatchLabel(ctx, ipam)
-		if err != nil {
-			return nil, err
-		}
+
+	pool, poolType, err := r.getPoolByMatchLabel(ctx, ipam)
+	if err != nil {
+		return nil, err
 	}
 	poolCfg.PoolType = poolType
 	poolCfg.PoolName = pool
 	return poolCfg, nil
-}
-
-func (r *PodIpamReconciler) getPoolByRef(ctx context.Context, ipam *dpuservicev1.IPAM) (string, string, error) {
-	ipPool := &nvipamv1.IPPool{}
-	err := r.Client.Get(ctx, client.ObjectKey{Namespace: *ipam.Reference.Namespace,
-		Name: ipam.Reference.Name}, ipPool)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return "", "", err
-		}
-		// Continue to check if CIDRPool exists
-	} else {
-		// IPPool found
-		return ipam.Reference.Name, strings.ToLower(nvipamv1.IPPoolKind), nil
-	}
-	//IPPool not found, check CIDRPool
-	cidrPool := &nvipamv1.CIDRPool{}
-	err = r.Client.Get(ctx, client.ObjectKey{Namespace: *ipam.Reference.Namespace,
-		Name: ipam.Reference.Name}, cidrPool)
-	if err != nil {
-		if !apierrors.IsNotFound(err) {
-			return "", "", err
-		}
-		// No IpPool/CidrPool found requeuing
-		return "", "", fmt.Errorf("no IPPool or CidrPool found for Ref %s/%s", *ipam.Reference.Namespace, ipam.Reference.Name)
-	} else {
-		// cidrPool found
-		return ipam.Reference.Name, strings.ToLower(nvipamv1.CIDRPoolKind), nil
-	}
 }
 
 func (r *PodIpamReconciler) getPoolByMatchLabel(ctx context.Context, ipam *dpuservicev1.IPAM) (string, string, error) {
@@ -372,8 +335,8 @@ func validateSvc(ctx context.Context, podIfcToSvcIfc map[string]*dpuservicev1.Se
 			log.Info("No IPAM requested for interface", "interface", ifc)
 			continue
 		}
-		if svcIfc.IPAM.Reference == nil && len(svcIfc.IPAM.MatchLabels) < 1 {
-			return requeue, fmt.Errorf("service IPAM should have Reference or MatchLabels. Interface:%s", ifc)
+		if len(svcIfc.IPAM.MatchLabels) < 1 {
+			return requeue, fmt.Errorf("service IPAM should have MatchLabels. Interface:%s", ifc)
 		}
 	}
 	return requeue, nil

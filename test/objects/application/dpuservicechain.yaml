@@ -24,8 +24,8 @@ spec:
             # bridge: hbn from the ovs CNI NAD, minimal flows will be set on HBN bridge, patch ports created to sfc bridge
             - ports:
               - serviceInterface:
-                  reference:
-                    name: hbn
+                  matchLabels:
+                    svc.dpu.nvidia.com/service: hbn
                 # bridge: hbn from the ovs CNI NAD, minimal flows will be set on HBN bridge, patch ports created to sfc bridge
               - serviceInterface:
                   matchLabels:
@@ -33,8 +33,8 @@ spec:
                 # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
             - ports:
               - serviceInterface:
-                  reference:
-                    name: fw1
+                  matchLabels:
+                    svc.dpu.nvidia.com/service: fw1
                 # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
               - serviceInterface:
                   matchLabels:
@@ -44,16 +44,16 @@ spec:
                   matchLabels:
                     svc.dpu.nvidia.com/service: nginx
                   ipam:
-                    reference:
-                      name: example1
+                    matchLabels:
+                      svc.dpu.nvidia.com/pool: example1
                     defaultGateway: False
                 # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
             - ports:
               - serviceInterface:
-                  reference:
-                    name: dnsfilter1
+                  matchLabels:
+                    svc.dpu.nvidia.com/service: dnsfilter1
                 # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
               - serviceInterface:
-                  reference:
-                    name: vf0
+                  matchLabels:
+                    svc.dpu.nvidia.com/interface: vf0
                 # bridge: int from the ServiceInterface. Will create a patch port and not set flows on the OVS br-int.

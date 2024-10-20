@@ -57,6 +57,7 @@ func (c *DPUServiceIPAM) SetConditions(conditions []metav1.Condition) {
 
 // DPUServiceIPAMSpec defines the desired state of DPUServiceIPAM
 type DPUServiceIPAMSpec struct {
+	ObjectMeta `json:"metadata,omitempty"`
 	// IPV4Network is the configuration related to splitting a network into subnets per node, each with their own gateway.
 	IPV4Network *IPV4Network `json:"ipv4Network,omitempty"`
 	// IPV4Subnet is the configuration related to splitting a subnet into blocks per node. In this setup, there is a

@@ -1786,6 +1786,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `metadata` _[ObjectMeta](#objectmeta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `ipv4Network` _[IPV4Network](#ipv4network)_ | IPV4Network is the configuration related to splitting a network into subnets per node, each with their own gateway. |  |  |
 | `ipv4Subnet` _[IPV4Subnet](#ipv4subnet)_ | IPV4Subnet is the configuration related to splitting a subnet into blocks per node. In this setup, there is a<br />single gateway. |  |  |
 | `clusterSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#labelselector-v1-meta)_ | ClusterSelector determines in which clusters the DPUServiceIPAM controller should apply the configuration. |  |  |
@@ -2076,8 +2077,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `reference` _[ObjectRef](#objectref)_ |  |  |  |
-| `matchLabels` _object (keys:string, values:string)_ |  |  | MaxProperties: 50 <br />MinProperties: 1 <br /> |
+| `matchLabels` _object (keys:string, values:string)_ | Labels matching service IPAM |  | MaxProperties: 50 <br />MinProperties: 1 <br /> |
 | `defaultGateway` _boolean_ |  |  |  |
 | `setDefaultRoute` _boolean_ |  |  |  |
 
@@ -2154,6 +2154,7 @@ ObjectMeta holds metadata like labels and annotations.
 
 _Appears in:_
 - [DPUServiceCredentialRequestSpec](#dpuservicecredentialrequestspec)
+- [DPUServiceIPAMSpec](#dpuserviceipamspec)
 - [ServiceChainSetSpecTemplate](#servicechainsetspectemplate)
 - [ServiceChainSpecTemplate](#servicechainspectemplate)
 - [ServiceInterfaceSetSpecTemplate](#serviceinterfacesetspectemplate)
@@ -2496,8 +2497,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `reference` _[ObjectRef](#objectref)_ | TODO: What is this field supposed to be? |  |  |
-| `matchLabels` _object (keys:string, values:string)_ |  |  | MaxProperties: 50 <br />MinProperties: 1 <br /> |
+| `matchLabels` _object (keys:string, values:string)_ | Labels matching service interface |  | MaxProperties: 50 <br />MinProperties: 1 <br /> |
 | `ipam` _[IPAM](#ipam)_ | IPAM defines the IPAM configuration when referencing a serviceInterface of type 'service' |  |  |
 
 

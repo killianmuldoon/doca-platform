@@ -50,7 +50,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceChainSet without Node Selector", func() {
 			By("Create ServiceChainSet, without Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{}))
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{}))
 			By("Verify ServiceChain not created, no nodes")
 			Consistently(func(g Gomega) {
 				serviceChainList := &dpuservicev1.ServiceChainList{}
@@ -73,7 +73,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceChainSet with Node Selector", func() {
 			By("creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Create 3 nodes")
@@ -89,7 +89,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceChainSet with Node Selector and remove Service Chain", func() {
 			By("creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Create 3 nodes")
@@ -116,7 +116,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceChainSet after update", func() {
 			By("creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Create 3 nodes")
@@ -139,8 +139,8 @@ var _ = Describe("ServiceChainSet Controller", func() {
 						Ports: []dpuservicev1.Port{
 							{
 								ServiceInterface: dpuservicev1.ServiceIfc{
-									Reference: &dpuservicev1.ObjectRef{
-										Name: "p0",
+									MatchLabels: map[string]string{
+										"svc.dpu.nvidia.com/interface": "p1",
 									},
 								},
 							},
@@ -157,7 +157,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully delete the ServiceChainSet", func() {
 			By("Creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Creating 2 nodes")
@@ -193,28 +193,18 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully create the ServiceChainSet with port service interface", func() {
 			By("creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSetWithServiceInterface(ctx,
-				metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, false))
-		})
-		It("should successfully create the ServiceChainSet with port service interface and references", func() {
-			By("creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSetWithServiceInterface(ctx,
-				metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, true))
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx,
+				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}))
 		})
 		It("should successfully create the ServiceChainSet with port service", func() {
 			By("creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSetWithServiceInterface(ctx,
-				metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, false))
-		})
-		It("should successfully create the ServiceChainSet with port service and references", func() {
-			By("creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSetWithServiceInterface(ctx,
-				metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, true))
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx,
+				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}))
 		})
 		It("should successfully create the ServiceChainSet and have all conditions set", func() {
 			By("creating ServiceChainSet, with Node Selector")
-			obj := createServiceChainSetWithServiceInterface(ctx,
-				metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}, true)
+			obj := createServiceChainSet(ctx,
+				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}})
 			cleanupObjects = append(cleanupObjects, obj)
 			Eventually(func(g Gomega) {
 				assertServiceChainSetCondition(g, testClient, obj)
@@ -246,7 +236,7 @@ func assertServiceChainSetCondition(g Gomega, testClient client.Client, serviceC
 	))
 }
 
-func createServiceChainSet(ctx context.Context, labelSelector metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
+func createServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
 	scs := serviceChainSet(labelSelector)
 	scs.Spec.Template.Spec = *getTestServiceChainSpec()
 
@@ -254,22 +244,14 @@ func createServiceChainSet(ctx context.Context, labelSelector metav1.LabelSelect
 	return scs
 }
 
-func createServiceChainSetWithServiceInterface(ctx context.Context, labelSelector metav1.LabelSelector, ref bool) *dpuservicev1.ServiceChainSet {
-	scs := serviceChainSet(labelSelector)
-	scs.Spec.Template.Spec = *getTestServiceChainSpecWithServiceInterface(ref)
-
-	Expect(testClient.Create(ctx, scs)).NotTo(HaveOccurred())
-	return scs
-}
-
-func serviceChainSet(labelSelector metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
+func serviceChainSet(labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
 	scs := &dpuservicev1.ServiceChainSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      resourceName,
 			Namespace: defaultNS,
 		},
 		Spec: dpuservicev1.ServiceChainSetSpec{
-			NodeSelector: labelSelector,
+			NodeSelector: *labelSelector,
 			Template: dpuservicev1.ServiceChainSpecTemplate{
 				ObjectMeta: dpuservicev1.ObjectMeta{
 					Labels: testutils.GetTestLabels(),
@@ -287,44 +269,14 @@ func getTestServiceChainSpec() *dpuservicev1.ServiceChainSpec {
 				Ports: []dpuservicev1.Port{
 					{
 						ServiceInterface: dpuservicev1.ServiceIfc{
-							Reference: &dpuservicev1.ObjectRef{
-								Name: "p0",
+							MatchLabels: map[string]string{
+								dpuservicev1.DPFServiceIDLabelKey: "firewall",
+								"svc.dpu.nvidia.com/interface":    "eth0",
 							},
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func getTestServiceChainSpecWithServiceInterface(ref bool) *dpuservicev1.ServiceChainSpec {
-	var (
-		reference   *dpuservicev1.ObjectRef
-		matchLabels map[string]string
-	)
-	if ref {
-		reference = &dpuservicev1.ObjectRef{
-			Name: "p0",
-		}
-	} else {
-		matchLabels = map[string]string{
-			dpuservicev1.DPFServiceIDLabelKey: "firewall",
-			"svc.dpu.nvidia.com/interface":    "eth0",
-		}
-	}
-
-	return &dpuservicev1.ServiceChainSpec{
-		Switches: []dpuservicev1.Switch{
-			{
-				Ports: []dpuservicev1.Port{
-					{
-						ServiceInterface: dpuservicev1.ServiceIfc{
-							MatchLabels: matchLabels,
-							Reference:   reference,
 							IPAM: &dpuservicev1.IPAM{
-								Reference:   reference,
-								MatchLabels: matchLabels,
+								MatchLabels: map[string]string{
+									"svc.dpu.nvidia.com/ippool": "mypool",
+								},
 							},
 						},
 					},
@@ -360,7 +312,6 @@ func assertServiceChain(g Gomega, sc *dpuservicev1.ServiceChain, testSpec *dpuse
 	specCopy := testSpec.DeepCopy()
 	node := sc.Spec.Node
 	specCopy.Node = node
-	specCopy.Switches[0].Ports[0].ServiceInterface.Reference.Name = specCopy.Switches[0].Ports[0].ServiceInterface.Reference.Name + "-" + *node
 	g.ExpectWithOffset(2, sc.Spec).To(Equal(*specCopy))
 	g.ExpectWithOffset(2, *node).NotTo(BeEmpty())
 	g.ExpectWithOffset(2, sc.Name).To(Equal(resourceName + "-" + *node))
