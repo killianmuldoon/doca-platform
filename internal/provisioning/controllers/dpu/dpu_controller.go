@@ -67,14 +67,13 @@ type DPUReconciler struct {
 
 func (r *DPUReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	logger.V(4).Info("Reconcile", "dpu", req.Name)
+	logger.Info("Reconcile")
 
 	dpu := &provisioningv1.DPU{}
 	if err := r.Get(ctx, req.NamespacedName, dpu); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Failed to get DPU", "DPU", dpu)
 		return ctrl.Result{}, errors.Wrap(err, "failed to get DPU")
 	}
 
@@ -93,18 +92,18 @@ func (r *DPUReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	currentState := state.GetDPUState(dpu, r.Allocator)
 	nextState, err := currentState.Handle(ctx, r.Client, r.DPUOptions)
 	if err != nil {
-		logger.Error(err, "Statue handle error", "dpu", err)
+		logger.Error(err, "Statue handle error")
 	}
 	if !reflect.DeepEqual(dpu.Status, nextState) {
-		logger.V(3).Info("Update DPU status", "current phase", dpu.Status.Phase, "next phase", nextState.Phase)
+		logger.Info("Update DPU status", "current phase", dpu.Status.Phase, "next phase", nextState.Phase)
 		dpu.Status = nextState
 
 		if err := r.Client.Status().Update(ctx, dpu); err != nil {
-			logger.Error(err, "Failed to update DPU", "DPU", dpu)
 			return ctrl.Result{}, errors.Wrap(err, "failed to update DPU")
 		}
 	} else if nextState.Phase != provisioningv1.DPUError {
 		// TODO: move the state checking in state machine
+		logger.Info(fmt.Sprintf("Requeue in %s", cutil.RequeueInterval), "current phase", dpu.Status.Phase)
 		return ctrl.Result{RequeueAfter: cutil.RequeueInterval}, nil
 	}
 

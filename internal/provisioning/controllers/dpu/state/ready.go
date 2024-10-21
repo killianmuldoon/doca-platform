@@ -88,7 +88,7 @@ func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, optio
 
 	if !cutil.IsNodeReady(node) {
 		updateFalseDPUCondReady(state, "DPUNodeNotReady", fmt.Errorf("DPU Node %s is not Ready", node.Name).Error())
-		logger.V(3).Info(fmt.Sprintf("DPU Node is not Ready: %v", node))
+		logger.V(3).Info(fmt.Sprintf("DPU Node is not Ready: %v", node.Status.Conditions))
 		return *state, nil
 	} else {
 		cond := cutil.DPUCondition(provisioningv1.DPUCondReady, "DPUNodeReady", "")

@@ -67,14 +67,13 @@ type DPUSetReconciler struct {
 
 func (r *DPUSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	logger.V(4).Info("Reconcile", "dpuset", req.Name)
+	logger.Info("Reconcile")
 
 	dpuSet := &provisioningv1.DPUSet{}
 	if err := r.Get(ctx, req.NamespacedName, dpuSet); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Failed to get DPUSet", "DPUSet", dpuSet)
 		return ctrl.Result{}, errors.Wrap(err, "failed to get DPUSet")
 	}
 
@@ -86,9 +85,7 @@ func (r *DPUSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 }
 
 func (r *DPUSetReconciler) reconcileDelete(ctx context.Context, dpuSet *provisioningv1.DPUSet) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
 	if err := r.finalizeDPUSet(ctx, dpuSet); err != nil {
-		logger.Error(err, "Failed to finalize DPUSet", "DPUSet", dpuSet)
 		return ctrl.Result{}, errors.Wrap(err, "failed to finalize DPUSet")
 	}
 
@@ -111,14 +108,12 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 	// Get node map by nodeSelector
 	nodeMap, err := r.getNodeMap(ctx, &dpuSet.Spec.NodeSelector)
 	if err != nil {
-		logger.Error(err, "Failed to get Node list", "DPUSet", dpuSet)
 		return ctrl.Result{}, errors.Wrap(err, "failed to get Node list")
 	}
 
 	// Get dpu map which are owned by dpuset
 	dpuMap, err := r.getDPUsMap(ctx, dpuSet)
 	if err != nil {
-		logger.Error(err, "Failed to get DPU list", "DPUSet", dpuSet)
 		return ctrl.Result{}, errors.Wrap(err, "failed to get DPU list")
 	}
 
@@ -128,10 +123,9 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 			dpuIndexMap := getDPUIndexFromSelector(dpuSet.Spec.DPUSelector, node.Labels)
 			for _, index := range dpuIndexMap {
 				if err = r.createDPU(ctx, dpuSet, node, index); err != nil {
-					msg := fmt.Sprintf("Failed to created DPU index %v on node %s", index, node.Name)
+					msg := fmt.Sprintf("failed to created DPU index %v on node %s", index, node.Name)
 					r.Recorder.Eventf(dpuSet, corev1.EventTypeWarning, events.EventFailedCreateDPUReason, msg)
-					logger.Error(err, msg)
-					return ctrl.Result{}, errors.Wrap(err, "failed to create DPU")
+					return ctrl.Result{}, errors.Wrap(err, msg)
 				}
 			}
 
@@ -143,20 +137,18 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 	// delete dpu if node does not exist
 	for nodeName, dpu := range dpuMap {
 		if err := r.Delete(ctx, &dpu); err != nil {
-			msg := fmt.Sprintf("Failed to Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, nodeName)
-			logger.Error(err, msg)
-			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulDeleteDPUReason, msg)
-			return ctrl.Result{}, errors.Wrap(err, "failed to delete DPU")
+			msg := fmt.Sprintf("failed to Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, nodeName)
+			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulDeleteDPUReason, msg, err)
+			return ctrl.Result{}, errors.Wrap(err, msg)
 		}
 		msg := fmt.Sprintf("Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, nodeName)
 		r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulDeleteDPUReason, msg)
-		logger.V(3).Info(msg)
+		logger.V(2).Info(msg)
 	}
 
 	// handle rolling update
 	dpuMap, err = r.getDPUsMap(ctx, dpuSet)
 	if err != nil {
-		logger.Error(err, "Failed to get DPUs", "DPUSet", dpuSet)
 		return ctrl.Result{}, errors.Wrap(err, "failed to get DPUs")
 	}
 
@@ -165,13 +157,11 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 		// do nothing, waiting for user delete DPU object manually.
 	case provisioningv1.RollingUpdateStrategyType:
 		if err := r.rolloutRolling(ctx, dpuSet, dpuMap, len(nodeMap)); err != nil {
-			logger.Error(err, "Failed to rollout DPU", "DPUSet", dpuSet)
 			return ctrl.Result{}, errors.Wrap(err, "failed to rollout DPU")
 		}
 	}
 
 	if err := updateDPUSetStatus(ctx, dpuSet, dpuMap, r.Client); err != nil {
-		logger.Error(err, "Failed to update DPUSet status", "DPUSet", dpuSet)
 		return ctrl.Result{}, errors.Wrap(err, "failed to update DPUSet status")
 	}
 

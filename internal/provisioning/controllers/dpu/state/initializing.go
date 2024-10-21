@@ -18,7 +18,6 @@ package state
 
 import (
 	"context"
-	"fmt"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
@@ -45,12 +44,12 @@ func (st *dpuInitializingState) Handle(ctx context.Context, c client.Client, _ d
 	if st.dpu.Spec.Cluster.Name == "" {
 		rst, err := st.alloc.Allocate(ctx, st.dpu)
 		if err != nil {
-			logger.Error(fmt.Errorf("failed to allocate DPUCluster, err: %v", err), "")
+			logger.Error(err, "failed to allocate DPUCluster")
 			cond := cutil.NewCondition(provisioningv1.DPUCondInitialized.String(), err, "DPUClusterNotReady", err.Error())
 			cutil.SetDPUCondition(state, cond)
 			return *state, nil
 		}
-		logger.V(3).Info("allocate cluster %s for DPU %s", rst, cutil.GetNamespacedName(st.dpu))
+		logger.V(2).Info("allocate cluster %s for DPU %s", rst, cutil.GetNamespacedName(st.dpu))
 		return *state, nil
 	}
 

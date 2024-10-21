@@ -26,6 +26,7 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
+	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -60,13 +61,14 @@ type DPUClusterReconciler struct {
 
 func (r *DPUClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
+	logger.Info("Reconcile")
 
 	dc := &provisioningv1.DPUCluster{}
 	if err := r.Client.Get(ctx, req.NamespacedName, dc); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, err
+		return ctrl.Result{}, errors.Wrap(err, "failed to get DPUCluster")
 	}
 
 	if !dc.DeletionTimestamp.IsZero() {
@@ -75,20 +77,20 @@ func (r *DPUClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		}
 		r.Allocator.RemoveCluster(dc)
 		if err := r.deleteAdminClient(dc); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to delete admin client, err: %v", err)
+			return ctrl.Result{}, errors.Wrap(err, "failed to delete admin client")
 		}
 		controllerutil.RemoveFinalizer(dc, provisioningv1.FinalizerInternalCleanUp)
 		if err := r.Client.Update(ctx, dc); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to remove finalizer, err: %v", err)
+			return ctrl.Result{}, errors.Wrap(err, "failed to remove finalizer")
 		}
 		return ctrl.Result{}, nil
 	}
 
 	if !controllerutil.ContainsFinalizer(dc, provisioningv1.FinalizerInternalCleanUp) {
-		logger.V(3).Info(fmt.Sprintf("add finalizer %s", provisioningv1.FinalizerInternalCleanUp))
+		logger.Info(fmt.Sprintf("add finalizer %s", provisioningv1.FinalizerInternalCleanUp))
 		controllerutil.AddFinalizer(dc, provisioningv1.FinalizerInternalCleanUp)
 		if err := r.Client.Update(ctx, dc); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to add finalizer, err: %v", err)
+			return ctrl.Result{}, errors.Wrap(err, "failed to add finalizer")
 		}
 	}
 	r.Allocator.SaveCluster(dc)
@@ -96,8 +98,9 @@ func (r *DPUClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if dc.Status.Phase == provisioningv1.PhasePending {
 		dc.Status.Phase = provisioningv1.PhaseCreating
 		if err := r.Client.Status().Update(ctx, dc); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to set Creating phase, err: %v", err)
+			return ctrl.Result{}, errors.Wrap(err, "failed to set Creating phase")
 		}
+		logger.Info("Start creating cluster")
 		return ctrl.Result{}, nil
 	}
 
@@ -117,15 +120,15 @@ func (r *DPUClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if allTrue {
 		adminClient, err := r.getOrCreateClient(ctx, dc)
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to get admin client, err: %v", err)
+			return ctrl.Result{}, errors.Wrap(err, "failed to get admin client")
 		}
 		if _, err := adminClient.ServerVersion(); err != nil {
-			logger.Error(fmt.Errorf("health check failed, err: %v", err), "")
 			cond := cutil.NewCondition(string(provisioningv1.ConditionReady), err, "HealthCheckFailed", "")
 			meta.SetStatusCondition(&dc.Status.Conditions, *cond)
 			dc.Status.Phase = provisioningv1.PhaseNotReady
-			errList = append(errList, err)
+			errList = append(errList, fmt.Errorf("health check failed, err: %v", err))
 		} else {
+			logger.Info("Cluster is Ready")
 			cond := cutil.NewCondition(string(provisioningv1.ConditionReady), nil, "HealthCheckPassed", "")
 			meta.SetStatusCondition(&dc.Status.Conditions, *cond)
 			dc.Status.Phase = provisioningv1.PhaseReady
@@ -133,6 +136,7 @@ func (r *DPUClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	} else {
 		switch dc.Status.Phase {
 		case provisioningv1.PhaseReady, provisioningv1.PhaseNotReady:
+			logger.Info("Cluster is not Ready")
 			dc.Status.Phase = provisioningv1.PhaseNotReady
 		default: // no-op
 		}

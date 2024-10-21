@@ -18,6 +18,7 @@ package bfb
 
 import (
 	"context"
+	"fmt"
 	"reflect"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
@@ -52,14 +53,13 @@ type BFBReconciler struct {
 
 func (r *BFBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
-	logger.V(4).Info("Reconcile", "BFB", req.Name)
+	logger.Info("Reconcile")
 
 	bfb := &provisioningv1.BFB{}
 	if err := r.Get(ctx, req.NamespacedName, bfb); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		logger.Error(err, "Failed to get BFB", "BFB", bfb)
 		return ctrl.Result{}, errors.Wrap(err, "failed to get BFB")
 	}
 
@@ -75,19 +75,19 @@ func (r *BFBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	currentState := state.GetBFBState(bfb, r.Recorder)
 	nextState, err := currentState.Handle(ctx, r.Client)
 	if err != nil {
-		logger.Error(err, "BFB statue handle error", "bfb", bfb.Name, "state", bfb.Status.Phase)
+		logger.Error(err, "BFB statue handle error", "phase", bfb.Status.Phase)
 	}
 
 	if !reflect.DeepEqual(bfb.Status, nextState) {
-		logger.V(3).Info("Update BFB status", "current phase", bfb.Status.Phase, "next phase", nextState.Phase)
+		logger.Info("Update BFB status", "current phase", bfb.Status.Phase, "next phase", nextState.Phase)
 		bfb.Status = nextState
 		if err := r.Client.Status().Update(ctx, bfb); err != nil {
-			logger.Error(err, "Failed to update BFB", "BFB", bfb)
 			return ctrl.Result{}, errors.Wrap(err, "failed to update BFB")
 		}
 	} else if nextState.Phase != provisioningv1.BFBError {
 		// requeue if bfb is not in error state
 		// TODO: move the state checking in state machine
+		logger.Info(fmt.Sprintf("Requeue in %s", cutil.RequeueInterval), "current phase", bfb.Status.Phase)
 		return ctrl.Result{RequeueAfter: cutil.RequeueInterval}, nil
 	}
 	return ctrl.Result{}, nil
