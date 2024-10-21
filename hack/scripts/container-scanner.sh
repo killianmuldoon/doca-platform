@@ -76,6 +76,12 @@ return_codes=()
 # Iterate over each image
 for image in $images; do
 
+  # Check if $REGISTRY is a substring of the image
+  if [[ "$image" != *"$REGISTRY"* ]]; then
+    echo "Skipping $image (registry doesn't match)"
+    continue
+  fi
+
   # Pull the image from repo
   docker pull "${image}"
 
