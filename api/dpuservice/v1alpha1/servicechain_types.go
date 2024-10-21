@@ -72,19 +72,6 @@ type IPAM struct {
 	SetDefaultRoute *bool `json:"setDefaultRoute,omitempty"`
 }
 
-type ObjectRef struct {
-	// Namespace of the object
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
-	// +optional
-	Namespace *string `json:"namespace,omitempty"`
-	// Name of the object
-	// +kubebuilder:validation:MinLength=1
-	// +kubebuilder:validation:MaxLength=253
-	// +required
-	Name string `json:"name"`
-}
-
 // ServiceChainStatus defines the observed state of ServiceChain
 type ServiceChainStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster

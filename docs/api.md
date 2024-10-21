@@ -2166,8 +2166,6 @@ _Appears in:_
 | `annotations` _object (keys:string, values:string)_ | Annotations is a map of string keys and values. |  |  |
 
 
-
-
 #### PF
 
 
