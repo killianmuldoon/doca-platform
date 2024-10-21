@@ -18,6 +18,7 @@
 SETUP_DESCRIPTION="b2b x86-64 bf2"
 TAG="dpf/dpu"
 MAX_VM_RUNNERS="${MAX_VM_RUNNERS:-2}"
+TARGET_HOUR="${TARGET_HOUR:-6}"
 
 check_and_unregister_offline_runners() {
     TAG="$1"
@@ -78,9 +79,26 @@ if [[ $runner_count_after -gt $MAX_VM_RUNNERS ]]; then # make that number a vari
     exit 0
 fi
 
-# check existing runners status
-echo "Existing runners with tag $TAG:"
-echo  "Ordering $SETUP_DESCRIPTION VMs from NIC Cloud"
+# Get the current hour
+current_hour=$(date +%H)
+
+target_hour=$TARGET_HOUR
+
+# Calculate how many hours left until target hour.
+if [ "$current_hour" -lt "$target_hour" ]; then
+    # If it's before target time, calculate the difference
+    hours_left=$((target_hour - current_hour))
+else
+    # If it's after target time, calculate the difference until the next day's target time
+    hours_left=$((24 - current_hour + target_hour))
+fi
+
+# Ensure a minimum of 2 hours
+if [ "$hours_left" -lt 2 ]; then
+    hours_left=2
+fi
+
+echo  "Ordering $SETUP_DESCRIPTION VMs from NIC Cloud for $hours_left hours."
 
 # Order a machine
 RESPONSE=$(curl --silent -X 'POST' \
@@ -95,7 +113,7 @@ RESPONSE=$(curl --silent -X 'POST' \
   \"image\": \"linux/inbox-ubuntu24.04-x86_64\",
   \"fw_version\": \"last_stable\",
   \"mlxconfig\": \"SRIOV_EN=1 NUM_OF_VFS=46\",
-  \"time\": 23
+  \"time\": $hours_left
 }")
 
 # Extract job_id and status
