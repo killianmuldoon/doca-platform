@@ -39,10 +39,13 @@ write_files:
         network:
           renderer: networkd
           version: 2
+          ethernets:
+            pf0vf0: {}
           bridges:
             br-comm-ch:
               dhcp4: yes
-              openvswitch: {}
+              interfaces:
+                - pf0vf0
 
   - path: /etc/netplan/98-oob-tmfifo.yaml
     permissions: '0600'
@@ -70,47 +73,21 @@ write_files:
         net.ipv4.ip_forward=1
         net.bridge.bridge-nf-call-iptables=1
         net.bridge.bridge-nf-call-ip6tables=1
-  - path: /opt/dpf/configure-host-to-dpu-conn.sh
+  - path: /opt/dpf/configure-sfs.sh
     permissions: '0755'
     content: |
         #!/bin/bash
         set -ex
         PF_TOTAL_SF={{.SFNum}}
         CMD=$1
-        COMM_CH_BR_NAME=br-comm-ch
-        COMM_CH_REP_HOST=pf0vf0
 
         case $CMD in
             setup) ;;
             *)
-            echo "invalid first argument. ./configure-host-to-dpu-conn.sh {setup}"
+            echo "invalid first argument. ./configure-sfs.sh {setup}"
             exit 1
             ;;
         esac
-
-        create_bridge() {
-            local br_name=$1
-
-            if [ ! -d "/sys/class/net/${br_name}" ]; then
-                ovs-vsctl --may-exist add-br ${br_name}
-            fi
-        }
-
-        add_iface_to_bridge() {
-            local br_name=$1
-            local rep_dpu=$2
-
-            while true
-            do
-                if ip link show dev ${rep_dpu} &> /dev/null; then
-                    ovs-vsctl --may-exist --no-wait add-port ${br_name} ${rep_dpu}
-                    break
-                else
-                    echo "${rep_dpu} does not exist, waiting for ${rep_dpu} creation"
-                    sleep 5 # Wait for 5 seconds before retrying
-                fi
-            done
-        }
 
         if [ "$CMD" = "setup" ]; then
             # Create SF on P0 for SFC
@@ -118,13 +95,6 @@ write_files:
             for i in $(seq 0 $((PF_TOTAL_SF-1))); do
                 /sbin/mlnx-sf --action create --device 0000:03:00.0 --sfnum ${i} || true
             done
-
-            create_bridge ${COMM_CH_BR_NAME}
-            add_iface_to_bridge ${COMM_CH_BR_NAME} ${COMM_CH_REP_HOST}
-
-            sleep 1
-            ip link set ${COMM_CH_BR_NAME} up
-
         fi
   - path: /etc/systemd/system/kubelet.service.d/10-bf.conf
     permissions: '0644'
@@ -211,7 +181,7 @@ write_files:
 
         [Service]
         Type=oneshot
-        ExecStart=/bin/bash /opt/dpf/configure-host-to-dpu-conn.sh setup
+        ExecStart=/bin/bash /opt/dpf/configure-sfs.sh setup
 
         [Install]
         WantedBy=multi-user.target
