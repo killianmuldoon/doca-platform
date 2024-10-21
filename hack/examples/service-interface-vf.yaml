@@ -1,12 +1,11 @@
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: ServiceInterface
 metadata:
-  name: node1-dpu1-vf0
+  name: node1-dpu1-vf2
   labels:
     uplink: port0
 spec:
   interfaceType: vf
-  interfaceName: enp33s0f0np0v0
   vf:
     parentInterfaceRef: node1-dpu1-pf0
     pfID: 0

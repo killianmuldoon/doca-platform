@@ -13,4 +13,5 @@ spec:
         uplink: "port0"
     spec:
       interfaceType: physical
-      interfaceName: p0
+      physical:
+        interfaceName: p0

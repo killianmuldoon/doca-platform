@@ -6,23 +6,23 @@ metadata:
 spec:
   switches:
     - ports:
-      - service:
+      - serviceInterface:
           matchLabels:
             svc.dpu.nvidia.com/service: hbn
-          interface: net1
+            svc.dpu.nvidia.com/interface: net1
       - serviceInterface:
           matchLabels:
             uplink: port0
-      - service:
+      - serviceInterface:
           matchLabels:
             svc.dpu.nvidia.com/service: hbn
-          interface: net2
+            svc.dpu.nvidia.com/interface: net2
     - ports:
       - serviceInterface:
           matchLabels:
             uplink: p0
-      - service:
+      - serviceInterface:
           matchLabels:
             svc.dpu.nvidia.com/service: hbn
-          interface: net2
+            svc.dpu.nvidia.com/interface: net2
   node: k8smaster

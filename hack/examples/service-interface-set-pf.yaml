@@ -13,6 +13,5 @@ spec:
         uplink: "port0"
     spec:
       interfaceType: pf
-      interfaceName: p0
       pf:
         pfID: 0

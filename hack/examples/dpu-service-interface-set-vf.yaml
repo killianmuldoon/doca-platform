@@ -18,7 +18,6 @@ spec:
             uplink: "port0"
         spec:
           interfaceType: vf
-          interfaceName: enp33s0f0np0
           vf:
             pfID: 0
             vfID: 2

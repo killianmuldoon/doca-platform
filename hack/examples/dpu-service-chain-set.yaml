@@ -22,49 +22,49 @@ spec:
               - serviceInterface:
                   matchLabels:
                     uplink: p0
-              - service:
+              - serviceInterface:
                   matchLabels:
                     svc.dpu.nvidia.com/service: hbn
-                  interface: head-iface
+                    svc.dpu.nvidia.com/interface: head-iface
             # bridge: hbn from the ovs CNI NAD, minimal flows will be set on HBN bridge, patch ports created to sfc bridge
             - ports:
-              - service:
-                  reference:
-                    name: hbn
-                  interface: tail-iface
+              - serviceInterface:
+                matchLabels:
+                  svc.dpu.nvidia.com/service: hbn
+                  svc.dpu.nvidia.com/interface: tail-iface
                 # bridge: hbn from the ovs CNI NAD, minimal flows will be set on HBN bridge, patch ports created to sfc bridge
-              - service:
+              - serviceInterface:
                   matchLabels:
                     svc.dpu.nvidia.com/service: fw1
-                  interface: head-iface
+                    svc.dpu.nvidia.com/interface: head-iface
                 # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
             - ports:
-              - service:
-                  reference:
-                    name: fw1
-                  interface: tail-iface
+              - serviceInterface:
+                  matchLabels:
+                    svc.dpu.nvidia.com/service: fw1
+                    svc.dpu.nvidia.com/interface: tail-iface
                 # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
-              - service:
+              - serviceInterface:
                   matchLabels:
                     svc.dpu.nvidia.com/service: dnsfilter1
-                  interface: head-iface
+                    svc.dpu.nvidia.com/interface: head-iface
                 # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
-              - service:
+              - serviceInterface:
                   matchLabels:
                     svc.dpu.nvidia.com/service: nginx
-                  interface: head-iface
+                    svc.dpu.nvidia.com/interface: head-iface
                   ipam:
-                    reference:
-                      name: example1
+                    matchLabels:
+                      svc.dpu.nvidia.com/pool: example1
                     defaultGateway: False
                 # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
             - ports:
-              - service:
-                  reference:
-                    name: dnsfilter1
-                  interface: tail-iface
+              - serviceInterface:
+                  matchLabels:
+                    svc.dpu.nvidia.com/service: dnsfilter1
+                    svc.dpu.nvidia.com/interface: tail-iface
                 # bridge: sfc by default, will create a patch port between hbn and sfc, will set flows on SFC bridge
               - serviceInterface:
-                  reference:
-                    name: vf0
+                  matchLabels:
+                    svc.dpu.nvidia.com/interface: vf0
                 # bridge: int from the ServiceInterface. Will create a patch port and not set flows on the OVS br-int.

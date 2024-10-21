@@ -6,5 +6,6 @@ metadata:
     uplink: port0
 spec:
   interfaceType: physical
-  interfaceName: p3
+  physical:
+    interfaceName: p0
   node: k8smaster

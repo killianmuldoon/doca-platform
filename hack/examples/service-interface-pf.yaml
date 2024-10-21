@@ -6,7 +6,6 @@ metadata:
     uplink: port0
 spec:
   interfaceType: pf
-  interfaceName: enp33s0f0np0
   pf:
     pfID: 0
   node: node1-dpu1
