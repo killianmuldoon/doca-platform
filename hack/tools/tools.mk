@@ -13,7 +13,7 @@
 #See the License for the specific language governing permissions and
 #limitations under the License.
 
-TOOLSDIR ?= $(shell pwd)/hack/tools/bin
+TOOLSDIR ?= $(CURDIR)/hack/tools/bin
 $(TOOLSDIR):
 	@mkdir -p $@
 

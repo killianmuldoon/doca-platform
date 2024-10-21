@@ -73,11 +73,11 @@ SHELL = /usr/bin/env bash -o pipefail
 help: ## Display this help.
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
-LOCALBIN ?= $(shell pwd)/bin
-CHARTSDIR ?= $(shell pwd)/hack/charts
-DPUSERVICESDIR ?= $(shell pwd)/deploy/dpuservices
-REPOSDIR ?= $(shell pwd)/hack/repos
-HELMDIR ?= $(shell pwd)/deploy/helm
+LOCALBIN ?= $(CURDIR)/bin
+CHARTSDIR ?= $(CURDIR)/hack/charts
+DPUSERVICESDIR ?= $(CURDIR)/deploy/dpuservices
+REPOSDIR ?= $(CURDIR)/hack/repos
+HELMDIR ?= $(CURDIR)/deploy/helm
 
 $(LOCALBIN) $(CHARTSDIR) $(DPUSERVICESDIR) $(REPOSDIR):
 	@mkdir -p $@
@@ -216,7 +216,7 @@ generate-manifests-release-defaults: envsubst ## Generates manifests that contai
 TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 .PHONY: generate-manifests-operator-embedded
-generate-manifests-operator-embedded:kustomize envsubst generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults generate-manifests-nvidia-cluster-manager generate-manifests-static-cluster-manager generate-manifests-dpu-detector ## Generates manifests that are embedded into the operator binary.
+generate-manifests-operator-embedded: kustomize envsubst generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults generate-manifests-nvidia-cluster-manager generate-manifests-static-cluster-manager generate-manifests-dpu-detector ## Generates manifests that are embedded into the operator binary.
 	$(KUSTOMIZE) build config/provisioning/default > $(EMBEDDED_MANIFESTS_DIR)/provisioning-controller.yaml
 	$(KUSTOMIZE) build config/dpu-detector > $(EMBEDDED_MANIFESTS_DIR)/dpu-detector.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
@@ -235,7 +235,7 @@ generate-manifests-servicechainset: controller-gen kustomize envsubst ## Generat
 	rbac:roleName=manager-role \
 	output:crd:dir=./config/servicechainset/crd/bases \
 	output:rbac:dir=./config/servicechainset/rbac
-	find config/servicechainset/crd/bases/ -type f -not -name '*dpu*' -exec cp {} deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/ \;
+	find config/servicechainset/crd/bases/ -type f -not -name '*_dpu*' -exec cp {} deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/ \;
 	$(ENVSUBST) < deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml.tmpl > deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml
 
 
@@ -428,7 +428,7 @@ test-deploy-operator-operator-sdk: operator-sdk kustomize test-install-operator-
 	# TODO: This flow does not work on MacOS dues to some issue pulling images. Should be enabled to make local testing equivalent to CI.
 	$(OPERATOR_SDK) run bundle --namespace $(OPERATOR_NAMESPACE) --index-image quay.io/operator-framework/opm:$(OPERATOR_REGISTRY_VERSION) $(OPERATOR_SDK_RUN_BUNDLE_EXTRA_ARGS) $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
 
-ARTIFACTS_DIR ?= $(shell pwd)/artifacts
+ARTIFACTS_DIR ?= $(CURDIR)/artifacts
 .PHONY: test-cache-images
 test-cache-images: minikube ## Add images to the minikube cache based on the artifacts directory created in e2e.
 	# Run a script which will cache images which were pulled in the test run to the minikube cache.
