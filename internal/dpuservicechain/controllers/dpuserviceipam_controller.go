@@ -61,10 +61,10 @@ const (
 	dpuServiceIPAMControllerName = "dpuserviceipamcontroller"
 )
 
-//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuserviceipams,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuserviceipams/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuserviceipams/finalizers,verbs=update
-//+kubebuilder:rbac:groups=nv-ipam.nvidia.com,resources=ippools,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuserviceipams,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuserviceipams/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuserviceipams/finalizers,verbs=update
+// +kubebuilder:rbac:groups=nv-ipam.nvidia.com,resources=ippools,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile reconciles changes in a DPUServiceIPAM object
 //

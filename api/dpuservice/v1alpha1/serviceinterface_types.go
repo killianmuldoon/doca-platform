@@ -141,11 +141,11 @@ type ServiceInterfaceStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="IfType",type=string,JSONPath=`.spec.interfaceType`
-//+kubebuilder:printcolumn:name="IfName",type=string,JSONPath=`.spec.interfaceName`
-//+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="IfType",type=string,JSONPath=`.spec.interfaceType`
+// +kubebuilder:printcolumn:name="IfName",type=string,JSONPath=`.spec.interfaceName`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // ServiceInterface is the Schema for the serviceinterfaces API
 type ServiceInterface struct {
@@ -156,7 +156,7 @@ type ServiceInterface struct {
 	Status ServiceInterfaceStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // ServiceInterfaceList contains a list of ServiceInterface
 type ServiceInterfaceList struct {

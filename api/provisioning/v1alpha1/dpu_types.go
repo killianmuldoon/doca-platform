@@ -158,8 +158,8 @@ type Firmware struct {
 	UEFI string `json:"uefi,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // DPU is the Schema for the dpus API
 type DPU struct {
@@ -173,7 +173,7 @@ type DPU struct {
 	Status DPUStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DPUList contains a list of DPU
 type DPUList struct {

@@ -100,8 +100,8 @@ type DPFOperatorConfigStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // DPFOperatorConfig is the Schema for the dpfoperatorconfigs API
 type DPFOperatorConfig struct {
@@ -112,7 +112,7 @@ type DPFOperatorConfig struct {
 	Status DPFOperatorConfigStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DPFOperatorConfigList contains a list of DPFOperatorConfig
 type DPFOperatorConfigList struct {

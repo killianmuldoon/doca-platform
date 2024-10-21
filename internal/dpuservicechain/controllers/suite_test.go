@@ -87,7 +87,7 @@ var _ = BeforeSuite(func() {
 	Expect(nvipamv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	s := scheme.Scheme
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 
 	testClient, err = client.New(cfg, client.Options{Scheme: s})
 	Expect(err).NotTo(HaveOccurred())

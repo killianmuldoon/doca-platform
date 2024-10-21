@@ -69,8 +69,8 @@ func (c *DPUDeployment) SetConditions(conditions []metav1.Condition) {
 	c.Status.Conditions = conditions
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // DPUDeployment is the Schema for the dpudeployments API. This object connects DPUServices with specific BFBs and
 // DPUServiceChains.
@@ -175,7 +175,7 @@ type DPUDeploymentStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DPUDeploymentList contains a list of DPUDeployment
 type DPUDeploymentList struct {

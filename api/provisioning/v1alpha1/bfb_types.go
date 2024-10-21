@@ -73,8 +73,8 @@ type BFBStatus struct {
 	Phase BFBPhase `json:"phase"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // BFB is the Schema for the bfbs API
 type BFB struct {
@@ -88,7 +88,7 @@ type BFB struct {
 	Status BFBStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // BFBList contains a list of BFB
 type BFBList struct {

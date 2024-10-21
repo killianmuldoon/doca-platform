@@ -29,8 +29,8 @@ const (
 // DPUServiceTemplateGroupVersionKind is the GroupVersionKind of the DPUServiceTemplate object
 var DPUServiceTemplateGroupVersionKind = GroupVersion.WithKind(DPUServiceTemplateKind)
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // DPUServiceTemplate is the Schema for the DPUServiceTemplate API. This object is intended to be used in
 // conjunction with a DPUDeployment object. This object is the template from which the DPUService will be created. It
@@ -65,7 +65,7 @@ type DPUServiceTemplateSpec struct {
 // DPUServiceTemplateStatus defines the observed state of DPUServiceTemplate
 type DPUServiceTemplateStatus struct{}
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DPUServiceTemplateList contains a list of DPUServiceTemplate
 type DPUServiceTemplateList struct {

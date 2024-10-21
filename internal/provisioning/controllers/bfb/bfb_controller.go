@@ -46,9 +46,9 @@ type BFBReconciler struct {
 	Recorder record.EventRecorder
 }
 
-//+kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=bfbs,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=bfbs/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=bfbs/finalizers,verbs=update
+// +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=bfbs,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=bfbs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=bfbs/finalizers,verbs=update
 
 func (r *BFBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)

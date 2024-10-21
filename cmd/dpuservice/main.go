@@ -60,7 +60,7 @@ func init() {
 	utilruntime.Must(nvipamv1.AddToScheme(clientgoscheme.Scheme))
 	utilruntime.Must(operatorv1.AddToScheme(clientgoscheme.Scheme))
 	utilruntime.Must(provisioningv1.AddToScheme(clientgoscheme.Scheme))
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 }
 
 // Add RBAC for the metrics endpoint.
@@ -213,7 +213,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	//+kubebuilder:scaffold:builder
+	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

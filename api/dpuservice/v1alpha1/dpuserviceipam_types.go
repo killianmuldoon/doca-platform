@@ -120,8 +120,8 @@ type DPUServiceIPAMStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // DPUServiceIPAM is the Schema for the dpuserviceipams API
 type DPUServiceIPAM struct {
@@ -132,7 +132,7 @@ type DPUServiceIPAM struct {
 	Status DPUServiceIPAMStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DPUServiceIPAMList contains a list of DPUServiceIPAM
 type DPUServiceIPAMList struct {

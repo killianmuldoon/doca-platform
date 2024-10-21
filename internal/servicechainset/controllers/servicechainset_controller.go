@@ -57,14 +57,14 @@ const (
 	serviceChainSetControllerName = "service-chain-set-controller"
 )
 
-//+kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
-//+kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechainsets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechainsets/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechainsets/finalizers,verbs=update
-//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechains,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechains/finalizers,verbs=update
-//+kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
+// +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechainsets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechainsets/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechainsets/finalizers,verbs=update
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechains,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechains/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 
 //nolint:dupl
 func (r *ServiceChainSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {

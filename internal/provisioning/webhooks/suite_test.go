@@ -80,7 +80,7 @@ var _ = BeforeSuite(func() {
 	err = admissionv1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
@@ -108,7 +108,7 @@ var _ = BeforeSuite(func() {
 	err = (&DPUFlavor{}).SetupWebhookWithManager(mgr)
 	Expect(err).NotTo(HaveOccurred())
 
-	//+kubebuilder:scaffold:webhook
+	// +kubebuilder:scaffold:webhook
 
 	go func() {
 		defer GinkgoRecover()

@@ -103,11 +103,11 @@ type ServiceInterfaceSetStatus struct {
 	NumberReady int32 `json:"numberReady,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="IfType",type=string,JSONPath=`.spec.template.spec.interfaceType`
-//+kubebuilder:printcolumn:name="IfName",type=string,JSONPath=`.spec.template.spec.interfaceName`
-//+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="IfType",type=string,JSONPath=`.spec.template.spec.interfaceType`
+// +kubebuilder:printcolumn:name="IfName",type=string,JSONPath=`.spec.template.spec.interfaceName`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // ServiceInterfaceSet is the Schema for the serviceinterfacesets API
 type ServiceInterfaceSet struct {
@@ -118,7 +118,7 @@ type ServiceInterfaceSet struct {
 	Status ServiceInterfaceSetStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // ServiceInterfaceSetList contains a list of ServiceInterfaceSet
 type ServiceInterfaceSetList struct {

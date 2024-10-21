@@ -94,8 +94,8 @@ func (c *DPUService) SetConditions(conditions []metav1.Condition) {
 	c.Status.Conditions = conditions
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // DPUService is the Schema for the dpuservices API
 type DPUService struct {
@@ -203,7 +203,7 @@ type DPUServiceStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DPUServiceList contains a list of DPUService
 type DPUServiceList struct {

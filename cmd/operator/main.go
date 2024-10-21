@@ -59,7 +59,7 @@ func init() {
 
 	utilruntime.Must(argov1.AddToScheme(scheme))
 
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 }
 
 var (
@@ -184,7 +184,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DPFOperatorConfig")
 		os.Exit(1)
 	}
-	//+kubebuilder:scaffold:builder
+	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

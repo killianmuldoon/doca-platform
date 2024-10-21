@@ -271,7 +271,7 @@ type TenantControlPlaneSpec struct {
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.kubernetesResources.version.status",description="Status"
 // +kubebuilder:printcolumn:name="Control-Plane endpoint",type="string",JSONPath=".status.controlPlaneEndpoint",description="Tenant Control Plane Endpoint (API server)"
 // +kubebuilder:printcolumn:name="Kubeconfig",type="string",JSONPath=".status.kubeconfig.admin.secretName",description="Secret which contains admin kubeconfig"
-//+kubebuilder:printcolumn:name="Datastore",type="string",JSONPath=".status.storage.dataStoreName",description="DataStore actually used"
+// +kubebuilder:printcolumn:name="Datastore",type="string",JSONPath=".status.storage.dataStoreName",description="DataStore actually used"
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Age"
 
 // TenantControlPlane is the Schema for the tenantcontrolplanes API.
@@ -283,7 +283,7 @@ type TenantControlPlane struct {
 	Status TenantControlPlaneStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // TenantControlPlaneList contains a list of TenantControlPlane.
 type TenantControlPlaneList struct {

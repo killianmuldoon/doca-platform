@@ -108,7 +108,7 @@ type ContainerdConfig struct {
 	RegistryEndpoint string `json:"registryEndpoint,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DPUFlavor is the Schema for the dpuflavors API
 type DPUFlavor struct {
@@ -118,7 +118,7 @@ type DPUFlavor struct {
 	Spec DPUFlavorSpec `json:"spec,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DPUFlavorList contains a list of DPUFlavor
 type DPUFlavorList struct {

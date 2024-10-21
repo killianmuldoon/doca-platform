@@ -65,7 +65,7 @@ func init() {
 	utilruntime.Must(maintenancev1alpha1.AddToScheme(scheme))
 	utilruntime.Must(certmanagerv1.AddToScheme(scheme))
 
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 }
 
 // Add RBAC for the metrics endpoint.
@@ -239,7 +239,7 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DPUFlavor")
 		os.Exit(1)
 	}
-	//+kubebuilder:scaffold:builder
+	// +kubebuilder:scaffold:builder
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

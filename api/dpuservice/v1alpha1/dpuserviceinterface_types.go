@@ -81,11 +81,11 @@ type DPUServiceInterfaceStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="IfType",type=string,JSONPath=`.spec.template.spec.template.spec.interfaceType`
-//+kubebuilder:printcolumn:name="IfName",type=string,JSONPath=`.spec.template.spec.template.spec.interfaceName`
-//+kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="IfType",type=string,JSONPath=`.spec.template.spec.template.spec.interfaceType`
+// +kubebuilder:printcolumn:name="IfName",type=string,JSONPath=`.spec.template.spec.template.spec.interfaceName`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // DPUServiceInterface is the Schema for the DPUServiceInterface API
 type DPUServiceInterface struct {
@@ -96,7 +96,7 @@ type DPUServiceInterface struct {
 	Status DPUServiceInterfaceStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DPUServiceInterfaceList contains a list of DPUServiceInterface
 type DPUServiceInterfaceList struct {

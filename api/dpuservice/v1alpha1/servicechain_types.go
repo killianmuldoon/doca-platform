@@ -78,8 +78,8 @@ type ServiceChainStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // ServiceChain is the Schema for the servicechains API
 type ServiceChain struct {
@@ -90,7 +90,7 @@ type ServiceChain struct {
 	Status ServiceChainStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // ServiceChainList contains a list of ServiceChain
 type ServiceChainList struct {

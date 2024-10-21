@@ -57,12 +57,12 @@ type ServiceInterfaceSetReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfacesets,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfacesets/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfacesets/finalizers,verbs=update
-//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
-//+kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfacesets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfacesets/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfacesets/finalizers,verbs=update
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

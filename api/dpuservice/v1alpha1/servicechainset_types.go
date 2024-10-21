@@ -96,8 +96,8 @@ type ServiceChainSetStatus struct {
 	NumberReady int32 `json:"numberReady,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // ServiceChainSet is the Schema for the servicechainsets API
 type ServiceChainSet struct {
@@ -108,7 +108,7 @@ type ServiceChainSet struct {
 	Status ServiceChainSetStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // ServiceChainSetList contains a list of ServiceChainSet
 type ServiceChainSetList struct {

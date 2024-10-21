@@ -76,8 +76,8 @@ type DPUServiceChainStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // DPUServiceChain is the Schema for the DPUServiceChain API
 type DPUServiceChain struct {
@@ -88,7 +88,7 @@ type DPUServiceChain struct {
 	Status DPUServiceChainStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DPUServiceChainList contains a list of DPUServiceChain
 type DPUServiceChainList struct {

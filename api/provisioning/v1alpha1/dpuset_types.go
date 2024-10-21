@@ -123,8 +123,8 @@ type DPUSetStatus struct {
 	DPUStatistics map[DPUPhase]int `json:"dpuStatistics,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // DPUSet is the Schema for the dpusets API
 type DPUSet struct {
@@ -135,7 +135,7 @@ type DPUSet struct {
 	Status DPUSetStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DPUSetList contains a list of DPUSet
 type DPUSetList struct {

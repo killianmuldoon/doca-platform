@@ -48,7 +48,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(ovnkubernetesoperatorv1.AddToScheme(scheme))
-	//+kubebuilder:scaffold:scheme
+	// +kubebuilder:scaffold:scheme
 }
 
 var (
@@ -161,7 +161,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DPFOVNKubernetesOperatorConfig")
 		os.Exit(1)
 	}
-	//+kubebuilder:scaffold:builder
+	// +kubebuilder:scaffold:builder
 
 	if enableWebhook {
 		if err = (&webhooks.NetworkInjector{

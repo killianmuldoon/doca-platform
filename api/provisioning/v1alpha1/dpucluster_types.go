@@ -120,19 +120,19 @@ type KeepalivedSpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="type of the cluster"
-//+kubebuilder:printcolumn:name="MaxNodes",type="integer",JSONPath=".spec.maxNodes",description="max amount of nodes"
-//+kubebuilder:printcolumn:name="Version",type="string",JSONPath=".spec.version",description="Kubernetes control-plane version"
-//+kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="status of the cluster"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="type of the cluster"
+// +kubebuilder:printcolumn:name="MaxNodes",type="integer",JSONPath=".spec.maxNodes",description="max amount of nodes"
+// +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".spec.version",description="Kubernetes control-plane version"
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="status of the cluster"
 
 // DPUCluster is the Schema for the dpuclusters API
 type DPUCluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	//+required
+	// +required
 	Spec DPUClusterSpec `json:"spec,omitempty"`
 
 	// +kubebuilder:default={phase: Pending}
@@ -140,7 +140,7 @@ type DPUCluster struct {
 	Status DPUClusterStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DPUClusterList contains a list of DPUCluster
 type DPUClusterList struct {

@@ -86,11 +86,11 @@ type DataStoreStatus struct {
 	UsedBy []string `json:"usedBy,omitempty"`
 }
 
-//+kubebuilder:object:root=true
-//+kubebuilder:subresource:status
-//+kubebuilder:resource:scope=Cluster
-//+kubebuilder:printcolumn:name="Driver",type="string",JSONPath=".spec.driver",description="Kamaji data store driver"
-//+kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Age"
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:scope=Cluster
+// +kubebuilder:printcolumn:name="Driver",type="string",JSONPath=".spec.driver",description="Kamaji data store driver"
+// +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp",description="Age"
 
 // DataStore is the Schema for the datastores API.
 type DataStore struct {
@@ -101,7 +101,7 @@ type DataStore struct {
 	Status DataStoreStatus `json:"status,omitempty"`
 }
 
-//+kubebuilder:object:root=true
+// +kubebuilder:object:root=true
 
 // DataStoreList contains a list of DataStore.
 type DataStoreList struct {
