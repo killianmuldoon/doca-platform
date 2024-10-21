@@ -646,6 +646,22 @@ _Appears in:_
 | `Failed` |  |
 
 
+#### ClusterSpec
+
+
+
+
+
+
+
+_Appears in:_
+- [DPUTemplateSpec](#dputemplatespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `nodeLabels` _object (keys:string, values:string)_ |  |  |  |
+
+
 
 
 
@@ -1140,7 +1156,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `bfb` _[BFBReference](#bfbreference)_ |  |  |  |
 | `nodeEffect` _[NodeEffect](#nodeeffect)_ |  |  |  |
-| `cluster` _[K8sCluster](#k8scluster)_ |  |  |  |
+| `cluster` _[ClusterSpec](#clusterspec)_ |  |  |  |
 | `dpuFlavor` _string_ |  |  |  |
 | `automaticNodeReboot` _boolean_ | Specifies if the DPU controller should automatically reboot the node on upgrades,<br />this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic |  |  |
 
@@ -1189,7 +1205,6 @@ _Appears in:_
 
 _Appears in:_
 - [DPUSpec](#dpuspec)
-- [DPUTemplateSpec](#dputemplatespec)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |

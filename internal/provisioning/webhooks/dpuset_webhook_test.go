@@ -98,26 +98,25 @@ var _ = Describe("DPUSet", func() {
 			Expect(objFetched).To(Equal(obj))
 		})
 
-		It("spec.dpuTemplate.spec.cluster is mutable", func() {
-			refValue := `dummy_cluster`
-			newValue := `dummy_new_cluster`
+		It("spec.dpuTemplate.spec.cluster.nodeSelector is mutable", func() {
+			refValue := map[string]string{"k1": "v1"}
+			newValue := map[string]string{"k1": "v11", "k2": "v2"}
 
 			obj := createObj("obj-4")
-			obj.Spec.DPUTemplate.Spec.Cluster = provisioningv1.K8sCluster{
-				Name:      refValue,
-				NameSpace: `default`,
+			obj.Spec.DPUTemplate.Spec.Cluster = provisioningv1.ClusterSpec{
+				NodeLabels: refValue,
 			}
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
-			obj.Spec.DPUTemplate.Spec.Cluster.Name = newValue
+			obj.Spec.DPUTemplate.Spec.Cluster.NodeLabels = newValue
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
 			objFetched := &provisioningv1.DPUSet{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(objFetched.Spec.DPUTemplate.Spec.Cluster.Name).To(Equal(newValue))
+			Expect(objFetched.Spec.DPUTemplate.Spec.Cluster.NodeLabels).To(Equal(newValue))
 		})
 
 		It("create from yaml", func() {
@@ -146,8 +145,6 @@ spec:
           value: "provisioning"
           effect: NoSchedule
       Cluster:
-        name: "tenant-00"
-        namespace: "tenant-00-ns"
         nodeLabels:
           "dpf.node.dpu/role": "worker"
 `)

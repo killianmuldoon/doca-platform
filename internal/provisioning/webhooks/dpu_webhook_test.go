@@ -146,26 +146,31 @@ var _ = Describe("DPU", func() {
 			Expect(objFetched.Spec.PCIAddress).To(Equal(refValue))
 		})
 
-		It("spec.Cluster is mutable", func() {
+		It("spec.Cluster is immutable once assigned", func() {
 			refValue := `dummy_cluster`
 			newValue := `dummy_new_cluster`
+			ns := "default"
 
 			obj := createObj("obj-7")
+			err := k8sClient.Create(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+
 			obj.Spec.Cluster = provisioningv1.K8sCluster{
 				Name:      refValue,
-				NameSpace: `default`,
+				NameSpace: ns,
 			}
-			err := k8sClient.Create(ctx, obj)
+			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
 			obj.Spec.Cluster.Name = newValue
 			err = k8sClient.Update(ctx, obj)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(err).To(HaveOccurred())
 
 			objFetched := &provisioningv1.DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(objFetched.Spec.Cluster.Name).To(Equal(newValue))
+			Expect(objFetched.Spec.Cluster.Name).To(Equal(refValue))
+			Expect(objFetched.Spec.Cluster.NameSpace).To(Equal(ns))
 		})
 
 		It("spec.cluster can be updated from unassigned state", func() {

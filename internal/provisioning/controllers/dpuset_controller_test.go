@@ -133,8 +133,6 @@ spec:
           value: "provisioning"
           effect: NoSchedule
       cluster:
-        name: "tenant-00"
-        namespace: "tenant-00-ns"
         nodeLabels:
           "dpf.node.dpu/role": "worker"
 `)

@@ -66,10 +66,15 @@ type BFBReference struct {
 	Name string `json:"name,omitempty"`
 }
 
+type ClusterSpec struct {
+	// +optional
+	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
+}
+
 type DPUTemplateSpec struct {
 	BFB        BFBReference `json:"bfb,omitempty"`
 	NodeEffect *NodeEffect  `json:"nodeEffect,omitempty"`
-	Cluster    K8sCluster   `json:"cluster"`
+	Cluster    ClusterSpec  `json:"cluster,omitempty"`
 	DPUFlavor  string       `json:"dpuFlavor"`
 	// Specifies if the DPU controller should automatically reboot the node on upgrades,
 	// this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic

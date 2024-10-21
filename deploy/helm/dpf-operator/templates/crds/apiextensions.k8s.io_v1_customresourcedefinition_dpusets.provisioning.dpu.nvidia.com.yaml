@@ -67,10 +67,6 @@ spec:
                         type: object
                       cluster:
                         properties:
-                          name:
-                            type: string
-                          namespace:
-                            type: string
                           nodeLabels:
                             additionalProperties:
                               type: string
@@ -122,7 +118,6 @@ spec:
                             type: object
                         type: object
                     required:
-                    - cluster
                     - dpuFlavor
                     type: object
                 type: object

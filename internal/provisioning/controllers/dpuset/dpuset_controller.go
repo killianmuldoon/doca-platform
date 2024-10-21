@@ -312,10 +312,12 @@ func (r *DPUSetReconciler) createDPU(ctx context.Context, dpuSet *provisioningv1
 			OwnerReferences: []metav1.OwnerReference{*owner},
 		},
 		Spec: provisioningv1.DPUSpec{
-			NodeName:            node.Name,
-			BFB:                 dpuSet.Spec.DPUTemplate.Spec.BFB.Name,
-			NodeEffect:          dpuSet.Spec.DPUTemplate.Spec.NodeEffect,
-			Cluster:             dpuSet.Spec.DPUTemplate.Spec.Cluster,
+			NodeName:   node.Name,
+			BFB:        dpuSet.Spec.DPUTemplate.Spec.BFB.Name,
+			NodeEffect: dpuSet.Spec.DPUTemplate.Spec.NodeEffect,
+			Cluster: provisioningv1.K8sCluster{
+				NodeLabels: dpuSet.Spec.DPUTemplate.Spec.Cluster.NodeLabels,
+			},
 			DPUFlavor:           dpuSet.Spec.DPUTemplate.Spec.DPUFlavor,
 			AutomaticNodeReboot: dpuSet.Spec.DPUTemplate.Spec.AutomaticNodeReboot,
 		},

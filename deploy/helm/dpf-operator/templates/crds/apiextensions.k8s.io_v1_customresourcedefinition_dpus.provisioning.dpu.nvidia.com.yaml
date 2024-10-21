@@ -63,8 +63,14 @@ spec:
                 properties:
                   name:
                     type: string
+                    x-kubernetes-validations:
+                    - message: Value is immutable
+                      rule: self==oldSelf
                   namespace:
                     type: string
+                    x-kubernetes-validations:
+                    - message: Value is immutable
+                      rule: self==oldSelf
                   nodeLabels:
                     additionalProperties:
                       type: string
@@ -133,7 +139,6 @@ spec:
                   rule: self == oldSelf
             required:
             - bfb
-            - cluster
             - nodeName
             type: object
           status:

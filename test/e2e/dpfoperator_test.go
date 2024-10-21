@@ -355,18 +355,13 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			Eventually(func(g Gomega) {
-				for _, cluster := range dpuClusters {
-					dpusetUnstructured := getUnstructuredFromFile("infrastructure/dpuset.yaml")
-					dpuset := &provisioningv1.DPUSet{}
-					Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpusetUnstructured.Object, dpuset)).To(Succeed())
+				dpusetUnstructured := getUnstructuredFromFile("infrastructure/dpuset.yaml")
+				dpuset := &provisioningv1.DPUSet{}
+				Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpusetUnstructured.Object, dpuset)).To(Succeed())
 
-					By(fmt.Sprintf("Creating the DPUSet for cluster %s/%s", cluster.Name, cluster.Namespace))
-					dpuset.Spec.DPUTemplate.Spec.Cluster.Name = cluster.Name
-					dpuset.Spec.DPUTemplate.Spec.Cluster.NameSpace = cluster.Namespace
-					// TODO: Test the cleanup of the node related to the DPU.
-					dpuset.SetLabels(cleanupLabels)
-					g.Expect(testClient.Create(ctx, dpuset)).To(Succeed())
-				}
+				// TODO: Test the cleanup of the node related to the DPU.
+				dpuset.SetLabels(cleanupLabels)
+				g.Expect(testClient.Create(ctx, dpuset)).To(Succeed())
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 
 			By(fmt.Sprintf("checking that the number of nodes is equal to %d", numNodes))

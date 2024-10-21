@@ -80,10 +80,12 @@ func (ct DPUConditionType) String() string {
 }
 
 type K8sCluster struct {
+	// +kubebuilder:validation:XValidation:rule="self==oldSelf", message="Value is immutable"
 	// +optional
-	Name string `json:"name"`
+	Name string `json:"name,omitempty"`
+	// +kubebuilder:validation:XValidation:rule="self==oldSelf", message="Value is immutable"
 	// +optional
-	NameSpace string `json:"namespace"`
+	NameSpace string `json:"namespace,omitempty"`
 	// +optional
 	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
 }
@@ -110,8 +112,8 @@ type DPUSpec struct {
 	NodeEffect *NodeEffect `json:"nodeEffect,omitempty"`
 
 	// Specifies details on the K8S cluster to join
-	// +required
-	Cluster K8sCluster `json:"cluster"`
+	// +optional
+	Cluster K8sCluster `json:"cluster,omitempty"`
 
 	// DPUFlavor is the name of the DPUFlavor that will be used to deploy the DPU.
 	// +optional
