@@ -36,7 +36,7 @@ fi
 
 # Ensure the BFBs have been copied to this node so they're accessible.
 mkdir -p /bfb-images
-cp /auto/sw_mc_soc_release/doca_dpu/doca_2.7.0/GA/bfbs/qp/bf-bundle*ubuntu-22.04_unsigned.bfb /bfb-images
+cp /auto/sw_mc_soc_release/doca_dpu/doca_2.9.0/20241020/bfbs/qp/bf-bundle-2.9.0-64_24.10_ubuntu-22.04_unsigned.bfb /bfb-images
 
 # Run DPF Standalone from https://gitlab-master.nvidia.com/doca-platform-foundation/dpf-standalone
 docker run --pull=always --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone:latest \
