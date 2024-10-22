@@ -8,11 +8,11 @@ As DPF is being actively developed, this doc might be out of date at any time, l
 ## A DPUCluster CR is mandatory for DPU provisioning
 Before Oct Rel, creating a kamaji `TenantControlPlane` CR is all you need to create a DPU cluster, the `provisioning-controller` recognises the created cluster by reading a Secret managed by kamaji.
 
-In Oct Rel, the `provisioning-controller` finds DPU clusters by watching the `DPUCluster` CR, it no longer interacts with kamaji directly. To provision a DPU, you must create a `DPUCluster` CR and deploy either the [nvidia-cluster-manger](../../cmd/nvidia-cluster-manager) or the [static-cluster-manager](../../cmd/static-cluster-manager). The nvidia-cluster-manager is preferred in an e2e test, because it includes import FRs like [FR #3825824](https://redmine.mellanox.com/issues/3825824) and [FR #3971787](https://redmine.mellanox.com/issues/3971787).
+In Oct Rel, the `provisioning-controller` finds DPU clusters by watching the `DPUCluster` CR, it no longer interacts with kamaji directly. To provision a DPU, you must create a `DPUCluster` CR and deploy either the [kamaji-cluster-manger](../../cmd/kamaji-cluster-manager) or the [static-cluster-manager](../../cmd/static-cluster-manager). The kamaji-cluster-manager is preferred in an e2e test, because it includes import FRs like [FR #3825824](https://redmine.mellanox.com/issues/3825824) and [FR #3971787](https://redmine.mellanox.com/issues/3971787).
 
 # Create DPUCluster CR
-## Option 1: Use the nvidia-cluster-manager to manage the DPU cluster
-nvidia-cluster-manager creates a DPU cluster according to the `DPUCluster` CR.
+## Option 1: Use the kamaji-cluster-manager to manage the DPU cluster
+kamaji-cluster-manager creates a DPU cluster according to the `DPUCluster` CR.
 
 ```yaml
 apiVersion: provisioning.dpf.nvidia.com/v1alpha1
@@ -20,7 +20,7 @@ kind: DPUCluster
 metadata:
   name: test
 spec:
-  type: nvidia
+  type: kamaji 
   maxNodes: 1000
   version: v1.29.0
   clusterEndpoint:
@@ -70,7 +70,7 @@ spec:
 ```bash
 # kubectl get dpucluster
 NAME   TYPE     MAXNODES    VERSION     PHASE
-test   nvidia   1000        v1.29.0     Ready
+test   kamaji 1000        v1.29.0     Ready
 ```
 Once the `PHASE` is `Ready`, it's good to go.
 

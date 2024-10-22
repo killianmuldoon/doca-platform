@@ -17,17 +17,17 @@ limitations under the License.
 package v1alpha1
 
 const (
-	ProvisioningControllerName    = "provisioning-controller"
-	DPUServiceControllerName      = "dpuservice-controller"
-	ServiceSetControllerName      = "servicechainset-controller"
-	FlannelName                   = "flannel"
-	MultusName                    = "multus"
-	SRIOVDevicePluginName         = "sriov-device-plugin"
-	OVSCNIName                    = "ovs-cni"
-	NVIPAMName                    = "nvidia-k8s-ipam"
-	SFCControllerName             = "sfc-controller"
-	HostedControlPlaneManagerName = "hosted-control-plane"
-	StaticControlPlaneManagerName = "static-control-plane"
+	ProvisioningControllerName = "provisioning-controller"
+	DPUServiceControllerName   = "dpuservice-controller"
+	ServiceSetControllerName   = "servicechainset-controller"
+	FlannelName                = "flannel"
+	MultusName                 = "multus"
+	SRIOVDevicePluginName      = "sriov-device-plugin"
+	OVSCNIName                 = "ovs-cni"
+	NVIPAMName                 = "nvidia-k8s-ipam"
+	SFCControllerName          = "sfc-controller"
+	KamajiClusterManagerName   = "kamaji-cluster-manager"
+	StaticClusterManagerName   = "static-cluster-manager"
 )
 
 func (c *DPFOperatorConfig) ComponentConfigs() []ComponentConfig {
@@ -59,11 +59,11 @@ func (c *DPFOperatorConfig) ComponentConfigs() []ComponentConfig {
 	if c.Spec.ServiceSetController != nil {
 		out = append(out, c.Spec.ServiceSetController)
 	}
-	if c.Spec.HostedControlPlaneManager != nil {
-		out = append(out, c.Spec.HostedControlPlaneManager)
+	if c.Spec.KamajiClusterManager != nil {
+		out = append(out, c.Spec.KamajiClusterManager)
 	}
-	if c.Spec.StaticControlPlaneManager != nil {
-		out = append(out, c.Spec.StaticControlPlaneManager)
+	if c.Spec.StaticClusterManager != nil {
+		out = append(out, c.Spec.StaticClusterManager)
 	}
 	return out
 }
@@ -158,7 +158,7 @@ func (c *DPUServiceControllerConfiguration) GetImage() *string {
 	return c.Image
 }
 
-type HostedControlPlaneManagerConfiguration struct {
+type KamajiClusterManagerConfiguration struct {
 	// Disable ensures the component is not deployed when set to true.
 	// +optional
 	Disable *bool `json:"disable,omitempty"`
@@ -168,22 +168,22 @@ type HostedControlPlaneManagerConfiguration struct {
 	Image Image `json:"image,omitempty"`
 }
 
-func (c *HostedControlPlaneManagerConfiguration) Name() string {
-	return HostedControlPlaneManagerName
+func (c *KamajiClusterManagerConfiguration) Name() string {
+	return KamajiClusterManagerName
 }
 
-func (c *HostedControlPlaneManagerConfiguration) Disabled() bool {
+func (c *KamajiClusterManagerConfiguration) Disabled() bool {
 	if c.Disable == nil {
 		return false
 	}
 	return *c.Disable
 }
 
-func (c *HostedControlPlaneManagerConfiguration) GetImage() *string {
+func (c *KamajiClusterManagerConfiguration) GetImage() *string {
 	return c.Image
 }
 
-type StaticControlPlaneManagerConfiguration struct {
+type StaticClusterManagerConfiguration struct {
 	// Disable ensures the component is not deployed when set to true.
 	// +optional
 	Disable *bool `json:"disable,omitempty"`
@@ -194,18 +194,18 @@ type StaticControlPlaneManagerConfiguration struct {
 	Image Image `json:"image,omitempty"`
 }
 
-func (c *StaticControlPlaneManagerConfiguration) Name() string {
-	return StaticControlPlaneManagerName
+func (c *StaticClusterManagerConfiguration) Name() string {
+	return StaticClusterManagerName
 }
 
-func (c *StaticControlPlaneManagerConfiguration) Disabled() bool {
+func (c *StaticClusterManagerConfiguration) Disabled() bool {
 	if c.Disable == nil {
 		return false
 	}
 	return *c.Disable
 }
 
-func (c *StaticControlPlaneManagerConfiguration) GetImage() *string {
+func (c *StaticClusterManagerConfiguration) GetImage() *string {
 	return c.Image
 }
 

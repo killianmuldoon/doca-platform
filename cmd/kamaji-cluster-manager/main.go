@@ -25,7 +25,7 @@ import (
 	// to ensure that exec-entrypoint and run can make use of them.
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/clustermanager/controller"
-	"github.com/nvidia/doca-platform/internal/clustermanager/nvidia"
+	kamajicm "github.com/nvidia/doca-platform/internal/clustermanager/kamaji"
 	kamaji "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -127,7 +127,7 @@ func main() {
 	if err = (&controller.DPUClusterReconciler{
 		Client:         mgr.GetClient(),
 		Scheme:         mgr.GetScheme(),
-		ClusterHandler: nvidia.NewHandler(mgr.GetClient(), mgr.GetScheme()),
+		ClusterHandler: kamajicm.NewHandler(mgr.GetClient(), mgr.GetScheme()),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPUCluster")
 		os.Exit(1)

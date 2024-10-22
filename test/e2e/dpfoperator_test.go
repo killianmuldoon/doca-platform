@@ -132,7 +132,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
 				BFBPersistentVolumeClaimName: dpfProvisioningControllerPVCName,
 			},
-			StaticControlPlaneManager: &operatorv1.StaticControlPlaneManagerConfiguration{
+			StaticClusterManager: &operatorv1.StaticClusterManagerConfiguration{
 				Disable: ptr.To(false),
 			},
 			ImagePullSecrets: []string{

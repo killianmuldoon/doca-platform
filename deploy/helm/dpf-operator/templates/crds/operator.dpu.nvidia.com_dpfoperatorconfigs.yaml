@@ -77,9 +77,16 @@ spec:
                     pattern: ^(oci://|https://).+$
                     type: string
                 type: object
-              hostedControlPlaneManager:
-                description: HostedControlPlaneManager is the configuration for the
-                  HostedControlPlaneManager
+              imagePullSecrets:
+                description: |-
+                  List of secret names which are used to pull images for DPF system components and DPUServices.
+                  These secrets must be in the same namespace as the DPF Operator Config and should be created before the config is created.
+                  System reconciliation will not proceed until these secrets are available.
+                items:
+                  type: string
+                type: array
+              kamajiClusterManager:
+                description: KamajiClusterManager is the configuration for the kamaji-cluster-manager
                 properties:
                   disable:
                     description: Disable ensures the component is not deployed when
@@ -90,14 +97,6 @@ spec:
                     pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
                     type: string
                 type: object
-              imagePullSecrets:
-                description: |-
-                  List of secret names which are used to pull images for DPF system components and DPUServices.
-                  These secrets must be in the same namespace as the DPF Operator Config and should be created before the config is created.
-                  System reconciliation will not proceed until these secrets are available.
-                items:
-                  type: string
-                type: array
               multus:
                 description: Multus is the configuration for Multus
                 properties:
@@ -249,9 +248,8 @@ spec:
                     pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
                     type: string
                 type: object
-              staticControlPlaneManager:
-                description: StaticControlPlaneManager is the configuration for the
-                  StaticControlPlaneManager
+              staticClusterManager:
+                description: StaticClusterManager is the configuration for the static-cluster-manager
                 properties:
                   disable:
                     description: Disable ensures the component is not deployed when

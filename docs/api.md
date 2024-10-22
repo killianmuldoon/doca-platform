@@ -80,8 +80,8 @@ _Appears in:_
 | `ovsCNI` _[OVSCNIConfiguration](#ovscniconfiguration)_ | OVSCNI is the configuration for OVSCNI |  |  |
 | `nvipam` _[NVIPAMConfiguration](#nvipamconfiguration)_ | NVIPAM is the configuration for NVIPAM |  |  |
 | `sfcController` _[SFCControllerConfiguration](#sfccontrollerconfiguration)_ | SFCController is the configuration for the SFCController |  |  |
-| `hostedControlPlaneManager` _[HostedControlPlaneManagerConfiguration](#hostedcontrolplanemanagerconfiguration)_ | HostedControlPlaneManager is the configuration for the HostedControlPlaneManager |  |  |
-| `staticControlPlaneManager` _[StaticControlPlaneManagerConfiguration](#staticcontrolplanemanagerconfiguration)_ | StaticControlPlaneManager is the configuration for the StaticControlPlaneManager |  |  |
+| `kamajiClusterManager` _[KamajiClusterManagerConfiguration](#kamajiclustermanagerconfiguration)_ | KamajiClusterManager is the configuration for the kamaji-cluster-manager |  |  |
+| `staticClusterManager` _[StaticClusterManagerConfiguration](#staticclustermanagerconfiguration)_ | StaticClusterManager is the configuration for the static-cluster-manager |  |  |
 | `imagePullSecrets` _string array_ | List of secret names which are used to pull images for DPF system components and DPUServices.<br />These secrets must be in the same namespace as the DPF Operator Config and should be created before the config is created.<br />System reconciliation will not proceed until these secrets are available. |  |  |
 
 
@@ -158,7 +158,33 @@ _Appears in:_
 
 
 
-#### HostedControlPlaneManagerConfiguration
+#### Image
+
+_Underlying type:_ _string_
+
+Image is a reference to a container image.
+Validation is the same as the implementation at https://github.com/containers/image/blob/93fa49b0f1fb78470512e0484012ca7ad3c5c804/docker/reference/regexp.go
+
+_Validation:_
+- Pattern: `^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$`
+
+_Appears in:_
+- [DPUServiceControllerConfiguration](#dpuservicecontrollerconfiguration)
+- [KamajiClusterManagerConfiguration](#kamajiclustermanagerconfiguration)
+- [MultusConfiguration](#multusconfiguration)
+- [NVIPAMConfiguration](#nvipamconfiguration)
+- [OVSCNIConfiguration](#ovscniconfiguration)
+- [ProvisioningControllerConfiguration](#provisioningcontrollerconfiguration)
+- [SFCControllerConfiguration](#sfccontrollerconfiguration)
+- [SRIOVDevicePluginConfiguration](#sriovdevicepluginconfiguration)
+- [ServiceSetControllerConfiguration](#servicesetcontrollerconfiguration)
+- [StaticClusterManagerConfiguration](#staticclustermanagerconfiguration)
+
+
+
+
+
+#### KamajiClusterManagerConfiguration
 
 
 
@@ -173,32 +199,6 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `disable` _boolean_ | Disable ensures the component is not deployed when set to true. |  |  |
 | `image` _[Image](#image)_ | Image overrides the container image used by the HostedControlPlaneManager. |  | Pattern: `^((?:(?:(?:[a-zA-Z0-9]\|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]\|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*\|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]\|__\|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]\|__\|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]\{0,127\}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]\{32,\}))?$` <br /> |
-
-
-#### Image
-
-_Underlying type:_ _string_
-
-Image is a reference to a container image.
-Validation is the same as the implementation at https://github.com/containers/image/blob/93fa49b0f1fb78470512e0484012ca7ad3c5c804/docker/reference/regexp.go
-
-_Validation:_
-- Pattern: `^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$`
-
-_Appears in:_
-- [DPUServiceControllerConfiguration](#dpuservicecontrollerconfiguration)
-- [HostedControlPlaneManagerConfiguration](#hostedcontrolplanemanagerconfiguration)
-- [MultusConfiguration](#multusconfiguration)
-- [NVIPAMConfiguration](#nvipamconfiguration)
-- [OVSCNIConfiguration](#ovscniconfiguration)
-- [ProvisioningControllerConfiguration](#provisioningcontrollerconfiguration)
-- [SFCControllerConfiguration](#sfccontrollerconfiguration)
-- [SRIOVDevicePluginConfiguration](#sriovdevicepluginconfiguration)
-- [ServiceSetControllerConfiguration](#servicesetcontrollerconfiguration)
-- [StaticControlPlaneManagerConfiguration](#staticcontrolplanemanagerconfiguration)
-
-
-
 
 
 #### MultusConfiguration
@@ -344,7 +344,7 @@ _Appears in:_
 | `helmChart` _[HelmChart](#helmchart)_ | HelmChart overrides the helm chart used by the ServiceSet controller.<br />The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid<br />OCI registry or a web-based repository. |  | Pattern: `^(oci://\|https://).+$` <br /> |
 
 
-#### StaticControlPlaneManagerConfiguration
+#### StaticClusterManagerConfiguration
 
 
 
@@ -772,7 +772,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `type` _string_ | Type of the cluster with few supported values<br />static - existing cluster that is deployed by user. For DPUCluster of this type, the kubeconfig field must be set.<br />nvidia - DPF managed cluster. The nvidia-cluster-manager will create a DPU cluster on behalf of this CR.<br />$(others) - any string defined by ISVs, such type names must start with a prefix. |  | Pattern: `nvidia\|static\|[^/]+/.*` <br /> |
+| `type` _string_ | Type of the cluster with few supported values<br />static - existing cluster that is deployed by user. For DPUCluster of this type, the kubeconfig field must be set.<br />kamaji - DPF managed cluster. The kamaji-cluster-manager will create a DPU cluster on behalf of this CR.<br />$(others) - any string defined by ISVs, such type names must start with a prefix. |  | Pattern: `kamaji\|static\|[^/]+/.*` <br /> |
 | `maxNodes` _integer_ | MaxNodes is the max amount of node in the cluster | 1000 | Maximum: 1000 <br />Minimum: 1 <br /> |
 | `version` _string_ | Version is the K8s control-plane version of the cluster |  |  |
 | `kubeconfig` _string_ | Kubeconfig is the secret that contains the admin kubeconfig |  |  |

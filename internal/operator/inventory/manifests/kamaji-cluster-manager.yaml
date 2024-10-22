@@ -21,7 +21,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: serviceaccount
     app.kubernetes.io/part-of: cluster-manager
-  name: nvidia-cm-controller-manager
+  name: kamaji-cm-controller-manager
   namespace: dpf-operator-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -34,7 +34,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: role
     app.kubernetes.io/part-of: cluster-manager
-  name: nvidia-cm-leader-election-role
+  name: kamaji-cm-leader-election-role
   namespace: dpf-operator-system
 rules:
 - apiGroups:
@@ -72,7 +72,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: nvidia-cm-manager-role
+  name: kamaji-cm-manager-role
 rules:
 - apiGroups:
   - ""
@@ -148,15 +148,15 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: rolebinding
     app.kubernetes.io/part-of: cluster-manager
-  name: nvidia-cm-leader-election-rolebinding
+  name: kamaji-cm-leader-election-rolebinding
   namespace: dpf-operator-system
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: nvidia-cm-leader-election-role
+  name: kamaji-cm-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: nvidia-cm-controller-manager
+  name: kamaji-cm-controller-manager
   namespace: dpf-operator-system
 ---
 apiVersion: rbac.authorization.k8s.io/v1
@@ -169,14 +169,14 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: clusterrolebinding
     app.kubernetes.io/part-of: cluster-manager
-  name: nvidia-cm-manager-rolebinding
+  name: kamaji-cm-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: nvidia-cm-manager-role
+  name: kamaji-cm-manager-role
 subjects:
 - kind: ServiceAccount
-  name: nvidia-cm-controller-manager
+  name: kamaji-cm-controller-manager
   namespace: dpf-operator-system
 ---
 apiVersion: apps/v1
@@ -190,7 +190,7 @@ metadata:
     app.kubernetes.io/name: deployment
     app.kubernetes.io/part-of: cluster-manager
     control-plane: controller-manager
-  name: nvidia-cm-controller-manager
+  name: kamaji-cm-controller-manager
   namespace: dpf-operator-system
 spec:
   replicas: 1
@@ -208,7 +208,7 @@ spec:
       - args:
         - --leader-elect
         command:
-        - /nvidia-cluster-manager
+        - /kamaji-cluster-manager
         image: example.com/dpf-system:v0.1.0
         livenessProbe:
           httpGet:
@@ -237,5 +237,5 @@ spec:
             - ALL
       securityContext:
         runAsNonRoot: true
-      serviceAccountName: nvidia-cm-controller-manager
+      serviceAccountName: kamaji-cm-controller-manager
       terminationGracePeriodSeconds: 10

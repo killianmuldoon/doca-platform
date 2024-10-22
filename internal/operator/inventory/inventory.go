@@ -47,7 +47,7 @@ type SystemComponents struct {
 	OvsCni                  Component
 	Flannel                 Component
 	SfcController           Component
-	NVidiaClusterManager    Component
+	KamajiClusterManager    Component
 	StaticClusterManager    Component
 	DPUDetector             Component
 }
@@ -81,8 +81,8 @@ var (
 	//go:embed manifests/sfc-controller.yaml
 	sfcControllerData []byte
 
-	//go:embed manifests/nvidia-cluster-manager.yaml
-	nvidiaCMData []byte
+	//go:embed manifests/kamaji-cluster-manager.yaml
+	kamajiCMData []byte
 
 	//go:embed manifests/static-cluster-manager.yaml
 	staticCMData []byte
@@ -131,8 +131,8 @@ func New() *SystemComponents {
 		DPUDetector: &dpuDetectorObjects{
 			data: dpuDetectorData,
 		},
-		NVidiaClusterManager: newClusterManagerObjects(operatorv1.HostedControlPlaneManagerName, nvidiaCMData),
-		StaticClusterManager: newClusterManagerObjects(operatorv1.StaticControlPlaneManagerName, staticCMData),
+		KamajiClusterManager: newClusterManagerObjects(operatorv1.KamajiClusterManagerName, kamajiCMData),
+		StaticClusterManager: newClusterManagerObjects(operatorv1.StaticClusterManagerName, staticCMData),
 	}
 }
 
@@ -152,7 +152,7 @@ func (s *SystemComponents) SystemDPUServices() []Component {
 // AllComponents returns all Components deployed by the DPF Operator.
 func (s *SystemComponents) AllComponents() []Component {
 	return []Component{
-		s.NVidiaClusterManager,
+		s.KamajiClusterManager,
 		s.StaticClusterManager,
 		s.DPFProvisioning,
 		s.DPUService,

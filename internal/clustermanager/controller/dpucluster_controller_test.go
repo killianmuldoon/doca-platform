@@ -51,7 +51,7 @@ var _ = Describe("DPUCluster Controller", func() {
 						Namespace: "default",
 					},
 					Spec: provisioningv1.DPUClusterSpec{
-						Type:     "nvidia",
+						Type:     "kamaji",
 						MaxNodes: 1000,
 						Version:  "v1.31.0",
 						ClusterEndpoint: &provisioningv1.ClusterEndpointSpec{

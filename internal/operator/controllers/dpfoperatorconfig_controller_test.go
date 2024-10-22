@@ -405,12 +405,12 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 			DPUServiceController: &operatorv1.DPUServiceControllerConfiguration{
 				Image: ptr.To(fmt.Sprintf(imageTemplate, operatorv1.DPUServiceControllerName)),
 			},
-			HostedControlPlaneManager: &operatorv1.HostedControlPlaneManagerConfiguration{
-				Image:   ptr.To(fmt.Sprintf(imageTemplate, operatorv1.HostedControlPlaneManagerName)),
+			KamajiClusterManager: &operatorv1.KamajiClusterManagerConfiguration{
+				Image:   ptr.To(fmt.Sprintf(imageTemplate, operatorv1.KamajiClusterManagerName)),
 				Disable: ptr.To(false),
 			},
-			StaticControlPlaneManager: &operatorv1.StaticControlPlaneManagerConfiguration{
-				Image:   ptr.To(fmt.Sprintf(imageTemplate, operatorv1.StaticControlPlaneManagerName)),
+			StaticClusterManager: &operatorv1.StaticClusterManagerConfiguration{
+				Image:   ptr.To(fmt.Sprintf(imageTemplate, operatorv1.StaticClusterManagerName)),
 				Disable: ptr.To(false),
 			},
 
@@ -453,12 +453,12 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 
 			g.Expect(firstContainerHasImageWithName(
 				waitForDeployment(g, config.Namespace, "static-cm-controller-manager"),
-				fmt.Sprintf(imageTemplate, operatorv1.StaticControlPlaneManagerName),
+				fmt.Sprintf(imageTemplate, operatorv1.StaticClusterManagerName),
 			)).To(BeTrue())
 
 			g.Expect(firstContainerHasImageWithName(
-				waitForDeployment(g, config.Namespace, "nvidia-cm-controller-manager"),
-				fmt.Sprintf(imageTemplate, operatorv1.HostedControlPlaneManagerName),
+				waitForDeployment(g, config.Namespace, "kamaji-cm-controller-manager"),
+				fmt.Sprintf(imageTemplate, operatorv1.KamajiClusterManagerName),
 			)).To(BeTrue())
 
 			g.Expect(dpuServiceReferencesHelmChart(

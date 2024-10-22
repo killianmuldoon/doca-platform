@@ -100,7 +100,7 @@ func (cm *clusterHandler) CleanUpCluster(ctx context.Context, dc *provisioningv1
 }
 
 func (cm clusterHandler) Type() string {
-	return "nvidia"
+	return string(provisioningv1.KamajiCluster)
 }
 
 func (cm *clusterHandler) reconcileKeepalived(ctx context.Context, dc *provisioningv1.DPUCluster, nodePort int32) (*metav1.Condition, error) {
@@ -153,7 +153,7 @@ func (cm *clusterHandler) reconcileKeepalived(ctx context.Context, dc *provision
 		err = func() error {
 			tc, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()
-			if err = cm.Client.Patch(tc, obj, client.Apply, client.FieldOwner("nvidia-cluster-manager")); err != nil {
+			if err = cm.Client.Patch(tc, obj, client.Apply, client.FieldOwner("kamaji-cluster-manager")); err != nil {
 				return fmt.Errorf("error patching %v %v: %w", obj.GetObjectKind().GroupVersionKind().Kind, klog.KObj(obj), err)
 			}
 			return nil

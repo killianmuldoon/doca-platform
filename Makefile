@@ -138,7 +138,7 @@ $(SOS_REPORT_DIR): | $(REPOSDIR)
 	cp -Rp ./hack/tools/dpf-tools/* $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF}/
 
 ##@ Development
-GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded release-defaults dummydpuservice nvidia-cluster-manager static-cluster-manager dpu-detector ovn-kubernetes
+GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded release-defaults dummydpuservice kamaji-cluster-manager static-cluster-manager dpu-detector ovn-kubernetes
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -170,7 +170,7 @@ generate-manifests-operator: controller-gen kustomize envsubst helm ## Generate 
 	$(MAKE) clean-generated-yaml SRC_DIRS="./deploy/helm/dpf-operator/templates/crds/"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/operator/..." \
-	paths="./cmd/nvidia-cluster-manager/..." \
+	paths="./cmd/kamaji-cluster-manager/..." \
 	paths="./cmd/static-cluster-manager/..." \
 	paths="./internal/operator/..." \
 	paths="./internal/clustermanager/..." \
@@ -216,11 +216,11 @@ generate-manifests-release-defaults: envsubst ## Generates manifests that contai
 TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 .PHONY: generate-manifests-operator-embedded
-generate-manifests-operator-embedded: kustomize envsubst generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults generate-manifests-nvidia-cluster-manager generate-manifests-static-cluster-manager generate-manifests-dpu-detector ## Generates manifests that are embedded into the operator binary.
+generate-manifests-operator-embedded: kustomize envsubst generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults generate-manifests-kamaji-cluster-manager generate-manifests-static-cluster-manager generate-manifests-dpu-detector ## Generates manifests that are embedded into the operator binary.
 	$(KUSTOMIZE) build config/provisioning/default > $(EMBEDDED_MANIFESTS_DIR)/provisioning-controller.yaml
 	$(KUSTOMIZE) build config/dpu-detector > $(EMBEDDED_MANIFESTS_DIR)/dpu-detector.yaml
 	$(KUSTOMIZE) build config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
-	$(KUSTOMIZE) build config/nvidia-cluster-manager/default > $(EMBEDDED_MANIFESTS_DIR)/nvidia-cluster-manager.yaml
+	$(KUSTOMIZE) build config/kamaji-cluster-manager/default > $(EMBEDDED_MANIFESTS_DIR)/kamaji-cluster-manager.yaml
 	$(KUSTOMIZE) build config/static-cluster-manager/default > $(EMBEDDED_MANIFESTS_DIR)/static-cluster-manager.yaml
 
 .PHONY: generate-manifests-servicechainset
@@ -264,15 +264,15 @@ generate-manifests-provisioning: controller-gen kustomize ## Generate manifests 
 	output:webhook:dir=./config/provisioning/webhook \
 	webhook
 
-.PHONY: generate-manifests-nvidia-cluster-manager
-generate-manifests-nvidia-cluster-manager: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
+.PHONY: generate-manifests-kamaji-cluster-manager
+generate-manifests-kamaji-cluster-manager: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
 	$(CONTROLLER_GEN) \
-	paths="./cmd/nvidia-cluster-manager/..." \
+	paths="./cmd/kamaji-cluster-manager/..." \
 	paths="./internal/clustermanager/controller/..." \
-	paths="./internal/clustermanager/nvidia/..." \
+	paths="./internal/clustermanager/kamaji/..." \
 	rbac:roleName=manager-role \
-	output:rbac:dir=./config/nvidia-cluster-manager/rbac
-	cd config/nvidia-cluster-manager/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
+	output:rbac:dir=./config/kamaji-cluster-manager/rbac
+	cd config/kamaji-cluster-manager/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-static-cluster-manager
 generate-manifests-static-cluster-manager: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
@@ -502,7 +502,7 @@ release: generate ## Build and push helm and container images for release.
 GO_GCFLAGS ?= ""
 GO_LDFLAGS ?= "-extldflags '-static'"
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
-DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset nvidia-cluster-manager static-cluster-manager sfc-controller
+DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller
 DPU_ARCH_BUILD_TARGETS ?= 
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
@@ -531,9 +531,9 @@ binary-operator: ## Build the operator controller binary.
 binary-provisioning: ## Build the provisioning controller binary.
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/provisioning github.com/nvidia/doca-platform/cmd/provisioning
 
-.PHONY: binary-nvidia-cluster-manager
-binary-nvidia-cluster-manager: ## Build the nvidia-cluster-manager binary.
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/nvidia-cluster-manager github.com/nvidia/doca-platform/cmd/nvidia-cluster-manager
+.PHONY: binary-kamaji-cluster-manager
+binary-kamaji-cluster-manager: ## Build the kamaji-cluster-manager binary.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/kamaji-cluster-manager github.com/nvidia/doca-platform/cmd/kamaji-cluster-manager
 
 .PHONY: binary-static-cluster-manager
 binary-static-cluster-manager: ## Build the static-cluster-manager binary.

@@ -26,7 +26,7 @@ type ConditionType string
 
 const (
 	StaticCluster ClusterType = "static"
-	NVidiaCluster ClusterType = "nvidia"
+	KamajiCluster ClusterType = "kamaji"
 )
 
 const (
@@ -60,9 +60,9 @@ const (
 type DPUClusterSpec struct {
 	// Type of the cluster with few supported values
 	// static - existing cluster that is deployed by user. For DPUCluster of this type, the kubeconfig field must be set.
-	// nvidia - DPF managed cluster. The nvidia-cluster-manager will create a DPU cluster on behalf of this CR.
+	// kamaji - DPF managed cluster. The kamaji-cluster-manager will create a DPU cluster on behalf of this CR.
 	// $(others) - any string defined by ISVs, such type names must start with a prefix.
-	// +kubebuilder:validation:Pattern="nvidia|static|[^/]+/.*"
+	// +kubebuilder:validation:Pattern="kamaji|static|[^/]+/.*"
 	// +required
 	Type string `json:"type"`
 

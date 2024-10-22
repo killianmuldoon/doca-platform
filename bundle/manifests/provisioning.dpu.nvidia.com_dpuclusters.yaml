@@ -114,9 +114,9 @@ spec:
                 description: |-
                   Type of the cluster with few supported values
                   static - existing cluster that is deployed by user. For DPUCluster of this type, the kubeconfig field must be set.
-                  nvidia - DPF managed cluster. The nvidia-cluster-manager will create a DPU cluster on behalf of this CR.
+                  kamaji - DPF managed cluster. The kamaji-cluster-manager will create a DPU cluster on behalf of this CR.
                   $(others) - any string defined by ISVs, such type names must start with a prefix.
-                pattern: nvidia|static|[^/]+/.*
+                pattern: kamaji|static|[^/]+/.*
                 type: string
               version:
                 description: Version is the K8s control-plane version of the cluster

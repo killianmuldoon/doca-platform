@@ -35,18 +35,18 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.SFCControllerName:          false,
 
 			// Both control plane managers are disabled by default.
-			operatorv1.StaticControlPlaneManagerName: true,
-			operatorv1.HostedControlPlaneManagerName: true,
+			operatorv1.StaticClusterManagerName: true,
+			operatorv1.KamajiClusterManagerName: true,
 		},
 		Images: map[string]string{
 			// Images built as part of the DPF Operator release.
-			operatorv1.ProvisioningControllerName:    defaults.DPFSystemImage,
-			operatorv1.DPUServiceControllerName:      defaults.DPFSystemImage,
-			operatorv1.StaticControlPlaneManagerName: defaults.DPFSystemImage,
-			operatorv1.HostedControlPlaneManagerName: defaults.DPFSystemImage,
-			operatorv1.ServiceSetControllerName:      defaults.DPFSystemImage,
-			operatorv1.OVSCNIName:                    defaults.OVSCNIImage,
-			operatorv1.SFCControllerName:             defaults.DPFSystemImage,
+			operatorv1.ProvisioningControllerName: defaults.DPFSystemImage,
+			operatorv1.DPUServiceControllerName:   defaults.DPFSystemImage,
+			operatorv1.StaticClusterManagerName:   defaults.DPFSystemImage,
+			operatorv1.KamajiClusterManagerName:   defaults.DPFSystemImage,
+			operatorv1.ServiceSetControllerName:   defaults.DPFSystemImage,
+			operatorv1.OVSCNIName:                 defaults.OVSCNIImage,
+			operatorv1.SFCControllerName:          defaults.DPFSystemImage,
 
 			// External images of components which are deployed by the DPF Operator.
 			operatorv1.MultusName:            defaults.MultusImage,

@@ -79,12 +79,12 @@ type DPFOperatorConfigSpec struct {
 	// SFCController is the configuration for the SFCController
 	// +optional
 	SFCController *SFCControllerConfiguration `json:"sfcController,omitempty"`
-	// HostedControlPlaneManager is the configuration for the HostedControlPlaneManager
+	// KamajiClusterManager is the configuration for the kamaji-cluster-manager
 	// +optional
-	HostedControlPlaneManager *HostedControlPlaneManagerConfiguration `json:"hostedControlPlaneManager,omitempty"`
-	// StaticControlPlaneManager is the configuration for the StaticControlPlaneManager
+	KamajiClusterManager *KamajiClusterManagerConfiguration `json:"kamajiClusterManager,omitempty"`
+	// StaticClusterManager is the configuration for the static-cluster-manager
 	// +optional
-	StaticControlPlaneManager *StaticControlPlaneManagerConfiguration `json:"staticControlPlaneManager,omitempty"`
+	StaticClusterManager *StaticClusterManagerConfiguration `json:"staticClusterManager,omitempty"`
 
 	// List of secret names which are used to pull images for DPF system components and DPUServices.
 	// These secrets must be in the same namespace as the DPF Operator Config and should be created before the config is created.
