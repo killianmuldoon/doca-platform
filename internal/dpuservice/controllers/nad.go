@@ -17,6 +17,7 @@ limitations under the License.
 package controllers
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -120,13 +121,9 @@ func mergeIntoSlice(networkSelectionByInterface map[string]types.NetworkSelectio
 		result = append(result, n)
 	}
 	slices.SortFunc(result, func(a, b types.NetworkSelectionElement) int {
-		if a.Name < b.Name {
-			return -1
-		}
-		if a.Name > b.Name {
-			return 1
-		}
-		return 0
+		return cmp.Or(
+			cmp.Compare(a.Name, b.Name),
+			cmp.Compare(a.InterfaceRequest, b.InterfaceRequest))
 	})
 	return result, nil
 }

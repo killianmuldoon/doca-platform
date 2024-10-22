@@ -196,6 +196,11 @@ var _ = Describe("NetworkSelectionElement", func() {
 				},
 			},
 		}, map[string]types.NetworkSelectionElement{
+			"net3": {
+				Name:             "mybrsfc",
+				Namespace:        "my-namespace",
+				InterfaceRequest: "net3",
+			},
 			"net2": {
 				Name:             "mybrsfc",
 				Namespace:        "my-namespace",
@@ -204,7 +209,8 @@ var _ = Describe("NetworkSelectionElement", func() {
 		}, &dpuservicev1.ServiceDaemonSetValues{
 			Annotations: map[string]string{
 				networkAnnotationKey: `[{"name":"mybrsfc","namespace":"my-namespace","interface":"net1","cni-args":null}` +
-					`,{"name":"mybrsfc","namespace":"my-namespace","interface":"net2","cni-args":null}]`,
+					`,{"name":"mybrsfc","namespace":"my-namespace","interface":"net2","cni-args":null}` +
+					`,{"name":"mybrsfc","namespace":"my-namespace","interface":"net3","cni-args":null}]`,
 			},
 		}, nil),
 	)
