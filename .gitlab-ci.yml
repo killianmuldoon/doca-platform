@@ -231,17 +231,23 @@ dpf-standalone-test:
   before_script:
     - ./hack/scripts/ci_helm_docker_prereqs.sh
   script:
+    - mkdir downloaded-logs
     - >
-      docker run --pull=always --rm --net=host $DPF_STANDALONE_IMAGE
+      docker run --pull=always --rm --net=host -v $(pwd)/downloaded-logs:/dpf-standalone/downloaded-logs $DPF_STANDALONE_IMAGE
       -e operator_version=$TAG
       -e ngc_key="$NGC_API_KEY"
       -e target_host="$DPF_STANDALONE_CI_HOST"
       -e ansible_user=root
       -e ansible_ssh_pass="$DPF_STANDALONE_CI_PASS"
-      -e '{"deploy_test_service": true, "reboot_on_reset": true}'
+      -e '{"deploy_test_service": true, "reboot_on_reset": true, "collect_logs": true}'
+      $DPF_STANDALONE_EXTRA_ANSIBLE_ARGS
       reinstall.yml
   after_script:
     - ./hack/scripts/slack-notification.sh
+  artifacts:
+    when: always
+    paths:
+      - downloaded-logs/*
 
 dpf-standalone-stable-release:
   interruptible: false
