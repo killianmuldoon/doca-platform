@@ -183,9 +183,13 @@ func (n *DPUServiceCredentialRequestStatus) GetSecret() (string, string) {
 	return "", ""
 }
 
-// DPUServiceCredentialRequest is the Schema for the dpuserviceCredentialRequests API
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=='Ready')].status`
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=`.status.conditions[?(@.type=='Ready')].reason`
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
+
+// DPUServiceCredentialRequest is the Schema for the dpuserviceCredentialRequests API
 type DPUServiceCredentialRequest struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

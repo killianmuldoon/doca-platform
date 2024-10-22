@@ -122,10 +122,12 @@ type KeepalivedSpec struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=`.status.conditions[?(@.type=='Ready')].status`
+// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="phase of the cluster"
 // +kubebuilder:printcolumn:name="Type",type="string",JSONPath=".spec.type",description="type of the cluster"
 // +kubebuilder:printcolumn:name="MaxNodes",type="integer",JSONPath=".spec.maxNodes",description="max amount of nodes"
 // +kubebuilder:printcolumn:name="Version",type="string",JSONPath=".spec.version",description="Kubernetes control-plane version"
-// +kubebuilder:printcolumn:name="Phase",type="string",JSONPath=".status.phase",description="status of the cluster"
+// +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 
 // DPUCluster is the Schema for the dpuclusters API
 type DPUCluster struct {
