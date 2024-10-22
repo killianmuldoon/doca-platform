@@ -4,26 +4,25 @@ metadata:
   name: doca-hbn
   namespace: dpf-operator-system
 spec:
+  serviceID: doca-hbn
+  # TODO: align refernces to DPUServiceInterfaces with the deployment guide
+  interfaces:
+    - p0-sf
+    - p1-sf
+    - app-sf
   serviceDaemonSet:
-    labels:
-      dpuservice.dpf.nvidia.com/name: doca-hbh
     annotations:
-      dpuservice.dpf.nvidia.com/name: doca-hbn
-      # TODO: 
-      #  - remove interface requests related to "mybrn" and use interfaces DPUService interfaces instead
+      # TODO:
       #  - align nv-ipam pool names with OVN and deployemnt guide
       k8s.v1.cni.cncf.io/networks: |-
         [
-        {"name": "mybrhbn", "interface": "p0_sf"},
-        {"name": "mybrhbn", "interface": "p1_sf"},
-        {"name": "mybrhbn", "interface": "pf2dpu2_sf"},
         {"name": "iprequest", "interface": "ip_lo", "cni-args": {"poolNames": ["loopback"], "poolType": "cidrpool"}},
-        {"name": "iprequest", "interface": "ip_pf2dpu2", "cni-args": {"poolNames": ["pf2dpu"], "poolType": "cidrpool", "allocateDefaultGateway": true}}
+        {"name": "iprequest", "interface": "ip_pf2dpu2", "cni-args": {"poolNames": ["pool1"], "poolType": "cidrpool", "allocateDefaultGateway": true}}
         ]
   helmChart:
     source:
       repoURL: https://helm.ngc.nvidia.com/nvstaging/doca # TODO: update to the public namespace
-      version: 1.0.0-dev # TODO: update to the GA version
+      version: 1.0.0-dev.1 # TODO: update to the GA version
       chart: doca-hbn
     values:
       # TODO: remove imagePullSecrets from the example before GA releaes
@@ -32,7 +31,7 @@ spec:
       # TODO: remove image settings from the example before GA releaes
       image:
         repository: nvcr.io/nvstaging/doca/doca_hbn
-        tag: 2.dev.191-doca2.9.0
+        tag: 2.dev.200-doca2.9.0
       resources:
         memory: 6Gi
         nvidia.com/bf_sf: 3
@@ -64,9 +63,9 @@ spec:
         #
         # Example:
         #       k8s.v1.cni.cncf.io/networks: |-
-        #         [{"name": "iprequest", "interface": "ip_lo", 
+        #         [{"name": "iprequest", "interface": "ip_lo",
         #           "cni-args":{"poolNames": ["loopback"], "poolType": "cidrpool"}},
-        #          {"name": "iprequest", "interface": "ip_pf2dpu2", 
+        #          {"name": "iprequest", "interface": "ip_pf2dpu2",
         #           "cni-args":{"poolNames": ["pf2dpu"], "poolType": "cidrpool", "allocateDefaultGateway": true}}]
         #
         # You can access the IP address assigned by this request using this syntax within the template:
@@ -85,7 +84,7 @@ spec:
                 lo:
                   ip:
                     address:
-                      {{ ipaddresses.ip_lo.ip }}/32: {}
+                      {{ ipaddresses.ip_lo.cidr }}: {}
                   type: loopback
                 p0_sf,p1_sf:
                   type: swp
