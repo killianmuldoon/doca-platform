@@ -40,6 +40,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -60,6 +61,18 @@ var (
 	//go:embed manifests/keepalived.yaml
 	keepalivedData []byte
 	tmpl           = template.Must(template.New("").Funcs(sprig.FuncMap()).Parse(string(keepalivedData)))
+	tolerations    = []corev1.Toleration{
+		{
+			Key:      kubernetesNodeRoleMaster,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+		{
+			Key:      kubernetesNodeRoleControlPlane,
+			Operator: corev1.TolerationOpExists,
+			Effect:   corev1.TaintEffectNoSchedule,
+		},
+	}
 )
 
 func init() {
@@ -143,6 +156,7 @@ func (cm *clusterHandler) reconcileKeepalived(ctx context.Context, dc *provision
 	}
 	if err := inventory.NewEdits().
 		AddForAll(inventory.NamespaceEdit(dc.Namespace)).
+		AddForKindS(inventory.DaemonsetKind, inventory.TolerationsEdit(tolerations)).
 		Apply(objs); err != nil {
 		return nil, fmt.Errorf("failed to set namespace for keepalived manifests, err: %v", err)
 	}
@@ -288,19 +302,8 @@ func expectedTCP(dc *provisioningv1.DPUCluster, scheme *runtime.Scheme, nodePort
 							},
 						},
 					},
-					Tolerations: []corev1.Toleration{
-						{
-							Key:      kubernetesNodeRoleMaster,
-							Operator: corev1.TolerationOpExists,
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-						{
-							Key:      kubernetesNodeRoleControlPlane,
-							Operator: corev1.TolerationOpExists,
-							Effect:   corev1.TaintEffectNoSchedule,
-						},
-					},
-					Replicas: int32Ptr(3),
+					Tolerations: tolerations,
+					Replicas:    ptr.To[int32](3),
 					AdditionalMetadata: kamaji.AdditionalMetadata{
 						Labels: map[string]string{
 							"tenant.clastix.io": nn.Name,
@@ -362,10 +365,6 @@ func expectedTCP(dc *provisioningv1.DPUCluster, scheme *runtime.Scheme, nodePort
 		return nil, fmt.Errorf("failed to set owner reference, err: %v", err)
 	}
 	return tcp, nil
-}
-
-func int32Ptr(i int32) *int32 {
-	return &i
 }
 
 func tcpToDPUCluster(ctx context.Context, o client.Object) []reconcile.Request {
