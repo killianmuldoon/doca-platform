@@ -50,7 +50,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceChainSet without Node Selector", func() {
 			By("Create ServiceChainSet, without Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{}))
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{}))
 			By("Verify ServiceChain not created, no nodes")
 			Consistently(func(g Gomega) {
 				serviceChainList := &dpuservicev1.ServiceChainList{}
@@ -73,7 +73,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceChainSet with Node Selector", func() {
 			By("creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Create 3 nodes")
@@ -89,7 +89,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceChainSet with Node Selector and remove Service Chain", func() {
 			By("creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Create 3 nodes")
@@ -116,7 +116,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceChainSet after update", func() {
 			By("creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Create 3 nodes")
@@ -157,7 +157,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully delete the ServiceChainSet", func() {
 			By("Creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Creating 2 nodes")
@@ -181,6 +181,54 @@ var _ = Describe("ServiceChainSet Controller", func() {
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}, timeout*30, interval).Should(Succeed())
 		})
+		It("should successfully delete the ServiceChainSet and corresponding ServiceInterfaces in its namespace only but not cross-namespace", func() {
+			By("Creating ServiceChainSet, with Node Selector")
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
+				MatchLabels: map[string]string{"role": "firewall"}}))
+
+			By("Creating 2 nodes")
+			labels := map[string]string{"role": "firewall"}
+			cleanupObjects = append(cleanupObjects, createNode(ctx, "node1", labels))
+			cleanupObjects = append(cleanupObjects, createNode(ctx, "node2", labels))
+
+			By("Verifying ServiceChainSets have been reconciled")
+			Eventually(func(g Gomega) {
+				// The second ServiceInterfaceSet should still exist
+				serviceChainList := &dpuservicev1.ServiceChainList{}
+				g.ExpectWithOffset(1, testClient.List(ctx, serviceChainList)).NotTo(HaveOccurred())
+				g.Expect(serviceChainList.Items).To(HaveLen(2))
+			}, timeout*30, interval).Should(Succeed())
+
+			By("Create another namespace with a ServiceChain copy from the default namespace")
+			namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "zzz-testing-foo"}}
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, namespace))).To(Succeed())
+			scList := &dpuservicev1.ServiceChainList{}
+			ExpectWithOffset(1, testClient.List(ctx, scList)).NotTo(HaveOccurred())
+			scCopy := scList.Items[0].DeepCopy()
+			scCopy.SetResourceVersion("")
+			scCopy.SetManagedFields(nil)
+			scCopy.SetOwnerReferences(nil)
+			scCopy.SetUID("")
+			scCopy.Namespace = "zzz-testing-foo"
+			Expect(testClient.Create(ctx, scCopy)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, scCopy)
+
+			By("Deleting ServiceChainSet")
+			scs := cleanupObjects[0].(*dpuservicev1.ServiceChainSet)
+			Expect(testClient.Delete(ctx, scs)).NotTo(HaveOccurred())
+
+			By("Verifying ServiceChainSet is deleted")
+			Eventually(func(g Gomega) {
+				scs := cleanupObjects[0].(*dpuservicev1.ServiceChainSet)
+				err := testClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+
+				scList := &dpuservicev1.ServiceChainList{}
+				g.ExpectWithOffset(1, testClient.List(ctx, scList)).NotTo(HaveOccurred())
+				g.Expect(scList.Items).To(HaveLen(1))
+				g.Expect(scList.Items[0].GetNamespace()).NotTo(Equal(defaultNS))
+			}, timeout*30, interval).Should(Succeed())
+		})
 	})
 	Context("Validating ServiceChainSet creation", func() {
 		var cleanupObjects []client.Object
@@ -194,17 +242,17 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		It("should successfully create the ServiceChainSet with port service interface", func() {
 			By("creating ServiceChainSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx,
-				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}))
+				metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}))
 		})
 		It("should successfully create the ServiceChainSet with port service", func() {
 			By("creating ServiceChainSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx,
-				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}))
+				metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}))
 		})
 		It("should successfully create the ServiceChainSet and have all conditions set", func() {
 			By("creating ServiceChainSet, with Node Selector")
 			obj := createServiceChainSet(ctx,
-				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}})
+				metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}})
 			cleanupObjects = append(cleanupObjects, obj)
 			Eventually(func(g Gomega) {
 				assertServiceChainSetCondition(g, testClient, obj)
@@ -236,7 +284,7 @@ func assertServiceChainSetCondition(g Gomega, testClient client.Client, serviceC
 	))
 }
 
-func createServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
+func createServiceChainSet(ctx context.Context, labelSelector metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
 	scs := serviceChainSet(labelSelector)
 	scs.Spec.Template.Spec = *getTestServiceChainSpec()
 
@@ -244,14 +292,14 @@ func createServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelec
 	return scs
 }
 
-func serviceChainSet(labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
+func serviceChainSet(labelSelector metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
 	scs := &dpuservicev1.ServiceChainSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      resourceName,
 			Namespace: defaultNS,
 		},
 		Spec: dpuservicev1.ServiceChainSetSpec{
-			NodeSelector: *labelSelector,
+			NodeSelector: labelSelector,
 			Template: dpuservicev1.ServiceChainSpecTemplate{
 				ObjectMeta: dpuservicev1.ObjectMeta{
 					Labels: testutils.GetTestLabels(),

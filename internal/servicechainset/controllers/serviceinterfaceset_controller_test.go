@@ -187,6 +187,54 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
 			}, timeout*30, interval).Should(Succeed())
 		})
+		It("should successfully delete the ServiceInterfaceSet and corresponding ServiceInterfaces in its namespace only but not cross-namespace", func() {
+			By("Creating ServiceInterfaceSet, with Node Selector")
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, metav1.LabelSelector{
+				MatchLabels: map[string]string{"role": "firewall"}}))
+
+			By("Creating 2 nodes")
+			labels := map[string]string{"role": "firewall"}
+			cleanupObjects = append(cleanupObjects, createNode(ctx, "node1", labels))
+			cleanupObjects = append(cleanupObjects, createNode(ctx, "node2", labels))
+
+			By("Verifying ServiceInterfaceSets have been reconciled")
+			Eventually(func(g Gomega) {
+				// The second ServiceInterfaceSet should still exist
+				serviceInterfaceList := &dpuservicev1.ServiceInterfaceList{}
+				g.ExpectWithOffset(1, testClient.List(ctx, serviceInterfaceList)).NotTo(HaveOccurred())
+				g.Expect(serviceInterfaceList.Items).To(HaveLen(2))
+			}, timeout*30, interval).Should(Succeed())
+
+			By("Create another namespace with a ServiceInterface copy from the default namespace")
+			namespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "zzz-testing-foo"}}
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, namespace))).To(Succeed())
+			siList := &dpuservicev1.ServiceInterfaceList{}
+			ExpectWithOffset(1, testClient.List(ctx, siList)).NotTo(HaveOccurred())
+			siCopy := siList.Items[0].DeepCopy()
+			siCopy.SetResourceVersion("")
+			siCopy.SetManagedFields(nil)
+			siCopy.SetOwnerReferences(nil)
+			siCopy.SetUID("")
+			siCopy.Namespace = "zzz-testing-foo"
+			Expect(testClient.Create(ctx, siCopy)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, siCopy)
+
+			By("Deleting ServiceInterfaceSet")
+			sis := cleanupObjects[0].(*dpuservicev1.ServiceInterfaceSet)
+			Expect(testClient.Delete(ctx, sis)).NotTo(HaveOccurred())
+
+			By("Verifying ServiceInterface is deleted only in its namespace")
+			Eventually(func(g Gomega) {
+				sis := cleanupObjects[0].(*dpuservicev1.ServiceInterfaceSet)
+				err := testClient.Get(ctx, client.ObjectKeyFromObject(sis), sis)
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+
+				siList := &dpuservicev1.ServiceInterfaceList{}
+				g.ExpectWithOffset(1, testClient.List(ctx, siList)).NotTo(HaveOccurred())
+				g.Expect(siList.Items).To(HaveLen(1))
+				g.Expect(siList.Items[0].GetNamespace()).NotTo(Equal(defaultNS))
+			}, timeout*30, interval).Should(Succeed())
+		})
 	})
 
 	Context("Validating ServiceInterfaceSet creation", func() {
