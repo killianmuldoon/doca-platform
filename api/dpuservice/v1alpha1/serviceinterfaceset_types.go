@@ -105,6 +105,7 @@ type ServiceInterfaceSetStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations=helm.sh/resource-policy=keep
 // +kubebuilder:printcolumn:name="IfType",type=string,JSONPath=`.spec.template.spec.interfaceType`
 // +kubebuilder:printcolumn:name="IfName",type=string,JSONPath=`.spec.template.spec.interfaceName`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`

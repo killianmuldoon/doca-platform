@@ -75,6 +75,7 @@ type BFBStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations=helm.sh/resource-policy=keep
 
 // BFB is the Schema for the bfbs API
 type BFB struct {

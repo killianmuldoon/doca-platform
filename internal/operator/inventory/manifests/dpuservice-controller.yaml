@@ -17,6 +17,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
+    helm.sh/resource-policy: keep
   labels:
     dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpudeployments.svc.dpu.nvidia.com
@@ -351,6 +352,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
+    helm.sh/resource-policy: keep
   labels:
     dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuserviceconfigurations.svc.dpu.nvidia.com
@@ -480,6 +482,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
+    helm.sh/resource-policy: keep
   labels:
     dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservicecredentialrequests.svc.dpu.nvidia.com
@@ -707,6 +710,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
+    helm.sh/resource-policy: keep
   labels:
     dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservices.svc.dpu.nvidia.com
@@ -1059,6 +1063,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
+    helm.sh/resource-policy: keep
   labels:
     dpu.nvidia.com/component: dpuservice-controller-manager
   name: dpuservicetemplates.svc.dpu.nvidia.com

@@ -125,6 +125,7 @@ type DPUSetStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations=helm.sh/resource-policy=keep
 
 // DPUSet is the Schema for the dpusets API
 type DPUSet struct {

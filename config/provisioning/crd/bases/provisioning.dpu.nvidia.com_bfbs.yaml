@@ -4,6 +4,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
+    helm.sh/resource-policy: keep
   name: bfbs.provisioning.dpu.nvidia.com
 spec:
   group: provisioning.dpu.nvidia.com

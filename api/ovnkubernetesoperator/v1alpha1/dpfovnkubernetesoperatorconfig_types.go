@@ -69,6 +69,7 @@ type DPFOVNKubernetesOperatorConfigStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations=helm.sh/resource-policy=keep
 
 // DPFOVNKubernetesOperatorConfig is the Schema for the dpfovnkubernetesoperatorconfigs API
 type DPFOVNKubernetesOperatorConfig struct {

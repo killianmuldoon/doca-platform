@@ -98,6 +98,7 @@ type ServiceChainSetStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations=helm.sh/resource-policy=keep
 
 // ServiceChainSet is the Schema for the servicechainsets API
 type ServiceChainSet struct {

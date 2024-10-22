@@ -17,6 +17,7 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.3
+    helm.sh/resource-policy: keep
   name: bfbs.provisioning.dpu.nvidia.com
 spec:
   group: provisioning.dpu.nvidia.com
@@ -98,6 +99,7 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.3
+    helm.sh/resource-policy: keep
   name: dpuclusters.provisioning.dpu.nvidia.com
 spec:
   group: provisioning.dpu.nvidia.com
@@ -315,6 +317,7 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.3
+    helm.sh/resource-policy: keep
   name: dpuflavors.provisioning.dpu.nvidia.com
 spec:
   group: provisioning.dpu.nvidia.com
@@ -448,6 +451,7 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.3
+    helm.sh/resource-policy: keep
   name: dpus.provisioning.dpu.nvidia.com
 spec:
   conversion:
@@ -706,6 +710,7 @@ metadata:
   annotations:
     cert-manager.io/inject-ca-from: dpf-provisioning/dpf-provisioning-serving-cert
     controller-gen.kubebuilder.io/version: v0.16.3
+    helm.sh/resource-policy: keep
   name: dpusets.provisioning.dpu.nvidia.com
 spec:
   group: provisioning.dpu.nvidia.com

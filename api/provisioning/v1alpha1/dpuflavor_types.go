@@ -109,6 +109,7 @@ type ContainerdConfig struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:metadata:annotations=helm.sh/resource-policy=keep
 
 // DPUFlavor is the Schema for the dpuflavors API
 type DPUFlavor struct {

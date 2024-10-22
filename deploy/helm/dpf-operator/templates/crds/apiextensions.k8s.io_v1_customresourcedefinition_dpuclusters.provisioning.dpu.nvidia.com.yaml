@@ -3,6 +3,7 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.16.3
+    helm.sh/resource-policy: keep
   labels:
     dpu.nvidia.com/component: dpf-operator-controller-manager
   name: dpuclusters.provisioning.dpu.nvidia.com

@@ -31,6 +31,7 @@ var DPUServiceConfigurationGroupVersionKind = GroupVersion.WithKind(DPUServiceCo
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:metadata:annotations=helm.sh/resource-policy=keep
 
 // DPUServiceConfiguration is the Schema for the dpuserviceconfigurations API. This object is intended to be used in
 // conjunction with a DPUDeployment object. This object is the template from which the DPUService will be created. It
