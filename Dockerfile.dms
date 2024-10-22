@@ -28,7 +28,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     make binary-detector
 
-FROM nvcr.io/nvidia/doca/doca:2.8.0-full-rt-host
+FROM nvcr.io/nvstaging/doca/doca:latest-2.9-full-rt-host
 
 ARG TARGETARCH
 ARG MFT_VERSION=4.29.0-131
