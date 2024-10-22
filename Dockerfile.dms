@@ -34,7 +34,7 @@ ARG TARGETARCH
 ARG MFT_VERSION=4.29.0-131
 
 RUN apt-get update -y && \
-    apt-get install -y --no-install-recommends libusb-1.0-0 ipmitool rshim curl screen
+    apt-get install -y --no-install-recommends libusb-1.0-0 ipmitool rshim curl screen pv=1.6.6-1build2
 
 RUN case ${TARGETARCH} in \
         amd64) ARCH=x86_64 ;; \
