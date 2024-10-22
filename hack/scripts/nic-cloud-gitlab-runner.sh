@@ -80,7 +80,7 @@ if [[ $runner_count_after -gt $MAX_VM_RUNNERS ]]; then # make that number a vari
 fi
 
 # Get the current hour
-current_hour=$(date +%H)
+current_hour=$(date +%-H)
 
 target_hour=$TARGET_HOUR
 
