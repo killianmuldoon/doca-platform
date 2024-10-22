@@ -24,6 +24,9 @@ if [ -z "$GITLAB_REGISTRY_TOKEN" ] || [ -z "$NGC_API_KEY" ]; then
     exit 1
 fi
 
+echo "Pruning docker images and build cache older than 48 hours"
+docker system prune --filter "until=48h" --all --force
+
 ## log in to the docker registries
 echo "$GITLAB_REGISTRY_TOKEN" | docker login --username \$oauthtoken --password-stdin gitlab-master.nvidia.com:5005
 echo "$NGC_API_KEY" | docker login --username \$oauthtoken --password-stdin nvcr.io

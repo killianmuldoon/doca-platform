@@ -140,7 +140,7 @@ e2e:
     paths:
       - artifacts/*
   before_script:
-    - ./hack/scripts/ci_helm_docker_login.sh
+    - ./hack/scripts/ci_helm_docker_prereqs.sh
     # artifacts are not correctly delete when gitlab restarts jobs.
     - rm -rf artifacts
     # empty the minikube image cache
@@ -180,7 +180,7 @@ e2e-provisioning:
   before_script:
     # artifacts are not correctly delete when gitlab restarts jobs.
     - rm -rf artifacts
-    - ./hack/scripts/ci_helm_docker_login.sh
+    - ./hack/scripts/ci_helm_docker_prereqs.sh
     - docker run --rm --net=host $DPF_STANDALONE_IMAGE -e ansible_password=$VM_PASSWORD -u root reset.yml
     - make test-env-dpf-standalone
     - ./hack/scripts/create-artefact-secrets.sh
@@ -211,7 +211,7 @@ release:
   tags:
     - release
   script:
-    - ./hack/scripts/ci_helm_docker_login.sh
+    - ./hack/scripts/ci_helm_docker_prereqs.sh
     - timeout 30m make release clean-images-for-registry
   after_script:
     - ./hack/scripts/slack-notification.sh
@@ -229,7 +229,7 @@ dpf-standalone-test:
   tags:
     - type/shell
   before_script:
-    - ./hack/scripts/ci_helm_docker_login.sh
+    - ./hack/scripts/ci_helm_docker_prereqs.sh
   script:
     - >
       docker run --pull=always --rm --net=host $DPF_STANDALONE_IMAGE
@@ -260,7 +260,7 @@ dpf-standalone-stable-release:
   before_script:
     # artifacts are not correctly delete when gitlab restarts jobs.
     - rm -rf artifacts
-    - ./hack/scripts/ci_helm_docker_login.sh
+    - ./hack/scripts/ci_helm_docker_prereqs.sh
   script:
     - make generate helm-package-operator helm-push-operator
     - docker pull $DPF_STANDALONE_IMAGE
@@ -300,7 +300,7 @@ scan:
     paths:
       - /tmp/scans/results
   before_script:
-    - ./hack/scripts/ci_helm_docker_login.sh
+    - ./hack/scripts/ci_helm_docker_prereqs.sh
   script:
     - make generate-manifests-release-defaults
     - ./hack/scripts/container-scanner.sh
