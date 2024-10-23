@@ -151,7 +151,7 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 				{
 					Name:            "dms",
 					Image:           option.DMSImageWithTag,
-					ImagePullPolicy: corev1.PullAlways,
+					ImagePullPolicy: corev1.PullIfNotPresent,
 					Ports: []corev1.ContainerPort{
 						{
 							ContainerPort: dmsServerPort,

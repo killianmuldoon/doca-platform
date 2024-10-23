@@ -89,7 +89,7 @@ func CreateHostNetworkSetupPod(ctx context.Context, client client.Client, dpu *p
 				{
 					Name:            "hostnetwork",
 					Image:           option.HostnetworkImageWithTag,
-					ImagePullPolicy: corev1.PullAlways,
+					ImagePullPolicy: corev1.PullIfNotPresent,
 					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "dev",
