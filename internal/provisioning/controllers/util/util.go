@@ -122,6 +122,10 @@ func GenerateDMSServerSecretName(dpuName string) string {
 	return fmt.Sprintf("%s-%s", dpuName, "server-secret")
 }
 
+func GenerateNodeName(dpu *provisioningv1.DPU) string {
+	return dpu.Name
+}
+
 func RemoteExec(ns, name, container, cmd string) (string, error) {
 	config, err := restclient.InClusterConfig()
 	if err != nil {
@@ -468,4 +472,31 @@ func NeedUpdateLabels(label1 map[string]string, label2 map[string]string) bool {
 		}
 	}
 	return false
+}
+
+func GetClient(ctx context.Context, client crclient.Client, dc *provisioningv1.DPUCluster) (*kubernetes.Clientset, []byte, error) {
+	scrtCtx, scrtCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer scrtCancel()
+
+	secret := &corev1.Secret{}
+	if err := client.Get(scrtCtx, types.NamespacedName{Name: dc.Spec.Kubeconfig, Namespace: dc.Namespace}, secret); err != nil {
+		return nil, nil, fmt.Errorf("failed to get kubeconfig, err: %v", err)
+	}
+	data, ok := secret.Data["admin.conf"]
+	if !ok {
+		return nil, nil, fmt.Errorf("admin.conf not found")
+	}
+	cfg, err := clientcmd.NewClientConfigFromBytes(data)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build client config from bytes, err: %v", err)
+	}
+	clientCfg, err := cfg.ClientConfig()
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build client config, err: %v", err)
+	}
+	clientSet, err := kubernetes.NewForConfig(clientCfg)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to build client from client config, err: %v", err)
+	}
+	return clientSet, data, nil
 }

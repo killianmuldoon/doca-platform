@@ -407,7 +407,7 @@ func generateBFConfig(ctx context.Context, dpu *provisioningv1.DPU, node *corev1
 		additionalReboot = true
 	}
 
-	buf, err := bfcfg.Generate(flavor, dpu.Name, joinCommand, additionalReboot)
+	buf, err := bfcfg.Generate(flavor, cutil.GenerateNodeName(dpu), joinCommand, additionalReboot)
 	if err != nil {
 		return nil, err
 	}

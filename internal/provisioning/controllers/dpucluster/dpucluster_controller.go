@@ -27,15 +27,12 @@ import (
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
 	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -163,25 +160,9 @@ func (r *DPUClusterReconciler) getOrCreateClient(ctx context.Context, dc *provis
 		return value.(*kubernetes.Clientset), nil
 	}
 
-	secret := &corev1.Secret{}
-	if err := r.Client.Get(ctx, types.NamespacedName{Name: dc.Spec.Kubeconfig, Namespace: dc.Namespace}, secret); err != nil {
-		return nil, fmt.Errorf("failed to get kubeconfig, err: %v", err)
-	}
-	data, ok := secret.Data["admin.conf"]
-	if !ok {
-		return nil, fmt.Errorf("admin.conf not found")
-	}
-	cfg, err := clientcmd.NewClientConfigFromBytes(data)
+	clientSet, data, err := cutil.GetClient(ctx, r.Client, dc)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build client config from bytes, err: %v", err)
-	}
-	clientCfg, err := cfg.ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to build client config, err: %v", err)
-	}
-	clientSet, err := kubernetes.NewForConfig(clientCfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build client from client config, err: %v", err)
+		return nil, err
 	}
 	fp := cutil.AdminKubeConfigPath(*dc)
 	if err := os.WriteFile(fp, data, 0644); err != nil {

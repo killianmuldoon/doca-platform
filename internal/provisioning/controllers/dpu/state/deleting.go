@@ -28,7 +28,9 @@ import (
 
 	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -42,6 +44,7 @@ type dpuDeletingState struct {
 func (st *dpuDeletingState) Handle(ctx context.Context, client crclient.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
 	state := st.dpu.Status.DeepCopy()
+	st.alloc.ReleaseDPU(st.dpu)
 
 	if err := RemoveNodeEffect(ctx, client, *st.dpu.Spec.NodeEffect, st.dpu.Spec.NodeName, st.dpu.Namespace); err != nil {
 		return *state, err
@@ -84,23 +87,60 @@ func (st *dpuDeletingState) Handle(ctx context.Context, client crclient.Client, 
 		},
 	}
 
-	if objects, err := cutil.GetObjects(client, deleteObjects); err != nil {
+	objects, err := cutil.GetObjects(client, deleteObjects)
+	if err != nil {
 		return *state, err
-	} else {
-		st.alloc.ReleaseDPU(st.dpu)
-		for _, object := range objects {
-			logger.V(3).Info(fmt.Sprintf("delete object %s/%s", object.GetNamespace(), object.GetName()))
-			if err := cutil.DeleteObject(client, object); err != nil {
-				return *state, err
-			}
+	}
+	for _, object := range objects {
+		logger.V(3).Info(fmt.Sprintf("delete object %s/%s", object.GetNamespace(), object.GetName()))
+		if err := cutil.DeleteObject(client, object); err != nil {
+			return *state, err
 		}
-		if len(objects) == 0 {
-			controllerutil.RemoveFinalizer(st.dpu, provisioningv1.DPUFinalizer)
-			if err := client.Update(ctx, st.dpu); err != nil {
-				return *state, err
-			}
+	}
+	if err := deleteNode(ctx, client, st.dpu); err != nil {
+		logger.Error(err, "failed to delete Node from DPU cluster, retry")
+		return *state, fmt.Errorf("failed to delete node, err: %v", err)
+	}
+	if len(objects) == 0 {
+		controllerutil.RemoveFinalizer(st.dpu, provisioningv1.DPUFinalizer)
+		if err := client.Update(ctx, st.dpu); err != nil {
+			return *state, err
 		}
 	}
 
 	return *state, nil
+}
+
+func deleteNode(ctx context.Context, client crclient.Client, dpu *provisioningv1.DPU) error {
+	logger := log.FromContext(ctx)
+	if dpu.Spec.Cluster.Name == "" {
+		logger.Info("DPU not assigned, skip deleting Node")
+		return nil
+	}
+
+	nn := types.NamespacedName{
+		Namespace: dpu.Spec.Cluster.NameSpace,
+		Name:      dpu.Spec.Cluster.Name,
+	}
+	dc := &provisioningv1.DPUCluster{}
+	if err := client.Get(ctx, nn, dc); err != nil {
+		if apierrors.IsNotFound(err) {
+			logger.Info("DPUCluster has been deleted, skip deleting Node")
+			return nil
+		}
+		return err
+	}
+	dpuClient, _, err := cutil.GetClient(ctx, client, dc)
+	if err != nil {
+		return fmt.Errorf("failed to create client for DPU cluster, err: %v", err)
+	}
+	err = dpuClient.CoreV1().Nodes().Delete(ctx, cutil.GenerateNodeName(dpu), metav1.DeleteOptions{})
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	logger.Info("deleted Node from DPU cluster")
+	return nil
 }

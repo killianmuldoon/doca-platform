@@ -885,6 +885,17 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				// Expect all DPUs to have been deleted.
 				g.Expect(testClient.List(ctx, dpuList)).To(Succeed())
 				g.Expect(dpuList.Items).To(BeEmpty())
+
+				dpuClusters, err := controlplane.GetDPFClusters(ctx, testClient)
+				Expect(err).ToNot(HaveOccurred())
+				for i := range dpuClusters {
+					nodes := &corev1.NodeList{}
+					dpuClient, err := dpuClusters[i].NewClient(ctx, testClient)
+					g.Expect(err).ToNot(HaveOccurred())
+					g.Expect(dpuClient.List(ctx, nodes)).To(Succeed())
+					By(fmt.Sprintf("Expected number of nodes %d to equal %d", len(nodes.Items), 0))
+					g.Expect(nodes.Items).To(BeEmpty())
+				}
 			}).WithTimeout(10 * time.Minute).Should(Succeed())
 
 			Eventually(func(g Gomega) {
