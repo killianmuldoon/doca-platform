@@ -677,7 +677,8 @@ docker-push-dpf-tools-for-%:
 
 docker-create-manifest-for-dpf-tools:
 	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
-	docker manifest create --amend $(DPF_TOOLS_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(DPF_TOOLS_IMAGE):$(TAG))
+	docker manifest create --amend $(DPF_TOOLS_IMAGE):$(TAG) $(shell docker inspect --format='{{json .RepoDigests}}' $(DPF_TOOLS_IMAGE):$(TAG) \
+	| sed 's/[][]//g; s/,/\n/g' |grep $(REGISTRY)) 
 
 # TODO: This image should be part of a DPF Utils image.
 .PHONY: docker-build-ipallocator
