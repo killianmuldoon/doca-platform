@@ -279,14 +279,15 @@ func (r *DPFOperatorConfigReconciler) reconcileImagePullSecrets(ctx context.Cont
 // 8. OVS CNI
 // 9. SFC Controller
 func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
+	var errs []error
 	vars := inventory.VariablesFromDPFOperatorConfig(r.Defaults, config)
 	// Create objects for system components.
 	for _, component := range r.Inventory.AllComponents() {
 		if err := r.generateAndPatchObjects(ctx, component, vars); err != nil {
-			return err
+			errs = append(errs, err)
 		}
 	}
-	return nil
+	return kerrors.NewAggregate(errs)
 }
 
 func (r *DPFOperatorConfigReconciler) updateSystemComponentStatus(ctx context.Context, config *operatorv1.DPFOperatorConfig) {

@@ -16,9 +16,9 @@ labels:
 
 resources:
 - ../crd
+- ../webhook
 - ../rbac
 - ../manager
-- ../webhook
 - ../certmanager
 
 patchesStrategicMerge:
