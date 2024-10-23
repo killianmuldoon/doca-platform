@@ -230,8 +230,8 @@ dpf-standalone-test:
     - type/shell
   before_script:
     - ./hack/scripts/ci_helm_docker_prereqs.sh
-  script:
     - mkdir downloaded-logs
+  script:
     - >
       docker run --pull=always --rm --net=host -v $(pwd)/downloaded-logs:/dpf-standalone/downloaded-logs $DPF_STANDALONE_IMAGE
       -e operator_version=$TAG
@@ -242,12 +242,14 @@ dpf-standalone-test:
       -e '{"deploy_test_service": true, "reboot_on_reset": true, "collect_logs": true}'
       $DPF_STANDALONE_EXTRA_ANSIBLE_ARGS
       reinstall.yml
+    - cp -r downloaded-logs job_artifacts
   after_script:
+    - rm -rf downloaded-logs
     - ./hack/scripts/slack-notification.sh
   artifacts:
     when: always
     paths:
-      - downloaded-logs/*
+      - job_artifacts/*
 
 dpf-standalone-stable-release:
   interruptible: false
