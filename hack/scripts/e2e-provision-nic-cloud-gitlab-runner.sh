@@ -18,7 +18,7 @@
 SETUP_DESCRIPTION="b2b x86-64 bf2"
 TAG="dpf/dpu"
 MAX_VM_RUNNERS="${MAX_VM_RUNNERS:-2}"
-TARGET_HOUR="${TARGET_HOUR:-6}"
+TARGET_HOUR="${TARGET_HOUR:-4}"
 
 check_and_unregister_offline_runners() {
     TAG="$1"

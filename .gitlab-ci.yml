@@ -164,7 +164,7 @@ e2e-provisioning:
       when: on_success
   variables:
     DPF_E2E_NUM_DPU_NODES: 1
-    PIPELINE_NAME: "Periodic e2e dpf-standalone tests"
+    PIPELINE_NAME: "Provisioning end-to-end tests"
   tags:
     - dpf/dpu
   cache:
@@ -259,7 +259,7 @@ dpf-standalone-stable-release:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_DPF_STABLE_RELEASE == "true"
       when: on_success
   variables:
-    PIPELINE_NAME: "dpf-standalone-release"
+    PIPELINE_NAME: "DPF standalone release"
     OPERATOR_CHART_TAGS: "v0.1.0-dev-stable"
   tags:
   - release

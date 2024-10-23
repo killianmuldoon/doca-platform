@@ -57,11 +57,3 @@ spec:
   addons:
     coreDNS: {}
     kubeProxy: {}
-    konnectivity:
-      server:
-        port: 8132
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits: {}

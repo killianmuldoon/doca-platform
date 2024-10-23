@@ -112,7 +112,7 @@ func (cm *clusterHandler) CleanUpCluster(ctx context.Context, dc *provisioningv1
 	return true, nil
 }
 
-func (cm clusterHandler) Type() string {
+func (cm *clusterHandler) Type() string {
 	return string(provisioningv1.KamajiCluster)
 }
 
