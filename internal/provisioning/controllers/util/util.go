@@ -106,10 +106,6 @@ func GenerateDMSServerCertName(dpuName string) string {
 	return fmt.Sprintf("%s-%s", dpuName, "dms-server-cert")
 }
 
-func GenerateDMSClientCertName(dpuNamespace string) string {
-	return fmt.Sprintf("%s-%s", dpuNamespace, "dms-client-cert")
-}
-
 func GenerateCASecretName(dpuNamespace string) string {
 	return fmt.Sprintf("%s-%s", dpuNamespace, "ca-secret")
 }
@@ -120,18 +116,6 @@ func GenerateHostnetworkPodName(dpuName string) string {
 
 func GenerateDMSServerSecretName(dpuName string) string {
 	return fmt.Sprintf("%s-%s", dpuName, "server-secret")
-}
-
-func GenerateDMSClientSecretName(dpuNamespace string) string {
-	return fmt.Sprintf("%s-%s", dpuNamespace, "client-secret")
-}
-
-func GenerateDMSServerIssuerName(dpuName string) string {
-	return fmt.Sprintf("%s-%s", dpuName, "dms-server-issuer")
-}
-
-func GenerateDMSClientIssuerName(dpuNamespace string) string {
-	return fmt.Sprintf("%s-%s", dpuNamespace, "dms-client-issuer")
 }
 
 func RemoteExec(ns, name, container, cmd string) (string, error) {

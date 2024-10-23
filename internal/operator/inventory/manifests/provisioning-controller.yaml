@@ -1233,6 +1233,44 @@ spec:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
+  name: dpf-provisioning-ca-cert
+  namespace: dpf-provisioning
+spec:
+  commonName: dpf-provisioning-ca-cert
+  dnsNames:
+  - dpf-provisioning-webhook-service.dpf-provisioning.svc
+  - dpf-provisioning-webhook-service.dpf-provisioning.svc.cluster.local
+  isCA: true
+  issuerRef:
+    kind: Issuer
+    name: dpf-provisioning-selfsigned-issuer
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  secretName: dpf-provisioning-ca-secret
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: dpf-provisioning-client-cert
+  namespace: dpf-provisioning
+spec:
+  commonName: dpf-provisioning-client-cert
+  dnsNames:
+  - dpf-provisioning-webhook-service.dpf-provisioning.svc
+  - dpf-provisioning-webhook-service.dpf-provisioning.svc.cluster.local
+  duration: 24h0m0s
+  issuerRef:
+    kind: Issuer
+    name: dpf-provisioning-issuer
+  renewBefore: 8h0m0s
+  secretName: dpf-provisioning-client-secret
+  usages:
+  - client auth
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
   labels:
     app.kubernetes.io/component: certificate
     app.kubernetes.io/created-by: dpf-provisioning-controller
@@ -1250,6 +1288,15 @@ spec:
     kind: Issuer
     name: dpf-provisioning-selfsigned-issuer
   secretName: webhook-server-cert
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: dpf-provisioning-issuer
+  namespace: dpf-provisioning
+spec:
+  ca:
+    secretName: dpf-provisioning-ca-secret
 ---
 apiVersion: cert-manager.io/v1
 kind: Issuer

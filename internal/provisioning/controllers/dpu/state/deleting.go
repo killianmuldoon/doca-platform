@@ -60,24 +60,6 @@ func (st *dpuDeletingState) Handle(ctx context.Context, client crclient.Client, 
 	deleteObjects := []crclient.Object{
 		&certmanagerv1.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cutil.GenerateDMSClientCertName(st.dpu.Namespace),
-				Namespace: st.dpu.Namespace,
-			},
-		},
-		&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cutil.GenerateDMSClientSecretName(st.dpu.Namespace),
-				Namespace: st.dpu.Namespace,
-			},
-		},
-		&certmanagerv1.Issuer{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cutil.GenerateDMSClientIssuerName(st.dpu.Namespace),
-				Namespace: st.dpu.Namespace,
-			},
-		},
-		&certmanagerv1.Certificate{
-			ObjectMeta: metav1.ObjectMeta{
 				Name:      cutil.GenerateDMSServerCertName(st.dpu.Name),
 				Namespace: st.dpu.Namespace,
 			},
@@ -85,12 +67,6 @@ func (st *dpuDeletingState) Handle(ctx context.Context, client crclient.Client, 
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cutil.GenerateDMSServerSecretName(st.dpu.Name),
-				Namespace: st.dpu.Namespace,
-			},
-		},
-		&certmanagerv1.Issuer{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cutil.GenerateDMSServerIssuerName(st.dpu.Name),
 				Namespace: st.dpu.Namespace,
 			},
 		},

@@ -37,3 +37,51 @@ spec:
     kind: Issuer
     name: selfsigned-issuer
   secretName: webhook-server-cert # this secret will not be prefixed, since it's not managed by kustomize
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: issuer
+  namespace: system
+spec:
+  ca:
+    secretName: dpf-provisioning-ca-secret # this secret will not be prefixed, since it's not managed by kustomize
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: ca-cert
+  namespace: system
+spec:
+  dnsNames:
+  - SERVICE_NAME.SERVICE_NAMESPACE.svc
+  - SERVICE_NAME.SERVICE_NAMESPACE.svc.cluster.local
+  commonName: dpf-provisioning-ca-cert
+  isCA: true
+  issuerRef:
+    kind: Issuer
+    name: selfsigned-issuer
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  secretName: dpf-provisioning-ca-secret # this secret will not be prefixed, since it's not managed by kustomize
+  
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: client-cert
+  namespace: system
+spec:
+  dnsNames:
+  - SERVICE_NAME.SERVICE_NAMESPACE.svc
+  - SERVICE_NAME.SERVICE_NAMESPACE.svc.cluster.local
+  commonName: dpf-provisioning-client-cert
+  duration: 24h0m0s
+  issuerRef:
+    kind: Issuer
+    name: issuer
+  renewBefore: 8h0m0s
+  secretName: dpf-provisioning-client-secret # this secret will not be prefixed, since it's not managed by kustomize
+  usages:
+  - client auth

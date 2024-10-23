@@ -36,61 +36,22 @@ import (
 )
 
 const (
-	dmsPath              string = "/opt/mellanox/doca/services/dms/dmsd"
-	username             string = "admin"
-	password             string = "admin"
-	issuerKind           string = "Issuer"
-	selfSignedIssuerName string = "dpf-provisioning-selfsigned-issuer"
-	dmsServerIP          string = "0.0.0.0"
-	dmsServerPort        int32  = 9339
+	dmsPath                string = "/opt/mellanox/doca/services/dms/dmsd"
+	username               string = "admin"
+	password               string = "admin"
+	issuerKind             string = "Issuer"
+	provisioningIssuerName string = "dpf-provisioning-issuer" // this issuer is created by provisioning manifest
+	dmsServerIP            string = "0.0.0.0"
+	dmsServerPort          int32  = 9339
 )
 
 const (
-	DMSImageFolder string = "/bfb"
+	DMSImageFolder  string = "/bfb"
+	DMSClientSecret string = "dpf-provisioning-client-secret"
 )
 
 func Address(ip string) string {
 	return fmt.Sprintf("%s:%d", ip, dmsServerPort)
-}
-
-func createIssuer(ctx context.Context, client client.Client, name string, namespace string, secretName string, owner *metav1.OwnerReference) error {
-	issuer := &certmanagerv1.Issuer{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			Namespace:       namespace,
-			OwnerReferences: []metav1.OwnerReference{*owner},
-		},
-		Spec: certmanagerv1.IssuerSpec{
-			IssuerConfig: certmanagerv1.IssuerConfig{
-				CA: &certmanagerv1.CAIssuer{
-					SecretName: secretName,
-				},
-			},
-		},
-	}
-
-	nn := types.NamespacedName{
-		Namespace: namespace,
-		Name:      name,
-	}
-
-	existingIssuer := &certmanagerv1.Issuer{}
-	if err := client.Get(ctx, nn, existingIssuer); err != nil {
-		if apierrors.IsNotFound(err) {
-			err = client.Create(ctx, issuer)
-			if err != nil {
-				return err
-			}
-			return nil
-		}
-		return fmt.Errorf("failed to get issuer: %v", err)
-	}
-	issuer.ResourceVersion = existingIssuer.ResourceVersion
-	err := client.Update(ctx, issuer)
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func createServerCertificate(ctx context.Context, client client.Client, name string, namespace string, secretName string, commonName string, issuerRef cmmeta.ObjectReference, owner *metav1.OwnerReference, ipAddresses []string) error {
@@ -132,130 +93,22 @@ func createServerCertificate(ctx context.Context, client client.Client, name str
 	return nil
 }
 
-func createClientCertificate(ctx context.Context, client client.Client, name string, namespace string, secretName string, commonName string, issuerRef cmmeta.ObjectReference, owner *metav1.OwnerReference) error {
-	cert := &certmanagerv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			Namespace:       namespace,
-			OwnerReferences: []metav1.OwnerReference{*owner},
-		},
-		Spec: certmanagerv1.CertificateSpec{
-			SecretName:  secretName,
-			Duration:    &metav1.Duration{Duration: 24 * time.Hour},
-			RenewBefore: &metav1.Duration{Duration: 8 * time.Hour},
-			IssuerRef:   issuerRef,
-			Usages: []certmanagerv1.KeyUsage{
-				certmanagerv1.UsageClientAuth},
-			CommonName: commonName,
-		},
-	}
-
-	nn := types.NamespacedName{
-		Namespace: namespace,
-		Name:      name,
-	}
-
-	existingCert := &certmanagerv1.Certificate{}
-	if err := client.Get(ctx, nn, existingCert); err != nil {
-		if apierrors.IsNotFound(err) {
-			err = client.Create(ctx, cert)
-			if err != nil {
-				return err
-			}
-			return nil
-		}
-		return fmt.Errorf("failed to get Certificate: %v", err)
-	}
-	return nil
-}
-
-func createRootCaCert(ctx context.Context, client client.Client, name string, namespace string, secretName string, commonName string, issuerRef cmmeta.ObjectReference) error {
-	rootCertificate := &certmanagerv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: certmanagerv1.CertificateSpec{
-			IsCA:       true,
-			CommonName: commonName,
-			SecretName: secretName,
-			PrivateKey: &certmanagerv1.CertificatePrivateKey{
-				Algorithm: certmanagerv1.ECDSAKeyAlgorithm,
-				Size:      256,
-			},
-			IssuerRef: issuerRef,
-		},
-	}
-
-	nn := types.NamespacedName{
-		Namespace: namespace,
-		Name:      name,
-	}
-
-	rootCert := &certmanagerv1.Certificate{}
-	if err := client.Get(ctx, nn, rootCert); err != nil {
-		if apierrors.IsNotFound(err) {
-			err = client.Create(ctx, rootCertificate)
-			if err != nil {
-				return err
-			}
-			return nil
-		}
-		return fmt.Errorf("failed to get Certificate: %v", err)
-	}
-	return nil
-}
-
 func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1.DPU, option dutil.DPUOptions) error {
 	logger := log.FromContext(ctx)
 	dmsPodName := cutil.GenerateDMSPodName(dpu.Name)
 
-	selfSignedIssuerName := selfSignedIssuerName
-
-	nn := types.NamespacedName{
-		Namespace: dpu.Namespace,
-		Name:      selfSignedIssuerName,
-	}
-
-	selfSignedIssuer := &certmanagerv1.Issuer{}
-	if err := client.Get(ctx, nn, selfSignedIssuer); err != nil {
-		return fmt.Errorf("failed to get issuer: %v", err)
-	}
-
-	caCertName := cutil.GenerateCACertName(dpu.Namespace)
-	caSecretName := cutil.GenerateCASecretName(dpu.Namespace)
-
-	issuerRef := cmmeta.ObjectReference{
-		Name: selfSignedIssuerName,
-		Kind: issuerKind,
-	}
-
-	// Create Root CA certificate
-	if err := createRootCaCert(ctx, client, caCertName, dpu.Namespace, caSecretName, caCertName, issuerRef); err != nil {
-		logger.Error(err, fmt.Sprintf("Error creating server certificate: %v", err))
-		return err
-	}
-
-	dmsServerIssuerName := cutil.GenerateDMSServerIssuerName(dpu.Name)
-
 	owner := metav1.NewControllerRef(dpu,
 		provisioningv1.GroupVersion.WithKind("DPU"))
-
-	// Define the Server Issuer using the Self-Signed Issuer
-	if err := createIssuer(ctx, client, dmsServerIssuerName, dpu.Namespace, caSecretName, owner); err != nil {
-		logger.Error(err, fmt.Sprintf("Error creating server Issuer: %v", err))
-		return err
-	}
 
 	dmsServerSecretName := cutil.GenerateDMSServerSecretName(dpu.Name)
 	dmsServerCertName := cutil.GenerateDMSServerCertName(dpu.Name)
 
-	issuerRef = cmmeta.ObjectReference{
-		Name: dmsServerIssuerName,
+	issuerRef := cmmeta.ObjectReference{
+		Name: provisioningIssuerName,
 		Kind: issuerKind,
 	}
 
-	nn = types.NamespacedName{
+	nn := types.NamespacedName{
 		Namespace: "",
 		Name:      dpu.Spec.NodeName,
 	}
@@ -271,28 +124,6 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 	// Create server certificate with Server Issuer
 	if err := createServerCertificate(ctx, client, dmsServerCertName, dpu.Namespace, dmsServerSecretName, dmsServerCertName, issuerRef, owner, []string{nodeInternalIP}); err != nil {
 		logger.Error(err, "Failed to create Server certificate", "dms", err)
-		return err
-	}
-
-	dmsClientIssuerName := cutil.GenerateDMSClientIssuerName(dpu.Namespace)
-
-	// Define the Client Issuer using the Self-Signed Issuer
-	if err := createIssuer(ctx, client, dmsClientIssuerName, dpu.Namespace, caSecretName, owner); err != nil {
-		logger.Error(err, fmt.Sprintf("Error creating client Issuer: %v", err))
-		return err
-	}
-
-	issuerRef = cmmeta.ObjectReference{
-		Name: dmsClientIssuerName,
-		Kind: issuerKind,
-	}
-
-	dmsClientCertName := cutil.GenerateDMSClientCertName(dpu.Namespace)
-	clientSecretName := cutil.GenerateDMSClientSecretName(dpu.Namespace)
-
-	// Create client certificate with the Client Issuer
-	if err := createClientCertificate(ctx, client, dmsClientCertName, dpu.Namespace, clientSecretName, dmsClientCertName, issuerRef, owner); err != nil {
-		logger.Error(err, fmt.Sprintf("Error creating client certificate: %v", err))
 		return err
 	}
 

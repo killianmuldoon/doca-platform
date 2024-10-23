@@ -60,7 +60,6 @@ const (
 	// The maximum size of the bf.cfg file is expanded to 128k since DOCA 2.8
 	MaxBFSize     = 1024 * 128
 	MaxRetryCount = 10
-
 	// HostNameDPULabelKey is the label added to the DPU Kubernetes Node that indicates the hostname of the host that
 	// this DPU belongs to.
 	HostNameDPULabelKey = "provisioning.dpu.nvidia.com/host"
@@ -135,7 +134,7 @@ func createGRPCConnection(ctx context.Context, client client.Client, dpu *provis
 
 	nn = types.NamespacedName{
 		Namespace: dpu.Namespace,
-		Name:      cutil.GenerateDMSClientSecretName(dpu.Namespace),
+		Name:      dms.DMSClientSecret,
 	}
 	dmsClientSecret := &corev1.Secret{}
 	if err := client.Get(ctx, nn, dmsClientSecret); err != nil {

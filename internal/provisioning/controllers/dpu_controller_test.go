@@ -1098,25 +1098,6 @@ var _ = Describe("DMS Pod", func() {
 	Context("obj test context", func() {
 		ctx := context.Background()
 
-		It("create DMS Pod w/o Issuer", func() {
-			By("creating the dpu")
-			objDPU := &provisioningv1.DPU{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      DefaultDPUName,
-					Namespace: testNS.Name,
-				},
-				Spec:   provisioningv1.DPUSpec{},
-				Status: provisioningv1.DPUStatus{},
-			}
-			Expect(k8sClient.Create(ctx, objDPU)).NotTo(HaveOccurred())
-			DeferCleanup(k8sClient.Delete, ctx, objDPU)
-
-			By("creating DMS Pod")
-			option := util.DPUOptions{}
-			err := dms.CreateDMSPod(ctx, k8sClient, objDPU, option)
-			Expect(err).To(MatchError(ContainSubstring("dpf-provisioning-selfsigned-issuer")))
-		})
-
 		It("create DMS Pod w/o Node", func() {
 			By("creating Issuer")
 			obj := &certmanagerv1.Issuer{
