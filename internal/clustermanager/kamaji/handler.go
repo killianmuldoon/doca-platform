@@ -156,14 +156,12 @@ func (cm *clusterHandler) reconcileKeepalived(ctx context.Context, dc *provision
 	}
 	if err := inventory.NewEdits().
 		AddForAll(inventory.NamespaceEdit(dc.Namespace)).
+		AddForAll(inventory.OwnerReferenceEdit(dc, cm.Scheme)).
 		AddForKindS(inventory.DaemonsetKind, inventory.TolerationsEdit(tolerations)).
 		Apply(objs); err != nil {
 		return nil, fmt.Errorf("failed to set namespace for keepalived manifests, err: %v", err)
 	}
 	for _, obj := range objs {
-		if err := controllerutil.SetOwnerReference(dc, obj, cm.Scheme); err != nil {
-			return nil, fmt.Errorf("failed to set owner reference, err: %v", err)
-		}
 		err = func() error {
 			tc, cancel := context.WithTimeout(ctx, 5*time.Second)
 			defer cancel()

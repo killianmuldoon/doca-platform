@@ -24,9 +24,11 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // NamespaceEdit sets namespace for object
@@ -141,6 +143,16 @@ func LabelsEdit(labelsToAdd map[string]string) UnstructuredEdit {
 			labelsToAdd[k] = v
 		}
 		un.SetLabels(labelsToAdd)
+		return nil
+	}
+}
+
+// OwnerReferenceEdit adds the given owner to the ownerReference list of the passed object
+func OwnerReferenceEdit(owner metav1.Object, scheme *runtime.Scheme) UnstructuredEdit {
+	return func(un *unstructured.Unstructured) error {
+		if err := controllerutil.SetOwnerReference(owner, un, scheme); err != nil {
+			return fmt.Errorf("failed to set owner reference, err: %v", err)
+		}
 		return nil
 	}
 }

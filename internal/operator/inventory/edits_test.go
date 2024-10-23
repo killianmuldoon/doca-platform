@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -55,9 +56,23 @@ var _ = Describe("Test Edits", func() {
 		})
 
 		It("edits all objects", func() {
-			Expect(NewEdits().AddForAll(NamespaceEdit("foo")).Apply(objs)).ToNot(HaveOccurred())
+			ownerObj := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: "owner", Namespace: "foo", UID: types.UID("1234")}}
+			scheme := runtime.NewScheme()
+			Expect(appsv1.AddToScheme(scheme)).To(Succeed())
+			Expect(NewEdits().
+				AddForAll(NamespaceEdit(ownerObj.Namespace)).
+				AddForAll(OwnerReferenceEdit(ownerObj, scheme)).
+				Apply(objs)).ToNot(HaveOccurred())
 			for _, obj := range objs {
-				Expect(obj.GetNamespace()).To(Equal("foo"))
+				Expect(obj.GetNamespace()).To(Equal(ownerObj.Namespace))
+				ownRef := obj.GetOwnerReferences()
+				Expect(ownRef).To(HaveLen(1))
+				Expect(ownRef[0]).To(Equal(metav1.OwnerReference{
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
+					UID:        ownerObj.GetUID(),
+					Name:       ownerObj.GetName(),
+				}))
 			}
 		})
 
