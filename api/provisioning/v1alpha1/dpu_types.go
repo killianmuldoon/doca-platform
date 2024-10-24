@@ -31,26 +31,26 @@ var DPUGroupVersionKind = GroupVersion.WithKind(DPUKind)
 // DPUPhase describes current state of DPU.
 // Only one of the following state may be specified.
 // Default is Initializing.
-// +kubebuilder:validation:Enum="Initializing";"Node Effect";"Pending";"DMSDeployment";"OS Installing";"DPU Cluster Config";"Host Network Configuration";"Ready";"Error";"Deleting";"Rebooting"
+// +kubebuilder:validation:Enum="Initializing";"Node Effect";"Pending";"DMS Deployment";"OS Installing";"Node Joining";"Host Network Configuration";"Ready";"Error";"Deleting";"Rebooting"
 type DPUPhase string
 
 // These are the valid statuses of DPU.
 const (
 	DPUFinalizer = "provisioning.dpu.nvidia.com/dpu-protection"
 
-	// DPU CR is created by DPUSet.
+	// DPUInitializing is the first phase after the DPU is created.
 	DPUInitializing DPUPhase = "Initializing"
-	// In DPUNodeEffect state, the controller will handle the node effect provided by the user.
+	// DPUNodeEffect means the controller will handle the node effect provided by the user.
 	DPUNodeEffect DPUPhase = "Node Effect"
-	// In this state, the controller will check whether BFB is ready.
+	// DPUPending means the controller is waiting for the BFB to be ready.
 	DPUPending DPUPhase = "Pending"
-	// In DPUDMSDeployment state, the controller will create DMS pod and proxy pod.
-	DPUDMSDeployment DPUPhase = "DMSDeployment"
-	// In DPUOSInstalling state, the controller will call DMS gNOI interface to do dpu provisioning.
+	// DPUDMSDeployment means the controller will create the DMS pod and proxy pod.
+	DPUDMSDeployment DPUPhase = "DMS Deployment"
+	// DPUOSInstalling means the controller will provision the DPU through the DMS gNOI interface.
 	DPUOSInstalling DPUPhase = "OS Installing"
-	// In DPUClusterConfig state, The controller will verify DPU joined successfully to DPU cluster.
-	DPUClusterConfig DPUPhase = "DPU Cluster Config"
-	// Setup host network
+	// DPUNodeJoin means the node configuration and Kubernetes Node join procedure are in progress .
+	DPUNodeJoin DPUPhase = "Node Joining"
+	// DPUHostNetworkConfiguration means the host network configuration is running.
 	DPUHostNetworkConfiguration DPUPhase = "Host Network Configuration"
 	// DPUReady means the DPU is ready to use.
 	DPUReady DPUPhase = "Ready"

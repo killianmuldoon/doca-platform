@@ -433,8 +433,8 @@ func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningv1.DPUSet,
 		case provisioningv1.DPUOSInstalling:
 			dpuStatistics[provisioningv1.DPUOSInstalling]++
 
-		case provisioningv1.DPUClusterConfig:
-			dpuStatistics[provisioningv1.DPUClusterConfig]++
+		case provisioningv1.DPUNodeJoin:
+			dpuStatistics[provisioningv1.DPUNodeJoin]++
 
 		case provisioningv1.DPUReady:
 			dpuStatistics[provisioningv1.DPUReady]++

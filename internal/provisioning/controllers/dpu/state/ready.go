@@ -94,7 +94,7 @@ func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, optio
 		cond := cutil.DPUCondition(provisioningv1.DPUCondReady, "DPUNodeReady", "")
 		cutil.SetDPUCondition(state, cond)
 		if cutil.NeedUpdateLabels(dpu.Spec.Cluster.NodeLabels, node.Labels) {
-			state.Phase = provisioningv1.DPUClusterConfig
+			state.Phase = provisioningv1.DPUNodeJoin
 			logger.V(3).Info(fmt.Sprintf("node %s needs to update label", node.Name))
 			return *state, nil
 		}

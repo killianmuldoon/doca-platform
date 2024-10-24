@@ -74,7 +74,7 @@ func GetDPUState(dpu *provisioningv1.DPU, alloc allocator.Allocator) State {
 		return &dpuRebootingState{
 			dpu,
 		}
-	case provisioningv1.DPUClusterConfig:
+	case provisioningv1.DPUNodeJoin:
 		return &dpuClusterConfig{
 			dpu,
 		}

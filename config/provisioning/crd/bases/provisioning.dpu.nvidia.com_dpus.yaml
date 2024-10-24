@@ -226,9 +226,9 @@ spec:
                 - Initializing
                 - Node Effect
                 - Pending
-                - DMSDeployment
+                - DMS Deployment
                 - OS Installing
-                - DPU Cluster Config
+                - Node Joining
                 - Host Network Configuration
                 - Ready
                 - Error
