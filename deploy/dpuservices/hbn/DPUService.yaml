@@ -7,9 +7,9 @@ spec:
   serviceID: doca-hbn
   # TODO: align refernces to DPUServiceInterfaces with the deployment guide
   interfaces:
-    - p0-sf
-    - p1-sf
-    - app-sf
+    - p0-if
+    - p1-if
+    - app-if
   serviceDaemonSet:
     annotations:
       # TODO:
@@ -86,9 +86,9 @@ spec:
                     address:
                       {{ ipaddresses.ip_lo.cidr }}: {}
                   type: loopback
-                p0_sf,p1_sf:
+                p0_if,p1_if:
                   type: swp
-                pf2dpu2_sf:
+                pf2dpu2_if:
                   ip:
                     address:
                       {{ ipaddresses.ip_pf2dpu2.cidr }}: {}
@@ -117,10 +117,10 @@ spec:
                               enable: on
                       enable: on
                       neighbor:
-                        p0_sf:
+                        p0_if:
                           peer-group: {{ config.bgp_peer_group }}
                           type: unnumbered
-                        p1_sf:
+                        p1_if:
                           peer-group: {{ config.bgp_peer_group }}
                           type: unnumbered
                       path-selection:

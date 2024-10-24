@@ -2,7 +2,7 @@
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
-  name: app-sf
+  name: app-if
   namespace: dpf-operator-system
 spec:
   template:
@@ -10,19 +10,19 @@ spec:
       template:
         metadata:
           labels:
-            svc.dpu.nvidia.com/interface: "app_sf"
+            svc.dpu.nvidia.com/interface: "app_if"
             svc.dpu.nvidia.com/service: doca-hbn
         spec:
           interfaceType: service
           service:
             serviceID: doca-hbn
             network: mybrhbn
-            interfaceName: pf2dpu2_sf
+            interfaceName: pf2dpu2_if
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
-  name: p0-sf
+  name: p0-if
   namespace: dpf-operator-system
 spec:
   template:
@@ -30,19 +30,19 @@ spec:
       template:
         metadata:
           labels:
-            svc.dpu.nvidia.com/interface: "p0_sf"
+            svc.dpu.nvidia.com/interface: "p0_if"
             svc.dpu.nvidia.com/service: doca-hbn
         spec:
           interfaceType: service
           service:
             serviceID: doca-hbn
             network: mybrhbn
-            interfaceName: p0_sf
+            interfaceName: p0_if
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
-  name: p1-sf
+  name: p1-if
   namespace: dpf-operator-system
 spec:
   template:
@@ -50,14 +50,14 @@ spec:
       template:
         metadata:
           labels:
-            svc.dpu.nvidia.com/interface: "p1_sf"
+            svc.dpu.nvidia.com/interface: "p1_if"
             svc.dpu.nvidia.com/service: doca-hbn
         spec:
           interfaceType: service
           service:
             serviceID: doca-hbn
             network: mybrhbn
-            interfaceName: p1_sf
+            interfaceName: p1_if
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
