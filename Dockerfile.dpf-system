@@ -11,7 +11,7 @@ WORKDIR /workspace
 # kubeadm is required to create join tokens for DPU nodes.
 # Using the $TARGETARCH in the name of the binary here ensures we don't get any cross-arch caching after this binary is downloaded.
 # TODO: Remove this in favor of using a client-go call for a join token.
-RUN curl -L "https://cdn.dl.k8s.io/release/v1.31.0/bin/linux/${TARGETARCH}/kubeadm" -o kubeadm-${TARGETARCH} && chmod +x kubeadm-${TARGETARCH}
+RUN curl -L "https://cdn.dl.k8s.io/release/v1.31.2/bin/linux/${TARGETARCH}/kubeadm" -o kubeadm-${TARGETARCH} && chmod +x kubeadm-${TARGETARCH}
 RUN mkdir -p /kubeconfig
 
 # 2) Builder stage builds go binaries (no emulation).
