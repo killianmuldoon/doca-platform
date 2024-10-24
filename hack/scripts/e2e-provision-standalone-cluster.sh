@@ -34,6 +34,17 @@ if [[ -z "$VM_PASSWORD" ]]; then
     exit 1
 fi
 
+# Ensure the DPUs are bound with the correct drivers before starting the environment.
+dpu_pcis=$(lspci -n  | grep -e a2dc -e a2d6 | cut -d ' ' -f1 |  tr '\n' ' ')
+for pci in "${dpu_pcis}"; do
+
+  if [ ! -f /sys/bus/pci/devices/0000:${pci}/net ]; then
+      echo "${pci} is not configured as a net device. Attempting to bind driver"
+      echo 0000:${pci} > /sys/bus/pci/drivers/mlx5_core/unbind
+      echo 0000:${pci} > /sys/bus/pci/drivers/mlx5_core/bind
+  fi
+done
+
 # Ensure the BFBs have been copied to this node so they're accessible.
 mkdir -p /bfb-images
 cp /auto/sw_mc_soc_release/doca_dpu/doca_2.9.0/20241020/bfbs/qp/bf-bundle-2.9.0-64_24.10_ubuntu-22.04_unsigned.bfb /bfb-images
