@@ -38,7 +38,7 @@ type dpuNodeEffectState struct {
 	dpu *provisioningv1.DPU
 }
 
-func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
+func (st *dpuNodeEffectState) Handle(ctx context.Context, k8sClient client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
@@ -49,7 +49,7 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 	nodeEffect := st.dpu.Spec.NodeEffect
 
 	if nodeEffect.NoEffect {
-		logger.V(3).Info("NodeEffect is set to No Effect")
+		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"NoEffect\" for node: %s", st.dpu.Spec.NodeName))
 		state.Phase = provisioningv1.DPUPending
 		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
 		return *state, nil
@@ -62,17 +62,17 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 		Name:      nodeName,
 	}
 	node := &corev1.Node{}
-	if err := client.Get(ctx, nn, node); err != nil {
-		return *state, fmt.Errorf("get node %s: %v", nodeName, err)
+	if err := k8sClient.Get(ctx, nn, node); err != nil {
+		return *state, fmt.Errorf("failed to get node %s: %v", nodeName, err)
 	}
 
 	if len(nodeEffect.CustomLabel) != 0 {
-		logger.V(3).Info("NodeEffect is set to Custom Label", "node", nodeName)
-		if err := cutil.AddLabelsToNode(ctx, client, node, nodeEffect.CustomLabel); err != nil {
+		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"CustomLabel\" for node: %s", st.dpu.Spec.NodeName))
+		if err := cutil.AddLabelsToNode(ctx, k8sClient, node, nodeEffect.CustomLabel); err != nil {
 			return *state, err
 		}
 	} else if nodeEffect.Taint != nil {
-		logger.V(3).Info("NodeEffect is set to Taint", "node", nodeName)
+		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"Taint\" for node: %s", st.dpu.Spec.NodeName))
 		taintExist := false
 		for _, t := range node.Spec.Taints {
 			if t.Key == nodeEffect.Taint.Key {
@@ -82,52 +82,72 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, client client.Client, 
 		}
 		if !taintExist {
 			node.Spec.Taints = append(node.Spec.Taints, *nodeEffect.Taint)
-			if err := client.Update(ctx, node); err != nil {
+			if err := k8sClient.Update(ctx, node); err != nil {
 				return *state, err
 			}
 		}
 	} else if nodeEffect.Drain != nil {
-		logger.V(3).Info("NodeEffect is set to Drain", "node", nodeName)
-
+		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"Drain\" for node: %s", nodeName))
 		maintenanceNN := types.NamespacedName{
 			Namespace: st.dpu.Namespace,
 			Name:      nodeName,
 		}
 		maintenance := &maintenancev1alpha1.NodeMaintenance{}
-		if err := client.Get(ctx, maintenanceNN, maintenance); err != nil {
+		if err := k8sClient.Get(ctx, maintenanceNN, maintenance); err != nil {
 			if apierrors.IsNotFound(err) {
-				logger.V(3).Info("NodeMaintenance CR not found, creating new NodeMaintenance CR", "node", nodeName)
-				if err = createNodeMaintenance(ctx, client, nodeName, st.dpu.Namespace); err != nil {
-					logger.V(3).Info("Error creating NodeMaintenance CR", "node", nodeName, "NodeMaintanence", maintenance, "error", err)
+				// Create node maintenance CR
+				logger.V(3).Info(fmt.Sprintf("Createing NodeMaintenance (%s)", maintenanceNN))
+				if err = createNodeMaintenance(ctx, k8sClient, nodeName, st.dpu.Namespace); err != nil {
 					setDPUCondNodeEffectReady(state, metav1.ConditionFalse, errorOccurredReason, err.Error())
 					state.Phase = provisioningv1.DPUError
-					return *state, err
+					return *state, fmt.Errorf("failed to get NodeMaintenance (%s), err: %v", maintenanceNN, err)
 				}
+				return *state, nil
 			} else {
-				logger.V(3).Info("Error getting NodeMaintenance CR", "node", nodeName, "NodeMaintanence", maintenance, "error", err)
+				setDPUCondNodeEffectReady(state, metav1.ConditionFalse, errorOccurredReason, err.Error())
+				state.Phase = provisioningv1.DPUError
+				return *state, fmt.Errorf("failed to get NodeMaintenance (%s), err: %v", maintenanceNN, err)
+			}
+		} else {
+			if err := addAdditionalRequestor(ctx, k8sClient, maintenance); err != nil {
 				setDPUCondNodeEffectReady(state, metav1.ConditionFalse, errorOccurredReason, err.Error())
 				state.Phase = provisioningv1.DPUError
 				return *state, err
 			}
-		}
-		if done, err := checkNodeMaintenanceProgress(ctx, client, nodeName, st.dpu.Namespace); err != nil {
-			setDPUCondNodeEffectReady(state, metav1.ConditionFalse, errorOccurredReason, err.Error())
-			state.Phase = provisioningv1.DPUError
-			return *state, err
-		} else if done {
-			state.Phase = provisioningv1.DPUPending
-			cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
-			return *state, nil
+			// check NM status
+			if done := checkNodeMaintenanceProgress(maintenance); done {
+				logger.V(3).Info(fmt.Sprintf("NodeMaintenance (%s/%s) succeeded", maintenance.Namespace, maintenance.Name))
+			} else {
+				logger.V(3).Info(fmt.Sprintf("NodeMaintenance (%s/%s) is processing", maintenance.Namespace, maintenance.Name))
+				return *state, nil
+			}
 		}
 	}
-
 	state.Phase = provisioningv1.DPUPending
 	cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
 
 	return *state, nil
 }
 
-func createNodeMaintenance(ctx context.Context, client client.Client, nodeName string, namespace string) error {
+// add ProvisioningGroupName to AdditionalRequestors
+func addAdditionalRequestor(ctx context.Context, k8sClient client.Client, maintenance *maintenancev1alpha1.NodeMaintenance) error {
+	for _, requestor := range maintenance.Spec.AdditionalRequestors {
+		if requestor == cutil.ProvisioningGroupName {
+			// ProvisioningGroupName already exist in AdditionalRequestors
+			return nil
+		}
+	}
+
+	originalMaintenance := maintenance.DeepCopy()
+	maintenance.Spec.AdditionalRequestors = append(maintenance.Spec.AdditionalRequestors, cutil.ProvisioningGroupName)
+	patch := client.MergeFrom(originalMaintenance)
+	if err := k8sClient.Patch(ctx, maintenance, patch); err != nil {
+		return fmt.Errorf("failed to patch node maintenance %s, err: %v", originalMaintenance.Name, err)
+	}
+	return nil
+}
+
+func createNodeMaintenance(ctx context.Context, k8sClient client.Client, nodeName string, namespace string) error {
 	logger := log.FromContext(ctx)
 	nodeMaintenance := &maintenancev1alpha1.NodeMaintenance{
 		ObjectMeta: metav1.ObjectMeta{
@@ -141,31 +161,18 @@ func createNodeMaintenance(ctx context.Context, client client.Client, nodeName s
 			AdditionalRequestors: []string{cutil.ProvisioningGroupName},
 		},
 	}
-	if err := client.Create(ctx, nodeMaintenance); err != nil {
+	if err := k8sClient.Create(ctx, nodeMaintenance); err != nil {
 		return err
 	}
 	logger.V(3).Info("Successfully created NodeMaintenance CR", "node", nodeName, "NodeMaintanence", nodeMaintenance)
 	return nil
 }
 
-func checkNodeMaintenanceProgress(ctx context.Context, client client.Client, nodeName string, namespace string) (bool, error) {
-	logger := log.FromContext(ctx)
-	maintenanceNN := types.NamespacedName{
-		Namespace: namespace,
-		Name:      nodeName,
+func checkNodeMaintenanceProgress(maintenance *maintenancev1alpha1.NodeMaintenance) bool {
+	if condition := meta.FindStatusCondition(maintenance.Status.Conditions, maintenancev1alpha1.ConditionTypeReady); condition != nil {
+		return condition.Status == metav1.ConditionTrue
 	}
-	nodeMaintenance := &maintenancev1alpha1.NodeMaintenance{}
-	if err := client.Get(ctx, maintenanceNN, nodeMaintenance); err != nil {
-		logger.V(3).Info("Failed to get NodeMaintenance CR", "node", nodeName, "NodeMaintanence", nodeMaintenance, "error", err)
-		return false, err
-	}
-	condition := meta.FindStatusCondition(nodeMaintenance.Status.Conditions, maintenancev1alpha1.ConditionTypeReady)
-	if condition.Status == metav1.ConditionTrue {
-		logger.V(3).Info("NodeMaintenance succeeded", "node", nodeName, "NodeMaintenance", nodeMaintenance, "reason", condition.Reason)
-		return true, nil
-	}
-	logger.V(3).Info("Node Maintenance in progress", "node", nodeName, "state", condition.Reason, "Drain Progress", nodeMaintenance.Status.Drain)
-	return false, nil
+	return false
 }
 
 func setDPUCondNodeEffectReady(state *provisioningv1.DPUStatus, status metav1.ConditionStatus, reason, message string) {

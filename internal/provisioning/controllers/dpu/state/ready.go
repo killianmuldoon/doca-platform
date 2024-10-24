@@ -137,7 +137,6 @@ func updateFalseDPUCondReady(status *provisioningv1.DPUStatus, reason string, me
 }
 
 func HandleNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect provisioningv1.NodeEffect, nodeName string, namespace string) error {
-	logger := log.FromContext(ctx)
 	if nodeEffect.NoEffect {
 		return nil
 	}
@@ -170,20 +169,44 @@ func HandleNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect p
 	}
 
 	if nodeEffect.Drain != nil {
-		maintenanceNN := types.NamespacedName{
-			Namespace: namespace,
-			Name:      nodeName,
-		}
-		maintenance := &maintenancev1alpha1.NodeMaintenance{}
-		if err := k8sClient.Get(ctx, maintenanceNN, maintenance); err != nil {
-			if !apierrors.IsNotFound(err) {
-				return fmt.Errorf("get NodeMaintenance for node %s: %v", nodeName, err)
-			}
-		}
-		if err := cutil.DeleteObject(k8sClient, maintenance); err != nil {
-			logger.V(3).Info("Error deleting NodeMaintenance CR", "node", nodeName, "error", err)
-			return err
+		return DeleteNodeMaintenanceCR(ctx, k8sClient, nodeName, namespace)
+	}
+	return nil
+}
+
+func DeleteNodeMaintenanceCR(ctx context.Context, k8sClient client.Client, nodeName string, namespace string) error {
+	maintenanceNN := types.NamespacedName{
+		Namespace: namespace,
+		Name:      nodeName,
+	}
+	maintenance := &maintenancev1alpha1.NodeMaintenance{}
+	err := k8sClient.Get(ctx, maintenanceNN, maintenance)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			// node maintenance CR has been deleted
+			return nil
+		} else {
+			return fmt.Errorf("failed to get NodeMaintenance (%s) err: %v", maintenanceNN, err)
 		}
 	}
+
+	// remove ProvisioningGroupName from maintenance.spec.additionalRequestors
+	originalMaintenance := maintenance.DeepCopy()
+	for i, requestor := range maintenance.Spec.AdditionalRequestors {
+		if requestor == cutil.ProvisioningGroupName {
+			maintenance.Spec.AdditionalRequestors = append(maintenance.Spec.AdditionalRequestors[:i], maintenance.Spec.AdditionalRequestors[i+1:]...)
+			break
+		}
+	}
+	patch := client.MergeFrom(originalMaintenance)
+	if err := k8sClient.Patch(ctx, maintenance, patch); err != nil {
+		return fmt.Errorf("failed to patch NodeMaintenance (%s) after removing Spec.AdditionalRequestors, err: %v", maintenanceNN.Name, err)
+	}
+
+	// delete node maintenance CR
+	if err := cutil.DeleteObject(k8sClient, maintenance); err != nil {
+		return fmt.Errorf("failed to delete NodeMaintenance (%s), err: %v", maintenanceNN, err)
+	}
+
 	return nil
 }
