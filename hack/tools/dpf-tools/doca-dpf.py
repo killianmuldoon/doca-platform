@@ -49,7 +49,6 @@ class DocaDpf(Plugin):
     resources = [
         'bfb'
         'dpfoperatorconfig',
-        'dpfovnkubernetesoperatorconfig',
         'dpu',
         'dpudeployment',
         'dpuflavor',

@@ -185,7 +185,7 @@ generate-manifests-operator: controller-gen kustomize envsubst helm ## Generate 
 	$(ENVSUBST) < deploy/helm/dpf-operator/values.yaml.tmpl > deploy/helm/dpf-operator/values.yaml
 
 .PHONY: generate-manifests-dpuservice
-generate-manifests-dpuservice: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
+generate-manifests-dpuservice: controller-gen ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/dpuservice/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/dpuservice/..." \
@@ -198,6 +198,19 @@ generate-manifests-dpuservice: controller-gen kustomize ## Generate manifests e.
 	output:rbac:dir=./config/dpuservice/rbac \
 	output:webhook:dir=./config/dpuservice/webhook \
 	webhook
+
+.PHONY: generate-manifests-ovn-kubernetes-resource-injector
+generate-manifests-ovn-kubernetes-resource-injector: controller-gen envsubst ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes Resource Injector
+	$(CONTROLLER_GEN) \
+	paths="./cmd/ovnkubernetesresourceinjector/..." \
+	paths="./internal/ovnkubernetesresourceinjector/..." \
+	crd:crdVersions=v1 \
+	rbac:roleName=manager-role \
+	output:rbac:dir=./config/ovnkubernetesresourceinjector/rbac \
+	output:webhook:dir=./config/ovnkubernetesresourceinjector/webhook \
+	webhook
+	cd config/ovnkubernetesresourceinjector/manager && $(KUSTOMIZE) edit set image controller=$(OVNKUBERNETES_RESOURCE_INJECTOR_IMAGE):$(TAG)
+	$(ENVSUBST) < deploy/helm/ovn-kubernetes-resource-injector/values.yaml.tmpl > deploy/helm/ovn-kubernetes-resource-injector/values.yaml
 
 .PHONY: generate-manifests-dpucniprovisioner
 generate-manifests-dpucniprovisioner: kustomize ## Generates DPU CNI provisioner manifests
@@ -475,7 +488,7 @@ lint-helm-dpu-networking: helm ## Run helm lint for servicechainset chart
 	$Q $(HELM) lint $(DPU_NETWORKING_HELM_CHART)
 
 .PHONY: lint-helm-ovn-kubernetes
-lint-helm-ovn-kubernetes: generate-manifests-ovn-kubernetes helm ## Run helm lint for OVN Kubernetes Operator chart
+lint-helm-ovn-kubernetes: generate-manifests-ovn-kubernetes helm ## Run helm lint for ovn-kubernetes chart
 	$Q $(HELM) lint $(OVNKUBERNETES_HELM_CHART)
 
 .PHONY: lint-helm-dummydpuservice
@@ -504,7 +517,7 @@ GO_GCFLAGS ?= ""
 GO_LDFLAGS ?= "-extldflags '-static'"
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
 DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller
-DPU_ARCH_BUILD_TARGETS ?= 
+DPU_ARCH_BUILD_TARGETS ?=
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
 # The BUNDLE_VERSION is the same as the TAG but the first character is stripped. This is used to strip a leading `v` which is invalid for Bundle versions.
@@ -568,6 +581,10 @@ binary-ipallocator: ## Build the IP allocator binary.
 binary-detector: ## Build the DPU detector binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/dpu-detector github.com/nvidia/doca-platform/cmd/dpudetector
 
+.PHONY: binary-ovn-kubernetes-resource-injector
+binary-ovn-kubernetes-resource-injector: ## Build the OVN Kubernetes Resource Injector.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ovnkubernetesresourceinjector github.com/nvidia/doca-platform/cmd/ovnkubernetesresourceinjector
+
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=operator-bundle hostnetwork dms
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
@@ -581,6 +598,9 @@ export DPF_SYSTEM_IMAGE ?= $(REGISTRY)/$(DPF_SYSTEM_IMAGE_NAME)
 
 OVNKUBERNETES_IMAGE_NAME = ovn-kubernetes
 export OVNKUBERNETES_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_IMAGE_NAME)
+
+OVNKUBERNETES_RESOURCE_INJECTOR_IMAGE_NAME = ovn-kubernetes-resource-injector
+export OVNKUBERNETES_RESOURCE_INJECTOR_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_RESOURCE_INJECTOR_IMAGE_NAME)
 
 OVS_CNI_IMAGE_NAME ?= ovs-cni-plugin
 export OVS_CNI_IMAGE ?= $(REGISTRY)/$(OVS_CNI_IMAGE_NAME)
@@ -679,9 +699,8 @@ docker-push-dpf-tools-for-%:
 docker-create-manifest-for-dpf-tools:
 	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
 	docker manifest create --amend $(DPF_TOOLS_IMAGE):$(TAG) $(shell docker inspect --format='{{json .RepoDigests}}' $(DPF_TOOLS_IMAGE):$(TAG) \
-	| sed 's/[][]//g; s/,/\n/g' |grep $(REGISTRY)) 
+	| sed 's/[][]//g; s/,/\n/g' |grep $(REGISTRY))
 
-# TODO: This image should be part of a DPF Utils image.
 .PHONY: docker-build-ipallocator
 docker-build-ipallocator: ## Build docker image for the IP Allocator
 	# Base image can't be distroless because of the readiness probe that is using cat which doesn't exist in distroless
@@ -751,7 +770,6 @@ docker-build-hostnetwork: ## Build docker image with the hostnetwork.
 		-t $(HOSTNETWORK_IMAGE):$(TAG) \
 		-f Dockerfile.hostnetwork \
 		.
-		
 
 .PHONY: docker-build-dms
 docker-build-dms: ## Build docker image with the hostnetwork.
@@ -764,7 +782,6 @@ docker-build-dms: ## Build docker image with the hostnetwork.
 		-t $(DMS_IMAGE):$(TAG) \
 		-f Dockerfile.dms \
 		.
-		
 
 .PHONY: docker-build-dummydpuservice
 docker-build-dummydpuservice: ## Build docker images for the dummydpuservice
@@ -780,6 +797,21 @@ docker-build-dummydpuservice: ## Build docker images for the dummydpuservice
 		-f Dockerfile \
 		. \
 		-t $(DUMMYDPUSERVICE_IMAGE):$(TAG)
+
+.PHONY: docker-build-ovn-kubernetes-resource-injector
+docker-build-ovn-kubernetes-resource-injector: ## Build docker image for the OVN Kubernetes Resource Injector
+	docker buildx build \
+		--load \
+		--provenance=false \
+		--platform=linux/$(ARCH) \
+		--build-arg builder_image=$(BUILD_IMAGE) \
+		--build-arg base_image=$(BASE_IMAGE) \
+		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
+		--build-arg package=./cmd/ovnkubernetesresourceinjector \
+		-f Dockerfile \
+		. \
+		-t $(OVNKUBERNETES_RESOURCE_INJECTOR_IMAGE):$(TAG)
 
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the docker images for all DOCKER_BUILD_TARGETS.
@@ -831,6 +863,9 @@ docker-push-operator-bundle: ## Push the bundle image.
 docker-push-dummydpuservice: ## Push the docker image for dummydpuservice
 	docker push $(DUMMYDPUSERVICE_IMAGE):$(TAG)
 
+.PHONY: docker-push-ovn-kubernetes-resource-injector
+docker-push-ovn-kubernetes-resource-injector: ## Push the docker image for the OVN Kubernetes Resource Injector
+	docker push $(OVNKUBERNETES_RESOURCE_INJECTOR_IMAGE):$(TAG)
 
 # helm charts
 
@@ -848,10 +883,15 @@ export DPU_NETWORKING_HELM_CHART_NAME = dpu-networking
 DPU_NETWORKING_HELM_CHART ?= $(HELMDIR)/$(DPU_NETWORKING_HELM_CHART_NAME)
 DPU_NETWORKING_HELM_CHART_VER ?= $(TAG)
 
-## metadata for dpf-ovn-kubernetes-operator.
+## metadata for ovn-kubernetes
 export OVNKUBERNETES_HELM_CHART_NAME = ovn-kubernetes-chart
 OVNKUBERNETES_HELM_CHART ?= $(OVNKUBERNETES_DIR)/helm/ovn-kubernetes
 OVNKUBERNETES_HELM_CHART_VER ?= $(TAG)
+
+## metadata for ovn-kubernetes-resource-injector
+export OVNKUBERNETES_RESOURCE_INJECTOR_HELM_CHART_NAME = ovn-kubernetes-resource-injector-chart
+OVNKUBERNETES_RESOURCE_INJECTOR_HELM_CHART ?= $(HELMDIR)/ovn-kubernetes-resource-injector
+OVNKUBERNETES_RESOURCE_INJECTOR_HELM_CHART_VER ?= $(TAG)
 
 # metadata for dummydpuservice.
 DUMMYDPUSERVICE_HELM_CHART_NAME = dummydpuservice-chart
@@ -880,8 +920,12 @@ helm-package-operator: $(CHARTSDIR) helm ## Package helm chart for DPF Operator
 	done
 
 .PHONY: helm-package-ovn-kubernetes
-helm-package-ovn-kubernetes: $(OVNKUBERNETES_DIR) $(CHARTSDIR) helm ## Package helm chart for OVN Kubernetes Operator
+helm-package-ovn-kubernetes: $(OVNKUBERNETES_DIR) $(CHARTSDIR) helm ## Package helm chart for ovn-kubernetes
 	$(HELM) package $(OVNKUBERNETES_HELM_CHART) --version $(OVNKUBERNETES_HELM_CHART_VER) --destination $(CHARTSDIR)
+
+.PHONY: helm-package-ovn-kubernetes-resource-injector
+helm-package-ovn-kubernetes-resource-injector: $(CHARTSDIR) helm generate-manifests-ovn-kubernetes-resource-injector ## Package helm chart for OVN Kubernetes Resource Injector
+	$(HELM) package $(OVNKUBERNETES_RESOURCE_INJECTOR_HELM_CHART) --version $(OVNKUBERNETES_RESOURCE_INJECTOR_HELM_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-dummydpuservice
 helm-package-dummydpuservice: $(DPUSERVICESDIR) helm generate-manifests-dummydpuservice ## Package helm chart for dummydpuservice
@@ -901,8 +945,12 @@ helm-push-dpu-networking: $(CHARTSDIR) helm ## Push helm chart for service chain
 	$(HELM) push $(CHARTSDIR)/$(DPU_NETWORKING_HELM_CHART_NAME)-$(DPU_NETWORKING_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-ovn-kubernetes
-helm-push-ovn-kubernetes: $(CHARTSDIR) helm ## Push helm chart for DPF OVN Kubernetes Operator
+helm-push-ovn-kubernetes: $(CHARTSDIR) helm ## Push helm chart for ovn-kubernetes
 	$(HELM) push $(CHARTSDIR)/$(OVNKUBERNETES_HELM_CHART_NAME)-$(OVNKUBERNETES_HELM_CHART_VER).tgz $(HELM_REGISTRY)
+
+.PHONY: helm-push-ovn-kubernetes-resource-injector
+helm-push-ovn-kubernetes-resource-injector: $(CHARTSDIR) helm ## Push helm chart for OVN Kubernetes Resource Injector
+	$(HELM) push $(CHARTSDIR)/$(OVNKUBERNETES_RESOURCE_INJECTOR_HELM_CHART_NAME)-$(OVNKUBERNETES_RESOURCE_INJECTOR_HELM_CHART_VER).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-dummydpuservice
 helm-push-dummydpuservice: $(CHARTSDIR) helm ## Push helm chart for dummydpuservice

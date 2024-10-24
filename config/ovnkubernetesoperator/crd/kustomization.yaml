@@ -1,2 +1,0 @@
-resources:
-- bases/ovn.dpu.nvidia.com_dpfovnkubernetesoperatorconfigs.yaml
