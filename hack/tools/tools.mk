@@ -26,7 +26,6 @@ MOCKGEN_VERSION ?= v0.4.0
 GOTESTSUM_VERSION ?= v1.11.0
 ENVSUBST_VERSION ?= v1.4.2
 HELM_VER ?= v3.13.3
-SKAFFOLD_VER ?= v2.10.0
 MINIKUBE_VER ?= v1.33.1
 OPERATOR_SDK_VER ?= v1.35.0
 GEN_API_REF_DOCS_VERSION ?= 0ad85c56e5a611240525e8b4a641b9cee33acd9a
@@ -42,7 +41,6 @@ MOCKGEN ?= $(TOOLSDIR)/mockgen-$(MOCKGEN_VERSION)
 GOTESTSUM ?= $(TOOLSDIR)/gotestsum-$(GOTESTSUM_VERSION)
 ENVSUBST ?= $(TOOLSDIR)/envsubst-$(ENVSUBST_VERSION)
 HELM ?= $(TOOLSDIR)/helm-$(HELM_VER)
-SKAFFOLD ?= $(TOOLSDIR)/skaffold-$(SKAFFOLD_VER)
 MINIKUBE ?= $(TOOLSDIR)/minikube-$(MINIKUBE_VER)
 OPERATOR_SDK ?= $(TOOLSDIR)/operator-sdk-$(OPERATOR_SDK_VER)
 GEN_CRD_API_REFERENCE_DOCS ?= $(TOOLSDIR)/crd-ref-docs-$(GEN_API_REF_DOCS_VERSION)
@@ -111,13 +109,6 @@ mdtoc: $(MDTOC) ## Download mdtoc locally if necessary.
 $(MDTOC): | $(TOOLSDIR)
 	$(call go-install-tool,$(MDTOC),sigs.k8s.io/mdtoc,$(MDTOC_VER))
 
-# skaffold is used to run a debug build of the network operator for dev work.
-.PHONY: skaffold
-skaffold: $(SKAFFOLD) ## Download skaffold locally if necessary.
-$(SKAFFOLD): | $(TOOLSDIR)
-	$Q echo "Installing skaffold-$(SKAFFOLD_VER) to $(TOOLSDIR)"
-	$Q curl -fsSL https://storage.googleapis.com/skaffold/releases/$(SKAFFOLD_VER)/skaffold-$(OS)-$(ARCH) -o $(SKAFFOLD)
-	$Q chmod +x $(SKAFFOLD)
 
 # minikube is used to set-up a local kubernetes cluster for dev work.
 .PHONY: minikube

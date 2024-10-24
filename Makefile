@@ -955,30 +955,3 @@ helm-push-ovn-kubernetes-resource-injector: $(CHARTSDIR) helm ## Push helm chart
 .PHONY: helm-push-dummydpuservice
 helm-push-dummydpuservice: $(CHARTSDIR) helm ## Push helm chart for dummydpuservice
 	$(HELM) push $(CHARTSDIR)/$(DUMMYDPUSERVICE_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
-
-##@ Development Environment
-
-DEV_CLUSTER_NAME ?= dpf-dev
-dev-minikube: minikube ## Create a minikube cluster for development.
-	CLUSTER_NAME=$(DEV_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) $(CURDIR)/hack/scripts/minikube-install.sh
-
-clean-dev-env: minikube
-	$(MINIKUBE) delete -p $(DEV_CLUSTER_NAME)
-
-clean-minikube: minikube  ## Delete the development minikube cluster.
-	$(MINIKUBE) delete -p $(DEV_CLUSTER_NAME)
-
-dev-prereqs-dpuservice: kustomize helm $(CERT_MANAGER_YAML) $(ARGOCD_YAML) $(KAMAJI) ## Install pre-requisites for dpuservice controller on minikube dev cluster
-	# Deploy the dpuservice CRD
-	$(KUSTOMIZE) build config/dpuservice/crd | $(KUBECTL) apply -f -
-
-	$Q $(KUBECTL) create namespace argocd --dry-run=client -o yaml | $(KUBECTL) apply -f - && $(KUBECTL) apply -f $(ARGOCD_YAML)
-
-SKAFFOLD_REGISTRY=localhost:5000
-dev-dpuservice: minikube skaffold kustomize ## Deploy dpuservice controller to dev cluster using skaffold
-	# Use minikube for docker build and deployment and run skaffold
-	$(SKAFFOLD) debug -p dpuservice --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false
-
-dev-operator: minikube skaffold kustomize generate-manifests-operator-embedded ## Deploy operator controller to dev cluster using skaffold
-	$(SKAFFOLD) debug -p operator --default-repo=$(SKAFFOLD_REGISTRY) --detect-minikube=false --cleanup=false
-
