@@ -35,6 +35,14 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     -gcflags="${gcflags}" \
     -o dpucniprovisioner ./cmd/dpucniprovisioner
 
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
+    go build -trimpath \
+    -ldflags="${ldflags}"  \
+    -gcflags="${gcflags}" \
+    -o ovnkubernetesresourceinjector ./cmd/ovnkubernetesresourceinjector
+
 FROM ubuntu:24.04
 
 ARG TARGETARCH
@@ -58,6 +66,7 @@ RUN mkdir -p /var/run/openvswitch
 RUN mkdir -p /usr/libexec/cni/
 COPY --from=ovnkubernetes-builder /workspace/ipallocator /ipallocator
 COPY --from=ovnkubernetes-builder /workspace/dpucniprovisioner /cniprovisioner
+COPY --from=ovnkubernetes-builder /workspace/ovnkubernetesresourceinjector /ovnkubernetesresourceinjector
 COPY --from=ovnkubernetes-builder /workspace/ovn-kubernetes/go-controller/_output/go/bin/ovnkube /usr/bin/
 COPY --from=ovnkubernetes-builder /workspace/ovn-kubernetes/go-controller/_output/go/bin/ovn-kube-util /usr/bin/
 COPY --from=ovnkubernetes-builder /workspace/ovn-kubernetes/go-controller/_output/go/bin/ovndbchecker /usr/bin/
