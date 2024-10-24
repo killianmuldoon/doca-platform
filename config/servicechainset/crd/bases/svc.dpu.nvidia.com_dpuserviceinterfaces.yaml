@@ -105,6 +105,8 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               template:
+                description: Template describes the ServiceInterfaceSet that will
+                  be created for each selected Cluster.
                 properties:
                   metadata:
                     description: ObjectMeta holds metadata like labels and annotations.

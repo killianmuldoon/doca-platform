@@ -133,6 +133,9 @@ spec:
                                           'service'
                                         properties:
                                           defaultGateway:
+                                            description: DefaultGateway adds gateway
+                                              as default gateway in the routes list
+                                              if true.
                                             type: boolean
                                           matchLabels:
                                             additionalProperties:
@@ -142,6 +145,8 @@ spec:
                                             minProperties: 1
                                             type: object
                                           setDefaultRoute:
+                                            description: SetDefaultRoute adds a default
+                                              route to the routing table if true.
                                             type: boolean
                                         required:
                                         - matchLabels

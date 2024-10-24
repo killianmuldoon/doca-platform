@@ -109,8 +109,8 @@ spec:
                       assigned in each DPU node.
                     type: object
                   defaultGateway:
-                    description: if true, add gateway as default gateway in the routes
-                      list
+                    description: DefaultGateway adds gateway as default gateway in
+                      the routes list if true.
                     type: boolean
                   exclusions:
                     description: Exclusions is a list of IPs that should be excluded
@@ -133,8 +133,8 @@ spec:
                     format: int32
                     type: integer
                   routes:
-                    description: static routes list using the gateway specified in
-                      the spec.
+                    description: Routes is the static routes list using the gateway
+                      specified in the spec.
                     items:
                       description: Route contains static route parameters
                       properties:
@@ -155,8 +155,9 @@ spec:
                   single gateway.
                 properties:
                   defaultGateway:
-                    description: if true, add gateway as default gateway in the routes
-                      list
+                    description: |-
+                      if true, add gateway as default gateway in the routes list
+                      DefaultGateway adds gateway as default gateway in the routes list if true.
                     type: boolean
                   gateway:
                     description: Gateway is the IP in the subnet that should be the
@@ -167,8 +168,8 @@ spec:
                       allocated per node.
                     type: integer
                   routes:
-                    description: static routes list using the gateway specified in
-                      the spec.
+                    description: Routes is the static routes list using the gateway
+                      specified in the spec.
                     items:
                       description: Route contains static route parameters
                       properties:

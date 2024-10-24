@@ -59,10 +59,12 @@ func (c *DPUServiceChain) SetConditions(conditions []metav1.Condition) {
 type DPUServiceChainSpec struct {
 	// Select the Clusters with specific labels, ServiceChainSet CRs will be created only for these Clusters
 	// +optional
-	ClusterSelector metav1.LabelSelector        `json:"clusterSelector"`
-	Template        ServiceChainSetSpecTemplate `json:"template"`
+	ClusterSelector metav1.LabelSelector `json:"clusterSelector"`
+	// Template describes the ServiceChainSet that will be created for each selected Cluster.
+	Template ServiceChainSetSpecTemplate `json:"template"`
 }
 
+// ServiceChainSetSpecTemplate describes the data a ServiceChainSet should have when created from a template.
 type ServiceChainSetSpecTemplate struct {
 	Spec       ServiceChainSetSpec `json:"spec"`
 	ObjectMeta `json:"metadata,omitempty"`

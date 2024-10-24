@@ -1442,7 +1442,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `clusterSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#labelselector-v1-meta)_ | Select the Clusters with specific labels, ServiceChainSet CRs will be created only for these Clusters |  |  |
-| `template` _[ServiceChainSetSpecTemplate](#servicechainsetspectemplate)_ |  |  |  |
+| `template` _[ServiceChainSetSpecTemplate](#servicechainsetspectemplate)_ | Template describes the ServiceChainSet that will be created for each selected Cluster. |  |  |
 
 
 #### DPUServiceChainStatus
@@ -1759,7 +1759,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `clusterSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#labelselector-v1-meta)_ | Select the Clusters with specific labels, ServiceInterfaceSet CRs will be created only for these Clusters |  |  |
-| `template` _[ServiceInterfaceSetSpecTemplate](#serviceinterfacesetspectemplate)_ |  |  |  |
+| `template` _[ServiceInterfaceSetSpecTemplate](#serviceinterfacesetspectemplate)_ | Template describes the ServiceInterfaceSet that will be created for each selected Cluster. |  |  |
 
 
 #### DPUServiceInterfaceStatus
@@ -1975,8 +1975,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `matchLabels` _object (keys:string, values:string)_ | Labels matching service IPAM |  | MaxProperties: 50 <br />MinProperties: 1 <br /> |
-| `defaultGateway` _boolean_ |  |  |  |
-| `setDefaultRoute` _boolean_ |  |  |  |
+| `defaultGateway` _boolean_ | DefaultGateway adds gateway as default gateway in the routes list if true. |  |  |
+| `setDefaultRoute` _boolean_ | SetDefaultRoute adds a default route to the routing table if true. |  |  |
 
 
 #### IPV4Network
@@ -1998,8 +1998,8 @@ _Appears in:_
 | `prefixSize` _integer_ | PrefixSize is the size of the subnet that should be allocated per node. |  |  |
 | `exclusions` _string array_ | Exclusions is a list of IPs that should be excluded when splitting the CIDR into subnets per node. |  |  |
 | `allocations` _object (keys:string, values:string)_ | Allocations describes the subnets that should be assigned in each DPU node. |  |  |
-| `defaultGateway` _boolean_ | if true, add gateway as default gateway in the routes list |  |  |
-| `routes` _[Route](#route) array_ | static routes list using the gateway specified in the spec. |  |  |
+| `defaultGateway` _boolean_ | DefaultGateway adds gateway as default gateway in the routes list if true. |  |  |
+| `routes` _[Route](#route) array_ | Routes is the static routes list using the gateway specified in the spec. |  |  |
 
 
 #### IPV4Subnet
@@ -2019,8 +2019,8 @@ _Appears in:_
 | `subnet` _string_ | Subnet is the CIDR from which blocks should be allocated per node<br />TODO: Validate that input is a valid subnet |  |  |
 | `gateway` _string_ | Gateway is the IP in the subnet that should be the gateway of the subnet. |  |  |
 | `perNodeIPCount` _integer_ | PerNodeIPCount is the number of IPs that should be allocated per node. |  |  |
-| `defaultGateway` _boolean_ | if true, add gateway as default gateway in the routes list |  |  |
-| `routes` _[Route](#route) array_ | static routes list using the gateway specified in the spec. |  |  |
+| `defaultGateway` _boolean_ | if true, add gateway as default gateway in the routes list<br />DefaultGateway adds gateway as default gateway in the routes list if true. |  |  |
+| `routes` _[Route](#route) array_ | Routes is the static routes list using the gateway specified in the spec. |  |  |
 
 
 #### NamespacedName
@@ -2226,7 +2226,7 @@ _Appears in:_
 
 
 
-
+ServiceChainSetSpecTemplate describes the data a ServiceChainSet should have when created from a template.
 
 
 
@@ -2494,7 +2494,7 @@ _Appears in:_
 
 
 
-
+ServiceInterfaceSetSpecTemplate describes the data a ServiceInterfaceSet should have when created from a template.
 
 
 

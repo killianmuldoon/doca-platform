@@ -66,8 +66,10 @@ type IPAM struct {
 	// +kubebuilder:validation:MaxProperties=50
 	// +required
 	MatchLabels map[string]string `json:"matchLabels"`
+	// DefaultGateway adds gateway as default gateway in the routes list if true.
 	// +optional
 	DefaultGateway *bool `json:"defaultGateway,omitempty"`
+	// SetDefaultRoute adds a default route to the routing table if true.
 	// +optional
 	SetDefaultRoute *bool `json:"setDefaultRoute,omitempty"`
 }

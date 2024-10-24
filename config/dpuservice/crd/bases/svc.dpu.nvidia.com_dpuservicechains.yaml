@@ -98,6 +98,8 @@ spec:
                 type: object
                 x-kubernetes-map-type: atomic
               template:
+                description: Template describes the ServiceChainSet that will be created
+                  for each selected Cluster.
                 properties:
                   metadata:
                     description: ObjectMeta holds metadata like labels and annotations.
@@ -213,6 +215,9 @@ spec:
                                                   serviceInterface of type 'service'
                                                 properties:
                                                   defaultGateway:
+                                                    description: DefaultGateway adds
+                                                      gateway as default gateway in
+                                                      the routes list if true.
                                                     type: boolean
                                                   matchLabels:
                                                     additionalProperties:
@@ -223,6 +228,9 @@ spec:
                                                     minProperties: 1
                                                     type: object
                                                   setDefaultRoute:
+                                                    description: SetDefaultRoute adds
+                                                      a default route to the routing
+                                                      table if true.
                                                     type: boolean
                                                 required:
                                                 - matchLabels
