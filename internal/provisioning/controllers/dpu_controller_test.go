@@ -1169,7 +1169,7 @@ var _ = Describe("DMS Pod", func() {
 
 			By("creating DMS Pod")
 			option := util.DPUOptions{
-				DMSImageWithTag: "gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server:latest",
+				DMSImageWithTag: "gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/hostdriver:latest",
 				BFBPVC:          "bfb-pvc",
 			}
 			err := dms.CreateDMSPod(ctx, k8sClient, objDPU, option)

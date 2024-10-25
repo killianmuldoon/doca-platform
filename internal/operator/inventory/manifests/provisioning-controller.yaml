@@ -1311,8 +1311,8 @@ spec:
       - args:
         - --leader-elect
         - --v=3
-        - --dms-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/dms-server:latest
-        - --hostnetwork-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/hostnetworksetup:v0.1
+        - --dms-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/hostdriver:latest
+        - --hostnetwork-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/hostdriver:v0.1
         - --bfb-pvc=bfb-pvc
         command:
         - /provisioning

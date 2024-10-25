@@ -300,7 +300,7 @@ generate-manifests-static-cluster-manager: controller-gen kustomize ## Generate 
 
 .PHONY: generate-manifests-dpu-detector
 generate-manifests-dpu-detector: kustomize ## Generate manifests for dpu-detector
-	cd config/dpu-detector && $(KUSTOMIZE) edit set image dpu-detector=$(DMS_IMAGE):$(TAG)
+	cd config/dpu-detector && $(KUSTOMIZE) edit set image dpu-detector=$(HOSTDRIVER_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-ovn-kubernetes
 generate-manifests-ovn-kubernetes: $(OVNKUBERNETES_DIR) envsubst ## Generate manifests for ovn-kubernetes
@@ -586,7 +586,7 @@ binary-ovn-kubernetes-resource-injector: ## Build the OVN Kubernetes Resource In
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ovnkubernetesresourceinjector github.com/nvidia/doca-platform/cmd/ovnkubernetesresourceinjector
 
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
-HOST_ARCH_DOCKER_BUILD_TARGETS=operator-bundle hostnetwork dms
+HOST_ARCH_DOCKER_BUILD_TARGETS=operator-bundle hostdriver
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
 MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools
 
@@ -605,8 +605,7 @@ export OVNKUBERNETES_RESOURCE_INJECTOR_IMAGE = $(REGISTRY)/$(OVNKUBERNETES_RESOU
 OVS_CNI_IMAGE_NAME ?= ovs-cni-plugin
 export OVS_CNI_IMAGE ?= $(REGISTRY)/$(OVS_CNI_IMAGE_NAME)
 
-export HOSTNETWORK_IMAGE ?= $(REGISTRY)/hostnetworksetup
-export DMS_IMAGE ?= $(REGISTRY)/dms-server
+export HOSTDRIVER_IMAGE ?= $(REGISTRY)/hostdriver
 
 HOSTCNIPROVISIONER_IMAGE_NAME ?= host-cni-provisioner
 HOSTCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(HOSTCNIPROVISIONER_IMAGE_NAME)
@@ -761,26 +760,16 @@ docker-create-manifest-for-ovn-kubernetes:
 	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
 	docker manifest create --amend $(OVNKUBERNETES_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(OVNKUBERNETES_IMAGE):$(TAG))
 
-.PHONY: docker-build-hostnetwork
-docker-build-hostnetwork: ## Build docker image with the hostnetwork.
-	docker buildx build \
-		--load \
-		--provenance=false \
-		--platform linux/${HOST_ARCH} \
-		-t $(HOSTNETWORK_IMAGE):$(TAG) \
-		-f Dockerfile.hostnetwork \
-		.
-
-.PHONY: docker-build-dms
-docker-build-dms: ## Build docker image with the hostnetwork.
+.PHONY: docker-build-hostdriver
+docker-build-hostdriver: ## Build docker image for DMS and hostnetwork.
 	docker buildx build \
 		--load \
 		--provenance=false \
 		--platform linux/${HOST_ARCH} \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
-		-t $(DMS_IMAGE):$(TAG) \
-		-f Dockerfile.dms \
+		-t $(HOSTDRIVER_IMAGE):$(TAG) \
+		-f Dockerfile.hostdriver \
 		.
 
 .PHONY: docker-build-dummydpuservice
@@ -823,13 +812,9 @@ docker-push-dpf-system: ## This is a no-op to allow using DOCKER_BUILD_TARGETS.
 docker-push-ovs-cni: ## Push the docker image for ovs-cni
 	docker push $(OVS_CNI_IMAGE):$(TAG)
 
-.PHONY: docker-push-hostnetwork
-docker-push-hostnetwork: ## Push the docker image for the hostnetwork.
-	docker push $(HOSTNETWORK_IMAGE):$(TAG)
-
-.PHONY: docker-push-dms
-docker-push-dms: ## Push the docker image for DMS.
-	docker push $(DMS_IMAGE):$(TAG)
+.PHONY: docker-push-hostdriver
+docker-push-hostdriver: ## Push the docker image for DMS and hostnetwork.
+	docker push $(HOSTDRIVER_IMAGE):$(TAG)
 
 .PHONY: docker-push-dpucniprovisioner
 docker-push-dpucniprovisioner: ## Push the docker image for DPU CNI Provisioner.

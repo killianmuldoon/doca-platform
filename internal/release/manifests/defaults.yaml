@@ -1,6 +1,6 @@
 ## Images built as part of the DPF release.
-dmsImage: example.com/dms-server:v0.1.0
-hostNetworkSetupImage: example.com/hostnetworksetup:v0.1.0
+dmsImage: example.com/hostdriver:v0.1.0
+hostNetworkSetupImage: example.com/hostdriver:v0.1.0
 dpfSystemImage: example.com/dpf-system:v0.1.0
 dpfToolsImage: example.com/dpf-tools:v0.1.0
 ovsCniImage: example.com/ovs-cni-plugin:v0.1.0
