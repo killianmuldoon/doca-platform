@@ -187,7 +187,7 @@ e2e-provisioning:
   script:
     - make generate
     - make test-deploy-operator-helm
-    - make test-e2e
+    - ./hack/scripts/ci-rebind-dev-wrapper.sh make test-e2e
   after_script:
     - ./hack/scripts/slack-notification.sh
     - docker run --rm --net=host $DPF_STANDALONE_IMAGE -e ansible_password=$VM_PASSWORD -u root reset.yml
