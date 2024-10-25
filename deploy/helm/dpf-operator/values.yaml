@@ -38,6 +38,8 @@ argo-cd:
   notifications:
     enabled: false
   global:
+    podLabels:
+      ovn.dpu.nvidia.com/skip-injection: ""
     affinity:
       nodeAffinity:
         # -- Default node affinity rules. Either: `none`, `soft` or `hard`
@@ -59,6 +61,17 @@ argo-cd:
 ## NFD configuration
 node-feature-discovery:
   enabled: true
+  master:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: "node-role.kubernetes.io/master"
+                  operator: Exists
+            - matchExpressions:
+                - key: "node-role.kubernetes.io/control-plane"
+                  operator: Exists
   worker:
     enable: true
     hostNetwork: true
