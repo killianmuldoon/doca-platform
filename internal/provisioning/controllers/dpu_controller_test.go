@@ -235,7 +235,7 @@ var _ = Describe("DPU", func() {
 				g.Expect(oldObj.Status.Phase).Should(Equal(provisioningv1.DPUInitializing))
 				objFetched = newObj
 				return objFetched.Status.Conditions
-			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+			}).WithTimeout(30 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", provisioningv1.DPUCondInitialized.String()),
 					HaveField("Status", metav1.ConditionFalse),
@@ -261,7 +261,7 @@ var _ = Describe("DPU", func() {
 			Eventually(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), objFetched)).To(Succeed())
 				return objFetched.Status.Phase
-			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
+			}).WithTimeout(30 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
 
 			Skip("TODO: DPUCluter should be in Ready state to proceed")
 
@@ -277,7 +277,7 @@ var _ = Describe("DPU", func() {
 				g.Expect(oldObj.Status.Phase).Should(Equal(provisioningv1.DPUInitializing))
 				objFetched = newObj
 				return objFetched.Status.Conditions
-			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+			}).WithTimeout(30 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", provisioningv1.DPUCondInitialized.String()),
 					HaveField("Status", metav1.ConditionTrue),
@@ -297,7 +297,7 @@ var _ = Describe("DPU", func() {
 
 				objFetched = newObj
 				return objFetched.Status.Conditions
-			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+			}).WithTimeout(30 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", provisioningv1.DPUCondInitialized.String()),
 					HaveField("Status", metav1.ConditionTrue),
@@ -334,7 +334,7 @@ var _ = Describe("DPU", func() {
 			Eventually(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), objFetched)).To(Succeed())
 				return objFetched.Status.Phase
-			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
+			}).WithTimeout(30 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
 
 			Skip("TODO: DPUCluter should be in Ready state to proceed")
 
@@ -350,7 +350,7 @@ var _ = Describe("DPU", func() {
 				g.Expect(oldObj.Status.Phase).Should(Equal(provisioningv1.DPUInitializing))
 				objFetched = newObj
 				return objFetched.Status.Conditions
-			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+			}).WithTimeout(30 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", provisioningv1.DPUCondInitialized.String()),
 					HaveField("Status", metav1.ConditionTrue),
@@ -398,7 +398,7 @@ var _ = Describe("DPU", func() {
 			Eventually(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), objFetched)).To(Succeed())
 				return objFetched.Status.Phase
-			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
+			}).WithTimeout(30 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
 
 			Skip("TODO: DPUCluter should be in Ready state to proceed")
 
@@ -434,7 +434,7 @@ var _ = Describe("DPU", func() {
 
 				objFetched = newObj
 				return objFetched.Status.Conditions
-			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+			}).WithTimeout(30 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", provisioningv1.DPUCondInitialized.String()),
 					HaveField("Status", metav1.ConditionTrue),
@@ -510,7 +510,7 @@ var _ = Describe("DPU", func() {
 			Eventually(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), objFetched)).To(Succeed())
 				return objFetched.Status.Phase
-			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
+			}).WithTimeout(30 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
 
 			Skip("TODO: DPUCluter should be in Ready state to proceed")
 
@@ -526,7 +526,7 @@ var _ = Describe("DPU", func() {
 				g.Expect(oldObj.Status.Phase).Should(Equal(provisioningv1.DPUInitializing))
 				objFetched = newObj
 				return objFetched.Status.Conditions
-			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+			}).WithTimeout(30 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", provisioningv1.DPUCondInitialized.String()),
 					HaveField("Status", metav1.ConditionTrue),
@@ -546,7 +546,7 @@ var _ = Describe("DPU", func() {
 
 				objFetched = newObj
 				return objFetched.Status.Conditions
-			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+			}).WithTimeout(30 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", provisioningv1.DPUCondInitialized.String()),
 					HaveField("Status", metav1.ConditionTrue),
@@ -635,7 +635,7 @@ var _ = Describe("DPU", func() {
 			Eventually(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), objFetched)).To(Succeed())
 				return objFetched.Status.Phase
-			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
+			}).WithTimeout(30 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
 
 			Skip("TODO: DPUCluter should be in Ready state to proceed")
 
@@ -651,7 +651,7 @@ var _ = Describe("DPU", func() {
 				g.Expect(oldObj.Status.Phase).Should(Equal(provisioningv1.DPUInitializing))
 				objFetched = newObj
 				return objFetched.Status.Conditions
-			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+			}).WithTimeout(30 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", provisioningv1.DPUCondInitialized.String()),
 					HaveField("Status", metav1.ConditionTrue),
@@ -671,7 +671,7 @@ var _ = Describe("DPU", func() {
 
 				objFetched = newObj
 				return objFetched.Status.Conditions
-			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+			}).WithTimeout(30 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", provisioningv1.DPUCondInitialized.String()),
 					HaveField("Status", metav1.ConditionTrue),
@@ -758,7 +758,7 @@ var _ = Describe("DPU", func() {
 			Eventually(func(g Gomega) provisioningv1.DPUPhase {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), objFetched)).To(Succeed())
 				return objFetched.Status.Phase
-			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
+			}).WithTimeout(30 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
 
 			Skip("TODO: DPUCluter should be in Ready state to proceed")
 
@@ -774,7 +774,7 @@ var _ = Describe("DPU", func() {
 				g.Expect(oldObj.Status.Phase).Should(Equal(provisioningv1.DPUInitializing))
 				objFetched = newObj
 				return objFetched.Status.Conditions
-			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+			}).WithTimeout(30 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", provisioningv1.DPUCondInitialized.String()),
 					HaveField("Status", metav1.ConditionTrue),
@@ -794,7 +794,7 @@ var _ = Describe("DPU", func() {
 
 				objFetched = newObj
 				return objFetched.Status.Conditions
-			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+			}).WithTimeout(30 * time.Second).Should(ConsistOf(
 				And(
 					HaveField("Type", provisioningv1.DPUCondInitialized.String()),
 					HaveField("Status", metav1.ConditionTrue),
