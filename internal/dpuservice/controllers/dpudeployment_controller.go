@@ -1203,7 +1203,7 @@ func getNotReadyObjects(objs *unstructured.UnstructuredList) ([]types.Namespaced
 
 // generateServiceID generates the serviceID for the child resources of a DPUDeployment
 func getServiceID(dpuDeploymentNamespacedName types.NamespacedName, serviceName string) string {
-	return fmt.Sprintf("dpudeployment/%s/%s", dpuDeploymentNamespacedName.Name, serviceName)
+	return fmt.Sprintf("dpudeployment_%s_%s", dpuDeploymentNamespacedName.Name, serviceName)
 }
 
 // deleteElementOrNil deletes an element from a slice or returns nil if this is the last element in the slice
