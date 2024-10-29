@@ -38,23 +38,31 @@ if [[ "$REPO" == "" || "$DIR" == "" ]]; then
   exit 1
 fi
 
+TMPDIR="$DIR"-tmp
+# Ensure a temporary directory from any previous run is cleaned up.
+rm -rf "$TMPDIR"
+
 SERVER=$(echo $REPO | cut -d'@' -f 2 | cut -d':' -f 1)
 PROJECT=$(echo $REPO  | cut -d':' -f 3 | cut -d'/' -f 2-)
 
 if [ -z "${GITLAB_TOKEN}" ];
 then
   echo "Cloning repo using ssh authentication"
-  git clone "$REPO" "$DIR"
+  git clone "$REPO" "$TMPDIR"
 else
   echo "Cloning repo using authenticated https with GitLab token"
-  git clone "https://user:""$GITLAB_TOKEN"@"$SERVER"/"$PROJECT" "$DIR"
+  git clone "https://user:""$GITLAB_TOKEN"@"$SERVER"/"$PROJECT" $TMPDIR
 fi
 
 ## Check out the passed revision if it is set.
 if [ ! -z "${REVISION}" ];
 then
   echo "Checking out revision " $REVISION
-  cd $DIR && git reset --hard "$REVISION"
+  cd $TMPDIR && git reset --hard "$REVISION"
 else
-  cd $DIR && echo "No revision set. Using HEAD@"$(git rev-parse HEAD)
+  cd $TMPDIR && echo "No revision set. Using HEAD@"$(git rev-parse HEAD)
 fi
+
+
+mv "$TMPDIR" "$DIR"
+rm -rf "$TMPDIR"

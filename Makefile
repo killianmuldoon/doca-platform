@@ -304,8 +304,6 @@ generate-manifests-dpu-detector: kustomize ## Generate manifests for dpu-detecto
 
 .PHONY: generate-manifests-ovn-kubernetes
 generate-manifests-ovn-kubernetes: $(OVNKUBERNETES_DIR) envsubst ## Generate manifests for ovn-kubernetes
-	ls $(OVNKUBERNETES_HELM_CHART)
-	ls $(OVNKUBERNETES_DIR)
 	$(ENVSUBST) < $(OVNKUBERNETES_HELM_CHART)/values.yaml.tmpl > $(OVNKUBERNETES_HELM_CHART)/values.yaml
 
 .PHONY: generate-operator-bundle
