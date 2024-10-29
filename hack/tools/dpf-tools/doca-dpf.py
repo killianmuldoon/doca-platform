@@ -34,17 +34,17 @@ KUBECONFIGS = (
 
 class DocaDpf(Plugin):
     """
-    This plugin will capture information related to the DOCA Platform Foundation
+    This plugin will capture information related to the DOCA Platform Framework
     resources and configurations in the system.
     """
 
-    short_desc = 'DOCA Platform Foundation resources and configurations'
+    short_desc = 'DOCA Platform Framework resources and configurations'
 
     plugin_name = "doca-dpf"
     profiles = ('doca',)
     plugin_timeout = 900
 
-    # DOCA Platform Foundation related configuration files to collect
+    # DOCA Platform Framework related configuration files to collect
     config_files = []
     resources = [
         'bfb'

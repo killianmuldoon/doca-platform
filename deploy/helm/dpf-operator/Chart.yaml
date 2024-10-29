@@ -1,6 +1,6 @@
 apiVersion: v2
 name: dpf-operator
-description: DPF Operator managed the lifecycle of a DOCA Platform Foundation system.
+description: DPF Operator manages the lifecycle of a DOCA Platform Framework system.
 type: application
 version: 0.1.0
 appVersion: "0.1.0"

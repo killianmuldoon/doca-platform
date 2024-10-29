@@ -157,7 +157,7 @@ The resulting ArgoCD `AppProject` looks similar to:
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
-  name: doca-platform-foundation
+  name: doca-platform-framework
   namespace: dpf-argo-cd-system
   finalizers:
   - resources-finalizer.argocd.argoproj.io
@@ -211,7 +211,7 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  project: doca-platform-foundation # Static name.
+  project: doca-platform-framework # Static name.
   destination: # Added by controller.
     - server: https://1.1.1.2:6443
       namespace: default

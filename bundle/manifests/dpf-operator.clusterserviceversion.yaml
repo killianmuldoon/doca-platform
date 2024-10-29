@@ -4,7 +4,7 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-    description: Deploy and manage DOCA Platform Foundations in a Kubernetes cluster
+    description: Deploy and manage DOCA Platform Framework in a Kubernetes cluster
     operatorframework.io/suggested-namespace: dpf-operator-system
     operators.operatorframework.io/builder: operator-sdk-v1.35.0
     operators.operatorframework.io/project_layout: unknown
@@ -73,7 +73,7 @@ spec:
   description: |
     ## DPF Operator
 
-    DPF Operator installs and manages a DOCA Platform Foundation system for provisioning DPUs.
+    DPF Operator installs and manages a DOCA Platform Framework system for provisioning DPUs.
   displayName: DPF Operator
   install:
     spec:

@@ -5,7 +5,7 @@ metadata:
   annotations:
     alm-examples: ""
     capabilities: Basic Install
-    description: Deploy and manage DOCA Platform Foundations in a Kubernetes cluster
+    description: Deploy and manage DOCA Platform Framework in a Kubernetes cluster
     operatorframework.io/suggested-namespace: dpf-operator-system
     provider: NVIDIA
     support: NVIDIA
@@ -17,7 +17,7 @@ spec:
   description: |
     ## DPF Operator
     
-    DPF Operator installs and manages a DOCA Platform Foundation system for provisioning DPUs.
+    DPF Operator installs and manages a DOCA Platform Framework system for provisioning DPUs.
   displayName: DPF Operator
   install:
     spec:

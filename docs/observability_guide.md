@@ -1,4 +1,4 @@
-# DOCA Platform Foundations
+# DOCA Platform Framework
 
 ## Observability Guide
 
@@ -67,7 +67,7 @@ helm -n dpf-operator-system \
 We have preconfigured three Grafana dashboards to provide monitoring and
 insights into the operator and its controllers:
 
-1. **DOCA Platform Foundation State**: This dashboard provides a
+1. **DOCA Platform Framework State**: This dashboard provides a
 high-level overview of the operator and its controllers, highlighting
 key metrics such as resource status, condition states, and time to
 readiness.

@@ -8,13 +8,13 @@
 
 ## Environment
 
-- DOCA Platform Foundation Kubernets cluster
+- DOCA Platform Framework Kubernetes cluster
 
 ## Issue
 
-- What is the recommended way for generating a sosreport in DOCA Platform Foundation
+- What is the recommended way for generating a sosreport in DOCA Platform Framework
 
-- It may not be possible to connect to DOCA Platform Foundation nodes via SSH from
+- It may not be possible to connect to DOCA Platform Framework nodes via SSH from
 outside the cluster by default but sosreport may need to be run for troubleshooting
 purposes.
 

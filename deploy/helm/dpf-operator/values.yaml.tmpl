@@ -178,7 +178,7 @@ prometheus:
     enabled: false
   # Scrape metrics from deployed providers
   extraScrapeConfigs: |
-    - job_name: 'doca-platform-foundation'
+    - job_name: 'doca-platform-framework'
       # 15s is a bit often for production but helps to get metrics quicker for development.
       scrape_interval: 15s
       metrics_path: /metrics

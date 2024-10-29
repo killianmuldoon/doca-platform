@@ -92,7 +92,7 @@ func (r *DPUFlavor) ValidateDelete(ctx context.Context, obj runtime.Object) (adm
 
 	dpuflavorlog.V(4).Info("validate delete", "name", dpuFlavor.Name)
 	dpuSetList := &provisioningv1.DPUSetList{}
-	if err := manager.GetClient().List(context.TODO(), dpuSetList, &client.ListOptions{Namespace: dpuFlavor.Namespace}); err != nil {
+	if err := manager.GetClient().List(ctx, dpuSetList, &client.ListOptions{Namespace: dpuFlavor.Namespace}); err != nil {
 		return nil, fmt.Errorf("list DPUSets failed, err: %v", err)
 	}
 	var ref []string
@@ -106,7 +106,7 @@ func (r *DPUFlavor) ValidateDelete(ctx context.Context, obj runtime.Object) (adm
 	}
 
 	dpuList := &provisioningv1.DPUList{}
-	if err := manager.GetClient().List(context.TODO(), dpuList, &client.ListOptions{Namespace: dpuFlavor.Namespace}); err != nil {
+	if err := manager.GetClient().List(ctx, dpuList, &client.ListOptions{Namespace: dpuFlavor.Namespace}); err != nil {
 		return nil, fmt.Errorf("list DPUs failed, err: %v", err)
 	}
 	for _, dpu := range dpuList.Items {

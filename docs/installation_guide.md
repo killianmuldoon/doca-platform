@@ -1,4 +1,4 @@
-# DOCA Platform Foundations
+# DOCA Platform Framework
 
 ## Deployment Guide
 
@@ -19,7 +19,7 @@
 
 # Introduction
 
-DOCA Platform Foundations (DPF) is a framework that enables the use of
+DOCA Platform Framework (DPF) is a framework that enables the use of
 NVIDIA BlueField DPUs in modern, service-oriented data centers.
 
 Through Kubernetes APIs DPF enables data center administrators to:
@@ -39,7 +39,7 @@ it unsuitable for production environments.
 # Installation
 
 This is a step-by-step installation guide for the **DOCA Platform
-Foundations** (\"DPF\") on vanilla Kubernetes. It describes the complete
+Framework** (\"DPF\") on vanilla Kubernetes. It describes the complete
 steps required to deploy DPF with examples of basic operations and use
 cases.
 
