@@ -61,6 +61,9 @@ type DPFOperatorConfigSpec struct {
 	// ServiceSetController is the configuration for the ServiceSetController
 	// +optional
 	ServiceSetController *ServiceSetControllerConfiguration `json:"serviceSetController,omitempty"`
+	// DPUDetector is the configuration for the DPUDetector.
+	// +optional
+	DPUDetector *DPUDetectorConfiguration `json:"dpuDetector,omitempty"`
 	// Multus is the configuration for Multus
 	// +optional
 	Multus *MultusConfiguration `json:"multus,omitempty"`

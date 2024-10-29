@@ -33,6 +33,7 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.OVSCNIName:                 false,
 			operatorv1.NVIPAMName:                 false,
 			operatorv1.SFCControllerName:          false,
+			operatorv1.DPUDetectorName:            false,
 
 			// Both control plane managers are disabled by default.
 			operatorv1.StaticClusterManagerName: true,
@@ -47,6 +48,7 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.ServiceSetControllerName:   defaults.DPFSystemImage,
 			operatorv1.OVSCNIName:                 defaults.OVSCNIImage,
 			operatorv1.SFCControllerName:          defaults.DPFSystemImage,
+			operatorv1.DPUDetectorName:            defaults.DMSImage,
 
 			// External images of components which are deployed by the DPF Operator.
 			operatorv1.MultusName:            defaults.MultusImage,
@@ -62,6 +64,7 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.SFCControllerName:        defaults.DPUNetworkingHelmChart,
 			operatorv1.ServiceSetControllerName: defaults.DPUNetworkingHelmChart,
 		},
+		DPUDetectorCollectors: map[string]bool{},
 	}
 }
 
@@ -73,6 +76,7 @@ type Variables struct {
 	ImagePullSecrets          []string
 	Images                    map[string]string
 	HelmCharts                map[string]string
+	DPUDetectorCollectors     map[string]bool
 }
 
 type DPFProvisioningVariables struct {
@@ -85,6 +89,7 @@ func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operator
 	disableComponents := variables.DisableSystemComponents
 	images := variables.Images
 	helmCharts := variables.HelmCharts
+	collectors := variables.DPUDetectorCollectors
 	for _, componentConfig := range config.ComponentConfigs() {
 		if componentConfig != nil {
 			disableComponents[componentConfig.Name()] = componentConfig.Disabled()
@@ -100,6 +105,13 @@ func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operator
 			if ok && helmConfig.GetHelmChart() != nil {
 				helmCharts[componentConfig.Name()] = *helmConfig.GetHelmChart()
 			}
+
+			dpuDetector, ok := componentConfig.(*operatorv1.DPUDetectorConfiguration)
+			if ok && dpuDetector != nil && dpuDetector.Collectors != nil {
+				if dpuDetector.Collectors.PSID != nil {
+					collectors[psIDCollectorName] = *dpuDetector.Collectors.PSID
+				}
+			}
 		}
 	}
 
@@ -112,6 +124,7 @@ func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operator
 	variables.DisableSystemComponents = disableComponents
 	variables.Images = images
 	variables.HelmCharts = helmCharts
+	variables.DPUDetectorCollectors = collectors
 
 	return variables
 }

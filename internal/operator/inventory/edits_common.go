@@ -265,3 +265,35 @@ func ImageForDeploymentContainerEdit(containerName, imageName string) Structured
 		return nil
 	}
 }
+
+func ImageForDaemonSetContainerEdit(containerName, imageName string) StructuredEdit {
+	return func(obj client.Object) error {
+		ds, ok := obj.(*appsv1.DaemonSet)
+		if !ok {
+			return fmt.Errorf("unexpected object %s. expected DaemonSet", obj.GetObjectKind().GroupVersionKind())
+		}
+		for i, container := range ds.Spec.Template.Spec.Containers {
+			if container.Name == containerName {
+				container.Image = imageName
+				ds.Spec.Template.Spec.Containers[i] = container
+			}
+		}
+		return nil
+	}
+}
+
+func ArgsForDaemonSetContainerEdit(containerName string, args []string) StructuredEdit {
+	return func(obj client.Object) error {
+		ds, ok := obj.(*appsv1.DaemonSet)
+		if !ok {
+			return fmt.Errorf("unexpected object %s. expected DaemonSet", obj.GetObjectKind().GroupVersionKind())
+		}
+		for i, container := range ds.Spec.Template.Spec.Containers {
+			if container.Name == containerName {
+				container.Args = append(container.Args, args...)
+				ds.Spec.Template.Spec.Containers[i] = container
+			}
+		}
+		return nil
+	}
+}

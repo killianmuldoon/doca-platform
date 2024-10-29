@@ -102,11 +102,6 @@ var (
 			Operator: corev1.TolerationOpExists,
 			Effect:   corev1.TaintEffectNoSchedule,
 		},
-		{
-			Key:      nodeNotReadyTaint,
-			Operator: corev1.TolerationOpExists,
-			Effect:   corev1.TaintEffectNoSchedule,
-		},
 	}
 )
 
@@ -272,7 +267,7 @@ func daemonsetReadyCheck(ctx context.Context, c client.Client, namespace string,
 
 	// Consider the deployment not ready if it has no replicas.
 	if deamonset.Status.NumberReady == 0 {
-		return fmt.Errorf("Daemonset %s/%s has no replicas", deamonset.GetNamespace(), deamonset.GetName())
+		return fmt.Errorf("Daemonset %s/%s has no ready replicas", deamonset.GetNamespace(), deamonset.GetName())
 	}
 	if deamonset.Status.NumberReady != deamonset.Status.DesiredNumberScheduled {
 		return fmt.Errorf("Daemonset %s/%s has %d ready, want %d",

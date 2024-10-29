@@ -156,6 +156,7 @@ func (s *SystemComponents) AllComponents() []Component {
 		s.StaticClusterManager,
 		s.DPFProvisioning,
 		s.DPUService,
+		s.DPUDetector,
 		s.ServiceFunctionChainSet,
 		s.Multus,
 		s.SRIOVDevicePlugin,

@@ -38,6 +38,9 @@ const (
 )
 
 func main() {
+	var psIDCollector bool
+	flag.BoolVar(&psIDCollector, "collector.PSID", false, "Enable collecting the DPU PSID")
+
 	err := flag.Set("logtostderr", "true")
 	if err != nil {
 		fmt.Println("flag set failed.")
@@ -48,21 +51,24 @@ func main() {
 	// 0xa2dc: MT43244 BlueField-3 integrated ConnectX-7 network controller
 	// 0xa2d6: MT42822 BlueField-2 integrated ConnectX-6 Dx network controller
 	deviceList := []string{"0xa2dc", "0xa2d6"}
-
-	if err := discoveryDPU(deviceList); err != nil {
-		glog.Errorf("DPU discovery failed, error: %v", err)
+	settings := discoverySettings{
+		enablePSIDCollector: psIDCollector,
 	}
 
 	ticker := time.NewTicker(Interval * time.Second)
 	defer ticker.Stop()
 	for range ticker.C {
-		if err := discoveryDPU(deviceList); err != nil {
+		if err := discoveryDPU(deviceList, settings); err != nil {
 			glog.Errorf("DPU discovery failed, error: %v", err)
 		}
 	}
 }
 
-func discoveryDPU(deviceList []string) error {
+type discoverySettings struct {
+	enablePSIDCollector bool
+}
+
+func discoveryDPU(deviceList []string, settings discoverySettings) error {
 	discoveryStart := time.Now()
 	dpuMap := make(map[string]dpu.DPU, 0)
 	dpuIndex := 0
@@ -86,9 +92,12 @@ func discoveryDPU(deviceList []string) error {
 				}
 
 				if _, ok := dpuMap[labelPCIAddr]; !ok {
-					psid, err := bash.GetPSID(cmdPCIAddr)
-					if err != nil {
-						return err
+					var psid string
+					if settings.enablePSIDCollector {
+						psid, err = bash.GetPSID(cmdPCIAddr)
+						if err != nil {
+							return err
+						}
 					}
 					pf0Name, err := getPF0Name(labelPCIAddr)
 					if err != nil {
@@ -164,9 +173,16 @@ func writeNFDFeatureFile(dpuMap map[string]dpu.DPU) error {
 
 	write := bufio.NewWriter(discoveryFile)
 	for _, dpu := range dpuMap {
-		pciLabel := fmt.Sprintf("dpu-%d-pci-address=%s\r\n", dpu.Index, dpu.PCIAddress)
-		psidLabel := fmt.Sprintf("dpu-%d-ps-id=%s\r\n", dpu.Index, dpu.PSID)
-		pf0Label := fmt.Sprintf("dpu-%d-pf0-name=%s\r\n", dpu.Index, dpu.PF0Name)
+		var pciLabel, psidLabel, pf0Label string
+		if dpu.PCIAddress != "" {
+			pciLabel = fmt.Sprintf("dpu-%d-pci-address=%s\r\n", dpu.Index, dpu.PCIAddress)
+		}
+		if dpu.PSID != "" {
+			psidLabel = fmt.Sprintf("dpu-%d-ps-id=%s\r\n", dpu.Index, dpu.PSID)
+		}
+		if dpu.PF0Name != "" {
+			pf0Label = fmt.Sprintf("dpu-%d-pf0-name=%s\r\n", dpu.Index, dpu.PF0Name)
+		}
 		if _, err := write.WriteString(pciLabel); err != nil {
 			return err
 		}

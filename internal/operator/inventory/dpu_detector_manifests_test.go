@@ -18,8 +18,10 @@ package inventory
 
 import (
 	_ "embed"
+	"fmt"
 	"testing"
 
+	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/operator/utils"
 	"github.com/nvidia/doca-platform/internal/release"
 
@@ -165,13 +167,33 @@ func TestDPUDetectorObjects_GenerateManifests(t *testing.T) {
 				Operator: corev1.TolerationOpExists,
 				Effect:   corev1.TaintEffectNoSchedule,
 			},
-			{
-				Key:      "node.kubernetes.io/not-ready",
-				Operator: corev1.TolerationOpExists,
-				Effect:   corev1.TaintEffectNoSchedule,
-			},
 		},
 		))
+	})
+	t.Run("test setting image and collector args", func(t *testing.T) {
+		g := NewGomegaWithT(t)
+		vars := newDefaultVariables(defaults)
+		setArg := "collectors.PSID"
+		setImage := "image-name"
+		vars.Images[operatorv1.DPUDetectorName] = setImage
+		vars.DPUDetectorCollectors = map[string]bool{
+			setArg: true,
+		}
+
+		generatedObjs, err := dpuDetectorCtrl.GenerateManifests(vars, skipApplySetCreationOption{})
+		g.Expect(err).NotTo(HaveOccurred())
+		gotDaemonSet := &appsv1.DaemonSet{}
+		for i, obj := range generatedObjs {
+			if obj.GetObjectKind().GroupVersionKind().Kind == string(DaemonSetKind) {
+				ds, ok := generatedObjs[i].(*unstructured.Unstructured)
+				g.Expect(ok).To(BeTrue())
+				g.Expect(runtime.DefaultUnstructuredConverter.FromUnstructured(ds.UnstructuredContent(), gotDaemonSet)).ToNot(HaveOccurred())
+				break
+			}
+		}
+		g.Expect(gotDaemonSet).NotTo(BeNil())
+		g.Expect(gotDaemonSet.Spec.Template.Spec.Containers[0].Image).To(Equal(setImage))
+		g.Expect(gotDaemonSet.Spec.Template.Spec.Containers[0].Args).To(ConsistOf([]string{fmt.Sprintf("--%s=true", setArg)}))
 	})
 
 }

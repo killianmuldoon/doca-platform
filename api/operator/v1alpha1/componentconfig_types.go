@@ -20,6 +20,7 @@ const (
 	ProvisioningControllerName = "provisioning-controller"
 	DPUServiceControllerName   = "dpuservice-controller"
 	ServiceSetControllerName   = "servicechainset-controller"
+	DPUDetectorName            = "dpudetector"
 	FlannelName                = "flannel"
 	MultusName                 = "multus"
 	SRIOVDevicePluginName      = "sriov-device-plugin"
@@ -37,6 +38,9 @@ func (c *DPFOperatorConfig) ComponentConfigs() []ComponentConfig {
 
 	if c.Spec.DPUServiceController != nil {
 		out = append(out, c.Spec.DPUServiceController)
+	}
+	if c.Spec.DPUDetector != nil {
+		out = append(out, c.Spec.DPUDetector)
 	}
 	if c.Spec.Flannel != nil {
 		out = append(out, c.Spec.Flannel)
@@ -166,6 +170,40 @@ type KamajiClusterManagerConfiguration struct {
 	// Image overrides the container image used by the HostedControlPlaneManager.
 	// +optional
 	Image Image `json:"image,omitempty"`
+}
+
+// DPUDetectorConfiguration is the configuration for the DPUDetector Component.
+type DPUDetectorConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
+	// +optional
+	Disable *bool `json:"disable,omitempty"`
+	// Image overrides the container image used by the component.
+	// +optional
+	Image Image `json:"image,omitempty"`
+	// Collectors enables or disables specific collectors.
+	// +optional
+	Collectors *DPUDetectorCollectors `json:"collectors,omitempty"`
+}
+
+func (c *DPUDetectorConfiguration) GetImage() *string {
+	return c.Image
+}
+
+type DPUDetectorCollectors struct {
+	// PSID enables collecting PSID information for DPUs on nodes.
+	// +optional
+	PSID *bool `json:"psID,omitempty"`
+}
+
+func (c *DPUDetectorConfiguration) Name() string {
+	return DPUDetectorName
+}
+
+func (c *DPUDetectorConfiguration) Disabled() bool {
+	if c.Disable == nil {
+		return false
+	}
+	return *c.Disable
 }
 
 func (c *KamajiClusterManagerConfiguration) Name() string {

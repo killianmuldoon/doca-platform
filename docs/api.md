@@ -73,6 +73,7 @@ _Appears in:_
 | `dpuServiceController` _[DPUServiceControllerConfiguration](#dpuservicecontrollerconfiguration)_ | DPUServiceController is the configuration for the DPUServiceController |  |  |
 | `provisioningController` _[ProvisioningControllerConfiguration](#provisioningcontrollerconfiguration)_ | ProvisioningController is the configuration for the ProvisioningController |  |  |
 | `serviceSetController` _[ServiceSetControllerConfiguration](#servicesetcontrollerconfiguration)_ | ServiceSetController is the configuration for the ServiceSetController |  |  |
+| `dpuDetector` _[DPUDetectorConfiguration](#dpudetectorconfiguration)_ | DPUDetector is the configuration for the DPUDetector. |  |  |
 | `multus` _[MultusConfiguration](#multusconfiguration)_ | Multus is the configuration for Multus |  |  |
 | `sriovDevicePlugin` _[SRIOVDevicePluginConfiguration](#sriovdevicepluginconfiguration)_ | SRIOVDevicePlugin is the configuration for the SRIOVDevicePlugin |  |  |
 | `flannel` _[FlannelConfiguration](#flannelconfiguration)_ | Flannel is the configuration for Flannel |  |  |
@@ -99,6 +100,40 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | Conditions exposes the current state of the OperatorConfig. |  |  |
 | `observedGeneration` _integer_ | ObservedGeneration records the Generation observed on the object the last time it was patched. |  |  |
+
+
+#### DPUDetectorCollectors
+
+
+
+
+
+
+
+_Appears in:_
+- [DPUDetectorConfiguration](#dpudetectorconfiguration)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `psID` _boolean_ | PSID enables collecting PSID information for DPUs on nodes. |  |  |
+
+
+#### DPUDetectorConfiguration
+
+
+
+DPUDetectorConfiguration is the configuration for the DPUDetector Component.
+
+
+
+_Appears in:_
+- [DPFOperatorConfigSpec](#dpfoperatorconfigspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `disable` _boolean_ | Disable ensures the component is not deployed when set to true. |  |  |
+| `image` _[Image](#image)_ | Image overrides the container image used by the component. |  | Pattern: `^((?:(?:(?:[a-zA-Z0-9]\|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]\|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*\|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]\|__\|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]\|__\|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]\{0,127\}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]\{32,\}))?$` <br /> |
+| `collectors` _[DPUDetectorCollectors](#dpudetectorcollectors)_ | Collectors enables or disables specific collectors. |  |  |
 
 
 #### DPUServiceControllerConfiguration
@@ -168,6 +203,7 @@ _Validation:_
 - Pattern: `^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$`
 
 _Appears in:_
+- [DPUDetectorConfiguration](#dpudetectorconfiguration)
 - [DPUServiceControllerConfiguration](#dpuservicecontrollerconfiguration)
 - [KamajiClusterManagerConfiguration](#kamajiclustermanagerconfiguration)
 - [MultusConfiguration](#multusconfiguration)

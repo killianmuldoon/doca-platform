@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	dpfDPUDetectorName = "dpf-dpu-detector"
+	psIDCollectorName = "collector.PSID"
 )
 
 var _ Component = &dpuDetectorObjects{}
@@ -42,7 +42,7 @@ type dpuDetectorObjects struct {
 }
 
 func (p *dpuDetectorObjects) Name() string {
-	return "dpudetector"
+	return operatorv1.DPUDetectorName
 }
 
 // Parse returns typed objects for the DPU Detector daemonset.
@@ -64,7 +64,7 @@ func (p *dpuDetectorObjects) Parse() (err error) {
 			continue
 		}
 		// If the object is the dpf-dpu-detector DeamonSet validate it
-		if obj.GetKind() == string(DaemonsetKind) && obj.GetName() == dpfDPUDetectorName {
+		if obj.GetKind() == string(DaemonsetKind) && obj.GetName() == "dpf-dpu-detector" {
 			daemonsetFound = true
 		}
 		p.objects = append(p.objects, obj)
@@ -79,7 +79,7 @@ func (p *dpuDetectorObjects) Parse() (err error) {
 
 // GenerateManifests applies edits and returns objects
 func (p *dpuDetectorObjects) GenerateManifests(vars Variables, options ...GenerateManifestOption) ([]client.Object, error) {
-	if _, ok := vars.DisableSystemComponents[p.Name()]; ok {
+	if ok := vars.DisableSystemComponents[p.Name()]; ok {
 		return []client.Object{}, nil
 	}
 
@@ -101,10 +101,21 @@ func (p *dpuDetectorObjects) GenerateManifests(vars Variables, options ...Genera
 		objsCopy = append(objsCopy, p.objects[i].DeepCopy())
 	}
 
+	image, ok := vars.Images[p.Name()]
+	if !ok {
+		return nil, fmt.Errorf("could not find image for %s in variables", p.Name())
+	}
+
+	args := []string{}
+	for collector := range vars.DPUDetectorCollectors {
+		args = append(args, fmt.Sprintf("--%s=true", collector))
+	}
 	// apply edits
 	if err := NewEdits().
 		AddForAll(NamespaceEdit(vars.Namespace)).
 		AddForKindS(DaemonsetKind, ImagePullSecretsEditForDaemonSetEdit(vars.ImagePullSecrets...)).
+		AddForKindS(DaemonsetKind, ImageForDaemonSetContainerEdit("dpu-detector", image)).
+		AddForKindS(DaemonsetKind, ArgsForDaemonSetContainerEdit("dpu-detector", args)).
 		AddForKindS(DaemonSetKind, TolerationsEdit(nodeNotReadyTolerations)).
 		AddForAll(LabelsEdit(labelsToAdd)).
 		Apply(objsCopy); err != nil {
