@@ -27,7 +27,7 @@ variables:
   REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/doca-platform-foundation/e2e
   TAG: v0.1.0-$CI_COMMIT_SHORT_SHA-test
   GOPATH: $CI_PROJECT_DIR/.gocache
-  DPF_STANDALONE_IMAGE: nvcr.io/nvstaging/mellanox/dpf-standalone:latest
+  DPF_STANDALONE_IMAGE: nvcr.io/nvstaging/doca/dpf-standalone:latest
 
 stages:
   - verify

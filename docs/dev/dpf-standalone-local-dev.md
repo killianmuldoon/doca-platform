@@ -47,11 +47,11 @@ echo "$NGC_API_KEY" | docker login --username \$oauthtoken --password-stdin nvcr
 ```
 8. Pull latest dpf-standalone image
 ```
-docker pull nvcr.io/nvstaging/mellanox/dpf-standalone
+docker pull nvcr.io/nvstaging/doca/dpf-standalone
 ```
 9. Run dpf-standalone # you will be required to provide the host root password to begin installation
 ```
-docker run -ti --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone \
+docker run -ti --rm --net=host nvcr.io/nvstaging/doca/dpf-standalone \
   -k -K -u root \
   -e ngc_key=$NGC_API_KEY \
   -e '{"deploy_dpf_operator_chart": false}' \
@@ -112,7 +112,7 @@ _Notes:_
 #### Use Latest Image From Remote Registry
 9. Run dpf-standalone # you will be required to provide the host root password to begin installation
 ```
-docker run -ti --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone \
+docker run -ti --rm --net=host nvcr.io/nvstaging/doca/dpf-standalone \
   -k -K -u root \
   -e ngc_key=$NGC_API_KEY \
   -e '{"test_service_bfb_file_name": "bf-bundle-2.7.0-33_24.04_ubuntu-22.04_prod.bfb", "test_service_bfb_download_url": "http://nbu-nfs.mellanox.com/auto/sw_mc_soc_release/doca_dpu/doca_2.7.0/GA/bfbs/pk", "deploy_test_service": true, "target_host": "<target-host-ip-here>"}' \
@@ -124,7 +124,7 @@ This command will run the entire provisioning flow. No further steps are needed.
 #### Use Local Image
 9. Run dpf-standalone # you will be required to provide the host root password to begin installation
 ```
-docker run -ti --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone \
+docker run -ti --rm --net=host nvcr.io/nvstaging/doca/dpf-standalone \
   -k -K -u root \
   -e ngc_key=$NGC_API_KEY \
   -e '{"deploy_dpf_operator_chart": false, "deploy_dpf_bfb_pvc": false, "target_host": "<target-host-ip-here>"}' \
@@ -242,6 +242,6 @@ To test full provisioning flow, follow steps 1-14 and then follow [DPU Services]
 ### Clean dpf-standalone env
 To clean the env run:
 ```
-docker run --rm --net=host nvcr.io/nvstaging/mellanox/dpf-standalone:latest -u root reset.yml
+docker run --rm --net=host nvcr.io/nvstaging/doca/dpf-standalone:latest -u root reset.yml
 ```
 ## Troubleshooting

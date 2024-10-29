@@ -194,7 +194,7 @@ metadata:
     argocd.argoproj.io/secret-type: repository
 stringData:
   name: dpf-helm
-  url: nvcr.io/nvstaging/mellanox
+  url: nvcr.io/nvstaging/doca
   type: helm
   username: \$oauthtoken
   password: $NGC_API_KEY
@@ -205,7 +205,7 @@ Deploy the DPF Operator
 
 ``` bash
 echo "$NGC_API_KEY" | helm registry login nvcr.io --username \$oauthtoken --password-stdin
-helm upgrade --install -n dpf-operator-system --set "imagePullSecrets[0].name=dpf-pull-secret" dpf-operator oci://nvcr.io/nvstaging/mellanox/dpf-operator --version=v0.1.0-latest
+helm upgrade --install -n dpf-operator-system --set "imagePullSecrets[0].name=dpf-pull-secret" dpf-operator oci://nvcr.io/nvstaging/doca/dpf-operator --version=v0.1.0-latest
 ```
 **Note**: You can enable predefined observability via the Helm chart. For more information, see the
 [observability_guide.rst](observability_guide.rst).

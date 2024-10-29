@@ -38,7 +38,7 @@ spec:
   nodeName: <node_name>
   containers:
   - name: dpf-tools
-    image: nvcr.io/nvstaging/mellanox/dpf-tools
+    image: nvcr.io/nvstaging/doca/dpf-tools
     env:
     - name: CASE_ID
       value: "<case_id>"
