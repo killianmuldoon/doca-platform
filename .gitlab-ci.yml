@@ -242,8 +242,8 @@ dpf-standalone-test:
       -e '{"deploy_test_service": true, "reboot_on_reset": true, "collect_logs": true}'
       $DPF_STANDALONE_EXTRA_ANSIBLE_ARGS
       reinstall.yml
-    - cp -r downloaded-logs job_artifacts
   after_script:
+    - cp -r downloaded-logs job_artifacts
     - rm -rf downloaded-logs
     - ./hack/scripts/slack-notification.sh
   artifacts:
