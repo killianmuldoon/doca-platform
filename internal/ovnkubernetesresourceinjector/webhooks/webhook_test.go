@@ -197,6 +197,10 @@ func TestNetworkInjector_Default(t *testing.T) {
 			fakeclient := fake.NewClientBuilder().WithObjects(objects...).WithScheme(s).Build()
 			webhook := &NetworkInjector{
 				Client: fakeclient,
+				Settings: NetworkInjectorSettings{
+					NADName:      "dpf-ovn-kubernetes",
+					NADNamespace: "ovn-kubernetes",
+				},
 			}
 			err := webhook.Default(context.Background(), tt.pod)
 			g.Expect(err).NotTo(HaveOccurred())
@@ -280,6 +284,10 @@ func TestNetworkInjector_PreReqObjects(t *testing.T) {
 			fakeclient := fake.NewClientBuilder().WithObjects(tt.existingObjects...).WithScheme(s).Build()
 			webhook := &NetworkInjector{
 				Client: fakeclient,
+				Settings: NetworkInjectorSettings{
+					NADName:      "dpf-ovn-kubernetes",
+					NADNamespace: "ovn-kubernetes",
+				},
 			}
 			err := webhook.Default(context.Background(), pod)
 			if tt.expectError {

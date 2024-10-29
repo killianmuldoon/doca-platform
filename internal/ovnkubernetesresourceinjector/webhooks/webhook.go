@@ -33,19 +33,28 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
+// NetworkInjector is a component that can inject Multus annotations and resources on Pods
 type NetworkInjector struct {
+	// Client is the client to the Kubernetes API server
 	Client client.Reader
+	// Settings are the settings for this component
+	Settings NetworkInjectorSettings
+}
+
+// NetworkInjectorSettings are the settings for the Network Injector
+type NetworkInjectorSettings struct {
+	// NADName is the name of the network attachment definition that the injector should use to configure VFs for the
+	// default network
+	NADName string
+	// NADNamespace is the namespace of the network attachment definition that the injector should use to configure VFs
+	// for the default network
+	NADNamespace string
 }
 
 const (
-	// networkInjectorNetAttachDefName is the name of the network attachment definition needed by the Network Injector
-	// to configure VFs for the default network
-	networkInjectorNetAttachDefName = "dpf-ovn-kubernetes"
 	// netAttachDefResourceNameAnnotation is the key of the network attachment definition annotation that indicates the
 	// resource name.
 	netAttachDefResourceNameAnnotation = "k8s.v1.cni.cncf.io/resourceName"
-	// netAttachDefNamespace is the namespace of the network attachment definition
-	netAttachDefNamespace = "ovn-kubernetes"
 	// annotationKeyToBeInjected is the multus annotation we inject to the pods so that multus can inject the VFs
 	annotationKeyToBeInjected = "v1.multus-cni.io/default-network"
 )
@@ -93,23 +102,23 @@ func (webhook *NetworkInjector) Default(ctx context.Context, obj runtime.Object)
 		return nil
 	}
 
-	vfResourceName, err := getVFResourceName(ctx, webhook.Client, netAttachDefNamespace)
+	vfResourceName, err := getVFResourceName(ctx, webhook.Client, webhook.Settings.NADName, webhook.Settings.NADNamespace)
 	if err != nil {
 		return fmt.Errorf("error while getting VF resource name: %w", err)
 	}
 
-	return injectNetworkResources(ctx, pod, netAttachDefNamespace, vfResourceName)
+	return injectNetworkResources(ctx, pod, webhook.Settings.NADName, webhook.Settings.NADNamespace, vfResourceName)
 }
 
 // getVFResourceName gets the resource name that relates to the VFs that should be injected.
-func getVFResourceName(ctx context.Context, c client.Reader, netAttachDefNamespace string) (corev1.ResourceName, error) {
+func getVFResourceName(ctx context.Context, c client.Reader, netAttachDefName string, netAttachDefNamespace string) (corev1.ResourceName, error) {
 	netAttachDef := &unstructured.Unstructured{}
 	netAttachDef.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "k8s.cni.cncf.io",
 		Version: "v1",
 		Kind:    "NetworkAttachmentDefinition",
 	})
-	key := client.ObjectKey{Namespace: netAttachDefNamespace, Name: networkInjectorNetAttachDefName}
+	key := client.ObjectKey{Namespace: netAttachDefNamespace, Name: netAttachDefName}
 	if err := c.Get(ctx, key, netAttachDef); err != nil {
 		return "", fmt.Errorf("error while getting %s %s: %w", netAttachDef.GetObjectKind().GroupVersionKind().String(), key.String(), err)
 	}
@@ -199,7 +208,7 @@ func getNodeSelectorTerms(pod *corev1.Pod) []corev1.NodeSelectorTerm {
 	return nil
 }
 
-func injectNetworkResources(ctx context.Context, pod *corev1.Pod, netAttachDefNamespace string, vfResourceName corev1.ResourceName) error {
+func injectNetworkResources(ctx context.Context, pod *corev1.Pod, netAttachDefName string, netAttachDefNamespace string, vfResourceName corev1.ResourceName) error {
 	log := ctrl.LoggerFrom(ctx)
 	// Inject device requests. One additional VF.
 	if pod.Spec.Containers[0].Resources.Requests == nil {
@@ -227,7 +236,7 @@ func injectNetworkResources(ctx context.Context, pod *corev1.Pod, netAttachDefNa
 	if pod.Annotations == nil {
 		pod.Annotations = map[string]string{}
 	}
-	pod.Annotations[annotationKeyToBeInjected] = fmt.Sprintf("%s/%s", netAttachDefNamespace, networkInjectorNetAttachDefName)
+	pod.Annotations[annotationKeyToBeInjected] = fmt.Sprintf("%s/%s", netAttachDefNamespace, netAttachDefName)
 	log.Info(fmt.Sprintf("injected resource %v into pod", vfResourceName))
 	return nil
 }

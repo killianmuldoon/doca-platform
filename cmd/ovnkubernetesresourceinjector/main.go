@@ -23,7 +23,6 @@ import (
 	"time"
 
 	"github.com/nvidia/doca-platform/internal/ovnkubernetesresourceinjector/webhooks"
-	"github.com/nvidia/doca-platform/internal/release"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -47,19 +46,14 @@ func init() {
 }
 
 func main() {
-	defaults := release.NewDefaults()
-	err := defaults.Parse()
-	if err != nil {
-		setupLog.Error(err, "unable to parse release defaults")
-		os.Exit(1)
-	}
-
 	var metricsAddr string
 	var enableLeaderElection bool
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
 	var syncPeriod time.Duration
+	var nadName string
+	var nadNamespace string
 
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -72,6 +66,10 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	flag.DurationVar(&syncPeriod, "sync-period", 10*time.Minute,
 		"The minimum interval at which watched resources are reconciled.")
+	flag.StringVar(&nadName, "nad-name", "dpf-ovn-kubernetes",
+		"The name of the NetworkAttachmentDefinition the VF injector should use")
+	flag.StringVar(&nadNamespace, "nad-namespace", "ovn-kubernetes",
+		"The namespace of the NetworkAttachmentDefinition the VF injector should use")
 
 	opts := zap.Options{
 		Development: true,
@@ -134,6 +132,10 @@ func main() {
 
 	if err = (&webhooks.NetworkInjector{
 		Client: mgr.GetClient(),
+		Settings: webhooks.NetworkInjectorSettings{
+			NADName:      nadName,
+			NADNamespace: nadNamespace,
+		},
 	}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPFOperatorConfig")
 		os.Exit(1)
