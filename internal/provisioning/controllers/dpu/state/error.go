@@ -24,6 +24,7 @@ import (
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -50,16 +51,21 @@ func RemoveNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect p
 		return nil
 	}
 
+	if nodeEffect.Drain != nil {
+		return DeleteNodeMaintenanceCR(ctx, k8sClient, nodeName, namespace)
+	}
+
 	nn := types.NamespacedName{
 		Namespace: "",
 		Name:      nodeName,
 	}
 	node := &corev1.Node{}
 	if err := k8sClient.Get(ctx, nn, node); err != nil {
+		// K8s node has been removed, no need remove node effect.
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
 		return err
-	}
-	if nodeEffect.Drain != nil {
-		return DeleteNodeMaintenanceCR(ctx, k8sClient, nodeName, namespace)
 	}
 	originalNode := node.DeepCopy()
 	needPatch := false
