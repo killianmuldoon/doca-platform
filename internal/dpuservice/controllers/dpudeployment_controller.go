@@ -857,7 +857,7 @@ func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, o
 func generateDPUServiceInterface(dpuDeploymentNamespacedName types.NamespacedName, owner *metav1.OwnerReference, dpuServiceName string, serviceInterface dpuservicev1.ServiceInterfaceTemplate) *dpuservicev1.DPUServiceInterface {
 	dpuServiceInterface := &dpuservicev1.DPUServiceInterface{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s-%s", dpuDeploymentNamespacedName.Name, dpuServiceName, serviceInterface.Name),
+			Name:      fmt.Sprintf("%s-%s-%s", dpuDeploymentNamespacedName.Name, dpuServiceName, strings.ReplaceAll(serviceInterface.Name, "_", "-")),
 			Namespace: dpuDeploymentNamespacedName.Namespace,
 			Labels: map[string]string{
 				// TODO: Add additional label to select in the DPUServiceChain accordingly
