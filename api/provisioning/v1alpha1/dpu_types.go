@@ -121,6 +121,7 @@ type DPUSpec struct {
 
 	// Specifies if the DPU controller should automatically reboot the node on upgrades,
 	// this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic
+	// +kubebuilder:default=true
 	// +optional
 	AutomaticNodeReboot bool `json:"automaticNodeReboot,omitempty"`
 }

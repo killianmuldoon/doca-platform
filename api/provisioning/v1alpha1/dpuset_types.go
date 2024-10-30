@@ -62,7 +62,9 @@ type RollingUpdateDPU struct {
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
 
+// BFBReference is a reference to a specific BFB
 type BFBReference struct {
+	// Specifies name of the bfb CR to use for this DPU
 	Name string `json:"name,omitempty"`
 }
 
@@ -72,28 +74,50 @@ type ClusterSpec struct {
 }
 
 type DPUTemplateSpec struct {
-	BFB        BFBReference `json:"bfb,omitempty"`
-	NodeEffect *NodeEffect  `json:"nodeEffect,omitempty"`
-	Cluster    ClusterSpec  `json:"cluster,omitempty"`
-	DPUFlavor  string       `json:"dpuFlavor"`
+	// Specifies a BFB CR
+	BFB BFBReference `json:"bfb,omitempty"`
+	// Specifies how changes to the DPU should affect the Node
+	// +kubebuilder:default={drain: {automaticNodeReboot: true}}
+	// +optional
+	NodeEffect *NodeEffect `json:"nodeEffect,omitempty"`
+	// Specifies details on the K8S cluster to join
+	// +optional
+	Cluster ClusterSpec `json:"cluster,omitempty"`
+	// DPUFlavor is the name of the DPUFlavor that will be used to deploy the DPU.
+	// +optional
+	DPUFlavor string `json:"dpuFlavor"`
 	// Specifies if the DPU controller should automatically reboot the node on upgrades,
 	// this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic
+	// +kubebuilder:default=true
 	// +optional
 	AutomaticNodeReboot bool `json:"automaticNodeReboot,omitempty"`
 }
+
+// DPUTemplate is a template for DPU
 type DPUTemplate struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 	Spec        DPUTemplateSpec   `json:"spec,omitempty"`
 }
 
 type NodeEffect struct {
-	Taint       *corev1.Taint     `json:"taint,omitempty"`
-	NoEffect    bool              `json:"noEffect,omitempty"`
+	// Add specify taint on the DPU node
+	// +optional
+	Taint *corev1.Taint `json:"taint,omitempty"`
+	// Do not do any action on the DPU node
+	// +optional
+	NoEffect bool `json:"noEffect,omitempty"`
+	// Add specify labels on the DPU node
+	// +optional
 	CustomLabel map[string]string `json:"customLabel,omitempty"`
-	Drain       *Drain            `json:"drain,omitempty"`
+	// Drain the K8s host node by NodeMaintenance operator
+	// +optional
+	Drain *Drain `json:"drain,omitempty"`
 }
 
+// Drain the K8s host node by NodeMaintenance operator
 type Drain struct {
+	// Specifies if the DPU controller should automatically reboot the node on upgrades
+	// +kubebuilder:default=true
 	// +optional
 	AutomaticNodeReboot bool `json:"automaticNodeReboot,omitempty"`
 }

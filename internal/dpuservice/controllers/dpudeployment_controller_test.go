@@ -641,6 +641,12 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Name: "somebfb",
 								},
 								DPUFlavor: "someflavor",
+								NodeEffect: &provisioningv1.NodeEffect{
+									Drain: &provisioningv1.Drain{
+										AutomaticNodeReboot: true,
+									},
+								},
+								AutomaticNodeReboot: true,
 							},
 						},
 					},
@@ -665,6 +671,12 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Name: "somebfb",
 								},
 								DPUFlavor: "someflavor",
+								NodeEffect: &provisioningv1.NodeEffect{
+									Drain: &provisioningv1.Drain{
+										AutomaticNodeReboot: true,
+									},
+								},
+								AutomaticNodeReboot: true,
 							},
 						},
 					},
@@ -888,6 +900,12 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Name: "somebfb",
 								},
 								DPUFlavor: "someflavor",
+								NodeEffect: &provisioningv1.NodeEffect{
+									Drain: &provisioningv1.Drain{
+										AutomaticNodeReboot: true,
+									},
+								},
+								AutomaticNodeReboot: true,
 							},
 						},
 					})

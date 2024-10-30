@@ -480,7 +480,7 @@ _Appears in:_
 
 
 
-
+BFBReference is a reference to a specific BFB
 
 
 
@@ -489,7 +489,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `name` _string_ |  |  |  |
+| `name` _string_ | Specifies name of the bfb CR to use for this DPU |  |  |
 
 
 #### BFBSpec
@@ -1018,7 +1018,7 @@ _Appears in:_
 | `nodeEffect` _[NodeEffect](#nodeeffect)_ | Specifies how changes to the DPU should affect the Node | \{ drain:map[automaticNodeReboot:true] \} |  |
 | `cluster` _[K8sCluster](#k8scluster)_ | Specifies details on the K8S cluster to join |  |  |
 | `dpuFlavor` _string_ | DPUFlavor is the name of the DPUFlavor that will be used to deploy the DPU. |  |  |
-| `automaticNodeReboot` _boolean_ | Specifies if the DPU controller should automatically reboot the node on upgrades,<br />this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic |  |  |
+| `automaticNodeReboot` _boolean_ | Specifies if the DPU controller should automatically reboot the node on upgrades,<br />this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic | true |  |
 
 
 #### DPUStatus
@@ -1046,7 +1046,7 @@ _Appears in:_
 
 
 
-
+DPUTemplate is a template for DPU
 
 
 
@@ -1072,18 +1072,18 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `bfb` _[BFBReference](#bfbreference)_ |  |  |  |
-| `nodeEffect` _[NodeEffect](#nodeeffect)_ |  |  |  |
-| `cluster` _[ClusterSpec](#clusterspec)_ |  |  |  |
-| `dpuFlavor` _string_ |  |  |  |
-| `automaticNodeReboot` _boolean_ | Specifies if the DPU controller should automatically reboot the node on upgrades,<br />this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic |  |  |
+| `bfb` _[BFBReference](#bfbreference)_ | Specifies a BFB CR |  |  |
+| `nodeEffect` _[NodeEffect](#nodeeffect)_ | Specifies how changes to the DPU should affect the Node | \{ drain:map[automaticNodeReboot:true] \} |  |
+| `cluster` _[ClusterSpec](#clusterspec)_ | Specifies details on the K8S cluster to join |  |  |
+| `dpuFlavor` _string_ | DPUFlavor is the name of the DPUFlavor that will be used to deploy the DPU. |  |  |
+| `automaticNodeReboot` _boolean_ | Specifies if the DPU controller should automatically reboot the node on upgrades,<br />this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic | true |  |
 
 
 #### Drain
 
 
 
-
+Drain the K8s host node by NodeMaintenance operator
 
 
 
@@ -1092,7 +1092,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `automaticNodeReboot` _boolean_ |  |  |  |
+| `automaticNodeReboot` _boolean_ | Specifies if the DPU controller should automatically reboot the node on upgrades | true |  |
 
 
 #### Firmware
@@ -1164,10 +1164,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `taint` _[Taint](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#taint-v1-core)_ |  |  |  |
-| `noEffect` _boolean_ |  |  |  |
-| `customLabel` _object (keys:string, values:string)_ |  |  |  |
-| `drain` _[Drain](#drain)_ |  |  |  |
+| `taint` _[Taint](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#taint-v1-core)_ | Add specify taint on the DPU node |  |  |
+| `noEffect` _boolean_ | Do not do any action on the DPU node |  |  |
+| `customLabel` _object (keys:string, values:string)_ | Add specify labels on the DPU node |  |  |
+| `drain` _[Drain](#drain)_ | Drain the K8s host node by NodeMaintenance operator |  |  |
 
 
 #### RollingUpdateDPU

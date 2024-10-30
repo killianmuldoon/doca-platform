@@ -57,16 +57,21 @@ spec:
                   spec:
                     properties:
                       automaticNodeReboot:
+                        default: true
                         description: |-
                           Specifies if the DPU controller should automatically reboot the node on upgrades,
                           this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic
                         type: boolean
                       bfb:
+                        description: Specifies a BFB CR
                         properties:
                           name:
+                            description: Specifies name of the bfb CR to use for this
+                              DPU
                             type: string
                         type: object
                       cluster:
+                        description: Specifies details on the K8S cluster to join
                         properties:
                           nodeLabels:
                             additionalProperties:
@@ -74,24 +79,36 @@ spec:
                             type: object
                         type: object
                       dpuFlavor:
+                        description: DPUFlavor is the name of the DPUFlavor that will
+                          be used to deploy the DPU.
                         type: string
                       nodeEffect:
+                        default:
+                          drain:
+                            automaticNodeReboot: true
+                        description: Specifies how changes to the DPU should affect
+                          the Node
                         properties:
                           customLabel:
                             additionalProperties:
                               type: string
+                            description: Add specify labels on the DPU node
                             type: object
                           drain:
+                            description: Drain the K8s host node by NodeMaintenance
+                              operator
                             properties:
                               automaticNodeReboot:
+                                default: true
+                                description: Specifies if the DPU controller should
+                                  automatically reboot the node on upgrades
                                 type: boolean
                             type: object
                           noEffect:
+                            description: Do not do any action on the DPU node
                             type: boolean
                           taint:
-                            description: |-
-                              The node this Taint is attached to has the "effect" on
-                              any pod that does not tolerate the Taint.
+                            description: Add specify taint on the DPU node
                             properties:
                               effect:
                                 description: |-
@@ -118,8 +135,6 @@ spec:
                             - key
                             type: object
                         type: object
-                    required:
-                    - dpuFlavor
                     type: object
                 type: object
               nodeSelector:
