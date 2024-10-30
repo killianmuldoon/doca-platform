@@ -888,7 +888,7 @@ Only one of the following state may be specified.
 Default is Initializing.
 
 _Validation:_
-- Enum: [Initializing Node Effect Pending DMS Deployment OS Installing Node Joining Host Network Configuration Ready Error Deleting Rebooting]
+- Enum: [Initializing Node Effect Pending DMS Deployment OS Installing DPU Cluster Config Host Network Configuration Ready Error Deleting Rebooting]
 
 _Appears in:_
 - [DPUSetStatus](#dpusetstatus)
@@ -901,7 +901,7 @@ _Appears in:_
 | `Pending` | DPUPending means the controller is waiting for the BFB to be ready.<br /> |
 | `DMS Deployment` | DPUDMSDeployment means the controller will create the DMS pod and proxy pod.<br /> |
 | `OS Installing` | DPUOSInstalling means the controller will provision the DPU through the DMS gNOI interface.<br /> |
-| `Node Joining` | DPUNodeJoin means the node configuration and Kubernetes Node join procedure are in progress .<br /> |
+| `DPU Cluster Config` | DPUClusterConfig  means the node configuration and Kubernetes Node join procedure are in progress .<br /> |
 | `Host Network Configuration` | DPUHostNetworkConfiguration means the host network configuration is running.<br /> |
 | `Ready` | DPUReady means the DPU is ready to use.<br /> |
 | `Error` | DPUError means error occurred.<br /> |
@@ -1034,7 +1034,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `phase` _[DPUPhase](#dpuphase)_ | The current state of DPU. | Initializing | Enum: [Initializing Node Effect Pending DMS Deployment OS Installing Node Joining Host Network Configuration Ready Error Deleting Rebooting] <br /> |
+| `phase` _[DPUPhase](#dpuphase)_ | The current state of DPU. | Initializing | Enum: [Initializing Node Effect Pending DMS Deployment OS Installing DPU Cluster Config Host Network Configuration Ready Error Deleting Rebooting] <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ |  |  |  |
 | `bfbVersion` _string_ | bfb version of this DPU |  |  |
 | `pciDevice` _string_ | pci device information of this DPU |  |  |

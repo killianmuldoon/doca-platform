@@ -62,7 +62,7 @@ func (st *dpuHostNetworkConfigState) Handle(ctx context.Context, client client.C
 		return *state, err
 	} else {
 		if len(pod.Status.ContainerStatuses) > 0 && pod.Status.ContainerStatuses[0].Ready {
-			state.Phase = provisioningv1.DPUNodeJoin
+			state.Phase = provisioningv1.DPUClusterConfig
 			cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondHostNetworkReady, "", "waiting for dpu joining cluster"))
 			return *state, nil
 		} else {

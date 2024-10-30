@@ -240,7 +240,7 @@ spec:
                 - Pending
                 - DMS Deployment
                 - OS Installing
-                - Node Joining
+                - DPU Cluster Config
                 - Host Network Configuration
                 - Ready
                 - Error

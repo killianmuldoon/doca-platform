@@ -31,7 +31,7 @@ var DPUGroupVersionKind = GroupVersion.WithKind(DPUKind)
 // DPUPhase describes current state of DPU.
 // Only one of the following state may be specified.
 // Default is Initializing.
-// +kubebuilder:validation:Enum="Initializing";"Node Effect";"Pending";"DMS Deployment";"OS Installing";"Node Joining";"Host Network Configuration";"Ready";"Error";"Deleting";"Rebooting"
+// +kubebuilder:validation:Enum="Initializing";"Node Effect";"Pending";"DMS Deployment";"OS Installing";"DPU Cluster Config";"Host Network Configuration";"Ready";"Error";"Deleting";"Rebooting"
 type DPUPhase string
 
 // These are the valid statuses of DPU.
@@ -48,8 +48,8 @@ const (
 	DPUDMSDeployment DPUPhase = "DMS Deployment"
 	// DPUOSInstalling means the controller will provision the DPU through the DMS gNOI interface.
 	DPUOSInstalling DPUPhase = "OS Installing"
-	// DPUNodeJoin means the node configuration and Kubernetes Node join procedure are in progress .
-	DPUNodeJoin DPUPhase = "Node Joining"
+	// DPUClusterConfig  means the node configuration and Kubernetes Node join procedure are in progress .
+	DPUClusterConfig DPUPhase = "DPU Cluster Config"
 	// DPUHostNetworkConfiguration means the host network configuration is running.
 	DPUHostNetworkConfiguration DPUPhase = "Host Network Configuration"
 	// DPUReady means the DPU is ready to use.

@@ -51,7 +51,7 @@
             - Pending
             - DMSDeployment
             - OS Installing
-            - Node Joining
+            - DPU Cluster Config
           path:
             - status
             - phase
