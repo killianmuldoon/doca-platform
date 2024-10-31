@@ -27,7 +27,6 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
-	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -74,14 +73,14 @@ func (r *DPUReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, errors.Wrap(err, "failed to get DPU")
+		return ctrl.Result{}, fmt.Errorf("failed to get DPU %w", err)
 	}
 
 	// Add finalizer if not set and DPU is not currently deleting.
 	if !controllerutil.ContainsFinalizer(dpu, provisioningv1.DPUFinalizer) && dpu.DeletionTimestamp.IsZero() {
 		controllerutil.AddFinalizer(dpu, provisioningv1.DPUFinalizer)
 		if err := r.Client.Update(ctx, dpu); err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "failed to add DPU finalizer")
+			return ctrl.Result{}, fmt.Errorf("failed to add DPU finalizer %w", err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -99,7 +98,7 @@ func (r *DPUReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		dpu.Status = nextState
 
 		if err := r.Client.Status().Update(ctx, dpu); err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "failed to update DPU")
+			return ctrl.Result{}, fmt.Errorf("failed to update DPU %w", err)
 		}
 	} else if nextState.Phase != provisioningv1.DPUError {
 		// TODO: move the state checking in state machine

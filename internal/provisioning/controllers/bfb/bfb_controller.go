@@ -25,7 +25,6 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb/state"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
-	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -60,14 +59,14 @@ func (r *BFBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, errors.Wrap(err, "failed to get BFB")
+		return ctrl.Result{}, fmt.Errorf("failed to get BFB %w", err)
 	}
 
 	// Add finalizer if not set.
 	if !controllerutil.ContainsFinalizer(bfb, provisioningv1.BFBFinalizer) && bfb.DeletionTimestamp.IsZero() {
 		controllerutil.AddFinalizer(bfb, provisioningv1.BFBFinalizer)
 		if err := r.Client.Update(ctx, bfb); err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "failed to add BFB finalizer")
+			return ctrl.Result{}, fmt.Errorf("failed to add BFB finalizer %w", err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -82,7 +81,7 @@ func (r *BFBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		logger.Info("Update BFB status", "current phase", bfb.Status.Phase, "next phase", nextState.Phase)
 		bfb.Status = nextState
 		if err := r.Client.Status().Update(ctx, bfb); err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "failed to update BFB")
+			return ctrl.Result{}, fmt.Errorf("failed to update BFB %w", err)
 		}
 	} else if nextState.Phase != provisioningv1.BFBError {
 		// requeue if bfb is not in error state

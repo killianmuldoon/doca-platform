@@ -30,7 +30,6 @@ import (
 	"github.com/nvidia/doca-platform/internal/utils"
 
 	"github.com/fluxcd/pkg/runtime/patch"
-	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -75,7 +74,7 @@ func (r *DPUSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
-		return ctrl.Result{}, errors.Wrap(err, "failed to get DPUSet")
+		return ctrl.Result{}, fmt.Errorf("failed to get DPUSet %w", err)
 	}
 
 	if !dpuSet.DeletionTimestamp.IsZero() {
@@ -87,7 +86,7 @@ func (r *DPUSetReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 func (r *DPUSetReconciler) reconcileDelete(ctx context.Context, dpuSet *provisioningv1.DPUSet) (ctrl.Result, error) {
 	if err := r.finalizeDPUSet(ctx, dpuSet); err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to finalize DPUSet")
+		return ctrl.Result{}, fmt.Errorf("failed to finalize DPUSet %w", err)
 	}
 
 	return ctrl.Result{}, nil
@@ -101,7 +100,7 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 	if !controllerutil.ContainsFinalizer(dpuSet, provisioningv1.DPUSetFinalizer) {
 		controllerutil.AddFinalizer(dpuSet, provisioningv1.DPUSetFinalizer)
 		if err := r.Client.Update(ctx, dpuSet); err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "failed to add DPUSet finalizer")
+			return ctrl.Result{}, fmt.Errorf("failed to add DPUSet finalizer %w", err)
 		}
 		return ctrl.Result{}, nil
 	}
@@ -109,13 +108,13 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 	// Get node map by nodeSelector
 	nodeMap, err := r.getNodeMap(ctx, dpuSet.Spec.NodeSelector)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to get Node list")
+		return ctrl.Result{}, fmt.Errorf("failed to get Node list %w", err)
 	}
 
 	// Get dpu map which are owned by dpuset
 	dpuMap, err := r.getDPUsMap(ctx, dpuSet)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to get DPU list")
+		return ctrl.Result{}, fmt.Errorf("failed to get DPU list %w", err)
 	}
 
 	// create dpu for the node
@@ -124,9 +123,9 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 			dpuIndexMap := getDPUIndexFromSelector(dpuSet.Spec.DPUSelector, node.Labels)
 			for _, index := range dpuIndexMap {
 				if err = r.createDPU(ctx, dpuSet, node, index); err != nil {
-					msg := fmt.Sprintf("failed to created DPU index %v on node %s", index, node.Name)
-					r.Recorder.Eventf(dpuSet, corev1.EventTypeWarning, events.EventFailedCreateDPUReason, msg)
-					return ctrl.Result{}, errors.Wrap(err, msg)
+					returnErr := fmt.Errorf("failed to created DPU index %v on node %s %w", index, node.Name, err)
+					r.Recorder.Eventf(dpuSet, corev1.EventTypeWarning, events.EventFailedCreateDPUReason, returnErr.Error())
+					return ctrl.Result{}, returnErr
 				}
 			}
 
@@ -138,9 +137,9 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 	// delete dpu if node does not exist
 	for nodeName, dpu := range dpuMap {
 		if err := r.Delete(ctx, &dpu); err != nil {
-			msg := fmt.Sprintf("failed to Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, nodeName)
-			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulDeleteDPUReason, msg, err)
-			return ctrl.Result{}, errors.Wrap(err, msg)
+			returnErr := fmt.Errorf("failed to Delete DPU: (%s/%s) from node %s %w", dpu.Namespace, dpu.Name, nodeName, err)
+			r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulDeleteDPUReason, returnErr.Error())
+			return ctrl.Result{}, returnErr
 		}
 		msg := fmt.Sprintf("Delete DPU: (%s/%s) from node %s", dpu.Namespace, dpu.Name, nodeName)
 		r.Recorder.Eventf(dpuSet, corev1.EventTypeNormal, events.EventSuccessfulDeleteDPUReason, msg)
@@ -150,7 +149,7 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 	// handle rolling update
 	dpuMap, err = r.getDPUsMap(ctx, dpuSet)
 	if err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to get DPUs")
+		return ctrl.Result{}, fmt.Errorf("failed to get DPUs %w", err)
 	}
 
 	switch dpuSet.Spec.Strategy.Type {
@@ -158,12 +157,12 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 		// do nothing, waiting for user delete DPU object manually.
 	case provisioningv1.RollingUpdateStrategyType:
 		if err := r.rolloutRolling(ctx, dpuSet, dpuMap, len(nodeMap)); err != nil {
-			return ctrl.Result{}, errors.Wrap(err, "failed to rollout DPU")
+			return ctrl.Result{}, fmt.Errorf("failed to rollout DPU %w", err)
 		}
 	}
 
 	if err := updateDPUSetStatus(ctx, dpuSet, dpuMap, r.Client); err != nil {
-		return ctrl.Result{}, errors.Wrap(err, "failed to update DPUSet status")
+		return ctrl.Result{}, fmt.Errorf("failed to update DPUSet status %w", err)
 	}
 
 	return ctrl.Result{}, nil

@@ -1,6 +1,6 @@
 module github.com/nvidia/doca-platform
 
-go 1.22.1
+go 1.22.8
 
 require (
 	dario.cat/mergo v1.0.1
@@ -14,20 +14,19 @@ require (
 	github.com/openconfig/gnmi v0.10.0
 	github.com/openconfig/gnoi v0.4.1
 	github.com/openconfig/gnoigo v0.0.0-20240320202954-ebd033e3542c
-	github.com/pkg/errors v0.9.1
 	github.com/spf13/pflag v1.0.5
-	github.com/vishvananda/netlink v1.2.1-beta.2.0.20240304185031-70def89fcbfb
+	github.com/vishvananda/netlink v1.3.0
 	go.uber.org/mock v0.4.0
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
 	google.golang.org/grpc v1.65.0
 	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.0.2
-	k8s.io/api v0.31.0
-	k8s.io/apimachinery v0.31.0
-	k8s.io/client-go v0.31.0
-	k8s.io/component-base v0.31.0
+	k8s.io/api v0.31.2
+	k8s.io/apimachinery v0.31.2
+	k8s.io/client-go v0.31.2
+	k8s.io/component-base v0.31.2
 	k8s.io/klog/v2 v2.130.1
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
-	sigs.k8s.io/controller-runtime v0.19.0
+	sigs.k8s.io/controller-runtime v0.19.1
 	sigs.k8s.io/yaml v1.4.0
 )
 
@@ -90,6 +89,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_golang v1.19.1 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
