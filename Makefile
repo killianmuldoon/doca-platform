@@ -154,9 +154,10 @@ generate-mdtoc: mdtoc ## Generate table of contents for our documentation.
 
 .PHONY: generate-mocks
 generate-mocks: mockgen ## Generate mocks
-	## Add the TOOLSDIR to the path for this command as `mockgen` is called from the $PATH inline in the code.
+	## Prepend the TOOLSDIR to the path for this command as `mockgen` is called from the $PATH inline in the code.
+	## The DPF TOOLSDIR should be first in the path to ensure user tools are not used.
 	## See go:generate comments for examples.
-	export PATH="$(PATH):$(TOOLSDIR)"; go generate ./...
+	export PATH="$(TOOLSDIR):$(PATH)"; go generate ./...
 
 .PHONY: generate-modules
 generate-modules: ## Run go mod tidy to update go modules
