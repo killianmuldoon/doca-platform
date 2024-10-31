@@ -18,6 +18,8 @@ package util
 
 import (
 	"sync"
+
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var DownloadingTaskMap sync.Map
@@ -26,4 +28,5 @@ type BFBTask struct {
 	TaskName string
 	URL      string
 	FileName string
+	UID      types.UID
 }

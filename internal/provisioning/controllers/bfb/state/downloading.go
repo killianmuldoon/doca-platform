@@ -91,7 +91,9 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 			TaskName: bfbTaskName,
 			URL:      st.bfb.Spec.URL,
 			FileName: st.bfb.Spec.FileName,
+			UID:      st.bfb.UID,
 		}
+
 		// Create a new context for this download task
 		taskCtx, cancel := context.WithCancel(ctx)
 		// Store the cancel function in the map
@@ -114,7 +116,8 @@ func downloadBFB(ctx context.Context, bfbTask butil.BFBTask) {
 		logger.V(3).Info("BFBPackage", "start downloading", bfbTask.FileName)
 
 		// Create a temporary file
-		tempFile, err := os.CreateTemp(string(os.PathSeparator)+cutil.BFBBaseDir, "bfb-*.tmp")
+		tempFileName := cutil.GenerateBFBTMPFilePath(string(bfbTask.UID))
+		tempFile, err := os.Create(tempFileName)
 		if err != nil {
 			return nil, err
 		}

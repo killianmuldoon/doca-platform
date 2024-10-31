@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	butil "github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb/util"
@@ -53,8 +52,10 @@ func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client) (p
 		return *state, err
 	}
 
-	if err := DeleteTmpBFBFiles(bfbFile); err != nil {
-		msg := fmt.Sprintf("Deleting BFB: (%s/%s) temp file failed", st.bfb.Namespace, st.bfb.Name)
+	tempFileName := cutil.GenerateBFBTMPFilePath(string(st.bfb.UID))
+	err = os.Remove(tempFileName)
+	if err != nil && !os.IsNotExist(err) {
+		msg := fmt.Sprintf("Deleting BFB temp file: (%s/%s) failed", st.bfb.Namespace, st.bfb.Name)
 		st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDeleteBFBReason, msg)
 		return *state, err
 	}
@@ -65,19 +66,4 @@ func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client) (p
 	}
 
 	return *state, nil
-}
-
-func DeleteTmpBFBFiles(bfbFile string) error {
-	// Remove all .tmp files in the directory
-	dir := filepath.Dir(bfbFile)
-	tmpFiles, err := filepath.Glob(filepath.Join(dir, "bfb-*.tmp"))
-	if err != nil {
-		return err
-	}
-	for _, tmpFile := range tmpFiles {
-		if err := os.Remove(tmpFile); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-	}
-	return nil
 }
