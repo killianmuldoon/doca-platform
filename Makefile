@@ -40,7 +40,7 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-GO_VERSION ?= 1.22
+GO_VERSION ?= $(shell awk '/^go /{print $$2}' go.mod)
 
 # Allows for defining additional Go test args, e.g. '-tags integration'.
 GO_TEST_ARGS ?= -race
@@ -736,6 +736,7 @@ docker-build-ovn-kubernetes-for-%: $(OVNKUBERNETES_DIR)
 		--load \
 		--provenance=false \
 		--platform=linux/$* \
+		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		--build-arg ovn_kubernetes_dir=$(subst $(CURDIR)/,,$(OVNKUBERNETES_DIR)) \
@@ -764,6 +765,7 @@ docker-build-hostdriver: ## Build docker image for DMS and hostnetwork.
 		--load \
 		--provenance=false \
 		--platform linux/${HOST_ARCH} \
+		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		-t $(HOSTDRIVER_IMAGE):$(TAG) \

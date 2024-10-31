@@ -1,4 +1,6 @@
-FROM --platform=${BUILDPLATFORM} docker.io/library/golang:1.22 AS ovnkubernetes-builder
+ARG builder_image
+
+FROM --platform=${BUILDPLATFORM} ${builder_image} AS ovnkubernetes-builder
 
 ARG TARGETARCH
 ARG gcflags
