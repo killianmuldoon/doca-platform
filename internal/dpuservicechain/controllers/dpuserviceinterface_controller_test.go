@@ -21,6 +21,7 @@ import (
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
 	"github.com/nvidia/doca-platform/internal/controlplane"
 	testutils "github.com/nvidia/doca-platform/test/utils"
@@ -44,12 +45,15 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		var cleanupObjects []client.Object
 		BeforeEach(func() {
 			cleanupObjects = []client.Object{}
-			By("Faking GetDPFClusters to use the envtest cluster instead of a separate one")
-			dpfCluster := controlplane.DPFCluster{Name: "envtest", Namespace: "default"}
-			kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(dpfCluster, cfg)
+			By("Faking GetdpuClusters to use the envtest cluster instead of a separate one")
+			dpuCluster := testutils.GetTestDPUCluster("default", "envtest")
+			kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(dpuCluster, cfg)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
 			cleanupObjects = append(cleanupObjects, kamajiSecret)
+
+			Expect(testClient.Create(ctx, &dpuCluster)).To(Succeed())
+			cleanupObjects = append(cleanupObjects, &dpuCluster)
 		})
 		AfterEach(func() {
 			By("Cleaning up the objects")
@@ -113,11 +117,14 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 		})
 	})
 	Context("When checking the status transitions", func() {
-		var testNS *corev1.Namespace
-		var dpuServiceInterface *dpuservicev1.DPUServiceInterface
-		var kamajiSecret *corev1.Secret
-		var dpfClusterClient client.Client
-		var i *informer.TestInformer
+		var (
+			testNS              *corev1.Namespace
+			dpuServiceInterface *dpuservicev1.DPUServiceInterface
+			dpuCluster          provisioningv1.DPUCluster
+			kamajiSecret        *corev1.Secret
+			dpuClusterClient    client.Client
+			i                   *informer.TestInformer
+		)
 
 		BeforeEach(func() {
 			By("Creating the namespaces")
@@ -126,13 +133,16 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			DeferCleanup(testClient.Delete, ctx, testNS)
 
 			By("Adding fake kamaji cluster")
-			dpfCluster := controlplane.DPFCluster{Name: "envtest", Namespace: testNS.Name}
+			dpuCluster = testutils.GetTestDPUCluster(testNS.Name, "envtest")
 			var err error
-			kamajiSecret, err = testutils.GetFakeKamajiClusterSecretFromEnvtest(dpfCluster, cfg)
+			kamajiSecret, err = testutils.GetFakeKamajiClusterSecretFromEnvtest(dpuCluster, cfg)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, kamajiSecret)
-			dpfClusterClient, err = dpfCluster.NewClient(ctx, testClient)
+
+			Expect(testClient.Create(ctx, &dpuCluster)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, &dpuCluster)
+			dpuClusterClient, err = controlplane.NewClusterConfig(testClient, &dpuCluster).NewClient(ctx)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating the informer infrastructure for DPUServiceInterface")
@@ -241,24 +251,13 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 			))
 		})
 		It("DPUServiceInterface has condition ServiceInterfaceSetReconciled with Error Reason at the end of a reconciliation loop that failed", func() {
-			By("Breaking the kamaji cluster secret to produce an error")
-			// Taking ownership of the labels
-			clusterName := kamajiSecret.Labels["kamaji.clastix.io/name"]
-			kamajiSecret.Labels["kamaji.clastix.io/name"] = "some"
-			kamajiSecret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
-			kamajiSecret.SetManagedFields(nil)
-			Expect(testClient.Patch(ctx, kamajiSecret, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
-			delete(kamajiSecret.Labels, "kamaji.clastix.io/name")
-			kamajiSecret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
-			kamajiSecret.SetManagedFields(nil)
-			Expect(testClient.Patch(ctx, kamajiSecret, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+			By("Setting the DPUCluster to an invalid state")
+			Expect(testClient.Delete(ctx, kamajiSecret)).To(Succeed())
 
 			DeferCleanup(func() {
-				By("Reverting the kamaji cluster secret to ensure DPUServiceInterface deletion can be done")
-				kamajiSecret.Labels["kamaji.clastix.io/name"] = clusterName
-				kamajiSecret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
-				kamajiSecret.SetManagedFields(nil)
-				Expect(testClient.Patch(ctx, kamajiSecret, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+				By("Reverting the DPUCluster to ready to ensure DPUServiceInterface deletion can be done")
+				kamajiSecret.ResourceVersion = ""
+				Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
 			})
 
 			By("Checking condition")
@@ -312,7 +311,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 
 			By("Adding finalizer to the underlying object")
 			gotInterfaceSet := &dpuservicev1.ServiceInterfaceSet{}
-			Eventually(dpfClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "interface"}, gotInterfaceSet).Should(Succeed())
+			Eventually(dpuClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "interface"}, gotInterfaceSet).Should(Succeed())
 			gotInterfaceSet.SetFinalizers([]string{"test.dpu.nvidia.com/test"})
 			gotInterfaceSet.SetGroupVersionKind(dpuservicev1.ServiceInterfaceSetGroupVersionKind)
 			gotInterfaceSet.SetManagedFields(nil)
@@ -357,7 +356,7 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 
 			By("Removing finalizer from the underlying object to ensure deletion")
 			gotInterfaceSet = &dpuservicev1.ServiceInterfaceSet{}
-			Eventually(dpfClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "interface"}, gotInterfaceSet).Should(Succeed())
+			Eventually(dpuClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "interface"}, gotInterfaceSet).Should(Succeed())
 			gotInterfaceSet.SetFinalizers([]string{})
 			gotInterfaceSet.SetGroupVersionKind(dpuservicev1.ServiceInterfaceSetGroupVersionKind)
 			gotInterfaceSet.SetManagedFields(nil)

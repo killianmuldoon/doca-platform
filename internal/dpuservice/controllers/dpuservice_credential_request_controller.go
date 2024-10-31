@@ -69,6 +69,7 @@ type DPUServiceCredentialRequestReconciler struct {
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuservicecredentialrequests/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuservicecredentialrequests/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=serviceaccounts;secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpuclusters,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=serviceaccounts/token,verbs=create
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 
@@ -125,9 +126,9 @@ func (r *DPUServiceCredentialRequestReconciler) reconcile(ctx context.Context, o
 	log := ctrllog.FromContext(ctx)
 
 	targetClient := r.Client
-	var cluster *controlplane.DPFCluster
+	var dpuClusterConfig *controlplane.ClusterConfig
 	if obj.Spec.TargetClusterName != nil {
-		c, cl, err := r.getCluster(ctx, *obj.Spec.TargetClusterName)
+		c, clusterConfig, err := r.getCluster(ctx, *obj.Spec.TargetClusterName)
 		if err != nil {
 			conditions.AddFalse(
 				obj,
@@ -138,7 +139,7 @@ func (r *DPUServiceCredentialRequestReconciler) reconcile(ctx context.Context, o
 			return ctrl.Result{}, err
 		}
 		targetClient = c
-		cluster = cl
+		dpuClusterConfig = clusterConfig
 	}
 
 	tr, err := reconcileServiceAccount(ctx, obj, targetClient)
@@ -169,7 +170,7 @@ func (r *DPUServiceCredentialRequestReconciler) reconcile(ctx context.Context, o
 		token = tr.Status.Token
 	}
 
-	if err = r.reconcileSecret(ctx, obj, cluster, token); err != nil {
+	if err = r.reconcileSecret(ctx, obj, dpuClusterConfig, token); err != nil {
 		conditions.AddFalse(
 			obj,
 			dpuservicev1.ConditionSecretReconciled,
@@ -260,7 +261,7 @@ func reconcileServiceAccount(ctx context.Context, obj *dpuservicev1.DPUServiceCr
 	return tr, nil
 }
 
-func (r *DPUServiceCredentialRequestReconciler) reconcileSecret(ctx context.Context, obj *dpuservicev1.DPUServiceCredentialRequest, cluster *controlplane.DPFCluster, token string) error {
+func (r *DPUServiceCredentialRequestReconciler) reconcileSecret(ctx context.Context, obj *dpuservicev1.DPUServiceCredentialRequest, dpuClusterConfig *controlplane.ClusterConfig, token string) error {
 	var config map[string][]byte
 	// The Secret name and/or namespace diverges or the DPUServiceCredentialRequest
 	// is being deleted, delete the Secret.
@@ -281,12 +282,12 @@ func (r *DPUServiceCredentialRequestReconciler) reconcileSecret(ctx context.Cont
 		var err error
 		switch obj.Spec.Type {
 		case dpuservicev1.SecretTypeKubeconfig:
-			config, err = r.createKubeconfigWithToken(ctx, obj, cluster, token)
+			config, err = r.createKubeconfigWithToken(ctx, obj, dpuClusterConfig, token)
 			if err != nil {
 				return err
 			}
 		case dpuservicev1.SecretTypeTokenFile:
-			config, err = r.createTokenFileWithToken(ctx, cluster, token)
+			config, err = r.createTokenFileWithToken(ctx, dpuClusterConfig, token)
 			if err != nil {
 				return err
 			}
@@ -298,37 +299,37 @@ func (r *DPUServiceCredentialRequestReconciler) reconcileSecret(ctx context.Cont
 	return r.patchSecret(ctx, obj, config)
 }
 
-func (r *DPUServiceCredentialRequestReconciler) getCluster(ctx context.Context, clusterName string) (client.Client, *controlplane.DPFCluster, error) {
-	clusters, err := controlplane.GetDPFClusters(ctx, r.Client)
+func (r *DPUServiceCredentialRequestReconciler) getCluster(ctx context.Context, clusterName string) (client.Client, *controlplane.ClusterConfig, error) {
+	dpuClusterConfigs, err := controlplane.GetClusterConfigs(ctx, r.Client)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while getting DPF clusters: %w", err)
 	}
-	if len(clusters) == 0 {
+	if len(dpuClusterConfigs) == 0 {
 		return nil, nil, fmt.Errorf("no cluster found")
 	}
 
-	var cluster controlplane.DPFCluster
-	for _, cl := range clusters {
-		if cl.Name == clusterName {
-			cluster = cl
+	var dpuClusterConfig *controlplane.ClusterConfig
+	for _, clusterConfig := range dpuClusterConfigs {
+		if clusterConfig.Cluster.Name == clusterName {
+			dpuClusterConfig = clusterConfig
 			break
 		}
 	}
-	if cluster.Name == "" {
+	if dpuClusterConfig == nil {
 		return nil, nil, fmt.Errorf("cluster %v not found", clusterName)
 	}
 
-	client, err := cluster.NewClient(ctx, r.Client)
+	client, err := dpuClusterConfig.NewClient(ctx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error while getting client for cluster %v: %w", cluster.Name, err)
+		return nil, nil, fmt.Errorf("error while getting client for cluster %v: %w", dpuClusterConfig.Cluster.Name, err)
 	}
 
-	return client, &cluster, nil
+	return client, dpuClusterConfig, nil
 }
 
 // createKubeconfigWithToken creates a kubeconfig with the given token.
-func (r *DPUServiceCredentialRequestReconciler) createKubeconfigWithToken(ctx context.Context, obj *dpuservicev1.DPUServiceCredentialRequest, cluster *controlplane.DPFCluster, token string) (map[string][]byte, error) {
-	clusterName, server, caData, err := r.getClusterAccessData(ctx, cluster)
+func (r *DPUServiceCredentialRequestReconciler) createKubeconfigWithToken(ctx context.Context, obj *dpuservicev1.DPUServiceCredentialRequest, dpuClusterConfig *controlplane.ClusterConfig, token string) (map[string][]byte, error) {
+	clusterName, server, caData, err := r.getClusterAccessData(ctx, dpuClusterConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -364,8 +365,8 @@ func (r *DPUServiceCredentialRequestReconciler) createKubeconfigWithToken(ctx co
 }
 
 // createTokenFileWithToken creates a token file with the given token.
-func (r *DPUServiceCredentialRequestReconciler) createTokenFileWithToken(ctx context.Context, cluster *controlplane.DPFCluster, token string) (map[string][]byte, error) {
-	_, server, caData, err := r.getClusterAccessData(ctx, cluster)
+func (r *DPUServiceCredentialRequestReconciler) createTokenFileWithToken(ctx context.Context, dpuClusterConfig *controlplane.ClusterConfig, token string) (map[string][]byte, error) {
+	_, server, caData, err := r.getClusterAccessData(ctx, dpuClusterConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -389,22 +390,27 @@ func (r *DPUServiceCredentialRequestReconciler) createTokenFileWithToken(ctx con
 	}, nil
 }
 
-func (r *DPUServiceCredentialRequestReconciler) getClusterAccessData(ctx context.Context, cluster *controlplane.DPFCluster) (string, string, []byte, error) {
+func (r *DPUServiceCredentialRequestReconciler) getClusterAccessData(ctx context.Context, dpuClusterConfig *controlplane.ClusterConfig) (string, string, []byte, error) {
 	var (
 		clusterName string
 		server      string
 		caData      []byte
 	)
 
-	if cluster != nil {
-		kubeConfig, err := cluster.GetKubeconfig(ctx, r.Client)
+	if dpuClusterConfig != nil {
+		kubeConfig, err := dpuClusterConfig.Kubeconfig(ctx)
 		if err != nil {
-			return "", "", nil, fmt.Errorf("error while getting kubeconfig for cluster %v: %w", cluster.Name, err)
+			return "", "", nil, fmt.Errorf("error while getting kubeconfig for cluster %v: %w", dpuClusterConfig.Cluster.Name, err)
 		}
 
-		clusterName = kubeConfig.Clusters[0].Name
-		server = kubeConfig.Clusters[0].Cluster.Server
-		caData = kubeConfig.Clusters[0].Cluster.CertificateAuthorityData
+		name, cl := getRandomKVPair(kubeConfig.Clusters)
+		if name == "" {
+			return "", "", nil, fmt.Errorf("no cluster found in kubeconfig for cluster %v", dpuClusterConfig.Cluster.Name)
+		}
+
+		clusterName = name
+		server = cl.Server
+		caData = cl.CertificateAuthorityData
 	} else {
 		caBytes, url, err := getLocalClusterAccessData()
 		if err != nil {

@@ -30,7 +30,6 @@ import (
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
 	"github.com/nvidia/doca-platform/internal/controlplane"
-	"github.com/nvidia/doca-platform/internal/controlplane/kubeconfig"
 	controlplanemeta "github.com/nvidia/doca-platform/internal/controlplane/metadata"
 	"github.com/nvidia/doca-platform/internal/dpuservice/predicates"
 	dpuserviceutils "github.com/nvidia/doca-platform/internal/dpuservice/utils"
@@ -45,6 +44,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/json"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -73,6 +73,7 @@ var pauseDPUServiceReconciler bool
 // +kubebuilder:rbac:groups=argoproj.io,resources=appprojects;applications,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kamaji.clastix.io,resources=tenantcontrolplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=operator.dpu.nvidia.com,resources=dpfoperatorconfigs,verbs=get;list;watch
+// +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpuclusters,verbs=get;list;watch
 
 const (
 	dpuServiceControllerName = "dpuservice-manager"
@@ -309,15 +310,15 @@ func (r *DPUServiceReconciler) reconcileDeleteImagePullSecrets(ctx context.Conte
 	}
 
 	log.Info("Cleaning up ImagePullSecrets in all DPU Clusters")
-	clusters, err := controlplane.GetDPFClusters(ctx, r.Client)
+	dpuClusterConfigs, err := controlplane.GetClusterConfigs(ctx, r.Client)
 	if err != nil {
 		return err
 	}
 
 	// Delete the secrets in every DPUCluster.
 	var errs []error
-	for _, cluster := range clusters {
-		dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
+	for _, dpuClusterConfig := range dpuClusterConfigs {
+		dpuClusterClient, err := dpuClusterConfig.NewClient(ctx)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -338,7 +339,7 @@ func (r *DPUServiceReconciler) reconcileDeleteImagePullSecrets(ctx context.Conte
 			secretsNameList = append(secretsNameList, secretNamespaceName)
 		}
 
-		log.Info("Deleting ImagePullSecrets", "cluster", cluster.Name, "secrets", secretsNameList)
+		log.Info("Deleting ImagePullSecrets", "cluster", dpuClusterConfig.Cluster.Name, "secrets", secretsNameList)
 		for _, secret := range secrets.Items {
 			if err := dpuClusterClient.Delete(ctx, secret.DeepCopy()); err != nil {
 				errs = append(errs, err)
@@ -351,7 +352,7 @@ func (r *DPUServiceReconciler) reconcileDeleteImagePullSecrets(ctx context.Conte
 func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuservicev1.DPUService) error {
 	// Get the list of clusters this DPUService targets.
 	// TODO: Add some way to check if the clusters are healthy. Reconciler should retry clusters if they're unready.
-	clusters, err := controlplane.GetDPFClusters(ctx, r.Client)
+	dpuClusterConfigs, err := controlplane.GetClusterConfigs(ctx, r.Client)
 	if err != nil {
 		return err
 	}
@@ -379,7 +380,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionDPUServiceInterfaceReconciled)
 
-	if err := r.reconcileApplicationPrereqs(ctx, dpuService, clusters, dpfOperatorConfig); err != nil {
+	if err := r.reconcileApplicationPrereqs(ctx, dpuService, dpuClusterConfigs, dpfOperatorConfig); err != nil {
 		message := fmt.Sprintf("Unable to reconcile application prereq for %s", err.Error())
 		conditions.AddFalse(
 			dpuService,
@@ -392,7 +393,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationPrereqsReconciled)
 
 	// Update the ArgoApplication for all target clusters.
-	if err = r.reconcileApplication(ctx, clusters, dpuService, serviceDaemonSet, dpfOperatorConfig.GetNamespace()); err != nil {
+	if err = r.reconcileApplication(ctx, dpuClusterConfigs, dpuService, serviceDaemonSet, dpfOperatorConfig.GetNamespace()); err != nil {
 		message := fmt.Sprintf("Unable to reconcile Applications: %v", err)
 		conditions.AddFalse(
 			dpuService,
@@ -407,26 +408,26 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, dpuService *dpuservicev1.DPUService, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
+func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, dpuService *dpuservicev1.DPUService, dpuClusterConfigs []*controlplane.ClusterConfig, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	// Ensure the DPUService namespace exists in target clusters.
 	project := getProjectName(dpuService)
 	// TODO: think about how to cleanup the namespace in the DPU.
-	if err := r.ensureNamespaces(ctx, clusters, project, dpuService.GetNamespace()); err != nil {
+	if err := r.ensureNamespaces(ctx, dpuClusterConfigs, project, dpuService.GetNamespace()); err != nil {
 		return fmt.Errorf("cluster namespaces: %v", err)
 	}
 
 	// Ensure the Argo secret for each cluster is up-to-date.
-	if err := r.reconcileArgoSecrets(ctx, clusters, dpfOperatorConfig); err != nil {
+	if err := r.reconcileArgoSecrets(ctx, dpuClusterConfigs, dpfOperatorConfig); err != nil {
 		return fmt.Errorf("ArgoSecrets: %v", err)
 	}
 
 	//  Ensure the ArgoCD AppProject exists and is up-to-date.
-	if err := r.reconcileAppProject(ctx, clusters, dpfOperatorConfig); err != nil {
+	if err := r.reconcileAppProject(ctx, dpuClusterConfigs, dpfOperatorConfig); err != nil {
 		return fmt.Errorf("AppProject: %v", err)
 	}
 
 	// Reconcile the ImagePullSecrets.
-	if err := r.reconcileImagePullSecrets(ctx, clusters, dpuService); err != nil {
+	if err := r.reconcileImagePullSecrets(ctx, dpuClusterConfigs, dpuService); err != nil {
 		return fmt.Errorf("ImagePullSecrets: %v", err)
 	}
 
@@ -492,16 +493,16 @@ func (r *DPUServiceReconciler) reconcileInterfaces(ctx context.Context, dpuServi
 	return serviceDaemonSet, nil
 }
 
-func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, clusters []controlplane.DPFCluster, project, dpuNamespace string) error {
+func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, dpuClusterConfigs []*controlplane.ClusterConfig, project, dpuNamespace string) error {
 	var errs []error
 	if project == dpuAppProjectName {
-		for _, cluster := range clusters {
-			dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
+		for _, dpuClusterConfig := range dpuClusterConfigs {
+			dpuClusterClient, err := dpuClusterConfig.NewClient(ctx)
 			if err != nil {
-				errs = append(errs, fmt.Errorf("get cluster %s: %v", cluster.Name, err))
+				errs = append(errs, fmt.Errorf("get cluster %s: %v", dpuClusterConfig.Cluster.Name, err))
 			}
 			if err := utils.EnsureNamespace(ctx, dpuClusterClient, dpuNamespace); err != nil {
-				errs = append(errs, fmt.Errorf("namespace for cluster %s: %v", cluster.Name, err))
+				errs = append(errs, fmt.Errorf("namespace for cluster %s: %v", dpuClusterConfig.Cluster.Name, err))
 			}
 		}
 	} else {
@@ -513,20 +514,20 @@ func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, clusters []
 }
 
 // reconcileArgoSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
-func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
+func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, dpuClusterConfigs []*controlplane.ClusterConfig, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	log := ctrllog.FromContext(ctx)
 
 	var errs []error
-	for _, cluster := range clusters {
+	for _, dpuClusterConfig := range dpuClusterConfigs {
 		// Get the control plane kubeconfig
-		adminConfig, err := cluster.GetKubeconfig(ctx, r.Client)
+		adminConfig, err := dpuClusterConfig.Kubeconfig(ctx)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
 
 		// Template an argoSecret using information from the control plane secret.
-		argoSecret, err := createArgoSecretFromKubeconfig(adminConfig, dpfOperatorConfig.GetNamespace(), cluster.String())
+		argoSecret, err := createArgoSecretFromKubeconfig(adminConfig, dpfOperatorConfig.GetNamespace(), dpuClusterConfig.ClusterNamespaceName())
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -552,7 +553,7 @@ func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservi
 	defer conditions.SetSummary(dpuService)
 
 	// Get the list of clusters this DPUService targets.
-	clusters, err := controlplane.GetDPFClusters(ctx, r.Client)
+	dpuClusterConfigs, err := controlplane.GetClusterConfigs(ctx, r.Client)
 	if err != nil {
 		return err
 	}
@@ -578,7 +579,7 @@ func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservi
 	}
 
 	// Update condition and requeue if there are any errors, or if there are fewer applications than we have clusters.
-	if len(unreadyApplications) > 0 || len(applicationList.Items) != len(clusters) {
+	if len(unreadyApplications) > 0 || len(applicationList.Items) != len(dpuClusterConfigs) {
 		message := fmt.Sprintf("Applications are not ready: %v", strings.Join(unreadyApplications, ", "))
 		conditions.AddFalse(
 			dpuService,
@@ -592,7 +593,7 @@ func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservi
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, clusters []controlplane.DPFCluster, service *dpuservicev1.DPUService) error {
+func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, dpuClusterConfigs []*controlplane.ClusterConfig, service *dpuservicev1.DPUService) error {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Patching ImagePullSecrets for DPU clusters")
 
@@ -629,8 +630,8 @@ func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, cl
 
 	// Apply the new secret to every DPUCluster.
 	var errs []error
-	for _, cluster := range clusters {
-		dpuClusterClient, err := cluster.NewClient(ctx, r.Client)
+	for _, dpuClusterConfig := range dpuClusterConfigs {
+		dpuClusterClient, err := dpuClusterConfig.NewClient(ctx)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -651,11 +652,11 @@ func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, cl
 		}
 		for _, secret := range inClusterSecrets.Items {
 			if _, ok := existingSecrets[secret.GetName()]; ok {
-				log.Info("ImagePullSecret still present in cluster", "secret", secret.Name, "cluster", cluster.Name)
+				log.Info("ImagePullSecret still present in cluster", "secret", secret.Name, "cluster", dpuClusterConfig.Cluster.Name)
 				continue
 			}
 
-			log.Info("Deleting secret in cluster", "secret", secret.Name, "cluster", cluster.Name)
+			log.Info("Deleting secret in cluster", "secret", secret.Name, "cluster", dpuClusterConfig.Cluster.Name)
 			if err := dpuClusterClient.Delete(ctx, &secret); err != nil {
 				errs = append(errs, err)
 			}
@@ -664,12 +665,12 @@ func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, cl
 	return kerrors.NewAggregate(errs)
 }
 
-func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters []controlplane.DPFCluster, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
+func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, dpuClusterConfigs []*controlplane.ClusterConfig, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	log := ctrllog.FromContext(ctx)
 
 	clusterKeys := []types.NamespacedName{}
-	for i := range clusters {
-		clusterKeys = append(clusterKeys, types.NamespacedName{Namespace: clusters[i].Namespace, Name: clusters[i].Name})
+	for _, dpuClusterConfig := range dpuClusterConfigs {
+		clusterKeys = append(clusterKeys, types.NamespacedName{Namespace: dpuClusterConfig.Cluster.Namespace, Name: dpuClusterConfig.Cluster.Name})
 	}
 	dpuAppProject := argocd.NewAppProject(dpfOperatorConfig.Namespace, dpuAppProjectName, clusterKeys)
 	// Add owner reference AppProject->DPFOperatorConfig to ensure that the AppProject will be deleted with the DPFOperatorConfig.
@@ -695,11 +696,11 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, clusters
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, clusters []controlplane.DPFCluster, dpuService *dpuservicev1.DPUService, serviceDaemonSet *dpuservicev1.ServiceDaemonSetValues, dpfOperatorConfigNamespace string) error {
+func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, dpuClusterConfigs []*controlplane.ClusterConfig, dpuService *dpuservicev1.DPUService, serviceDaemonSet *dpuservicev1.ServiceDaemonSetValues, dpfOperatorConfigNamespace string) error {
 	project := getProjectName(dpuService)
 	if project == dpuAppProjectName {
-		for _, cluster := range clusters {
-			if err := r.ensureApplication(ctx, dpuService, serviceDaemonSet, cluster.Name, dpfOperatorConfigNamespace); err != nil {
+		for _, dpuClusterConfig := range dpuClusterConfigs {
+			if err := r.ensureApplication(ctx, dpuService, serviceDaemonSet, dpuClusterConfig.Cluster.Name, dpfOperatorConfigNamespace); err != nil {
 				return err
 			}
 		}
@@ -756,13 +757,22 @@ type tlsClientConfig struct {
 }
 
 // createArgoSecretFromKubeconfig generates an ArgoCD cluster secret from the given kubeconfig.
-func createArgoSecretFromKubeconfig(kubeconfig *kubeconfig.Type, dpfOperatorConfigNamespace, clusterName string) (*corev1.Secret, error) {
-	clusterConfigName := kubeconfig.Clusters[0].Name
-	clusterConfigServer := kubeconfig.Clusters[0].Cluster.Server
+func createArgoSecretFromKubeconfig(kubeconfig *api.Config, dpfOperatorConfigNamespace, clusterName string) (*corev1.Secret, error) {
+	name, cluster := getRandomKVPair(kubeconfig.Clusters)
+	if name == "" {
+		return nil, fmt.Errorf("no clusters found in kubeconfig")
+	}
+	userName, user := getRandomKVPair(kubeconfig.AuthInfos)
+	if userName == "" {
+		return nil, fmt.Errorf("no users found in kubeconfig")
+	}
+
+	clusterConfigName := name
+	clusterConfigServer := cluster.Server
 	secretConfig, err := json.Marshal(config{TLSClientConfig: tlsClientConfig{
-		CaData:   kubeconfig.Clusters[0].Cluster.CertificateAuthorityData,
-		KeyData:  kubeconfig.Users[0].User.ClientKeyData,
-		CertData: kubeconfig.Users[0].User.ClientCertificateData,
+		CaData:   cluster.CertificateAuthorityData,
+		KeyData:  user.ClientKeyData,
+		CertData: user.ClientCertificateData,
 	}})
 	if err != nil {
 		return nil, err
@@ -934,4 +944,12 @@ func isDPUServiceInterfaceInUse(dpuServiceInterface *dpuservicev1.DPUServiceInte
 		}
 	}
 	return
+}
+
+func getRandomKVPair[T any](m map[string]T) (string, T) {
+	var result T
+	for k, v := range m {
+		return k, v
+	}
+	return "", result
 }

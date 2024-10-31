@@ -32,6 +32,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -80,6 +81,7 @@ func getEnvVariables() {
 var (
 	testClient client.Client
 	restConfig *rest.Config
+	clientset  *kubernetes.Clientset
 	ctx        = ctrl.SetupSignalHandler()
 )
 
@@ -109,6 +111,8 @@ func TestE2E(t *testing.T) {
 
 	// Create a client to use throughout the test.
 	restConfig, err = clientcmd.BuildConfigFromFlags("", testKubeconfig)
+	g.Expect(err).NotTo(HaveOccurred())
+	clientset, err = kubernetes.NewForConfig(restConfig)
 	g.Expect(err).NotTo(HaveOccurred())
 	testClient, err = client.New(restConfig, client.Options{Scheme: s})
 	g.Expect(err).NotTo(HaveOccurred())

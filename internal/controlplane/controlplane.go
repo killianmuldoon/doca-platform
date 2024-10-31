@@ -20,100 +20,136 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nvidia/doca-platform/internal/controlplane/kubeconfig"
-	controlplanemeta "github.com/nvidia/doca-platform/internal/controlplane/metadata"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
-	kerrors "k8s.io/apimachinery/pkg/util/errors"
-	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/rest"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+	clientcmdv1 "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// DPFCluster represents a single Kubernetes cluster in DPF implemented using Kamaji.
-// TODO: Consider if this should be a more complex type carrying more data about the cluster.
-type DPFCluster types.NamespacedName
-
-func (d *DPFCluster) String() string {
-	return fmt.Sprintf("%s-%s", d.Namespace, d.Name)
+// ClusterConfig hold the cluster configuration.
+// It provides methods to get the client, clientset, and rest config for the cluster.
+type ClusterConfig struct {
+	// Cluster is the DPU cluster for which the config is being fetched.
+	Cluster *provisioningv1.DPUCluster
+	// hostClient is the client for the host cluster. It is used to fetch the kubeconfig secret.
+	hostClient      client.Client
+	kubeconfig      *clientcmdv1.Config
+	kubeconfigBytes []byte
+	clientConfig    clientcmd.OverridingClientConfig
 }
 
-// GetKubeconfig returns the kubeconfig with admin permissions for the given cluster
-func (d *DPFCluster) GetKubeconfig(ctx context.Context, c client.Client) (*kubeconfig.Type, error) {
-	// Get the control plane secret using the naming convention - $CLUSTERNAME-admin-kubeconfig.
-	secret := &corev1.Secret{}
-	key := client.ObjectKey{Namespace: d.Namespace, Name: fmt.Sprintf("%v-admin-kubeconfig", d.Name)}
-	if err := c.Get(ctx, key, secret); err != nil {
-		return nil, fmt.Errorf("error while getting secret for cluster %s: %w", d.String(), err)
+// NewClusterConfig returns a new ClusterConfig.
+func NewClusterConfig(c client.Client, cluster *provisioningv1.DPUCluster) *ClusterConfig {
+	return &ClusterConfig{
+		Cluster:    cluster,
+		hostClient: c,
+	}
+}
+
+func (cc *ClusterConfig) ClusterNamespaceName() string {
+	return fmt.Sprintf("%s-%s", cc.Cluster.Namespace, cc.Cluster.Name)
+}
+
+// Kubeconfig returns the kubeconfig for the cluster.
+func (cc *ClusterConfig) Kubeconfig(ctx context.Context) (*clientcmdv1.Config, error) {
+	if cc.kubeconfig != nil {
+		return cc.kubeconfig, nil
+	}
+	if cc.clientConfig == nil {
+		if err := cc.getClientConfig(ctx); err != nil {
+			return nil, err
+		}
 	}
 
-	adminSecret, ok := secret.Data["admin.conf"]
-	if !ok {
-		return nil, fmt.Errorf("secret %v/%v not in the expected format: data.admin.conf not found", secret.Namespace, secret.Name)
+	adminConfig, err := cc.clientConfig.RawConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error while getting raw config: %w", err)
 	}
-	var adminConfig kubeconfig.Type
-	if err := yaml.Unmarshal(adminSecret, &adminConfig); err != nil {
-		return nil, err
-	}
-	if len(adminConfig.Users) != 1 {
-		return nil, fmt.Errorf("secret %v/%v not in the expected format: user list should have one member", secret.Namespace, secret.Name)
+
+	if len(adminConfig.AuthInfos) != 1 {
+		return nil, fmt.Errorf("secret not in the expected format: auth info list should have one member")
 	}
 	if len(adminConfig.Clusters) != 1 {
-		return nil, fmt.Errorf("secret %v/%v not in the expected format: cluster list should have one member", secret.Namespace, secret.Name)
+		return nil, fmt.Errorf("secret not in the expected format: cluster list should have one member")
 	}
-	return &adminConfig, nil
+
+	cc.kubeconfig = &adminConfig
+	return cc.kubeconfig, nil
 }
 
-// NewClient returns a client for the given cluster
-func (d *DPFCluster) NewClient(ctx context.Context, c client.Client) (client.Client, error) {
-	config, err := d.GetRestConfig(ctx, c)
+func (cc *ClusterConfig) getClientConfig(ctx context.Context) error {
+	// Get the control plane secret using the cluster's `spec.kubeconfig` field.
+	secret := &corev1.Secret{}
+	key := client.ObjectKey{Namespace: cc.Cluster.Namespace, Name: cc.Cluster.Spec.Kubeconfig}
+	if err := cc.hostClient.Get(ctx, key, secret); err != nil {
+		return err
+	}
+	kubeconfigBytes, ok := secret.Data["admin.conf"]
+	if !ok {
+		return fmt.Errorf("secret %v/%v not in the expected format: data.admin.conf not found", secret.Namespace, secret.Name)
+	}
+	clientConfig, err := clientcmd.NewClientConfigFromBytes(kubeconfigBytes)
+	if err != nil {
+		return fmt.Errorf("error while getting client config: %w", err)
+	}
+	cc.clientConfig = clientConfig
+	cc.kubeconfigBytes = kubeconfigBytes
+	return nil
+}
+
+// NewClient returns a new client for the cluster.
+func (cc *ClusterConfig) NewClient(ctx context.Context) (client.Client, error) {
+	_, err := cc.Kubeconfig(ctx)
 	if err != nil {
 		return nil, err
 	}
-	dpfClusterClient, err := client.New(config, client.Options{})
-	if err != nil {
-		return nil, fmt.Errorf("error while getting client: %w", err)
-	}
-	return dpfClusterClient, nil
-}
 
-func (d *DPFCluster) GetRestConfig(ctx context.Context, c client.Client) (*rest.Config, error) {
-	kubeconfig, err := d.GetKubeconfig(ctx, c)
-	if err != nil {
-		return nil, fmt.Errorf("error while getting kubeconfig: %w", err)
-	}
-	kubeconfigBytes, err := kubeconfig.Bytes()
-	if err != nil {
-		return nil, fmt.Errorf("error while converting kubeconfig to bytes: %w", err)
-	}
-	config, err := clientcmd.RESTConfigFromKubeConfig(kubeconfigBytes)
-	if err != nil {
-		return nil, fmt.Errorf("error while getting client config: %w", err)
-	}
-	return config, nil
-}
-
-// GetDPFClusters returns a list of DPFCluster available in the given Kubernetes cluster
-func GetDPFClusters(ctx context.Context, c client.Client) ([]DPFCluster, error) {
-	var errs []error
-	secrets := &corev1.SecretList{}
-	err := c.List(ctx, secrets, client.MatchingLabels(controlplanemeta.DPFClusterSecretLabels))
+	restConfig, err := cc.clientConfig.ClientConfig()
 	if err != nil {
 		return nil, err
 	}
-	clusters := []DPFCluster{}
-	for _, secret := range secrets.Items {
-		clusterName, found := secret.GetLabels()[controlplanemeta.DPFClusterSecretClusterNameLabelKey]
-		if !found {
-			errs = append(errs, fmt.Errorf("could not identify cluster name for secret %v/%v", secret.Namespace, secret.Name))
-			continue
-		}
-		clusters = append(clusters, DPFCluster{
-			Namespace: secret.Namespace,
-			Name:      clusterName,
-		})
+
+	newClient, err := client.New(restConfig, client.Options{})
+	if err != nil {
+		return nil, err
 	}
-	return clusters, kerrors.NewAggregate(errs)
+	return newClient, nil
+}
+
+// NewClientset returns a new clientset for the cluster.
+func (cc *ClusterConfig) NewClientset(ctx context.Context) (*kubernetes.Clientset, []byte, error) {
+	_, err := cc.Kubeconfig(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	restConfig, err := cc.clientConfig.ClientConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	newClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+	return newClient, cc.kubeconfigBytes, nil
+}
+
+// GetClusterConfigs returns a list of ClusterConfigs for all DPU clusters.
+func GetClusterConfigs(ctx context.Context, c client.Client) ([]*ClusterConfig, error) {
+	dpuClusters := &provisioningv1.DPUClusterList{}
+	err := c.List(ctx, dpuClusters)
+	if err != nil {
+		return nil, err
+	}
+
+	clusterConfigs := make([]*ClusterConfig, 0, len(dpuClusters.Items))
+	for _, cluster := range dpuClusters.Items {
+		clusterConfig := NewClusterConfig(c, &cluster)
+		clusterConfigs = append(clusterConfigs, clusterConfig)
+	}
+	return clusterConfigs, nil
 }

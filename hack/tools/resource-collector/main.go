@@ -25,6 +25,7 @@ import (
 
 	"github.com/nvidia/doca-platform/test/utils/collector"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -66,7 +67,13 @@ func main() {
 
 	inventoryManifestsDirectory := filepath.Join(filepath.Dir(basePath), "../../../internal/operator/inventory/manifests")
 
-	clusters, err := collector.GetClusterCollectors(ctx, clusterClient, artifactsDirectory, inventoryManifestsDirectory, config)
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err)
+	}
+
+	clusters, err := collector.GetClusterCollectors(ctx, clusterClient, artifactsDirectory, inventoryManifestsDirectory, clientset)
 
 	if err != nil {
 		log.Error(err, "Failed to get cluster collectors")

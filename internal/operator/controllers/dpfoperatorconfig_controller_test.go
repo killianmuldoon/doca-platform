@@ -25,7 +25,6 @@ import (
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
-	"github.com/nvidia/doca-platform/internal/controlplane"
 	"github.com/nvidia/doca-platform/internal/operator/inventory"
 	testutils "github.com/nvidia/doca-platform/test/utils"
 
@@ -127,7 +126,8 @@ func TestDPFOperatorConfigReconciler_Conditions(t *testing.T) {
 	}
 
 	// Create a secret which marks envtest as a DPUCluster.
-	kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(controlplane.DPFCluster{Name: "envtest", Namespace: testNS.Name}, cfg)
+	dpuCluster := testutils.GetTestDPUCluster(testNS.Name, "envtest")
+	kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(dpuCluster, cfg)
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
 	// Create a pull secret to be used by the DPFOperatorConfig.

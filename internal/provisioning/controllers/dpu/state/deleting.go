@@ -130,7 +130,7 @@ func deleteNode(ctx context.Context, client crclient.Client, dpu *provisioningv1
 		}
 		return err
 	}
-	dpuClient, _, err := cutil.GetClient(ctx, client, dc)
+	dpuClient, _, err := cutil.GetClientset(ctx, client, dc)
 	if err != nil {
 		return fmt.Errorf("failed to create client for DPU cluster, err: %v", err)
 	}

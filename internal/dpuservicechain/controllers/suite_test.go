@@ -25,6 +25,7 @@ import (
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -64,6 +65,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "servicechainset", "crd", "bases"),
+			filepath.Join("..", "..", "..", "config", "provisioning", "crd", "bases"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "kamaji"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "nvipam")},
 		ErrorIfCRDPathMissing: true,
@@ -85,6 +87,7 @@ var _ = BeforeSuite(func() {
 
 	Expect(dpuservicev1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(nvipamv1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(provisioningv1.AddToScheme(scheme.Scheme)).To(Succeed())
 
 	s := scheme.Scheme
 	// +kubebuilder:scaffold:scheme

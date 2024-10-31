@@ -22,6 +22,7 @@ import (
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
 	"github.com/nvidia/doca-platform/internal/controlplane"
@@ -98,16 +99,22 @@ var _ = Describe("DPUService Controller", func() {
 			Expect(testClient.Delete(ctx, testDPU3NS)).To(Succeed())
 		})
 		It("should successfully reconcile the DPUService", func() {
-			clusters := []controlplane.DPFCluster{
-				{Namespace: testDPU1NS.Name, Name: "cluster-one"},
-				{Namespace: testDPU2NS.Name, Name: "cluster-two"},
-				{Namespace: testDPU3NS.Name, Name: "cluster-three"},
+			clusters := []provisioningv1.DPUCluster{
+				testutils.GetTestDPUCluster(testDPU1NS.Name, "cluster-one"),
+				testutils.GetTestDPUCluster(testDPU2NS.Name, "cluster-two"),
+				testutils.GetTestDPUCluster(testDPU3NS.Name, "cluster-three"),
 			}
 			for i := range clusters {
 				kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(clusters[i], cfg)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
 				cleanupObjs = append(cleanupObjs, kamajiSecret)
+			}
+
+			// Create the DPUCluster objects.
+			for _, cl := range clusters {
+				Expect(testClient.Create(ctx, &cl)).To(Succeed())
+				cleanupObjs = append(cleanupObjs, &cl)
 			}
 
 			dpuServices := getMinimalDPUServices(testNS.Name)
@@ -354,7 +361,7 @@ func assertDPUServiceCondition(g Gomega, testClient client.Client, dpuServices [
 	}
 }
 
-func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []controlplane.DPFCluster, cleanupObjs *[]client.Object) {
+func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []provisioningv1.DPUCluster, cleanupObjs *[]client.Object) {
 	gotArgoSecrets := &corev1.SecretList{}
 	g.Expect(testClient.List(ctx, gotArgoSecrets, client.HasLabels{argoCDSecretLabelKey, controlplanemeta.DPFClusterLabelKey})).To(Succeed())
 	// Assert the correct number of secrets was found.
@@ -373,7 +380,7 @@ func assertArgoCDSecrets(g Gomega, testClient client.Client, clusters []controlp
 	}
 }
 
-func assertAppProject(g Gomega, testClient client.Client, argoCDNamespace string, clusters []controlplane.DPFCluster) {
+func assertAppProject(g Gomega, testClient client.Client, argoCDNamespace string, clusters []provisioningv1.DPUCluster) {
 	// Check that the DPU cluster argo project has been created.
 	appProject := &argov1.AppProject{}
 	g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: argoCDNamespace, Name: dpuAppProjectName}, appProject)).To(Succeed())
@@ -415,7 +422,7 @@ func assertDPUServiceAnnotationsClean(g Gomega, testClient client.Client, dpuSer
 	}
 }
 
-func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, dpuServiceInterfaces []*dpuservicev1.DPUServiceInterface, clusters []controlplane.DPFCluster) {
+func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, dpuServiceInterfaces []*dpuservicev1.DPUServiceInterface, clusters []provisioningv1.DPUCluster) {
 	// Check that argoApplications are created for each of the clusters.
 	applications := &argov1.ApplicationList{}
 	g.Expect(testClient.List(ctx, applications)).To(Succeed())
@@ -599,10 +606,10 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 
 		// reconcileArgoSecrets
 		It("should create an Argo secret based on the admin-kubeconfig for each cluster", func() {
-			clusters := []controlplane.DPFCluster{
-				{Namespace: testNS.Name, Name: "cluster-one"},
-				{Namespace: testNS.Name, Name: "cluster-two"},
-				{Namespace: testNS.Name, Name: "cluster-three"},
+			clusters := []provisioningv1.DPUCluster{
+				testutils.GetTestDPUCluster(testNS.Name, "cluster-one"),
+				testutils.GetTestDPUCluster(testNS.Name, "cluster-two"),
+				testutils.GetTestDPUCluster(testNS.Name, "cluster-three"),
 			}
 
 			secrets := []*corev1.Secret{}
@@ -615,8 +622,9 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 				Expect(testClient.Create(ctx, s)).To(Succeed())
 			}
 
+			dpuClusterConfigs := clusterConfigs(testClient, clusters)
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
-			err := r.reconcileArgoSecrets(ctx, clusters, testConfig)
+			err := r.reconcileArgoSecrets(ctx, dpuClusterConfigs, testConfig)
 			Expect(err).NotTo(HaveOccurred())
 			secretList := &corev1.SecretList{}
 			Expect(testClient.List(ctx, secretList, client.HasLabels{argoCDSecretLabelKey, controlplanemeta.DPFClusterLabelKey})).To(Succeed())
@@ -628,10 +636,10 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 		})
 		It("should create secrets for existing clusters when one cluster does not exist", func() {
-			clusters := []controlplane.DPFCluster{
-				{Namespace: testNS.Name, Name: "cluster-four"},
-				{Namespace: testNS.Name, Name: "cluster-five"},
-				{Namespace: testNS.Name, Name: "cluster-six"},
+			clusters := []provisioningv1.DPUCluster{
+				testutils.GetTestDPUCluster(testNS.Name, "cluster-four"),
+				testutils.GetTestDPUCluster(testNS.Name, "cluster-five"),
+				testutils.GetTestDPUCluster(testNS.Name, "cluster-six"),
 			}
 			secrets := []*corev1.Secret{}
 			for _, cluster := range clusters {
@@ -647,8 +655,9 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 				Expect(testClient.Create(ctx, s)).To(Succeed())
 			}
 
+			dpuClusterConfigs := clusterConfigs(testClient, clusters)
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
-			err := r.reconcileArgoSecrets(ctx, clusters, testConfig)
+			err := r.reconcileArgoSecrets(ctx, dpuClusterConfigs, testConfig)
 			// Expect an error to be reported.
 			Expect(err).To(HaveOccurred())
 
@@ -663,10 +672,10 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			}
 		})
 		It("should create secrets for existing clusters when one cluster secret is malformed", func() {
-			clusters := []controlplane.DPFCluster{
-				{Namespace: testNS.Name, Name: "cluster-seven"},
-				{Namespace: testNS.Name, Name: "cluster-eight"},
-				{Namespace: testNS.Name, Name: "cluster-nine"},
+			clusters := []provisioningv1.DPUCluster{
+				testutils.GetTestDPUCluster(testNS.Name, "cluster-seven"),
+				testutils.GetTestDPUCluster(testNS.Name, "cluster-eight"),
+				testutils.GetTestDPUCluster(testNS.Name, "cluster-nine"),
 			}
 			secrets := []*corev1.Secret{}
 			for _, cluster := range clusters {
@@ -682,8 +691,9 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 				Expect(testClient.Create(ctx, s)).To(Succeed())
 			}
 
+			dpuClusterConfigs := clusterConfigs(testClient, clusters)
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
-			err := r.reconcileArgoSecrets(ctx, clusters, testConfig)
+			err := r.reconcileArgoSecrets(ctx, dpuClusterConfigs, testConfig)
 			// Expect an error to be reported.
 			Expect(err).To(HaveOccurred())
 
@@ -699,7 +709,7 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 		})
 		It("should reconcile image pull secrets created with the correct labels", func() {
 			// Create a fake Kamaji cluster using the envtest cluster
-			dpuCluster := controlplane.DPFCluster{Namespace: testNS.Name, Name: "cluster-seven"}
+			dpuCluster := testutils.GetTestDPUCluster(testNS.Name, "cluster-seven")
 			secret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(dpuCluster, cfg)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testClient.Create(ctx, secret)).To(Succeed())
@@ -721,7 +731,8 @@ var _ = Describe("test DPUService reconciler step-by-step", func() {
 			Expect(testClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: cloningNamespace}})).To(Succeed())
 			dpuService := &dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: cloningNamespace}}
 			r := &DPUServiceReconciler{Client: testClient, Scheme: testClient.Scheme()}
-			Expect(r.reconcileImagePullSecrets(ctx, []controlplane.DPFCluster{dpuCluster}, dpuService)).To(Succeed())
+			dpuClusterConfig := controlplane.NewClusterConfig(testClient, &dpuCluster)
+			Expect(r.reconcileImagePullSecrets(ctx, []*controlplane.ClusterConfig{dpuClusterConfig}, dpuService)).To(Succeed())
 
 			// Check we have the correct secrets cloned to the intended namespace
 			gotSecrets := &corev1.SecretList{}
@@ -835,4 +846,13 @@ func getMinimalDPUServiceInterface(namespace string) *dpuservicev1.DPUServiceInt
 			},
 		},
 	}
+}
+
+func clusterConfigs(c client.Client, clusters []provisioningv1.DPUCluster) []*controlplane.ClusterConfig {
+	clusterConfigs := make([]*controlplane.ClusterConfig, 0, len(clusters))
+	for _, cluster := range clusters {
+		clusterConfig := controlplane.NewClusterConfig(c, &cluster)
+		clusterConfigs = append(clusterConfigs, clusterConfig)
+	}
+	return clusterConfigs
 }

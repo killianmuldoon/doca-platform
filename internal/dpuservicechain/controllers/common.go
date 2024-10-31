@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
 	"github.com/nvidia/doca-platform/internal/controlplane"
 	"github.com/nvidia/doca-platform/internal/operator/utils"
@@ -34,7 +35,7 @@ import (
 // namespacedNameInCluster is a struct that points to a particular object within a cluster
 type namespacedNameInCluster struct {
 	Object  types.NamespacedName
-	Cluster controlplane.DPFCluster
+	Cluster provisioningv1.DPUCluster
 }
 
 func (n *namespacedNameInCluster) String() string {
@@ -84,15 +85,15 @@ func reconcileObjectDeletionInDPUClusters(ctx context.Context,
 ) error {
 
 	//TODO implement list clusters with label selector
-	clusters, err := controlplane.GetDPFClusters(ctx, k8sClient)
+	dpuClusterConfigs, err := controlplane.GetClusterConfigs(ctx, k8sClient)
 	if err != nil {
 		// TODO: Adjust error handling here to do as much work as possible with clusters we managed to rerieve, report
 		// error back to the controller logs and update status accordingly
 		return err
 	}
 	var existingObjs int
-	for _, cluster := range clusters {
-		dpuClusterClient, err := cluster.NewClient(ctx, k8sClient)
+	for _, dpuClusterConfig := range dpuClusterConfigs {
+		dpuClusterClient, err := dpuClusterConfig.NewClient(ctx)
 		if err != nil {
 			return err
 		}
@@ -124,15 +125,15 @@ func reconcileObjectsInDPUClusters(ctx context.Context,
 
 	// Get the list of clusters this DPUServiceObject targets.
 	//TODO implement list clusters with label selector
-	clusters, err := controlplane.GetDPFClusters(ctx, k8sClient)
+	dpuClusterConfigs, err := controlplane.GetClusterConfigs(ctx, k8sClient)
 	if err != nil {
 		// TODO: Adjust error handling here to do as much work as possible with clusters we managed to rerieve, report
 		// error back to the controller logs and update status accordingly
 		return err
 	}
 
-	for _, cluster := range clusters {
-		dpuClusterClient, err := cluster.NewClient(ctx, k8sClient)
+	for _, dpuClusterConfig := range dpuClusterConfigs {
+		dpuClusterClient, err := dpuClusterConfig.NewClient(ctx)
 		if err != nil {
 			return err
 		}
@@ -157,7 +158,7 @@ func reconcileReadinessOfObjectsInDPUClusters(ctx context.Context,
 
 	// Get the list of clusters this DPUServiceObject targets.
 	//TODO implement list clusters with label selector
-	clusters, err := controlplane.GetDPFClusters(ctx, k8sClient)
+	dpuClusterConfigs, err := controlplane.GetClusterConfigs(ctx, k8sClient)
 	if err != nil {
 		// TODO: Adjust error handling here to do as much work as possible with clusters we managed to retrieve, report
 		// error back to the controller logs and update status accordingly
@@ -165,8 +166,8 @@ func reconcileReadinessOfObjectsInDPUClusters(ctx context.Context,
 	}
 
 	unreadyObjsNN := []namespacedNameInCluster{}
-	for _, cluster := range clusters {
-		dpuClusterClient, err := cluster.NewClient(ctx, k8sClient)
+	for _, dpuClusterConfig := range dpuClusterConfigs {
+		dpuClusterClient, err := dpuClusterConfig.NewClient(ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -179,7 +180,7 @@ func reconcileReadinessOfObjectsInDPUClusters(ctx context.Context,
 			return nil, err
 		}
 		for _, unreadyObj := range unreadyObjs {
-			unreadyObjsNN = append(unreadyObjsNN, namespacedNameInCluster{Object: unreadyObj, Cluster: cluster})
+			unreadyObjsNN = append(unreadyObjsNN, namespacedNameInCluster{Object: unreadyObj, Cluster: *dpuClusterConfig.Cluster})
 		}
 
 	}

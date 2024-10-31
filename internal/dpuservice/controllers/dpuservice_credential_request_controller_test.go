@@ -23,8 +23,8 @@ import (
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
-	"github.com/nvidia/doca-platform/internal/controlplane"
 	testutils "github.com/nvidia/doca-platform/test/utils"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -79,16 +79,22 @@ var _ = Describe("DPUServiceCredentialRequest Controller", func() {
 			Expect(testClient.Create(ctx, testDPU2NS)).To(Succeed())
 			Expect(testClient.Create(ctx, testDPU3NS)).To(Succeed())
 
-			clusters := []controlplane.DPFCluster{
-				{Namespace: testDPU1NS.Name, Name: testDPU1NS.Name},
-				{Namespace: testDPU2NS.Name, Name: testDPU2NS.Name},
-				{Namespace: testDPU3NS.Name, Name: testDPU3NS.Name},
+			clusters := []provisioningv1.DPUCluster{
+				testutils.GetTestDPUCluster(testNS.Name, testDPU1NS.Name),
+				testutils.GetTestDPUCluster(testNS.Name, testDPU2NS.Name),
+				testutils.GetTestDPUCluster(testNS.Name, testDPU3NS.Name),
 			}
 			for i := range clusters {
 				kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(clusters[i], cfg)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
 				cleanupObjs = append(cleanupObjs, kamajiSecret)
+			}
+
+			// Create the DPUCluster objects.
+			for _, cl := range clusters {
+				Expect(testClient.Create(ctx, &cl)).To(Succeed())
+				cleanupObjs = append(cleanupObjs, &cl)
 			}
 		})
 		AfterEach(func() {

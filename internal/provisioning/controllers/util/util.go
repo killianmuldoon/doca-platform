@@ -31,6 +31,7 @@ import (
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/controlplane"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -40,7 +41,6 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	restclient "k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -189,30 +189,6 @@ func GetPCIAddrFromLabel(labels map[string]string, removePrefix bool) (string, e
 	}
 
 	return "", fmt.Errorf("not found pci address")
-}
-
-func RetrieveK8sClientUsingKubeConfig(ctx context.Context, client crclient.Client, namespace string, name string) (crclient.Client, error) {
-	secretName := fmt.Sprintf("%s-admin-kubeconfig", name)
-
-	secret := &corev1.Secret{}
-	if err := client.Get(ctx, types.NamespacedName{Namespace: namespace, Name: secretName}, secret); err != nil {
-		return nil, err
-	}
-
-	kubeConfig, ok := secret.Data["admin.conf"]
-	if !ok {
-		return nil, fmt.Errorf("kubeconfig not found in secret")
-	}
-
-	config, err := clientcmd.RESTConfigFromKubeConfig(kubeConfig)
-	if err != nil {
-		return nil, err
-	}
-	newClient, err := crclient.New(config, crclient.Options{})
-	if err != nil {
-		return nil, err
-	}
-	return newClient, nil
 }
 
 func IsNodeReady(node *corev1.Node) bool {
@@ -474,29 +450,13 @@ func NeedUpdateLabels(label1 map[string]string, label2 map[string]string) bool {
 	return false
 }
 
-func GetClient(ctx context.Context, client crclient.Client, dc *provisioningv1.DPUCluster) (*kubernetes.Clientset, []byte, error) {
+func GetClientset(ctx context.Context, client crclient.Client, dc *provisioningv1.DPUCluster) (*kubernetes.Clientset, []byte, error) {
 	scrtCtx, scrtCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer scrtCancel()
 
-	secret := &corev1.Secret{}
-	if err := client.Get(scrtCtx, types.NamespacedName{Name: dc.Spec.Kubeconfig, Namespace: dc.Namespace}, secret); err != nil {
-		return nil, nil, fmt.Errorf("failed to get kubeconfig, err: %v", err)
-	}
-	data, ok := secret.Data["admin.conf"]
-	if !ok {
-		return nil, nil, fmt.Errorf("admin.conf not found")
-	}
-	cfg, err := clientcmd.NewClientConfigFromBytes(data)
+	clientSet, kubeConfig, err := controlplane.NewClusterConfig(client, dc).NewClientset(scrtCtx)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build client config from bytes, err: %v", err)
+		return nil, nil, err
 	}
-	clientCfg, err := cfg.ClientConfig()
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build client config, err: %v", err)
-	}
-	clientSet, err := kubernetes.NewForConfig(clientCfg)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to build client from client config, err: %v", err)
-	}
-	return clientSet, data, nil
+	return clientSet, kubeConfig, nil
 }

@@ -17,90 +17,115 @@ limitations under the License.
 package controlplane
 
 import (
-	"encoding/json"
 	"fmt"
 
-	"github.com/nvidia/doca-platform/internal/controlplane/kubeconfig"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	controlplanemeta "github.com/nvidia/doca-platform/internal/controlplane/metadata"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	fakeClient "sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("Control Plane Helper Functions", func() {
 	Context("GetDPFClusters() tests", func() {
 		It("should list the clusters referenced by admin-kubeconfig secrets", func() {
-			c := fakeClient.NewFakeClient()
-			clusters := []DPFCluster{
-				{Namespace: "one", Name: "cluster-one"},
-				{Namespace: "two", Name: "cluster-two"},
-				{Namespace: "three", Name: "cluster-three"},
+			clusters := []provisioningv1.DPUCluster{
+				testDPUCluster("one", "cluster-one"),
+				testDPUCluster("two", "cluster-two"),
+				testDPUCluster("three", "cluster-three"),
 			}
 			secrets := []*corev1.Secret{
 				testKamajiClusterSecret(clusters[0]),
 				testKamajiClusterSecret(clusters[1]),
 				testKamajiClusterSecret(clusters[2]),
 			}
+
+			objects := []client.Object{}
 			for _, s := range secrets {
-				Expect(c.Create(ctx, s)).To(Succeed())
+				objects = append(objects, s)
 			}
-			gotClusters, err := GetDPFClusters(ctx, c)
+			for _, cl := range clusters {
+				objects = append(objects, &cl)
+			}
+			c := env.fakeKubeClient(withObjects(objects...))
+
+			gotConfigs, err := GetClusterConfigs(ctx, c)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(gotClusters).To(ConsistOf(clusters))
-		})
-		It("should aggregate errors and return valid clusters when one secret is malformed", func() {
-			c := fakeClient.NewFakeClient()
-			clusters := []DPFCluster{
-				{Namespace: "one", Name: "cluster-one"},
-				{Namespace: "two", Name: "cluster-two"},
-				{Namespace: "three", Name: "cluster-three"},
+
+			// validate secrets
+			for _, config := range gotConfigs {
+				config, err := config.Kubeconfig(ctx)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(config).NotTo(BeNil())
 			}
-			brokenSecret := testKamajiClusterSecret(clusters[2])
-			delete(brokenSecret.Labels, controlplanemeta.DPFClusterSecretClusterNameLabelKey)
+		})
+		It("should return all clusters even when one cluster is not ready", func() {
+			clusters := []provisioningv1.DPUCluster{
+				testDPUCluster("one", "cluster-one"),
+				testDPUCluster("two", "cluster-two"),
+				testDPUCluster("three", "cluster-three"),
+			}
 			secrets := []*corev1.Secret{
 				testKamajiClusterSecret(clusters[0]),
 				testKamajiClusterSecret(clusters[1]),
-				// This secret doesn't have one of the expected labels.
-				brokenSecret,
+				testKamajiClusterSecret(clusters[2]),
 			}
+			clusters[2].Status.Phase = provisioningv1.PhaseNotReady
+			objects := []client.Object{}
 			for _, s := range secrets {
-				Expect(c.Create(ctx, s)).To(Succeed())
+				objects = append(objects, s)
 			}
-			gotClusters, err := GetDPFClusters(ctx, c)
+			for _, cl := range clusters {
+				objects = append(objects, &cl)
+			}
+			c := env.fakeKubeClient(withObjects(objects...))
 
-			// Expect an error to be reported.
-			Expect(err).To(HaveOccurred())
-			// Expect just the first two clusters to be returned.
-			Expect(gotClusters).To(ConsistOf(clusters[:2]))
+			gotClusters, err := GetClusterConfigs(ctx, c)
+			Expect(err).To(Not(HaveOccurred()))
+
+			// Expect all clusters to be returned
+			Expect(gotClusters).To(HaveLen(len(clusters)))
 		})
 	})
 })
 
-func testKamajiClusterSecret(cluster DPFCluster) *corev1.Secret {
-	adminConfig := &kubeconfig.Type{
-		Clusters: []*kubeconfig.ClusterWithName{
-			{
-				Name: cluster.Name,
-				Cluster: kubeconfig.Cluster{
-					Server:                   "https://localhost.com:6443",
-					CertificateAuthorityData: []byte("lotsofdifferentletterstobesecure"),
-				},
+func testDPUCluster(ns, name string) provisioningv1.DPUCluster {
+	return provisioningv1.DPUCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: provisioningv1.DPUClusterSpec{
+			Kubeconfig: fmt.Sprintf("%v-admin-kubeconfig", name),
+		},
+		Status: provisioningv1.DPUClusterStatus{
+			Phase: provisioningv1.PhaseReady,
+		},
+	}
+}
+
+func testKamajiClusterSecret(cluster provisioningv1.DPUCluster) *corev1.Secret {
+	config := &api.Config{
+		Clusters: map[string]*api.Cluster{
+			cluster.Name: {
+				Server:                   "https://localhost.com:6443",
+				CertificateAuthorityData: []byte("lotsofdifferentletterstobesecure"),
 			},
 		},
-		Users: []*kubeconfig.UserWithName{
-			{
-				Name: "not-used",
-				User: kubeconfig.User{
-					ClientKeyData:         []byte("lotsofdifferentletterstobesecure"),
-					ClientCertificateData: []byte("lotsofdifferentletterstobesecure"),
-				},
+		AuthInfos: map[string]*api.AuthInfo{
+			"not-used": {
+				ClientKeyData:         []byte("lotsofdifferentletterstobesecure"),
+				ClientCertificateData: []byte("lotsofdifferentletterstobesecure"),
 			},
 		},
 	}
-	confData, err := json.Marshal(adminConfig)
+
+	confData, err := clientcmd.Write(*config)
 	Expect(err).To(Not(HaveOccurred()))
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

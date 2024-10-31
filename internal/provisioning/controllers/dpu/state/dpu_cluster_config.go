@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	cplane "github.com/nvidia/doca-platform/internal/controlplane"
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
@@ -44,11 +45,16 @@ func (st *dpuClusterConfig) Handle(ctx context.Context, client crclient.Client, 
 	}
 
 	dpuName := st.dpu.Name
-
 	tenantNamespace := st.dpu.Spec.Cluster.Namespace
 	tenantName := st.dpu.Spec.Cluster.Name
 
-	newClient, err := util.RetrieveK8sClientUsingKubeConfig(ctx, client, tenantNamespace, tenantName)
+	dpuCluster := &provisioningv1.DPUCluster{}
+	err := client.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: tenantName}, dpuCluster)
+	if err != nil {
+		return *state, err
+	}
+
+	newClient, err := cplane.NewClusterConfig(client, dpuCluster).NewClient(ctx)
 	if err != nil {
 		return *state, err
 	}

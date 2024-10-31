@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	cplane "github.com/nvidia/doca-platform/internal/controlplane"
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/dms"
@@ -74,7 +75,13 @@ func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, optio
 	tenantNamespace := dpu.Spec.Cluster.Namespace
 	tenantName := dpu.Spec.Cluster.Name
 
-	newClient, err := cutil.RetrieveK8sClientUsingKubeConfig(ctx, client, tenantNamespace, tenantName)
+	dpuCluster := &provisioningv1.DPUCluster{}
+	err := client.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: tenantName}, dpuCluster)
+	if err != nil {
+		return *state, err
+	}
+
+	newClient, err := cplane.NewClusterConfig(client, dpuCluster).NewClient(ctx)
 	if err != nil {
 		updateFalseDPUCondReady(state, "DPUClusterClientGetError", err.Error())
 		return *state, err

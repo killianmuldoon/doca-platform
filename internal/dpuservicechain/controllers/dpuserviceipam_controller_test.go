@@ -20,6 +20,7 @@ import (
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
 	"github.com/nvidia/doca-platform/internal/controlplane"
 	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
@@ -61,7 +62,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 	})
 	Context("When checking the behavior on the DPU cluster", func() {
 		var testNS *corev1.Namespace
-		var dpfClusterClient client.Client
+		var dpuClusterClient client.Client
 		BeforeEach(func() {
 			By("Creating the namespaces")
 			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
@@ -69,12 +70,15 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			DeferCleanup(testClient.Delete, ctx, testNS)
 
 			By("Adding fake kamaji cluster")
-			dpfCluster := controlplane.DPFCluster{Name: "envtest", Namespace: testNS.Name}
-			kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(dpfCluster, cfg)
+			dpuCluster := testutils.GetTestDPUCluster(testNS.Name, "envtest")
+			kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(dpuCluster, cfg)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, kamajiSecret)
-			dpfClusterClient, err = dpfCluster.NewClient(ctx, testClient)
+
+			Expect(testClient.Create(ctx, &dpuCluster)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, &dpuCluster)
+			dpuClusterClient, err = controlplane.NewClusterConfig(testClient, &dpuCluster).NewClient(ctx)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should reconcile NVIPAM IPPool in DPU cluster when ipv4Subnet is set", func() {
@@ -112,7 +116,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			Eventually(func(g Gomega) {
 				got := &nvipamv1.IPPool{}
-				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, got)).To(Succeed())
+				g.Expect(dpuClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, got)).To(Succeed())
 				g.Expect(got.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpuserviceipam-name", "pool-1"))
 				g.Expect(got.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpuserviceipam-namespace", testNS.Name))
 				g.Expect(got.Labels).To(HaveKeyWithValue("some-label", "someValue"))
@@ -143,7 +147,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			Eventually(func(g Gomega) {
 				got := &nvipamv1.IPPoolList{}
-				g.Expect(dpfClusterClient.List(ctx, got)).To(Succeed())
+				g.Expect(dpuClusterClient.List(ctx, got)).To(Succeed())
 				g.Expect(got.Items).To(BeEmpty())
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 		})
@@ -174,7 +178,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			Eventually(func(g Gomega) {
 				got := &nvipamv1.IPPoolList{}
-				g.Expect(dpfClusterClient.List(ctx, got)).To(Succeed())
+				g.Expect(dpuClusterClient.List(ctx, got)).To(Succeed())
 				g.Expect(got.Items).To(ConsistOf(
 					HaveField("ObjectMeta.Name", "resource-2"),
 				))
@@ -220,7 +224,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			Eventually(func(g Gomega) {
 				got := &nvipamv1.CIDRPool{}
-				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, got)).To(Succeed())
+				g.Expect(dpuClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, got)).To(Succeed())
 				g.Expect(got.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpuserviceipam-name", "pool-1"))
 				g.Expect(got.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpuserviceipam-namespace", testNS.Name))
 				g.Expect(got.Labels).To(HaveKeyWithValue("some-label", "someValue"))
@@ -259,7 +263,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			Eventually(func(g Gomega) {
 				got := &nvipamv1.CIDRPoolList{}
-				g.Expect(dpfClusterClient.List(ctx, got)).To(Succeed())
+				g.Expect(dpuClusterClient.List(ctx, got)).To(Succeed())
 				g.Expect(got.Items).To(BeEmpty())
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 		})
@@ -280,9 +284,9 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			Eventually(func(g Gomega) {
 				gotCIDRPool := &nvipamv1.CIDRPool{}
-				g.Expect(apierrors.IsNotFound(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotCIDRPool))).To(BeTrue())
+				g.Expect(apierrors.IsNotFound(dpuClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotCIDRPool))).To(BeTrue())
 				gotIPPool := &nvipamv1.IPPool{}
-				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool)).To(Succeed())
+				g.Expect(dpuClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool)).To(Succeed())
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 
 			By("Updating the spec to unset ipv4Subnet and set ipv4Network")
@@ -303,9 +307,9 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			Eventually(func(g Gomega) {
 				gotIPPool := &nvipamv1.IPPool{}
-				g.Expect(apierrors.IsNotFound(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool))).To(BeTrue())
+				g.Expect(apierrors.IsNotFound(dpuClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool))).To(BeTrue())
 				gotCIDRPool := &nvipamv1.CIDRPool{}
-				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotCIDRPool)).To(Succeed())
+				g.Expect(dpuClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotCIDRPool)).To(Succeed())
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 		})
 		It("should remove NVIPAM CIDRPool in DPU cluster when ipv4Network is updated to unset and ipv4Subnet is set", func() {
@@ -326,9 +330,9 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			Eventually(func(g Gomega) {
 				gotIPPool := &nvipamv1.IPPool{}
-				g.Expect(apierrors.IsNotFound(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool))).To(BeTrue())
+				g.Expect(apierrors.IsNotFound(dpuClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool))).To(BeTrue())
 				gotCIDRPool := &nvipamv1.CIDRPool{}
-				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotCIDRPool)).To(Succeed())
+				g.Expect(dpuClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotCIDRPool)).To(Succeed())
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 
 			By("Updating the spec to unset ipv4Network and set ipv4Subnet")
@@ -350,18 +354,21 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			Eventually(func(g Gomega) {
 				gotCIDRPool := &nvipamv1.CIDRPool{}
-				g.Expect(apierrors.IsNotFound(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotCIDRPool))).To(BeTrue())
+				g.Expect(apierrors.IsNotFound(dpuClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotCIDRPool))).To(BeTrue())
 				gotIPPool := &nvipamv1.IPPool{}
-				g.Expect(dpfClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool)).To(Succeed())
+				g.Expect(dpuClusterClient.Get(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool)).To(Succeed())
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 		})
 	})
 	Context("When checking the status transitions", func() {
-		var testNS *corev1.Namespace
-		var dpuServiceIPAM *dpuservicev1.DPUServiceIPAM
-		var kamajiSecret *corev1.Secret
-		var dpfClusterClient client.Client
-		var i *informer.TestInformer
+		var (
+			testNS           *corev1.Namespace
+			dpuServiceIPAM   *dpuservicev1.DPUServiceIPAM
+			dpuCluster       provisioningv1.DPUCluster
+			kamajiSecret     *corev1.Secret
+			dpuClusterClient client.Client
+			i                *informer.TestInformer
+		)
 
 		BeforeEach(func() {
 			By("Creating the namespaces")
@@ -370,13 +377,16 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			DeferCleanup(testClient.Delete, ctx, testNS)
 
 			By("Adding fake kamaji cluster")
-			dpfCluster := controlplane.DPFCluster{Name: "envtest", Namespace: testNS.Name}
+			dpuCluster = testutils.GetTestDPUCluster(testNS.Name, "envtest")
 			var err error
-			kamajiSecret, err = testutils.GetFakeKamajiClusterSecretFromEnvtest(dpfCluster, cfg)
+			kamajiSecret, err = testutils.GetFakeKamajiClusterSecretFromEnvtest(dpuCluster, cfg)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, kamajiSecret)
-			dpfClusterClient, err = dpfCluster.NewClient(ctx, testClient)
+
+			Expect(testClient.Create(ctx, &dpuCluster)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, &dpuCluster)
+			dpuClusterClient, err = controlplane.NewClusterConfig(testClient, &dpuCluster).NewClient(ctx)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating the informer infrastructure for DPUServiceIPAM")
@@ -465,7 +475,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 		It("DPUServiceIPAM has all conditions with Success Reason at end of successful reconciliation loop and underlying object ready", func() {
 			By("Patching the status of the underlying object to indicate success")
 			gotIPPool := &nvipamv1.IPPool{}
-			Eventually(dpfClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool).Should(Succeed())
+			Eventually(dpuClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool).Should(Succeed())
 			gotIPPool.Status.Allocations = []nvipamv1.Allocation{
 				{
 					NodeName: "bla",
@@ -505,24 +515,13 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 			))
 		})
 		It("DPUServiceIPAM has condition DPUIPAMObjectReconciled with Error Reason at the end of first reconciliation loop that failed", func() {
-			By("Breaking the kamaji cluster secret to produce an error")
-			// Taking ownership of the labels
-			clusterName := kamajiSecret.Labels["kamaji.clastix.io/name"]
-			kamajiSecret.Labels["kamaji.clastix.io/name"] = "some"
-			kamajiSecret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
-			kamajiSecret.SetManagedFields(nil)
-			Expect(testClient.Patch(ctx, kamajiSecret, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
-			delete(kamajiSecret.Labels, "kamaji.clastix.io/name")
-			kamajiSecret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
-			kamajiSecret.SetManagedFields(nil)
-			Expect(testClient.Patch(ctx, kamajiSecret, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+			By("Setting the DPUCluster to an invalid state")
+			Expect(testClient.Delete(ctx, kamajiSecret)).To(Succeed())
 
 			DeferCleanup(func() {
-				By("Reverting the kamaji cluster secret to ensure DPUServiceIPAM deletion can be done")
-				kamajiSecret.Labels["kamaji.clastix.io/name"] = clusterName
-				kamajiSecret.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Secret"))
-				kamajiSecret.SetManagedFields(nil)
-				Expect(testClient.Patch(ctx, kamajiSecret, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+				By("Reverting the DPUCluster to ready to ensure DPUServiceIPAM deletion can be done")
+				kamajiSecret.ResourceVersion = ""
+				Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
 			})
 
 			By("Checking condition")
@@ -575,7 +574,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			By("Adding finalizer to the underlying object")
 			gotIPPool := &nvipamv1.IPPool{}
-			Eventually(dpfClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool).Should(Succeed())
+			Eventually(dpuClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool).Should(Succeed())
 			gotIPPool.SetFinalizers([]string{"test.dpu.nvidia.com/test"})
 			gotIPPool.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind(nvipamv1.IPPoolKind))
 			gotIPPool.SetManagedFields(nil)
@@ -620,7 +619,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			By("Removing finalizer from the underlying object to ensure deletion")
 			gotIPPool = &nvipamv1.IPPool{}
-			Eventually(dpfClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool).Should(Succeed())
+			Eventually(dpuClusterClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: testNS.Name, Name: "pool-1"}, gotIPPool).Should(Succeed())
 			gotIPPool.SetFinalizers([]string{})
 			gotIPPool.SetGroupVersionKind(nvipamv1.GroupVersion.WithKind(nvipamv1.IPPoolKind))
 			gotIPPool.SetManagedFields(nil)

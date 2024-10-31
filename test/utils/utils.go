@@ -18,12 +18,10 @@ package utils
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
-	"github.com/nvidia/doca-platform/internal/controlplane"
-	"github.com/nvidia/doca-platform/internal/controlplane/kubeconfig"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	controlplanemeta "github.com/nvidia/doca-platform/internal/controlplane/metadata"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,6 +33,8 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -107,38 +107,30 @@ func CreateResourceIfNotExist(ctx context.Context, c client.Client, obj client.O
 
 // GetFakeKamajiClusterSecretFromEnvtest creates a kamaji secret using the envtest information to simulate that we have
 // a kamaji cluster. In reality, this is the same envtest Kubernetes API.
-func GetFakeKamajiClusterSecretFromEnvtest(cluster controlplane.DPFCluster, cfg *rest.Config) (*corev1.Secret, error) {
-	adminConfig := &kubeconfig.Type{
-		Clusters: []*kubeconfig.ClusterWithName{
-			{
-				Name: cluster.Name,
-				Cluster: kubeconfig.Cluster{
-					Server:                   cfg.Host,
-					CertificateAuthorityData: cfg.CAData,
-				},
+func GetFakeKamajiClusterSecretFromEnvtest(cluster provisioningv1.DPUCluster, cfg *rest.Config) (*corev1.Secret, error) {
+	config := &api.Config{
+		Clusters: map[string]*api.Cluster{
+			cluster.Name: {
+				Server:                   cfg.Host,
+				CertificateAuthorityData: cfg.CAData,
 			},
 		},
-		Users: []*kubeconfig.UserWithName{
-			{
-				Name: "user",
-				User: kubeconfig.User{
-					ClientKeyData:         cfg.KeyData,
-					ClientCertificateData: cfg.CertData,
-				},
+		AuthInfos: map[string]*api.AuthInfo{
+			"user": {
+				ClientKeyData:         cfg.KeyData,
+				ClientCertificateData: cfg.CertData,
 			},
 		},
-		Contexts: []*kubeconfig.NamedContext{
-			{
-				Name: "default",
-				Context: kubeconfig.Context{
-					Cluster: cluster.Name,
-					User:    "user",
-				},
+		Contexts: map[string]*api.Context{
+			"default": {
+				Cluster:  cluster.Name,
+				AuthInfo: "user",
 			},
 		},
 		CurrentContext: "default",
 	}
-	confData, err := json.Marshal(adminConfig)
+
+	confData, err := clientcmd.Write(*config)
 	if err != nil {
 		return nil, err
 	}
@@ -173,4 +165,17 @@ func ForceObjectReconcileWithAnnotation(ctx context.Context, c client.Client, ob
 		return err
 	}
 	return nil
+}
+
+func GetTestDPUCluster(ns, name string) provisioningv1.DPUCluster {
+	return provisioningv1.DPUCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Spec: provisioningv1.DPUClusterSpec{
+			Type:       "kamaji",
+			Kubeconfig: fmt.Sprintf("%v-admin-kubeconfig", name),
+		},
+	}
 }

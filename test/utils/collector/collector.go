@@ -45,7 +45,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/yaml"
@@ -69,35 +68,30 @@ type Cluster struct {
 	clientset             *kubernetes.Clientset
 }
 
-func GetClusterCollectors(ctx context.Context, client client.Client, artifactsDirectory string, inventoryManifestsDirectory string, config *rest.Config) ([]*Cluster, error) {
+func GetClusterCollectors(ctx context.Context, c client.Client, artifactsDirectory string, inventoryManifestsDirectory string, clientset *kubernetes.Clientset) ([]*Cluster, error) {
 	log := ctrllog.FromContext(ctx)
 	directory := filepath.Join(artifactsDirectory, "main")
-	mainCluster, err := NewCluster(client, directory, inventoryManifestsDirectory, config, "main")
+	mainCluster, err := NewCluster(c, directory, inventoryManifestsDirectory, clientset, "main")
 	if err != nil {
 		// If the main cluster client isn't created return early.
 		return nil, err
 	}
 	collectors := make([]*Cluster, 0)
 	collectors = append(collectors, mainCluster)
-
 	errs := make([]error, 0)
 	// Get collectors for DPFClusters.
-	dpfCluster, err := controlplane.GetDPFClusters(ctx, client)
+	clusterConfigs, err := controlplane.GetClusterConfigs(ctx, c)
 	if err != nil {
 		return nil, err
 	}
-	for _, cluster := range dpfCluster {
-		dpuClusterClient, err := cluster.NewClient(ctx, client)
+	for _, conf := range clusterConfigs {
+		dpuClusterClient, err := conf.NewClient(ctx)
 		if err != nil {
 			errs = append(errs, err)
 
 		}
-		dpuClusterRestConfig, err := cluster.GetRestConfig(ctx, client)
-		if err != nil {
-			errs = append(errs, err)
-		}
-		directory = filepath.Join(artifactsDirectory, cluster.Name)
-		c, err := NewCluster(dpuClusterClient, directory, inventoryManifestsDirectory, dpuClusterRestConfig, cluster.Name)
+		directory = filepath.Join(artifactsDirectory, conf.Cluster.Name)
+		c, err := NewCluster(dpuClusterClient, directory, inventoryManifestsDirectory, clientset, conf.Cluster.Name)
 		if err != nil {
 			errs = append(errs, err)
 		}
@@ -109,12 +103,7 @@ func GetClusterCollectors(ctx context.Context, client client.Client, artifactsDi
 	return collectors, nil
 }
 
-func NewCluster(client client.Client, artifactsDirectory string, inventoryManifestsDirectory string, config *rest.Config, name string) (*Cluster, error) {
-	// creates the clientset
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, err
-	}
+func NewCluster(client client.Client, artifactsDirectory string, inventoryManifestsDirectory string, clientset *kubernetes.Clientset, name string) (*Cluster, error) {
 	return &Cluster{
 		clusterName:           name,
 		client:                client,

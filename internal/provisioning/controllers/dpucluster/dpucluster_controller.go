@@ -159,7 +159,7 @@ func (r *DPUClusterReconciler) getOrCreateClient(ctx context.Context, dc *provis
 		return value.(*kubernetes.Clientset), nil
 	}
 
-	clientSet, data, err := cutil.GetClient(ctx, r.Client, dc)
+	clientSet, data, err := cutil.GetClientset(ctx, r.Client, dc)
 	if err != nil {
 		return nil, err
 	}

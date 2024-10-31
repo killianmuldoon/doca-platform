@@ -1348,6 +1348,14 @@ rules:
 - apiGroups:
   - provisioning.dpu.nvidia.com
   resources:
+  - dpuclusters
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - provisioning.dpu.nvidia.com
+  resources:
   - dpusets
   verbs:
   - create
