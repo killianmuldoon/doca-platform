@@ -316,7 +316,6 @@ kubectl delete ns dpu-cplane-tenant1
 Delete the DPF Operator:
 
 ``` bash
-## NOTE: This command may need to be run more than once if it fails.
 helm delete -n dpf-operator-system dpf-operator
 ``` 
 

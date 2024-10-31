@@ -16,12 +16,12 @@ dependencies:
   version: 25.26.0
 - name: kamaji-etcd
   repository: https://clastix.github.io/charts
-  version: 0.8.1
+  version: 0.9.0
 - name: kamaji
   repository: https://clastix.github.io/charts
   version: 1.0.0
 - name: maintenance-operator-chart
   repository: oci://ghcr.io/mellanox
   version: 0.1.1
-digest: sha256:7196078e27dd0fcd6987af5850e544078db0fc6e49344119062dd32dca605ff2
-generated: "2024-10-25T10:31:13.21817132+02:00"
+digest: sha256:77268ab25570e75ef77c3692a8b63b9941dc763d4e901bd9a2e5746771eaefa2
+generated: "2024-10-29T15:05:27.890338Z"

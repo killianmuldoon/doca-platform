@@ -130,6 +130,8 @@ kamaji-etcd:
       effect: NoSchedule
   datastore:
     enabled: true
+    annotations:
+      helm.sh/resource-policy: keep
     name: default
 kamaji:
   enabled: true
