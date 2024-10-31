@@ -124,7 +124,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(cutil.GetNamespacedName(dc)))
 		})
 		It("allocate the first cluster in alphabetical order", func() {
@@ -140,7 +140,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(cutil.GetNamespacedName(dc1)))
 		})
 		It("cluster not ready", func() {
@@ -154,7 +154,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(types.NamespacedName{}))
 		})
 		It("no cluster", func() {
@@ -166,7 +166,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(types.NamespacedName{}))
 		})
 		It("reach max node limit", func() {
@@ -180,7 +180,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu1), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(cutil.GetNamespacedName(dc)))
 
 			dpu2 := createDPU("dpu2")
@@ -191,7 +191,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu2), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(types.NamespacedName{}))
 		})
 		It("release DPU", func() {
@@ -205,7 +205,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu1), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(cutil.GetNamespacedName(dc)))
 
 			dpu2 := createDPU("dpu2")
@@ -216,7 +216,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu2), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(types.NamespacedName{}))
 
 			alloc.ReleaseDPU(dpu1)
@@ -226,7 +226,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu2), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(cutil.GetNamespacedName(dc)))
 		})
 		It("update cluster status", func() {
@@ -240,7 +240,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(types.NamespacedName{}))
 
 			dc.Status = createDPUCluster("", 1, true).Status
@@ -251,7 +251,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(cutil.GetNamespacedName(dc)))
 		})
 		It("allocator restart - reach max node limit", func() {
@@ -265,7 +265,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu1), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(cutil.GetNamespacedName(dc)))
 
 			// alloc2 is a simulation of restarted allocator, which has a clean cache
@@ -289,7 +289,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu1), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(cutil.GetNamespacedName(dc)))
 
 			// alloc2 is a simulation of restarted allocator, which has a clean cache
@@ -303,7 +303,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu2), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(cutil.GetNamespacedName(dc)))
 		})
 		It("manually assigned DPU", func() {
@@ -311,13 +311,13 @@ var _ = Describe("Allocator", func() {
 			// dpu1 is manually assigned by user, it does not go through the allocation procedure
 			dpu1 := createDPU("dpu1")
 			dpu1.Spec.Cluster.Name = dc.Name
-			dpu1.Spec.Cluster.NameSpace = dc.Namespace
+			dpu1.Spec.Cluster.Namespace = dc.Namespace
 			Expect(k8sClient.Create(context.TODO(), dpu1)).To(Succeed())
 			alloc.SaveCluster(dc)
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu1), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(cutil.GetNamespacedName(dc)))
 
 			dpu2 := createDPU("dpu2")
@@ -328,7 +328,7 @@ var _ = Describe("Allocator", func() {
 			Eventually(func(g Gomega) types.NamespacedName {
 				fetchedDPU := &provisioningv1.DPU{}
 				g.Expect(k8sClient.Get(ctx, cutil.GetNamespacedName(dpu2), fetchedDPU)).To(Succeed())
-				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.NameSpace}
+				return types.NamespacedName{Name: fetchedDPU.Spec.Cluster.Name, Namespace: fetchedDPU.Spec.Cluster.Namespace}
 			}).WithTimeout(10 * time.Second).WithPolling(1 * time.Millisecond).Should(Equal(types.NamespacedName{}))
 		})
 	})

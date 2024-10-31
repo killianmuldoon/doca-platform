@@ -97,7 +97,7 @@ func (a *allocator) Allocate(ctx context.Context, dpu *provisioningv1.DPU) (resu
 
 	result = cutil.GetNamespacedName(ci.cluster)
 	dpu.Spec.Cluster.Name = result.Name
-	dpu.Spec.Cluster.NameSpace = result.Namespace
+	dpu.Spec.Cluster.Namespace = result.Namespace
 	return result, nil
 }
 
@@ -143,7 +143,7 @@ func (a *allocator) ReleaseDPU(dpu *provisioningv1.DPU) {
 	defer a.Unlock()
 	clsName := types.NamespacedName{
 		Name:      dpu.Spec.Cluster.Name,
-		Namespace: dpu.Spec.Cluster.NameSpace,
+		Namespace: dpu.Spec.Cluster.Namespace,
 	}
 	ci := a.clusterCache.getByName(clsName)
 	if ci == nil {
@@ -216,7 +216,7 @@ func (c *ClusterCache) saveDPU(dpu *provisioningv1.DPU) {
 	if !dpu.DeletionTimestamp.IsZero() || cls.Name == "" {
 		return
 	}
-	nn := types.NamespacedName{Name: cls.Name, Namespace: cls.NameSpace}
+	nn := types.NamespacedName{Name: cls.Name, Namespace: cls.Namespace}
 	ci := c.getByName(nn)
 	if ci == nil {
 		return

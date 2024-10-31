@@ -80,12 +80,15 @@ func (ct DPUConditionType) String() string {
 }
 
 type K8sCluster struct {
+	// Name is the name of the DPUs Kubernetes cluster
 	// +kubebuilder:validation:XValidation:rule="self==oldSelf", message="Value is immutable"
 	// +optional
 	Name string `json:"name,omitempty"`
+	// Namespace is the tenants namespace name where the Kubernetes cluster will be deployed
 	// +kubebuilder:validation:XValidation:rule="self==oldSelf", message="Value is immutable"
 	// +optional
-	NameSpace string `json:"namespace,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	// NodeLabels define the labels that will be added to the nodes.
 	// +optional
 	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
 }
@@ -154,8 +157,11 @@ type DPUStatus struct {
 }
 
 type Firmware struct {
-	BMC  string `json:"bmc,omitempty"`
-	NIC  string `json:"nic,omitempty"`
+	// BMC is the used BMC firmware version
+	BMC string `json:"bmc,omitempty"`
+	// NIC is the used NIC firmware version
+	NIC string `json:"nic,omitempty"`
+	// UEFI is the used UEFI firmware version
 	UEFI string `json:"uefi,omitempty"`
 }
 

@@ -119,7 +119,7 @@ func deleteNode(ctx context.Context, client crclient.Client, dpu *provisioningv1
 	}
 
 	nn := types.NamespacedName{
-		Namespace: dpu.Spec.Cluster.NameSpace,
+		Namespace: dpu.Spec.Cluster.Namespace,
 		Name:      dpu.Spec.Cluster.Name,
 	}
 	dc := &provisioningv1.DPUCluster{}

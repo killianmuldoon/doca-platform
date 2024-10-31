@@ -577,7 +577,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `nodeLabels` _object (keys:string, values:string)_ |  |  |  |
+| `nodeLabels` _object (keys:string, values:string)_ | NodeLabels specifies the labels to be added to the node. |  |  |
 
 
 
@@ -597,10 +597,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `path` _string_ |  |  |  |
-| `operation` _[DPUFlavorFileOp](#dpuflavorfileop)_ |  |  | Enum: [override append] <br /> |
-| `raw` _string_ |  |  |  |
-| `permissions` _string_ |  |  |  |
+| `path` _string_ | Path is the path of the file to be written. |  |  |
+| `operation` _[DPUFlavorFileOp](#dpuflavorfileop)_ | Operation is the operation to be performed on the file. |  | Enum: [override append] <br /> |
+| `raw` _string_ | Raw is the raw content of the file. |  |  |
+| `permissions` _string_ | Permissions are the permissions to be set on the file. |  |  |
 
 
 #### ContainerdConfig
@@ -616,7 +616,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `registryEndpoint` _string_ |  |  |  |
+| `registryEndpoint` _string_ | RegistryEndpoint is the endpoint of the container registry. |  |  |
 
 
 #### DPU
@@ -729,7 +729,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `parameters` _string array_ |  |  |  |
+| `parameters` _string array_ | Parameters are the sysctl parameters to be set. |  |  |
 
 
 #### DPUFlavor
@@ -782,7 +782,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `kernelParameters` _string array_ |  |  |  |
+| `kernelParameters` _string array_ | KernelParameters are the kernel parameters to be set in the grub configuration. |  |  |
 
 
 #### DPUFlavorList
@@ -816,9 +816,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `device` _string_ |  |  |  |
-| `parameters` _string array_ |  |  |  |
-| `hostPowerCycleRequired` _boolean_ |  |  |  |
+| `device` _string_ | Device is the device to which the configuration applies. If not specified, the configuration applies to all. |  |  |
+| `parameters` _string array_ | Parameters are the parameters to be set for the device. |  |  |
+| `hostPowerCycleRequired` _boolean_ | HostPowerCycleRequired indicates if the host needs to be power cycled after applying the configuration. |  |  |
 
 
 #### DPUFlavorOVS
@@ -834,7 +834,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `rawConfigScript` _string_ |  |  |  |
+| `rawConfigScript` _string_ | RawConfigScript is the raw configuration script for OVS. |  |  |
 
 
 #### DPUFlavorSpec
@@ -850,13 +850,13 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `grub` _[DPUFlavorGrub](#dpuflavorgrub)_ |  |  |  |
-| `sysctl` _[DPUFLavorSysctl](#dpuflavorsysctl)_ |  |  |  |
-| `nvconfig` _[DPUFlavorNVConfig](#dpuflavornvconfig) array_ |  |  |  |
-| `ovs` _[DPUFlavorOVS](#dpuflavorovs)_ |  |  |  |
-| `bfcfgParameters` _string array_ |  |  |  |
-| `configFiles` _[ConfigFile](#configfile) array_ |  |  |  |
-| `containerdConfig` _[ContainerdConfig](#containerdconfig)_ |  |  |  |
+| `grub` _[DPUFlavorGrub](#dpuflavorgrub)_ | Grub contains the grub configuration for the DPUFlavor. |  |  |
+| `sysctl` _[DPUFLavorSysctl](#dpuflavorsysctl)_ | Sysctl contains the sysctl configuration for the DPUFlavor. |  |  |
+| `nvconfig` _[DPUFlavorNVConfig](#dpuflavornvconfig) array_ | NVConfig contains the configuration for the DPUFlavor. |  |  |
+| `ovs` _[DPUFlavorOVS](#dpuflavorovs)_ | OVS contains the OVS configuration for the DPUFlavor. |  |  |
+| `bfcfgParameters` _string array_ | BFCfgParameters are the parameters to be set in the bf.cfg file. |  |  |
+| `configFiles` _[ConfigFile](#configfile) array_ | ConfigFiles are the files to be written on the DPU. |  |  |
+| `containerdConfig` _[ContainerdConfig](#containerdconfig)_ | ContainerdConfig contains the configuration for containerd. |  |  |
 | `dpuResources` _[ResourceList](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#resourcelist-v1-core)_ | DPUResources indicates the minimum amount of resources needed for a BFB with that flavor to be installed on a<br />DPU. Using this field, the controller can understand if that flavor can be installed on a particular DPU. It<br />should be set to the total amount of resources the system needs + the resources that should be made available for<br />DPUServices to consume. |  |  |
 | `systemReservedResources` _[ResourceList](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#resourcelist-v1-core)_ | SystemReservedResources indicates the resources that are consumed by the system (OS, OVS, DPF system etc) and are<br />not made available for DPUServices to consume. DPUServices can consume the difference between DPUResources and<br />SystemReservedResources. This field must not be specified if dpuResources are not specified. |  |  |
 
@@ -979,7 +979,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `dpuStatistics` _object (keys:[DPUPhase](#dpuphase), values:integer)_ |  |  |  |
+| `dpuStatistics` _object (keys:[DPUPhase](#dpuphase), values:integer)_ | DPUStatistics is a map of DPUPhase to the number of DPUs in that phase. |  |  |
 
 
 #### DPUSetStrategy
@@ -1055,8 +1055,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `annotations` _object (keys:string, values:string)_ |  |  |  |
-| `spec` _[DPUTemplateSpec](#dputemplatespec)_ |  |  |  |
+| `annotations` _object (keys:string, values:string)_ | Annotations specifies annotations which are added to the DPU. |  |  |
+| `spec` _[DPUTemplateSpec](#dputemplatespec)_ | Spec specifies the DPU specification. |  |  |
 
 
 #### DPUTemplateSpec
@@ -1108,9 +1108,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `bmc` _string_ |  |  |  |
-| `nic` _string_ |  |  |  |
-| `uefi` _string_ |  |  |  |
+| `bmc` _string_ | BMC is the used BMC firmware version |  |  |
+| `nic` _string_ | NIC is the used NIC firmware version |  |  |
+| `uefi` _string_ | UEFI is the used UEFI firmware version |  |  |
 
 
 #### K8sCluster
@@ -1126,9 +1126,9 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `name` _string_ |  |  |  |
-| `namespace` _string_ |  |  |  |
-| `nodeLabels` _object (keys:string, values:string)_ |  |  |  |
+| `name` _string_ | Name is the name of the DPUs Kubernetes cluster |  |  |
+| `namespace` _string_ | Namespace is the tenants namespace name where the Kubernetes cluster will be deployed |  |  |
+| `nodeLabels` _object (keys:string, values:string)_ | NodeLabels define the labels that will be added to the nodes. |  |  |
 
 
 #### KeepalivedSpec
@@ -1183,7 +1183,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `maxUnavailable` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#intorstring-intstr-util)_ |  |  |  |
+| `maxUnavailable` _[IntOrString](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#intorstring-intstr-util)_ | MaxUnavailable is the maximum number of DPUs that can be unavailable during the update. |  |  |
 
 
 #### StrategyType

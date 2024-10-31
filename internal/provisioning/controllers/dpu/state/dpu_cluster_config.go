@@ -45,7 +45,7 @@ func (st *dpuClusterConfig) Handle(ctx context.Context, client crclient.Client, 
 
 	dpuName := st.dpu.Name
 
-	tenantNamespace := st.dpu.Spec.Cluster.NameSpace
+	tenantNamespace := st.dpu.Spec.Cluster.Namespace
 	tenantName := st.dpu.Spec.Cluster.Name
 
 	newClient, err := util.RetrieveK8sClientUsingKubeConfig(ctx, client, tenantNamespace, tenantName)

@@ -246,7 +246,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 			return nil, err
 		}
 		dc := &provisioningv1.DPUCluster{}
-		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: dpu.Spec.Cluster.NameSpace, Name: dpu.Spec.Cluster.Name}, dc); err != nil {
+		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: dpu.Spec.Cluster.Namespace, Name: dpu.Spec.Cluster.Name}, dc); err != nil {
 			return "", fmt.Errorf("failed to get DPUCluster, err: %v", err)
 		}
 		node := &corev1.Node{}

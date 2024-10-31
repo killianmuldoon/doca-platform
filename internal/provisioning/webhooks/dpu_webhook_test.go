@@ -157,7 +157,7 @@ var _ = Describe("DPU", func() {
 
 			obj.Spec.Cluster = provisioningv1.K8sCluster{
 				Name:      refValue,
-				NameSpace: ns,
+				Namespace: ns,
 			}
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
@@ -170,7 +170,7 @@ var _ = Describe("DPU", func() {
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.Cluster.Name).To(Equal(refValue))
-			Expect(objFetched.Spec.Cluster.NameSpace).To(Equal(ns))
+			Expect(objFetched.Spec.Cluster.Namespace).To(Equal(ns))
 		})
 
 		It("spec.cluster can be updated from unassigned state", func() {
@@ -186,17 +186,17 @@ var _ = Describe("DPU", func() {
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.Cluster.Name).To(Equal(""))
-			Expect(objFetched.Spec.Cluster.NameSpace).To(Equal(""))
+			Expect(objFetched.Spec.Cluster.Namespace).To(Equal(""))
 
 			obj.Spec.Cluster.Name = newValueName
-			obj.Spec.Cluster.NameSpace = newValueNamespace
+			obj.Spec.Cluster.Namespace = newValueNamespace
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.Cluster.Name).To(Equal(newValueName))
-			Expect(objFetched.Spec.Cluster.NameSpace).To(Equal(newValueNamespace))
+			Expect(objFetched.Spec.Cluster.Namespace).To(Equal(newValueNamespace))
 		})
 
 		It("create from yaml", func() {

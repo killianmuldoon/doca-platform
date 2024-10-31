@@ -53,8 +53,11 @@ spec:
                   annotations:
                     additionalProperties:
                       type: string
+                    description: Annotations specifies annotations which are added
+                      to the DPU.
                     type: object
                   spec:
+                    description: Spec specifies the DPU specification.
                     properties:
                       automaticNodeReboot:
                         default: true
@@ -76,6 +79,8 @@ spec:
                           nodeLabels:
                             additionalProperties:
                               type: string
+                            description: NodeLabels specifies the labels to be added
+                              to the node.
                             type: object
                         type: object
                       dpuFlavor:
@@ -195,6 +200,8 @@ spec:
                         anyOf:
                         - type: integer
                         - type: string
+                        description: MaxUnavailable is the maximum number of DPUs
+                          that can be unavailable during the update.
                         x-kubernetes-int-or-string: true
                     type: object
                   type:
@@ -212,6 +219,8 @@ spec:
               dpuStatistics:
                 additionalProperties:
                   type: integer
+                description: DPUStatistics is a map of DPUPhase to the number of DPUs
+                  in that phase.
                 type: object
             type: object
         type: object

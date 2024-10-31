@@ -71,7 +71,7 @@ func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, optio
 
 	dpuName := dpu.Name
 
-	tenantNamespace := dpu.Spec.Cluster.NameSpace
+	tenantNamespace := dpu.Spec.Cluster.Namespace
 	tenantName := dpu.Spec.Cluster.Name
 
 	newClient, err := cutil.RetrieveK8sClientUsingKubeConfig(ctx, client, tenantNamespace, tenantName)

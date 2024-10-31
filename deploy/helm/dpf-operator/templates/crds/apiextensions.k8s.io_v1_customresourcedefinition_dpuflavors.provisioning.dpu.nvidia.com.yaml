@@ -42,30 +42,40 @@ spec:
             description: DPUFlavorSpec defines the content of DPUFlavor
             properties:
               bfcfgParameters:
+                description: BFCfgParameters are the parameters to be set in the bf.cfg
+                  file.
                 items:
                   type: string
                 type: array
               configFiles:
+                description: ConfigFiles are the files to be written on the DPU.
                 items:
                   properties:
                     operation:
-                      description: DPUFlavorFileOp defines the operation to be performed
-                        on the file
+                      description: Operation is the operation to be performed on the
+                        file.
                       enum:
                       - override
                       - append
                       type: string
                     path:
+                      description: Path is the path of the file to be written.
                       type: string
                     permissions:
+                      description: Permissions are the permissions to be set on the
+                        file.
                       type: string
                     raw:
+                      description: Raw is the raw content of the file.
                       type: string
                   type: object
                 type: array
               containerdConfig:
+                description: ContainerdConfig contains the configuration for containerd.
                 properties:
                   registryEndpoint:
+                    description: RegistryEndpoint is the endpoint of the container
+                      registry.
                     type: string
                 type: object
               dpuResources:
@@ -82,33 +92,48 @@ spec:
                   DPUServices to consume.
                 type: object
               grub:
+                description: Grub contains the grub configuration for the DPUFlavor.
                 properties:
                   kernelParameters:
+                    description: KernelParameters are the kernel parameters to be
+                      set in the grub configuration.
                     items:
                       type: string
                     type: array
                 type: object
               nvconfig:
+                description: NVConfig contains the configuration for the DPUFlavor.
                 items:
                   properties:
                     device:
+                      description: Device is the device to which the configuration
+                        applies. If not specified, the configuration applies to all.
                       type: string
                     hostPowerCycleRequired:
+                      description: HostPowerCycleRequired indicates if the host needs
+                        to be power cycled after applying the configuration.
                       type: boolean
                     parameters:
+                      description: Parameters are the parameters to be set for the
+                        device.
                       items:
                         type: string
                       type: array
                   type: object
                 type: array
               ovs:
+                description: OVS contains the OVS configuration for the DPUFlavor.
                 properties:
                   rawConfigScript:
+                    description: RawConfigScript is the raw configuration script for
+                      OVS.
                     type: string
                 type: object
               sysctl:
+                description: Sysctl contains the sysctl configuration for the DPUFlavor.
                 properties:
                   parameters:
+                    description: Parameters are the sysctl parameters to be set.
                     items:
                       type: string
                     type: array

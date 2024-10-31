@@ -58,6 +58,7 @@ type DPUSetStrategy struct {
 
 // RollingUpdateDPU is the rolling update strategy for a DPUSet.
 type RollingUpdateDPU struct {
+	// MaxUnavailable is the maximum number of DPUs that can be unavailable during the update.
 	// +optional
 	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
 }
@@ -69,6 +70,7 @@ type BFBReference struct {
 }
 
 type ClusterSpec struct {
+	// NodeLabels specifies the labels to be added to the node.
 	// +optional
 	NodeLabels map[string]string `json:"nodeLabels,omitempty"`
 }
@@ -95,8 +97,10 @@ type DPUTemplateSpec struct {
 
 // DPUTemplate is a template for DPU
 type DPUTemplate struct {
+	// Annotations specifies annotations which are added to the DPU.
 	Annotations map[string]string `json:"annotations,omitempty"`
-	Spec        DPUTemplateSpec   `json:"spec,omitempty"`
+	// Spec specifies the DPU specification.
+	Spec DPUTemplateSpec `json:"spec,omitempty"`
 }
 
 type NodeEffect struct {
@@ -143,6 +147,7 @@ type DPUSetSpec struct {
 
 // DPUSetStatus defines the observed state of DPUSet
 type DPUSetStatus struct {
+	// DPUStatistics is a map of DPUPhase to the number of DPUs in that phase.
 	// +optional
 	DPUStatistics map[DPUPhase]int `json:"dpuStatistics,omitempty"`
 }

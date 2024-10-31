@@ -32,18 +32,25 @@ var DPUFlavorGroupVersionKind = GroupVersion.WithKind(DPUFlavorKind)
 // DPUFlavorSpec defines the content of DPUFlavor
 // +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DPUFlavor spec is immutable"
 type DPUFlavorSpec struct {
+	// Grub contains the grub configuration for the DPUFlavor.
 	// +optional
 	Grub DPUFlavorGrub `json:"grub,omitempty"`
+	// Sysctl contains the sysctl configuration for the DPUFlavor.
 	// +optional
 	Sysctl DPUFLavorSysctl `json:"sysctl,omitempty"`
+	// NVConfig contains the configuration for the DPUFlavor.
 	// +optional
 	NVConfig []DPUFlavorNVConfig `json:"nvconfig,omitempty"`
+	// OVS contains the OVS configuration for the DPUFlavor.
 	// +optional
 	OVS DPUFlavorOVS `json:"ovs,omitempty"`
+	// BFCfgParameters are the parameters to be set in the bf.cfg file.
 	// +optional
 	BFCfgParameters []string `json:"bfcfgParameters,omitempty"`
+	// ConfigFiles are the files to be written on the DPU.
 	// +optional
 	ConfigFiles []ConfigFile `json:"configFiles,omitempty"`
+	// ContainerdConfig contains the configuration for containerd.
 	// +optional
 	ContainerdConfig ContainerdConfig `json:"containerdConfig,omitempty"`
 	// DPUResources indicates the minimum amount of resources needed for a BFB with that flavor to be installed on a
@@ -60,25 +67,31 @@ type DPUFlavorSpec struct {
 }
 
 type DPUFlavorGrub struct {
+	// KernelParameters are the kernel parameters to be set in the grub configuration.
 	// +optional
 	KernelParameters []string `json:"kernelParameters,omitempty"`
 }
 
 type DPUFLavorSysctl struct {
+	// Parameters are the sysctl parameters to be set.
 	// +optional
 	Parameters []string `json:"parameters,omitempty"`
 }
 
 type DPUFlavorNVConfig struct {
+	// Device is the device to which the configuration applies. If not specified, the configuration applies to all.
 	// +optional
 	Device *string `json:"device,omitempty"`
+	// Parameters are the parameters to be set for the device.
 	// +optional
 	Parameters []string `json:"parameters,omitempty"`
+	// HostPowerCycleRequired indicates if the host needs to be power cycled after applying the configuration.
 	// +optional
 	HostPowerCycleRequired *bool `json:"hostPowerCycleRequired,omitempty"`
 }
 
 type DPUFlavorOVS struct {
+	// RawConfigScript is the raw configuration script for OVS.
 	// +optional
 	RawConfigScript string `json:"rawConfigScript,omitempty"`
 }
@@ -93,17 +106,22 @@ const (
 )
 
 type ConfigFile struct {
+	// Path is the path of the file to be written.
 	// +optional
 	Path string `json:"path,omitempty"`
+	// Operation is the operation to be performed on the file.
 	// +optional
 	Operation DPUFlavorFileOp `json:"operation,omitempty"`
+	// Raw is the raw content of the file.
 	// +optional
 	Raw string `json:"raw,omitempty"`
+	// Permissions are the permissions to be set on the file.
 	// +optional
 	Permissions string `json:"permissions,omitempty"`
 }
 
 type ContainerdConfig struct {
+	// RegistryEndpoint is the endpoint of the container registry.
 	// +optional
 	RegistryEndpoint string `json:"registryEndpoint,omitempty"`
 }

@@ -75,11 +75,14 @@ spec:
                 description: Specifies details on the K8S cluster to join
                 properties:
                   name:
+                    description: Name is the name of the DPUs Kubernetes cluster
                     type: string
                     x-kubernetes-validations:
                     - message: Value is immutable
                       rule: self==oldSelf
                   namespace:
+                    description: Namespace is the tenants namespace name where the
+                      Kubernetes cluster will be deployed
                     type: string
                     x-kubernetes-validations:
                     - message: Value is immutable
@@ -87,6 +90,8 @@ spec:
                   nodeLabels:
                     additionalProperties:
                       type: string
+                    description: NodeLabels define the labels that will be added to
+                      the nodes.
                     type: object
                 type: object
               dpuFlavor:
@@ -226,10 +231,13 @@ spec:
                 description: the firmware information of DPU
                 properties:
                   bmc:
+                    description: BMC is the used BMC firmware version
                     type: string
                   nic:
+                    description: NIC is the used NIC firmware version
                     type: string
                   uefi:
+                    description: UEFI is the used UEFI firmware version
                     type: string
                 type: object
               pciDevice:
