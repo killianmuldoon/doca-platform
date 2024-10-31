@@ -623,7 +623,11 @@ func (in *DPUSetSpec) DeepCopyInto(out *DPUSetSpec) {
 		*out = new(DPUSetStrategy)
 		(*in).DeepCopyInto(*out)
 	}
-	in.NodeSelector.DeepCopyInto(&out.NodeSelector)
+	if in.NodeSelector != nil {
+		in, out := &in.NodeSelector, &out.NodeSelector
+		*out = new(v1.LabelSelector)
+		(*in).DeepCopyInto(*out)
+	}
 	if in.DPUSelector != nil {
 		in, out := &in.DPUSelector, &out.DPUSelector
 		*out = make(map[string]string, len(*in))

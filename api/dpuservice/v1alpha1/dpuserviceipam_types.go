@@ -66,7 +66,7 @@ type DPUServiceIPAMSpec struct {
 
 	// ClusterSelector determines in which clusters the DPUServiceIPAM controller should apply the configuration.
 	// +optional
-	ClusterSelector metav1.LabelSelector `json:"clusterSelector"`
+	ClusterSelector *metav1.LabelSelector `json:"clusterSelector,omitempty"`
 	// NodeSelector determines in which DPU nodes the DPUServiceIPAM controller should apply the configuration.
 	NodeSelector *corev1.NodeSelector `json:"nodeSelector,omitempty"`
 }

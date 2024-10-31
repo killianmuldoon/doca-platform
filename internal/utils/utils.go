@@ -21,6 +21,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 // ResourcesExceedError is an error returned by GetAllocatableResources() that indicates that the reserved resources
@@ -70,4 +72,15 @@ func GetAllocatableResources(total corev1.ResourceList, reserved corev1.Resource
 	}
 
 	return availableResources, nil
+}
+
+// LabelSelectorAsSelector is a wrapper around metav1.LabelSelectorAsSelector()
+// to not select labels.Nothing() when the input is nil.
+// If the input is nil, it returns labels.Everything().
+func LabelSelectorAsSelector(labelSelector *metav1.LabelSelector) (labels.Selector, error) {
+	if labelSelector == nil {
+		return labels.Everything(), nil
+	}
+
+	return metav1.LabelSelectorAsSelector(labelSelector)
 }

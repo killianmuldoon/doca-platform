@@ -27,6 +27,7 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/events"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/reboot"
+	"github.com/nvidia/doca-platform/internal/utils"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	"github.com/pkg/errors"
@@ -106,7 +107,7 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 	}
 
 	// Get node map by nodeSelector
-	nodeMap, err := r.getNodeMap(ctx, &dpuSet.Spec.NodeSelector)
+	nodeMap, err := r.getNodeMap(ctx, dpuSet.Spec.NodeSelector)
 	if err != nil {
 		return ctrl.Result{}, errors.Wrap(err, "failed to get Node list")
 	}
@@ -220,7 +221,7 @@ func (r *DPUSetReconciler) flavorToDPUSetReq(ctx context.Context, resource clien
 func (r *DPUSetReconciler) getNodeMap(ctx context.Context, nselector *metav1.LabelSelector) (map[string]corev1.Node, error) {
 	nodeMap := make(map[string]corev1.Node)
 	nodeList := &corev1.NodeList{}
-	nodeSelector, err := metav1.LabelSelectorAsSelector(nselector)
+	nodeSelector, err := utils.LabelSelectorAsSelector(nselector)
 	if err != nil {
 		return nodeMap, err
 	}

@@ -130,7 +130,7 @@ type DPUSetSpec struct {
 
 	// Select the Nodes with specific labels
 	// +optional
-	NodeSelector metav1.LabelSelector `json:"nodeSelector"`
+	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
 
 	// Select the DPU with specific labels
 	// +optional

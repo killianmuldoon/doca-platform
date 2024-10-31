@@ -117,7 +117,7 @@ type DPUs struct {
 type DPUSet struct {
 	// NodeSelector defines the nodes that the DPUSet should target
 	// +optional
-	NodeSelector metav1.LabelSelector `json:"nodeSelector"`
+	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
 	// DPUSelector defines the DPUs that the DPUSet should target
 	// +optional
 	DPUSelector map[string]string `json:"dpuSelector,omitempty"`

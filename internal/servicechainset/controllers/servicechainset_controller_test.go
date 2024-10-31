@@ -50,7 +50,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceChainSet without Node Selector", func() {
 			By("Create ServiceChainSet, without Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{}))
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{}))
 			By("Verify ServiceChain not created, no nodes")
 			Consistently(func(g Gomega) {
 				serviceChainList := &dpuservicev1.ServiceChainList{}
@@ -73,7 +73,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceChainSet with Node Selector", func() {
 			By("creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Create 3 nodes")
@@ -89,7 +89,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceChainSet with Node Selector and remove Service Chain", func() {
 			By("creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Create 3 nodes")
@@ -116,7 +116,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully reconcile the ServiceChainSet after update", func() {
 			By("creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Create 3 nodes")
@@ -157,7 +157,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully delete the ServiceChainSet", func() {
 			By("Creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Creating 2 nodes")
@@ -183,7 +183,7 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		})
 		It("should successfully delete the ServiceChainSet and corresponding ServiceInterfaces in its namespace only but not cross-namespace", func() {
 			By("Creating ServiceChainSet, with Node Selector")
-			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, metav1.LabelSelector{
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{
 				MatchLabels: map[string]string{"role": "firewall"}}))
 
 			By("Creating 2 nodes")
@@ -242,17 +242,17 @@ var _ = Describe("ServiceChainSet Controller", func() {
 		It("should successfully create the ServiceChainSet with port service interface", func() {
 			By("creating ServiceChainSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx,
-				metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}))
+				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}))
 		})
 		It("should successfully create the ServiceChainSet with port service", func() {
 			By("creating ServiceChainSet, with Node Selector")
 			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx,
-				metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}))
+				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}}))
 		})
 		It("should successfully create the ServiceChainSet and have all conditions set", func() {
 			By("creating ServiceChainSet, with Node Selector")
 			obj := createServiceChainSet(ctx,
-				metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}})
+				&metav1.LabelSelector{MatchLabels: map[string]string{"role": "firewall"}})
 			cleanupObjects = append(cleanupObjects, obj)
 			Eventually(func(g Gomega) {
 				assertServiceChainSetCondition(g, testClient, obj)
@@ -284,7 +284,7 @@ func assertServiceChainSetCondition(g Gomega, testClient client.Client, serviceC
 	))
 }
 
-func createServiceChainSet(ctx context.Context, labelSelector metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
+func createServiceChainSet(ctx context.Context, labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
 	scs := serviceChainSet(labelSelector)
 	scs.Spec.Template.Spec = *getTestServiceChainSpec()
 
@@ -292,7 +292,7 @@ func createServiceChainSet(ctx context.Context, labelSelector metav1.LabelSelect
 	return scs
 }
 
-func serviceChainSet(labelSelector metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
+func serviceChainSet(labelSelector *metav1.LabelSelector) *dpuservicev1.ServiceChainSet {
 	scs := &dpuservicev1.ServiceChainSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      resourceName,
