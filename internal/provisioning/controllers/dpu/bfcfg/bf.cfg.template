@@ -174,7 +174,7 @@ write_files:
     permissions: '0644'
     content: |
         [Unit]
-        Description=Configure dpu network
+        Description=Create Scalable Functions on the DPU required for DPF
         After=network-online.target
         Before=kubelet.service
         Wants=network-online.target

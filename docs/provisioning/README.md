@@ -224,8 +224,6 @@ spec:
   ovs:
     rawConfigScript: |
       ovs-vsctl set Open_vSwitch . other_config:doca-init=true
-      ovs-vsctl set Open_vSwitch . other_config:dpdk-extra="-a 0000:00:00.0"
-      ovs-vsctl set Open_vSwitch . other_config:hw-offload-ct-size=64000
       ovs-vsctl set Open_vSwitch . other_config:dpdk-max-memzones="50000"
       ovs-vsctl set Open_vSwitch . other_config:hw-offload="true"
       ovs-vsctl set Open_vSwitch . other_config:pmd-quiet-idle=true
