@@ -25,14 +25,15 @@ import (
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/argocd"
 	"github.com/nvidia/doca-platform/internal/argocd/api/application"
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
 	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
-	dpuclustermeta "github.com/nvidia/doca-platform/internal/dpucluster/metadata"
 	"github.com/nvidia/doca-platform/internal/dpuservice/predicates"
 	dpuserviceutils "github.com/nvidia/doca-platform/internal/dpuservice/utils"
+	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/operator/utils"
 
 	"github.com/fluxcd/pkg/runtime/patch"
@@ -109,7 +110,7 @@ func (r *DPUServiceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Ma
 	}
 
 	tenantControlPlane := &metav1.PartialObjectMetadata{}
-	tenantControlPlane.SetGroupVersionKind(dpuclustermeta.TenantControlPlaneGVK)
+	tenantControlPlane.SetGroupVersionKind(kamajiv1.GroupVersion.WithKind(kamajiv1.TenantControlPlaneKind))
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dpuservicev1.DPUService{}).
 		Watches(&argov1.Application{}, handler.EnqueueRequestsFromMapFunc(r.ArgoApplicationToDPUService)).
@@ -793,7 +794,7 @@ func createArgoCDSecret(secretConfig []byte, dpfOperatorConfigNamespace, cluster
 			Namespace: dpfOperatorConfigNamespace,
 			Labels: map[string]string{
 				argoCDSecretLabelKey:              argoCDSecretLabelValue,
-				dpuclustermeta.DPUClusterLabelKey: clusterName,
+				provisioningv1.DPUClusterLabelKey: clusterName,
 				operatorv1.DPFComponentLabelKey:   dpuServiceControllerName,
 			},
 			OwnerReferences: nil,

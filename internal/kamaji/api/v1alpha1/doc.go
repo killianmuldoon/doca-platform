@@ -6,7 +6,9 @@
 //
 // Copying the API was done by copying the relevant files and removing all functions from the files.
 // The alternative to this would be to generate our own types with just the fields we care about from Kamaji or to
-// work with unstructure objects and utility methods.
+// work with unstructured objects and utility methods.
 //
 //nolint:unused
 package v1alpha1
+
+const TenantControlPlaneKind = "TenantControlPlane"

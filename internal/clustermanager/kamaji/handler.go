@@ -26,7 +26,7 @@ import (
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/clustermanager/controller"
-	kamaji "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
+	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/operator/inventory"
 	"github.com/nvidia/doca-platform/internal/operator/utils"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
@@ -76,7 +76,7 @@ var (
 )
 
 func init() {
-	controller.RegisterWatch(&kamaji.TenantControlPlane{}, handler.EnqueueRequestsFromMapFunc(tcpToDPUCluster))
+	controller.RegisterWatch(&kamajiv1.TenantControlPlane{}, handler.EnqueueRequestsFromMapFunc(tcpToDPUCluster))
 	controller.RegisterWatch(&appsv1.DaemonSet{}, handler.EnqueueRequestsFromMapFunc(daemonsetToDPUCluster))
 }
 
@@ -187,7 +187,7 @@ func (cm *clusterHandler) reconcileKamaji(ctx context.Context, dc *provisioningv
 		}
 		svcCreated = false
 	}
-	tcp := &kamaji.TenantControlPlane{}
+	tcp := &kamajiv1.TenantControlPlane{}
 	if err := cm.Client.Get(ctx, nn, tcp); err != nil {
 		if !apierrors.IsNotFound(err) {
 			return "", 0, nil, fmt.Errorf("failed to get TCP, err: %v", err)
@@ -212,7 +212,7 @@ func (cm *clusterHandler) reconcileKamaji(ctx context.Context, dc *provisioningv
 			return "", 0, nil, fmt.Errorf("missing NodePort for kube-apiserver")
 		}
 		var err error
-		tcp, err = expectedTCP(dc, cm.Scheme, nodePort)
+		tcp, err = expectedTenantControlPlane(dc, cm.Scheme, nodePort)
 		if err != nil {
 			return "", 0, nil, fmt.Errorf("failed to generate expected TCP, err: %v", err)
 		}
@@ -224,7 +224,7 @@ func (cm *clusterHandler) reconcileKamaji(ctx context.Context, dc *provisioningv
 	}
 
 	tcpStatus := tcp.Status.Kubernetes.Version.Status
-	if tcpStatus == nil || *tcpStatus != kamaji.VersionReady {
+	if tcpStatus == nil || *tcpStatus != kamajiv1.VersionReady {
 		return "", nodePort, cutil.NewCondition(string(provisioningv1.ConditionCreated), fmt.Errorf("creating cluster"), "ClusterNotReady", ""), nil
 	}
 	return adminKubeconfigName(dc), nodePort, cutil.NewCondition(string(provisioningv1.ConditionCreated), nil, "Created", ""), nil
@@ -262,20 +262,21 @@ func expectedService(dc *provisioningv1.DPUCluster) *corev1.Service {
 	return svc
 }
 
-func expectedTCP(dc *provisioningv1.DPUCluster, scheme *runtime.Scheme, nodePort int32) (*kamaji.TenantControlPlane, error) {
+func expectedTenantControlPlane(dc *provisioningv1.DPUCluster, scheme *runtime.Scheme, nodePort int32) (*kamajiv1.TenantControlPlane, error) {
 	nn := kamajiTCPName(dc)
-	tcp := &kamaji.TenantControlPlane{
+	tcp := &kamajiv1.TenantControlPlane{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nn.Name,
 			Namespace: nn.Namespace,
 			Labels: map[string]string{
-				"tenant.clastix.io": nn.Name,
+				"tenant.clastix.io":               nn.Name,
+				provisioningv1.DPUClusterLabelKey: dc.Name,
 			},
 		},
-		Spec: kamaji.TenantControlPlaneSpec{
+		Spec: kamajiv1.TenantControlPlaneSpec{
 			DataStore: "default",
-			ControlPlane: kamaji.ControlPlane{
-				Deployment: kamaji.DeploymentSpec{
+			ControlPlane: kamajiv1.ControlPlane{
+				Deployment: kamajiv1.DeploymentSpec{
 					Affinity: &corev1.Affinity{
 						NodeAffinity: &corev1.NodeAffinity{
 							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
@@ -302,12 +303,12 @@ func expectedTCP(dc *provisioningv1.DPUCluster, scheme *runtime.Scheme, nodePort
 					},
 					Tolerations: tolerations,
 					Replicas:    ptr.To[int32](3),
-					AdditionalMetadata: kamaji.AdditionalMetadata{
+					AdditionalMetadata: kamajiv1.AdditionalMetadata{
 						Labels: map[string]string{
 							"tenant.clastix.io": nn.Name,
 						},
 					},
-					Resources: &kamaji.ControlPlaneComponentsResources{
+					Resources: &kamajiv1.ControlPlaneComponentsResources{
 						APIServer: &corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{
 								corev1.ResourceCPU:    resource.MustParse("250m"),
@@ -328,33 +329,33 @@ func expectedTCP(dc *provisioningv1.DPUCluster, scheme *runtime.Scheme, nodePort
 						},
 					},
 				},
-				Service: kamaji.ServiceSpec{
-					AdditionalMetadata: kamaji.AdditionalMetadata{
+				Service: kamajiv1.ServiceSpec{
+					AdditionalMetadata: kamajiv1.AdditionalMetadata{
 						Labels: map[string]string{
 							"tenant.clastix.io": nn.Name,
 						},
 					},
-					ServiceType: kamaji.ServiceTypeNodePort,
+					ServiceType: kamajiv1.ServiceTypeNodePort,
 				},
 			},
-			Kubernetes: kamaji.KubernetesSpec{
+			Kubernetes: kamajiv1.KubernetesSpec{
 				Version: dc.Spec.Version,
-				Kubelet: kamaji.KubeletSpec{
+				Kubelet: kamajiv1.KubeletSpec{
 					CGroupFS: "systemd",
 				},
-				AdmissionControllers: kamaji.AdmissionControllers{
+				AdmissionControllers: kamajiv1.AdmissionControllers{
 					"ResourceQuota",
 					"LimitRanger",
 				},
 			},
-			Addons: kamaji.AddonsSpec{
-				CoreDNS:   &kamaji.AddonSpec{},
-				KubeProxy: &kamaji.AddonSpec{},
+			Addons: kamajiv1.AddonsSpec{
+				CoreDNS:   &kamajiv1.AddonSpec{},
+				KubeProxy: &kamajiv1.AddonSpec{},
 			},
 		},
 	}
 	if dc.Spec.ClusterEndpoint != nil && dc.Spec.ClusterEndpoint.Keepalived != nil {
-		tcp.Spec.NetworkProfile = kamaji.NetworkProfileSpec{
+		tcp.Spec.NetworkProfile = kamajiv1.NetworkProfileSpec{
 			Address: dc.Spec.ClusterEndpoint.Keepalived.VIP,
 			Port:    nodePort,
 		}

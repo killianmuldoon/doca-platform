@@ -20,7 +20,6 @@ import (
 	"fmt"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	dpuclustermeta "github.com/nvidia/doca-platform/internal/dpucluster/metadata"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -132,9 +131,8 @@ func testKamajiClusterSecret(cluster provisioningv1.DPUCluster) *corev1.Secret {
 			Name:      fmt.Sprintf("%v-admin-kubeconfig", cluster.Name),
 			Namespace: cluster.Namespace,
 			Labels: map[string]string{
-				dpuclustermeta.DPUClusterSecretClusterNameLabelKey: cluster.Name,
-				"kamaji.clastix.io/component":                      "admin-kubeconfig",
-				"kamaji.clastix.io/project":                        "kamaji",
+				"kamaji.clastix.io/component": "admin-kubeconfig",
+				"kamaji.clastix.io/project":   "kamaji",
 			},
 		},
 		Data: map[string][]byte{

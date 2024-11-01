@@ -32,7 +32,7 @@ import (
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
 	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
-	dpuclustermeta "github.com/nvidia/doca-platform/internal/dpucluster/metadata"
+	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/operator/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -137,15 +137,15 @@ func (c *Cluster) run(ctx context.Context) error {
 		corev1.SchemeGroupVersion.WithKind("Node"),   // Nodes
 		corev1.SchemeGroupVersion.WithKind("Secret"), // Secrets
 		corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"),
-		appsv1.SchemeGroupVersion.WithKind("DaemonSet"),            // DaemonSet
-		argov1.ApplicationSchemaGroupVersionKind,                   // ArgoApplications
-		operatorv1.DPFOperatorConfigGroupVersionKind,               // DPFOperatorConfig
-		provisioningv1.GroupVersion.WithKind("DPU"),                // DPU
-		provisioningv1.GroupVersion.WithKind("DPUSet"),             // DPUSet
-		provisioningv1.GroupVersion.WithKind("BFB"),                // BFB
-		provisioningv1.GroupVersion.WithKind("DPUCluster"),         // DPUCluster
-		dpuservicev1.GroupVersion.WithKind("DPUCredentialRequest"), // DPUCredentialRequest
-		dpuclustermeta.TenantControlPlaneGVK,                       // Kamaji control plane
+		appsv1.SchemeGroupVersion.WithKind("DaemonSet"),                 // DaemonSet
+		argov1.ApplicationSchemaGroupVersionKind,                        // ArgoApplications
+		operatorv1.DPFOperatorConfigGroupVersionKind,                    // DPFOperatorConfig
+		provisioningv1.GroupVersion.WithKind("DPU"),                     // DPU
+		provisioningv1.GroupVersion.WithKind("DPUSet"),                  // DPUSet
+		provisioningv1.GroupVersion.WithKind("BFB"),                     // BFB
+		provisioningv1.GroupVersion.WithKind("DPUCluster"),              // DPUCluster
+		dpuservicev1.GroupVersion.WithKind("DPUCredentialRequest"),      // DPUCredentialRequest
+		kamajiv1.GroupVersion.WithKind(kamajiv1.TenantControlPlaneKind), // Kamaji control plane
 	}
 	namespacesToCollectEvents := []string{
 		"dpf-operator-system",

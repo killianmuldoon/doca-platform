@@ -26,7 +26,7 @@ import (
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/clustermanager/controller"
 	kamajicm "github.com/nvidia/doca-platform/internal/clustermanager/kamaji"
-	kamaji "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
+	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -49,7 +49,7 @@ func init() {
 
 	utilruntime.Must(provisioningv1.AddToScheme(scheme))
 
-	utilruntime.Must(kamaji.AddToScheme(scheme))
+	utilruntime.Must(kamajiv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 

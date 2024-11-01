@@ -28,7 +28,7 @@ import (
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
-	dpuclustermeta "github.com/nvidia/doca-platform/internal/dpucluster/metadata"
+	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
 	"github.com/nvidia/doca-platform/test/utils"
 	"github.com/nvidia/doca-platform/test/utils/collector"
@@ -233,7 +233,7 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}
 			Eventually(func(g Gomega) {
 				clusters := &unstructured.UnstructuredList{}
-				clusters.SetGroupVersionKind(dpuclustermeta.TenantControlPlaneGVK)
+				clusters.SetGroupVersionKind(kamajiv1.GroupVersion.WithKind(kamajiv1.TenantControlPlaneKind))
 				g.Expect(testClient.List(ctx, clusters)).To(Succeed())
 				g.Expect(clusters.Items).To(HaveLen(numClusters))
 				for _, cluster := range clusters.Items {

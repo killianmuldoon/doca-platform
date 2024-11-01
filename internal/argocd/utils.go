@@ -22,9 +22,9 @@ import (
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	argoapplication "github.com/nvidia/doca-platform/internal/argocd/api/application"
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
-	dpuclustermeta "github.com/nvidia/doca-platform/internal/dpucluster/metadata"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -92,7 +92,7 @@ func NewApplication(namespace, projectName string, dpuService *dpuservicev1.DPUS
 			Namespace: namespace,
 			// TODO: Consider adding labels for the Application.
 			Labels: map[string]string{
-				dpuclustermeta.DPUClusterLabelKey:        clusterName,
+				provisioningv1.DPUClusterLabelKey:        clusterName,
 				dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
 				dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
 				operatorv1.DPFComponentLabelKey:          "dpuservice-manager",

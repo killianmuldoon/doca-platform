@@ -65,6 +65,8 @@ linters-settings:
         alias: hostcniprovisionerconfig
       - pkg: github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1
         alias: nvipamv1
+      - pkg: github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1
+        alias: kamajiv1
       - pkg: github.com/nvidia/doca-platform/api/provisioning/v1alpha1
         alias: provisioningv1
 

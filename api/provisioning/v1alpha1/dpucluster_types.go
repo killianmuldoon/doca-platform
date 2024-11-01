@@ -155,3 +155,8 @@ type DPUClusterList struct {
 func init() {
 	SchemeBuilder.Register(&DPUCluster{}, &DPUClusterList{})
 }
+
+const (
+	// DPUClusterLabelKey is the key of the label linking objects to a specific DPU Cluster.
+	DPUClusterLabelKey = "dpu.nvidia.com/cluster"
+)
