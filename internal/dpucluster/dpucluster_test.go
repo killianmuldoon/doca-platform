@@ -20,7 +20,7 @@ import (
 	"fmt"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	controlplanemeta "github.com/nvidia/doca-platform/internal/controlplane/metadata"
+	dpuclustermeta "github.com/nvidia/doca-platform/internal/dpucluster/metadata"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -54,7 +54,7 @@ var _ = Describe("Control Plane Helper Functions", func() {
 			}
 			c := env.fakeKubeClient(withObjects(objects...))
 
-			gotConfigs, err := GetClusterConfigs(ctx, c)
+			gotConfigs, err := GetConfigs(ctx, c)
 			Expect(err).NotTo(HaveOccurred())
 
 			// validate secrets
@@ -85,7 +85,7 @@ var _ = Describe("Control Plane Helper Functions", func() {
 			}
 			c := env.fakeKubeClient(withObjects(objects...))
 
-			gotClusters, err := GetClusterConfigs(ctx, c)
+			gotClusters, err := GetConfigs(ctx, c)
 			Expect(err).To(Not(HaveOccurred()))
 
 			// Expect all clusters to be returned
@@ -132,9 +132,9 @@ func testKamajiClusterSecret(cluster provisioningv1.DPUCluster) *corev1.Secret {
 			Name:      fmt.Sprintf("%v-admin-kubeconfig", cluster.Name),
 			Namespace: cluster.Namespace,
 			Labels: map[string]string{
-				controlplanemeta.DPFClusterSecretClusterNameLabelKey: cluster.Name,
-				"kamaji.clastix.io/component":                        "admin-kubeconfig",
-				"kamaji.clastix.io/project":                          "kamaji",
+				dpuclustermeta.DPUClusterSecretClusterNameLabelKey: cluster.Name,
+				"kamaji.clastix.io/component":                      "admin-kubeconfig",
+				"kamaji.clastix.io/project":                        "kamaji",
 			},
 		},
 		Data: map[string][]byte{

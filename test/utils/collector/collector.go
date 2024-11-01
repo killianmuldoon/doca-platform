@@ -31,8 +31,8 @@ import (
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
-	"github.com/nvidia/doca-platform/internal/controlplane"
-	controlplanemeta "github.com/nvidia/doca-platform/internal/controlplane/metadata"
+	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
+	dpuclustermeta "github.com/nvidia/doca-platform/internal/dpucluster/metadata"
 	"github.com/nvidia/doca-platform/internal/operator/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -80,12 +80,12 @@ func GetClusterCollectors(ctx context.Context, c client.Client, artifactsDirecto
 	collectors = append(collectors, mainCluster)
 	errs := make([]error, 0)
 	// Get collectors for DPFClusters.
-	clusterConfigs, err := controlplane.GetClusterConfigs(ctx, c)
+	clusterConfigs, err := dpucluster.GetConfigs(ctx, c)
 	if err != nil {
 		return nil, err
 	}
 	for _, conf := range clusterConfigs {
-		dpuClusterClient, err := conf.NewClient(ctx)
+		dpuClusterClient, err := conf.Client(ctx)
 		if err != nil {
 			errs = append(errs, err)
 
@@ -145,7 +145,7 @@ func (c *Cluster) run(ctx context.Context) error {
 		provisioningv1.GroupVersion.WithKind("BFB"),                // BFB
 		provisioningv1.GroupVersion.WithKind("DPUCluster"),         // DPUCluster
 		dpuservicev1.GroupVersion.WithKind("DPUCredentialRequest"), // DPUCredentialRequest
-		controlplanemeta.TenantControlPlaneGVK,                     // Kamaji control plane
+		dpuclustermeta.TenantControlPlaneGVK,                       // Kamaji control plane
 	}
 	namespacesToCollectEvents := []string{
 		"dpf-operator-system",

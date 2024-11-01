@@ -22,7 +22,7 @@ import (
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	controlplanemeta "github.com/nvidia/doca-platform/internal/controlplane/metadata"
+	dpuclustermeta "github.com/nvidia/doca-platform/internal/dpucluster/metadata"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -139,9 +139,9 @@ func GetFakeKamajiClusterSecretFromEnvtest(cluster provisioningv1.DPUCluster, cf
 			Name:      fmt.Sprintf("%v-admin-kubeconfig", cluster.Name),
 			Namespace: cluster.Namespace,
 			Labels: map[string]string{
-				controlplanemeta.DPFClusterSecretClusterNameLabelKey: cluster.Name,
-				"kamaji.clastix.io/component":                        "admin-kubeconfig",
-				"kamaji.clastix.io/project":                          "kamaji",
+				dpuclustermeta.DPUClusterSecretClusterNameLabelKey: cluster.Name,
+				"kamaji.clastix.io/component":                      "admin-kubeconfig",
+				"kamaji.clastix.io/project":                        "kamaji",
 			},
 		},
 		Data: map[string][]byte{

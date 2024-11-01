@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	cplane "github.com/nvidia/doca-platform/internal/controlplane"
+	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
@@ -54,7 +54,7 @@ func (st *dpuClusterConfig) Handle(ctx context.Context, client crclient.Client, 
 		return *state, err
 	}
 
-	newClient, err := cplane.NewClusterConfig(client, dpuCluster).NewClient(ctx)
+	newClient, err := dpucluster.NewConfig(client, dpuCluster).Client(ctx)
 	if err != nil {
 		return *state, err
 	}

@@ -22,15 +22,15 @@ import (
 
 // TODO: Review this package when implementing control plane provisioning.
 var (
-	// DPFClusterSecretLabels are the labels that identify the admin kubeconfig of a DPF cluster.
-	DPFClusterSecretLabels = map[string]string{"kamaji.clastix.io/component": "admin-kubeconfig", "kamaji.clastix.io/project": "kamaji"}
+	// DPUClusterSecretLabels are the labels that identify the admin kubeconfig of a DPF cluster.
+	DPUClusterSecretLabels = map[string]string{"kamaji.clastix.io/component": "admin-kubeconfig", "kamaji.clastix.io/project": "kamaji"}
 
-	// DPFClusterSecretClusterNameLabelKey is the key of the label linking a DPFClusterSecret to the name of the cluster.
+	// DPUClusterSecretClusterNameLabelKey is the key of the label linking a DPUClusterSecret to the name of the cluster.
 	// TODO: When implementing control plane provisioning replace this with a DPF-specific label.
-	DPFClusterSecretClusterNameLabelKey = "kamaji.clastix.io/name"
+	DPUClusterSecretClusterNameLabelKey = "kamaji.clastix.io/name"
 
-	// DPFClusterLabelKey is the key of the label linking objects to a specific DPF Cluster.
-	DPFClusterLabelKey = "dpu.nvidia.com/cluster"
+	// DPUClusterLabelKey is the key of the label linking objects to a specific DPU Cluster.
+	DPUClusterLabelKey = "dpu.nvidia.com/cluster"
 )
 
 var (

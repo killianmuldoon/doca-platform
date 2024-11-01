@@ -31,7 +31,7 @@ import (
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	"github.com/nvidia/doca-platform/internal/controlplane"
+	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -458,7 +458,7 @@ func GetClientset(ctx context.Context, client crclient.Client, dc *provisioningv
 	scrtCtx, scrtCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer scrtCancel()
 
-	clientSet, kubeConfig, err := controlplane.NewClusterConfig(client, dc).NewClientset(scrtCtx)
+	clientSet, kubeConfig, err := dpucluster.NewConfig(client, dc).Clientset(scrtCtx)
 	if err != nil {
 		return nil, nil, err
 	}

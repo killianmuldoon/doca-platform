@@ -29,8 +29,8 @@ import (
 	"github.com/nvidia/doca-platform/internal/argocd/api/application"
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
-	"github.com/nvidia/doca-platform/internal/controlplane"
-	controlplanemeta "github.com/nvidia/doca-platform/internal/controlplane/metadata"
+	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
+	dpuclustermeta "github.com/nvidia/doca-platform/internal/dpucluster/metadata"
 	"github.com/nvidia/doca-platform/internal/dpuservice/predicates"
 	dpuserviceutils "github.com/nvidia/doca-platform/internal/dpuservice/utils"
 	"github.com/nvidia/doca-platform/internal/operator/utils"
@@ -109,7 +109,7 @@ func (r *DPUServiceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Ma
 	}
 
 	tenantControlPlane := &metav1.PartialObjectMetadata{}
-	tenantControlPlane.SetGroupVersionKind(controlplanemeta.TenantControlPlaneGVK)
+	tenantControlPlane.SetGroupVersionKind(dpuclustermeta.TenantControlPlaneGVK)
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dpuservicev1.DPUService{}).
 		Watches(&argov1.Application{}, handler.EnqueueRequestsFromMapFunc(r.ArgoApplicationToDPUService)).
@@ -310,7 +310,7 @@ func (r *DPUServiceReconciler) reconcileDeleteImagePullSecrets(ctx context.Conte
 	}
 
 	log.Info("Cleaning up ImagePullSecrets in all DPU Clusters")
-	dpuClusterConfigs, err := controlplane.GetClusterConfigs(ctx, r.Client)
+	dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, r.Client)
 	if err != nil {
 		return err
 	}
@@ -318,7 +318,7 @@ func (r *DPUServiceReconciler) reconcileDeleteImagePullSecrets(ctx context.Conte
 	// Delete the secrets in every DPUCluster.
 	var errs []error
 	for _, dpuClusterConfig := range dpuClusterConfigs {
-		dpuClusterClient, err := dpuClusterConfig.NewClient(ctx)
+		dpuClusterClient, err := dpuClusterConfig.Client(ctx)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -352,7 +352,7 @@ func (r *DPUServiceReconciler) reconcileDeleteImagePullSecrets(ctx context.Conte
 func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuservicev1.DPUService) error {
 	// Get the list of clusters this DPUService targets.
 	// TODO: Add some way to check if the clusters are healthy. Reconciler should retry clusters if they're unready.
-	dpuClusterConfigs, err := controlplane.GetClusterConfigs(ctx, r.Client)
+	dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, r.Client)
 	if err != nil {
 		return err
 	}
@@ -408,7 +408,7 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, dpuService *dpuservicev1.DPUService, dpuClusterConfigs []*controlplane.ClusterConfig, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
+func (r *DPUServiceReconciler) reconcileApplicationPrereqs(ctx context.Context, dpuService *dpuservicev1.DPUService, dpuClusterConfigs []*dpucluster.Config, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	// Ensure the DPUService namespace exists in target clusters.
 	project := getProjectName(dpuService)
 	// TODO: think about how to cleanup the namespace in the DPU.
@@ -493,11 +493,11 @@ func (r *DPUServiceReconciler) reconcileInterfaces(ctx context.Context, dpuServi
 	return serviceDaemonSet, nil
 }
 
-func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, dpuClusterConfigs []*controlplane.ClusterConfig, project, dpuNamespace string) error {
+func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, dpuClusterConfigs []*dpucluster.Config, project, dpuNamespace string) error {
 	var errs []error
 	if project == dpuAppProjectName {
 		for _, dpuClusterConfig := range dpuClusterConfigs {
-			dpuClusterClient, err := dpuClusterConfig.NewClient(ctx)
+			dpuClusterClient, err := dpuClusterConfig.Client(ctx)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("get cluster %s: %v", dpuClusterConfig.Cluster.Name, err))
 			}
@@ -514,7 +514,7 @@ func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, dpuClusterC
 }
 
 // reconcileArgoSecrets reconciles a Secret in the format that ArgoCD expects. It uses data from the control plane secret.
-func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, dpuClusterConfigs []*controlplane.ClusterConfig, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
+func (r *DPUServiceReconciler) reconcileArgoSecrets(ctx context.Context, dpuClusterConfigs []*dpucluster.Config, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	log := ctrllog.FromContext(ctx)
 
 	var errs []error
@@ -553,7 +553,7 @@ func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservi
 	defer conditions.SetSummary(dpuService)
 
 	// Get the list of clusters this DPUService targets.
-	dpuClusterConfigs, err := controlplane.GetClusterConfigs(ctx, r.Client)
+	dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, r.Client)
 	if err != nil {
 		return err
 	}
@@ -593,7 +593,7 @@ func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservi
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, dpuClusterConfigs []*controlplane.ClusterConfig, service *dpuservicev1.DPUService) error {
+func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, dpuClusterConfigs []*dpucluster.Config, service *dpuservicev1.DPUService) error {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Patching ImagePullSecrets for DPU clusters")
 
@@ -631,7 +631,7 @@ func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, dp
 	// Apply the new secret to every DPUCluster.
 	var errs []error
 	for _, dpuClusterConfig := range dpuClusterConfigs {
-		dpuClusterClient, err := dpuClusterConfig.NewClient(ctx)
+		dpuClusterClient, err := dpuClusterConfig.Client(ctx)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -665,7 +665,7 @@ func (r *DPUServiceReconciler) reconcileImagePullSecrets(ctx context.Context, dp
 	return kerrors.NewAggregate(errs)
 }
 
-func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, dpuClusterConfigs []*controlplane.ClusterConfig, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
+func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, dpuClusterConfigs []*dpucluster.Config, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
 	log := ctrllog.FromContext(ctx)
 
 	clusterKeys := []types.NamespacedName{}
@@ -696,7 +696,7 @@ func (r *DPUServiceReconciler) reconcileAppProject(ctx context.Context, dpuClust
 	return nil
 }
 
-func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, dpuClusterConfigs []*controlplane.ClusterConfig, dpuService *dpuservicev1.DPUService, serviceDaemonSet *dpuservicev1.ServiceDaemonSetValues, dpfOperatorConfigNamespace string) error {
+func (r *DPUServiceReconciler) reconcileApplication(ctx context.Context, dpuClusterConfigs []*dpucluster.Config, dpuService *dpuservicev1.DPUService, serviceDaemonSet *dpuservicev1.ServiceDaemonSetValues, dpfOperatorConfigNamespace string) error {
 	project := getProjectName(dpuService)
 	if project == dpuAppProjectName {
 		for _, dpuClusterConfig := range dpuClusterConfigs {
@@ -792,9 +792,9 @@ func createArgoCDSecret(secretConfig []byte, dpfOperatorConfigNamespace, cluster
 			Name:      clusterName,
 			Namespace: dpfOperatorConfigNamespace,
 			Labels: map[string]string{
-				argoCDSecretLabelKey:                argoCDSecretLabelValue,
-				controlplanemeta.DPFClusterLabelKey: clusterName,
-				operatorv1.DPFComponentLabelKey:     dpuServiceControllerName,
+				argoCDSecretLabelKey:              argoCDSecretLabelValue,
+				dpuclustermeta.DPUClusterLabelKey: clusterName,
+				operatorv1.DPFComponentLabelKey:   dpuServiceControllerName,
 			},
 			OwnerReferences: nil,
 			Annotations:     nil,

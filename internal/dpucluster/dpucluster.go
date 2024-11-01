@@ -29,9 +29,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// ClusterConfig hold the cluster configuration.
+// Config hold the cluster configuration.
 // It provides methods to get the client, clientset, and rest config for the cluster.
-type ClusterConfig struct {
+type Config struct {
 	// Cluster is the DPU cluster for which the config is being fetched.
 	Cluster *provisioningv1.DPUCluster
 	// hostClient is the client for the host cluster. It is used to fetch the kubeconfig secret.
@@ -41,20 +41,20 @@ type ClusterConfig struct {
 	clientConfig    clientcmd.OverridingClientConfig
 }
 
-// NewClusterConfig returns a new ClusterConfig.
-func NewClusterConfig(c client.Client, cluster *provisioningv1.DPUCluster) *ClusterConfig {
-	return &ClusterConfig{
+// NewConfig returns a new Config.
+func NewConfig(c client.Client, cluster *provisioningv1.DPUCluster) *Config {
+	return &Config{
 		Cluster:    cluster,
 		hostClient: c,
 	}
 }
 
-func (cc *ClusterConfig) ClusterNamespaceName() string {
+func (cc *Config) ClusterNamespaceName() string {
 	return fmt.Sprintf("%s-%s", cc.Cluster.Namespace, cc.Cluster.Name)
 }
 
 // Kubeconfig returns the kubeconfig for the cluster.
-func (cc *ClusterConfig) Kubeconfig(ctx context.Context) (*clientcmdv1.Config, error) {
+func (cc *Config) Kubeconfig(ctx context.Context) (*clientcmdv1.Config, error) {
 	if cc.kubeconfig != nil {
 		return cc.kubeconfig, nil
 	}
@@ -80,7 +80,7 @@ func (cc *ClusterConfig) Kubeconfig(ctx context.Context) (*clientcmdv1.Config, e
 	return cc.kubeconfig, nil
 }
 
-func (cc *ClusterConfig) getClientConfig(ctx context.Context) error {
+func (cc *Config) getClientConfig(ctx context.Context) error {
 	// Get the control plane secret using the cluster's `spec.kubeconfig` field.
 	secret := &corev1.Secret{}
 	key := client.ObjectKey{Namespace: cc.Cluster.Namespace, Name: cc.Cluster.Spec.Kubeconfig}
@@ -100,8 +100,8 @@ func (cc *ClusterConfig) getClientConfig(ctx context.Context) error {
 	return nil
 }
 
-// NewClient returns a new client for the cluster.
-func (cc *ClusterConfig) NewClient(ctx context.Context) (client.Client, error) {
+// Client returns a new client for the cluster.
+func (cc *Config) Client(ctx context.Context) (client.Client, error) {
 	_, err := cc.Kubeconfig(ctx)
 	if err != nil {
 		return nil, err
@@ -119,8 +119,8 @@ func (cc *ClusterConfig) NewClient(ctx context.Context) (client.Client, error) {
 	return newClient, nil
 }
 
-// NewClientset returns a new clientset for the cluster.
-func (cc *ClusterConfig) NewClientset(ctx context.Context) (*kubernetes.Clientset, []byte, error) {
+// Clientset returns a new clientset for the cluster.
+func (cc *Config) Clientset(ctx context.Context) (*kubernetes.Clientset, []byte, error) {
 	_, err := cc.Kubeconfig(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -138,18 +138,18 @@ func (cc *ClusterConfig) NewClientset(ctx context.Context) (*kubernetes.Clientse
 	return newClient, cc.kubeconfigBytes, nil
 }
 
-// GetClusterConfigs returns a list of ClusterConfigs for all DPU clusters.
-func GetClusterConfigs(ctx context.Context, c client.Client) ([]*ClusterConfig, error) {
+// GetConfigs returns a list of Configs for all DPU clusters.
+func GetConfigs(ctx context.Context, c client.Client) ([]*Config, error) {
 	dpuClusters := &provisioningv1.DPUClusterList{}
 	err := c.List(ctx, dpuClusters)
 	if err != nil {
 		return nil, err
 	}
 
-	clusterConfigs := make([]*ClusterConfig, 0, len(dpuClusters.Items))
+	configs := make([]*Config, 0, len(dpuClusters.Items))
 	for _, cluster := range dpuClusters.Items {
-		clusterConfig := NewClusterConfig(c, &cluster)
-		clusterConfigs = append(clusterConfigs, clusterConfig)
+		config := NewConfig(c, &cluster)
+		configs = append(configs, config)
 	}
-	return clusterConfigs, nil
+	return configs, nil
 }

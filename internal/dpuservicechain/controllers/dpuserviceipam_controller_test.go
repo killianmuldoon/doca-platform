@@ -22,7 +22,7 @@ import (
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
-	"github.com/nvidia/doca-platform/internal/controlplane"
+	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
 	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
 	testutils "github.com/nvidia/doca-platform/test/utils"
 	"github.com/nvidia/doca-platform/test/utils/informer"
@@ -78,7 +78,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			Expect(testClient.Create(ctx, &dpuCluster)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, &dpuCluster)
-			dpuClusterClient, err = controlplane.NewClusterConfig(testClient, &dpuCluster).NewClient(ctx)
+			dpuClusterClient, err = dpucluster.NewConfig(testClient, &dpuCluster).Client(ctx)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should reconcile NVIPAM IPPool in DPU cluster when ipv4Subnet is set", func() {
@@ -386,7 +386,7 @@ var _ = Describe("DPUServiceIPAM Controller", func() {
 
 			Expect(testClient.Create(ctx, &dpuCluster)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, &dpuCluster)
-			dpuClusterClient, err = controlplane.NewClusterConfig(testClient, &dpuCluster).NewClient(ctx)
+			dpuClusterClient, err = dpucluster.NewConfig(testClient, &dpuCluster).Client(ctx)
 			Expect(err).ToNot(HaveOccurred())
 
 			By("Creating the informer infrastructure for DPUServiceIPAM")
