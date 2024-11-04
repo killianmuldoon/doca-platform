@@ -124,7 +124,7 @@ $(OVS_CNI_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-sfc-cni.git $(OVS_CNI_DIR) $(OVS_CNI_REVISION)
 
 # OVN Kubernetes dependencies to be able to build its docker image
-OVNKUBERNETES_REF=91774a2b625bec15e3076902bb86ac763cc4f0c0
+OVNKUBERNETES_REF=178e3ab0da35accca85c5c948bf42790827f50be
 OVNKUBERNETES_DIR=$(REPOSDIR)/ovn-kubernetes-$(OVNKUBERNETES_REF)
 $(OVNKUBERNETES_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN= $(CURDIR)/hack/scripts/git-clone-repo.sh https://github.com/aserdean/ovn-kubernetes $(OVNKUBERNETES_DIR) $(OVNKUBERNETES_REF)
