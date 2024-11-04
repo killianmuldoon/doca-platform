@@ -16,6 +16,10 @@
 ## Include Make modules which are split up in this repo for better structure.
 include hack/tools/tools.mk
 
+PROJECT_NAME="DOCA Platform Framework"
+DATE="$(shell date --rfc-3339=seconds)"
+FULL_COMMIT=$(shell git rev-parse HEAD)
+
 # Export is needed here so that the envsubst used in make targets has access to those variables even when they are not
 # explicitly set when calling make.
 # The tag must have three digits with a leading v - i.e. v9.9.1
@@ -642,6 +646,10 @@ docker-build-dpf-system-for-%:
 	# Provenance false ensures this target builds an image rather than a manifest when using buildx.
 	docker buildx build \
 		--load \
+		--label=org.opencontainers.image.created=$(DATE) \
+		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+		--label=org.opencontainers.image.version=$(TAG) \
 		--provenance=false \
 		--platform=linux/$* \
 		--build-arg builder_image=$(BUILD_IMAGE) \
@@ -677,6 +685,10 @@ docker-build-dpf-tools-for-%: $(SOS_REPORT_DIR)
 	cd $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF} && \
 	docker buildx build \
 	--load \
+	--label=org.opencontainers.image.created=$(DATE) \
+	--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+	--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+	--label=org.opencontainers.image.version=$(TAG) \
 	--provenance=false \
 	--platform=linux/$* \
 	. \
@@ -704,6 +716,10 @@ docker-build-ipallocator: ## Build docker image for the IP Allocator
 	# Base image can't be distroless because of the readiness probe that is using cat which doesn't exist in distroless
 	docker buildx build \
 		--load \
+		--label=org.opencontainers.image.created=$(DATE) \
+		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+		--label=org.opencontainers.image.version=$(TAG) \
 		--provenance=false \
 		--platform=linux/$(ARCH) \
 		--build-arg builder_image=$(BUILD_IMAGE) \
@@ -721,6 +737,10 @@ docker-build-ovs-cni: $(OVS_CNI_DIR) ## Builds the OVS CNI image
 	$(OVS_CNI_DIR)/hack/get_version.sh > .version && \
 	docker buildx build \
 		--load \
+		--label=org.opencontainers.image.created=$(DATE) \
+		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+		--label=org.opencontainers.image.version=$(TAG) \
 		--provenance=false \
 		--build-arg goarch=$(DPU_ARCH) \
 		--platform linux/${DPU_ARCH} \
@@ -735,6 +755,10 @@ docker-build-ovn-kubernetes-for-%: $(OVNKUBERNETES_DIR)
 	# Provenance false ensures this target builds an image rather than a manifest when using buildx.
 	docker buildx build \
 		--load \
+		--label=org.opencontainers.image.created=$(DATE) \
+		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+		--label=org.opencontainers.image.version=$(TAG) \
 		--provenance=false \
 		--platform=linux/$* \
 		--build-arg builder_image=$(BUILD_IMAGE) \
@@ -764,6 +788,10 @@ docker-create-manifest-for-ovn-kubernetes:
 docker-build-hostdriver: ## Build docker image for DMS and hostnetwork.
 	docker buildx build \
 		--load \
+		--label=org.opencontainers.image.created=$(DATE) \
+		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+		--label=org.opencontainers.image.version=$(TAG) \
 		--provenance=false \
 		--platform linux/${HOST_ARCH} \
 		--build-arg builder_image=$(BUILD_IMAGE) \
@@ -777,6 +805,10 @@ docker-build-hostdriver: ## Build docker image for DMS and hostnetwork.
 docker-build-dummydpuservice: ## Build docker images for the dummydpuservice
 	docker buildx build \
 		--load \
+		--label=org.opencontainers.image.created=$(DATE) \
+		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+		--label=org.opencontainers.image.version=$(TAG) \
 		--provenance=false \
 		--platform=linux/$(DPU_ARCH) \
 		--build-arg builder_image=$(BUILD_IMAGE) \
@@ -792,6 +824,10 @@ docker-build-dummydpuservice: ## Build docker images for the dummydpuservice
 docker-build-ovn-kubernetes-resource-injector: ## Build docker image for the OVN Kubernetes Resource Injector
 	docker buildx build \
 		--load \
+		--label=org.opencontainers.image.created=$(DATE) \
+		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+		--label=org.opencontainers.image.version=$(TAG) \
 		--provenance=false \
 		--platform=linux/$(ARCH) \
 		--build-arg builder_image=$(BUILD_IMAGE) \
@@ -802,6 +838,19 @@ docker-build-ovn-kubernetes-resource-injector: ## Build docker image for the OVN
 		-f Dockerfile \
 		. \
 		-t $(OVNKUBERNETES_RESOURCE_INJECTOR_IMAGE):$(TAG)
+
+.PHONY: docker-build-operator-bundle # Build the docker image for the Operator bundle. Not included in docker-build-all.
+docker-build-operator-bundle: generate-operator-bundle
+	docker buildx build \
+		--load \
+		--label=org.opencontainers.image.created=$(DATE) \
+		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+		--label=org.opencontainers.image.version=$(TAG) \
+		--provenance=false \
+		-f bundle.Dockerfile \
+		-t $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION) \
+		.
 
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the docker images for all DOCKER_BUILD_TARGETS.
@@ -829,17 +878,6 @@ docker-push-hostcniprovisioner: ## Push the docker image for Host CNI Provisione
 docker-push-ipallocator: ## Push the docker image for IP Allocator.
 	docker push $(IPALLOCATOR_IMAGE):$(TAG)
 
-# TODO: Consider whether this should be part of the docker-build-all- build targets.
-.PHONY: docker-build-operator-bundle # Build the docker image for the Operator bundle. Not included in docker-build-all.
-docker-build-operator-bundle: generate-operator-bundle
-	docker buildx build \
-		--load \
-		--provenance=false \
-		-f bundle.Dockerfile \
-		-t $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION) \
-		.
-
-# TODO: Consider whether this should be part of the docker-push-all- push targets.
 .PHONY: docker-push-operator-bundle # Push the docker image for the Operator bundle. Not included in docker-build-all.
 docker-push-operator-bundle: ## Push the bundle image.
 	docker push $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
