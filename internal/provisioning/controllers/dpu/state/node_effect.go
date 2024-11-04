@@ -96,8 +96,9 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, k8sClient client.Clien
 		if err := k8sClient.Get(ctx, maintenanceNN, maintenance); err != nil {
 			if apierrors.IsNotFound(err) {
 				// Create node maintenance CR
+				owner := metav1.NewControllerRef(st.dpu, provisioningv1.DPUGroupVersionKind)
 				logger.V(3).Info(fmt.Sprintf("Createing NodeMaintenance (%s)", maintenanceNN))
-				if err = createNodeMaintenance(ctx, k8sClient, nodeName, st.dpu.Namespace); err != nil {
+				if err = createNodeMaintenance(ctx, k8sClient, owner, nodeName, st.dpu.Namespace); err != nil {
 					setDPUCondNodeEffectReady(state, metav1.ConditionFalse, errorOccurredReason, err.Error())
 					state.Phase = provisioningv1.DPUError
 					return *state, fmt.Errorf("failed to get NodeMaintenance (%s), err: %v", maintenanceNN, err)
@@ -147,12 +148,13 @@ func addAdditionalRequestor(ctx context.Context, k8sClient client.Client, mainte
 	return nil
 }
 
-func createNodeMaintenance(ctx context.Context, k8sClient client.Client, nodeName string, namespace string) error {
+func createNodeMaintenance(ctx context.Context, k8sClient client.Client, owner *metav1.OwnerReference, nodeName string, namespace string) error {
 	logger := log.FromContext(ctx)
 	nodeMaintenance := &maintenancev1alpha1.NodeMaintenance{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      nodeName,
-			Namespace: namespace,
+			Name:            nodeName,
+			Namespace:       namespace,
+			OwnerReferences: []metav1.OwnerReference{*owner},
 		},
 		Spec: maintenancev1alpha1.NodeMaintenanceSpec{
 			RequestorID:          cutil.NodeMaintenanceRequestorID,

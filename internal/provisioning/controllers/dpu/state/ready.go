@@ -206,7 +206,7 @@ func DeleteNodeMaintenanceCR(ctx context.Context, k8sClient client.Client, nodeN
 		}
 	}
 	patch := client.MergeFrom(originalMaintenance)
-	if err := k8sClient.Patch(ctx, maintenance, patch); err != nil {
+	if err := k8sClient.Patch(ctx, maintenance, patch); err != nil && !apierrors.IsNotFound(err) {
 		return fmt.Errorf("failed to patch NodeMaintenance (%s) after removing Spec.AdditionalRequestors, err: %v", maintenanceNN.Name, err)
 	}
 
