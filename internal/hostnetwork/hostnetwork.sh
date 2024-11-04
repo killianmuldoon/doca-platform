@@ -81,6 +81,29 @@ add_vf_to_bridge () {
     fi
 }
 
+delete_vf_from_bridge() {
+    local pf_device=$1
+    vf_device=$(find /sys/class/net/"${pf_device}"/device/virtfn0/net -mindepth 1 -maxdepth 1 -type d)
+    if [ -z "${vf_device}" ]; then
+        echo "No VF found, no need to delete VF from ${pf_device}"
+        return 0
+    fi
+
+    vf_name=$(basename "${vf_device}")
+    if ! ip link show master ${bridge_name} | grep -q "${vf_name}"; then
+        echo "VF ${vf_name} is not connected to the bridge, no need to delete VF from ${pf_device}"
+        return 0
+    fi
+
+    if ip link set "${vf_name}" nomaster; then
+      echo "disconnected VF ${vf_name} from bridge"
+      return 0
+    else
+      echo "failed to disconnect VF ${vf_name} from bridge"
+      return 1
+    fi
+}
+
 if [[ -z "$device_pci_address" ]]; then
     echo "device_pci_address environment does not exist"
     exit 1
@@ -112,6 +135,7 @@ while true; do
     bridge_check
 
     # Add VF0 of the PF0 device to the bridge
+    trap "delete_vf_from_bridge ${pf_device_p0}" EXIT
     add_vf_to_bridge ${pf_device_p0}
 
     touch /tmp/hostnetwork_succeed
