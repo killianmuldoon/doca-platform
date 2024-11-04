@@ -88,8 +88,16 @@ var dpuDeploymentReconcileDeleteRequeueDuration = 10 * time.Second
 func (r *DPUDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dpuservicev1.DPUDeployment{}).
+		// Dependencies
+		Watches(&provisioningv1.BFB{}, handler.EnqueueRequestsFromMapFunc(r.BFBToDPUDeployment)).
+		Watches(&provisioningv1.DPUFlavor{}, handler.EnqueueRequestsFromMapFunc(r.DPUFlavorToDPUDeployment)).
 		Watches(&dpuservicev1.DPUServiceConfiguration{}, handler.EnqueueRequestsFromMapFunc(r.DPUServiceConfigurationToDPUDeployment)).
 		Watches(&dpuservicev1.DPUServiceTemplate{}, handler.EnqueueRequestsFromMapFunc(r.DPUServiceTemplateToDPUDeployment)).
+		// Child objects
+		Owns(&dpuservicev1.DPUService{}).
+		Owns(&dpuservicev1.DPUServiceChain{}).
+		Owns(&dpuservicev1.DPUServiceInterface{}).
+		Owns(&provisioningv1.DPUSet{}).
 		Complete(r)
 }
 
@@ -127,6 +135,40 @@ func (r *DPUDeploymentReconciler) DPUServiceTemplateToDPUDeployment(ctx context.
 				result = append(result, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(&dpuDeployment)})
 				break
 			}
+		}
+	}
+
+	return result
+}
+
+// BFBToDPUDeployment returns the DPUDeployments associated with a BFB
+func (r *DPUDeploymentReconciler) BFBToDPUDeployment(ctx context.Context, o client.Object) []ctrl.Request {
+	result := []ctrl.Request{}
+	dpuDeploymentList := &dpuservicev1.DPUDeploymentList{}
+	if err := r.Client.List(ctx, dpuDeploymentList, client.InNamespace(o.GetNamespace())); err != nil {
+		return nil
+	}
+
+	for _, dpuDeployment := range dpuDeploymentList.Items {
+		if dpuDeployment.Spec.DPUs.BFB == o.GetName() {
+			result = append(result, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(&dpuDeployment)})
+		}
+	}
+
+	return result
+}
+
+// DPUFlavorToDPUDeployment returns the DPUDeployments associated with a DPUFlavor
+func (r *DPUDeploymentReconciler) DPUFlavorToDPUDeployment(ctx context.Context, o client.Object) []ctrl.Request {
+	result := []ctrl.Request{}
+	dpuDeploymentList := &dpuservicev1.DPUDeploymentList{}
+	if err := r.Client.List(ctx, dpuDeploymentList, client.InNamespace(o.GetNamespace())); err != nil {
+		return nil
+	}
+
+	for _, dpuDeployment := range dpuDeploymentList.Items {
+		if dpuDeployment.Spec.DPUs.Flavor == o.GetName() {
+			result = append(result, ctrl.Request{NamespacedName: client.ObjectKeyFromObject(&dpuDeployment)})
 		}
 	}
 

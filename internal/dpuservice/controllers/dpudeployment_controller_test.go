@@ -914,6 +914,41 @@ var _ = Describe("DPUDeployment Controller", func() {
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 
 			})
+			It("should create new DPUSets on manual deletion of the DPUSets", func() {
+				By("Creating the DPUDeployment")
+				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+				dpuDeployment.Spec.DPUs.DPUSets = initialDPUSetSettings
+				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+				By("waiting for the initial DPUSets to be applied")
+				Eventually(func(g Gomega) {
+					gotDPUSetList := &provisioningv1.DPUSetList{}
+					g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
+					g.Expect(gotDPUSetList.Items).To(HaveLen(2))
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+
+				By("manually deleting the DPUSets")
+				Consistently(func(g Gomega) {
+					gotDPUSetList := &provisioningv1.DPUSetList{}
+					g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
+					if len(gotDPUSetList.Items) == 0 {
+						return
+					}
+					objs := []client.Object{}
+					for _, dpuSet := range gotDPUSetList.Items {
+						objs = append(objs, &dpuSet)
+					}
+					g.Expect(testutils.CleanupAndWait(ctx, testClient, objs...)).To(Succeed())
+				}).WithTimeout(5 * time.Second).Should(Succeed())
+
+				By("checking that the DPUSets is created")
+				Eventually(func(g Gomega) {
+					gotDPUSetList := &provisioningv1.DPUSetList{}
+					g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
+					g.Expect(gotDPUSetList.Items).To(HaveLen(2))
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+			})
 		})
 		Context("When checking reconcileDPUServiceInterfaces()", func() {
 			BeforeEach(func() {
@@ -1044,7 +1079,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
 
-				By("waiting for the initial DPUServices to be applied")
+				By("waiting for the initial DPUServiceInterface to be applied")
 				Eventually(func(g Gomega) {
 					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
@@ -1158,7 +1193,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
 
-				By("waiting for the initial DPUServices to be applied")
+				By("waiting for the initial DPUServiceInterface to be applied")
 				Eventually(func(g Gomega) {
 					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
@@ -1242,7 +1277,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
 
-				By("waiting for the initial DPUServices to be applied")
+				By("waiting for the initial DPUServiceInterface to be applied")
 				Eventually(func(g Gomega) {
 					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
@@ -1329,6 +1364,51 @@ var _ = Describe("DPUDeployment Controller", func() {
 							},
 						},
 					}))
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+			})
+			It("should delete the DPUServiceInterfaces on manual delete of the DPUServiceInterfaces", func() {
+				By("Creating the dependencies")
+				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
+				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
+					{
+						Name:    "someinterface",
+						Network: "nad1",
+					},
+				}
+				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+				By("Creating the DPUDeployment")
+				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+				By("waiting for the initial DPUServiceInterface to be applied")
+				Eventually(func(g Gomega) {
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+
+				By("manually deleting the DPUServiceInterface")
+				Consistently(func(g Gomega) {
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					if len(gotDPUServiceInterfaceList.Items) == 0 {
+						return
+					}
+					g.Expect(testutils.CleanupAndWait(ctx, testClient, &gotDPUServiceInterfaceList.Items[0])).To(Succeed())
+				}).WithTimeout(5 * time.Second).Should(Succeed())
+
+				By("checking that the DPUServiceInterface are created")
+				Eventually(func(g Gomega) {
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
 		})
@@ -1687,6 +1767,44 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
+			It("should create new DPUServices on manual deletion of the DPUServices", func() {
+				By("Creating the dependencies")
+				createReconcileDPUServicesDependencies(testNS.Name)
+
+				By("Creating the DPUDeployment")
+				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+				dpuDeployment.Spec.Services = make(map[string]dpuservicev1.DPUDeploymentServiceConfiguration)
+				dpuDeployment.Spec.Services["service-1"] = dpuservicev1.DPUDeploymentServiceConfiguration{
+					ServiceTemplate:      "service-1",
+					ServiceConfiguration: "service-1",
+				}
+				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+				By("waiting for the initial DPUService to be applied")
+				Eventually(func(g Gomega) {
+					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+					g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+
+				By("manually deleting the DPUServices")
+				Consistently(func(g Gomega) {
+					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+					if len(gotDPUServiceList.Items) == 0 {
+						return
+					}
+					g.Expect(testutils.CleanupAndWait(ctx, testClient, &gotDPUServiceList.Items[0])).To(Succeed())
+				}).WithTimeout(5 * time.Second).Should(Succeed())
+
+				By("checking that the DPUServices are created")
+				Eventually(func(g Gomega) {
+					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+					g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+			})
 		})
 		Context("When checking verifyResourceFitting()", func() {
 			DescribeTable("behaves as expected", func(deps *dpuDeploymentDependencies, expectError bool) {
@@ -2034,6 +2152,36 @@ var _ = Describe("DPUDeployment Controller", func() {
 						},
 					},
 					))
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+			})
+			It("should create new DPUServiceChain on manual deletion of the DPUServiceChain", func() {
+				By("Creating the DPUDeployment")
+				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+				By("waiting for the initial DPUServiceChain to be applied")
+				Eventually(func(g Gomega) {
+					gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+					g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+
+				By("manually deleting the DPUServiceChain")
+				Consistently(func(g Gomega) {
+					gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+					if len(gotDPUServiceChainList.Items) == 0 {
+						return
+					}
+					g.Expect(testutils.CleanupAndWait(ctx, testClient, &gotDPUServiceChainList.Items[0])).To(Succeed())
+				}).WithTimeout(5 * time.Second).Should(Succeed())
+
+				By("checking that the DPUServiceChain is created")
+				Eventually(func(g Gomega) {
+					gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+					g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
 		})
