@@ -5,7 +5,7 @@ metadata:
 data:
   keepalived.conf.tmpl: |
     vrrp_script chk-control-plane {
-      script "/usr/bin/curl -k https://localhost:NODE_PORT"
+      script "/usr/bin/curl -k https://NODE_IP:NODE_PORT"
       interval 2
       rise 3
       fall 2
@@ -58,7 +58,7 @@ spec:
         - |
           #! /bin/sh
           PRIORITY=$(echo ${NODE_IP} | cut -d. -f4)
-          sed "s/INTERFACE/${INTERFACE}/g; s/VIRTUAL_ROUTER_ID/${VIRTUAL_ROUTER_ID}/g; s/PRIORITY/${PRIORITY}/g; s/NODE_PORT/${NODE_PORT}/g; s/VIRTUAL_IP/${VIRTUAL_IP}/g" /conf-template/keepalived.conf.tmpl > /conf/keepalived.conf
+          sed "s/INTERFACE/${INTERFACE}/g; s/VIRTUAL_ROUTER_ID/${VIRTUAL_ROUTER_ID}/g; s/PRIORITY/${PRIORITY}/g; s/NODE_PORT/${NODE_PORT}/g; s/VIRTUAL_IP/${VIRTUAL_IP}/g; s/NODE_IP/${NODE_IP}/g" /conf-template/keepalived.conf.tmpl > /conf/keepalived.conf
         env:
         - name: NODE_IP
           valueFrom:
