@@ -22,7 +22,9 @@
 # This is a known issue refer https://docs.nvidia.com/doca/sdk/known+issues/index.html #3837255
 shutdown_arm() {
   pci_address=$1
-  mlxfwreset -d ${pci_address}.0 -l 1 -t 4 reset -y --sync 0 || true
+  output=$(mlxfwreset -d ${pci_address}.0 -l 1 -t 4 reset -y --sync 0)
+  echo "shutdown arm:" >> /tmp/slr.log
+  echo ${output} >> /tmp/slr.log
 }
 
 get_rshim_by_PCI() {
@@ -45,6 +47,7 @@ query_bf_state() {
   while [ $counter -le 30 ];
   do
     output=$(cat /dev/${rshim}/misc)
+    echo ${output} >> /tmp/slr.log
     if [[ ${output} =~ "INFO[BL31]: System Off" ]]; then
       echo "System off"
       return
