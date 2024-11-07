@@ -19,7 +19,7 @@ set -ex -o pipefail
 bridge_name="br-dpu"
 pci_sys_dir="/sys/bus/pci/devices"
 br_dpu_dir="/sys/class/net/${bridge_name}"
-dpu_device_list=("0xa2dc" "0xa2d6")
+dpu_device_list=("0xa2dc")
 
 # get PF from PCI address
 get_net_devices_from_pci () {
