@@ -49,7 +49,8 @@ func main() {
 	flag.Parse()
 	defer glog.Flush()
 	// 0xa2dc: MT43244 BlueField-3 integrated ConnectX-7 network controller
-	deviceList := []string{"0xa2dc"}
+	// 0xa2d6: MT42822 BlueField-2 integrated ConnectX-6 Dx network controller
+	deviceList := []string{"0xa2dc", "0xa2d6"}
 	settings := discoverySettings{
 		enablePSIDCollector: psIDCollector,
 	}
