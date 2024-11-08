@@ -18,12 +18,15 @@ package state
 
 import (
 	"context"
+	"fmt"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -38,6 +41,23 @@ func (st *dpuInitializingState) Handle(ctx context.Context, c client.Client, _ d
 	state := st.dpu.Status.DeepCopy()
 	if isDeleting(st.dpu) {
 		state.Phase = provisioningv1.DPUDeleting
+		return *state, nil
+	}
+
+	node := &corev1.Node{}
+	if err := c.Get(ctx, types.NamespacedName{
+		Namespace: "",
+		Name:      st.dpu.Spec.NodeName,
+	}, node); err != nil {
+		return *state, err
+	}
+
+	// Check if the DPU OOB bridge is configured. If not configured, set the condition and return.
+	if _, ok := node.GetLabels()[cutil.DPUOOBBridgeConfiguredLabel]; !ok {
+		logger.Info("DPU OOB bridge is not configured")
+		err := fmt.Errorf("DPU OOB bridge is not configured")
+		cond := cutil.NewCondition(provisioningv1.DPUCondInitialized.String(), err, "DPUOOBBridgeNotConfigured", err.Error())
+		cutil.SetDPUCondition(state, cond)
 		return *state, nil
 	}
 

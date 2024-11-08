@@ -19,14 +19,15 @@ package dpu
 import "fmt"
 
 type DPU struct {
-	Index      int
-	DeviceID   string
-	PCIAddress string
-	PSID       string
-	PF0Name    string
+	Index               int
+	DeviceID            string
+	PCIAddress          string
+	PSID                string
+	PF0Name             string
+	OOBBridgeConfigured bool
 }
 
 func (dpu DPU) String() string {
-	return fmt.Sprintf("DPU(index: %d, device id: %s, PS id: %s, PCI address: %s, PF0 name: %s)",
-		dpu.Index, dpu.DeviceID, dpu.PSID, dpu.PCIAddress, dpu.PF0Name)
+	return fmt.Sprintf("DPU(index: %d, device id: %s, PS id: %s, PCI address: %s, PF0 name: %s, OOB bridge configured: %t)",
+		dpu.Index, dpu.DeviceID, dpu.PSID, dpu.PCIAddress, dpu.PF0Name, dpu.OOBBridgeConfigured)
 }

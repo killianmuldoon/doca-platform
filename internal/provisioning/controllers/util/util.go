@@ -55,6 +55,7 @@ const (
 	DPUPCIAddressLabel              = "provisioning.dpu.nvidia.com/dpu-pciAddress"
 	DPUPFNameLabel                  = "provisioning.dpu.nvidia.com/dpu-pf-name"
 	DPUHostIPLabel                  = "provisioning.dpu.nvidia.com/dpu-host-ip"
+	DPUOOBBridgeConfiguredLabel     = "feature.node.kubernetes.io/dpu-oob-bridge-configured"
 	TolerationNotReadyKey           = "node.kubernetes.io/not-ready"
 	TolerationUnreachableyKey       = "node.kubernetes.io/unreachable"
 	TolerationUnschedulableKey      = "node.kubernetes.io/unschedulable"

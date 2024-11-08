@@ -1,3 +1,5 @@
+//go:build linux
+
 /*
 Copyright 2024 NVIDIA
 
@@ -70,7 +72,7 @@ type discoverySettings struct {
 
 func discoveryDPU(deviceList []string, settings discoverySettings) error {
 	discoveryStart := time.Now()
-	dpuMap := make(map[string]dpu.DPU, 0)
+	dpuMap := make(map[string]dpu.DPU)
 	dpuIndex := 0
 
 	files, err := os.ReadDir(PCISysDir)
@@ -84,38 +86,44 @@ func discoveryDPU(deviceList []string, settings discoverySettings) error {
 			return err
 		}
 		for _, device := range deviceList {
-			if device == strings.TrimSpace(string(deviceid)) {
-				fileName := file.Name()
-				labelPCIAddr, cmdPCIAddr, err := formatPCIAddress(fileName)
+			// Skip if the device is not in the list of known devices.
+			if device != strings.TrimSpace(string(deviceid)) {
+				continue
+			}
+
+			fileName := file.Name()
+			labelPCIAddr, cmdPCIAddr, err := formatPCIAddress(fileName)
+			if err != nil {
+				return err
+			}
+
+			// Skip if the DPU has been discovered already.
+			if _, ok := dpuMap[labelPCIAddr]; ok {
+				continue
+			}
+
+			var psid string
+			if settings.enablePSIDCollector {
+				psid, err = bash.GetPSID(cmdPCIAddr)
 				if err != nil {
 					return err
 				}
-
-				if _, ok := dpuMap[labelPCIAddr]; !ok {
-					var psid string
-					if settings.enablePSIDCollector {
-						psid, err = bash.GetPSID(cmdPCIAddr)
-						if err != nil {
-							return err
-						}
-					}
-					pf0Name, err := getPF0Name(labelPCIAddr)
-					if err != nil {
-						return err
-					}
-					dpu := dpu.DPU{
-						PCIAddress: labelPCIAddr, // 0000-04-00
-						DeviceID:   device,       // 0xa2dc
-						Index:      dpuIndex,     // 0
-						PSID:       psid,         // MT_0000000375
-						PF0Name:    pf0Name,      // ens1f0np0
-					}
-					dpuMap[labelPCIAddr] = dpu
-					glog.Infof("discovery DPU: %v", dpu)
-					dpuIndex++
-
-				}
 			}
+			pf0Name, err := getPF0Name(labelPCIAddr)
+			if err != nil {
+				return err
+			}
+
+			dpu := dpu.DPU{
+				PCIAddress: labelPCIAddr, // 0000-04-00
+				DeviceID:   device,       // 0xa2dc
+				Index:      dpuIndex,     // 0
+				PSID:       psid,         // MT_0000000375
+				PF0Name:    pf0Name,      // ens1f0np0
+			}
+			dpuMap[labelPCIAddr] = dpu
+			glog.Infof("discovery DPU: %v", dpu)
+			dpuIndex++
 		}
 	}
 
@@ -190,6 +198,13 @@ func writeNFDFeatureFile(dpuMap map[string]dpu.DPU) error {
 			return err
 		}
 		if _, err := write.WriteString(pf0Label); err != nil {
+			return err
+		}
+	}
+
+	// Add label if the DPU OOB bridge is configured properly.
+	if isOOBBridgeConfigured() {
+		if _, err := write.WriteString("dpu-oob-bridge-configured=\r\n"); err != nil {
 			return err
 		}
 	}
