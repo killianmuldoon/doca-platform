@@ -80,8 +80,9 @@ spec:
                       nodeSelector:
                         additionalProperties:
                           type: string
-                        description: NodeSelector specifies the nodes that keepalived
-                          instances should be deployed
+                        description: |-
+                          NodeSelector is used to specify a subnet of control plane nodes to deploy keepalived instances.
+                          Note: keepalived instances are always deployed on control plane nodes
                         type: object
                       vip:
                         description: VIP is the virtual IP owned by the keepalived

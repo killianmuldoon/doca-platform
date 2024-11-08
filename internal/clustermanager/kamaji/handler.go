@@ -73,6 +73,27 @@ var (
 			Effect:   corev1.TaintEffectNoSchedule,
 		},
 	}
+
+	masterNodeAffinity = &corev1.NodeAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{NodeSelectorTerms: []corev1.NodeSelectorTerm{
+			{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      kubernetesNodeRoleMaster,
+						Operator: corev1.NodeSelectorOpExists,
+					},
+				},
+			},
+			{
+				MatchExpressions: []corev1.NodeSelectorRequirement{
+					{
+						Key:      kubernetesNodeRoleControlPlane,
+						Operator: corev1.NodeSelectorOpExists,
+					},
+				},
+			},
+		}},
+	}
 )
 
 func init() {
@@ -154,10 +175,12 @@ func (cm *clusterHandler) reconcileKeepalived(ctx context.Context, dc *provision
 	} else if len(objs) == 0 {
 		return nil, fmt.Errorf("no objects found in keepalived manifests")
 	}
+
 	if err := inventory.NewEdits().
 		AddForAll(inventory.NamespaceEdit(dc.Namespace)).
 		AddForAll(inventory.OwnerReferenceEdit(dc, cm.Scheme)).
 		AddForKindS(inventory.DaemonsetKind, inventory.TolerationsEdit(tolerations)).
+		AddForKindS(inventory.DaemonsetKind, inventory.NodeAffinityEdit(masterNodeAffinity)).
 		Apply(objs); err != nil {
 		return nil, fmt.Errorf("failed to set namespace for keepalived manifests, err: %v", err)
 	}

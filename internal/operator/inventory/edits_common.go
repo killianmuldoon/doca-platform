@@ -215,6 +215,11 @@ func NodeAffinityEdit(nodeAffinity *corev1.NodeAffinity) StructuredEdit {
 				o.Spec.Template.Spec.Affinity = &corev1.Affinity{}
 			}
 			o.Spec.Template.Spec.Affinity.NodeAffinity = nodeAffinity
+		case *appsv1.DaemonSet:
+			if o.Spec.Template.Spec.Affinity == nil {
+				o.Spec.Template.Spec.Affinity = &corev1.Affinity{}
+			}
+			o.Spec.Template.Spec.Affinity.NodeAffinity = nodeAffinity
 		default:
 			return fmt.Errorf("unexpected object %s. expected either Deployment or StatefulSet", obj.GetObjectKind().GroupVersionKind())
 		}

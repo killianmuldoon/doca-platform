@@ -1147,7 +1147,7 @@ _Appears in:_
 | `vip` _string_ | VIP is the virtual IP owned by the keepalived instances |  |  |
 | `virtualRouterID` _integer_ | VirtualRouterID is the virtual_router_id in keepalived.conf |  | Maximum: 255 <br />Minimum: 1 <br /> |
 | `interface` _string_ | Interface specifies on which interface the VIP should be assigned |  | MinLength: 1 <br /> |
-| `nodeSelector` _object (keys:string, values:string)_ | NodeSelector specifies the nodes that keepalived instances should be deployed |  |  |
+| `nodeSelector` _object (keys:string, values:string)_ | NodeSelector is used to specify a subnet of control plane nodes to deploy keepalived instances.<br />Note: keepalived instances are always deployed on control plane nodes |  |  |
 
 
 #### NodeEffect

@@ -115,7 +115,8 @@ type KeepalivedSpec struct {
 	// +kubebuilder:validation:MinLength=1
 	Interface string `json:"interface"`
 
-	// NodeSelector specifies the nodes that keepalived instances should be deployed
+	// NodeSelector is used to specify a subnet of control plane nodes to deploy keepalived instances.
+	// Note: keepalived instances are always deployed on control plane nodes
 	// +optional
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
