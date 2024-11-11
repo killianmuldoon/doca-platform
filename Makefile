@@ -154,7 +154,7 @@ generate-api-docs: gen-crd-api-reference-docs ## Generate docs for the API.
 
 .PHONY: generate-mdtoc
 generate-mdtoc: mdtoc ## Generate table of contents for our documentation.
-	git grep -rl -e '<!-- toc -->' | grep '\.md$$' | xargs $(MDTOC) --inplace
+	grep -rl -e '<!-- toc -->' docs | grep '\.md$$' | xargs $(MDTOC) --inplace
 
 .PHONY: generate-mocks
 generate-mocks: mockgen ## Generate mocks
