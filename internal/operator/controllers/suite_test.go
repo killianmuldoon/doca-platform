@@ -52,7 +52,6 @@ func TestMain(m *testing.M) {
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "deploy", "helm", "dpf-operator", "templates", "crds"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "cert-manager"),
-			filepath.Join("..", "..", "..", "test", "objects", "crd", "openshift"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "argocd"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "kamaji"),
 		},

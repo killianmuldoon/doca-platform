@@ -46,25 +46,19 @@ import (
 )
 
 const (
-	RequeueInterval                 = 5 * time.Second
-	CFGExtension                    = ".cfg"
-	DPUSetNameLabel                 = "provisioning.dpu.nvidia.com/dpuset-name"
-	DPUSetNamespaceLabel            = "provisioning.dpu.nvidia.com/dpuset-namespace"
-	DPUPCIAddress                   = "dpu-%d-pci-address"
-	DPUPFName                       = "dpu-%d-pf0-name"
-	DPUPCIAddressLabel              = "provisioning.dpu.nvidia.com/dpu-pciAddress"
-	DPUPFNameLabel                  = "provisioning.dpu.nvidia.com/dpu-pf-name"
-	DPUHostIPLabel                  = "provisioning.dpu.nvidia.com/dpu-host-ip"
-	DPUOOBBridgeConfiguredLabel     = "feature.node.kubernetes.io/dpu-oob-bridge-configured"
-	TolerationNotReadyKey           = "node.kubernetes.io/not-ready"
-	TolerationUnreachableyKey       = "node.kubernetes.io/unreachable"
-	TolerationUnschedulableKey      = "node.kubernetes.io/unschedulable"
-	NodeMaintenanceDrainStatusSleep = 5 * time.Second
-	// clusterConfigConfigMapName is the name of the ConfigMap that contains the cluster configuration in
-	// OpenShift.
-	ClusterConfigConfigMapName = "cluster-config-v1"
-	// clusterConfigNamespace is the Namespace where the OpenShift cluster configuration ConfigMap exists.
-	ClusterConfigNamespace = "kube-system"
+	RequeueInterval             = 5 * time.Second
+	CFGExtension                = ".cfg"
+	DPUSetNameLabel             = "provisioning.dpu.nvidia.com/dpuset-name"
+	DPUSetNamespaceLabel        = "provisioning.dpu.nvidia.com/dpuset-namespace"
+	DPUPCIAddress               = "dpu-%d-pci-address"
+	DPUPFName                   = "dpu-%d-pf0-name"
+	DPUPCIAddressLabel          = "provisioning.dpu.nvidia.com/dpu-pciAddress"
+	DPUPFNameLabel              = "provisioning.dpu.nvidia.com/dpu-pf-name"
+	DPUHostIPLabel              = "provisioning.dpu.nvidia.com/dpu-host-ip"
+	DPUOOBBridgeConfiguredLabel = "feature.node.kubernetes.io/dpu-oob-bridge-configured"
+	TolerationNotReadyKey       = "node.kubernetes.io/not-ready"
+	TolerationUnreachableyKey   = "node.kubernetes.io/unreachable"
+	TolerationUnschedulableKey  = "node.kubernetes.io/unschedulable"
 	// NodeMaintenanceRequestorID is the requestor ID used for NodeMaintenance CRs
 	NodeMaintenanceRequestorID = "dpu.nvidia.com"
 	// ProvisioningGroupName is the provisioning group, used to identify provisioning as
