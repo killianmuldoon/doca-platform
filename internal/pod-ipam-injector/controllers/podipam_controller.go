@@ -225,7 +225,7 @@ func (r *PodIpamReconciler) getServiceInterfaceWithLabels(ctx context.Context, n
 
 	if len(matching) > 1 {
 		return nil, fmt.Errorf("expected only one serviceInterface in namespace(%s) to match labels(%v) on node(%s). found %d",
-			namespace, lbls, nodeName, len(sil.Items))
+			namespace, lbls, nodeName, len(matching))
 	}
 
 	return matching[0], nil

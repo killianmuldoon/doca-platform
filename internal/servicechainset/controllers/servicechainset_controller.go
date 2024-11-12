@@ -52,8 +52,9 @@ type ServiceChainSetReconciler struct {
 }
 
 const (
-	ServiceChainSetNameLabel      = "svc.dpu.nvidia.com/servicechainset-name"
-	ServiceChainSetNamespaceLabel = "svc.dpu.nvidia.com/servicechainset-namespace"
+	ServiceChainSetNameLabel      = dpuservicev1.SvcDpuGroupName + "/servicechainset-name"
+	ServiceChainSetNamespaceLabel = dpuservicev1.SvcDpuGroupName + "/servicechainset-namespace"
+	ServiceChainNodeNameLabel     = dpuservicev1.SvcDpuGroupName + "/nodeName"
 	serviceChainSetControllerName = "service-chain-set-controller"
 )
 
@@ -157,6 +158,7 @@ func (r *ServiceChainSetReconciler) createOrUpdateChild(ctx context.Context, set
 	labels := map[string]string{
 		ServiceChainSetNameLabel:      serviceChainSet.Name,
 		ServiceChainSetNamespaceLabel: serviceChainSet.Namespace,
+		ServiceChainNodeNameLabel:     nodeName,
 	}
 	maps.Copy(labels, serviceChainSet.Spec.Template.ObjectMeta.Labels)
 

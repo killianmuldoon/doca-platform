@@ -36,7 +36,7 @@ import (
 )
 
 const (
-	ServiceInterfaceFinalizer = "svc.dpu.nvidia.com/ServiceInterface-finalizer"
+	ServiceInterfaceFinalizer = dpuservicev1.SvcDpuGroupName + "/ServiceInterface-finalizer"
 	RequeueIntervalSuccess    = 20 * time.Second
 	RequeueIntervalError      = 5 * time.Second
 	OvnPatch                  = "puplinkbrovn"

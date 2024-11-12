@@ -44,8 +44,10 @@ import (
 )
 
 const (
-	ServiceInterfaceSetNameLabel      = "svc.dpu.nvidia.com/serviceinterfaceset-name"
-	ServiceInterfaceSetNamespaceLabel = "svc.dpu.nvidia.com/serviceinterfaceset-namespace"
+	ServiceInterfaceSetNameLabel      = dpuservicev1.SvcDpuGroupName + "/serviceinterfaceset-name"
+	ServiceInterfaceSetNamespaceLabel = dpuservicev1.SvcDpuGroupName + "/serviceinterfaceset-namespace"
+	ServiceInterfaceNodeNameLabel     = dpuservicev1.SvcDpuGroupName + "/nodeName"
+	ServiceInterfaceServiceIDLabel    = dpuservicev1.SvcDpuGroupName + "/service-id"
 	serviceInterfaceSetControllerName = "service-interface-set-controller"
 )
 
@@ -158,6 +160,10 @@ func (r *ServiceInterfaceSetReconciler) createOrUpdateChild(ctx context.Context,
 	labels := map[string]string{
 		ServiceInterfaceSetNameLabel:      serviceInterfaceSet.Name,
 		ServiceInterfaceSetNamespaceLabel: serviceInterfaceSet.Namespace,
+		ServiceInterfaceNodeNameLabel:     nodeName,
+	}
+	if serviceInterfaceSet.Spec.Template.Spec.Service != nil {
+		labels[ServiceInterfaceServiceIDLabel] = serviceInterfaceSet.Spec.Template.Spec.Service.ServiceID
 	}
 	maps.Copy(labels, serviceInterfaceSet.Spec.Template.ObjectMeta.Labels)
 

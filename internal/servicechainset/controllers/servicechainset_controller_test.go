@@ -18,6 +18,7 @@ package controller //nolint:dupl
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
@@ -227,6 +228,41 @@ var _ = Describe("ServiceChainSet Controller", func() {
 				g.ExpectWithOffset(1, testClient.List(ctx, scList)).NotTo(HaveOccurred())
 				g.Expect(scList.Items).To(HaveLen(1))
 				g.Expect(scList.Items[0].GetNamespace()).NotTo(Equal(defaultNS))
+			}, timeout*30, interval).Should(Succeed())
+		})
+		It("verify ServiceChain node labeling", func() {
+			By("Create ServiceChainSet, without Node Selector")
+			cleanupObjects = append(cleanupObjects, createServiceChainSet(ctx, &metav1.LabelSelector{}))
+			By("Verify ServiceChain not created, no nodes")
+			Consistently(func(g Gomega) {
+				serviceChainList := &dpuservicev1.ServiceChainList{}
+				err := testClient.List(ctx, serviceChainList)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(serviceChainList.Items).To(BeEmpty())
+			}).WithTimeout(10 * time.Second).Should(Succeed())
+
+			By("Create 3 nodes")
+			labels := map[string]string{"role": "firewall"}
+			nodeNames := []string{"node1", "node2", "node3"}
+			cleanupObjects = append(cleanupObjects, createNode(ctx, nodeNames[0], labels))
+			cleanupObjects = append(cleanupObjects, createNode(ctx, nodeNames[1], labels))
+			cleanupObjects = append(cleanupObjects, createNode(ctx, nodeNames[2], make(map[string]string)))
+
+			By("Reconciling the created resource, 3 nodes")
+			Eventually(func(g Gomega) {
+				serviceChainList := &dpuservicev1.ServiceChainList{}
+				g.Expect(testClient.List(ctx, serviceChainList)).NotTo(HaveOccurred())
+				scNodes := []string{}
+				for _, si := range serviceChainList.Items {
+					serviceInterface := si
+					cleanupObjects = append(cleanupObjects, &serviceInterface)
+					scNodes = append(scNodes, si.Labels[ServiceInterfaceNodeNameLabel])
+				}
+				sort.Strings(scNodes)
+				g.Expect(scNodes).To(HaveLen(3))
+				for i := range scNodes {
+					g.Expect(scNodes[i]).To(Equal(nodeNames[i]))
+				}
 			}, timeout*30, interval).Should(Succeed())
 		})
 	})

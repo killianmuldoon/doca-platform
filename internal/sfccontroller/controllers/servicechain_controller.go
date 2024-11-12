@@ -52,6 +52,7 @@ type ServiceChainReconciler struct {
 const (
 	RequeueIntervalFlows = 5 * time.Second
 	podNodeNameKey       = "spec.nodeName"
+	ServiceChainLabel    = dpuservicev1.SvcDpuGroupName + "/service-chain"
 )
 
 func requeueFlows() (ctrl.Result, error) {
@@ -281,8 +282,8 @@ func (r *ServiceChainReconciler) getPodWithLabels(ctx context.Context, namespace
 	return &podList.Items[0], nil
 }
 
-// getServiceInterfaceWithLabels returns ServiceInterface in namespace that belongs to current node with given labels. if more than one or none matches, error out.
-func (r *ServiceChainReconciler) getServiceInterfaceWithLabels(ctx context.Context, namespace string, lbls map[string]string) (*dpuservicev1.ServiceInterface, error) {
+// getServiceInterfaceListWithLabels returns ServiceInterface in namespace that belongs to current node with given labels.
+func (r *ServiceChainReconciler) getServiceInterfaceListWithLabels(ctx context.Context, namespace string, lbls map[string]string) ([]*dpuservicev1.ServiceInterface, error) {
 	sil := &dpuservicev1.ServiceInterfaceList{}
 	listOpts := []client.ListOption{}
 
@@ -304,17 +305,26 @@ func (r *ServiceChainReconciler) getServiceInterfaceWithLabels(ctx context.Conte
 		}
 		matching = append(matching, &sil.Items[i])
 	}
+	return matching, nil
+}
 
-	if len(matching) == 0 {
+// getServiceInterfaceWithLabels returns ServiceInterface in namespace that belongs to current node with given labels. if more than one or none matches, error out.
+func (r *ServiceChainReconciler) getServiceInterfaceWithLabels(ctx context.Context, namespace string, lbls map[string]string) (*dpuservicev1.ServiceInterface, error) {
+	sil, err := r.getServiceInterfaceListWithLabels(ctx, namespace, lbls)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(sil) == 0 {
 		return nil, fmt.Errorf("no serviceInterface in namespace(%s) matching labels(%v) on node(%s) found", namespace, lbls, r.NodeName)
 	}
 
-	if len(matching) > 1 {
+	if len(sil) > 1 {
 		return nil, fmt.Errorf("expected only one serviceInterface in namespace(%s) to match labels(%v) on node(%s). found %d",
-			namespace, lbls, r.NodeName, len(sil.Items))
+			namespace, lbls, r.NodeName, len(sil))
 	}
 
-	return matching[0], nil
+	return sil[0], nil
 }
 
 // getPortNameForServiceInterface returns the ovs port name matching the given service interface
@@ -351,12 +361,39 @@ func (r *ServiceChainReconciler) getPortNameForServiceInterface(ctx context.Cont
 	return port, nil
 }
 
+func (r *ServiceChainReconciler) addServiceInterfaceChainLabel(ctx context.Context, si *dpuservicev1.ServiceInterface, serviceChainName string) error {
+	si.Labels[ServiceChainLabel] = serviceChainName
+	// Update the ServiceChain object
+	if err := r.Update(ctx, si); err != nil {
+		return fmt.Errorf("failed to update ServiceInterface %v", err)
+	}
+	return nil
+}
+
+func (r *ServiceChainReconciler) deleteServiceInterfaceChainLabel(ctx context.Context, serviceChainName, namespace string) error {
+	siLabelsToDelete := map[string]string{
+		ServiceChainLabel: serviceChainName,
+	}
+	sil, err := r.getServiceInterfaceListWithLabels(ctx, namespace, siLabelsToDelete)
+	if err != nil {
+		return fmt.Errorf("failed to get interface %v", err)
+	}
+	for _, si := range sil {
+		delete(si.Labels, ServiceChainLabel)
+		// Update the ServiceInterface object
+		if err := r.Update(ctx, si); err != nil {
+			return fmt.Errorf("failed to update ServiceInterface %v", err)
+		}
+	}
+	return nil
+}
+
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch;update
 // +kubebuilder:rbac:groups=coordination.k8s.io,resources=leases,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechains,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechains/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechains/finalizers,verbs=update
-// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups="",resources=nodes;s,verbs=get;list;watch
 
 func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -369,6 +406,11 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	if err = r.Client.Get(ctx, req.NamespacedName, sc); err != nil {
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
+			if err := r.deleteServiceInterfaceChainLabel(ctx, req.Name, req.Namespace); err != nil {
+				log.Error(err, "failed to delete ServiceInterface chain label")
+				return requeueFlows()
+			}
+
 			// Always ensure delete operation in case of errors
 			flowErrors := delFlows(fmt.Sprintf("cookie=%d/-1", hashedName))
 			if flowErrors != nil {
@@ -394,6 +436,16 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			}
 			if intfName != "" {
 				ports[swPos] = append(ports[swPos], intfName)
+			}
+
+			si, err := r.getServiceInterfaceWithLabels(ctx, sc.Namespace, port.ServiceInterface.MatchLabels)
+			if err != nil {
+				log.Error(err, "failed to get interface")
+				return requeueFlows()
+			}
+			if err := r.addServiceInterfaceChainLabel(ctx, si, sc.Name); err != nil {
+				log.Error(err, "failed to add ServiceInterface chain label")
+				return requeueFlows()
 			}
 		}
 	}

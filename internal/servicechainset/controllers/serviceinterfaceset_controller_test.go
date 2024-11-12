@@ -18,6 +18,7 @@ package controller //nolint:dupl
 
 import (
 	"context"
+	"sort"
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
@@ -234,6 +235,36 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 				g.Expect(siList.Items).To(HaveLen(1))
 				g.Expect(siList.Items[0].GetNamespace()).NotTo(Equal(defaultNS))
 			}, timeout*30, interval).Should(Succeed())
+		})
+		It("verify ServiceInterface node labeling", func() {
+			By("Create ServiceInterfaceSet, without Node Selector")
+			cleanupObjects = append(cleanupObjects, createServiceInterfaceSet(ctx, &metav1.LabelSelector{}))
+
+			By("Create 3 nodes")
+			labels := map[string]string{"role": "firewall"}
+			nodeNames := []string{"node1", "node2", "node3"}
+			cleanupObjects = append(cleanupObjects, createNode(ctx, nodeNames[0], labels))
+			cleanupObjects = append(cleanupObjects, createNode(ctx, nodeNames[1], labels))
+			cleanupObjects = append(cleanupObjects, createNode(ctx, nodeNames[2], make(map[string]string)))
+
+			By("Reconciling the created resource, 3 nodes")
+			Eventually(func(g Gomega) {
+				serviceInterfaceList := &dpuservicev1.ServiceInterfaceList{}
+				g.Expect(testClient.List(ctx, serviceInterfaceList)).NotTo(HaveOccurred())
+				siNodes := []string{}
+				for _, si := range serviceInterfaceList.Items {
+					serviceInterface := si
+					cleanupObjects = append(cleanupObjects, &serviceInterface)
+					siNodes = append(siNodes, si.Labels[ServiceInterfaceNodeNameLabel])
+				}
+				sort.Strings(siNodes)
+				g.Expect(siNodes).To(HaveLen(3))
+				for i := range siNodes {
+					g.Expect(siNodes[i]).To(Equal(nodeNames[i]))
+				}
+			}, timeout*30, interval).Should(Succeed())
+			By("Delete ServiceInterfaceSet Spec")
+			Expect(testClient.Delete(ctx, &dpuservicev1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
 		})
 	})
 
