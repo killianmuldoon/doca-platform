@@ -84,11 +84,8 @@ var (
 )
 
 //nolint:dupl
-var _ = Describe("Testing DPF Operator controller", Ordered, func() {
+var _ = Describe("DOCA Platform Framework", Ordered, func() {
 	// TODO: Consolidate all the DPUService* objects in one namespace to illustrate user behavior
-	dpuServiceName := "dpu-01"
-	hostDPUServiceName := "host-dpu-service"
-	dpuServiceNamespace := "dpu-test-ns"
 	dpfProvisioningControllerPVCName := "bfb-pvc"
 	extraPullSecretName := fmt.Sprintf("%s-extra", pullSecretName)
 
@@ -126,8 +123,8 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 				Disable: ptr.To(false),
 			},
 			ImagePullSecrets: []string{
-				imagePullSecret.Name,
-				imagePullSecretExtra.Name,
+				pullSecretName,
+				extraPullSecretName,
 			},
 		},
 	}
@@ -371,249 +368,11 @@ var _ = Describe("Testing DPF Operator controller", Ordered, func() {
 			}).WithTimeout(30 * time.Minute).WithPolling(120 * time.Second).Should(Succeed())
 		})
 
-		It("verify that the ImagePullSecrets have been synced correctly and cleaned up", func() {
-			// Verify that we have 2 secrets in the DPU Cluster.
-			verifyImagePullSecretsCount(2)
-
-			Eventually(func(g Gomega) {
-				desiredConf := &operatorv1.DPFOperatorConfig{}
-				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), desiredConf)).To(Succeed())
-				currentConf := desiredConf.DeepCopy()
-
-				// Patch the DPFOperatorConfig to remove the secret. This causes the label to be removed.
-				for i := range desiredConf.Spec.ImagePullSecrets {
-					if desiredConf.Spec.ImagePullSecrets[i] == extraPullSecretName {
-						desiredConf.Spec.ImagePullSecrets = append(desiredConf.Spec.ImagePullSecrets[:i], desiredConf.Spec.ImagePullSecrets[i+1:]...)
-					}
-				}
-				g.Expect(testClient.Patch(ctx, desiredConf, client.MergeFrom(currentConf))).To(Succeed())
-
-				// Patch a DPUService to trigger a reconciliation. The DPUService should clean  this secret up from
-				// clusters to which it was previously mirrored.
-				g.Expect(utils.ForceObjectReconcileWithAnnotation(ctx, testClient,
-					&dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: operatorv1.MultusName, Namespace: "dpf-operator-system"}})).To(Succeed())
-
-				// Verify that we have only 1.
-				verifyImagePullSecretsCount(1)
-			}).WithTimeout(60 * time.Second).Should(Succeed())
-		})
-
-		It("create a DPUService and check Objects and ImagePullSecrets are mirrored correctly", func() {
-			By("create namespace for DPUService")
-			testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceNamespace}}
-			testNS.SetLabels(cleanupLabels)
-			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testNS))).To(Succeed())
-
-			By("create ImagePullSecret for DPUService in user namespace")
-			testNSImagePullSecret := imagePullSecret.DeepCopy()
-			testNSImagePullSecret.Namespace = dpuServiceNamespace
-			labels := testNSImagePullSecret.GetLabels()
-			labels[dpuservicev1.DPFImagePullSecretLabelKey] = ""
-			testNSImagePullSecret.SetLabels(labels)
-			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testNSImagePullSecret))).ToNot(HaveOccurred())
-
-			By("create a DPUServiceInterface")
-			dsi := getUnstructuredFromFile("application/dpuserviceinterface_service_type.yaml")
-			dsi.SetName("net1-service")
-			dsi.SetNamespace(dpuServiceNamespace)
-			dsi.SetLabels(cleanupLabels)
-			Expect(testClient.Create(ctx, dsi)).To(Succeed())
-
-			By("create a DPUService to be deployed on the DPUCluster")
-			// Create DPUCluster DPUService and check it's correctly reconciled.
-			dpuService := getDPUService(dpuServiceNamespace, dpuServiceName, false)
-			Expect(unstructured.SetNestedSlice(dpuService.UnstructuredContent(), []interface{}{"net1-service"}, "spec", "interfaces")).Should(Succeed())
-			Expect(unstructured.SetNestedField(dpuService.UnstructuredContent(), "my-service", "spec", "serviceID")).Should(Succeed())
-			dpuService.SetLabels(cleanupLabels)
-			Expect(testClient.Create(ctx, dpuService)).To(Succeed())
-
-			By("create a DPUService to be deployed on the host cluster")
-			// Create a host DPUService and check it's correctly reconciled
-			// Read the DPUService from file and create it.
-			hostDPUService := getDPUService(dpuServiceNamespace, hostDPUServiceName, true)
-			hostDPUService.SetLabels(cleanupLabels)
-			Expect(testClient.Create(ctx, hostDPUService)).To(Succeed())
-
-			By("verify DPUServices and deployments are created")
-			Eventually(func(g Gomega) {
-				dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
-				g.Expect(err).ToNot(HaveOccurred())
-				for _, dpuClusterConfig := range dpuClusterConfigs {
-					dpuClient, err := dpuClusterConfig.Client(ctx)
-					g.Expect(err).ToNot(HaveOccurred())
-
-					// Check the deployment from the DPUService can be found on the destination cluster.
-					deploymentList := appsv1.DeploymentList{}
-					g.Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
-					g.Expect(deploymentList.Items).To(HaveLen(1))
-					g.Expect(deploymentList.Items[0].Name).To(ContainSubstring("helm-guestbook"))
-
-					// Check an imagePullSecret was created in the same namespace in the destination cluster.
-					g.Expect(dpuClient.Get(ctx, client.ObjectKey{
-						Namespace: dpuService.GetNamespace(),
-						Name:      config.Spec.ImagePullSecrets[0]}, &corev1.Secret{})).To(Succeed())
-				}
-			}).WithTimeout(600 * time.Second).Should(Succeed())
-
-			By("verify DPUService is created in the host cluster")
-			Eventually(func(g Gomega) {
-				// Check the deployment from the DPUService can be found on the host cluster.
-				deploymentList := appsv1.DeploymentList{}
-				g.Expect(testClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
-				g.Expect(deploymentList.Items).To(HaveLen(1))
-				g.Expect(deploymentList.Items[0].Name).To(ContainSubstring("helm-guestbook"))
-			}).WithTimeout(600 * time.Second).Should(Succeed())
-		})
-
-		It("delete the DPUServices and check that the applications are cleaned up", func() {
-			if skipCleanup {
-				Skip("Skip cleanup resources")
-			}
-			By("delete the DPUServices")
-			svc := &dpuservicev1.DPUService{}
-			// Delete the DPUCluster DPUService.
-			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: dpuServiceName}, svc)).To(Succeed())
-			Expect(testClient.Delete(ctx, svc)).To(Succeed())
-
-			// Delete the host cluster DPUService.
-			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: hostDPUServiceName}, svc)).To(Succeed())
-			Expect(testClient.Delete(ctx, svc)).To(Succeed())
-
-			dsi := &dpuservicev1.DPUServiceInterface{}
-			Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: "net1-service"}, dsi)).To(Succeed())
-			Expect(utils.CleanupAndWait(ctx, testClient, dsi)).To(Succeed())
-
-			// Check the DPUCluster DPUService is correctly deleted.
-			Eventually(func(g Gomega) {
-				dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
-				g.Expect(err).ToNot(HaveOccurred())
-				for _, dpuClusterConfig := range dpuClusterConfigs {
-					dpuClient, err := dpuClusterConfig.Client(ctx)
-					g.Expect(err).ToNot(HaveOccurred())
-					deploymentList := appsv1.DeploymentList{}
-					g.Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
-					g.Expect(deploymentList.Items).To(BeEmpty())
-				}
-			}).WithTimeout(300 * time.Second).Should(Succeed())
-
-			// Ensure the hostDPUService deployment is deleted from the host cluster.
-			Eventually(func(g Gomega) {
-				deploymentList := appsv1.DeploymentList{}
-				g.Expect(testClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
-				g.Expect(deploymentList.Items).To(BeEmpty())
-			}).WithTimeout(300 * time.Second).Should(Succeed())
-		})
-
+		ValidateDPUService(ctx, config)
+		ValidateDPUDeployment(ctx)
 		ValidateDPUServiceIPAM(ctx)
 		ValidateDPUServiceChain(ctx)
 		ValidateDPUServiceCredentialRequest(ctx)
-		It("create a DPUDeployment with its dependencies and ensure that the underlying objects are created", func() {
-			By("creating the dependencies")
-			dpuServiceTemplate := getUnstructuredFromFile("application/dpuservicetemplate.yaml")
-			dpuServiceTemplate.SetLabels(cleanupLabels)
-			Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
-
-			dpuServiceConfiguration := getUnstructuredFromFile("application/dpuserviceconfiguration.yaml")
-			dpuServiceConfiguration.SetLabels(cleanupLabels)
-			Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
-
-			By("creating the dpudeployment")
-			dpuDeployment := getUnstructuredFromFile("application/dpudeployment.yaml")
-			dpuDeployment.SetLabels(cleanupLabels)
-			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
-
-			By("checking that the underlying objects are created")
-			Eventually(func(g Gomega) {
-				gotDPUSetList := &provisioningv1.DPUSetList{}
-				g.Expect(testClient.List(ctx,
-					gotDPUSetList,
-					client.InNamespace(dpuDeployment.GetNamespace()),
-					client.MatchingLabels{
-						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
-					})).To(Succeed())
-				g.Expect(gotDPUSetList.Items).To(HaveLen(1))
-
-				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
-				g.Expect(testClient.List(ctx,
-					gotDPUServiceList,
-					client.InNamespace(dpuDeployment.GetNamespace()),
-					client.MatchingLabels{
-						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
-					})).To(Succeed())
-				g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
-
-				gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
-				g.Expect(testClient.List(ctx,
-					gotDPUServiceChainList,
-					client.InNamespace(dpuDeployment.GetNamespace()),
-					client.MatchingLabels{
-						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
-					})).To(Succeed())
-				g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
-
-				gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
-				g.Expect(testClient.List(ctx,
-					gotDPUServiceInterfaceList,
-					client.InNamespace(dpuDeployment.GetNamespace()),
-					client.MatchingLabels{
-						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
-					})).To(Succeed())
-				g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
-			}).WithTimeout(180 * time.Second).Should(Succeed())
-		})
-
-		It("delete the DPUDeployment and ensure the underlying objects are gone", func() {
-			if skipCleanup {
-				Skip("Skip cleanup resources")
-			}
-
-			By("deleting the dpudeployment")
-			dpuDeployment := getUnstructuredFromFile("application/dpudeployment.yaml")
-			Expect(testClient.Delete(ctx, dpuDeployment)).To(Succeed())
-
-			By("checking that the underlying objects are deleted")
-			Eventually(func(g Gomega) {
-				gotDPUSetList := &provisioningv1.DPUSetList{}
-				g.Expect(testClient.List(ctx,
-					gotDPUSetList,
-					client.InNamespace(dpuDeployment.GetNamespace()),
-					client.MatchingLabels{
-						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
-					})).To(Succeed())
-				g.Expect(gotDPUSetList.Items).To(BeEmpty())
-
-				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
-				g.Expect(testClient.List(ctx,
-					gotDPUServiceList,
-					client.InNamespace(dpuDeployment.GetNamespace()),
-					client.MatchingLabels{
-						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
-					})).To(Succeed())
-				g.Expect(gotDPUServiceList.Items).To(BeEmpty())
-
-				gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
-				g.Expect(testClient.List(ctx,
-					gotDPUServiceChainList,
-					client.InNamespace(dpuDeployment.GetNamespace()),
-					client.MatchingLabels{
-						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
-					})).To(Succeed())
-				g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
-
-				gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
-				g.Expect(testClient.List(ctx,
-					gotDPUServiceInterfaceList,
-					client.InNamespace(dpuDeployment.GetNamespace()),
-					client.MatchingLabels{
-						"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
-					})).To(Succeed())
-				g.Expect(gotDPUServiceInterfaceList.Items).To(BeEmpty())
-
-				// Expect the DPUDeployment to be deleted
-				err := testClient.Get(ctx, client.ObjectKey{Namespace: dpuDeployment.GetNamespace(), Name: dpuDeployment.GetName()}, &dpuservicev1.DPUDeployment{})
-				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
-			}).WithTimeout(180 * time.Second).Should(Succeed())
-		})
 
 		It("delete DPUs, DPUSets and BFBs and ensure they are deleted", func() {
 			if skipCleanup {
@@ -842,6 +601,254 @@ func verifyImagePullSecretsCount(count int) {
 			g.Expect(secrets.Items).To(HaveLen(count))
 		}
 	}).WithTimeout(60 * time.Second).Should(Succeed())
+}
+
+func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfig) {
+	dpuServiceName := "dpu-01"
+	hostDPUServiceName := "host-dpu-service"
+	dpuServiceNamespace := "dpu-test-ns"
+
+	It("create a DPUService and check Objects and ImagePullSecrets are mirrored correctly", func() {
+
+		By("create namespace for DPUService")
+		testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceNamespace}}
+		testNS.SetLabels(cleanupLabels)
+		Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testNS))).To(Succeed())
+
+		By("create ImagePullSecret for DPUService in user namespace")
+		testNSImagePullSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pullSecretName,
+				Namespace: dpuServiceNamespace,
+				Labels: map[string]string{
+					dpuservicev1.DPFImagePullSecretLabelKey: "",
+				},
+			},
+		}
+		Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testNSImagePullSecret))).ToNot(HaveOccurred())
+
+		By("create a DPUServiceInterface")
+		dsi := unstructuredFromFile("application/dpuserviceinterface_service_type.yaml")
+		dsi.SetName("net1-service")
+		dsi.SetNamespace(dpuServiceNamespace)
+		dsi.SetLabels(cleanupLabels)
+		Expect(testClient.Create(ctx, dsi)).To(Succeed())
+
+		By("create a DPUService to be deployed on the DPUCluster")
+		// Create DPUCluster DPUService and check it's correctly reconciled.
+		dpuService := getDPUService(dpuServiceNamespace, dpuServiceName, false)
+		Expect(unstructured.SetNestedSlice(dpuService.UnstructuredContent(), []interface{}{"net1-service"}, "spec", "interfaces")).Should(Succeed())
+		Expect(unstructured.SetNestedField(dpuService.UnstructuredContent(), "my-service", "spec", "serviceID")).Should(Succeed())
+		dpuService.SetLabels(cleanupLabels)
+		Expect(testClient.Create(ctx, dpuService)).To(Succeed())
+
+		By("create a DPUService to be deployed on the host cluster")
+		// Create a host DPUService and check it's correctly reconciled
+		// Read the DPUService from file and create it.
+		hostDPUService := getDPUService(dpuServiceNamespace, hostDPUServiceName, true)
+		hostDPUService.SetLabels(cleanupLabels)
+		Expect(testClient.Create(ctx, hostDPUService)).To(Succeed())
+
+		By("verify DPUServices and deployments are created")
+		Eventually(func(g Gomega) {
+			dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
+			g.Expect(err).ToNot(HaveOccurred())
+			for _, dpuClusterConfig := range dpuClusterConfigs {
+				dpuClient, err := dpuClusterConfig.Client(ctx)
+				g.Expect(err).ToNot(HaveOccurred())
+
+				// Check the deployment from the DPUService can be found on the destination cluster.
+				deploymentList := appsv1.DeploymentList{}
+				g.Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
+				g.Expect(deploymentList.Items).To(HaveLen(1))
+				g.Expect(deploymentList.Items[0].Name).To(ContainSubstring("helm-guestbook"))
+
+				// Check an imagePullSecret was created in the same namespace in the destination cluster.
+				g.Expect(dpuClient.Get(ctx, client.ObjectKey{
+					Namespace: dpuService.GetNamespace(),
+					Name:      config.Spec.ImagePullSecrets[0]}, &corev1.Secret{})).To(Succeed())
+			}
+		}).WithTimeout(600 * time.Second).Should(Succeed())
+
+		By("verify DPUService is created in the host cluster")
+		Eventually(func(g Gomega) {
+			// Check the deployment from the DPUService can be found on the host cluster.
+			deploymentList := appsv1.DeploymentList{}
+			g.Expect(testClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
+			g.Expect(deploymentList.Items).To(HaveLen(1))
+			g.Expect(deploymentList.Items[0].Name).To(ContainSubstring("helm-guestbook"))
+		}).WithTimeout(600 * time.Second).Should(Succeed())
+	})
+
+	It("delete the DPUServices and check that the applications are cleaned up", func() {
+		if skipCleanup {
+			Skip("Skip cleanup resources")
+		}
+		By("delete the DPUServices")
+		svc := &dpuservicev1.DPUService{}
+		// Delete the DPUCluster DPUService.
+		Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: dpuServiceName}, svc)).To(Succeed())
+		Expect(testClient.Delete(ctx, svc)).To(Succeed())
+
+		// Delete the host cluster DPUService.
+		Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: hostDPUServiceName}, svc)).To(Succeed())
+		Expect(testClient.Delete(ctx, svc)).To(Succeed())
+
+		dsi := &dpuservicev1.DPUServiceInterface{}
+		Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: "net1-service"}, dsi)).To(Succeed())
+		Expect(utils.CleanupAndWait(ctx, testClient, dsi)).To(Succeed())
+
+		// Check the DPUCluster DPUService is correctly deleted.
+		Eventually(func(g Gomega) {
+			dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
+			g.Expect(err).ToNot(HaveOccurred())
+			for _, dpuClusterConfig := range dpuClusterConfigs {
+				dpuClient, err := dpuClusterConfig.Client(ctx)
+				g.Expect(err).ToNot(HaveOccurred())
+				deploymentList := appsv1.DeploymentList{}
+				g.Expect(dpuClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
+				g.Expect(deploymentList.Items).To(BeEmpty())
+			}
+		}).WithTimeout(300 * time.Second).Should(Succeed())
+
+		// Ensure the hostDPUService deployment is deleted from the host cluster.
+		Eventually(func(g Gomega) {
+			deploymentList := appsv1.DeploymentList{}
+			g.Expect(testClient.List(ctx, &deploymentList, client.HasLabels{"app", "release"})).To(Succeed())
+			g.Expect(deploymentList.Items).To(BeEmpty())
+		}).WithTimeout(300 * time.Second).Should(Succeed())
+	})
+
+	It("verify that the ImagePullSecrets have been synced correctly and cleaned up", func() {
+		// Verify that we have 2 secrets in the DPU Cluster.
+		verifyImagePullSecretsCount(2)
+
+		desiredConf := &operatorv1.DPFOperatorConfig{}
+		Eventually(testClient.Get).WithArguments(ctx, client.ObjectKeyFromObject(config), desiredConf).Should(Succeed())
+		currentConf := desiredConf.DeepCopy()
+
+		// Patch the DPFOperatorConfig to remove the second secret. This causes the label to be removed.
+		desiredConf.Spec.ImagePullSecrets = append(desiredConf.Spec.ImagePullSecrets[:1], desiredConf.Spec.ImagePullSecrets[2:]...)
+
+		Eventually(testClient.Patch).WithArguments(ctx, desiredConf, client.MergeFrom(currentConf)).Should(Succeed())
+
+		// Patch a DPUService to trigger a reconciliation. The DPUService should clean  this secret up from
+		// clusters to which it was previously mirrored.
+		Eventually(utils.ForceObjectReconcileWithAnnotation).WithArguments(ctx, testClient,
+			&dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: operatorv1.MultusName, Namespace: "dpf-operator-system"}}).Should(Succeed())
+		// Verify we only have one image pull secret.
+		verifyImagePullSecretsCount(1)
+	})
+}
+
+func ValidateDPUDeployment(ctx context.Context) {
+	It("create a DPUDeployment with its dependencies and ensure that the underlying objects are created", func() {
+		By("creating the dependencies")
+		dpuServiceTemplate := unstructuredFromFile("application/dpuservicetemplate.yaml")
+		dpuServiceTemplate.SetLabels(cleanupLabels)
+		Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+
+		dpuServiceConfiguration := unstructuredFromFile("application/dpuserviceconfiguration.yaml")
+		dpuServiceConfiguration.SetLabels(cleanupLabels)
+		Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+
+		By("creating the dpudeployment")
+		dpuDeployment := unstructuredFromFile("application/dpudeployment.yaml")
+		dpuDeployment.SetLabels(cleanupLabels)
+		Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+
+		By("checking that the underlying objects are created")
+		Eventually(func(g Gomega) {
+			gotDPUSetList := &provisioningv1.DPUSetList{}
+			g.Expect(testClient.List(ctx,
+				gotDPUSetList,
+				client.InNamespace(dpuDeployment.GetNamespace()),
+				client.MatchingLabels{
+					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+				})).To(Succeed())
+			g.Expect(gotDPUSetList.Items).To(HaveLen(1))
+
+			gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+			g.Expect(testClient.List(ctx,
+				gotDPUServiceList,
+				client.InNamespace(dpuDeployment.GetNamespace()),
+				client.MatchingLabels{
+					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+				})).To(Succeed())
+			g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
+
+			gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
+			g.Expect(testClient.List(ctx,
+				gotDPUServiceChainList,
+				client.InNamespace(dpuDeployment.GetNamespace()),
+				client.MatchingLabels{
+					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+				})).To(Succeed())
+			g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
+
+			gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+			g.Expect(testClient.List(ctx,
+				gotDPUServiceInterfaceList,
+				client.InNamespace(dpuDeployment.GetNamespace()),
+				client.MatchingLabels{
+					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+				})).To(Succeed())
+			g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
+		}).WithTimeout(180 * time.Second).Should(Succeed())
+	})
+
+	It("delete the DPUDeployment and ensure the underlying objects are gone", func() {
+		if skipCleanup {
+			Skip("Skip cleanup resources")
+		}
+
+		By("deleting the dpudeployment")
+		dpuDeployment := unstructuredFromFile("application/dpudeployment.yaml")
+		Expect(testClient.Delete(ctx, dpuDeployment)).To(Succeed())
+
+		By("checking that the underlying objects are deleted")
+		Eventually(func(g Gomega) {
+			gotDPUSetList := &provisioningv1.DPUSetList{}
+			g.Expect(testClient.List(ctx,
+				gotDPUSetList,
+				client.InNamespace(dpuDeployment.GetNamespace()),
+				client.MatchingLabels{
+					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+				})).To(Succeed())
+			g.Expect(gotDPUSetList.Items).To(BeEmpty())
+
+			gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+			g.Expect(testClient.List(ctx,
+				gotDPUServiceList,
+				client.InNamespace(dpuDeployment.GetNamespace()),
+				client.MatchingLabels{
+					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+				})).To(Succeed())
+			g.Expect(gotDPUServiceList.Items).To(BeEmpty())
+
+			gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
+			g.Expect(testClient.List(ctx,
+				gotDPUServiceChainList,
+				client.InNamespace(dpuDeployment.GetNamespace()),
+				client.MatchingLabels{
+					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+				})).To(Succeed())
+			g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
+
+			gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+			g.Expect(testClient.List(ctx,
+				gotDPUServiceInterfaceList,
+				client.InNamespace(dpuDeployment.GetNamespace()),
+				client.MatchingLabels{
+					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+				})).To(Succeed())
+			g.Expect(gotDPUServiceInterfaceList.Items).To(BeEmpty())
+
+			// Expect the DPUDeployment to be deleted
+			err := testClient.Get(ctx, client.ObjectKey{Namespace: dpuDeployment.GetNamespace(), Name: dpuDeployment.GetName()}, &dpuservicev1.DPUDeployment{})
+			g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+		}).WithTimeout(180 * time.Second).Should(Succeed())
+	})
 }
 
 func ValidateDPUServiceIPAM(ctx context.Context) {
