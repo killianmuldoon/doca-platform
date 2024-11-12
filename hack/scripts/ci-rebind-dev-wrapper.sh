@@ -37,7 +37,8 @@ while true; do
   # Exit if the process is not running anymore.
   if ! kill -0 $pid; then
     echo "Process $pid is not running anymore. Exiting."
-    exit 0
+    wait $pid
+    exit $?
   fi
 
   devices=$(journalctl --since "-10s" -k -g "$target_message" -o cat | sed -r 's/.* (0000:..:..\..): .*/\1/')
