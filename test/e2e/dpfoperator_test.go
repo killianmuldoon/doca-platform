@@ -28,7 +28,6 @@ import (
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
-	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
 	"github.com/nvidia/doca-platform/test/utils"
 	"github.com/nvidia/doca-platform/test/utils/collector"
@@ -88,11 +87,6 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 	// TODO: Consolidate all the DPUService* objects in one namespace to illustrate user behavior
 	dpfProvisioningControllerPVCName := "bfb-pvc"
 	extraPullSecretName := fmt.Sprintf("%s-extra", pullSecretName)
-
-	// This annotation prevents nodes from being restarted during the e2e provisioning test flow which speeds up the test.
-	additionalNodeAnnotations := map[string]string{
-		"provisioning.dpu.nvidia.com/reboot-command": "skip",
-	}
 
 	imagePullSecret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
@@ -163,7 +157,7 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 		})
 
 		It("create the PersistentVolumeClaim for the DPF Provisioning controller", func() {
-			pvcUnstructured := getUnstructuredFromFile("infrastructure/dpf-provisioning-pvc.yaml")
+			pvcUnstructured := unstructuredFromFile("infrastructure/dpf-provisioning-pvc.yaml")
 			pvc := &corev1.PersistentVolumeClaim{}
 			Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(pvcUnstructured.Object, pvc)).To(Succeed())
 			pvc.SetName(dpfProvisioningControllerPVCName)
@@ -187,51 +181,6 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 
 		It("create the DPFOperatorConfig for the system", func() {
 			Expect(testClient.Create(ctx, config)).To(Succeed())
-		})
-
-		It("create underlying DPU clusters for test", func() {
-			for i := 0; i < numClusters; i++ {
-				clusterName := fmt.Sprintf("dpu-cluster-%d", i+1)
-				// Read the TenantControlPlane from file and create it.
-				// Note: This process doesn't cover all the places in the file the name should be set.
-				controlPlane := getUnstructuredFromFile("infrastructure/kamaji.yaml")
-				controlPlane.SetName(clusterName)
-				controlPlane.SetNamespace(dpfOperatorSystemNamespace)
-				controlPlane.SetLabels(cleanupLabels)
-
-				// If we have real nodes use the ClusterIP service type.
-				if numNodes > 0 {
-					Expect(unstructured.SetNestedField(controlPlane.UnstructuredContent(), "ClusterIP", "spec", "controlPlane", "service", "serviceType")).To(Succeed())
-				}
-
-				By(fmt.Sprintf("Creating DPU Cluster %s/%s", controlPlane.GetNamespace(), controlPlane.GetName()))
-				Expect(testClient.Create(ctx, controlPlane)).To(Succeed())
-
-				// Read the DPUCluster from file and create it.
-				// Note: This process doesn't cover all the places in the file the name should be set.
-				dpuCluster := getUnstructuredFromFile("infrastructure/dpu-control-plane.yaml")
-				Expect(unstructured.SetNestedField(dpuCluster.UnstructuredContent(), fmt.Sprintf("%s-admin-kubeconfig", clusterName), "spec", "kubeconfig")).To(Succeed())
-				dpuCluster.SetName(clusterName)
-				dpuCluster.SetNamespace(dpfOperatorSystemNamespace)
-				dpuCluster.SetLabels(cleanupLabels)
-
-				By(fmt.Sprintf("Creating DPU Cluster %s/%s", dpuCluster.GetNamespace(), controlPlane.GetName()))
-				Expect(testClient.Create(ctx, dpuCluster)).To(Succeed())
-			}
-			Eventually(func(g Gomega) {
-				clusters := &unstructured.UnstructuredList{}
-				clusters.SetGroupVersionKind(kamajiv1.GroupVersion.WithKind(kamajiv1.TenantControlPlaneKind))
-				g.Expect(testClient.List(ctx, clusters)).To(Succeed())
-				g.Expect(clusters.Items).To(HaveLen(numClusters))
-				for _, cluster := range clusters.Items {
-					// Note: ControlPlane readiness here is picked using a well-known path.
-					// TODO: Make an equivalent check part of the control plane package.
-					status, found, err := unstructured.NestedString(cluster.UnstructuredContent(), "status", "kubernetesResources", "version", "status")
-					g.Expect(err).NotTo(HaveOccurred())
-					g.Expect(found).To(BeTrue())
-					g.Expect(status).To(Equal("Ready"))
-				}
-			}).WithTimeout(300 * time.Second).Should(Succeed())
 		})
 
 		It("ensure the DPF controllers are running and ready", func() {
@@ -274,98 +223,39 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 				g.Expect(found).To(HaveKey(operatorv1.SFCControllerName))
 			}).WithTimeout(60 * time.Second).Should(Succeed())
 
-			By("Checking that DPUService objects have been mirrored to the DPUClusters")
-			dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
-			Expect(err).ToNot(HaveOccurred())
-			Eventually(func(g Gomega) {
-				for _, dpuClusterConfig := range dpuClusterConfigs {
-					dpuClient, err := dpuClusterConfig.Client(ctx)
-					g.Expect(err).ToNot(HaveOccurred())
-					deployments := appsv1.DeploymentList{}
-					g.Expect(dpuClient.List(ctx, &deployments, client.HasLabels{argoCDInstanceLabel})).To(Succeed())
-					found := map[string]bool{}
-					for i := range deployments.Items {
-						g.Expect(deployments.Items[i].GetLabels()).To(HaveKey(argoCDInstanceLabel))
-						g.Expect(deployments.Items[i].GetLabels()[argoCDInstanceLabel]).NotTo(Equal(""))
-						found[deployments.Items[i].GetLabels()[argoCDInstanceLabel]] = true
-					}
-					daemonsets := appsv1.DaemonSetList{}
-					g.Expect(dpuClient.List(ctx, &daemonsets, client.HasLabels{argoCDInstanceLabel})).To(Succeed())
-					for i := range daemonsets.Items {
-						g.Expect(daemonsets.Items[i].GetLabels()).To(HaveKey(argoCDInstanceLabel))
-						g.Expect(daemonsets.Items[i].GetLabels()[argoCDInstanceLabel]).NotTo(Equal(""))
-						found[daemonsets.Items[i].GetLabels()[argoCDInstanceLabel]] = true
-					}
-
-					// Expect each of the following to have been created by the operator.
-					// These are labels on the appv1 type - e.g. DaemonSet or Deployment on the DPU cluster.
-					g.Expect(found).To(HaveLen(7))
-					g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.MultusName)))
-					g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.FlannelName)))
-					g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.SRIOVDevicePluginName)))
-					g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.ServiceSetControllerName)))
-					// Note: The NVIPAM DPUService contains both a Daemonset and a Deployment - but this is overwritten in the map.
-					g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.NVIPAMName)))
-					g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.OVSCNIName)))
-					g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.OVSCNIName)))
-				}
-			}).WithTimeout(600 * time.Second).Should(Succeed())
-
 			By("verify System DPUService images can be set through the DPFOperatorConfig")
 			verifyImageConfigurationForDPUServices(config)
 		})
 
-		It("create the provisioning objects", func() {
-			// Add additional annotations to the Nodes.
-			Eventually(func(g Gomega) {
-				nodes := &corev1.NodeList{}
-				g.Expect(testClient.List(ctx, nodes)).To(Succeed())
-				for _, node := range nodes.Items {
-					original := node.DeepCopy()
-					annotations := node.GetAnnotations()
-					for k, v := range additionalNodeAnnotations {
-						annotations[k] = v
-					}
-					node.SetAnnotations(annotations)
-					g.Expect(testClient.Patch(ctx, &node, client.MergeFrom(original))).To(Succeed())
-				}
-			}).Should(Succeed())
-			Eventually(func(g Gomega) {
-				// Read the BFB object and create it.
-				By("creating the BFB")
-				bfb := getUnstructuredFromFile("infrastructure/bfb.yaml")
-				bfb.SetLabels(cleanupLabels)
-				g.Expect(testClient.Create(ctx, bfb)).To(Succeed())
-			}).WithTimeout(10 * time.Second).Should(Succeed())
+		baseClusterName := "dpu-cluster-%d"
+		dpuClusterPrerequisiteObjects := []client.Object{}
+		for i := 0; i < numClusters; i++ {
+			// Read the TenantControlPlane from file and create it.
+			// Note: This process doesn't cover all the places in the file the name should be set.
+			tenantControlPlane := unstructuredFromFile("infrastructure/kamaji.yaml")
+			tenantControlPlane.SetName(fmt.Sprintf(baseClusterName, i+1))
+			tenantControlPlane.SetNamespace(dpfOperatorSystemNamespace)
 
-			dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
-			Expect(err).ToNot(HaveOccurred())
+			// If we have real nodes use the ClusterIP service type.
+			if numNodes > 0 {
+				Expect(unstructured.SetNestedField(tenantControlPlane.UnstructuredContent(), "ClusterIP", "spec", "controlPlane", "service", "serviceType")).To(Succeed())
+			}
+			dpuClusterPrerequisiteObjects = append(dpuClusterPrerequisiteObjects, tenantControlPlane)
+		}
 
-			Eventually(func(g Gomega) {
-				dpusetUnstructured := getUnstructuredFromFile("infrastructure/dpuset.yaml")
-				dpuset := &provisioningv1.DPUSet{}
-				Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpusetUnstructured.Object, dpuset)).To(Succeed())
-
-				// TODO: Test the cleanup of the node related to the DPU.
-				dpuset.SetLabels(cleanupLabels)
-				g.Expect(testClient.Create(ctx, dpuset)).To(Succeed())
-			}).WithTimeout(60 * time.Second).Should(Succeed())
-
-			By(fmt.Sprintf("checking that the number of nodes is equal to %d", numNodes))
-			Eventually(func(g Gomega) {
-				// If we're not expecting any nodes in the cluster return with success.
-				if numNodes == 0 {
-					return
-				}
-				for _, conf := range dpuClusterConfigs {
-					nodes := &corev1.NodeList{}
-					dpuClient, err := conf.Client(ctx)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(dpuClient.List(ctx, nodes)).To(Succeed())
-					By(fmt.Sprintf("Expected number of nodes %d to equal %d", len(nodes.Items), numNodes))
-					g.Expect(nodes.Items).To(HaveLen(numNodes))
-				}
-			}).WithTimeout(30 * time.Minute).WithPolling(120 * time.Second).Should(Succeed())
+		ProvisionDPUClusters(ctx, ProvisionDPUClustersInput{
+			numberOfNodesPerCluster: numNodes,
+			numberOfClusters:        1,
+			baseClusterName:         "dpu-cluster-%d",
+			clusterNamespace:        dpfOperatorSystemNamespace,
+			dpuClusterPrerequisites: dpuClusterPrerequisiteObjects,
+			nodeAnnotations: map[string]string{
+				// This annotation prevents nodes from being restarted during the e2e provisioning test flow which speeds up the test.
+				"provisioning.dpu.nvidia.com/reboot-command": "skip",
+			},
+			baseDPUClusterFile: "infrastructure/dpucluster.yaml",
+			baseDPUSetFile:     "infrastructure/dpuset.yaml",
+			baseBFBFile:        "infrastructure/bfb.yaml",
 		})
 
 		ValidateDPUService(ctx, config)
@@ -403,7 +293,7 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 			}).WithTimeout(10 * time.Minute).Should(Succeed())
 
 			Eventually(func(g Gomega) {
-				bfb := getUnstructuredFromFile("infrastructure/bfb.yaml")
+				bfb := unstructuredFromFile("infrastructure/bfb.yaml")
 
 				g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, bfb))).To(Succeed())
 				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(bfb), bfb))).To(BeTrue())
@@ -422,82 +312,6 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 		})
 	})
 })
-
-func getDPUService(namespace, name string, host bool) *unstructured.Unstructured {
-	// Create a host DPUService and check it's correctly reconciled
-	// Read the DPUService from file and create it.
-	svc := getUnstructuredFromFile("application/dpuservice.yaml")
-	svc.SetName(name)
-	svc.SetNamespace(namespace)
-
-	// This annotation is what defines a host DPUService.
-	if host {
-		dpuService := &dpuservicev1.DPUService{}
-		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(svc.UnstructuredContent(), dpuService)).ToNot(HaveOccurred())
-		dpuService.Spec.DeployInCluster = &host
-		obj, err := machineryruntime.DefaultUnstructuredConverter.ToUnstructured(dpuService)
-		Expect(err).ToNot(HaveOccurred())
-		svc = &unstructured.Unstructured{
-			Object: obj,
-		}
-	}
-	return svc
-}
-
-func getDPUServiceCredentialRequest(namespace, name, targetClusterName string) *dpuservicev1.DPUServiceCredentialRequest {
-	data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuservicecredentialrequest.yaml"))
-	Expect(err).ToNot(HaveOccurred())
-	dcr := &dpuservicev1.DPUServiceCredentialRequest{}
-	Expect(yaml.Unmarshal(data, dcr)).To(Succeed())
-	dcr.SetName(name)
-	dcr.SetNamespace(namespace)
-
-	// This annotation is what defines a host DPUService.
-	if targetClusterName != "" {
-		dcr.Spec.TargetClusterName = ptr.To(targetClusterName)
-	}
-	return dcr
-}
-
-func collectResourcesAndLogs(ctx context.Context) error {
-	// Get the path to place artifacts in
-	_, basePath, _, _ := runtime.Caller(0)
-	artifactsPath := filepath.Join(filepath.Dir(basePath), "../../artifacts")
-	inventoryManifestsPath := filepath.Join(filepath.Dir(basePath), "../../internal/operator/inventory/manifests")
-
-	// Create a resourceCollector to dump logs and resources for test debugging.
-	clusters, err := collector.GetClusterCollectors(ctx, testClient, artifactsPath, inventoryManifestsPath, clientset)
-	Expect(err).NotTo(HaveOccurred())
-	return collector.New(clusters).Run(ctx)
-}
-
-func getUnstructuredFromFile(path string) *unstructured.Unstructured {
-	data, err := os.ReadFile(filepath.Join(testObjectsPath, path))
-	Expect(err).ToNot(HaveOccurred())
-	obj := &unstructured.Unstructured{}
-	Expect(yaml.Unmarshal(data, obj)).To(Succeed())
-	return obj
-}
-
-func assertDPUServiceCredentialRequest(g Gomega, testClient client.Client, dcr *dpuservicev1.DPUServiceCredentialRequest, host bool) {
-	gotDsr := &dpuservicev1.DPUServiceCredentialRequest{}
-	g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dcr), gotDsr)).To(Succeed())
-	g.Expect(gotDsr.Finalizers).To(ConsistOf([]string{dpuservicev1.DPUServiceCredentialRequestFinalizer}))
-	g.Expect(gotDsr.Status.ServiceAccount).NotTo(BeNil())
-	g.Expect(*gotDsr.Status.ServiceAccount).To(Equal(dcr.Spec.ServiceAccount.String()))
-	g.Expect(gotDsr.Status.ExpirationTimestamp.Time).To(BeTemporally("~", time.Now().Add(time.Hour), time.Minute))
-	g.Expect(gotDsr.Status.IssuedAt).NotTo(BeNil())
-	if gotDsr.Spec.Duration != nil {
-		iat := gotDsr.Status.ExpirationTimestamp.Time.Add(-1 * gotDsr.Spec.Duration.Duration)
-		g.Expect(gotDsr.Status.IssuedAt.Time).To(BeTemporally("~", iat, time.Minute))
-	}
-
-	if host {
-		g.Expect(gotDsr.Status.TargetClusterName).To(BeNil())
-	} else {
-		g.Expect(gotDsr.Status.TargetClusterName).To(Equal(dcr.Spec.TargetClusterName))
-	}
-}
 
 // verifyImageConfigurationForDPUServices changes the images for all system components to arbitrary values, checks that the changes have propagated
 // and then changes them back to their default versions.
@@ -585,22 +399,157 @@ func verifyImageConfigurationForDPUServices(configIn *operatorv1.DPFOperatorConf
 	}).Should(Succeed())
 }
 
-func verifyImagePullSecretsCount(count int) {
-	secrets := &corev1.SecretList{}
-	Expect(testClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})).ToNot(HaveOccurred())
-	Eventually(func(g Gomega) {
-		dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
-		g.Expect(err).ToNot(HaveOccurred())
-		for _, dpuClusterConfig := range dpuClusterConfigs {
-			dpuClient, err := dpuClusterConfig.Client(ctx)
-			g.Expect(err).ToNot(HaveOccurred())
+type ProvisionDPUClustersInput struct {
+	numberOfNodesPerCluster int
+	numberOfClusters        int
+	baseClusterName         string
+	clusterNamespace        string
+	dpuClusterPrerequisites []client.Object
+	nodeAnnotations         map[string]string
+	baseDPUClusterFile      string
+	baseDPUSetFile          string
+	baseBFBFile             string
+}
 
-			// Check the imagePullSecrets has been deleted.
-			secrets := &corev1.SecretList{}
-			g.Expect(dpuClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})).To(Succeed())
-			g.Expect(secrets.Items).To(HaveLen(count))
+func ProvisionDPUClusters(ctx context.Context, input ProvisionDPUClustersInput) {
+	baseDPUCluster := &provisioningv1.DPUCluster{}
+	baseBFB := &provisioningv1.BFB{}
+	baseDPUSet := &provisioningv1.DPUSet{}
+
+	It("read provisioning objects from files", func() {
+		dpuClusterUnstructured := unstructuredFromFile(input.baseDPUClusterFile)
+		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpuClusterUnstructured.Object, baseDPUCluster)).To(Succeed())
+
+		bfbUnstructured := unstructuredFromFile(input.baseBFBFile)
+		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(bfbUnstructured.Object, baseBFB)).To(Succeed())
+
+		dpusetUnstructured := unstructuredFromFile(input.baseDPUSetFile)
+		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpusetUnstructured.Object, baseDPUSet)).To(Succeed())
+	})
+
+	// Add additional annotations to the Nodes.
+	if len(input.nodeAnnotations) > 0 {
+		It("annotate nodes from cluster", func() {
+			Eventually(func(g Gomega) {
+				nodes := &corev1.NodeList{}
+				g.Expect(testClient.List(ctx, nodes)).To(Succeed())
+				for _, node := range nodes.Items {
+					original := node.DeepCopy()
+					annotations := node.GetAnnotations()
+					for k, v := range input.nodeAnnotations {
+						annotations[k] = v
+					}
+					node.SetAnnotations(annotations)
+					g.Expect(testClient.Patch(ctx, &node, client.MergeFrom(original))).To(Succeed())
+				}
+			}).Should(Succeed())
+		})
+	}
+
+	It("create prerequisites objects for DPUClusters", func() {
+		for _, obj := range input.dpuClusterPrerequisites {
+			obj.SetLabels(cleanupLabels)
+			By(fmt.Sprintf("Creating prerequisite object %s %s/%s", obj.GetObjectKind().GroupVersionKind().String(), obj.GetNamespace(), obj.GetName()))
+			Expect(testClient.Create(ctx, obj)).To(Succeed())
 		}
-	}).WithTimeout(60 * time.Second).Should(Succeed())
+	})
+
+	It("create DPUClusters ", func() {
+		for i := 0; i < input.numberOfClusters; i++ {
+			dpuCluster := baseDPUCluster.DeepCopy()
+			dpuCluster.SetName(fmt.Sprintf(input.baseClusterName, i+1))
+			dpuCluster.SetNamespace(input.clusterNamespace)
+			dpuCluster.SetLabels(cleanupLabels)
+
+			By(fmt.Sprintf("Creating DPU Cluster %s/%s", dpuCluster.GetNamespace(), dpuCluster.GetName()))
+			Expect(testClient.Create(ctx, dpuCluster)).To(Succeed())
+		}
+		Eventually(func(g Gomega) {
+			clusters := &provisioningv1.DPUClusterList{}
+			g.Expect(testClient.List(ctx, clusters)).To(Succeed())
+			g.Expect(clusters.Items).To(HaveLen(numClusters))
+			for _, cluster := range clusters.Items {
+				g.Expect(cluster.Status.Phase).Should(Equal(provisioningv1.PhaseReady))
+			}
+		}).WithTimeout(300 * time.Second).Should(Succeed())
+	})
+
+	It("create the BFB and DPUSet", func() {
+		Eventually(func(g Gomega) {
+			By("creating the BFB")
+			bfb := baseBFB.DeepCopy()
+			bfb.SetLabels(cleanupLabels)
+			g.Expect(testClient.Create(ctx, bfb)).To(Succeed())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
+
+		Eventually(func(g Gomega) {
+			for i := 0; i < numClusters; i++ {
+				By(fmt.Sprintf("Creating the DPUSet for cluster %s/%s", fmt.Sprintf(input.baseClusterName, i+1), input.clusterNamespace))
+				dpuset := baseDPUSet.DeepCopy()
+				// TODO: Test the cleanup of the node related to the DPU.
+				dpuset.SetLabels(cleanupLabels)
+				g.Expect(testClient.Create(ctx, dpuset)).To(Succeed())
+			}
+		}).WithTimeout(60 * time.Second).Should(Succeed())
+
+		By(fmt.Sprintf("checking that the number of nodes is equal to %d", numNodes))
+		Eventually(func(g Gomega) {
+			// If we're not expecting any nodes in the cluster return with success.
+			if numNodes == 0 {
+				return
+			}
+			dpuClusters, err := dpucluster.GetConfigs(ctx, testClient)
+			Expect(err).ToNot(HaveOccurred())
+
+			for i := range dpuClusters {
+				nodes := &corev1.NodeList{}
+				dpuClient, err := dpuClusters[i].Client(ctx)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(dpuClient.List(ctx, nodes)).To(Succeed())
+				By(fmt.Sprintf("Expected number of nodes %d to equal %d", len(nodes.Items), numNodes))
+				g.Expect(nodes.Items).To(HaveLen(numNodes))
+			}
+		}).WithTimeout(30 * time.Minute).WithPolling(120 * time.Second).Should(Succeed())
+	})
+
+	It("ensure the system DPUServices are created in the DPUClusters", func() {
+		By("Checking that DPUService objects have been mirrored to the DPUClusters")
+		dpuControlPlanes, err := dpucluster.GetConfigs(ctx, testClient)
+		Expect(err).ToNot(HaveOccurred())
+		Eventually(func(g Gomega) {
+			for i := range dpuControlPlanes {
+				dpuClient, err := dpuControlPlanes[i].Client(ctx)
+				g.Expect(err).ToNot(HaveOccurred())
+				deployments := appsv1.DeploymentList{}
+				g.Expect(dpuClient.List(ctx, &deployments, client.HasLabels{argoCDInstanceLabel})).To(Succeed())
+				found := map[string]bool{}
+				for i := range deployments.Items {
+					g.Expect(deployments.Items[i].GetLabels()).To(HaveKey(argoCDInstanceLabel))
+					g.Expect(deployments.Items[i].GetLabels()[argoCDInstanceLabel]).NotTo(Equal(""))
+					found[deployments.Items[i].GetLabels()[argoCDInstanceLabel]] = true
+				}
+				daemonsets := appsv1.DaemonSetList{}
+				g.Expect(dpuClient.List(ctx, &daemonsets, client.HasLabels{argoCDInstanceLabel})).To(Succeed())
+				for i := range daemonsets.Items {
+					g.Expect(daemonsets.Items[i].GetLabels()).To(HaveKey(argoCDInstanceLabel))
+					g.Expect(daemonsets.Items[i].GetLabels()[argoCDInstanceLabel]).NotTo(Equal(""))
+					found[daemonsets.Items[i].GetLabels()[argoCDInstanceLabel]] = true
+				}
+
+				// Expect each of the following to have been created by the operator.
+				// These are labels on the appv1 type - e.g. DaemonSet or Deployment on the DPU cluster.
+				g.Expect(found).To(HaveLen(7))
+				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.MultusName)))
+				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.FlannelName)))
+				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.SRIOVDevicePluginName)))
+				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.ServiceSetControllerName)))
+				// Note: The NVIPAM DPUService contains both a Daemonset and a Deployment - but this is overwritten in the map.
+				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.NVIPAMName)))
+				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.OVSCNIName)))
+				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.OVSCNIName)))
+			}
+		}).WithTimeout(600 * time.Second).Should(Succeed())
+	})
 }
 
 func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfig) {
@@ -739,6 +688,43 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 		// Verify we only have one image pull secret.
 		verifyImagePullSecretsCount(1)
 	})
+}
+func getDPUService(namespace, name string, host bool) *unstructured.Unstructured {
+	// Create a host DPUService and check it's correctly reconciled
+	// Read the DPUService from file and create it.
+	svc := unstructuredFromFile("application/dpuservice.yaml")
+	svc.SetName(name)
+	svc.SetNamespace(namespace)
+
+	// This annotation is what defines a host DPUService.
+	if host {
+		dpuService := &dpuservicev1.DPUService{}
+		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(svc.UnstructuredContent(), dpuService)).ToNot(HaveOccurred())
+		dpuService.Spec.DeployInCluster = &host
+		obj, err := machineryruntime.DefaultUnstructuredConverter.ToUnstructured(dpuService)
+		Expect(err).ToNot(HaveOccurred())
+		svc = &unstructured.Unstructured{
+			Object: obj,
+		}
+	}
+	return svc
+}
+func verifyImagePullSecretsCount(count int) {
+	secrets := &corev1.SecretList{}
+	Expect(testClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})).ToNot(HaveOccurred())
+	Eventually(func(g Gomega) {
+		dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
+		g.Expect(err).ToNot(HaveOccurred())
+		for _, dpuClusterConfig := range dpuClusterConfigs {
+			dpuClient, err := dpuClusterConfig.Client(ctx)
+			g.Expect(err).ToNot(HaveOccurred())
+
+			// Check the imagePullSecrets has been deleted.
+			secrets := &corev1.SecretList{}
+			g.Expect(dpuClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})).To(Succeed())
+			g.Expect(secrets.Items).To(HaveLen(count))
+		}
+	}).WithTimeout(60 * time.Second).Should(Succeed())
 }
 
 func ValidateDPUDeployment(ctx context.Context) {
@@ -1035,6 +1021,40 @@ func ValidateDPUServiceCredentialRequest(ctx context.Context) {
 	})
 
 }
+func getDPUServiceCredentialRequest(namespace, name, targetClusterName string) *dpuservicev1.DPUServiceCredentialRequest {
+	data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuservicecredentialrequest.yaml"))
+	Expect(err).ToNot(HaveOccurred())
+	dcr := &dpuservicev1.DPUServiceCredentialRequest{}
+	Expect(yaml.Unmarshal(data, dcr)).To(Succeed())
+	dcr.SetName(name)
+	dcr.SetNamespace(namespace)
+
+	// This annotation is what defines a host DPUService.
+	if targetClusterName != "" {
+		dcr.Spec.TargetClusterName = ptr.To(targetClusterName)
+	}
+	return dcr
+}
+func assertDPUServiceCredentialRequest(g Gomega, testClient client.Client, dcr *dpuservicev1.DPUServiceCredentialRequest, host bool) {
+	gotDsr := &dpuservicev1.DPUServiceCredentialRequest{}
+	g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dcr), gotDsr)).To(Succeed())
+	g.Expect(gotDsr.Finalizers).To(ConsistOf([]string{dpuservicev1.DPUServiceCredentialRequestFinalizer}))
+	g.Expect(gotDsr.Status.ServiceAccount).NotTo(BeNil())
+	g.Expect(*gotDsr.Status.ServiceAccount).To(Equal(dcr.Spec.ServiceAccount.String()))
+	g.Expect(gotDsr.Status.ExpirationTimestamp.Time).To(BeTemporally("~", time.Now().Add(time.Hour), time.Minute))
+	g.Expect(gotDsr.Status.IssuedAt).NotTo(BeNil())
+	if gotDsr.Spec.Duration != nil {
+		iat := gotDsr.Status.ExpirationTimestamp.Time.Add(-1 * gotDsr.Spec.Duration.Duration)
+		g.Expect(gotDsr.Status.IssuedAt.Time).To(BeTemporally("~", iat, time.Minute))
+	}
+
+	if host {
+		g.Expect(gotDsr.Status.TargetClusterName).To(BeNil())
+	} else {
+		g.Expect(gotDsr.Status.TargetClusterName).To(Equal(dcr.Spec.TargetClusterName))
+	}
+}
+
 func ValidateDPUServiceChain(ctx context.Context) {
 	dpuServiceInterfaceName := "pf0-vf2"
 	dpuServiceInterfaceNamespace := "test"
@@ -1125,4 +1145,16 @@ func unstructuredFromFile(path string) *unstructured.Unstructured {
 	obj := &unstructured.Unstructured{}
 	Expect(yaml.Unmarshal(data, obj)).To(Succeed())
 	return obj
+}
+
+func collectResourcesAndLogs(ctx context.Context) error {
+	// Get the path to place artifacts in
+	_, basePath, _, _ := runtime.Caller(0)
+	artifactsPath := filepath.Join(filepath.Dir(basePath), "../../artifacts")
+	inventoryManifestsPath := filepath.Join(filepath.Dir(basePath), "../../internal/operator/inventory/manifests")
+
+	// Create a resourceCollector to dump logs and resources for test debugging.
+	clusters, err := collector.GetClusterCollectors(ctx, testClient, artifactsPath, inventoryManifestsPath, clientset)
+	Expect(err).NotTo(HaveOccurred())
+	return collector.New(clusters).Run(ctx)
 }
