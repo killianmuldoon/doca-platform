@@ -227,11 +227,6 @@ func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *dpuservicev1
 		return nil
 	}
 
-	if serviceInterface.Spec.InterfaceType == dpuservicev1.InterfaceTypePhysical {
-		log.Info("ignoring delete on physical interfaces.")
-		return nil
-	}
-
 	portName := FigureOutName(ctx, serviceInterface)
 
 	if portName != "" {
