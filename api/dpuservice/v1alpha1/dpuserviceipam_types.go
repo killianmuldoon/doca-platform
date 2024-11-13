@@ -76,7 +76,8 @@ type DPUServiceIPAMSpec struct {
 type IPV4Network struct {
 	// Network is the CIDR from which subnets should be allocated per node.
 	Network string `json:"network"`
-	// GatewayIndex determines which IP in the subnet extracted from the CIDR should be the gateway IP.
+	// GatewayIndex determines which IP in the subnet extracted from the CIDR should be the gateway IP. For point to
+	// point networks (/31), one needs to leave this empty to make use of both the IPs.
 	GatewayIndex *int32 `json:"gatewayIndex,omitempty"`
 	// PrefixSize is the size of the subnet that should be allocated per node.
 	PrefixSize int32 `json:"prefixSize"`

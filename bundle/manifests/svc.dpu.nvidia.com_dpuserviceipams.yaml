@@ -120,8 +120,9 @@ spec:
                       type: string
                     type: array
                   gatewayIndex:
-                    description: GatewayIndex determines which IP in the subnet extracted
-                      from the CIDR should be the gateway IP.
+                    description: |-
+                      GatewayIndex determines which IP in the subnet extracted from the CIDR should be the gateway IP. For point to
+                      point networks (/31), one needs to leave this empty to make use of both the IPs.
                     format: int32
                     type: integer
                   network:
