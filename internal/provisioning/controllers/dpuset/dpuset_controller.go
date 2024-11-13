@@ -381,7 +381,7 @@ func (r *DPUSetReconciler) rolloutRolling(ctx context.Context, dpuSet *provision
 
 func isUnavailable(dpu *provisioningv1.DPU) bool {
 	_, cond := cutil.GetDPUCondition(&dpu.Status, provisioningv1.DPUCondReady.String())
-	return cond == nil || cond.Status == metav1.ConditionFalse
+	return cond == nil || cond.Status == metav1.ConditionFalse || !dpu.DeletionTimestamp.IsZero()
 }
 
 // TODO: check more informations
