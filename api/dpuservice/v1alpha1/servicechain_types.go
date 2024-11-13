@@ -20,6 +20,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	ServiceChainKind = "ServiceChain"
+)
+
+var ServiceChainGroupVersionKind = GroupVersion.WithKind(ServiceChainKind)
+
 // ServiceChainSpec defines the desired state of ServiceChain
 type ServiceChainSpec struct {
 	// Node where this ServiceChain applies to

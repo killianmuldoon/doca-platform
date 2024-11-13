@@ -28,7 +28,10 @@ import (
 const (
 	// DPUServiceCredentialRequestFinalizer is the finalizer that will be added to the
 	DPUServiceCredentialRequestFinalizer = "dpu.nvidia.com/dpuservicecredentialrequest"
+	DPUServiceCredentialRequestKind      = "DPUServiceCredentialRequest"
 )
+
+var DPUServiceCredentialRequestGroupVersionKind = GroupVersion.WithKind(DPUServiceCredentialRequestKind)
 
 const (
 	// SecretTypeKubeconfig is the type of the secret that will be created.

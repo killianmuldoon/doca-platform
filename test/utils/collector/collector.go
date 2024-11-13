@@ -33,6 +33,7 @@ import (
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
 	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
 	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
+	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/operator/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -133,19 +134,31 @@ func (c *Cluster) run(ctx context.Context) error {
 	// You can add entries here for resources that are not part of the inventory. Inventory resources are collected
 	// automatically.
 	resourcesToCollect := []schema.GroupVersionKind{
-		corev1.SchemeGroupVersion.WithKind("Pod"),    // Pods
-		corev1.SchemeGroupVersion.WithKind("Node"),   // Nodes
-		corev1.SchemeGroupVersion.WithKind("Secret"), // Secrets
+		corev1.SchemeGroupVersion.WithKind("Pod"),
+		corev1.SchemeGroupVersion.WithKind("Node"),
+		corev1.SchemeGroupVersion.WithKind("Secret"),
 		corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"),
-		appsv1.SchemeGroupVersion.WithKind("DaemonSet"),                 // DaemonSet
-		argov1.ApplicationSchemaGroupVersionKind,                        // ArgoApplications
-		operatorv1.DPFOperatorConfigGroupVersionKind,                    // DPFOperatorConfig
-		provisioningv1.GroupVersion.WithKind("DPU"),                     // DPU
-		provisioningv1.GroupVersion.WithKind("DPUSet"),                  // DPUSet
-		provisioningv1.GroupVersion.WithKind("BFB"),                     // BFB
-		provisioningv1.GroupVersion.WithKind("DPUCluster"),              // DPUCluster
-		dpuservicev1.GroupVersion.WithKind("DPUCredentialRequest"),      // DPUCredentialRequest
-		kamajiv1.GroupVersion.WithKind(kamajiv1.TenantControlPlaneKind), // Kamaji control plane
+		appsv1.SchemeGroupVersion.WithKind("DaemonSet"),
+		operatorv1.DPFOperatorConfigGroupVersionKind,
+		provisioningv1.DPUFlavorGroupVersionKind,
+		provisioningv1.DPUGroupVersionKind,
+		provisioningv1.DPUSetGroupVersionKind,
+		provisioningv1.BFBGroupVersionKind,
+		provisioningv1.DPUClusterGroupVersionKind,
+		dpuservicev1.DPUServiceGroupVersionKind,
+		dpuservicev1.DPUDeploymentGroupVersionKind,
+		dpuservicev1.DPUServiceCredentialRequestGroupVersionKind,
+		dpuservicev1.DPUServiceIPAMGroupVersionKind,
+		dpuservicev1.DPUServiceChainGroupVersionKind,
+		dpuservicev1.ServiceChainSetGroupVersionKind,
+		dpuservicev1.ServiceChainGroupVersionKind,
+		dpuservicev1.DPUServiceInterfaceGroupVersionKind,
+		dpuservicev1.ServiceInterfaceSetGroupVersionKind,
+		dpuservicev1.ServiceInterfaceGroupVersionKind,
+		argov1.ApplicationSchemaGroupVersionKind,
+		nvipamv1.GroupVersion.WithKind(nvipamv1.IPPoolKind),
+		nvipamv1.GroupVersion.WithKind(nvipamv1.CIDRPoolKind),
+		kamajiv1.GroupVersion.WithKind(kamajiv1.TenantControlPlaneKind),
 	}
 	namespacesToCollectEvents := []string{
 		"dpf-operator-system",

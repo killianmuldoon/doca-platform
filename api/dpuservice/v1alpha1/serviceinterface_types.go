@@ -24,6 +24,8 @@ import (
 )
 
 const (
+	ServiceInterfaceKind = "ServiceChain"
+
 	// InterfaceTypeVLAN is the vlan interface type
 	InterfaceTypeVLAN = "vlan"
 	// InterfaceTypePhysical is the physical interface type
@@ -37,6 +39,8 @@ const (
 	// InterfaceTypeService is the service interface type
 	InterfaceTypeService = "service"
 )
+
+var ServiceInterfaceGroupVersionKind = GroupVersion.WithKind(ServiceChainKind)
 
 // ServiceInterfaceSpec defines the desired state of ServiceInterface
 // +kubebuilder:validation:XValidation:rule="(self.interfaceType == 'vlan' && has(self.vlan)) || (self.interfaceType == 'pf' && has(self.pf)) || (self.interfaceType == 'vf' && has(self.vf)) || (self.interfaceType == 'physical' && has(self.physical)) || (self.interfaceType == 'service' && has(self.service)) || (self.interfaceType == 'ovn')", message="`for interfaceType=vlan, vlan must be set; for interfaceType=pf, pf must be set; for interfaceType=vf, vf must be set; for interfaceType=physical, physical must be set; for interfaceType=service, service must be set`"

@@ -20,6 +20,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+const (
+	DPUClusterKind = "DPUCluster"
+)
+
+var DPUClusterGroupVersionKind = GroupVersion.WithKind(DPUClusterKind)
+
 type ClusterType string
 
 type ConditionType string
