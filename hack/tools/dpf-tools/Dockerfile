@@ -2,7 +2,7 @@
 
 # Build image to compile all packages
 # The target repository is  https://github.com/NVIDIA/doca-sosreport
-FROM ubuntu:22.04 AS build
+FROM ubuntu:24.04 AS build
 
 ARG PYTHON_VERSION=3.11
 
@@ -41,7 +41,7 @@ COPY sos-mlx-cloud-verification.conf .
 RUN --mount=type=cache,target=/root/.cache \
     uv venv /opt/venv && uv pip install .
 
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 ARG TARGETARCH
 ARG KUBERNETES_VERSION=1.30

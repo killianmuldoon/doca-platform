@@ -42,7 +42,7 @@ spec:
       containers:
       # Simulates a real world application that requires an IP from the NVIPAM
       - name: app
-        image: ubuntu:22.04
+        image: ubuntu:24.04
         imagePullPolicy: IfNotPresent
         command:
         - bash
