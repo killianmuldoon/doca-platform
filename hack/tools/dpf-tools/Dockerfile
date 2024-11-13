@@ -4,7 +4,7 @@
 # The target repository is  https://github.com/NVIDIA/doca-sosreport
 FROM ubuntu:24.04 AS build
 
-ARG PYTHON_VERSION=3.11
+ARG PYTHON_VERSION=3.12
 
 RUN apt-get update -qy && apt-get install -qyy \
     -o APT::Install-Recommends=false \
@@ -21,7 +21,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.4.10 /uv /usr/local/bin/uv
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
-    UV_PYTHON=python3.11
+    UV_PYTHON=python3.12
 
 ENV VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH"
@@ -46,7 +46,7 @@ FROM ubuntu:24.04
 ARG TARGETARCH
 ARG KUBERNETES_VERSION=1.30
 ARG MFT_VERSION=4.29.0-131
-ARG PYTHON_VERSION=3.11
+ARG PYTHON_VERSION=3.12
 
 ENV TAR_OPTIONS="--no-same-owner"
 
