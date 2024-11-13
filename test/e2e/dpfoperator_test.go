@@ -88,20 +88,6 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 	dpfProvisioningControllerPVCName := "bfb-pvc"
 	extraPullSecretName := fmt.Sprintf("%s-extra", pullSecretName)
 
-	imagePullSecret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pullSecretName,
-			Namespace: "dpf-operator-system",
-			Labels:    cleanupLabels,
-		},
-	}
-	imagePullSecretExtra := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      extraPullSecretName,
-			Namespace: "dpf-operator-system",
-			Labels:    cleanupLabels,
-		},
-	}
 	// The DPFOperatorConfig for the test.
 	config := &operatorv1.DPFOperatorConfig{
 		ObjectMeta: metav1.ObjectMeta{
@@ -145,86 +131,20 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 			})
 		})
 
-		It("ensure the DPF Operator is running and ready", func() {
-			Eventually(func(g Gomega) {
-				deployment := &appsv1.Deployment{}
-				g.Expect(testClient.Get(ctx, client.ObjectKey{
-					Namespace: dpfOperatorSystemNamespace,
-					Name:      "dpf-operator-controller-manager"},
-					deployment)).To(Succeed())
-				g.Expect(deployment.Status.ReadyReplicas).To(Equal(*deployment.Spec.Replicas))
-			}).WithTimeout(60 * time.Second).Should(Succeed())
-		})
+		pvcSize := "10Mi"
+		pvcStorageClass := ""
+		if numNodes > 0 {
+			pvcSize = "10Gi"
+			pvcStorageClass = "local-path"
+		}
 
-		It("create the PersistentVolumeClaim for the DPF Provisioning controller", func() {
-			pvcUnstructured := unstructuredFromFile("infrastructure/dpf-provisioning-pvc.yaml")
-			pvc := &corev1.PersistentVolumeClaim{}
-			Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(pvcUnstructured.Object, pvc)).To(Succeed())
-			pvc.SetName(dpfProvisioningControllerPVCName)
-			pvc.SetNamespace(dpfOperatorSystemNamespace)
-			pvc.SetLabels(cleanupLabels)
-			// If there are real nodes we need to allocate storage for the volume.
-			if numNodes > 0 {
-				pvc.Spec.VolumeMode = ptr.To(corev1.PersistentVolumeFilesystem)
-				pvc.Spec.Resources.Requests = corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse("10Gi"),
-				}
-				pvc.Spec.StorageClassName = ptr.To("local-path")
-			}
-			Expect(testClient.Create(ctx, pvc)).To(Succeed())
-		})
-
-		It("create the imagePullSecret for the DPF OperatorConfig", func() {
-			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, imagePullSecret))).ToNot(HaveOccurred())
-			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, imagePullSecretExtra))).ToNot(HaveOccurred())
-		})
-
-		It("create the DPFOperatorConfig for the system", func() {
-			Expect(testClient.Create(ctx, config)).To(Succeed())
-		})
-
-		It("ensure the DPF controllers are running and ready", func() {
-			Eventually(func(g Gomega) {
-				// Check the DPUService controller manager is up and ready.
-				dpuServiceDeployment := &appsv1.Deployment{}
-				g.Expect(testClient.Get(ctx, client.ObjectKey{
-					Namespace: dpfOperatorSystemNamespace,
-					Name:      "dpuservice-controller-manager"},
-					dpuServiceDeployment)).To(Succeed())
-				g.Expect(dpuServiceDeployment.Status.ReadyReplicas).To(Equal(*dpuServiceDeployment.Spec.Replicas))
-
-				// Check the DPF provisioning controller manager is up and ready.
-				dpfProvisioningDeployment := &appsv1.Deployment{}
-				g.Expect(testClient.Get(ctx, client.ObjectKey{
-					Namespace: dpfOperatorSystemNamespace,
-					Name:      "dpf-provisioning-controller-manager"},
-					dpfProvisioningDeployment)).To(Succeed())
-				g.Expect(dpfProvisioningDeployment.Status.ReadyReplicas).To(Equal(*dpfProvisioningDeployment.Spec.Replicas))
-			}).WithTimeout(300 * time.Second).Should(Succeed())
-		})
-
-		It("ensure the system DPUServices are created", func() {
-			Eventually(func(g Gomega) {
-				dpuServices := &dpuservicev1.DPUServiceList{}
-				g.Expect(testClient.List(ctx, dpuServices)).To(Succeed())
-				g.Expect(dpuServices.Items).To(HaveLen(7))
-				found := map[string]bool{}
-				for i := range dpuServices.Items {
-					found[dpuServices.Items[i].Name] = true
-				}
-
-				// Expect each of the following to have been created by the operator.
-				g.Expect(found).To(HaveKey(operatorv1.MultusName))
-				g.Expect(found).To(HaveKey(operatorv1.SRIOVDevicePluginName))
-				g.Expect(found).To(HaveKey(operatorv1.ServiceSetControllerName))
-				g.Expect(found).To(HaveKey(operatorv1.FlannelName))
-				g.Expect(found).To(HaveKey(operatorv1.NVIPAMName))
-				g.Expect(found).To(HaveKey(operatorv1.OVSCNIName))
-				g.Expect(found).To(HaveKey(operatorv1.SFCControllerName))
-			}).WithTimeout(60 * time.Second).Should(Succeed())
-
-			By("verify System DPUService images can be set through the DPFOperatorConfig")
-			verifyImageConfigurationForDPUServices(config)
+		DeployDPFSystemComponents(ctx, DeployDPFSystemComponentsInput{
+			DPFSystemNamespace:                    dpfOperatorSystemNamespace,
+			DPFOperatorConfig:                     config,
+			ImagePullSecrets:                      []string{pullSecretName, extraPullSecretName},
+			ProvisioningControllerPVCName:         dpfProvisioningControllerPVCName,
+			ProvisioningControllerPVCSize:         pvcSize,
+			ProvisioningControllerPVCStorageClass: pvcStorageClass,
 		})
 
 		baseClusterName := "dpu-cluster-%d"
@@ -258,6 +178,7 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 			baseBFBFile:        "infrastructure/bfb.yaml",
 		})
 
+		VerifyDPFOperatorConfiguration(ctx, config)
 		ValidateDPUService(ctx, config)
 		ValidateDPUDeployment(ctx)
 		ValidateDPUServiceIPAM(ctx)
@@ -313,90 +234,109 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 	})
 })
 
-// verifyImageConfigurationForDPUServices changes the images for all system components to arbitrary values, checks that the changes have propagated
-// and then changes them back to their default versions.
-// This function tests DPUService image setting as it is complex and requires e2e testing.
-func verifyImageConfigurationForDPUServices(configIn *operatorv1.DPFOperatorConfig) {
-	modifiedConfig := configIn.DeepCopy()
-	Expect(testClient.Get(ctx, client.ObjectKeyFromObject(modifiedConfig), modifiedConfig)).To(Succeed())
-	originalConfig := modifiedConfig.DeepCopy()
+type DeployDPFSystemComponentsInput struct {
+	DPFOperatorConfig                     *operatorv1.DPFOperatorConfig
+	DPFSystemNamespace                    string
+	ProvisioningControllerPVCName         string
+	ProvisioningControllerPVCSize         string
+	ProvisioningControllerPVCStorageClass string
+	ImagePullSecrets                      []string
+}
 
-	dummyRegistryName := "dummy-registry.com"
-	imageTemplate := "%s/%s:v1.0"
-	// Update the config with a new image and tag.
+// DeployDPFSystemComponents creates the DPFOperatorConfig and some dependencies and checks that the system components
+// are deployed from the operator.
+// 1) Ensures the DPF Operator is running and ready
+// 2) Creates a PersistentVolumeClaim for the Provisioning controller
+// 3) Creates ImagePullSecrets which are tested as part of the e2e flow (note these are fake and could possibly be replaced by real ones)
+// 4) Creates the DPFOperatorConfig for the test
+// 5) Ensures the DPF System components - including DPUServices - have been deployed.
+func DeployDPFSystemComponents(ctx context.Context, input DeployDPFSystemComponentsInput) {
+	It("ensure the DPF Operator is running and ready", func() {
+		Eventually(func(g Gomega) {
+			deployment := &appsv1.Deployment{}
+			g.Expect(testClient.Get(ctx, client.ObjectKey{
+				Namespace: input.DPFSystemNamespace,
+				Name:      "dpf-operator-controller-manager"},
+				deployment)).To(Succeed())
+			g.Expect(deployment.Status.ReadyReplicas).To(Equal(*deployment.Spec.Replicas))
+		}).WithTimeout(60 * time.Second).Should(Succeed())
+	})
 
-	// For objects which are deployed as DPUServices set the helm chart field in configuration.
-	// Excluding flannel which DPF Operator does not allow setting an image for.
-	modifiedConfig.Spec.ServiceSetController = &operatorv1.ServiceSetControllerConfiguration{
-		Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.ServiceSetControllerName)),
-	}
-	modifiedConfig.Spec.Multus = &operatorv1.MultusConfiguration{
-		Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.MultusName)),
-	}
-	modifiedConfig.Spec.SRIOVDevicePlugin = &operatorv1.SRIOVDevicePluginConfiguration{
-		Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.SRIOVDevicePluginName)),
-	}
-	modifiedConfig.Spec.OVSCNI = &operatorv1.OVSCNIConfiguration{
-		Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.OVSCNIName)),
-	}
-	modifiedConfig.Spec.NVIPAM = &operatorv1.NVIPAMConfiguration{
-		Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.NVIPAMName)),
-	}
-	modifiedConfig.Spec.SFCController = &operatorv1.SFCControllerConfiguration{
-		Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.SFCControllerName)),
-	}
-	Expect(testClient.Patch(ctx, modifiedConfig, client.MergeFrom(originalConfig))).To(Succeed())
-
-	// Assert the images are set for the system components.
-	Eventually(func(g Gomega) {
-		deploymentDPUservices := map[string]bool{
-			operatorv1.NVIPAMName:               true,
-			operatorv1.ServiceSetControllerName: true,
+	It("create the PersistentVolumeClaim for the DPF Provisioning controller", func() {
+		pvcUnstructured := unstructuredFromFile("infrastructure/dpf-provisioning-pvc.yaml")
+		pvc := &corev1.PersistentVolumeClaim{}
+		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(pvcUnstructured.Object, pvc)).To(Succeed())
+		pvc.SetName(input.ProvisioningControllerPVCName)
+		pvc.SetNamespace(input.DPFSystemNamespace)
+		pvc.SetLabels(cleanupLabels)
+		// If there are real nodes we need to allocate storage for the volume.
+		pvc.Spec.VolumeMode = ptr.To(corev1.PersistentVolumeFilesystem)
+		pvc.Spec.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceStorage: resource.MustParse(input.ProvisioningControllerPVCSize),
 		}
-		daemonSetDPUServices := map[string]bool{
-			operatorv1.SRIOVDevicePluginName: true,
-			operatorv1.SFCControllerName:     true,
-			operatorv1.OVSCNIName:            true,
-			operatorv1.NVIPAMName:            true,
-			operatorv1.MultusName:            true,
-			// Ignoring flannel as the image is never set.
+		if input.ProvisioningControllerPVCStorageClass != "" {
+			pvc.Spec.StorageClassName = ptr.To(input.ProvisioningControllerPVCStorageClass)
 		}
+		Expect(testClient.Create(ctx, pvc)).To(Succeed())
+	})
 
-		// Verify images in the DPUClusters
-		dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
-		g.Expect(err).NotTo(HaveOccurred())
-		for _, dpuClusterConfig := range dpuClusterConfigs {
-			dpuClient, err := dpuClusterConfig.Client(ctx)
-			g.Expect(err).ToNot(HaveOccurred())
-			for name := range deploymentDPUservices {
-				deployments := appsv1.DeploymentList{}
-				nameForCluster := fmt.Sprintf("%s-%s", dpuClusterConfig.Cluster.Name, name)
-				g.Expect(dpuClient.List(ctx, &deployments,
-					client.MatchingLabels{argoCDInstanceLabel: nameForCluster})).To(Succeed())
-				g.Expect(deployments.Items).To(HaveLen(1))
-				deployment := deployments.Items[0]
-				g.Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
-				g.Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(dummyRegistryName))
+	It("creates the imagePullSecrets for the DPF OperatorConfig", func() {
+		for _, secretName := range input.ImagePullSecrets {
+			secret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      secretName,
+					Namespace: input.DPFSystemNamespace,
+					Labels:    cleanupLabels,
+				},
 			}
-			for name := range daemonSetDPUServices {
-				daemonSets := appsv1.DaemonSetList{}
-				nameForCluster := fmt.Sprintf("%s-%s", dpuClusterConfig.Cluster.Name, name)
-				g.Expect(dpuClient.List(ctx, &daemonSets,
-					client.MatchingLabels{argoCDInstanceLabel: nameForCluster})).To(Succeed())
-				g.Expect(daemonSets.Items).To(HaveLen(1))
-				daemonSet := daemonSets.Items[0]
-				g.Expect(daemonSet.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(dummyRegistryName))
-			}
+			Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, secret))).ToNot(HaveOccurred())
 		}
-	}).WithTimeout(120 * time.Second).Should(Succeed())
-	Eventually(func(g Gomega) {
-		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(modifiedConfig), modifiedConfig)).To(Succeed())
-		resetConfig := modifiedConfig.DeepCopy()
-		resetConfig.Spec = originalConfig.Spec
-		// Revert the image versions to their previous values.
-		g.Expect(testClient.Patch(ctx, resetConfig, client.MergeFrom(modifiedConfig))).To(Succeed())
-		// Ensure the changes are reverted before continuing.
-	}).Should(Succeed())
+	})
+
+	It("create the DPFOperatorConfig for the system", func() {
+		Expect(testClient.Create(ctx, input.DPFOperatorConfig)).To(Succeed())
+	})
+
+	It("ensure the DPF controllers are running and ready", func() {
+		Eventually(func(g Gomega) {
+			// Check the DPUService controller manager is up and ready.
+			dpuServiceDeployment := &appsv1.Deployment{}
+			g.Expect(testClient.Get(ctx, client.ObjectKey{
+				Namespace: dpfOperatorSystemNamespace,
+				Name:      "dpuservice-controller-manager"},
+				dpuServiceDeployment)).To(Succeed())
+			g.Expect(dpuServiceDeployment.Status.ReadyReplicas).To(Equal(*dpuServiceDeployment.Spec.Replicas))
+
+			// Check the DPF provisioning controller manager is up and ready.
+			dpfProvisioningDeployment := &appsv1.Deployment{}
+			g.Expect(testClient.Get(ctx, client.ObjectKey{
+				Namespace: dpfOperatorSystemNamespace,
+				Name:      "dpf-provisioning-controller-manager"},
+				dpfProvisioningDeployment)).To(Succeed())
+			g.Expect(dpfProvisioningDeployment.Status.ReadyReplicas).To(Equal(*dpfProvisioningDeployment.Spec.Replicas))
+		}).WithTimeout(300 * time.Second).Should(Succeed())
+	})
+
+	It("ensure the system DPUServices are created", func() {
+		Eventually(func(g Gomega) {
+			dpuServices := &dpuservicev1.DPUServiceList{}
+			g.Expect(testClient.List(ctx, dpuServices)).To(Succeed())
+			g.Expect(dpuServices.Items).To(HaveLen(7))
+			found := map[string]bool{}
+			for i := range dpuServices.Items {
+				found[dpuServices.Items[i].Name] = true
+			}
+
+			// Expect each of the following to have been created by the operator.
+			g.Expect(found).To(HaveKey(operatorv1.MultusName))
+			g.Expect(found).To(HaveKey(operatorv1.SRIOVDevicePluginName))
+			g.Expect(found).To(HaveKey(operatorv1.ServiceSetControllerName))
+			g.Expect(found).To(HaveKey(operatorv1.FlannelName))
+			g.Expect(found).To(HaveKey(operatorv1.NVIPAMName))
+			g.Expect(found).To(HaveKey(operatorv1.OVSCNIName))
+			g.Expect(found).To(HaveKey(operatorv1.SFCControllerName))
+		}).WithTimeout(60 * time.Second).Should(Succeed())
+	})
 }
 
 type ProvisionDPUClustersInput struct {
@@ -549,6 +489,95 @@ func ProvisionDPUClusters(ctx context.Context, input ProvisionDPUClustersInput) 
 				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.OVSCNIName)))
 			}
 		}).WithTimeout(600 * time.Second).Should(Succeed())
+	})
+}
+
+// VerifyDPFOperatorConfiguration verifies that DPFOperatorConfiguration options work.
+// It changes the images for all system components to arbitrary values, checks that the changes have propagated
+// and then changes them back to their default versions.
+// This function tests DPUService image setting as it is complex and requires e2e testing.
+func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFOperatorConfig) {
+	It("verify ImageConfiguration from DPUServices", func() {
+		modifiedConfig := config.DeepCopy()
+		Expect(testClient.Get(ctx, client.ObjectKeyFromObject(modifiedConfig), modifiedConfig)).To(Succeed())
+		originalConfig := modifiedConfig.DeepCopy()
+
+		dummyRegistryName := "dummy-registry.com"
+		imageTemplate := "%s/%s:v1.0"
+		// Update the config with a new image and tag.
+
+		// For objects which are deployed as DPUServices set the helm chart field in configuration.
+		// Excluding flannel which DPF Operator does not allow setting an image for.
+		modifiedConfig.Spec.ServiceSetController = &operatorv1.ServiceSetControllerConfiguration{
+			Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.ServiceSetControllerName)),
+		}
+		modifiedConfig.Spec.Multus = &operatorv1.MultusConfiguration{
+			Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.MultusName)),
+		}
+		modifiedConfig.Spec.SRIOVDevicePlugin = &operatorv1.SRIOVDevicePluginConfiguration{
+			Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.SRIOVDevicePluginName)),
+		}
+		modifiedConfig.Spec.OVSCNI = &operatorv1.OVSCNIConfiguration{
+			Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.OVSCNIName)),
+		}
+		modifiedConfig.Spec.NVIPAM = &operatorv1.NVIPAMConfiguration{
+			Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.NVIPAMName)),
+		}
+		modifiedConfig.Spec.SFCController = &operatorv1.SFCControllerConfiguration{
+			Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.SFCControllerName)),
+		}
+		Expect(testClient.Patch(ctx, modifiedConfig, client.MergeFrom(originalConfig))).To(Succeed())
+
+		// Assert the images are set for the system components.
+		Eventually(func(g Gomega) {
+			deploymentDPUservices := map[string]bool{
+				operatorv1.NVIPAMName:               true,
+				operatorv1.ServiceSetControllerName: true,
+			}
+			daemonSetDPUServices := map[string]bool{
+				operatorv1.SRIOVDevicePluginName: true,
+				operatorv1.SFCControllerName:     true,
+				operatorv1.OVSCNIName:            true,
+				operatorv1.NVIPAMName:            true,
+				operatorv1.MultusName:            true,
+				// Ignoring flannel as the image is never set.
+			}
+
+			// Verify images in the DPUClusters
+			dpuClusterConfig, err := dpucluster.GetConfigs(ctx, testClient)
+			g.Expect(err).NotTo(HaveOccurred())
+			for _, clusterConfig := range dpuClusterConfig {
+				dpuClient, err := clusterConfig.Client(ctx)
+				g.Expect(err).ToNot(HaveOccurred())
+				for name := range deploymentDPUservices {
+					deployments := appsv1.DeploymentList{}
+					nameForCluster := fmt.Sprintf("%s-%s", clusterConfig.Cluster.Name, name)
+					g.Expect(dpuClient.List(ctx, &deployments,
+						client.MatchingLabels{argoCDInstanceLabel: nameForCluster})).To(Succeed())
+					g.Expect(deployments.Items).To(HaveLen(1))
+					deployment := deployments.Items[0]
+					g.Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+					g.Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(dummyRegistryName))
+				}
+				for name := range daemonSetDPUServices {
+					daemonSets := appsv1.DaemonSetList{}
+					nameForCluster := fmt.Sprintf("%s-%s", clusterConfig.Cluster.Name, name)
+					g.Expect(dpuClient.List(ctx, &daemonSets,
+						client.MatchingLabels{argoCDInstanceLabel: nameForCluster})).To(Succeed())
+					g.Expect(daemonSets.Items).To(HaveLen(1))
+					daemonSet := daemonSets.Items[0]
+					g.Expect(daemonSet.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(dummyRegistryName))
+				}
+			}
+		}).WithTimeout(120 * time.Second).Should(Succeed())
+		Eventually(func(g Gomega) {
+			g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(modifiedConfig), modifiedConfig)).To(Succeed())
+			resetConfig := modifiedConfig.DeepCopy()
+			resetConfig.Spec = originalConfig.Spec
+			// Revert the image versions to their previous values.
+			g.Expect(testClient.Patch(ctx, resetConfig, client.MergeFrom(modifiedConfig))).To(Succeed())
+			// Ensure the changes are reverted before continuing.
+		}).Should(Succeed())
 	})
 }
 
