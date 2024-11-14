@@ -30,9 +30,9 @@ import (
 
 	dpucniprovisioner "github.com/nvidia/doca-platform/internal/cniprovisioner/dpu"
 	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/networkhelper"
-	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/ovsclient"
 	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/readyz"
 	"github.com/nvidia/doca-platform/internal/ipallocator"
+	"github.com/nvidia/doca-platform/internal/utils/ovsclient"
 
 	"github.com/vishvananda/netlink"
 	"k8s.io/client-go/kubernetes"

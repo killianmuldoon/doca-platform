@@ -26,7 +26,7 @@ import (
 
 	dpucniprovisioner "github.com/nvidia/doca-platform/internal/cniprovisioner/dpu"
 	networkhelperMock "github.com/nvidia/doca-platform/internal/cniprovisioner/utils/networkhelper/mock"
-	ovsclientMock "github.com/nvidia/doca-platform/internal/cniprovisioner/utils/ovsclient/mock"
+	ovsclientMock "github.com/nvidia/doca-platform/internal/utils/ovsclient/mock"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

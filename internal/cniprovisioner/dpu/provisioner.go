@@ -25,8 +25,8 @@ import (
 	"time"
 
 	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/networkhelper"
-	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/ovsclient"
 	dpu "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/state"
+	"github.com/nvidia/doca-platform/internal/utils/ovsclient"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
