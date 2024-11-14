@@ -20,7 +20,6 @@ set -o nounset
 set -o pipefail
 set -o errexit
 
-E2E_TEST="${E2E_TEST:-""}"
 PIPELINE_NAME="${PIPELINE_NAME:-"${CI_PIPELINE_NAME}"}"
 
 # This limit is set with the DPF release job in mind. This job currently runs up to 3 times.
@@ -51,10 +50,6 @@ if [[ $CI_JOB_NAME == "release" ]]; then
 fi
 
 notification_message="Pipeline ${PIPELINE_NAME} has failed.\n\nDetails: ${CI_PIPELINE_URL}"
-
-if [ "$E2E_TEST" == "true" ]; then
-  notification_message="${notification_message}\n\nArtifacts download:\ncurl -L -o ${CI_JOB_ID}.zip --header \\\"PRIVATE-TOKEN: \$GITLAB_API_TOKEN\\\" ${CI_API_V4_URL}µ/jobs/${CI_JOB_ID}/artifacts && unzip -d ${CI_JOB_ID} ${CI_JOB_ID}.zip && rm ${CI_JOB_ID}.zip"
-fi
 
 echo "{\"notification_message\":${notification_message}\"}"
 curl -X POST -H "Content-type: application/json" --data "{\"notification_message\":\"${notification_message}\"}" $SLACK_WEBHOOK_URL
