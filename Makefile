@@ -205,16 +205,7 @@ generate-manifests-dpuservice: controller-gen ## Generate manifests e.g. CRD, RB
 	webhook
 
 .PHONY: generate-manifests-ovn-kubernetes-resource-injector
-generate-manifests-ovn-kubernetes-resource-injector: controller-gen envsubst ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes Resource Injector
-	$(CONTROLLER_GEN) \
-	paths="./cmd/ovnkubernetesresourceinjector/..." \
-	paths="./internal/ovnkubernetesresourceinjector/..." \
-	crd:crdVersions=v1 \
-	rbac:roleName=manager-role \
-	output:rbac:dir=./config/ovnkubernetesresourceinjector/rbac \
-	output:webhook:dir=./config/ovnkubernetesresourceinjector/webhook \
-	webhook
-	cd config/ovnkubernetesresourceinjector/manager && $(KUSTOMIZE) edit set image controller=$(OVNKUBERNETES_RESOURCE_INJECTOR_IMAGE):$(TAG)
+generate-manifests-ovn-kubernetes-resource-injector: envsubst ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes Resource Injector
 	$(ENVSUBST) < deploy/helm/ovn-kubernetes-resource-injector/values.yaml.tmpl > deploy/helm/ovn-kubernetes-resource-injector/values.yaml
 
 .PHONY: generate-manifests-dpucniprovisioner
