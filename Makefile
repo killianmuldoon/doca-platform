@@ -142,7 +142,7 @@ $(SOS_REPORT_DIR): | $(REPOSDIR)
 	cp -Rp ./hack/tools/dpf-tools/* $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF}/
 
 ##@ Development
-GENERATE_TARGETS ?= dpuservice provisioning hostcniprovisioner dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded release-defaults dummydpuservice kamaji-cluster-manager static-cluster-manager dpu-detector ovn-kubernetes
+GENERATE_TARGETS ?= dpuservice provisioning dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded release-defaults dummydpuservice kamaji-cluster-manager static-cluster-manager dpu-detector ovn-kubernetes
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -220,10 +220,6 @@ generate-manifests-ovn-kubernetes-resource-injector: controller-gen envsubst ## 
 .PHONY: generate-manifests-dpucniprovisioner
 generate-manifests-dpucniprovisioner: kustomize ## Generates DPU CNI provisioner manifests
 	cd config/dpucniprovisioner/default && $(KUSTOMIZE) edit set image controller=$(DPUCNIPROVISIONER_IMAGE):$(TAG)
-
-.PHONY: generate-manifests-hostcniprovisioner
-generate-manifests-hostcniprovisioner: kustomize ## Generates Host CNI provisioner manifests
-	cd config/hostcniprovisioner/default &&	$(KUSTOMIZE) edit set image controller=$(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
 RELEASE_FILE = ./internal/release/manifests/defaults.yaml
 
@@ -568,10 +564,6 @@ binary-servicechainset: ## Build the servicechainset controller binary.
 binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/dpucniprovisioner github.com/nvidia/doca-platform/cmd/dpucniprovisioner
 
-.PHONY: binary-hostcniprovisioner
-binary-hostcniprovisioner: ## Build the Host CNI Provisioner binary.
-	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/hostcniprovisioner github.com/nvidia/doca-platform/cmd/hostcniprovisioner
-
 .PHONY: binary-sfc-controller
 binary-sfc-controller: ## Build the Host CNI Provisioner binary.
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/sfc-controller github.com/nvidia/doca-platform/cmd/sfc-controller
@@ -609,9 +601,6 @@ OVS_CNI_IMAGE_NAME ?= ovs-cni-plugin
 export OVS_CNI_IMAGE ?= $(REGISTRY)/$(OVS_CNI_IMAGE_NAME)
 
 export HOSTDRIVER_IMAGE ?= $(REGISTRY)/hostdriver
-
-HOSTCNIPROVISIONER_IMAGE_NAME ?= host-cni-provisioner
-HOSTCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(HOSTCNIPROVISIONER_IMAGE_NAME)
 
 IPALLOCATOR_IMAGE_NAME ?= ip-allocator
 export IPALLOCATOR_IMAGE ?= $(REGISTRY)/$(IPALLOCATOR_IMAGE_NAME)
@@ -869,10 +858,6 @@ docker-push-hostdriver: ## Push the docker image for DMS and hostnetwork.
 .PHONY: docker-push-dpucniprovisioner
 docker-push-dpucniprovisioner: ## Push the docker image for DPU CNI Provisioner.
 	docker push $(DPUCNIPROVISIONER_IMAGE):$(TAG)
-
-.PHONY: docker-push-hostcniprovisioner
-docker-push-hostcniprovisioner: ## Push the docker image for Host CNI Provisioner.
-	docker push $(HOSTCNIPROVISIONER_IMAGE):$(TAG)
 
 .PHONY: docker-push-ipallocator
 docker-push-ipallocator: ## Push the docker image for IP Allocator.
