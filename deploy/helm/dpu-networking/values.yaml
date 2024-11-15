@@ -15,3 +15,5 @@ servicechainset-controller:
     enabled: false
 sfc-controller:
     enabled: false
+ovs-helper:
+    enabled: false

@@ -63,3 +63,4 @@ COPY --chown=${uid} --from=builder /workspace/bin/servicechainset .
 COPY --chown=${uid} --from=builder /workspace/bin/sfc-controller .
 COPY --chown=${uid} --from=builder /workspace/bin/kamaji-cluster-manager .
 COPY --chown=${uid} --from=builder /workspace/bin/static-cluster-manager .
+COPY --chown=${uid} --from=builder /workspace/bin/ovshelper .

@@ -142,7 +142,7 @@ $(SOS_REPORT_DIR): | $(REPOSDIR)
 	cp -Rp ./hack/tools/dpf-tools/* $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF}/
 
 ##@ Development
-GENERATE_TARGETS ?= dpuservice provisioning dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded release-defaults dummydpuservice kamaji-cluster-manager static-cluster-manager dpu-detector ovn-kubernetes
+GENERATE_TARGETS ?= dpuservice provisioning dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded release-defaults dummydpuservice kamaji-cluster-manager static-cluster-manager dpu-detector ovn-kubernetes ovs-helper
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -251,6 +251,11 @@ generate-manifests-sfc-controller: envsubst generate-manifests-servicechainset
 	cp deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/svc.dpu.nvidia.com_serviceinterfaces.yaml deploy/helm/dpu-networking/charts/sfc-controller/templates/crds/
 	# Template the image name and tag used in the helm templates.
 	$(ENVSUBST) < deploy/helm/dpu-networking/charts/sfc-controller/values.yaml.tmpl > deploy/helm/dpu-networking/charts/sfc-controller/values.yaml
+
+.PHONY: generate-manifests-ovs-helper
+generate-manifests-ovs-helper: envsubst # Generates manifests for the OVS Helper.
+	# Template the image name and tag used in the helm templates.
+	$(ENVSUBST) < deploy/helm/dpu-networking/charts/ovs-helper/values.yaml.tmpl > deploy/helm/dpu-networking/charts/ovs-helper/values.yaml
 
 .PHONY: generate-manifests-ovs-cni
 generate-manifests-ovs-cni: envsubst ## Generate values for OVS helm chart.
@@ -506,7 +511,7 @@ release: generate ## Build and push helm and container images for release.
 GO_GCFLAGS ?= ""
 GO_LDFLAGS ?= "-extldflags '-static'"
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
-DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller
+DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller ovs-helper
 DPU_ARCH_BUILD_TARGETS ?=
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
@@ -554,6 +559,10 @@ binary-servicechainset: ## Build the servicechainset controller binary.
 .PHONY: binary-dpucniprovisioner
 binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
 	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/dpucniprovisioner github.com/nvidia/doca-platform/cmd/dpucniprovisioner
+
+.PHONY: binary-ovs-helper
+binary-ovs-helper: ## Build the OVS Helper binary
+	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ovshelper github.com/nvidia/doca-platform/cmd/ovshelper
 
 .PHONY: binary-sfc-controller
 binary-sfc-controller: ## Build the Host CNI Provisioner binary.

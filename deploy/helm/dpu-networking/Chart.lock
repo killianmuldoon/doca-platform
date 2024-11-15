@@ -20,5 +20,8 @@ dependencies:
 - name: flannel
   repository: https://flannel-io.github.io/flannel
   version: v0.25.1
-digest: sha256:4ae787d90e9e959054abf5dc404cc4e82775bafb0edb65680de0dedad9e10c51
-generated: "2024-09-25T10:52:58.517212+01:00"
+- name: ovs-helper
+  repository: file://charts/ovs-helper
+  version: 0.1.0
+digest: sha256:fac88cf4916134e9912581abbd09381ff045567cd368c40bd642d847dc59c102
+generated: "2024-11-14T11:48:19.295056399+01:00"

@@ -34,5 +34,7 @@ dependencies:
     version: v0.25.1
     repository: https://flannel-io.github.io/flannel
     condition: flannel.enabled
-
-
+  - name: ovs-helper
+    version: "0.1.0"
+    repository: file://charts/ovs-helper
+    condition: ovs-helper.enabled
