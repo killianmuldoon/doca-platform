@@ -46,19 +46,34 @@ import (
 )
 
 const (
-	RequeueInterval             = 5 * time.Second
-	CFGExtension                = ".cfg"
-	DPUSetNameLabel             = "provisioning.dpu.nvidia.com/dpuset-name"
-	DPUSetNamespaceLabel        = "provisioning.dpu.nvidia.com/dpuset-namespace"
-	DPUPCIAddress               = "dpu-%d-pci-address"
-	DPUPFName                   = "dpu-%d-pf0-name"
-	DPUPCIAddressLabel          = "provisioning.dpu.nvidia.com/dpu-pciAddress"
-	DPUPFNameLabel              = "provisioning.dpu.nvidia.com/dpu-pf-name"
-	DPUHostIPLabel              = "provisioning.dpu.nvidia.com/dpu-host-ip"
-	DPUOOBBridgeConfiguredLabel = "feature.node.kubernetes.io/dpu-oob-bridge-configured"
-	TolerationNotReadyKey       = "node.kubernetes.io/not-ready"
-	TolerationUnreachableyKey   = "node.kubernetes.io/unreachable"
-	TolerationUnschedulableKey  = "node.kubernetes.io/unschedulable"
+	// RequeueInterval is the interval to requeue the request.
+	RequeueInterval = 5 * time.Second
+	// CFGExtension is the extension of the BFB configuration file.
+	CFGExtension = ".cfg"
+	// DPUSetNameLabel is the label that indicates the name of the DPUSet.
+	DPUSetNameLabel = "provisioning.dpu.nvidia.com/dpuset-name"
+	// DPUSetNamespaceLabel is the label that indicates the namespace of the DPUSet.
+	DPUSetNamespaceLabel = "provisioning.dpu.nvidia.com/dpuset-namespace"
+	// DPUPCIAddress is the label that indicates the PCI address of the DPU.
+	DPUPCIAddress = "dpu-%d-pci-address"
+	// DPUPFName is the label that indicates the PF name of the DPU.
+	DPUPFName = "dpu-%d-pf0-name"
+	// DPUPCIAddressLabel is the label that indicates the PCI address of the DPU.
+	DPUPCIAddressLabel = "provisioning.dpu.nvidia.com/dpu-pciAddress"
+	// DPUPFNameLabel is the label that indicates the PF name of the DPU.
+	DPUPFNameLabel = "provisioning.dpu.nvidia.com/dpu-pf-name"
+	// DPUHostIPLabel is the label that indicates the host IP of the DPU.
+	DPUHostIPLabel = "provisioning.dpu.nvidia.com/dpu-host-ip"
+	// TolerationNotReadyKey is the key for the NotReady taint.
+	TolerationNotReadyKey = "node.kubernetes.io/not-ready"
+	// TolerationUnreachableyKey is the key for the Unreachable taint.
+	TolerationUnreachableyKey = "node.kubernetes.io/unreachable"
+	// TolerationUnschedulableKey is the key for the Unschedulable taint.
+	TolerationUnschedulableKey = "node.kubernetes.io/unschedulable"
+	// DPUOOBBridgeConfiguredLabel is the label that indicates that the DPU OOB bridge is configured.
+	DPUOOBBridgeConfiguredLabel = "dpu-oob-bridge-configured"
+	// NodeFeatureDiscoveryLabelPrefix is the prefix for all NodeFeatureDiscovery labels.
+	NodeFeatureDiscoveryLabelPrefix = "feature.node.kubernetes.io/"
 	// NodeMaintenanceRequestorID is the requestor ID used for NodeMaintenance CRs
 	NodeMaintenanceRequestorID = "dpu.nvidia.com"
 	// ProvisioningGroupName is the provisioning group, used to identify provisioning as

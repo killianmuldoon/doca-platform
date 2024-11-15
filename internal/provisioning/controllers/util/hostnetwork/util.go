@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -97,7 +98,7 @@ func CreateHostNetworkSetupPod(ctx context.Context, client client.Client, dpu *p
 						},
 					},
 					SecurityContext: &corev1.SecurityContext{
-						Privileged: &[]bool{true}[0],
+						Privileged: ptr.To(true),
 					},
 					Env: []corev1.EnvVar{
 						{

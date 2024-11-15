@@ -154,7 +154,7 @@ var _ = Describe("DPU", func() {
 	}
 
 	var createNode = func(ctx context.Context, name string, labels map[string]string) *corev1.Node {
-		labels[cutil.DPUOOBBridgeConfiguredLabel] = "true"
+		labels[cutil.NodeFeatureDiscoveryLabelPrefix+cutil.DPUOOBBridgeConfiguredLabel] = ""
 		node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: labels}}
 		Expect(k8sClient.Create(ctx, node)).NotTo(HaveOccurred())
 		return node
@@ -206,7 +206,7 @@ var _ = Describe("DPU", func() {
 			}).WithTimeout(30 * time.Second).WithPolling(10 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
 		})
 
-		It("check status (Initializing) and DPUOOBBridgeNotConfigured", func() {
+		It("check status (Initializing) with DPUOOBBridgeNotConfigured", func() {
 			By("Remove labels from Node to simulate a non-existing OOB bridge")
 			testNode.SetLabels(nil)
 			Expect(k8sClient.Update(ctx, testNode)).To(Succeed())
@@ -222,7 +222,7 @@ var _ = Describe("DPU", func() {
 
 			objFetched := &provisioningv1.DPU{}
 
-			By("expecting the Status (Initializing)")
+			By("expecting the Status (Initializing / DPUOOBBridgeNotConfigured)")
 			Eventually(func(g Gomega) []metav1.Condition {
 				g.Expect(k8sClient.Get(ctx, getObjKey(obj), objFetched)).To(Succeed())
 				return objFetched.Status.Conditions
@@ -234,6 +234,18 @@ var _ = Describe("DPU", func() {
 				),
 			))
 			Expect(objFetched.Finalizers).Should(ConsistOf([]string{provisioningv1.DPUFinalizer}))
+
+			By("Add OOB label and it should still fail")
+			testNode.SetLabels(map[string]string{
+				cutil.NodeFeatureDiscoveryLabelPrefix + cutil.DPUOOBBridgeConfiguredLabel: "",
+			})
+			Expect(k8sClient.Update(ctx, testNode)).To(Succeed())
+
+			By("expecting the Status (Initializing)")
+			Consistently(func(g Gomega) provisioningv1.DPUPhase {
+				g.Expect(k8sClient.Get(ctx, getObjKey(obj), objFetched)).To(Succeed())
+				return objFetched.Status.Phase
+			}).WithTimeout(30 * time.Second).WithPolling(10 * time.Millisecond).Should(Equal(provisioningv1.DPUInitializing))
 		})
 
 		It("check status (Initializing) and cluster NotReady", func() {
@@ -1067,9 +1079,9 @@ var _ = Describe("DMS Pod", func() {
 				Name:      name,
 				Namespace: testNS.Name,
 				Labels: map[string]string{
-					"feature.node.kubernetes.io/dpu.features-dpu-pciAddress": "0000-90-00",
-					"feature.node.kubernetes.io/dpu.features-dpu-pf-name":    "ens1f0np0",
-					"feature.node.kubernetes.io/dpu-oob-bridge-configured":   "true",
+					cutil.NodeFeatureDiscoveryLabelPrefix + "dpu.features-dpu-pciAddress":     "0000-90-00",
+					cutil.NodeFeatureDiscoveryLabelPrefix + "dpu.features-dpu-pf-name":        "ens1f0np0",
+					cutil.NodeFeatureDiscoveryLabelPrefix + cutil.DPUOOBBridgeConfiguredLabel: "",
 				}},
 			Status: corev1.NodeStatus{
 				Conditions: []corev1.NodeCondition{

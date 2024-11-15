@@ -29,6 +29,7 @@ import (
 
 	"github.com/nvidia/doca-platform/cmd/dpudetector/bash"
 	"github.com/nvidia/doca-platform/cmd/dpudetector/dpu"
+	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
 	"github.com/golang/glog"
 )
@@ -204,7 +205,8 @@ func writeNFDFeatureFile(dpuMap map[string]dpu.DPU) error {
 
 	// Add label if the DPU OOB bridge is configured properly.
 	if isOOBBridgeConfigured() {
-		if _, err := write.WriteString("dpu-oob-bridge-configured=\r\n"); err != nil {
+		nfdString := fmt.Sprintf("%s=\r\n", cutil.DPUOOBBridgeConfiguredLabel)
+		if _, err := write.WriteString(nfdString); err != nil {
 			return err
 		}
 	}

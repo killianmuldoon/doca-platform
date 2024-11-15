@@ -75,6 +75,23 @@ func (st *dmsDeploymentState) Handle(ctx context.Context, client client.Client, 
 		return *state, nil
 	}
 	switch pod.Status.Phase {
+	case corev1.PodPending:
+		// Verify if the container of the DMS Pod is in waiting state.
+		if len(pod.Status.ContainerStatuses) == 0 ||
+			pod.Status.ContainerStatuses[0].State.Waiting == nil {
+			return *state, nil
+		}
+		// Verify that the initContainer of the DMS Pod has a last terminated state.
+		if len(pod.Status.InitContainerStatuses) == 0 ||
+			pod.Status.InitContainerStatuses[0].LastTerminationState.Terminated == nil {
+			return *state, nil
+		}
+		message := fmt.Sprintf("the DMS server %s is not ready yet, wait for %q", dmsPodName, pod.Status.InitContainerStatuses[0].LastTerminationState.Terminated.Message)
+		cond := cutil.DPUCondition(provisioningv1.DPUCondDMSRunning, "ExistingRshimInstallDetected", message)
+		cond.Status = metav1.ConditionFalse
+		cutil.SetDPUCondition(state, cond)
+		return *state, fmt.Errorf("%s", message)
+
 	case corev1.PodRunning:
 		// a simple probe to check if the DMS server is ready
 		addr := dms.Address(pod.Status.PodIP)
@@ -88,16 +105,16 @@ func (st *dmsDeploymentState) Handle(ctx context.Context, client client.Client, 
 				logger.Error(fmt.Errorf("failed to close connection of %s (%s), err: %v", addr, dmsPodName, err), "")
 			}
 		}()
-
 		state.Phase = provisioningv1.DPUOSInstalling
 		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondDMSRunning, "", ""))
+
 	case corev1.PodFailed:
 		return handleDMSPodFailure(state, "DMSPodFailed", "DMS Pod Failed")
+
 	default:
 		if isTimeout(pod, option.DMSPodTimeout) {
 			return handleDMSPodFailure(state, "DMSPodTimedout", "DMS Pod didn't run and timed out")
 		}
-
 	}
 	return *state, nil
 }

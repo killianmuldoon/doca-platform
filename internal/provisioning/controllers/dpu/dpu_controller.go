@@ -106,7 +106,8 @@ func (r *DPUReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{RequeueAfter: cutil.RequeueInterval}, nil
 	}
 
-	return ctrl.Result{}, nil
+	// If we have an error we have to requeue the DPU and let controller-runtime handle the error.
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager sets up the controller with the Manager.

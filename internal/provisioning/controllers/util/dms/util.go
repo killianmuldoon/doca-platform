@@ -31,6 +31,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -42,6 +43,7 @@ const (
 	issuerKind             string = "Issuer"
 	provisioningIssuerName string = "dpf-provisioning-issuer" // this issuer is created by provisioning manifest
 	dmsServerIP            string = "0.0.0.0"
+	dmsInitError           string = "rshim is installed on host which is not supported. Please remove the rshim package from the host"
 	dmsServerPort          int32  = 9339
 )
 
@@ -147,6 +149,23 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 		},
 		Spec: corev1.PodSpec{
 			HostNetwork: true,
+			InitContainers: []corev1.Container{
+				{
+					Name:            "rshim-preflight",
+					Image:           option.DMSImageWithTag,
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					SecurityContext: &corev1.SecurityContext{
+						Privileged: ptr.To(true),
+					},
+					Command: []string{"/bin/bash", "-c"},
+					Args: []string{
+						// Check if rshim is installed on the host for the target PCI address.
+						// If rshim is installed, then exit with an error message to prevent DMS pod creation.
+						// The error message will be used in a condition for the DPU resource.
+						fmt.Sprintf(`ls /dev | egrep 'rshim.*[0-9]+' | while read dev; do if echo 'DISPLAY_LEVEL 1' > $dev/misc && grep -q %s $dev/misc; then echo -n "%s" > /dev/termination-log; exit 1; fi; done`, pciAddress, dmsInitError),
+					},
+				},
+			},
 			Containers: []corev1.Container{
 				{
 					Name:            "dms",
@@ -173,7 +192,7 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 						},
 					},
 					SecurityContext: &corev1.SecurityContext{
-						Privileged: &[]bool{true}[0],
+						Privileged: ptr.To(true),
 					},
 					Command: []string{"/bin/bash", "-c", "--"},
 					Args: []string{

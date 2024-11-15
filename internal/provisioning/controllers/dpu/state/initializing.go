@@ -53,7 +53,7 @@ func (st *dpuInitializingState) Handle(ctx context.Context, c client.Client, _ d
 	}
 
 	// Check if the DPU OOB bridge is configured. If not configured, set the condition and return.
-	if _, ok := node.GetLabels()[cutil.DPUOOBBridgeConfiguredLabel]; !ok {
+	if _, ok := node.GetLabels()[cutil.NodeFeatureDiscoveryLabelPrefix+cutil.DPUOOBBridgeConfiguredLabel]; !ok {
 		logger.Info("DPU OOB bridge is not configured")
 		err := fmt.Errorf("DPU OOB bridge is not configured")
 		cond := cutil.NewCondition(provisioningv1.DPUCondInitialized.String(), err, "DPUOOBBridgeNotConfigured", err.Error())
