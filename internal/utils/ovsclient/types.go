@@ -54,6 +54,24 @@ type OVSClient interface {
 	SetDOCAInit(enable bool) error
 	// SetKubernetesHostNodeName sets the host-k8s-nodename external ID in the Open_vSwitch table in OVS
 	SetKubernetesHostNodeName(name string) error
+
+	// InterfaceToBridge returns the bridge an interface exists in
+	InterfaceToBridge(iface string) (string, error)
+	// DeletePort deletes a port
+	DeletePort(port string) error
+	// GetInterfaceOfPort returns the ofport number of a port
+	GetInterfaceOfPort(port string) (int, error)
+	// GetPortExternalIDs returns the external_ids of an OVS port
+	GetPortExternalIDs(port string) (map[string]string, error)
+	// GetInterfaceExternalIDs returns the external_ids of an OVS interface
+	GetInterfaceExternalIDs(iface string) (map[string]string, error)
+	// AddPortWithMetadata adds a port to the given bridge with the specified external IDs and ofport request in a single
+	// transaction
+	AddPortWithMetadata(bridge string, port string, portExternalIDs map[string]string, interfaceExternalIDs map[string]string, ofport int) error
+	// ListInterfaces lists all the interfaces that exist in OVS of a particular type
+	ListInterfaces(portType PortType) (map[string]interface{}, error)
+	// GetInterfacesWithPMDRXQueue returns all the interfaces that have a PMD Rx queue
+	GetInterfacesWithPMDRXQueue() (map[string]interface{}, error)
 }
 
 // BridgeDataPathType represents the various datapath types a bridge can be configured with
