@@ -34,6 +34,7 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.NVIPAMName:                 false,
 			operatorv1.SFCControllerName:          false,
 			operatorv1.DPUDetectorName:            false,
+			operatorv1.OVSHelperName:              false,
 
 			// Both control plane managers are disabled by default.
 			operatorv1.StaticClusterManagerName: true,
@@ -49,6 +50,7 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.OVSCNIName:                 defaults.OVSCNIImage,
 			operatorv1.SFCControllerName:          defaults.DPFSystemImage,
 			operatorv1.DPUDetectorName:            defaults.DMSImage,
+			operatorv1.OVSHelperName:              defaults.DPFSystemImage,
 
 			// External images of components which are deployed by the DPF Operator.
 			operatorv1.MultusName:            defaults.MultusImage,
@@ -63,6 +65,7 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.OVSCNIName:               defaults.DPUNetworkingHelmChart,
 			operatorv1.SFCControllerName:        defaults.DPUNetworkingHelmChart,
 			operatorv1.ServiceSetControllerName: defaults.DPUNetworkingHelmChart,
+			operatorv1.OVSHelperName:            defaults.DPUNetworkingHelmChart,
 		},
 		DPUDetectorCollectors: map[string]bool{},
 	}

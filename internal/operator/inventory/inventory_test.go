@@ -222,6 +222,31 @@ func TestManifests_Parse_Generate_All(t *testing.T) {
 			}),
 			wantErr: true,
 		},
+		// ovs-helper
+		{
+			name: "fail if ovs-helper data is nil",
+			inventory: New().setOVSHelper(fromDPUService{
+				name: operatorv1.OVSHelperName,
+				data: nil,
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if ovs-helper data has an unexpected object",
+			inventory: New().setOVSHelper(fromDPUService{
+				name: operatorv1.OVSHelperName,
+				data: addUnexpectedKindToObjects(g, OVSHelperData),
+			}),
+			wantErr: true,
+		},
+		{
+			name: "fail if ovs-helper is missing the DPUService",
+			inventory: New().setSfcController(fromDPUService{
+				name: operatorv1.OVSHelperName,
+				data: removeKindFromObjects(g, "DPUService", OVSHelperData),
+			}),
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -340,6 +365,12 @@ func TestManifests_generateAllManifests(t *testing.T) {
 			componentToDisable: operatorv1.SFCControllerName,
 			wantErr:            false,
 			expectedMissing:    operatorv1.SFCControllerName,
+		},
+		{
+			name:               "Disable ovs-helper manifests",
+			componentToDisable: operatorv1.OVSHelperName,
+			wantErr:            false,
+			expectedMissing:    operatorv1.OVSHelperName,
 		},
 	}
 	for _, tt := range tests {

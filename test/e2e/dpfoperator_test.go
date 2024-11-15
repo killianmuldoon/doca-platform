@@ -321,7 +321,7 @@ func DeployDPFSystemComponents(ctx context.Context, input DeployDPFSystemCompone
 		Eventually(func(g Gomega) {
 			dpuServices := &dpuservicev1.DPUServiceList{}
 			g.Expect(testClient.List(ctx, dpuServices)).To(Succeed())
-			g.Expect(dpuServices.Items).To(HaveLen(7))
+			g.Expect(dpuServices.Items).To(HaveLen(8))
 			found := map[string]bool{}
 			for i := range dpuServices.Items {
 				found[dpuServices.Items[i].Name] = true
@@ -335,6 +335,7 @@ func DeployDPFSystemComponents(ctx context.Context, input DeployDPFSystemCompone
 			g.Expect(found).To(HaveKey(operatorv1.NVIPAMName))
 			g.Expect(found).To(HaveKey(operatorv1.OVSCNIName))
 			g.Expect(found).To(HaveKey(operatorv1.SFCControllerName))
+			g.Expect(found).To(HaveKey(operatorv1.OVSHelperName))
 		}).WithTimeout(60 * time.Second).Should(Succeed())
 	})
 }
@@ -478,7 +479,7 @@ func ProvisionDPUClusters(ctx context.Context, input ProvisionDPUClustersInput) 
 
 				// Expect each of the following to have been created by the operator.
 				// These are labels on the appv1 type - e.g. DaemonSet or Deployment on the DPU cluster.
-				g.Expect(found).To(HaveLen(7))
+				g.Expect(found).To(HaveLen(8))
 				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.MultusName)))
 				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.FlannelName)))
 				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.SRIOVDevicePluginName)))
@@ -486,7 +487,8 @@ func ProvisionDPUClusters(ctx context.Context, input ProvisionDPUClustersInput) 
 				// Note: The NVIPAM DPUService contains both a Daemonset and a Deployment - but this is overwritten in the map.
 				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.NVIPAMName)))
 				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.OVSCNIName)))
-				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.OVSCNIName)))
+				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.SFCControllerName)))
+				g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.OVSHelperName)))
 			}
 		}).WithTimeout(600 * time.Second).Should(Succeed())
 	})
@@ -526,6 +528,9 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 		modifiedConfig.Spec.SFCController = &operatorv1.SFCControllerConfiguration{
 			Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.SFCControllerName)),
 		}
+		modifiedConfig.Spec.OVSHelper = &operatorv1.OVSHelperConfiguration{
+			Image: ptr.To(fmt.Sprintf(imageTemplate, dummyRegistryName, operatorv1.OVSHelperName)),
+		}
 		Expect(testClient.Patch(ctx, modifiedConfig, client.MergeFrom(originalConfig))).To(Succeed())
 
 		// Assert the images are set for the system components.
@@ -540,6 +545,7 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 				operatorv1.OVSCNIName:            true,
 				operatorv1.NVIPAMName:            true,
 				operatorv1.MultusName:            true,
+				operatorv1.OVSHelperName:         true,
 				// Ignoring flannel as the image is never set.
 			}
 

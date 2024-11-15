@@ -50,6 +50,7 @@ type SystemComponents struct {
 	KamajiClusterManager    Component
 	StaticClusterManager    Component
 	DPUDetector             Component
+	OVSHelper               Component
 }
 
 // Embed manifests for Kubernetes objects created by the controller.
@@ -89,6 +90,9 @@ var (
 
 	//go:embed manifests/dpu-detector.yaml
 	dpuDetectorData []byte
+
+	//go:embed manifests/ovs-helper.yaml
+	OVSHelperData []byte
 )
 
 // New returns a new SystemComponents inventory with data preloaded but parsing not completed.
@@ -133,6 +137,10 @@ func New() *SystemComponents {
 		},
 		KamajiClusterManager: newClusterManagerObjects(operatorv1.KamajiClusterManagerName, kamajiCMData),
 		StaticClusterManager: newClusterManagerObjects(operatorv1.StaticClusterManagerName, staticCMData),
+		OVSHelper: &fromDPUService{
+			name: operatorv1.OVSHelperName,
+			data: OVSHelperData,
+		},
 	}
 }
 
@@ -146,6 +154,7 @@ func (s *SystemComponents) SystemDPUServices() []Component {
 		s.NvIPAM,
 		s.OvsCni,
 		s.SfcController,
+		s.OVSHelper,
 	}
 }
 
@@ -165,6 +174,7 @@ func (s *SystemComponents) AllComponents() []Component {
 		s.OvsCni,
 		s.SfcController,
 		s.DPUDetector,
+		s.OVSHelper,
 	}
 }
 
@@ -260,5 +270,10 @@ func (s *SystemComponents) setOvsCni(input fromDPUService) *SystemComponents {
 
 func (s *SystemComponents) setSfcController(input fromDPUService) *SystemComponents {
 	s.SfcController = &input
+	return s
+}
+
+func (s *SystemComponents) setOVSHelper(input fromDPUService) *SystemComponents {
+	s.OVSHelper = &input
 	return s
 }

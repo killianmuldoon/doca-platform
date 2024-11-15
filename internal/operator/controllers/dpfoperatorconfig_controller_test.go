@@ -369,6 +369,7 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 		waitForDPUService(g, config.Namespace, operatorv1.NVIPAMName, initialImagePullSecrets)
 		waitForDPUService(g, config.Namespace, operatorv1.OVSCNIName, initialImagePullSecrets)
 		waitForDPUService(g, config.Namespace, operatorv1.SFCControllerName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.OVSHelperName, initialImagePullSecrets)
 	})
 
 	t.Run("Remove label from Secrets when they are removed from the DPFOperatorConfig", func(t *testing.T) {
@@ -377,7 +378,6 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 		patch := client.MergeFrom(config.DeepCopy())
 		config.Spec.ImagePullSecrets = updatedImagePullSecrets
 		g.Expect(testClient.Patch(ctx, config, patch)).To(Succeed())
-		fmt.Print(config.Namespace)
 		// Expect the label to have been removed from secret-one.
 		g.Eventually(func(g Gomega) {
 			secrets := &corev1.SecretList{}
@@ -435,6 +435,9 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 			},
 			SFCController: &operatorv1.SFCControllerConfiguration{
 				HelmChart: ptr.To(fmt.Sprintf(helmTemplate, operatorv1.SFCControllerName)),
+			},
+			OVSHelper: &operatorv1.OVSHelperConfiguration{
+				HelmChart: ptr.To(fmt.Sprintf(helmTemplate, operatorv1.OVSHelperName)),
 			},
 		}
 		g.Expect(testClient.Patch(ctx, config, client.MergeFrom(configCopy))).To(Succeed())
@@ -496,6 +499,11 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 				fmt.Sprintf(helmTemplate, operatorv1.NVIPAMName),
 			)).To(BeTrue())
 
+			g.Expect(dpuServiceReferencesHelmChart(
+				waitForDPUService(g, config.Namespace, operatorv1.OVSHelperName, initialImagePullSecrets),
+				fmt.Sprintf(helmTemplate, operatorv1.OVSHelperName),
+			)).To(BeTrue())
+
 		}).WithTimeout(20 * time.Second).Should(Succeed())
 
 	})
@@ -517,6 +525,7 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 		waitForDPUService(g, config.Namespace, operatorv1.NVIPAMName, initialImagePullSecrets)
 		waitForDPUService(g, config.Namespace, operatorv1.OVSCNIName, initialImagePullSecrets)
 		waitForDPUService(g, config.Namespace, operatorv1.SFCControllerName, initialImagePullSecrets)
+		waitForDPUService(g, config.Namespace, operatorv1.OVSHelperName, initialImagePullSecrets)
 		g.Eventually(func(g Gomega) {
 			dpuservices := &dpuservicev1.DPUServiceList{}
 			g.Expect(testClient.List(ctx, dpuservices)).To(Succeed())

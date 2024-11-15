@@ -185,6 +185,26 @@ spec:
                     pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
                     type: string
                 type: object
+              ovsHelper:
+                description: OVSHelper is the configuration for the OVSHelper
+                properties:
+                  disable:
+                    description: Disable ensures the component is not deployed when
+                      set to true.
+                    type: boolean
+                  helmChart:
+                    description: |-
+                      HelmChart overrides the helm chart used by the OVS Helper
+                      The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+                      OCI registry or a web-based repository.
+                    pattern: ^(oci://|https://).+$
+                    type: string
+                  image:
+                    description: Image overrides the container image used by the OVS
+                      Helper
+                    pattern: ^((?:(?:(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]|__|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]{0,127}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]{32,}))?$
+                    type: string
+                type: object
               provisioningController:
                 description: ProvisioningController is the configuration for the ProvisioningController
                 properties:

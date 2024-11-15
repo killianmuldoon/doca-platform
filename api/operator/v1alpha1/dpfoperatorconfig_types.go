@@ -88,6 +88,9 @@ type DPFOperatorConfigSpec struct {
 	// StaticClusterManager is the configuration for the static-cluster-manager
 	// +optional
 	StaticClusterManager *StaticClusterManagerConfiguration `json:"staticClusterManager,omitempty"`
+	// OVSHelper is the configuration for the OVSHelper
+	// +optional
+	OVSHelper *OVSHelperConfiguration `json:"ovsHelper,omitempty"`
 
 	// List of secret names which are used to pull images for DPF system components and DPUServices.
 	// These secrets must be in the same namespace as the DPF Operator Config and should be created before the config is created.

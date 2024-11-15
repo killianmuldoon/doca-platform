@@ -82,6 +82,7 @@ _Appears in:_
 | `sfcController` _[SFCControllerConfiguration](#sfccontrollerconfiguration)_ | SFCController is the configuration for the SFCController |  |  |
 | `kamajiClusterManager` _[KamajiClusterManagerConfiguration](#kamajiclustermanagerconfiguration)_ | KamajiClusterManager is the configuration for the kamaji-cluster-manager |  |  |
 | `staticClusterManager` _[StaticClusterManagerConfiguration](#staticclustermanagerconfiguration)_ | StaticClusterManager is the configuration for the static-cluster-manager |  |  |
+| `ovsHelper` _[OVSHelperConfiguration](#ovshelperconfiguration)_ | OVSHelper is the configuration for the OVSHelper |  |  |
 | `imagePullSecrets` _string array_ | List of secret names which are used to pull images for DPF system components and DPUServices.<br />These secrets must be in the same namespace as the DPF Operator Config and should be created before the config is created.<br />System reconciliation will not proceed until these secrets are available. |  |  |
 
 
@@ -184,6 +185,7 @@ _Appears in:_
 - [MultusConfiguration](#multusconfiguration)
 - [NVIPAMConfiguration](#nvipamconfiguration)
 - [OVSCNIConfiguration](#ovscniconfiguration)
+- [OVSHelperConfiguration](#ovshelperconfiguration)
 - [SFCControllerConfiguration](#sfccontrollerconfiguration)
 - [SRIOVDevicePluginConfiguration](#sriovdevicepluginconfiguration)
 - [ServiceSetControllerConfiguration](#servicesetcontrollerconfiguration)
@@ -209,6 +211,7 @@ _Appears in:_
 - [MultusConfiguration](#multusconfiguration)
 - [NVIPAMConfiguration](#nvipamconfiguration)
 - [OVSCNIConfiguration](#ovscniconfiguration)
+- [OVSHelperConfiguration](#ovshelperconfiguration)
 - [ProvisioningControllerConfiguration](#provisioningcontrollerconfiguration)
 - [SFCControllerConfiguration](#sfccontrollerconfiguration)
 - [SRIOVDevicePluginConfiguration](#sriovdevicepluginconfiguration)
@@ -288,6 +291,24 @@ _Appears in:_
 | `disable` _boolean_ | Disable ensures the component is not deployed when set to true. |  |  |
 | `image` _[Image](#image)_ | Image overrides the container image used by the OVS CNI |  | Pattern: `^((?:(?:(?:[a-zA-Z0-9]\|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]\|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*\|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]\|__\|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]\|__\|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]\{0,127\}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]\{32,\}))?$` <br /> |
 | `helmChart` _[HelmChart](#helmchart)_ | HelmChart overrides the helm chart used by the OVS CNI<br />The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid<br />OCI registry or a web-based repository. |  | Pattern: `^(oci://\|https://).+$` <br /> |
+
+
+#### OVSHelperConfiguration
+
+
+
+
+
+
+
+_Appears in:_
+- [DPFOperatorConfigSpec](#dpfoperatorconfigspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `disable` _boolean_ | Disable ensures the component is not deployed when set to true. |  |  |
+| `image` _[Image](#image)_ | Image overrides the container image used by the OVS Helper |  | Pattern: `^((?:(?:(?:[a-zA-Z0-9]\|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9])(?:\.(?:[a-zA-Z0-9]\|[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]))*\|\[(?:[a-fA-F0-9:]+)\])(?::[0-9]+)?/)?[a-z0-9]+(?:(?:[._]\|__\|[-]+)[a-z0-9]+)*(?:/[a-z0-9]+(?:(?:[._]\|__\|[-]+)[a-z0-9]+)*)*)(?::([\w][\w.-]\{0,127\}))?(?:@([A-Za-z][A-Za-z0-9]*(?:[-_+.][A-Za-z][A-Za-z0-9]*)*[:][[:xdigit:]]\{32,\}))?$` <br /> |
+| `helmChart` _[HelmChart](#helmchart)_ | HelmChart overrides the helm chart used by the OVS Helper<br />The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid<br />OCI registry or a web-based repository. |  | Pattern: `^(oci://\|https://).+$` <br /> |
 
 
 #### Overrides

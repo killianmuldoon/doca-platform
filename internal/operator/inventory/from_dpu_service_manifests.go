@@ -50,6 +50,7 @@ var dpuNetworkingSubCharts = map[string]bool{
 	operatorv1.OVSCNIName:               true,
 	operatorv1.NVIPAMName:               true,
 	operatorv1.SFCControllerName:        true,
+	operatorv1.OVSHelperName:            true,
 }
 
 func (f *fromDPUService) Name() string {
@@ -284,6 +285,7 @@ func imageEditsForComponent(name string, imageOverride string) ([]StructuredEdit
 		operatorv1.OVSCNIName:               setOVSCNIImage(imageToSet),
 		operatorv1.NVIPAMName:               setNVIPAMImage(imageToSet),
 		operatorv1.SFCControllerName:        setSFCControllerImage(imageToSet),
+		operatorv1.OVSHelperName:            setOVSHelperImage(imageToSet),
 	}
 	editForComponent, ok := edits[name]
 	if !ok {
@@ -315,6 +317,16 @@ func setServiceSetControllerImage(imageOverride *image) []StructuredEdit {
 func setSFCControllerImage(imageOverride *image) []StructuredEdit {
 	repoPath := []string{operatorv1.SFCControllerName, "controllerManager", "manager", "image", "repository"}
 	tagPath := []string{operatorv1.SFCControllerName, "controllerManager", "manager", "image", "tag"}
+
+	return []StructuredEdit{
+		dpuServiceAddValueEdit(imageOverride.repoImage, repoPath...),
+		dpuServiceAddValueEdit(imageOverride.tag, tagPath...),
+	}
+}
+
+func setOVSHelperImage(imageOverride *image) []StructuredEdit {
+	repoPath := []string{operatorv1.OVSHelperName, "ovsHelper", "image", "repository"}
+	tagPath := []string{operatorv1.OVSHelperName, "ovsHelper", "image", "tag"}
 
 	return []StructuredEdit{
 		dpuServiceAddValueEdit(imageOverride.repoImage, repoPath...),

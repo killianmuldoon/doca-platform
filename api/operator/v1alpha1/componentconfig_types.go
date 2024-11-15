@@ -29,6 +29,7 @@ const (
 	SFCControllerName          = "sfc-controller"
 	KamajiClusterManagerName   = "kamaji-cluster-manager"
 	StaticClusterManagerName   = "static-cluster-manager"
+	OVSHelperName              = "ovs-helper"
 )
 
 func (c *DPFOperatorConfig) ComponentConfigs() []ComponentConfig {
@@ -68,6 +69,9 @@ func (c *DPFOperatorConfig) ComponentConfigs() []ComponentConfig {
 	}
 	if c.Spec.StaticClusterManager != nil {
 		out = append(out, c.Spec.StaticClusterManager)
+	}
+	if c.Spec.OVSHelper != nil {
+		out = append(out, c.Spec.OVSHelper)
 	}
 	return out
 }
@@ -481,5 +485,40 @@ func (c *SFCControllerConfiguration) GetImage() *string {
 }
 
 func (c *SFCControllerConfiguration) GetHelmChart() *string {
+	return c.HelmChart
+}
+
+type OVSHelperConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
+	// +optional
+	Disable *bool `json:"disable,omitempty"`
+
+	// Image overrides the container image used by the OVS Helper
+	// +optional
+	Image Image `json:"image,omitempty"`
+
+	// HelmChart overrides the helm chart used by the OVS Helper
+	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
+	// OCI registry or a web-based repository.
+	// +optional
+	HelmChart HelmChart `json:"helmChart,omitempty"`
+}
+
+func (c *OVSHelperConfiguration) Name() string {
+	return OVSHelperName
+}
+
+func (c *OVSHelperConfiguration) Disabled() bool {
+	if c.Disable == nil {
+		return false
+	}
+	return *c.Disable
+}
+
+func (c *OVSHelperConfiguration) GetImage() *string {
+	return c.Image
+}
+
+func (c *OVSHelperConfiguration) GetHelmChart() *string {
 	return c.HelmChart
 }
