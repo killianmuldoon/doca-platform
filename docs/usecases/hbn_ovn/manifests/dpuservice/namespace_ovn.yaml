@@ -1,0 +1,7 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ovn-kubernetes
+  labels:
+    cert-manager.io/disable-validation: "true"
