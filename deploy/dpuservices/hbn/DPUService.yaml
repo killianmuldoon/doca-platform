@@ -5,15 +5,12 @@ metadata:
   namespace: dpf-operator-system
 spec:
   serviceID: doca-hbn
-  # TODO: align refernces to DPUServiceInterfaces with the deployment guide
   interfaces:
     - p0-if
     - p1-if
     - app-if
   serviceDaemonSet:
     annotations:
-      # TODO:
-      #  - align nv-ipam pool names with OVN and deployemnt guide
       k8s.v1.cni.cncf.io/networks: |-
         [
         {"name": "iprequest", "interface": "ip_lo", "cni-args": {"poolNames": ["loopback"], "poolType": "cidrpool"}},
@@ -22,16 +19,12 @@ spec:
   helmChart:
     source:
       repoURL: https://helm.ngc.nvidia.com/nvstaging/doca # TODO: update to the public namespace
-      version: 1.0.0-dev.1 # TODO: update to the GA version
+      version: 1.0.0
       chart: doca-hbn
     values:
-      # TODO: remove imagePullSecrets from the example before GA releaes
+      # TODO: remove imagePullSecrets from the example before GA release
       imagePullSecrets:
         - name: dpf-pull-secret
-      # TODO: remove image settings from the example before GA releaes
-      image:
-        repository: nvcr.io/nvstaging/doca/doca_hbn
-        tag: 2.dev.200-doca2.9.0
       resources:
         memory: 6Gi
         nvidia.com/bf_sf: 3
