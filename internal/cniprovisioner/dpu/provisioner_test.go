@@ -90,9 +90,10 @@ var _ = Describe("DPU CNI Provisioner", func() {
 					"--port=0",
 					"--log-facility=-",
 					"--interface=br-ovn",
-					"--dhcp-option=option:router,192.168.1.10",
+					"--dhcp-option=option:router",
 					"--dhcp-range=192.168.1.0,static",
 					"--dhcp-host=00:00:00:00:00:01,192.168.1.2",
+					"--dhcp-option=classless-static-route,192.168.1.0/23,192.168.1.10",
 				}))
 
 				return kexec.New().Command("echo")
@@ -179,7 +180,7 @@ var _ = Describe("DPU CNI Provisioner", func() {
 					"--port=0",
 					"--log-facility=-",
 					"--interface=br-ovn",
-					"--dhcp-option=option:router,192.168.1.10",
+					"--dhcp-option=option:router",
 					"--dhcp-range=192.168.1.0,static",
 					"--dhcp-host=00:00:00:00:00:01,192.168.1.2",
 				}))

@@ -311,15 +311,22 @@ func (p *DPUCNIProvisioner) startDHCPServer() error {
 		return fmt.Errorf("error while parsing MAC address of the PF on the host: %w", err)
 	}
 
-	cmd := p.exec.Command("dnsmasq",
+	args := []string{
 		"--keep-in-foreground",
 		"--port=0",         // Disable DNS Server
 		"--log-facility=-", // Log to stderr
 		fmt.Sprintf("--interface=%s", brOVN),
-		fmt.Sprintf("--dhcp-option=option:router,%s", p.gateway.String()),
+		"--dhcp-option=option:router",
 		fmt.Sprintf("--dhcp-range=%s,static", vtepNetwork.IP.String()),
 		fmt.Sprintf("--dhcp-host=%s,%s", mac, p.pfIP.IP.String()),
-	)
+	}
+
+	if vtepNetwork.String() != p.vtepCIDR.String() {
+		args = append(args, fmt.Sprintf("--dhcp-option=classless-static-route,%s,%s", p.vtepCIDR.String(), p.gateway.String()))
+	}
+
+	cmd := p.exec.Command("dnsmasq", args...)
+
 	cmd.SetStdout(os.Stdout)
 	cmd.SetStderr(os.Stderr)
 	if err := cmd.Start(); err != nil {
