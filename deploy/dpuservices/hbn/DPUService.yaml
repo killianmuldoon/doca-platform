@@ -22,9 +22,6 @@ spec:
       version: 1.0.0
       chart: doca-hbn
     values:
-      # TODO: remove imagePullSecrets from the example before GA release
-      imagePullSecrets:
-        - name: dpf-pull-secret
       resources:
         memory: 6Gi
         nvidia.com/bf_sf: 3
