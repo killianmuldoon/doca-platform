@@ -17,6 +17,7 @@ TOOLSDIR ?= $(CURDIR)/hack/tools/bin
 $(TOOLSDIR):
 	@mkdir -p $@
 
+
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.3.0
 CONTROLLER_TOOLS_VERSION ?= v0.16.3
@@ -31,6 +32,7 @@ OPERATOR_SDK_VER ?= v1.35.0
 GEN_API_REF_DOCS_VERSION ?= 0ad85c56e5a611240525e8b4a641b9cee33acd9a
 MDTOC_VER ?= v1.4.0
 STERN_VER ?= v1.31.0
+HELM_DOCS_VER := v1.14.2
 
 ## Tool Binaries
 KUBECTL ?= kubectl
@@ -47,6 +49,7 @@ OPERATOR_SDK ?= $(TOOLSDIR)/operator-sdk-$(OPERATOR_SDK_VER)
 GEN_CRD_API_REFERENCE_DOCS ?= $(TOOLSDIR)/crd-ref-docs-$(GEN_API_REF_DOCS_VERSION)
 MDTOC ?= $(TOOLSDIR)/mdtoc-$(MDTOC_VER)
 STERN ?= $(TOOLSDIR)/stern-$(STERN_VER)
+HELM_DOCS ?= $(TOOLSDIR)/helm-docs-$(HELM_DOCS_VER)
 
 ##@ Tools
 .PHONY: kustomize
@@ -134,6 +137,10 @@ $(OPERATOR_SDK): | $(TOOLSDIR)
 	$Q curl -sSfL $(OPERATOR_SDK_DL_URL)/$(OPERATOR_SDK_VER)/operator-sdk_$(OS)_$(ARCH) -o $(OPERATOR_SDK)
 	$Q chmod +x $(OPERATOR_SDK)
 
+# helm-docs is used to generate helm chart documentation
+helm-docs: $(HELM_DOCS)
+$(HELM_DOCS): | $(TOOLSDIR)
+	$(call go-install-tool,$(HELM_DOCS),github.com/norwoodj/helm-docs/cmd/helm-docs,$(HELM_DOCS_VER))
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary (ideally with version)
