@@ -8,9 +8,9 @@ spec:
   serviceConfiguration:
     helmChart:
       values:
-        k8sAPIServer: "https://kube-vip.dpf.clx.labs.mlnx:6443" # user needs to populate
-        podNetwork: 10.233.64.0/18/24 # user needs to populate
-        serviceNetwork: 10.233.0.0/18 # user needs to populate
+        k8sAPIServer: $DPUCLUSTER_VIP:6443
+        podNetwork: $POD_CIDR/24
+        serviceNetwork: $SERVICE_CIDR/18
         ovnkube-node-dpu:
           kubernetesSecretName: "ovn-dpu" # user needs to populate based on DPUServiceCredentialRequest
           vtepCIDR: "10.0.120.0/22" # user needs to populate based on DPUServiceIPAM

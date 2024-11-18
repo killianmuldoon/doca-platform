@@ -8,7 +8,7 @@ spec:
     source:
       repoURL: oci://nvcr.io/nvstaging/doca
       chart: ovn-kubernetes-chart
-      version: v24.10.0-rc.0
+      version: $DPF_VERSION
     values:
       tags:
         ovn-kubernetes-resource-injector: false
@@ -16,9 +16,9 @@ spec:
         ovnkube-node-dpu-host: false
         ovnkube-single-node-zone: false
         ovnkube-control-plane: false
-      k8sAPIServer: "https://kube-vip.dpf.clx.labs.mlnx:6443" # user needs to populate
-      podNetwork: 10.233.64.0/18/24 # user needs to populate
-      serviceNetwork: 10.233.0.0/18 # user needs to populate
+      k8sAPIServer: $DPUCLUSTER_VIP:6443
+      podNetwork: $POD_CIDR/24
+      serviceNetwork: $SERVICE_CIDR
       global:
         gatewayOpts: "--gateway-interface=br-ovn --gateway-uplink-port=puplinkbrovn"
         imagePullSecretName: dpf-pull-secret

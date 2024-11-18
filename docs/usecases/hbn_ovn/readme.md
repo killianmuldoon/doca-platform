@@ -37,11 +37,15 @@ For each worker node: DHCP allocation must be used for workers
 The following variables are required by this guide. A sensible default is provided where it makes sense, but many will be specific to the target infrastructure.
 
 ```bash
-## URL to the BFB used in the `bfb.yaml` and linked by the DPUSet.
-export BLUEFIELD_BITSTREAM="http://nbu-nfs.mellanox.com/auto/sw_mc_soc_release/doca_dpu/doca_2.9.0/20241103.1/bfbs/pk/bf-bundle-2.9.0-80_24.10_ubuntu-22.04_prod.bfb"
-
 ## Virtual IP used by the load balancer for the DPU Cluster. Must be a reserved IP from the management subnet and not allocated by DHCP.
 export DPUCLUSTER_VIP=
+
+## DPU_P0 is the name of the first port of the DPU. This name must be the same on all worker nodes.
+## TODO: Add information in the hardware guide about how extract this name from a worker node.
+export DPU_P0=
+
+## DPU_P0_VF1 is the name of the second Virtual Function (VF) of the first port of the DPU. This name must be the same on all worker nodes.
+export DPU_P0_VF1=
 
 ## Interface on which the DPUCluster load balancer will listen. Should be the management interface of the control plane node.
 export DPUCLUSTER_INTERFACE=
@@ -52,8 +56,18 @@ export NFS_SERVER_IP=
 # API key for accessing containers and helm charts from the NGC private repository.
 export NGC_API_KEY=
 
-# Name of the P0 physical function of the DPU.
-export BF3_PF_NAME=
+## POD_CIDR is the CIDR used for pods in the target Kubernetes cluster.
+export POD_CIDR=10.233.64.0/18
+
+## SERVICE_CIDR is the CIDR used for services in the target Kubernetes cluster.
+export SERVICE_CIDR=10.233.0.0/18 
+
+## DPF_VERSION is the version of the DPF components which will be deployed in this use case guide.
+export DPF_VERSION=v24.10.0-rc.2
+
+## URL to the BFB used in the `bfb.yaml` and linked by the DPUSet.
+export BLUEFIELD_BITSTREAM="http://nbu-nfs.mellanox.com/auto/sw_mc_soc_release/doca_dpu/doca_2.9.0/20241103.1/bfbs/pk/bf-bundle-2.9.0-80_24.10_ubuntu-22.04_prod.bfb"
+
 ```
 
 1. Install cert-manager
@@ -132,17 +146,17 @@ kubectl -n ovn-kubernetes create secret docker-registry dpf-pull-secret --docker
 kubectl -n ovn-kubernetes label secret dpf-pull-secret dpu.nvidia.com/image-pull-secret=""
 
 
-helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://nvcr.io/nvstaging/doca/ovn-kubernetes-chart --version v24.10.0-rc.0 -f - <<EOF
+helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://nvcr.io/nvstaging/doca/ovn-kubernetes-chart --version $DPF_VERSION -f - <<EOF
 global:
   imagePullSecretName: "dpf-pull-secret" 
-k8sAPIServer: https://kube-vip.dpf.clx.labs.mlnx:6443
+k8sAPIServer: $DPUCLUSTER_VIP:6443
 ovnkube-node-dpu-host:
-    ## TODO: What are the IP addresses and interfaces here?
-  nodeMgmtPortNetdev: ns1f0v1 
+  nodeMgmtPortNetdev: $DPU_P0_VF1 
   gatewayOpts:
-    - --gateway-interface=ens1f0np0 
-podNetwork: 10.233.64.0/18/24
-serviceNetwork: 10.233.0.0/18 
+    - --gateway-interface=$DPU_P0
+## Note this CIDR is followed by a trailing /24 which informs OVN Kubernes on how to split the CIDR per node.
+podNetwork: $POD_CIDR/24
+serviceNetwork: $SERVICE_CIDR
 ovn-kubernetes-resource-injector:
   resourceName: nvidia.com/bf3-p0-vfs 
 dpuServiceAccountNamespace: dpf-operator-system
@@ -151,7 +165,7 @@ EOF
 
 2. Wait until ovnkube-node pods under ovn-kubernetes NS are up, and install DPF Operator #Internal - first remove all content from NFS folders bfb and pvX
 ```shell
-helm upgrade --install -n dpf-operator-system dpf-operator oci://nvcr.io/nvstaging/doca/dpf-operator --version=v24.10.0-rc.0 -f - <<EOF
+helm upgrade --install -n dpf-operator-system dpf-operator oci://nvcr.io/nvstaging/doca/dpf-operator --version=$DPF_VERSION -f - <<EOF
 imagePullSecrets:
   - name=dpf-pull-secret
 kamaji-etcd: 
@@ -162,8 +176,7 @@ node-feature-discovery:
   worker:
     extraEnvs: 
       - name:"KUBERNETES_SERVICE_HOST"
-        ## TODO: What is this IP address?
-        value:"10.0.110.10"
+        value: $DPUCLUSTER_VIP
       - name:"KUBERNETES_SERVICE_PORT"
         "value":"6443"
 EOF
