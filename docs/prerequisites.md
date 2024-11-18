@@ -41,7 +41,6 @@ Each worker machine:
 
 ### Kubernetes
 - Kubernetes 1.31
-- Each node should be provisioned with `KUBELET_ADDRESS="--node-ip=0.0.0.0"`
 
 ## Network setup
 - All nodes have full internet access - both from the host out-of-band and DPU high speed interfaces. 
@@ -50,3 +49,4 @@ Each worker machine:
 - Virtual IP from the management subnet reserved for internal DPF usage.
 ### Worker machines
 - Both the oob and high-speed fabric on each node is routable
+- Provisioned with `KUBELET_ADDRESS="--node-ip=0.0.0.0"`
