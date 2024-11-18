@@ -30,6 +30,7 @@ MINIKUBE_VER ?= v1.33.1
 OPERATOR_SDK_VER ?= v1.35.0
 GEN_API_REF_DOCS_VERSION ?= 0ad85c56e5a611240525e8b4a641b9cee33acd9a
 MDTOC_VER ?= v1.4.0
+STERN_VER ?= v1.31.0
 
 ## Tool Binaries
 KUBECTL ?= kubectl
@@ -45,6 +46,7 @@ MINIKUBE ?= $(TOOLSDIR)/minikube-$(MINIKUBE_VER)
 OPERATOR_SDK ?= $(TOOLSDIR)/operator-sdk-$(OPERATOR_SDK_VER)
 GEN_CRD_API_REFERENCE_DOCS ?= $(TOOLSDIR)/crd-ref-docs-$(GEN_API_REF_DOCS_VERSION)
 MDTOC ?= $(TOOLSDIR)/mdtoc-$(MDTOC_VER)
+STERN ?= $(TOOLSDIR)/stern-$(STERN_VER)
 
 ##@ Tools
 .PHONY: kustomize
@@ -109,6 +111,11 @@ mdtoc: $(MDTOC) ## Download mdtoc locally if necessary.
 $(MDTOC): | $(TOOLSDIR)
 	$(call go-install-tool,$(MDTOC),sigs.k8s.io/mdtoc,$(MDTOC_VER))
 
+# stern is used to collect logs for our e2e tests
+.PHONY: stern
+stern: $(STERN) ## Download stern locally if necessary.
+$(STERN): | $(TOOLSDIR)
+	$(call go-install-tool,$(STERN),github.com/stern/stern,$(STERN_VER))
 
 # minikube is used to set-up a local kubernetes cluster for dev work.
 .PHONY: minikube
