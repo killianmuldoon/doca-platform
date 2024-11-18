@@ -251,6 +251,10 @@ func getExternalIDsAsMap(rawIDs string) (map[string]string, error) {
 		rawIDs = rawIDs[:len(rawIDs)-1]
 	}
 
+	if len(rawIDs) == 0 {
+		return ids, nil
+	}
+
 	for _, externalID := range strings.Split(rawIDs, ", ") {
 		kv := strings.Split(externalID, "=")
 		if len(kv) > 2 {
