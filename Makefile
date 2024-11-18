@@ -563,7 +563,7 @@ binary-dpucniprovisioner: ## Build the DPU CNI Provisioner binary.
 
 .PHONY: binary-ovs-helper
 binary-ovs-helper: ## Build the OVS Helper binary
-	go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ovshelper github.com/nvidia/doca-platform/cmd/ovshelper
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ovshelper github.com/nvidia/doca-platform/cmd/ovshelper
 
 .PHONY: binary-sfc-controller
 binary-sfc-controller: ## Build the Host CNI Provisioner binary.
