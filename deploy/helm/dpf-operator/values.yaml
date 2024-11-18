@@ -306,8 +306,9 @@ kube-state-metrics:
 ## maintenance-operator chart configuration
 maintenance-operator-chart:
   enabled: true
-  operator:
+  operatorConfig:
     maxParallelOperations: 60%
+  operator:
     affinity:
       nodeAffinity:
         requiredDuringSchedulingIgnoredDuringExecution:
