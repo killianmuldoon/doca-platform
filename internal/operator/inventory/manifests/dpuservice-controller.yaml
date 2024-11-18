@@ -1565,6 +1565,7 @@ spec:
       containers:
       - command:
         - /dpuservice
+        - --leader-elect
         image: example.com/dpf-system:v0.1.0
         livenessProbe:
           httpGet:
