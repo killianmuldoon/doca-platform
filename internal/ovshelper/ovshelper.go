@@ -18,6 +18,7 @@ package ovshelper
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -113,6 +114,11 @@ func (o *OVSHelper) handleBlackholeIssue() error {
 		if err != nil {
 			return fmt.Errorf("getting the ofport number for interface %s: %w", intf, err)
 		}
+
+		if ofPort < 0 {
+			return errors.New("invalid openflow port, skipping the loop and retrying again later")
+		}
+
 		bridge, err := o.ovsClient.InterfaceToBridge(intf)
 		if err != nil {
 			return fmt.Errorf("getting the bridge for interface %s: %w", intf, err)

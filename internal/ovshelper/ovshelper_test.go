@@ -127,6 +127,29 @@ var _ = Describe("OVS Helper", func() {
 
 			Expect(handler.RunOnce()).To(HaveOccurred())
 		})
+		It("should not delete a faulty interface if ofport is negative", func() {
+			ovsClient.EXPECT().ListInterfaces(ovsclient.DPDK).Return(map[string]interface{}{
+				"intf1": struct{}{},
+				"intf2": struct{}{},
+				"intf3": struct{}{},
+			}, nil)
+			ovsClient.EXPECT().GetInterfacesWithPMDRXQueue().Return(map[string]interface{}{
+				"intf1": struct{}{},
+				"intf2": struct{}{},
+			}, nil)
+
+			ovsClient.EXPECT().GetPortExternalIDs("intf3").Return(map[string]string{
+				"port_external_id_key1": "port_external_id_value1",
+				"port_external_id_key2": "port_external_id_value2",
+			}, nil)
+			ovsClient.EXPECT().GetInterfaceExternalIDs("intf3").Return(map[string]string{
+				"intf_external_id_key1": "intf_external_id_value1",
+				"intf_external_id_key2": "intf_external_id_value2",
+			}, nil)
+			ovsClient.EXPECT().GetInterfaceOfPort("intf3").Return(-1, nil)
+
+			Expect(handler.RunOnce()).To(HaveOccurred())
+		})
 		It("should retry to plug faulty interface if command failed", func() {
 			ovsClient.EXPECT().ListInterfaces(ovsclient.DPDK).Return(map[string]interface{}{
 				"intf1": struct{}{},
