@@ -27,6 +27,7 @@ import (
 
 	"k8s.io/klog/v2"
 	"k8s.io/utils/clock"
+	kexec "k8s.io/utils/exec"
 )
 
 func main() {
@@ -34,7 +35,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	c := clock.RealClock{}
-	ovsClient, err := ovsclient.New()
+	ovsClient, err := ovsclient.New(kexec.New())
 	if err != nil {
 		klog.Fatal(err)
 	}

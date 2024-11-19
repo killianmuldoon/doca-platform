@@ -16,7 +16,9 @@ limitations under the License.
 
 package ovsclient
 
+import kexec "k8s.io/utils/exec"
+
 // New creates a new OVSClient
-func New() (OVSClient, error) {
-	return newOvsClient()
+func New(exec kexec.Interface) (OVSClient, error) {
+	return newOvsClient(exec)
 }

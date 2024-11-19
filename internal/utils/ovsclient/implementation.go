@@ -23,23 +23,28 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
+
+	kexec "k8s.io/utils/exec"
 )
 
 const ovsVsctl = "ovs-vsctl"
 const ovsAppctl = "ovs-appctl"
 
 type ovsClient struct {
-	ovsVsctlPath  string
-	ovsAppCtlPath string
+	exec           kexec.Interface
+	ovsVsctlPath   string
+	ovsAppCtlPath  string
+	fileSystemRoot string
 }
 
 // New creates an OVSClient and returns an error if the OVS util binaries can't be found.
-func newOvsClient() (OVSClient, error) {
+func newOvsClient(exec kexec.Interface) (OVSClient, error) {
 	var err error
 	c := &ovsClient{}
+	c.exec = exec
 	c.ovsVsctlPath, err = exec.LookPath(ovsVsctl)
 	if err != nil {
 		return nil, err
@@ -52,11 +57,11 @@ func newOvsClient() (OVSClient, error) {
 }
 
 func (c *ovsClient) runOVSVsctl(args ...string) (string, error) {
-	cmd := exec.Command(c.ovsVsctlPath, args...)
+	cmd := c.exec.Command(c.ovsVsctlPath, args...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	cmd.SetStdout(&stdout)
+	cmd.SetStderr(&stderr)
 	err := cmd.Run()
 	if err != nil {
 		return "", fmt.Errorf("error running ovs-vsctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
@@ -65,18 +70,18 @@ func (c *ovsClient) runOVSVsctl(args ...string) (string, error) {
 }
 
 func (c *ovsClient) runOVSAppctl(args ...string) (string, error) {
-	socketPath, err := getVSwitchDSocketPath()
+	socketPath, err := getVSwitchDSocketPath(c.fileSystemRoot)
 	if err != nil {
 		return "", fmt.Errorf("failed to construct ovs-vswitchd socket path: %w", err)
 	}
 	finalArgs := make([]string, 0, len(args)+2)
 	finalArgs = append(finalArgs, "-t", socketPath)
 	finalArgs = append(finalArgs, args...)
-	cmd := exec.Command(c.ovsAppCtlPath, finalArgs...)
+	cmd := c.exec.Command(c.ovsAppCtlPath, finalArgs...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
+	cmd.SetStdout(&stdout)
+	cmd.SetStderr(&stderr)
 	err = cmd.Run()
 	if err != nil {
 		return "", fmt.Errorf("error running ovs-appctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
@@ -85,25 +90,25 @@ func (c *ovsClient) runOVSAppctl(args ...string) (string, error) {
 }
 
 // getVSwitchDSocketPath returns the active socket of the ovs-vswitchd process
-func getVSwitchDSocketPath() (string, error) {
-	pid, err := os.ReadFile("/var/run/openvswitch/ovs-vswitchd.pid")
+func getVSwitchDSocketPath(fileSystemRoot string) (string, error) {
+	pid, err := os.ReadFile(filepath.Join(fileSystemRoot, "/var/run/openvswitch/ovs-vswitchd.pid"))
 	if err != nil {
 		return "", fmt.Errorf("failed to get ovs-vswitch pid: %w", err)
 	}
 
 	pidTrimmed := strings.TrimSpace(string(pid))
 
-	return fmt.Sprintf("/var/run/openvswitch/ovs-vswitchd.%s.ctl", pidTrimmed), nil
+	return filepath.Join(fileSystemRoot, fmt.Sprintf("/var/run/openvswitch/ovs-vswitchd.%s.ctl", pidTrimmed)), nil
 }
 
 // BridgeExists checks if a bridge exists
 func (c *ovsClient) BridgeExists(name string) (bool, error) {
 	_, err := c.runOVSVsctl("br-exists", name)
 	if err != nil {
-		var exitErr *exec.ExitError
+		var exitErr *kexec.CodeExitError
 		if errors.As(err, &exitErr) {
 			// https://github.com/openvswitch/ovs/blob/166ee41d282c506d100bc2185d60af277121b55b/utilities/ovs-vsctl.8.in#L203-L206
-			if exitErr.ExitCode() == 2 {
+			if exitErr.Code == 2 {
 				return false, nil
 			}
 		}

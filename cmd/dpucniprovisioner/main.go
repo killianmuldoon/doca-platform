@@ -79,7 +79,9 @@ func main() {
 		klog.Fatalf("error while parsing Host CIDR %s", err.Error())
 	}
 
-	ovsClient, err := ovsclient.New()
+	exec := kexec.New()
+
+	ovsClient, err := ovsclient.New(exec)
 	if err != nil {
 		klog.Fatal(err)
 	}
@@ -96,7 +98,7 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	provisioner := dpucniprovisioner.New(ctx, c, ovsClient, networkhelper.New(), kexec.New(), clientset, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, node)
+	provisioner := dpucniprovisioner.New(ctx, c, ovsClient, networkhelper.New(), exec, clientset, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, node)
 
 	err = provisioner.RunOnce()
 	if err != nil {
