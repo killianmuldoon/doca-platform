@@ -16,7 +16,7 @@ spec:
         ovnkube-node-dpu-host: false
         ovnkube-single-node-zone: false
         ovnkube-control-plane: false
-      k8sAPIServer: $DPUCLUSTER_VIP:6443
+      k8sAPIServer: https://$TARGETCLUSTER_API_SERVER_HOST:$TARGETCLUSTER_API_SERVER_PORT
       podNetwork: $POD_CIDR/24
       serviceNetwork: $SERVICE_CIDR
       global:
@@ -25,7 +25,7 @@ spec:
       ovnkube-node-dpu:
         kubernetesSecretName: "ovn-dpu" # user needs to populate based on DPUServiceCredentialRequest
         vtepCIDR: "10.0.120.0/22" # user needs to populate based on DPUServiceIPAM
-        hostCIDR: "10.0.110.0/24" # user needs to populate
+        hostCIDR: $TARGETCLUSTER_NODE_CIDR
         ipamPool: "pool1" # user needs to populate based on DPUServiceIPAM
         ipamPoolType: "cidrpool" # user needs to populate based on DPUServiceIPAM
         ipamVTEPIPIndex: 0
