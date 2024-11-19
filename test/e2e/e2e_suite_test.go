@@ -28,6 +28,7 @@ import (
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
+	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -100,6 +101,7 @@ func TestE2E(t *testing.T) {
 	Expect(argov1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(provisioningv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	Expect(nvipamv1.AddToScheme(scheme.Scheme)).To(Succeed())
+	Expect(kamajiv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	s := scheme.Scheme
 
 	// If testKubeconfig is not set default it to $HOME/.kube/config

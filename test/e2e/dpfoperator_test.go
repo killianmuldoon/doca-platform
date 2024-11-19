@@ -28,6 +28,7 @@ import (
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
+	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
 	"github.com/nvidia/doca-platform/test/utils"
 	"github.com/nvidia/doca-platform/test/utils/collector"
@@ -71,9 +72,11 @@ var (
 		&provisioningv1.DPUSetList{},
 		&provisioningv1.DPUList{},
 		&provisioningv1.BFBList{},
+		&provisioningv1.DPUClusterList{},
 		&dpuservicev1.DPUServiceIPAMList{},
 		&dpuservicev1.DPUServiceChainList{},
 		&dpuservicev1.DPUServiceInterfaceList{},
+		&kamajiv1.TenantControlPlaneList{},
 		&operatorv1.DPFOperatorConfigList{},
 		&appsv1.DeploymentList{},
 		&appsv1.DaemonSetList{},
@@ -155,6 +158,7 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 			tenantControlPlane := unstructuredFromFile("infrastructure/kamaji.yaml")
 			tenantControlPlane.SetName(fmt.Sprintf(baseClusterName, i+1))
 			tenantControlPlane.SetNamespace(dpfOperatorSystemNamespace)
+			tenantControlPlane.SetLabels(cleanupLabels)
 
 			// If we have real nodes use the ClusterIP service type.
 			if numNodes > 0 {
@@ -219,6 +223,19 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 				g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, bfb))).To(Succeed())
 				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(bfb), bfb))).To(BeTrue())
 			}).WithTimeout(60 * time.Second).Should(Succeed())
+		})
+
+		It("delete the DPUClusters and ensure they are deleted", func() {
+			if skipCleanup {
+				Skip("Skip cleanup resources")
+			}
+			Eventually(func(g Gomega) {
+				dpuClusters, err := dpucluster.GetConfigs(ctx, testClient)
+				Expect(err).ToNot(HaveOccurred())
+				for _, dpuCluster := range dpuClusters {
+					g.Expect(testClient.Delete(ctx, dpuCluster.Cluster)).To(Succeed())
+				}
+			}).WithTimeout(10 * time.Minute).Should(Succeed())
 		})
 
 		It("delete the DPFOperatorConfig and ensure it is deleted", func() {
@@ -705,7 +722,7 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 
 	It("verify that the ImagePullSecrets have been synced correctly and cleaned up", func() {
 		// Verify that we have 2 secrets in the DPU Cluster.
-		verifyImagePullSecretsCount(2)
+		verifyImagePullSecretsCount(dpfOperatorSystemNamespace, 2)
 
 		desiredConf := &operatorv1.DPFOperatorConfig{}
 		Eventually(testClient.Get).WithArguments(ctx, client.ObjectKeyFromObject(config), desiredConf).Should(Succeed())
@@ -721,7 +738,7 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 		Eventually(utils.ForceObjectReconcileWithAnnotation).WithArguments(ctx, testClient,
 			&dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: operatorv1.MultusName, Namespace: "dpf-operator-system"}}).Should(Succeed())
 		// Verify we only have one image pull secret.
-		verifyImagePullSecretsCount(1)
+		verifyImagePullSecretsCount(dpfOperatorSystemNamespace, 1)
 	})
 }
 func getDPUService(namespace, name string, host bool) *unstructured.Unstructured {
@@ -744,9 +761,12 @@ func getDPUService(namespace, name string, host bool) *unstructured.Unstructured
 	}
 	return svc
 }
-func verifyImagePullSecretsCount(count int) {
+func verifyImagePullSecretsCount(namespace string, count int) {
 	secrets := &corev1.SecretList{}
-	Expect(testClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})).ToNot(HaveOccurred())
+	Expect(testClient.List(ctx, secrets,
+		client.InNamespace(namespace),
+		client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey}),
+	).ToNot(HaveOccurred())
 	Eventually(func(g Gomega) {
 		dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
 		g.Expect(err).ToNot(HaveOccurred())
@@ -756,7 +776,10 @@ func verifyImagePullSecretsCount(count int) {
 
 			// Check the imagePullSecrets has been deleted.
 			secrets := &corev1.SecretList{}
-			g.Expect(dpuClient.List(ctx, secrets, client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey})).To(Succeed())
+			g.Expect(dpuClient.List(ctx, secrets,
+				client.InNamespace(namespace),
+				client.HasLabels{dpuservicev1.DPFImagePullSecretLabelKey}),
+			).To(Succeed())
 			g.Expect(secrets.Items).To(HaveLen(count))
 		}
 	}).WithTimeout(60 * time.Second).Should(Succeed())
@@ -1179,6 +1202,7 @@ func unstructuredFromFile(path string) *unstructured.Unstructured {
 	Expect(err).ToNot(HaveOccurred())
 	obj := &unstructured.Unstructured{}
 	Expect(yaml.Unmarshal(data, obj)).To(Succeed())
+	obj.SetLabels(cleanupLabels)
 	return obj
 }
 

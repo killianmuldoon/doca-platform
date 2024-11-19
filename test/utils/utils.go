@@ -35,13 +35,16 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 // CleanupAndWait deletes an object and waits for it to be removed before exiting.
 func CleanupAndWait(ctx context.Context, c client.Client, objs ...client.Object) error {
+	logger := log.FromContext(ctx)
 	// Ensure each object is deleted by checking that each object returns an IsNotFound error in the api server.
 	errs := []error{}
 	for _, o := range objs {
+		logger.Info("Deleting resource", "kind", o.GetObjectKind().GroupVersionKind().String(), "namespace", o.GetNamespace(), "name", o.GetName())
 		if err := c.Delete(ctx, o); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
@@ -58,7 +61,8 @@ func CleanupAndWait(ctx context.Context, c client.Client, objs ...client.Object)
 					if apierrors.IsNotFound(err) {
 						return true, nil
 					}
-					return false, err
+					logger.Error(err, "Failed delete resource", "namespace", key.Namespace, "name", key.Name, "kind", o.GetObjectKind().GroupVersionKind().String())
+					return false, nil
 				}
 				return false, nil
 			})
