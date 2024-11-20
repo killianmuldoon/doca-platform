@@ -141,13 +141,13 @@ EOF
 
 3. Log in to helm and docker registries.
 ```shell
+kubectl apply -f manifests/prerequisites/namespace_dpf.yaml
 kubectl -n dpf-operator-system create secret docker-registry dpf-pull-secret --docker-server=nvcr.io --docker-username="\$oauthtoken" --docker-password=$NGC_API_KEY
 helm registry login nvcr.io --username \$oauthtoken --password $NGC_API_KEY
 ```
 
 4. Create prerequisite objects for the installation.
 ```shell
-kubectl apply -f manifests/prerequisites/namespace_dpf.yaml
 cat manifests/prerequisites/*.yaml | envsubst | kubectl apply -f - 
 ```
 
