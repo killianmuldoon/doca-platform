@@ -15,6 +15,7 @@ require (
 	github.com/openconfig/gnmi v0.10.0
 	github.com/openconfig/gnoi v0.4.1
 	github.com/openconfig/gnoigo v0.0.0-20240320202954-ebd033e3542c
+	github.com/opencontainers/go-digest v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/vishvananda/netlink v1.3.0
 	go.uber.org/mock v0.4.0
