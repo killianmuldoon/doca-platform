@@ -95,7 +95,6 @@ type IPV4Network struct {
 // and broadcast IP across all nodes).
 type IPV4Subnet struct {
 	// Subnet is the CIDR from which blocks should be allocated per node
-	// TODO: Validate that input is a valid subnet
 	Subnet string `json:"subnet"`
 	// Gateway is the IP in the subnet that should be the gateway of the subnet.
 	Gateway string `json:"gateway"`

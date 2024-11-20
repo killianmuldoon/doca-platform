@@ -2073,7 +2073,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `subnet` _string_ | Subnet is the CIDR from which blocks should be allocated per node<br />TODO: Validate that input is a valid subnet |  |  |
+| `subnet` _string_ | Subnet is the CIDR from which blocks should be allocated per node |  |  |
 | `gateway` _string_ | Gateway is the IP in the subnet that should be the gateway of the subnet. |  |  |
 | `perNodeIPCount` _integer_ | PerNodeIPCount is the number of IPs that should be allocated per node. |  |  |
 | `defaultGateway` _boolean_ | if true, add gateway as default gateway in the routes list<br />DefaultGateway adds gateway as default gateway in the routes list if true. |  |  |

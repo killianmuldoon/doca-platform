@@ -898,14 +898,9 @@ func ValidateDPUDeployment(ctx context.Context) {
 func ValidateDPUServiceIPAM(ctx context.Context) {
 	dpuServiceIPAMWithIPPoolName := "switched-application"
 	dpuServiceIPAMWithCIDRPoolName := "routed-application"
-	dpuServiceIPAMNamespace := "test-3"
+	dpuServiceIPAMNamespace := dpfOperatorSystemNamespace
 
 	It("create an invalid DPUServiceIPAM and ensure that the webhook rejects the request", func() {
-		By("creating the DPUServiceIPAM Namespace")
-		testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceIPAMNamespace}}
-		testNS.SetLabels(cleanupLabels)
-		Expect(testClient.Create(ctx, testNS)).To(Succeed())
-
 		By("creating the invalid DPUServiceIPAM CR")
 		dpuServiceIPAM := &dpuservicev1.DPUServiceIPAM{
 			ObjectMeta: metav1.ObjectMeta{

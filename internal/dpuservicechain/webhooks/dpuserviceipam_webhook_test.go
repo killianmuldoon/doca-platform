@@ -41,6 +41,14 @@ var _ = Describe("DPUServiceIPAM Validating Webhook", func() {
 		}
 	})
 
+	It("Errors out when namespace is different than dpf-operator-system", func() {
+		ipam := getFullyPopulatedDPUServiceIPAM()
+		ipam.Spec.IPV4Network = nil
+		ipam.Namespace = "some-other-namespace"
+		_, err := webhook.ValidateCreate(context.Background(), ipam)
+		Expect(err).To(HaveOccurred())
+	})
+
 	It("Errors out when both .spec.ipv4Network and .spec.ipv4Subnet are specified", func() {
 		_, err := webhook.ValidateCreate(context.Background(), getFullyPopulatedDPUServiceIPAM())
 		Expect(err).To(HaveOccurred())
@@ -189,7 +197,8 @@ var _ = Describe("DPUServiceIPAM Validating Webhook", func() {
 func getFullyPopulatedDPUServiceIPAM() *dpuservicev1.DPUServiceIPAM {
 	return &dpuservicev1.DPUServiceIPAM{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "some-object",
+			Name:      "some-object",
+			Namespace: "dpf-operator-system",
 		},
 		Spec: dpuservicev1.DPUServiceIPAMSpec{
 			IPV4Network: &dpuservicev1.IPV4Network{

@@ -6,6 +6,7 @@
   - [Split subnet into chunk per node](#split-subnet-into-chunk-per-node)
   - [Split CIDR into subnet per node](#split-cidr-into-subnet-per-node)
 - [Consuming IPAM in <code>DPUServiceChain</code>](#consuming-ipam-in-dpuservicechain)
+- [Limitations](#limitations)
 <!-- /toc -->
 
 This document describes how a user can work with the `DPUServiceIPAM` Custom Resource. A `DPUServiceIPAM` object is
@@ -234,3 +235,7 @@ Assuming that the Helm Charts above are valid and the respect the DPF Contract, 
 be that each node on the DPU cluster will have 2 Pods, one consumer and one producer. These Pods will have 2 interfaces
 each, one primary and a secondary using a Scalable Function (SF). The SFs will have an IP configured on them from the
 pool defined above, from the chunk that is allocated on the node.
+
+## Limitations
+
+- `DPUServiceIPAM` CRs must be created in `dpf-operator-system` namespace to take effect.

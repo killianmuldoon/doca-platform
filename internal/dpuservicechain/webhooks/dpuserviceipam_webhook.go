@@ -102,6 +102,11 @@ func (v *DPUServiceIPAMValidator) ValidateDelete(ctx context.Context, obj runtim
 func validateDPUServiceIPAM(ipam *dpuservicev1.DPUServiceIPAM) error {
 	var errs []error
 
+	// TODO: Drop this once multi namespace NVIPAM is supported
+	if ipam.Namespace != "dpf-operator-system" {
+		errs = append(errs, errors.New("currently only 'dpf-operator-system' namespace is supported"))
+	}
+
 	if ipam.Spec.IPV4Network == nil && ipam.Spec.IPV4Subnet == nil {
 		errs = append(errs, errors.New("either ipv4Subnet or ipv4Network must be specified"))
 	}
