@@ -99,10 +99,14 @@ func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client
 		if result.GetState() == future.Ready {
 			dutil.OsInstallTaskMap.Delete(dmsTaskName)
 			if _, err := result.GetResult(); err == nil {
+				logger.V(3).Info(fmt.Sprintf("DMS task %v is finished", dmsTaskName))
 				return updateState(state, provisioningv1.DPURebooting, "DPU is rebooting"), nil
 			} else {
+				logger.V(3).Info(fmt.Sprintf("DMS task %v is failed with err: %v", dmsTaskName, err))
 				return updateState(state, provisioningv1.DPUError, err.Error()), err
 			}
+		} else {
+			logger.V(3).Info(fmt.Sprintf("DMS task %v is being processed", dmsTaskName))
 		}
 	} else {
 		dmsHandler(ctx, client, st.dpu, bfb)
@@ -294,10 +298,14 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		activateOp.NoReboot(noReboot)
 		activateOp.Version(fmt.Sprintf("%s;%s", bfb.Spec.FileName, cfgVersion))
 
-		logger.V(3).Info("starting execute activate operation")
+		logger.V(3).Info("Starting execute activate operation")
+		// set 30 minutes timeout for OS installation
+		activateCtx, cancel := context.WithTimeout(context.Background(), 30*60*time.Second)
+		defer cancel()
 		var response *ospb.ActivateResponse
 		for retry := 1; retry <= MaxRetryCount; retry++ {
-			response, err = gnoigo.Execute(ctx, gnoiClient, activateOp)
+			response, err = gnoigo.Execute(activateCtx, gnoiClient, activateOp)
+			logger.V(3).Info(fmt.Sprintf("DMS task %s is finished", dmsTaskName))
 			if err == nil {
 				break
 			} else {
@@ -315,12 +323,12 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 
 		for {
 			select {
-			case <-ctx.Done():
-				logger.Error(ctx.Err(), fmt.Sprintf("DMS %s RebootStatusOperation timed out or was canceled", dmsTaskName))
-				return nil, ctx.Err()
+			case <-activateCtx.Done():
+				logger.Error(activateCtx.Err(), fmt.Sprintf("DMS %s RebootStatusOperation timed out or was canceled", dmsTaskName))
+				return nil, activateCtx.Err()
 			case <-ticker.C:
 				rebootStatusOp := gsystem.NewRebootStatusOperation().Subcomponents([]*tpb.Path{{Elem: []*tpb.PathElem{{Name: "CPU"}}}})
-				response, err := gnoigo.Execute(ctx, gnoiClient, rebootStatusOp)
+				response, err := gnoigo.Execute(activateCtx, gnoiClient, rebootStatusOp)
 				if err != nil {
 					logger.Error(err, fmt.Sprintf("DMS %s failed to Execute rebootStatusOp", dmsTaskName))
 					return nil, err
