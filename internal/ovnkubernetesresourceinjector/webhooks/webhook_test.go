@@ -206,6 +206,7 @@ func TestNetworkInjector_Default(t *testing.T) {
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(tt.pod.Spec.Containers[0].Resources.Limits[resourceName].Equal(resource.MustParse(tt.expectedResourceCount))).To(BeTrue())
 			g.Expect(tt.pod.Spec.Containers[0].Resources.Requests[resourceName].Equal(resource.MustParse(tt.expectedResourceCount))).To(BeTrue())
+			//nolint:ginkgolinter
 			g.Expect(tt.pod.Annotations[annotationKeyToBeInjected] == "ovn-kubernetes/dpf-ovn-kubernetes").To(Equal(tt.expectAnnotation))
 		})
 	}

@@ -37,6 +37,7 @@ import (
 type MockOVSClient struct {
 	ctrl     *gomock.Controller
 	recorder *MockOVSClientMockRecorder
+	isgomock struct{}
 }
 
 // MockOVSClientMockRecorder is the mock recorder for MockOVSClient.
