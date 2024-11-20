@@ -35,6 +35,8 @@ For each worker node: DHCP allocation must be used for workers
 #### DPF installation
 The following variables are required by this guide. A sensible default is provided where it makes sense, but many will be specific to the target infrastructure.
 
+Commands in this guide are run in the same directory that contains this readme.
+
 ```bash
 ## Address for the Kubernetes API server of the target cluster on which DPF is installed.
 ## This should never include a scheme or a port.
@@ -147,6 +149,7 @@ helm registry login nvcr.io --username \$oauthtoken --password $NGC_API_KEY
 
 4. Create prerequisite objects for the installation.
 ```shell
+##TODO: Fix PV3 not appearing in APIServer
 cat manifests/prerequisites/*.yaml | envsubst | kubectl apply -f - 
 ```
 
@@ -155,6 +158,7 @@ This deploys the following objects:
 
 [embedmd]:#(manifests/prerequisites/namespace_dpf.yaml)
 ```yaml
+---
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -166,6 +170,7 @@ metadata:
 
 [embedmd]:#(manifests/prerequisites/helm-secret-dpf.yaml)
 ```yaml
+---
 apiVersion: v1
 kind: Secret
 metadata:
@@ -200,6 +205,7 @@ stringData:
 
 [embedmd]:#(manifests/prerequisites/nfs-storage-for-kamaji.yaml)
 ```yaml
+---
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
@@ -261,6 +267,7 @@ spec:
 
 [embedmd]:#(manifests/prerequisites/nfs-storage-for-bfb-dpf-ga.yaml)
 ```yaml
+---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
@@ -295,6 +302,7 @@ spec:
 
 [embedmd]:#(manifests/prerequisites/nic_cluster_policy.yaml)
 ```yaml
+---
 apiVersion: mellanox.com/v1alpha1
 kind: NicClusterPolicy
 metadata:
@@ -313,6 +321,7 @@ spec:
 
 [embedmd]:#(manifests/prerequisites/sriov_network_operator_policy.yaml)
 ```yaml
+---
 apiVersion: sriovnetwork.openshift.io/v1
 kind: SriovNetworkNodePolicy
 metadata:
@@ -377,9 +386,9 @@ node-feature-discovery:
   worker:
     extraEnvs: 
       - name: "KUBERNETES_SERVICE_HOST"
-        value: $TARGETCLUSTER_API_SERVER_HOST
+        value: "$TARGETCLUSTER_API_SERVER_HOST"
       - name: "KUBERNETES_SERVICE_PORT"
-        value: $TARGETCLUSTER_API_SERVER_PORT
+        value: "$TARGETCLUSTER_API_SERVER_PORT"
 EOF
 ```
 
@@ -394,6 +403,7 @@ This will create the following objects:
 
 [embedmd]:#(manifests/dpf-system/operatorconfig.yaml)
 ```yaml
+---
 apiVersion: operator.dpu.nvidia.com/v1alpha1
 kind: DPFOperatorConfig
 metadata:
@@ -408,12 +418,14 @@ spec:
   kamajiClusterManager:
     disable: false
 ```
+
 </details>
 
 <details><summary>BFB to download Bluefield Bitstream to a shared volume</summary>
 
 [embedmd]:#(manifests/dpf-system/bfb.yaml)
 ```yaml
+---
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: BFB
 metadata:
@@ -428,6 +440,7 @@ spec:
 
 [embedmd]:#(manifests/dpf-system/dpucluster.yaml)
 ```yaml
+---
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPUCluster
 metadata:
@@ -463,6 +476,7 @@ This will deploy the following objects:
 
 [embedmd]:#(manifests/dpuservice/dpuset.yaml)
 ```yaml
+---
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPUSet
 metadata:
@@ -494,6 +508,7 @@ spec:
 
 [embedmd]:#(manifests/dpuservice/ovn-dpuservice.yaml)
 ```yaml
+---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUService
 metadata:
@@ -534,6 +549,7 @@ spec:
 
 [embedmd]:#(manifests/dpuservice/hbn-dpuservice.yaml)
 ```yaml
+---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUService
 metadata:
@@ -639,6 +655,7 @@ spec:
 
 [embedmd]:#(manifests/dpuservice/dts-dpuservice.yaml)
 ```yaml
+---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUService
 metadata:
@@ -657,6 +674,7 @@ spec:
 
 [embedmd]:#(manifests/dpuservice/blueman-dpuservice.yaml)
 ```yaml
+---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUService
 metadata:
@@ -678,6 +696,7 @@ spec:
 
 [embedmd]:#(manifests/dpuservice/ovn-credentials.yaml)
 ```yaml
+---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceCredentialRequest
 metadata:
@@ -702,6 +721,7 @@ spec:
 
 [embedmd]:#(manifests/dpuservice/physical-ifaces.yaml)
 ```yaml
+---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
@@ -742,6 +762,7 @@ spec:
 
 [embedmd]:#(manifests/dpuservice/ovn-iface.yaml)
 ```yaml
+---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
@@ -764,6 +785,7 @@ spec:
 
 [embedmd]:#(manifests/dpuservice/hbn-ifaces.yaml)
 ```yaml
+---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
@@ -830,6 +852,7 @@ spec:
 
 [embedmd]:#(manifests/dpuservice/hbn-ovn-chain.yaml)
 ```yaml
+---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceChain
 metadata:
@@ -884,6 +907,7 @@ spec:
 
 [embedmd]:#(manifests/dpuservice/hbn-ovn-ipam.yaml)
 ```yaml
+---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceIPAM
 metadata:
@@ -901,6 +925,7 @@ spec:
 
 [embedmd]:#(manifests/dpuservice/hbn-loopback-ipam.yaml)
 ```yaml
+---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceIPAM
 metadata:
