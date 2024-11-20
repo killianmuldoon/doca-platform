@@ -32,6 +32,7 @@ GEN_API_REF_DOCS_VERSION ?= 0ad85c56e5a611240525e8b4a641b9cee33acd9a
 MDTOC_VER ?= v1.4.0
 STERN_VER ?= v1.31.0
 HELM_DOCS_VER := v1.14.2
+EMBEDMD_VER ?= v1.0.0
 
 ## Tool Binaries
 KUBECTL ?= kubectl
@@ -49,6 +50,7 @@ GEN_CRD_API_REFERENCE_DOCS ?= $(TOOLSDIR)/crd-ref-docs-$(GEN_API_REF_DOCS_VERSIO
 MDTOC ?= $(TOOLSDIR)/mdtoc-$(MDTOC_VER)
 STERN ?= $(TOOLSDIR)/stern-$(STERN_VER)
 HELM_DOCS ?= $(TOOLSDIR)/helm-docs-$(HELM_DOCS_VER)
+EMBEDMD ?= $(TOOLSDIR)/embedmd-$(EMBEDMD_VER)
 
 ##@ Tools
 .PHONY: kustomize
@@ -118,6 +120,12 @@ $(MDTOC): | $(TOOLSDIR)
 stern: $(STERN) ## Download stern locally if necessary.
 $(STERN): | $(TOOLSDIR)
 	$(call go-install-tool,$(STERN),github.com/stern/stern,$(STERN_VER))
+
+# stern is used to collect logs for our e2e tests
+.PHONY: embedmd
+embedmd: $(EMBEDMD) ## Download stern locally if necessary.
+$(EMBEDMD): | $(TOOLSDIR)
+	$(call go-install-tool,$(EMBEDMD),github.com/campoy/embedmd,$(EMBEDMD_VER))
 
 # minikube is used to set-up a local kubernetes cluster for dev work.
 .PHONY: minikube

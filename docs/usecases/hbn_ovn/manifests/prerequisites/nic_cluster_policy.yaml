@@ -9,28 +9,3 @@ spec:
       imagePullSecrets: []
       repository: ghcr.io/k8snetworkplumbingwg
       version: v3.9.3
-status:
-  appliedStates:
-  - name: state-multus-cni
-    state: notReady
-  - name: state-container-networking-plugins
-    state: ignore
-  - name: state-ipoib-cni
-    state: ignore
-  - name: state-whereabouts-cni
-    state: ignore
-  - name: state-OFED
-    state: ignore
-  - name: state-SRIOV-device-plugin
-    state: ignore
-  - name: state-RDMA-device-plugin
-    state: ignore
-  - name: state-ib-kubernetes
-    state: ignore
-  - name: state-nv-ipam-cni
-    state: ignore
-  - name: state-nic-feature-discovery
-    state: ignore
-  - name: state-doca-telemetry-service
-    state: ignore
-  state: notReady

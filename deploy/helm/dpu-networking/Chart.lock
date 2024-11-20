@@ -23,5 +23,5 @@ dependencies:
 - name: ovs-helper
   repository: file://charts/ovs-helper
   version: 0.1.0
-digest: sha256:fac88cf4916134e9912581abbd09381ff045567cd368c40bd642d847dc59c102
-generated: "2024-11-14T11:48:19.295056399+01:00"
+digest: sha256:ff8dd33578f04413e6fa75c93616681a2bf2f954248a74b592f6478d2f1dc25f
+generated: "2024-11-19T13:12:54.096417Z"
