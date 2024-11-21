@@ -501,6 +501,7 @@ func (r *DPUServiceReconciler) ensureNamespaces(ctx context.Context, dpuClusterC
 			dpuClusterClient, err := dpuClusterConfig.Client(ctx)
 			if err != nil {
 				errs = append(errs, fmt.Errorf("get cluster %s: %v", dpuClusterConfig.Cluster.Name, err))
+				continue
 			}
 			if err := utils.EnsureNamespace(ctx, dpuClusterClient, dpuNamespace); err != nil {
 				errs = append(errs, fmt.Errorf("namespace for cluster %s: %v", dpuClusterConfig.Cluster.Name, err))
