@@ -9,6 +9,8 @@ network:
   config: disabled
 EOF
 
+cp /mnt/opt/mellanox/sfc-hbn/mlnx_bf_configure_sync.service /mnt/etc/systemd/system/
+
 cat << \EOF > /mnt/var/lib/cloud/seed/nocloud-net/user-data
 #cloud-config
 debug:
@@ -354,6 +356,7 @@ runcmd:
   - [ systemctl, start, containerd ]
   - [ systemctl, enable, bootstrap-dpf.service ]
   - [ systemctl, enable, kubeadm-join.service ]
+  - [ systemctl, enable, mlnx_bf_configure_sync.service ]
 {{- if .NVConfigParams}}
   - [ /opt/dpf/set-nvconfig-params.sh ]{{end}}
 {{- if .OVSRawScript}}
