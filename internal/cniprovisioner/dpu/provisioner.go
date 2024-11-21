@@ -322,7 +322,7 @@ func (p *DPUCNIProvisioner) startDHCPServer() error {
 	}
 
 	if vtepNetwork.String() != p.vtepCIDR.String() {
-		args = append(args, fmt.Sprintf("--dhcp-option=classless-static-route,%s,%s", p.vtepCIDR.String(), p.gateway.String()))
+		args = append(args, fmt.Sprintf("--dhcp-option=option:classless-static-route,%s,%s", p.vtepCIDR.String(), p.gateway.String()))
 	}
 
 	cmd := p.exec.Command("dnsmasq", args...)
