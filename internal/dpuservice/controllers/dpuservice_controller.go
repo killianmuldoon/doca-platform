@@ -27,7 +27,6 @@ import (
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/argocd"
-	"github.com/nvidia/doca-platform/internal/argocd/api/application"
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
 	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
@@ -571,26 +570,41 @@ func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservi
 	}
 
 	unreadyApplications := []string{}
-	// Get a summarized error for each application linked to the DPUService and set it as the condition message.
+	// Summarize the readiness status of each application linked to the DPUService.
 	for _, app := range applicationList.Items {
-		argoApp := fmt.Sprintf("%s/%s.%s", app.Namespace, app.Name, application.ApplicationFullName)
-		if app.Status.Sync.Status != argov1.SyncStatusCodeSynced || app.Status.Health.Status != argov1.HealthStatusHealthy {
-			appWithStatus := fmt.Sprintf("%s (Sync=%s, Health=%s)", argoApp, app.Status.Sync.Status, app.Status.Health.Status)
-			unreadyApplications = append(unreadyApplications, appWithStatus)
+		syncStatus := app.Status.Sync.Status
+		healthStatus := app.Status.Health.Status
+
+		// Skip applications that are synced and healthy.
+		if syncStatus == argov1.SyncStatusCodeSynced && healthStatus == argov1.HealthStatusHealthy {
+			continue
 		}
+
+		// Handle applications that are not yet deployed.
+		if syncStatus == "" && healthStatus == "" {
+			unreadyApplications = append(unreadyApplications, "Application is not yet deployed.")
+			continue
+		}
+
+		// Add a detailed message for applications that are not ready.
+		message := fmt.Sprintf(
+			"Application is not ready (Sync: %s, Health: %s). Run 'kubectl describe application %s -n %s' for details.",
+			syncStatus, healthStatus, app.Name, app.Namespace,
+		)
+		unreadyApplications = append(unreadyApplications, message)
 	}
 
 	// Update condition and requeue if there are any errors, or if there are fewer applications than we have clusters.
 	if len(unreadyApplications) > 0 || len(applicationList.Items) != len(dpuClusterConfigs) {
-		message := fmt.Sprintf("Applications are not ready: %v", strings.Join(unreadyApplications, ", "))
 		conditions.AddFalse(
 			dpuService,
 			dpuservicev1.ConditionApplicationsReady,
 			conditions.ReasonPending,
-			conditions.ConditionMessage(message),
+			conditions.ConditionMessage(strings.Join(unreadyApplications, ", ")),
 		)
 		return nil
 	}
+
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationsReady)
 	return nil
 }
