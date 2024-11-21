@@ -136,7 +136,7 @@ func (o *OVSHelper) handleBlackholeIssue() error {
 				Jitter:   0.4,
 				Cap:      15 * time.Second,
 			}, func() (done bool, err error) {
-				if err := o.ovsClient.AddPortWithMetadata(bridge, intf, portExternalIDs, interfaceExternalIDs, ofPort); err != nil {
+				if err := o.ovsClient.AddPortWithMetadata(bridge, intf, ovsclient.DPDK, portExternalIDs, interfaceExternalIDs, ofPort); err != nil {
 					klog.Errorf("Error while adding port %s with metadata: %s", intf, err.Error())
 					return false, nil
 				}

@@ -291,9 +291,10 @@ func (c *ovsClient) GetInterfaceExternalIDs(iface string) (map[string]string, er
 
 // AddPortWithMetadata adds a port to the given bridge with the specified external IDs and ofport request in a single
 // transaction
-func (c *ovsClient) AddPortWithMetadata(bridge string, port string, portExternalIDs map[string]string, interfaceExternalIDs map[string]string, ofport int) error {
+func (c *ovsClient) AddPortWithMetadata(bridge string, port string, portType PortType, portExternalIDs map[string]string, interfaceExternalIDs map[string]string, ofport int) error {
 	args := []string{}
 	args = append(args, "add-port", bridge, port, "--")
+	args = append(args, "set", "int", port, fmt.Sprintf("type=%s", portType), "--")
 	args = append(args, "set", "int", port, fmt.Sprintf("ofport_request=%d", ofport), "--")
 	for k, v := range portExternalIDs {
 		args = append(args, "set", "port", port, fmt.Sprintf("external_ids:%s=%s", k, v), "--")

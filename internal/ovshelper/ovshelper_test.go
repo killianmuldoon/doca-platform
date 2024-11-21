@@ -90,6 +90,7 @@ var _ = Describe("OVS Helper", func() {
 			ovsClient.EXPECT().AddPortWithMetadata(
 				"my-bridge",
 				"intf3",
+				ovsclient.DPDK,
 				map[string]string{
 					"port_external_id_key1": "port_external_id_value1",
 					"port_external_id_key2": "port_external_id_value2",
@@ -178,6 +179,7 @@ var _ = Describe("OVS Helper", func() {
 			ovsClient.EXPECT().AddPortWithMetadata(
 				"my-bridge",
 				"intf3",
+				ovsclient.DPDK,
 				map[string]string{
 					"port_external_id_key1": "port_external_id_value1",
 					"port_external_id_key2": "port_external_id_value2",
@@ -193,6 +195,7 @@ var _ = Describe("OVS Helper", func() {
 			ovsClient.EXPECT().AddPortWithMetadata(
 				"my-bridge",
 				"intf3",
+				ovsclient.DPDK,
 				map[string]string{
 					"port_external_id_key1": "port_external_id_value1",
 					"port_external_id_key2": "port_external_id_value2",

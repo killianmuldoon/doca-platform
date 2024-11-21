@@ -86,17 +86,17 @@ func (mr *MockOVSClientMockRecorder) AddPortIfNotExists(bridge, port any) *gomoc
 }
 
 // AddPortWithMetadata mocks base method.
-func (m *MockOVSClient) AddPortWithMetadata(bridge, port string, portExternalIDs, interfaceExternalIDs map[string]string, ofport int) error {
+func (m *MockOVSClient) AddPortWithMetadata(bridge, port string, portType ovsclient.PortType, portExternalIDs, interfaceExternalIDs map[string]string, ofport int) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AddPortWithMetadata", bridge, port, portExternalIDs, interfaceExternalIDs, ofport)
+	ret := m.ctrl.Call(m, "AddPortWithMetadata", bridge, port, portType, portExternalIDs, interfaceExternalIDs, ofport)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // AddPortWithMetadata indicates an expected call of AddPortWithMetadata.
-func (mr *MockOVSClientMockRecorder) AddPortWithMetadata(bridge, port, portExternalIDs, interfaceExternalIDs, ofport any) *gomock.Call {
+func (mr *MockOVSClientMockRecorder) AddPortWithMetadata(bridge, port, portType, portExternalIDs, interfaceExternalIDs, ofport any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPortWithMetadata", reflect.TypeOf((*MockOVSClient)(nil).AddPortWithMetadata), bridge, port, portExternalIDs, interfaceExternalIDs, ofport)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddPortWithMetadata", reflect.TypeOf((*MockOVSClient)(nil).AddPortWithMetadata), bridge, port, portType, portExternalIDs, interfaceExternalIDs, ofport)
 }
 
 // BridgeExists mocks base method.

@@ -299,6 +299,7 @@ func TestAddPortWithMetadata(t *testing.T) {
 		msg                       string
 		inputBridge               string
 		inputPort                 string
+		inputPortType             PortType
 		inputPortExternalIDs      map[string]string
 		inputInterfaceExternalIDs map[string]string
 		inputOfport               int
@@ -306,9 +307,10 @@ func TestAddPortWithMetadata(t *testing.T) {
 		expectedError             bool
 	}{
 		{
-			msg:         "full",
-			inputBridge: "br-ovn",
-			inputPort:   "pf0hpf",
+			msg:           "full",
+			inputBridge:   "br-ovn",
+			inputPort:     "pf0hpf",
+			inputPortType: DPDK,
 			inputPortExternalIDs: map[string]string{
 				"port-id-key-1": "port-id-value-1",
 				"port-id-key-2": "port-id-value-2",
@@ -320,6 +322,7 @@ func TestAddPortWithMetadata(t *testing.T) {
 			inputOfport: 4,
 			expectedCommandArgs: []string{
 				"add-port", "br-ovn", "pf0hpf",
+				"--", "set", "int", "pf0hpf", "type=dpdk",
 				"--", "set", "int", "pf0hpf", "ofport_request=4",
 				"--", "set", "port", "pf0hpf", "external_ids:port-id-key-1=port-id-value-1",
 				"--", "set", "port", "pf0hpf", "external_ids:port-id-key-2=port-id-value-2",
@@ -332,6 +335,7 @@ func TestAddPortWithMetadata(t *testing.T) {
 			msg:                  "no port external ids",
 			inputBridge:          "br-ovn",
 			inputPort:            "pf0hpf",
+			inputPortType:        DPDK,
 			inputPortExternalIDs: make(map[string]string),
 			inputInterfaceExternalIDs: map[string]string{
 				"iface-id-key-1": "iface-id-value-1",
@@ -340,6 +344,7 @@ func TestAddPortWithMetadata(t *testing.T) {
 			inputOfport: 4,
 			expectedCommandArgs: []string{
 				"add-port", "br-ovn", "pf0hpf",
+				"--", "set", "int", "pf0hpf", "type=dpdk",
 				"--", "set", "int", "pf0hpf", "ofport_request=4",
 				"--", "set", "int", "pf0hpf", "external_ids:iface-id-key-1=iface-id-value-1",
 				"--", "set", "int", "pf0hpf", "external_ids:iface-id-key-2=iface-id-value-2",
@@ -347,9 +352,10 @@ func TestAddPortWithMetadata(t *testing.T) {
 			expectedError: false,
 		},
 		{
-			msg:         "no interface external ids",
-			inputBridge: "br-ovn",
-			inputPort:   "pf0hpf",
+			msg:           "no interface external ids",
+			inputBridge:   "br-ovn",
+			inputPort:     "pf0hpf",
+			inputPortType: DPDK,
 			inputPortExternalIDs: map[string]string{
 				"port-id-key-1": "port-id-value-1",
 				"port-id-key-2": "port-id-value-2",
@@ -358,6 +364,7 @@ func TestAddPortWithMetadata(t *testing.T) {
 			inputOfport:               4,
 			expectedCommandArgs: []string{
 				"add-port", "br-ovn", "pf0hpf",
+				"--", "set", "int", "pf0hpf", "type=dpdk",
 				"--", "set", "int", "pf0hpf", "ofport_request=4",
 				"--", "set", "port", "pf0hpf", "external_ids:port-id-key-1=port-id-value-1",
 				"--", "set", "port", "pf0hpf", "external_ids:port-id-key-2=port-id-value-2",
@@ -368,11 +375,13 @@ func TestAddPortWithMetadata(t *testing.T) {
 			msg:                       "no port and interface external ids",
 			inputBridge:               "br-ovn",
 			inputPort:                 "pf0hpf",
+			inputPortType:             DPDK,
 			inputPortExternalIDs:      make(map[string]string),
 			inputInterfaceExternalIDs: make(map[string]string),
 			inputOfport:               4,
 			expectedCommandArgs: []string{
 				"add-port", "br-ovn", "pf0hpf",
+				"--", "set", "int", "pf0hpf", "type=dpdk",
 				"--", "set", "int", "pf0hpf", "ofport_request=4",
 			},
 			expectedError: false,
@@ -394,6 +403,7 @@ func TestAddPortWithMetadata(t *testing.T) {
 			err = c.AddPortWithMetadata(
 				tt.inputBridge,
 				tt.inputPort,
+				tt.inputPortType,
 				tt.inputPortExternalIDs,
 				tt.inputInterfaceExternalIDs,
 				tt.inputOfport)
