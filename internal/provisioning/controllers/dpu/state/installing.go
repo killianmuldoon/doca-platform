@@ -287,7 +287,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		}
 
 		bfbPathInDms := dms.DMSImageFolder + string(filepath.Separator) + bfb.Spec.FileName
-		if md5, err := computeBFBMD5InDms(dpu.Namespace, cutil.GenerateDMSPodName(dpu.Name), "", bfbPathInDms); err == nil {
+		if md5, _, err := computeBFBMD5InDms(dpu.Namespace, cutil.GenerateDMSPodName(dpu.Name), "", bfbPathInDms); err == nil {
 			logger.V(3).Info(fmt.Sprintf("md5sum of %s in DMS is %s", bfb.Spec.FileName, md5))
 		} else {
 			logger.Error(err, "Failed to get md5sum from dms", "md5", dpu)
@@ -446,7 +446,7 @@ func generateJoinCommand(dc *provisioningv1.DPUCluster) (string, error) {
 	return joinCommand, nil
 }
 
-func computeBFBMD5InDms(ns, name, container, filepath string) (string, error) {
+func computeBFBMD5InDms(ns, name, container, filepath string) (string, string, error) {
 	md5CMD := fmt.Sprintf("md5sum %s", filepath)
 	return cutil.RemoteExec(ns, name, container, md5CMD)
 }

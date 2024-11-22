@@ -22,9 +22,8 @@
 # This is a known issue refer https://docs.nvidia.com/doca/sdk/known+issues/index.html #3837255
 shutdown_arm() {
   pci_address=$1
-  output=$(mlxfwreset -d ${pci_address}.0 -l 1 -t 4 reset -y --sync 0)
-  echo "shutdown arm:" >> /tmp/slr.log
-  echo ${output} >> /tmp/slr.log
+  echo "---shutdown ARM---"
+  mlxfwreset -d ${pci_address}.0 -l 1 -t 4 reset -y --sync 0 2>&1
 }
 
 get_rshim_by_PCI() {
@@ -40,14 +39,15 @@ get_rshim_by_PCI() {
 }
 
 # wait until ARM shutdown, expected get "INFO[BL31]: System Off" output from rshim misc
-query_bf_state() {
+waiting_for_ARM_shutdown() {
   rshim=$1
   echo DISPLAY_LEVEL 2 > /dev/${rshim}/misc
   counter=1
   while [ $counter -le 30 ];
   do
     output=$(cat /dev/${rshim}/misc)
-    echo ${output} >> /tmp/slr.log
+    echo "--waiting for ARM shutdown---"
+    echo ${output}
     if [[ ${output} =~ "INFO[BL31]: System Off" ]]; then
       echo "System off"
       return
@@ -58,21 +58,47 @@ query_bf_state() {
   exit 2
 }
 
+# print BF state before calling ARM shutdown command
+print_bf_state() {
+  rshim=$1
+  pci_address=$2
+  echo DISPLAY_LEVEL 2 > /dev/${rshim}/misc
+  echo "---BF state---"
+  cat /dev/${rshim}/misc
+  echo "---flint output---"
+  flint -d ${pci_address}.0 q
+  echo "---mlxfwreset output---"
+  mlxfwreset -d ${pci_address}.0 q
+}
+
 reboot_host() {
   pci_address=$1
-  output=$(mlxfwreset -d ${pci_address}.0 -l 4 r -y)
-  echo ${output}
+  mlxfwreset -d ${pci_address}.0 -l 4 r -y
 }
 
 pci=$1
-cmd=$2
+reboot=$2
+cmd=$3
 
-# This is a workaround for https://redmine.mellanox.com/issues/4035418
-echo "ipmitool chassis power "$cmd > /usr/sbin/reboot
-chmod +x /usr/sbin/reboot
+case $cmd in
+  arm) ;;
+  host) ;;
+  *)
+  echo "invalid first argument. ./bf-slr.sh {arm|host}"
+  exit 1
+  ;;
+esac
 
-shutdown_arm ${pci}
-rshim=$(get_rshim_by_PCI ${pci})
-echo "rshim: ${rshim}"
-query_bf_state ${rshim}
-reboot_host ${pci}
+if [ "$cmd" = "arm" ]; then
+  rshim=$(get_rshim_by_PCI ${pci})
+  print_bf_state ${rshim} ${pci}
+  shutdown_arm ${pci}
+  waiting_for_ARM_shutdown ${rshim}
+fi
+
+if [ "$cmd" = "host" ]; then
+  # This is a workaround for https://redmine.mellanox.com/issues/4035418
+  echo "ipmitool chassis power "$reboot > /usr/sbin/reboot
+  chmod +x /usr/sbin/reboot
+  reboot_host ${pci}
+fi

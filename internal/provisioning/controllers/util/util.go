@@ -140,10 +140,10 @@ func GenerateNodeName(dpu *provisioningv1.DPU) string {
 	return dpu.Name
 }
 
-func RemoteExec(ns, name, container, cmd string) (string, error) {
+func RemoteExec(ns, name, container, cmd string) (string, string, error) {
 	config, err := restclient.InClusterConfig()
 	if err != nil {
-		return "", nil
+		return "", "", nil
 	}
 
 	// Create a Kubernetes client
@@ -169,21 +169,18 @@ func RemoteExec(ns, name, container, cmd string) (string, error) {
 
 	executor, err := remotecommand.NewSPDYExecutor(config, "POST", req.URL())
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 
 	outBuf := new(bytes.Buffer)
 	errBuf := new(bytes.Buffer)
-	if err := executor.StreamWithContext(context.Background(), remotecommand.StreamOptions{
+	cmdErr := executor.StreamWithContext(context.Background(), remotecommand.StreamOptions{
 		Stdin:  nil,
 		Stdout: bufio.NewWriter(outBuf),
 		Stderr: bufio.NewWriter(errBuf),
 		Tty:    false,
-	}); err != nil {
-		return errBuf.String(), err
-	}
-
-	return outBuf.String(), nil
+	})
+	return outBuf.String(), errBuf.String(), cmdErr
 }
 
 func GetPCIAddrFromLabel(labels map[string]string, removePrefix bool) (string, error) {
