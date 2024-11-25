@@ -173,6 +173,7 @@ rules:
   resources:
   - bfbs
   - dpuclusters
+  - dpudevices
   - dpuflavors
   - dpus
   - dpusets
@@ -190,6 +191,7 @@ rules:
   resources:
   - bfbs/finalizers
   - dpuclusters/finalizers
+  - dpudevices/finalizers
   - dpuflavors/finalizers
   - dpus/finalizers
   - dpusets/finalizers

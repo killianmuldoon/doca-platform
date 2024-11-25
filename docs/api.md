@@ -457,6 +457,8 @@ Package v1alpha1 contains API Schema definitions for the provisioning.dpu v1alph
 - [DPU](#dpu)
 - [DPUCluster](#dpucluster)
 - [DPUClusterList](#dpuclusterlist)
+- [DPUDevice](#dpudevice)
+- [DPUDeviceList](#dpudevicelist)
 - [DPUFlavor](#dpuflavor)
 - [DPUFlavorList](#dpuflavorlist)
 - [DPUList](#dpulist)
@@ -784,6 +786,62 @@ _Appears in:_
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ |  |  |  |
 
 
+
+
+#### DPUDevice
+
+
+
+DPUDevice is the Schema for the dpudevices API
+
+
+
+_Appears in:_
+- [DPUDeviceList](#dpudevicelist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `provisioning.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `DPUDevice` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[DPUDeviceSpec](#dpudevicespec)_ |  |  |  |
+
+
+#### DPUDeviceList
+
+
+
+DPUDeviceList contains a list of DPUDevices
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `provisioning.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `DPUDeviceList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[DPUDevice](#dpudevice) array_ |  |  |  |
+
+
+#### DPUDeviceSpec
+
+
+
+DPUDeviceSpec defines the content of DPUDevice
+
+
+
+_Appears in:_
+- [DPUDevice](#dpudevice)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `pciAddress` _string_ | PCIAddress is the PCI address of the device in the host system.<br />It's used to identify the device and should be unique.<br />This value is immutable and should not be changed once set.<br />Example: "0000:03:00" |  | Pattern: `^(\d\{4\}[-:]\|\d\{2\}[-:])\d\{2\}[-:]\d\{2\}$` <br /> |
+| `psid` _string_ | PSID is the Product Serial ID of the device.<br />It's used to track the device's lifecycle and for inventory management.<br />This value is immutable and should not be changed once set.<br />Example: "MT_0001234567" |  | Pattern: `^MT_\d\{10\}$` <br /> |
+| `opn` _string_ | OPN is the Ordering Part Number of the device.<br />It's used to track the device's compatibility with different software versions.<br />This value is immutable and should not be changed once set.<br />Example: "900-9D3B4-00SV-EA0" |  | Pattern: `^\d\{3\}-[A-Z0-9]\{5\}-[A-Z0-9]\{4\}-[A-Z0-9]\{3\}$` <br /> |
+| `bmcIp` _string_ | BMCIP is the IP address of the BMC (Base Management Controller) on the device.<br />This is used for remote management and monitoring of the device.<br />This value is immutable and should not be changed once set.<br />Example: "10.1.2.3" |  | Format: ipv4 <br /> |
 
 
 #### DPUFLavorSysctl

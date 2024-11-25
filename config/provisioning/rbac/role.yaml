@@ -129,6 +129,7 @@ rules:
 - apiGroups:
   - provisioning.dpu.nvidia.com
   resources:
+  - dpudevices
   - dpuflavors
   verbs:
   - get
