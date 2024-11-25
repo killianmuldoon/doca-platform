@@ -149,7 +149,6 @@ helm registry login nvcr.io --username \$oauthtoken --password $NGC_API_KEY
 
 4. Create prerequisite objects for the installation.
 ```shell
-##TODO: Fix PV3 not appearing in APIServer
 cat manifests/prerequisites/*.yaml | envsubst | kubectl apply -f - 
 ```
 
@@ -182,7 +181,8 @@ stringData:
   name: nvstaging-doca-oci
   url: nvcr.io/nvstaging/doca
   type: helm
-  username: $oauthtoken
+  ## Note `no_variable` here is used to ensure envsubst renders the correct username which is `$oauthtoken`
+  username: $${no_variable}oauthtoken
   password: $NGC_API_KEY
 ---
 apiVersion: v1
@@ -196,7 +196,7 @@ stringData:
   name: nvstaging-doca-https
   url: https://helm.ngc.nvidia.com/nvstaging/doca
   type: helm
-  username: $oauthtoken
+  username: $${no_variable}oauthtoken
   password: $NGC_API_KEY
 ```
 </details>
