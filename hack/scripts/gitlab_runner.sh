@@ -101,6 +101,9 @@ fi
 sudo sysctl fs.inotify.max_user_watches=1048576 > /dev/null || log_and_exit "Failed to set fs.inotify.max_user_watches"
 sudo sysctl fs.inotify.max_user_instances=8192 > /dev/null || log_and_exit "Failed to set fs.inotify.max_user_instances"
 
+## Enable Docker building with qemu for multi-arch
+sudo docker run --privileged --rm tonistiigi/binfmt --install all > /dev/null || log_and_exit "Failed to enable Docker building with qemu"
+
 ## Delete .bash_logout
 sudo rm -rf /"${GITLAB_RUNNER_USER}"/.bash_logout > /dev/null || log_and_exit "Failed to delete gitlab-runner $HOME/.bash_logout"
 
