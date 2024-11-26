@@ -107,7 +107,7 @@ var _ = Describe("DPUServiceIPAM Validating Webhook", func() {
 		Entry("bad allocation - subnet not part of the network due to IP", func() *dpuservicev1.DPUServiceIPAM {
 			ipam := getFullyPopulatedDPUServiceIPAM()
 			ipam.Spec.IPV4Subnet = nil
-			ipam.Spec.IPV4Network.Allocations["dpu-node-1"] = "10.0.0.0/24"
+			ipam.Spec.IPV4Network.Allocations["dpu-node-1"] = "192.168.0.0/20"
 			return ipam
 		}(), true),
 		Entry("bad allocation - subnet not part of the network due to mask size", func() *dpuservicev1.DPUServiceIPAM {
@@ -191,7 +191,92 @@ var _ = Describe("DPUServiceIPAM Validating Webhook", func() {
 			return ipam
 		}(), true),
 	)
+
+	DescribeTable("type switch validation",
+		func(oldIpamObj, newIpamObj dpuservicev1.DPUServiceIPAM, expectedError bool, expectedErrorMessage string) {
+			_, err := webhook.ValidateUpdate(context.Background(), &oldIpamObj, &newIpamObj)
+			if expectedError {
+				Expect(err).To(HaveOccurred())
+				if expectedErrorMessage != "" {
+					Expect(err.Error()).To(ContainSubstring(expectedErrorMessage))
+				}
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+		Entry("same subnet interface", *ipamWithIPV4Subnet, *ipamWithIPV4Subnet, false, ""),
+		Entry("same network interface", *ipamWithIPV4Network, *ipamWithIPV4Network, false, ""),
+		Entry("switch from subnet to network", *ipamWithIPV4Subnet, *ipamWithIPV4Network, true, "transitioning from ipv4subnet to ipv4network and vice versa is currently not supported"),
+		Entry("switch from network to subnet", *ipamWithIPV4Network, *ipamWithIPV4Subnet, true, "transitioning from ipv4subnet to ipv4network and vice versa is currently not supported"),
+	)
+
+	DescribeTable("validateIpRangeNotShrinking",
+		func(oldSubnet, newSubnet string, isIPAMWithSubnet bool, expectedError bool, expectedErrorMessage string) {
+			oldIpam := getFullyPopulatedDPUServiceIPAM()
+			if isIPAMWithSubnet {
+				oldIpam.Spec.IPV4Network = nil
+				oldIpam.Spec.IPV4Subnet.Subnet = oldSubnet
+			} else {
+				oldIpam.Spec.IPV4Subnet = nil
+				oldIpam.Spec.IPV4Network.Network = oldSubnet
+			}
+
+			newIpam := getFullyPopulatedDPUServiceIPAM()
+			if isIPAMWithSubnet {
+				newIpam.Spec.IPV4Network = nil
+				newIpam.Spec.IPV4Subnet.Subnet = newSubnet
+			} else {
+				newIpam.Spec.IPV4Subnet = nil
+				newIpam.Spec.IPV4Network.Network = newSubnet
+			}
+
+			_, err := webhook.ValidateUpdate(context.Background(), oldIpam, newIpam)
+			if expectedError {
+				Expect(err).To(HaveOccurred())
+				if expectedErrorMessage != "" {
+					Expect(err.Error()).To(ContainSubstring(expectedErrorMessage))
+				}
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+		Entry("ipv4network - same subnet", "192.168.0.0/20", "192.168.0.0/20", true, false, ""),
+		Entry("ipv4network - new subnet is a superset of the old subnet", "192.168.0.0/20", "192.168.0.0/19", true, false, ""),
+		Entry("ipv4network - new subnet is a subset of the old subnet", "192.168.0.0/20", "192.168.0.128/25", true, true, "you cannot shrink the ip subnet"),
+		Entry("ipv4network - new subnet does not contain the old subnet's IP", "192.168.0.0/20", "192.169.0.0/20", true, true, "you cannot shrink the ip subnet"),
+		Entry("ipv4network - old subnet is invalid", "invalid", "192.168.0.0/20", true, true, ""),
+		Entry("ipv4network - new subnet is invalid", "192.168.0.0/20", "invalid", true, true, ""),
+		Entry("ipv4subnet - same subnet", "192.168.0.0/20", "192.168.0.0/20", false, false, ""),
+		Entry("ipv4subnet - new subnet is a superset of the old subnet", "192.168.0.0/20", "192.168.0.0/19", false, false, ""),
+		Entry("ipv4subnet - new subnet is a subset of the old subnet", "192.168.0.0/20", "192.168.0.128/25", false, true, "you cannot shrink the ip subnet"),
+		Entry("ipv4subnet - new subnet does not contain the old subnet's IP", "192.168.0.0/20", "192.169.0.0/20", false, true, "you cannot shrink the ip subnet"),
+		Entry("ipv4subnet - old subnet is invalid", "invalid", "192.168.0.0/20", false, true, ""),
+		Entry("ipv4subnet - new subnet is invalid", "192.168.0.0/20", "invalid", false, true, ""),
+	)
 })
+
+var ipamWithIPV4Subnet = &dpuservicev1.DPUServiceIPAM{
+	ObjectMeta: metav1.ObjectMeta{
+		Namespace: "dpf-operator-system",
+	},
+	Spec: dpuservicev1.DPUServiceIPAMSpec{
+		IPV4Subnet: &dpuservicev1.IPV4Subnet{
+			Subnet:  "10.0.0.0/24",
+			Gateway: "10.0.0.1",
+		},
+	},
+}
+var ipamWithIPV4Network = &dpuservicev1.DPUServiceIPAM{
+	ObjectMeta: metav1.ObjectMeta{
+		Namespace: "dpf-operator-system",
+	},
+	Spec: dpuservicev1.DPUServiceIPAMSpec{
+		IPV4Network: &dpuservicev1.IPV4Network{
+			Network:    "10.0.0.0/24",
+			PrefixSize: 30,
+		},
+	},
+}
 
 // getFullyPopulatedDPUServiceIPAM returns an invalid but fully populated (for the validation context) DPUServiceIPAM
 func getFullyPopulatedDPUServiceIPAM() *dpuservicev1.DPUServiceIPAM {

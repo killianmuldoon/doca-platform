@@ -66,7 +66,7 @@ func (v *DPUServiceIPAMValidator) ValidateCreate(ctx context.Context, obj runtim
 
 	ctrl.LoggerInto(ctx, log.WithValues("DPUServiceIPAM", types.NamespacedName{Namespace: ipam.Namespace, Name: ipam.Name}))
 
-	if err := validateDPUServiceIPAM(ipam); err != nil {
+	if err := validateDPUServiceIPAM(ipam, nil); err != nil {
 		log.Error(err, "rejected resource creation")
 		return nil, apierrors.NewBadRequest(err.Error())
 	}
@@ -78,14 +78,16 @@ func (v *DPUServiceIPAMValidator) ValidateCreate(ctx context.Context, obj runtim
 func (v *DPUServiceIPAMValidator) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (warnings admission.Warnings, err error) {
 	log := ctrl.LoggerFrom(ctx)
 
-	ipam, ok := newObj.(*dpuservicev1.DPUServiceIPAM)
-	if !ok {
-		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a DPUServiceIPAM but got a %T", newObj))
+	oldIpamObj, oldOk := oldObj.(*dpuservicev1.DPUServiceIPAM)
+	newIpamObj, newOk := newObj.(*dpuservicev1.DPUServiceIPAM)
+
+	if !newOk || !oldOk {
+		return nil, apierrors.NewBadRequest(fmt.Sprintf("expected a DPUServiceIPAM but got a new objecy: %T, and an old object: %T", newObj, oldObj))
 	}
 
-	ctrl.LoggerInto(ctx, log.WithValues("DPUServiceIPAM", types.NamespacedName{Namespace: ipam.Namespace, Name: ipam.Name}))
+	ctrl.LoggerInto(ctx, log.WithValues("DPUServiceIPAM", types.NamespacedName{Namespace: newIpamObj.Namespace, Name: newIpamObj.Name}))
 
-	if err := validateDPUServiceIPAM(ipam); err != nil {
+	if err := validateDPUServiceIPAM(newIpamObj, oldIpamObj); err != nil {
 		log.Error(err, "rejected resource update")
 		return nil, apierrors.NewBadRequest(err.Error())
 	}
@@ -99,28 +101,41 @@ func (v *DPUServiceIPAMValidator) ValidateDelete(ctx context.Context, obj runtim
 }
 
 // validateDPUServiceIPAM validates if a DPUServiceIPAM object is valid
-func validateDPUServiceIPAM(ipam *dpuservicev1.DPUServiceIPAM) error {
+func validateDPUServiceIPAM(newIpamObj, oldIpamObj *dpuservicev1.DPUServiceIPAM) error {
 	var errs []error
 
 	// TODO: Drop this once multi namespace NVIPAM is supported
-	if ipam.Namespace != "dpf-operator-system" {
+	if newIpamObj.Namespace != "dpf-operator-system" {
 		errs = append(errs, errors.New("currently only 'dpf-operator-system' namespace is supported"))
 	}
 
-	if ipam.Spec.IPV4Network == nil && ipam.Spec.IPV4Subnet == nil {
+	// TODO: Drop once we fully support transition from IPV4Network to IPV4Subnet and vice versa
+	if oldIpamObj != nil && newIpamObj != nil {
+		if (oldIpamObj.Spec.IPV4Subnet != nil && newIpamObj.Spec.IPV4Network != nil) || (oldIpamObj.Spec.IPV4Network != nil && newIpamObj.Spec.IPV4Subnet != nil) {
+			errs = append(errs, errors.New("transitioning from ipv4subnet to ipv4network and vice versa is currently not supported"))
+		}
+	}
+
+	if newIpamObj.Spec.IPV4Network == nil && newIpamObj.Spec.IPV4Subnet == nil {
 		errs = append(errs, errors.New("either ipv4Subnet or ipv4Network must be specified"))
 	}
 
-	if ipam.Spec.IPV4Network != nil && ipam.Spec.IPV4Subnet != nil {
+	if newIpamObj.Spec.IPV4Network != nil && newIpamObj.Spec.IPV4Subnet != nil {
 		errs = append(errs, errors.New("either ipv4Subnet or ipv4Network must be specified but not both"))
 	}
 
-	if ipam.Spec.IPV4Network != nil {
-		errs = append(errs, validateDPUServiceIPAMIPV4Network(ipam.Spec.IPV4Network))
+	if newIpamObj.Spec.IPV4Network != nil {
+		errs = append(errs, validateDPUServiceIPAMIPV4Network(newIpamObj.Spec.IPV4Network))
+		if oldIpamObj != nil && oldIpamObj.Spec.IPV4Network != nil {
+			errs = append(errs, validateIPRangeNotShrinking(newIpamObj.Spec.IPV4Network.Network, oldIpamObj.Spec.IPV4Network.Network))
+		}
 	}
 
-	if ipam.Spec.IPV4Subnet != nil {
-		errs = append(errs, validateDPUServiceIPAMIPV4Subnet(ipam.Spec.IPV4Subnet))
+	if newIpamObj.Spec.IPV4Subnet != nil {
+		errs = append(errs, validateDPUServiceIPAMIPV4Subnet(newIpamObj.Spec.IPV4Subnet))
+		if oldIpamObj != nil && oldIpamObj.Spec.IPV4Subnet != nil {
+			errs = append(errs, validateIPRangeNotShrinking(newIpamObj.Spec.IPV4Subnet.Subnet, oldIpamObj.Spec.IPV4Subnet.Subnet))
+		}
 	}
 
 	return kerrors.NewAggregate(errs)
@@ -212,14 +227,37 @@ func validateRoutes(routes []dpuservicev1.Route, network *net.IPNet, defaultGate
 	return kerrors.NewAggregate(errs)
 }
 
+func validateIPRangeNotShrinking(newSubnet, oldSubnet string) error {
+	oldIP, oldCIDR, err := net.ParseCIDR(oldSubnet)
+	if err != nil {
+		return err
+	}
+
+	_, newCIDR, err := net.ParseCIDR(newSubnet)
+	if err != nil {
+		return err
+	}
+
+	oldMaskSize, _ := oldCIDR.Mask.Size()
+	newMaskSize, _ := newCIDR.Mask.Size()
+
+	if !newCIDR.Contains(oldIP) || oldMaskSize < newMaskSize {
+		return errors.New("you cannot shrink the ip subnet")
+	}
+
+	return nil
+}
+
 func isDefaultRoute(ipNet *net.IPNet) bool {
 	// Check if it's IPv4 and matches 0.0.0.0/0
 	if ipNet.IP.To4() != nil && ipNet.String() == ipv4DefaultRoute {
 		return true
 	}
+
 	// Check if it's IPv6 and matches ::/0
 	if ipNet.IP.To4() == nil && ipNet.String() == ipv6DefaultRoute {
 		return true
 	}
+
 	return false
 }
