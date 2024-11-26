@@ -417,7 +417,7 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 				log.Error(flowErrors, "failed to delete flows")
 				return requeueFlows()
 			}
-			return requeueFlows()
+			return requeueDone()
 		}
 		log.Error(err, "failed to get ServiceChain")
 		return requeueFlows()

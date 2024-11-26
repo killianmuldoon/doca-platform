@@ -43,6 +43,10 @@ const (
 	OvnPatchPeer              = "puplinkbrsfc"
 )
 
+func requeueDone() (ctrl.Result, error) {
+	return ctrl.Result{}, nil
+}
+
 func requeueSuccess() (ctrl.Result, error) {
 	return ctrl.Result{RequeueAfter: RequeueIntervalSuccess}, nil
 }
@@ -249,7 +253,7 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		if apierrors.IsNotFound(err) {
 			// Return early if the object is not found.
 			log.Info("object not found")
-			return requeueSuccess()
+			return requeueDone()
 		}
 		log.Error(err, "failed to get ServiceInterface")
 		return requeueError()
