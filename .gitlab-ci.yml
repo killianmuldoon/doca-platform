@@ -212,7 +212,7 @@ release:
     - release
   script:
     - ./hack/scripts/ci_helm_docker_prereqs.sh
-    - timeout 30m make release clean-images-for-registry
+    - timeout 50m make release clean-images-for-registry
   after_script:
     - ./hack/scripts/slack-notification.sh
 
