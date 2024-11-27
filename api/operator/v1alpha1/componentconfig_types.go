@@ -166,16 +166,6 @@ func (c *DPUServiceControllerConfiguration) GetImage() *string {
 	return c.Image
 }
 
-type KamajiClusterManagerConfiguration struct {
-	// Disable ensures the component is not deployed when set to true.
-	// +optional
-	Disable *bool `json:"disable,omitempty"`
-
-	// Image overrides the container image used by the HostedControlPlaneManager.
-	// +optional
-	Image Image `json:"image,omitempty"`
-}
-
 // DPUDetectorConfiguration is the configuration for the DPUDetector Component.
 type DPUDetectorConfiguration struct {
 	// Disable ensures the component is not deployed when set to true.
@@ -208,6 +198,16 @@ func (c *DPUDetectorConfiguration) Disabled() bool {
 		return false
 	}
 	return *c.Disable
+}
+
+type KamajiClusterManagerConfiguration struct {
+	// Disable ensures the component is not deployed when set to true.
+	// +optional
+	Disable *bool `json:"disable,omitempty"`
+
+	// Image overrides the container image used by the HostedControlPlaneManager.
+	// +optional
+	Image Image `json:"image,omitempty"`
 }
 
 func (c *KamajiClusterManagerConfiguration) Name() string {

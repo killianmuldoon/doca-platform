@@ -105,6 +105,11 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 			StaticClusterManager: &operatorv1.StaticClusterManagerConfiguration{
 				Disable: ptr.To(false),
 			},
+			// Disable the Kamaji cluster manager so only one cluster manager is running.
+			// TODO: Enable Kamaji by default in the e2e tests.
+			KamajiClusterManager: &operatorv1.KamajiClusterManagerConfiguration{
+				Disable: ptr.To(true),
+			},
 			ImagePullSecrets: []string{
 				pullSecretName,
 				extraPullSecretName,

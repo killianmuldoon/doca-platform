@@ -35,10 +35,10 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.SFCControllerName:          false,
 			operatorv1.DPUDetectorName:            false,
 			operatorv1.OVSHelperName:              false,
+			operatorv1.KamajiClusterManagerName:   false,
 
-			// Both control plane managers are disabled by default.
+			// Static cluster manager is disabled by default.
 			operatorv1.StaticClusterManagerName: true,
-			operatorv1.KamajiClusterManagerName: true,
 		},
 		Images: map[string]string{
 			// Images built as part of the DPF Operator release.
