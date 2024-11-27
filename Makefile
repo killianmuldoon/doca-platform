@@ -122,7 +122,7 @@ $(ARGOCD_YAML): | $(CHARTSDIR)
 GITLAB_TOKEN ?= ""
 
 # OVS CNI
-OVS_CNI_REVISION ?= 985d71e55858267b796ffeec32ad4f40be0af293
+OVS_CNI_REVISION ?= a9cf21cbf7834b81677085466f1f49552891dd6c
 OVS_CNI_DIR=$(REPOSDIR)/ovs-cni-$(OVS_CNI_REVISION)
 $(OVS_CNI_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-sfc-cni.git $(OVS_CNI_DIR) $(OVS_CNI_REVISION)
