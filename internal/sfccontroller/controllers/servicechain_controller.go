@@ -22,19 +22,22 @@ import (
 	"errors"
 	"fmt"
 	"hash/fnv"
+	"math"
 	"os"
-	"os/exec"
-	"regexp"
-	"strings"
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/ovsmodel"
+	"github.com/nvidia/doca-platform/internal/ovsutils"
 
+	"antrea.io/antrea/pkg/ovs/openflow"
+	model "github.com/ovn-org/libovsdb/model"
+	ovsdb "github.com/ovn-org/libovsdb/ovsdb"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
+	kexec "k8s.io/utils/exec"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -47,6 +50,10 @@ type ServiceChainReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	NodeName string
+	OFTable  openflow.Table
+	OFBridge openflow.Bridge
+	OVS      ovsutils.API
+	Exec     kexec.Interface
 }
 
 const (
@@ -69,159 +76,74 @@ func hash(s string) uint64 {
 
 // Utility function to find an OVS interface based on the condition that the
 // external_id:dpf-id=condition which is sent as an input
-func checkPortInBrSfc(condition string) (bool, error) {
-	ovsVsctlPath, err := exec.LookPath("ovs-vsctl")
+func findInterface(ctx context.Context, ovs ovsutils.API, condition string) (string, error) {
+	// Get doesn't work for ExternalIDs field
+	var ifaces []ovsmodel.Interface
+	iface := &ovsmodel.Interface{
+		ExternalIDs: map[string]string{"dpf-id": condition},
+	}
+	err := ovs.WhereAll(
+		iface,
+		model.Condition{
+			Field:    &iface.ExternalIDs,
+			Function: ovsdb.ConditionIncludes,
+			Value:    iface.ExternalIDs,
+		},
+	).List(ctx, &ifaces)
+
 	if err != nil {
-		return false, err
+		return "", fmt.Errorf("failed to get interface with external_ids: %s: %v", iface.ExternalIDs, err)
 	}
 
-	// Figure out if the port is on the expected sfc-chain bridge (br-sfc)
-	args := []string{"-t", "5", "iface-to-br", condition}
-	cmd := exec.Command(ovsVsctlPath, args...)
-	var stderr bytes.Buffer
-	var output bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &output
-	err = cmd.Run()
-	if err != nil {
-		return false, fmt.Errorf("error running ovs-vsctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
+	if len(ifaces) != 1 {
+		return "", fmt.Errorf("failed to find matching interface with external_ids :%s", iface.ExternalIDs)
 	}
 
-	if strings.TrimSuffix(output.String(), "\n") == "br-sfc" {
-		return true, nil
-	}
+	iface = &ifaces[0]
 
-	return false, nil
-}
-
-// Utility function to find an OVS interface based on the condition that the
-// external_id:dpf-id=condition which is sent as an input
-func findInterface(condition string) (string, error) {
-	ovsVsctlPath, err := exec.LookPath("ovs-vsctl")
-	if err != nil {
-		return "", err
-	}
-	args := []string{"-t", "5", "--oneline", "--no-heading", "--format=csv", "--data=bare",
-		"--columns=name", "find", "interface", "external_ids:dpf-id=" + condition}
-	cmd := exec.Command(ovsVsctlPath, args...)
-	var stderr bytes.Buffer
-	var output bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &output
-	err = cmd.Run()
-	if err != nil {
-		return "", fmt.Errorf("error running ovs-vsctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
-	}
-
-	portName := strings.TrimSuffix(output.String(), "\n")
-
-	if portName == "" {
-		return "", fmt.Errorf("could not find ovs interface with external_ids:dpf-id=%s", condition)
-	}
-
-	found, err := checkPortInBrSfc(portName)
+	found, err := ovs.IsIfaceInBr(ctx, SFCBridge, iface.Name)
 	if err != nil {
 		return "", err
 	}
 
 	if found {
-		args := []string{"-t", "5", "--oneline", "--no-heading", "--format=csv", "--data=bare",
-			"--columns=ofport", "find", "interface", "name=" + portName}
-		cmd = exec.Command(ovsVsctlPath, args...)
-		stderr.Reset()
-		output.Reset()
-		cmd.Stderr = &stderr
-		cmd.Stdout = &output
-		err = cmd.Run()
-		if err != nil {
-			return "", fmt.Errorf("error running ovs-vsctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
+		if iface.Ofport == nil {
+			return "", fmt.Errorf("interface %s Ofport is nil", iface.Name)
 		}
-		return strings.TrimSuffix(output.String(), "\n"), nil
+		return fmt.Sprintf("%d", *iface.Ofport), nil
 	}
 
+	// check if port is a patch port for hbn
+
 	// Build br-hbn patch p + intfname + brsfc
-	portNameOld := portName
-	portName = "p" + portNameOld + "brsfc"
-	found, err = checkPortInBrSfc(portName)
+	portName := "p" + iface.Name + "brsfc"
+	found, err = ovs.IsIfaceInBr(ctx, SFCBridge, portName)
 	if err != nil {
 		return "", err
 	}
 	if !found {
-		return "", fmt.Errorf("port %s or %s not found in br-sfc", portNameOld, portName)
+		return "", fmt.Errorf("port %s or %s not found in %s", iface.Name, portName, SFCBridge)
 	}
 
-	args = []string{"-t", "5", "--oneline", "--no-heading", "--format=csv", "--data=bare",
-		"--columns=ofport", "find", "interface", "name=" + portName}
-	cmd = exec.Command(ovsVsctlPath, args...)
-	stderr.Reset()
-	output.Reset()
-	cmd.Stderr = &stderr
-	cmd.Stdout = &output
-	err = cmd.Run()
-	if err != nil {
-		return "", fmt.Errorf("error running ovs-vsctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
+	iface = &ovsmodel.Interface{
+		Name: portName,
 	}
-	return strings.TrimSuffix(output.String(), "\n"), nil
-}
+	err = ovs.Get(ctx, iface)
+	if err != nil {
+		return "", fmt.Errorf("failed to get interface %s: %v", portName, err)
+	}
 
-// Utility function to delete all flows which have a corresponding cookie
-func delFlows(flows string) error {
-	ovsOfctlPath, err := exec.LookPath("ovs-ofctl")
-	if err != nil {
-		return err
+	if iface.Ofport == nil {
+		return "", fmt.Errorf("interface %s Ofport is nil", portName)
 	}
-	args := []string{"-t", "5", "--bundle", "del-flows", "br-sfc", flows}
-	cmd := exec.Command(ovsOfctlPath, args...)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	err = cmd.Run()
-	if err != nil {
-		return fmt.Errorf("error running ovs-ofctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
-	}
-	return nil
-}
-
-// Utility function that returns an set of OpenFlow cookies for currently existing flows in the bridge.
-func getFlowCookies() (sets.Set[string], error) {
-	// ToDo: 1. This way of invoking ovs-ofctl via shell, should be changed, when we have a library for this. Leaving it "as is" for now.
-	// Output of ovs-ofctl dump-flows are of the format
-	// cookie=0x4dde72514b4ec14d, duration=3.703s, table=0, n_packets=501, n_bytes=157752, idle_age=30, priority=20,in_port=1 actions=learn(table=0,....),output:NXM_OF_IN_PORT[]),output:2,output:246
-	ovsOfctlPath, err := exec.LookPath("ovs-ofctl")
-	if err != nil {
-		return nil, err
-	}
-	args := []string{"-t", "5", "dump-flows", "br-sfc"}
-	cmd := exec.Command(ovsOfctlPath, args...)
-	var stderr, output bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &output
-	err = cmd.Run()
-	if err != nil {
-		return nil, fmt.Errorf("error running ovs-ofctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
-	}
-	flowSet := sets.New[string]()
-	ovsFlowCookieSlice := strings.Split(output.String(), "\n")
-	re := regexp.MustCompile(`cookie=([a-zA-Z0-9x]+),`)
-	for _, ovsFlowCookie := range ovsFlowCookieSlice[1:] {
-		// skip empty lines
-		if len(ovsFlowCookie) == 0 {
-			continue
-		}
-		match := re.FindStringSubmatch(ovsFlowCookie)
-		if len(match) > 1 {
-			flowSet.Insert(match[1])
-		} else {
-			return nil, fmt.Errorf("cookie %s not found", ovsFlowCookie)
-		}
-	}
-	return flowSet, nil
+	return fmt.Sprintf("%d", *iface.Ofport), nil
 }
 
 // Utility function which takes in a multiline string called flows
 // Creates a temporary file on the system and writes the aforementioned
 // string. This will file will be consumed by ovs-ofctl command with the
 // bundle argument to ensure the fact that all flows are added in an atomic operation
-func addFlows(ctx context.Context, flows string) (err error) {
+func addFlows(ctx context.Context, exec kexec.Interface, flows string) (err error) {
 	log := ctrllog.FromContext(ctx)
 	var fileP *os.File
 	fileP, err = os.Create("/tmp/of-output.txt")
@@ -246,7 +168,7 @@ func addFlows(ctx context.Context, flows string) (err error) {
 	args := []string{"-t", "5", "--bundle", "add-flows", "br-sfc", "/tmp/of-output.txt"}
 	cmd := exec.Command(ovsOfctlPath, args...)
 	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
+	cmd.SetStderr(&stderr)
 	err = cmd.Run()
 	if err != nil {
 		return fmt.Errorf("error running ovs-ofctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
@@ -349,7 +271,7 @@ func (r *ServiceChainReconciler) getPortNameForServiceInterface(ctx context.Cont
 		condition = pod.Namespace + "/" + pod.Name + "/" + si.Spec.Service.InterfaceName
 	}
 
-	port, err := findInterface(condition)
+	port, err := findInterface(ctx, r.OVS, condition)
 	if err != nil {
 		return "", err
 	}
@@ -412,7 +334,7 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			}
 
 			// Always ensure delete operation in case of errors
-			flowErrors := delFlows(fmt.Sprintf("cookie=%d/-1", hashedName))
+			flowErrors := r.OFBridge.DeleteFlowsByCookie(hashedName, math.MaxUint64)
 			if flowErrors != nil {
 				log.Error(flowErrors, "failed to delete flows")
 				return requeueFlows()
@@ -511,7 +433,7 @@ func (r *ServiceChainReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 
 		// Try adding flows to vswitchd
-		err = addFlows(ctx, flowsPerArray)
+		err = addFlows(ctx, r.Exec, flowsPerArray)
 		if err != nil {
 			log.Error(err, "failed to add flows")
 			return requeueFlows()

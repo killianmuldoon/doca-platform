@@ -22,8 +22,13 @@ import (
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/ovsmodel"
+	"github.com/nvidia/doca-platform/internal/ovsutils"
 	sfccontroller "github.com/nvidia/doca-platform/internal/sfccontroller/controllers"
 
+	"antrea.io/antrea/pkg/ovs/openflow"
+	"github.com/ovn-org/libovsdb/client"
+	"github.com/ovn-org/libovsdb/model"
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -32,6 +37,7 @@ import (
 	logsv1 "k8s.io/component-base/logs/api/v1"
 	_ "k8s.io/component-base/logs/json/register"
 	"k8s.io/klog/v2"
+	kexec "k8s.io/utils/exec"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
@@ -41,10 +47,11 @@ import (
 )
 
 var (
-	scheme     = runtime.NewScheme()
-	setupLog   = ctrl.Log.WithName("setup")
-	logOptions = logs.NewOptions()
-	fs         = pflag.CommandLine
+	scheme                  = runtime.NewScheme()
+	setupLog                = ctrl.Log.WithName("setup")
+	logOptions              = logs.NewOptions()
+	fs                      = pflag.CommandLine
+	sfcBridgeConenctionAddr = "/var/run/openvswitch/br-sfc.mgmt"
 )
 
 func init() {
@@ -149,12 +156,70 @@ func main() {
 		os.Exit(1)
 	}
 
+	ofb := openflow.NewOFBridge(sfccontroller.SFCBridge, sfcBridgeConenctionAddr)
+	if err := ofb.Connect(5, nil); err != nil {
+		setupLog.Error(err, "failed to connect to ovs")
+		os.Exit(1)
+	}
+	defer func() {
+		_ = ofb.Disconnect()
+	}()
+
+	// used to build the flows, it's not creating the bridge in ovs
+	oftable := openflow.NewOFTable(0, sfccontroller.SFCBridge, 0, 0, openflow.TableMissActionNormal)
+
+	ofb.NewTable(oftable, 0, openflow.TableMissActionNormal)
+	// it's a must other wise getting a panic when building flows
+	ofb.Initialize()
+
+	clientDBModel, err := model.NewClientDBModel("Open_vSwitch",
+		map[string]model.Model{
+			ovsmodel.BridgeTable:      &ovsmodel.Bridge{},
+			ovsmodel.OpenvSwitchTable: &ovsmodel.OpenvSwitch{},
+			ovsmodel.PortTable:        &ovsmodel.Port{},
+			ovsmodel.InterfaceTable:   &ovsmodel.Interface{},
+		})
+	if err != nil {
+		setupLog.Error(err, "failed to create ovs db model client")
+		os.Exit(1)
+	}
+
 	ctx := ctrl.SetupSignalHandler()
+
+	ovs, err := client.NewOVSDBClient(clientDBModel, client.WithEndpoint("unix:/var/run/openvswitch/db.sock"))
+	if err != nil {
+		setupLog.Error(err, "failed to create ovsdb client")
+		os.Exit(1)
+	}
+
+	err = ovs.Connect(ctx)
+	if err != nil {
+		setupLog.Error(err, "failed to connect to ovs")
+		os.Exit(1)
+	}
+	defer ovs.Disconnect()
+
+	_, err = ovs.Monitor(
+		ctx,
+		ovs.NewMonitor(
+			client.WithTable(&ovsmodel.OpenvSwitch{}),
+			client.WithTable(&ovsmodel.Bridge{}),
+			client.WithTable(&ovsmodel.Port{}),
+			client.WithTable(&ovsmodel.Interface{}),
+		),
+	)
+	if err != nil {
+		setupLog.Error(err, "failed to monitor ovs tables")
+		os.Exit(1)
+	}
+
+	ovsClient := &ovsutils.Client{Client: ovs}
 
 	if err = (&sfccontroller.ServiceInterfaceReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		NodeName: nodeName,
+		OVS:      ovsClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceInterface")
 		os.Exit(1)
@@ -163,6 +228,10 @@ func main() {
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
 		NodeName: nodeName,
+		OFTable:  oftable,
+		OFBridge: ofb,
+		OVS:      ovsClient,
+		Exec:     kexec.New(),
 	}).SetupWithManager(ctx, mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ServiceChain")
 		os.Exit(1)
@@ -178,7 +247,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	staleFlowsRemover := sfccontroller.NewStaleObjectRemover(staleFlowsRemovalPeriod, mgr.GetClient())
+	staleFlowsRemover := sfccontroller.NewStaleObjectRemover(staleFlowsRemovalPeriod, mgr.GetClient(), ofb, ovsClient)
 	if err = mgr.Add(staleFlowsRemover); err != nil {
 		setupLog.Error(err, "cannot add runnable to manager")
 	}

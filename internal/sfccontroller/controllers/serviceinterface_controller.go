@@ -17,18 +17,15 @@ limitations under the License.
 package controller
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"os/exec"
-	"strings"
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/ovsutils"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/util/sets"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -41,6 +38,8 @@ const (
 	RequeueIntervalError      = 5 * time.Second
 	OvnPatch                  = "puplinkbrovn"
 	OvnPatchPeer              = "puplinkbrsfc"
+	SFCBridge                 = "br-sfc"
+	OVNBridge                 = "br-ovn"
 )
 
 func requeueDone() (ctrl.Result, error) {
@@ -60,98 +59,50 @@ type ServiceInterfaceReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
 	NodeName string
+	OVS      ovsutils.API
 }
 
-func runOVSVsctl(args ...string) error {
-	ovsVsctlPath, err := exec.LookPath("ovs-vsctl")
-	if err != nil {
-		return err
-	}
-	cmd := exec.Command(ovsVsctlPath, args...)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	err = cmd.Run()
-	if err != nil {
-		return fmt.Errorf("error running ovs-vsctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
-	}
-	return nil
-}
-
-func getSfcOvsPorts() (sets.Set[string], error) {
-	ovsVsctlPath, err := exec.LookPath("ovs-vsctl")
-	if err != nil {
-		return nil, err
-	}
-	// list all ports on br-sfc
-	args := []string{"-t", "5", "list-ports", "br-sfc"}
-	cmd := exec.Command(ovsVsctlPath, args...)
-	var stderr bytes.Buffer
-	var output bytes.Buffer
-	cmd.Stderr = &stderr
-	cmd.Stdout = &output
-	err = cmd.Run()
-	if err != nil {
-		return nil, fmt.Errorf("error running ovs-vsctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
-	}
-	ports := strings.Split(output.String(), "\n")
-	setPorts := sets.New[string]()
-	for _, port := range ports {
-		// skip empty entries
-		if len(port) == 0 {
-			continue
-		}
-		// find all ports which were not added by dpf cni
-		args := []string{"-t", "5", "--bare", "find", "port", "name=" + port, `external_ids:owner{!=}ovs-cni.network.kubevirt.io`, "external_ids:dpf-type{!=}physical"}
-		cmd = exec.Command(ovsVsctlPath, args...)
-		stderr.Reset()
-		output.Reset()
-		cmd.Stderr = &stderr
-		cmd.Stdout = &output
-		err = cmd.Run()
-		if err != nil {
-			return nil, fmt.Errorf("error running ovs-vsctl command with args %v failed: err=%w stderr=%s", args, err, stderr.String())
-		}
-		if strings.TrimSuffix(output.String(), "\n") != "" {
-			setPorts.Insert(port)
-		}
-	}
-	return setPorts, nil
-}
-
-// DelPort deletes a port from the ovs bridge
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=ServiceInterfaces,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=ServiceInterfaces/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=ServiceInterfaces/finalizers,verbs=update
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch
-func DelPort(portName string) error {
-	return runOVSVsctl("-t", "5", "--if-exist", "del-port", portName)
-}
 
-func AddPort(portName string, metadata string) error {
-	return runOVSVsctl("-t", "5", "--may-exist", "add-port", "br-sfc", portName, "--", "set", "int", portName, "type=dpdk",
-		"--", "set", "int", portName, "external_ids:dpf-id="+metadata)
-}
-
-func AddUplinkPort(portName string, metadata string) error {
-	return runOVSVsctl("-t", "5", "--may-exist", "add-port", "br-sfc", portName, "--", "set", "int", portName, "type=dpdk",
-		"--", "set", "int", portName, "external_ids:dpf-id="+metadata,
-		"--", "set", "port", portName, "external_ids:dpf-type=physical")
-}
-
-func AddPatchPort(brA, brB, metadata string) error {
-	// match on ovs-cni naming
-	err := runOVSVsctl("-t", "5", "--may-exist", "add-port", brA, OvnPatch, "--", "set", "int", OvnPatch, "type=patch",
-		"--", "set", "int", OvnPatch, fmt.Sprintf("options:peer=%s", OvnPatchPeer))
-	if err != nil {
+func AddPort(ctx context.Context, ovs ovsutils.API, portName string, ifaceExternalIDs, portExternalIDs map[string]string) error {
+	if err := ovs.AddPort(ctx, SFCBridge, portName, "dpdk"); err != nil {
 		return err
 	}
-	err = runOVSVsctl("-t", "5", "--may-exist", "add-port", brB, OvnPatchPeer, "--", "set", "int", OvnPatchPeer, "type=patch",
-		"--", "set", "int", OvnPatchPeer, fmt.Sprintf("options:peer=%s", OvnPatch),
-		"--", "set", "int", OvnPatchPeer, "external_ids:dpf-id="+metadata)
 
-	return err
+	if err := ovs.SetIfaceExternalIDs(ctx, portName, ifaceExternalIDs); err != nil {
+		return err
+	}
+
+	if err := ovs.SetPortExternalIDs(ctx, portName, portExternalIDs); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func AddPatchPort(ctx context.Context, ovs ovsutils.API, brA, brB, metadata string) error {
+	if err := ovs.AddPort(ctx, brA, OvnPatch, "patch"); err != nil {
+		return err
+	}
+
+	if err := ovs.SetIfaceOptions(ctx, OvnPatch, map[string]string{"peer": OvnPatchPeer}); err != nil {
+		return err
+	}
+
+	if err := ovs.AddPort(ctx, brB, OvnPatchPeer, "patch"); err != nil {
+		return err
+	}
+
+	if err := ovs.SetIfaceOptions(ctx, OvnPatchPeer, map[string]string{"peer": OvnPatch}); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func FigureOutName(ctx context.Context, serviceInterface *dpuservicev1.ServiceInterface) string {
@@ -180,15 +131,15 @@ func FigureOutName(ctx context.Context, serviceInterface *dpuservicev1.ServiceIn
 	return portName
 }
 
-func AddInterfacesToOvs(ctx context.Context, serviceInterface *dpuservicev1.ServiceInterface, metadata string) error {
+func AddInterfacesToOvs(ctx context.Context, ovs ovsutils.API, serviceInterface *dpuservicev1.ServiceInterface, metadata string) error {
 	log := ctrllog.FromContext(ctx)
 	var err error
 
 	if serviceInterface.Spec.InterfaceType == dpuservicev1.InterfaceTypeOVN {
 		log.Info("matched on ovn")
-		err = AddPatchPort("br-ovn", "br-sfc", metadata)
+		err = AddPatchPort(ctx, ovs, OVNBridge, SFCBridge, metadata)
 		if err != nil {
-			log.Info(fmt.Sprintf("failed to add port %s", err.Error()))
+			log.Info(fmt.Sprintf("failed to add port: %s", err.Error()))
 			return err
 		}
 		return nil
@@ -198,12 +149,12 @@ func AddInterfacesToOvs(ctx context.Context, serviceInterface *dpuservicev1.Serv
 
 	if portName != "" {
 		if serviceInterface.Spec.InterfaceType == dpuservicev1.InterfaceTypePhysical {
-			err = AddUplinkPort(portName, metadata)
+			err = AddPort(ctx, ovs, portName, map[string]string{"dpf-id": metadata}, map[string]string{"dpf-type": "physical"})
 		} else {
-			err = AddPort(portName, metadata)
+			err = AddPort(ctx, ovs, portName, map[string]string{"dpf-id": metadata}, nil)
 		}
 		if err != nil {
-			log.Info(fmt.Sprintf("failed to add port %s", err.Error()))
+			log.Info(fmt.Sprintf("failed to add port: %s", err.Error()))
 			return err
 		}
 	}
@@ -211,19 +162,19 @@ func AddInterfacesToOvs(ctx context.Context, serviceInterface *dpuservicev1.Serv
 	return nil
 }
 
-func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *dpuservicev1.ServiceInterface) error {
+func DeleteInterfacesFromOvs(ctx context.Context, ovs ovsutils.API, serviceInterface *dpuservicev1.ServiceInterface) error {
 	log := ctrllog.FromContext(ctx)
 	log.Info("deleteInterfacesFromOvs")
 
 	if serviceInterface.Spec.InterfaceType == dpuservicev1.InterfaceTypeOVN {
 		log.Info("matched on ovn")
 		// match on ovs-cni naming
-		err := DelPort(OvnPatch)
+		err := ovs.DelPort(ctx, SFCBridge, OvnPatch)
 		if err != nil {
 			log.Info(fmt.Sprintf("failed to delete port %s", err.Error()))
 			return err
 		}
-		err = DelPort(OvnPatchPeer)
+		err = ovs.DelPort(ctx, SFCBridge, OvnPatchPeer)
 		if err != nil {
 			log.Info(fmt.Sprintf("failed to delete port %s", err.Error()))
 			return err
@@ -234,9 +185,9 @@ func DeleteInterfacesFromOvs(ctx context.Context, serviceInterface *dpuservicev1
 	portName := FigureOutName(ctx, serviceInterface)
 
 	if portName != "" {
-		err := DelPort(portName)
+		err := ovs.DelPort(ctx, SFCBridge, portName)
 		if err != nil {
-			log.Info(fmt.Sprintf("failed to add port %s", err.Error()))
+			log.Info(fmt.Sprintf("failed to delete port: %s", err.Error()))
 			return err
 		}
 	}
@@ -273,7 +224,7 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	if !serviceInterface.ObjectMeta.DeletionTimestamp.IsZero() {
 
-		err := DeleteInterfacesFromOvs(ctx, serviceInterface)
+		err := DeleteInterfacesFromOvs(ctx, r.OVS, serviceInterface)
 		if err != nil {
 			log.Error(err, "failed to delete DeleteInterfacesFromOvs")
 			return requeueError()
@@ -288,7 +239,7 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 		return requeueSuccess()
 	}
 
-	err := AddInterfacesToOvs(ctx, serviceInterface, req.NamespacedName.String())
+	err := AddInterfacesToOvs(ctx, r.OVS, serviceInterface, req.NamespacedName.String())
 	if err != nil {
 		log.Info("failed to add AddInterfacesToOvs")
 		return requeueError()
