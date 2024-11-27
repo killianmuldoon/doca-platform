@@ -21,6 +21,7 @@ package networkhelper
 import (
 	"errors"
 	"fmt"
+	"math"
 	"net"
 
 	"github.com/vishvananda/netlink"
@@ -302,4 +303,47 @@ func (n *networkHelper) GetPFRepMACAddress(device string) (net.HardwareAddr, err
 		}
 	}
 	return nil, fmt.Errorf("MAC Address not found for PF Representor %s", device)
+}
+
+// GetLinkIPAddresses returns the IP addresses of a link
+func (n *networkHelper) GetLinkIPAddresses(link string) ([]*net.IPNet, error) {
+	l, err := netlink.LinkByName(link)
+	if err != nil {
+		return nil, fmt.Errorf("netlink.LinkByName() failed: %w", err)
+	}
+	ips, err := netlink.AddrList(l, netlink.FAMILY_V4)
+	if err != nil {
+		return nil, fmt.Errorf("netlink.AddrList() failed: %w", err)
+	}
+	addrs := make([]*net.IPNet, 0, len(ips))
+	for _, ip := range ips {
+		addrs = append(addrs, ip.IPNet)
+	}
+	return addrs, nil
+}
+
+// GetGateway returns the gateway for the given network with the lower metric
+func (n *networkHelper) GetGateway(network *net.IPNet) (net.IP, error) {
+	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
+	if err != nil {
+		return nil, fmt.Errorf("netlink.RouteList() failed: %w", err)
+	}
+
+	var gateway net.IP
+	// https://man7.org/linux/man-pages/man8/ip-route.8.html
+	lowestPriority := math.MaxUint32 + 1
+	for _, r := range routes {
+		if r.Dst.String() == network.String() {
+			if r.Priority < lowestPriority {
+				lowestPriority = r.Priority
+				gateway = r.Gw
+			}
+		}
+	}
+
+	if gateway == nil {
+		return nil, errors.New("no gateway found")
+	}
+
+	return gateway, nil
 }

@@ -52,6 +52,16 @@ const (
 )
 
 func main() {
+	if len(os.Args) != 2 {
+		klog.Fatal("expecting mode to be specified via args")
+	}
+
+	modeRaw := os.Args[1]
+	mode, err := parseMode(modeRaw)
+	if err != nil {
+		klog.Fatalf("error while parsing mode: %s", err.Error())
+	}
+
 	klog.Info("Starting DPU CNI Provisioner")
 
 	node := os.Getenv("NODE_NAME")
@@ -59,19 +69,25 @@ func main() {
 		klog.Fatal("NODE_NAME environment variable is not found. This is supposed to be configured via Kubernetes Downward API in production")
 	}
 
-	vtepIPNet, gateway, err := getInfoFromVTEPIPAllocation()
-	if err != nil {
-		klog.Fatalf("error while parsing info from the VTEP IP allocation file: %s", err.Error())
-	}
+	var vtepIPNet *net.IPNet
+	var gateway net.IP
+	var pfIPNet *net.IPNet
+	var vtepCIDR *net.IPNet
+	if mode == dpucniprovisioner.InternalIPAM {
+		vtepIPNet, gateway, err = getInfoFromVTEPIPAllocation()
+		if err != nil {
+			klog.Fatalf("error while parsing info from the VTEP IP allocation file: %s", err.Error())
+		}
 
-	pfIPNet, err := getPFIP()
-	if err != nil {
-		klog.Fatalf("error while the PF IP from the allocation file: %s", err.Error())
-	}
+		pfIPNet, err = getPFIP()
+		if err != nil {
+			klog.Fatalf("error while the PF IP from the allocation file: %s", err.Error())
+		}
 
-	vtepCIDR, err := getVTEPCIDR()
-	if err != nil {
-		klog.Fatalf("error while parsing VTEP CIDR: %s", err.Error())
+		vtepCIDR, err = getVTEPCIDR()
+		if err != nil {
+			klog.Fatalf("error while parsing VTEP CIDR: %s", err.Error())
+		}
 	}
 
 	hostCIDR, err := getHostCIDR()
@@ -98,7 +114,7 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	provisioner := dpucniprovisioner.New(ctx, c, ovsClient, networkhelper.New(), exec, clientset, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, node)
+	provisioner := dpucniprovisioner.New(ctx, mode, c, ovsClient, networkhelper.New(), exec, clientset, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, node)
 
 	err = provisioner.RunOnce()
 	if err != nil {
@@ -214,4 +230,18 @@ func getHostCIDR() (*net.IPNet, error) {
 	}
 
 	return hostCIDR, nil
+}
+
+// parseMode parses the mode in which the binary should be started
+func parseMode(mode string) (dpucniprovisioner.Mode, error) {
+	m := map[dpucniprovisioner.Mode]struct{}{
+		dpucniprovisioner.InternalIPAM: {},
+		dpucniprovisioner.ExternalIPAM: {},
+	}
+	modeTyped := dpucniprovisioner.Mode(mode)
+	if _, ok := m[modeTyped]; !ok {
+		return "", errors.New("unknown mode")
+	}
+
+	return modeTyped, nil
 }

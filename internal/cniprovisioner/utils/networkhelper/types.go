@@ -55,4 +55,8 @@ type NetworkHelper interface {
 	// GetPFRepMACAddress returns the MAC address of the PF Representor provided as input. When you run this function in
 	// the DPU, it will give you the MAC address of the PF Representor on the host.
 	GetPFRepMACAddress(device string) (net.HardwareAddr, error)
+	// GetLinkIPAddresses returns the IP addresses of a link
+	GetLinkIPAddresses(link string) ([]*net.IPNet, error)
+	// GetGateway returns the gateway for the given network with the lower metric
+	GetGateway(network *net.IPNet) (net.IP, error)
 }

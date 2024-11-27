@@ -17,7 +17,9 @@ limitations under the License.
 package dpucniprovisioner
 
 import (
+	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -36,6 +38,21 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+type Mode string
+
+// String returns the string representation of the mode
+func (m Mode) String() string {
+	return string(m)
+}
+
+const (
+	// InternalIPAM is the mode where IPAM is managed by DPUServiceIPAM objects and we have to provide the IPs to br-ovn
+	// and the PF on the host
+	InternalIPAM Mode = "internal-ipam"
+	// ExternalIPAM is the mode where an external DHCP server provides the IPs to the br-ovn and PF on the host
+	ExternalIPAM Mode = "external-ipam"
+)
+
 const (
 	// brOVN is the name of the bridge that is used by OVN as the external bridge (br-ex). This is the bridge that is
 	// later connected with br-sfc. In the current OVN IC w/ DPU implementation, the internal port of this bridge acts
@@ -46,6 +63,10 @@ const (
 	ovnInputGatewayOptsPath = "/etc/init-output/ovn_gateway_opts"
 	// ovnInputRouterSubnetPath is the path to the file in which kubeovn-controller expects the Gateway Router Subnet
 	ovnInputRouterSubnetPath = "/etc/init-output/ovn_gateway_router_subnet"
+	// brOVNNetplanConfigPath is the path to the file which contains the netplan configuration for br-ovn
+	brOVNNetplanConfigPath = "/etc/netplan/80-br-ovn.yaml"
+	// netplanApplyDonePath is a file that indicates that a netplan apply has already ran and was successful
+	netplanApplyDonePath = "/etc/netplan/.dpucniprovisioner.done"
 )
 
 type DPUCNIProvisioner struct {
@@ -80,10 +101,13 @@ type DPUCNIProvisioner struct {
 
 	// dhcpCmd is the struct that holds information about the DHCP Server process
 	dhcpCmd kexec.Cmd
+	// mode is the mode in which the CNI provisioner is running
+	mode Mode
 }
 
 // New creates a DPUCNIProvisioner that can configure the system
 func New(ctx context.Context,
+	mode Mode,
 	clock clock.WithTicker,
 	ovsClient ovsclient.OVSClient,
 	networkHelper networkhelper.NetworkHelper,
@@ -110,6 +134,7 @@ func New(ctx context.Context,
 		hostCIDR:                  hostCIDR,
 		pfIP:                      pfIP,
 		dpuHostName:               dpuHostName,
+		mode:                      mode,
 	}
 }
 
@@ -119,17 +144,22 @@ func (p *DPUCNIProvisioner) RunOnce() error {
 		return err
 	}
 	klog.Info("Configuration complete.")
-	if err := p.startDHCPServer(); err != nil {
-		return fmt.Errorf("error while starting DHCP server: %w", err)
+	if p.mode == InternalIPAM {
+		if err := p.startDHCPServer(); err != nil {
+			return fmt.Errorf("error while starting DHCP server: %w", err)
+		}
+		klog.Info("DHCP Server started.")
 	}
-	klog.Info("DHCP Server started.")
 
 	return nil
 }
 
 // Stop stops the provisioner
 func (p *DPUCNIProvisioner) Stop() {
-	p.dhcpCmd.Stop()
+	if p.mode == InternalIPAM {
+		p.dhcpCmd.Stop()
+	}
+
 	klog.Info("Provisioner stopped")
 }
 
@@ -149,6 +179,12 @@ func (p *DPUCNIProvisioner) configure() error {
 	klog.Info("Configuring Kubernetes host name in OVS")
 	if err := p.findAndSetKubernetesHostNameInOVS(); err != nil {
 		return fmt.Errorf("error while setting the Kubernetes Host Name in OVS: %w", err)
+	}
+	if p.mode == ExternalIPAM {
+		klog.Info("Configuring br-ovn")
+		if err := p.configureBROVN(); err != nil {
+			return fmt.Errorf("error while setting the Kubernetes Host Name in OVS: %w", err)
+		}
 	}
 
 	klog.Info("Configuring system to enable pod to pod on different node connectivity")
@@ -185,23 +221,25 @@ func (p *DPUCNIProvisioner) findAndSetKubernetesHostNameInOVS() error {
 // configurePodToPodOnDifferentNodeConnectivity configures the VTEP interface (br-ovn) and the ovn-encap-ip external ID
 // so that traffic going through the geneve tunnels can function as expected.
 func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity() error {
-	if err := p.setLinkIPAddressIfNotSet(brOVN, p.vtepIPNet); err != nil {
-		return fmt.Errorf("error while setting VTEP IP: %w", err)
-	}
-	if err := p.networkHelper.SetLinkUp(brOVN); err != nil {
-		return fmt.Errorf("error while setting link %s up: %w", brOVN, err)
-	}
+	if p.mode == InternalIPAM {
+		if err := p.setLinkIPAddressIfNotSet(brOVN, p.vtepIPNet); err != nil {
+			return fmt.Errorf("error while setting VTEP IP: %w", err)
+		}
+		if err := p.networkHelper.SetLinkUp(brOVN); err != nil {
+			return fmt.Errorf("error while setting link %s up: %w", brOVN, err)
+		}
 
-	_, vtepNetwork, err := net.ParseCIDR(p.vtepIPNet.String())
-	if err != nil {
-		return fmt.Errorf("error while parsing network from VTEP IP %s: %w", p.vtepIPNet.String(), err)
-	}
+		_, vtepNetwork, err := net.ParseCIDR(p.vtepIPNet.String())
+		if err != nil {
+			return fmt.Errorf("error while parsing network from VTEP IP %s: %w", p.vtepIPNet.String(), err)
+		}
 
-	if vtepNetwork.String() != p.vtepCIDR.String() {
-		// Add route related to traffic that needs to go from one Pod running on worker Node A to another Pod running
-		// on worker Node B.
-		if err := p.addRouteIfNotExists(p.vtepCIDR, p.gateway, brOVN, nil); err != nil {
-			return fmt.Errorf("error while adding route %s %s %s: %w", p.vtepCIDR, p.gateway.String(), brOVN, err)
+		if vtepNetwork.String() != p.vtepCIDR.String() {
+			// Add route related to traffic that needs to go from one Pod running on worker Node A to another Pod running
+			// on worker Node B.
+			if err := p.addRouteIfNotExists(p.vtepCIDR, p.gateway, brOVN, nil); err != nil {
+				return fmt.Errorf("error while adding route %s %s %s: %w", p.vtepCIDR, p.gateway.String(), brOVN, err)
+			}
 		}
 	}
 
@@ -216,7 +254,7 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity() error
 		return fmt.Errorf("error while adding route %s %s %s: %w", p.hostCIDR, p.gateway.String(), brOVN, err)
 	}
 
-	if err = p.ovsClient.SetOVNEncapIP(p.vtepIPNet.IP); err != nil {
+	if err := p.ovsClient.SetOVNEncapIP(p.vtepIPNet.IP); err != nil {
 		return fmt.Errorf("error while setting the OVN Encap IP: %w", err)
 	}
 
@@ -268,6 +306,37 @@ func (p *DPUCNIProvisioner) writeFilesForOVN() error {
 	return nil
 }
 
+// configureBROVN requests an IP via DHCP for br-ovn and mutates the relevant fields of the DPUCNIProvisioner objects
+func (p *DPUCNIProvisioner) configureBROVN() error {
+	if err := p.requestIPForBROVN(); err != nil {
+		return fmt.Errorf("error while br-ovn netplan: %w", err)
+	}
+
+	addrs, err := p.networkHelper.GetLinkIPAddresses(brOVN)
+	if err != nil {
+		return fmt.Errorf("error while getting IP addresses for link %s: %w", brOVN, err)
+	}
+
+	if len(addrs) != 1 {
+		return fmt.Errorf("exactly 1 IP is expected in %s", brOVN)
+	}
+
+	p.vtepIPNet = addrs[0]
+
+	_, fakeNetwork, err := net.ParseCIDR("169.254.99.100/32")
+	if err != nil {
+		return fmt.Errorf("error while parsing fake network: %w", err)
+	}
+
+	gateway, err := p.networkHelper.GetGateway(fakeNetwork)
+	if err != nil {
+		return fmt.Errorf("error while getting IP addresses for link %s: %w", brOVN, err)
+	}
+
+	p.gateway = gateway
+	return nil
+}
+
 // writeOVNInputGatewayOptsFile writes the file in which kubeovn-controller expects the additional gateway opts
 func (p *DPUCNIProvisioner) writeOVNInputGatewayOptsFile() error {
 	configPath := filepath.Join(p.FileSystemRoot, ovnInputGatewayOptsPath)
@@ -290,6 +359,49 @@ func (p *DPUCNIProvisioner) writeOVNInputRouterSubnetPath() error {
 	err = os.WriteFile(configPath, []byte(content), 0644)
 	if err != nil {
 		return fmt.Errorf("error while writing file %s: %w", configPath, err)
+	}
+	return nil
+}
+
+// requestIPForBROVN writes a netplan file and runs netplan apply to request an IP for br-ovn
+func (p *DPUCNIProvisioner) requestIPForBROVN() error {
+	configPath := filepath.Join(p.FileSystemRoot, brOVNNetplanConfigPath)
+	content := fmt.Sprintf(`
+network:
+  renderer: networkd
+  version: 2
+  bridges:
+    %s:
+      dhcp4: yes
+      dhcp4-overrides:
+        use-dns: no
+      openvswitch: {}
+`, brOVN)
+	if err := os.WriteFile(configPath, []byte(content), 0600); err != nil {
+		return fmt.Errorf("error while writing file %s: %w", configPath, err)
+	}
+
+	applyDonePath := filepath.Join(p.FileSystemRoot, netplanApplyDonePath)
+	_, err := os.Stat(applyDonePath)
+	if err == nil {
+		klog.Info("netplan apply already ran, not rerunning")
+		return nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("error when calling stat on %s: %w", applyDonePath, err)
+	}
+
+	cmd := p.exec.Command("netplan", "apply")
+	var stdout bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.SetStdout(&stdout)
+	cmd.SetStderr(&stderr)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("error running netplan: stdout='%s' stderr='%s': %w", stdout.String(), stderr.String(), err)
+	}
+
+	_, err = os.Create(applyDonePath)
+	if err != nil {
+		return fmt.Errorf("error creating %s file: %w", applyDonePath, err)
 	}
 	return nil
 }

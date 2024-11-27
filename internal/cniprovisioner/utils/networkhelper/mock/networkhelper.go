@@ -141,6 +141,36 @@ func (mr *MockNetworkHelperMockRecorder) DummyLinkExists(link any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DummyLinkExists", reflect.TypeOf((*MockNetworkHelper)(nil).DummyLinkExists), link)
 }
 
+// GetGateway mocks base method.
+func (m *MockNetworkHelper) GetGateway(network *net.IPNet) (net.IP, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetGateway", network)
+	ret0, _ := ret[0].(net.IP)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetGateway indicates an expected call of GetGateway.
+func (mr *MockNetworkHelperMockRecorder) GetGateway(network any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetGateway", reflect.TypeOf((*MockNetworkHelper)(nil).GetGateway), network)
+}
+
+// GetLinkIPAddresses mocks base method.
+func (m *MockNetworkHelper) GetLinkIPAddresses(link string) ([]*net.IPNet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetLinkIPAddresses", link)
+	ret0, _ := ret[0].([]*net.IPNet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetLinkIPAddresses indicates an expected call of GetLinkIPAddresses.
+func (mr *MockNetworkHelperMockRecorder) GetLinkIPAddresses(link any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetLinkIPAddresses", reflect.TypeOf((*MockNetworkHelper)(nil).GetLinkIPAddresses), link)
+}
+
 // GetPFRepMACAddress mocks base method.
 func (m *MockNetworkHelper) GetPFRepMACAddress(device string) (net.HardwareAddr, error) {
 	m.ctrl.T.Helper()
