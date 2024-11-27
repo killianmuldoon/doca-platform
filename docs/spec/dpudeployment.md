@@ -277,12 +277,14 @@ spec:
     # can be as flexible as possible. In this example, we theoretical target Hosts in 2 different racks, and we target
     # the DPUs that have the specified PCI address.
     dpuSets:
-    - nodeSelector:
+    - nameSuffix: "dpuset1"
+      nodeSelector:
         matchLabels:
           datacenter.nvidia.com/rack: "b-100"
       dpuSelector:
         pciAddr: "0000:0e:00.0"
-    - nodeSelector:
+    - nameSuffix: "dpuset2"
+      nodeSelector:
         matchLabels:
           datacenter.nvidia.com/rack: "b-101"
       dpuSelector:
@@ -318,13 +320,13 @@ manifest, the following objects are created:
 ```bash
 $ kubectl get dpuset -A
 NAMESPACE            NAME                      AGE
-customer-namespace   producer-consumer-x4z2k   36m
-customer-namespace   producer-consumer-zs7lw   36m
+customer-namespace   producer-consumer-dpuset1   36m
+customer-namespace   producer-consumer-dpuset2   36m
 
 $ kubectl get dpuset -n customer-namespace
 NAME                      AGE
-producer-consumer-x4z2k   36m
-producer-consumer-zs7lw   36m
+producer-consumer-dpuset1   36m
+producer-consumer-dpuset2  36m
 
 $ kubectl get dpuserviceinterface -n customer-namespace
 NAME                                   IFTYPE    IFNAME      AGE

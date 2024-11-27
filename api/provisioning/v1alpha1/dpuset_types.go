@@ -84,7 +84,7 @@ type DPUTemplateSpec struct {
 	NodeEffect *NodeEffect `json:"nodeEffect,omitempty"`
 	// Specifies details on the K8S cluster to join
 	// +optional
-	Cluster ClusterSpec `json:"cluster,omitempty"`
+	Cluster *ClusterSpec `json:"cluster,omitempty"`
 	// DPUFlavor is the name of the DPUFlavor that will be used to deploy the DPU.
 	// +optional
 	DPUFlavor string `json:"dpuFlavor"`

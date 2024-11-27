@@ -74,7 +74,7 @@ func Test_Digest(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			g := NewWithT(t)
-			d := FromObjects(c.objects)
+			d := FromObjects(c.objects...)
 			if d.String() != c.expected {
 				g.Expect(d.String()).To(Equal(c.expected))
 			}

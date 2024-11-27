@@ -1976,6 +1976,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `nameSuffix` _string_ | NameSuffix is the suffix to be added to the name of the DPUSet object created by the DPUDeployment. |  | MaxLength: 63 <br />MinLength: 1 <br /> |
 | `nodeSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#labelselector-v1-meta)_ | NodeSelector defines the nodes that the DPUSet should target |  |  |
 | `dpuSelector` _object (keys:string, values:string)_ | DPUSelector defines the DPUs that the DPUSet should target |  |  |
 | `dpuAnnotations` _object (keys:string, values:string)_ | DPUAnnotations is the annotations to be added to the DPU object created by the DPUSet. |  |  |
@@ -1996,7 +1997,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `bfb` _string_ | BFB is the name of the BFB object to be used in this DPUDeployment. It must be in the same namespace as the<br />DPUDeployment. |  |  |
 | `flavor` _string_ | Flavor is the name of the DPUFlavor object to be used in this DPUDeployment. It must be in the same namespace as<br />the DPUDeployment. |  |  |
-| `dpuSets` _[DPUSet](#dpuset) array_ | DPUSets contains configuration for each DPUSet that is going to be created by the DPUDeployment |  |  |
+| `dpuSets` _[DPUSet](#dpuset) array_ | DPUSets contains configuration for each DPUSet that is going to be created by the DPUDeployment |  | MaxItems: 50 <br />MinItems: 1 <br /> |
 
 
 #### HelmChart

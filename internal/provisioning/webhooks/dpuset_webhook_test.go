@@ -103,7 +103,7 @@ var _ = Describe("DPUSet", func() {
 			newValue := map[string]string{"k1": "v11", "k2": "v2"}
 
 			obj := createObj("obj-4")
-			obj.Spec.DPUTemplate.Spec.Cluster = provisioningv1.ClusterSpec{
+			obj.Spec.DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
 				NodeLabels: refValue,
 			}
 			err := k8sClient.Create(ctx, obj)

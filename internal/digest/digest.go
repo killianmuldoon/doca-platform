@@ -27,7 +27,7 @@ import (
 // SHA-256 is used as the algorithm.
 // The objects are serialized to JSON before the digest is calculated.
 // If an error occurs during serialization, an empty digest is returned.
-func FromObjects(obj []any) digest.Digest {
+func FromObjects(obj ...any) digest.Digest {
 	if len(obj) == 0 {
 		return ""
 	}

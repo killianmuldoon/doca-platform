@@ -9,7 +9,8 @@ spec:
     flavor: "dpf-provisioning-hbn-ovn" # Created automatically when installing DPF
     dpuSets:
     # We intentionally don't match any node to ensure that we don't trigger the provisioning flow for the time being
-    - nodeSelector:
+    - nameSuffix: dpuset1
+      nodeSelector:
         matchLabels:
           nodeKey: "nodeValue"
       dpuSelector:

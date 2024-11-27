@@ -105,7 +105,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 		})
 		It("should cleanup child objects on delete", func() {
 			By("Creating the dependencies")
-			bfb := getMinimalBFB(testNS.Name)
+			bfb := getMinimalBFB("somebfb", testNS.Name)
 			Expect(testClient.Create(ctx, bfb)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
@@ -127,6 +127,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
 			dpuDeployment.Spec.DPUs.DPUSets = []dpuservicev1.DPUSet{
 				{
+					NameSuffix: "dpuset1",
 					NodeSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"nodekey1": "nodevalue1",
@@ -225,7 +226,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 			It("should return the correct object", func() {
 				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
 				By("Creating the dependencies")
-				bfb := getMinimalBFB(testNS.Name)
+				bfb := getMinimalBFB("somebfb", testNS.Name)
 				Expect(testClient.Create(ctx, bfb)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
@@ -264,7 +265,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 			It("should error if a DPUServiceConfiguration doesn't match DPUDeployment service", func() {
 				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
 				By("Creating the dependencies")
-				bfb := getMinimalBFB(testNS.Name)
+				bfb := getMinimalBFB("somebfb", testNS.Name)
 				Expect(testClient.Create(ctx, bfb)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
@@ -288,7 +289,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 			It("should error if a DPUServiceTemplate doesn't match DPUDeployment service", func() {
 				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
 				By("Creating the dependencies")
-				bfb := getMinimalBFB(testNS.Name)
+				bfb := getMinimalBFB("somebfb", testNS.Name)
 				Expect(testClient.Create(ctx, bfb)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
@@ -326,11 +327,11 @@ var _ = Describe("DPUDeployment Controller", func() {
 			BeforeEach(func() {
 				dpuDeployment = getMinimalDPUDeployment(testNS.Name)
 				By("Creating the dependencies")
-				bfb = getMinimalBFB(testNS.Name)
+				bfb = getMinimalBFB("somebfb", testNS.Name)
 				Expect(testClient.Create(ctx, bfb)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
-				extraBFB = getMinimalBFB(testNS.Name)
+				extraBFB = getMinimalBFB("somebfb", testNS.Name)
 				extraBFB.Name = "extra-bfb"
 				Expect(testClient.Create(ctx, extraBFB)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, extraBFB)
@@ -587,11 +588,18 @@ var _ = Describe("DPUDeployment Controller", func() {
 			})
 		})
 		Context("When checking reconcileDPUSets()", func() {
-			var initialDPUSetSettings []dpuservicev1.DPUSet
-			var expectedDPUSetSpecs []provisioningv1.DPUSetSpec
+			var (
+				initialDPUSetSettings []dpuservicev1.DPUSet
+				expectedDPUSetSpecs   []provisioningv1.DPUSetSpec
+				bfb                   *provisioningv1.BFB
+				dpuFlavor             *provisioningv1.DPUFlavor
+			)
 			BeforeEach(func() {
+				bfb = getMinimalBFB("somebfb", testNS.Name)
+				dpuFlavor = getMinimalDPUFlavor(testNS.Name)
 				initialDPUSetSettings = []dpuservicev1.DPUSet{
 					{
+						NameSuffix: "dpuset1",
 						NodeSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"nodekey1": "nodevalue1",
@@ -605,6 +613,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						},
 					},
 					{
+						NameSuffix: "dpuset2",
 						NodeSelector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{
 								"nodekey2": "nodevalue2",
@@ -683,11 +692,9 @@ var _ = Describe("DPUDeployment Controller", func() {
 				}
 
 				By("Creating the dependencies")
-				bfb := getMinimalBFB(testNS.Name)
 				Expect(testClient.Create(ctx, bfb)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
-				dpuFlavor := getMinimalDPUFlavor(testNS.Name)
 				Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
 
@@ -774,7 +781,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					g.Expect(specs).To(ConsistOf(expectedDPUSetSpecs))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
-			It("should delete DPUSets that are no longer part of the DPUDeployment", func() {
+			It("should update the existing DPUSets on update of the referenced BFB", func() {
 				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
 				dpuDeployment.Spec.DPUs.DPUSets = initialDPUSetSettings
 				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
@@ -792,20 +799,29 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 
-				By("modifying the DPUDeployment object and checking the outcome")
-				dpuDeployment.Spec.DPUs.DPUSets = dpuDeployment.Spec.DPUs.DPUSets[1:]
+				By("creating a new BFB object and checking the outcome")
+				bfb2 := getMinimalBFB("somebfb2", testNS.Name)
+				Expect(testClient.Create(ctx, bfb2)).To(Succeed())
+
+				By("Updating the DPUDeployment object to reference the new BFB")
+				dpuDeployment.Spec.DPUs.BFB = bfb2.Name
 				Expect(patcher.Patch(ctx, dpuDeployment, patch.WithFieldOwner(dpuDeploymentControllerName))).To(Succeed())
-				By("checking that correct DPUSets are created")
+
+				// Update the expected DPUSetSpecs
+				expectedDPUSetSpecs[0].DPUTemplate.Spec.BFB.Name = bfb2.Name
+				expectedDPUSetSpecs[1].DPUTemplate.Spec.BFB.Name = bfb2.Name
+
+				By("checking that the DPUSets are correctly updated")
 				Eventually(func(g Gomega) {
 					gotDPUSetList := &provisioningv1.DPUSetList{}
 					g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
-					g.Expect(gotDPUSetList.Items).To(HaveLen(1))
+					g.Expect(gotDPUSetList.Items).To(HaveLen(2))
 
 					By("checking the object metadata")
 					for _, dpuSet := range gotDPUSetList.Items {
 						g.Expect(dpuSet.Labels).To(HaveLen(1))
 						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
-						// Validate that the object was not recreated
+						// Validate that the same object is updated
 						g.Expect(firstDPUSetUIDs).To(ContainElement(dpuSet.UID))
 
 						g.Expect(dpuSet.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
@@ -816,7 +832,6 @@ var _ = Describe("DPUDeployment Controller", func() {
 					for _, dpuSet := range gotDPUSetList.Items {
 						specs = append(specs, dpuSet.Spec)
 					}
-					expectedDPUSetSpecs = expectedDPUSetSpecs[1:]
 					g.Expect(specs).To(ConsistOf(expectedDPUSetSpecs))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
@@ -841,6 +856,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				By("modifying the DPUDeployment object and checking the outcome")
 				dpuDeployment.Spec.DPUs.DPUSets[1].DPUAnnotations["newkey"] = "newvalue"
 				dpuDeployment.Spec.DPUs.DPUSets = append(dpuDeployment.Spec.DPUs.DPUSets, dpuservicev1.DPUSet{
+					NameSuffix: "dpuset3",
 					NodeSelector: &metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"nodekey3": "nodevalue3",
@@ -914,6 +930,52 @@ var _ = Describe("DPUDeployment Controller", func() {
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 
 			})
+			It("should delete DPUSets that are no longer part of the DPUDeployment", func() {
+				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+				dpuDeployment.Spec.DPUs.DPUSets = initialDPUSetSettings
+				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+				patcher := patch.NewSerialPatcher(dpuDeployment, testClient)
+
+				By("waiting for the initial DPUSets to be applied")
+				firstDPUSetUIDs := make([]types.UID, 0, 2)
+				Eventually(func(g Gomega) {
+					gotDPUSetList := &provisioningv1.DPUSetList{}
+					g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
+					g.Expect(gotDPUSetList.Items).To(HaveLen(2))
+					for _, dpuSet := range gotDPUSetList.Items {
+						firstDPUSetUIDs = append(firstDPUSetUIDs, dpuSet.UID)
+					}
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+
+				By("modifying the DPUDeployment object and checking the outcome")
+				dpuDeployment.Spec.DPUs.DPUSets = dpuDeployment.Spec.DPUs.DPUSets[1:]
+				Expect(patcher.Patch(ctx, dpuDeployment, patch.WithFieldOwner(dpuDeploymentControllerName))).To(Succeed())
+				By("checking that correct DPUSets are created")
+				Eventually(func(g Gomega) {
+					gotDPUSetList := &provisioningv1.DPUSetList{}
+					g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
+					g.Expect(gotDPUSetList.Items).To(HaveLen(1))
+
+					By("checking the object metadata")
+					for _, dpuSet := range gotDPUSetList.Items {
+						g.Expect(dpuSet.Labels).To(HaveLen(1))
+						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
+						// Validate that the object was not recreated
+						g.Expect(firstDPUSetUIDs).To(ContainElement(dpuSet.UID))
+
+						g.Expect(dpuSet.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
+					}
+
+					By("checking the specs")
+					specs := make([]provisioningv1.DPUSetSpec, 0, len(gotDPUSetList.Items))
+					for _, dpuSet := range gotDPUSetList.Items {
+						specs = append(specs, dpuSet.Spec)
+					}
+					expectedDPUSetSpecs = expectedDPUSetSpecs[1:]
+					g.Expect(specs).To(ConsistOf(expectedDPUSetSpecs))
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+			})
 			It("should create new DPUSets on manual deletion of the DPUSets", func() {
 				By("Creating the DPUDeployment")
 				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
@@ -953,7 +1015,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 		Context("When checking reconcileDPUServiceInterfaces()", func() {
 			BeforeEach(func() {
 				By("Creating the dependencies")
-				bfb := getMinimalBFB(testNS.Name)
+				bfb := getMinimalBFB("somebfb", testNS.Name)
 				Expect(testClient.Create(ctx, bfb)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
@@ -1415,7 +1477,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 		Context("When checking reconcileDPUServices()", func() {
 			BeforeEach(func() {
 				By("Creating the dependencies")
-				bfb := getMinimalBFB(testNS.Name)
+				bfb := getMinimalBFB("somebfb", testNS.Name)
 				Expect(testClient.Create(ctx, bfb)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
@@ -1998,7 +2060,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 		Context("When checking reconcileDPUServiceChains()", func() {
 			BeforeEach(func() {
 				By("Creating the dependencies")
-				bfb := getMinimalBFB(testNS.Name)
+				bfb := getMinimalBFB("somebfb", testNS.Name)
 				Expect(testClient.Create(ctx, bfb)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
@@ -2281,7 +2343,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 		})
 		It("DPUDeployment has all *Reconciled conditions with Success Reason at the end of a successful reconciliation loop but *Ready with Pending reason on underlying object not ready", func() {
 			By("Creating the dependencies")
-			bfb := getMinimalBFB(testNS.Name)
+			bfb := getMinimalBFB("somebfb", testNS.Name)
 			Expect(testClient.Create(ctx, bfb)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
@@ -2381,7 +2443,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 		})
 		It("DPUDeployment has all conditions with Success Reason at the end of a successful reconciliation loop and underlying object ready", func() {
 			By("Creating the dependencies")
-			bfb := getMinimalBFB(testNS.Name)
+			bfb := getMinimalBFB("somebfb", testNS.Name)
 			Expect(testClient.Create(ctx, bfb)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
@@ -2528,7 +2590,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 		})
 		It("DPUDeployment has condition ResourceFittingReady with Failed Reason when the resources of the underlying DPUServices can't fit the selected DPUs", func() {
 			By("Creating the dependencies")
-			bfb := getMinimalBFB(testNS.Name)
+			bfb := getMinimalBFB("somebfb", testNS.Name)
 			Expect(testClient.Create(ctx, bfb)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
@@ -2609,7 +2671,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 		})
 		It("DPUDeployment has condition Deleting with AwaitingDeletion Reason when there are still objects in the cluster", func() {
 			By("Creating the dependencies")
-			bfb := getMinimalBFB(testNS.Name)
+			bfb := getMinimalBFB("somebfb", testNS.Name)
 			Expect(testClient.Create(ctx, bfb)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
 
@@ -2766,14 +2828,14 @@ func getMinimalDPUDeployment(namespace string) *dpuservicev1.DPUDeployment {
 	}
 }
 
-func getMinimalBFB(namespace string) *provisioningv1.BFB {
+func getMinimalBFB(name, namespace string) *provisioningv1.BFB {
 	return &provisioningv1.BFB{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "somebfb",
+			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: provisioningv1.BFBSpec{
-			URL: "http://somewebserver/somebfb.bfb",
+			URL: fmt.Sprintf("http://somewebserver/%s.bfb", name),
 		},
 	}
 }

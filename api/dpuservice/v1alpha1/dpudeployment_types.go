@@ -89,12 +89,17 @@ type DPUDeployment struct {
 // DPUDeploymentSpec defines the desired state of DPUDeployment
 type DPUDeploymentSpec struct {
 	// DPUs contains the DPU related configuration
+	// +required
 	DPUs DPUs `json:"dpus"`
+
 	// Services contains the DPUDeploymentService related configuration. The key is the deploymentServiceName and the value is its
 	// configuration. All underlying objects must specify the same deploymentServiceName in order to be able to be consumed by the
 	// DPUDeployment.
+	// +required
 	Services map[string]DPUDeploymentServiceConfiguration `json:"services"`
+
 	// ServiceChains contains the configuration related to the DPUServiceChains that the DPUDeployment creates.
+	// +required
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=50
 	ServiceChains []DPUDeploymentSwitch `json:"serviceChains"`
@@ -104,23 +109,37 @@ type DPUDeploymentSpec struct {
 type DPUs struct {
 	// BFB is the name of the BFB object to be used in this DPUDeployment. It must be in the same namespace as the
 	// DPUDeployment.
+	// +required
 	BFB string `json:"bfb"`
+
 	// Flavor is the name of the DPUFlavor object to be used in this DPUDeployment. It must be in the same namespace as
 	// the DPUDeployment.
+	// +required
 	Flavor string `json:"flavor"`
+
 	// DPUSets contains configuration for each DPUSet that is going to be created by the DPUDeployment
 	// +optional
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=50
 	DPUSets []DPUSet `json:"dpuSets,omitempty"`
 }
 
 // DPUSet contains configuration for the DPUSet to be created by the DPUDeployment
 type DPUSet struct {
+	// NameSuffix is the suffix to be added to the name of the DPUSet object created by the DPUDeployment.
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:MaxLength=63
+	// +required
+	NameSuffix string `json:"nameSuffix,omitempty"`
+
 	// NodeSelector defines the nodes that the DPUSet should target
 	// +optional
 	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
+
 	// DPUSelector defines the DPUs that the DPUSet should target
 	// +optional
 	DPUSelector map[string]string `json:"dpuSelector,omitempty"`
+
 	// DPUAnnotations is the annotations to be added to the DPU object created by the DPUSet.
 	// +optional
 	DPUAnnotations map[string]string `json:"dpuAnnotations,omitempty"`
