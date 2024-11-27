@@ -1040,12 +1040,13 @@ func ValidateDPUServiceCredentialRequest(ctx context.Context) {
 		Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testNS))).To(Succeed())
 
 		By("create a DPUServiceCredentialRequest targeting the DPUCluster")
-		dcr := getDPUServiceCredentialRequest(dpuServiceCredentialRequestNamespace, dpuServiceCredentialRequestName, "dpu-cluster-1")
+		dcr := getDPUServiceCredentialRequest(dpuServiceCredentialRequestNamespace, dpuServiceCredentialRequestName,
+			&dpuservicev1.NamespacedName{Name: "dpu-cluster-1", Namespace: ptr.To(dpfOperatorSystemNamespace)})
 		dcr.SetLabels(cleanupLabels)
 		Expect(testClient.Create(ctx, dcr)).To(Succeed())
 
 		By("create a DPUServiceCredentialRequest targeting the host cluster")
-		hostDsr := getDPUServiceCredentialRequest(dpuServiceCredentialRequestNamespace, hostDPUServiceCredentialRequestName, "")
+		hostDsr := getDPUServiceCredentialRequest(dpuServiceCredentialRequestNamespace, hostDPUServiceCredentialRequestName, nil)
 		hostDsr.SetLabels(cleanupLabels)
 		Expect(testClient.Create(ctx, hostDsr)).To(Succeed())
 
@@ -1074,7 +1075,7 @@ func ValidateDPUServiceCredentialRequest(ctx context.Context) {
 	})
 
 }
-func getDPUServiceCredentialRequest(namespace, name, targetClusterName string) *dpuservicev1.DPUServiceCredentialRequest {
+func getDPUServiceCredentialRequest(namespace, name string, targetCluster *dpuservicev1.NamespacedName) *dpuservicev1.DPUServiceCredentialRequest {
 	data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuservicecredentialrequest.yaml"))
 	Expect(err).ToNot(HaveOccurred())
 	dcr := &dpuservicev1.DPUServiceCredentialRequest{}
@@ -1083,8 +1084,8 @@ func getDPUServiceCredentialRequest(namespace, name, targetClusterName string) *
 	dcr.SetNamespace(namespace)
 
 	// This annotation is what defines a host DPUService.
-	if targetClusterName != "" {
-		dcr.Spec.TargetClusterName = ptr.To(targetClusterName)
+	if targetCluster != nil {
+		dcr.Spec.TargetCluster = targetCluster
 	}
 	return dcr
 }
@@ -1102,9 +1103,9 @@ func assertDPUServiceCredentialRequest(g Gomega, testClient client.Client, dcr *
 	}
 
 	if host {
-		g.Expect(gotDsr.Status.TargetClusterName).To(BeNil())
+		g.Expect(gotDsr.Status.TargetCluster).To(BeNil())
 	} else {
-		g.Expect(gotDsr.Status.TargetClusterName).To(Equal(dcr.Spec.TargetClusterName))
+		g.Expect(gotDsr.Status.TargetCluster).To(Equal(ptr.To(dcr.Spec.TargetCluster.String())))
 	}
 }
 

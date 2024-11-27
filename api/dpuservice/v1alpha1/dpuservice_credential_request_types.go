@@ -79,12 +79,12 @@ type DPUServiceCredentialRequestSpec struct {
 	// +optional
 	Duration *metav1.Duration `json:"duration,omitempty"`
 
-	// TargetClusterName defines the target cluster where the service account will
-	// be created and a token for that service account will be requested.
+	// TargetCluster defines the target cluster where the service account will
+	// be created, and where a token for that service account will be requested.
 	// If not provided, the token will be requested for the same cluster where
 	// the DPUServiceCredentialRequest object is created.
 	// +optional
-	TargetClusterName *string `json:"targetClusterName,omitempty"`
+	TargetCluster *NamespacedName `json:"targetCluster,omitempty"`
 
 	// Type is the type of the secret that will be created.
 	// The supported types are `kubeconfig` and `tokenFile`.
@@ -145,11 +145,11 @@ type DPUServiceCredentialRequestStatus struct {
 	// the controller for the DPUServiceCredentialRequest.
 	ServiceAccount *string `json:"serviceAccount,omitempty"`
 
-	// TargetClusterName is the name of the cluster where the service account was created.
+	// TargetCluster is the cluster where the service account was created.
 	// It has to be persisted in the status to be able to delete the service account
 	// when the DPUServiceCredentialRequest is updated.
 	// +optional
-	TargetClusterName *string `json:"targetClusterName,omitempty"`
+	TargetCluster *string `json:"targetCluster,omitempty"`
 
 	// ExpirationTimestamp is the time when the token will expire.
 	// +optional
@@ -181,6 +181,16 @@ func (n *DPUServiceCredentialRequestStatus) GetSecret() (string, string) {
 		return "", ""
 	}
 	if split := strings.Split(*n.Secret, string(types.Separator)); len(split) > 1 {
+		return split[0], split[1]
+	}
+	return "", ""
+}
+
+func (n *DPUServiceCredentialRequestStatus) GetTargetCluster() (string, string) {
+	if n.TargetCluster == nil {
+		return "", ""
+	}
+	if split := strings.Split(*n.TargetCluster, string(types.Separator)); len(split) > 1 {
 		return split[0], split[1]
 	}
 	return "", ""

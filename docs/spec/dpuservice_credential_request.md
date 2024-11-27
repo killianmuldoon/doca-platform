@@ -19,7 +19,9 @@ spec:
     name: dpu-01-sa
     namespace: default
   duration: 1h
-  targetClusterName: dpu-cplane-tenant1
+  targetCluster: 
+    name: dpu-cplane-tenant1
+    namespace: default
   type: kubeconfig
   secret:
     name: dpu-01-credential
@@ -35,11 +37,13 @@ In the above example:
   a token has to be requested for the `ServiceAccount` with a `ttl` of 1h. The output
   that is expected is a secret of type `kubeconfig`, containing all the needed information
   in order to access the cluster i.e. the token, API Server endpoint and the cluster CA.
+- `targetCluster` is a reference to an existing `dpuCluster` that will provide the
+  needed authentication informatio to access the API SERVER.
 - The controller will create the `ServiceAccount` and request a token with the requested
   duration. It will generate an output of the requested `.spec.type` and create a
   secret with the output pasted as `spec.data`.
 - If the `DPUServiceCredentialRequest` does not exist, or is not up-to-date, the controller
-  will to bring it as close to the desired state as possible.
+  will try to bring it as close to the desired state as possible.
 - The controller will requeue the `DPUServiceCredentialRequest` in order to reconcile
   it when 80% of the token last time will expended. It will then request a new token.
 

@@ -556,10 +556,10 @@ func (in *DPUServiceCredentialRequestSpec) DeepCopyInto(out *DPUServiceCredentia
 		*out = new(v1.Duration)
 		**out = **in
 	}
-	if in.TargetClusterName != nil {
-		in, out := &in.TargetClusterName, &out.TargetClusterName
-		*out = new(string)
-		**out = **in
+	if in.TargetCluster != nil {
+		in, out := &in.TargetCluster, &out.TargetCluster
+		*out = new(NamespacedName)
+		(*in).DeepCopyInto(*out)
 	}
 	in.Secret.DeepCopyInto(&out.Secret)
 	if in.ObjectMeta != nil {
@@ -594,8 +594,8 @@ func (in *DPUServiceCredentialRequestStatus) DeepCopyInto(out *DPUServiceCredent
 		*out = new(string)
 		**out = **in
 	}
-	if in.TargetClusterName != nil {
-		in, out := &in.TargetClusterName, &out.TargetClusterName
+	if in.TargetCluster != nil {
+		in, out := &in.TargetCluster, &out.TargetCluster
 		*out = new(string)
 		**out = **in
 	}

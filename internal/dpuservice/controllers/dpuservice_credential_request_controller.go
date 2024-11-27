@@ -27,6 +27,7 @@ import (
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
 	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
 
@@ -127,8 +128,8 @@ func (r *DPUServiceCredentialRequestReconciler) reconcile(ctx context.Context, o
 
 	targetClient := r.Client
 	var dpuClusterConfig *dpucluster.Config
-	if obj.Spec.TargetClusterName != nil {
-		c, clusterConfig, err := r.getCluster(ctx, *obj.Spec.TargetClusterName)
+	if obj.Spec.TargetCluster != nil {
+		c, clusterConfig, err := r.getCluster(ctx, obj.Spec.TargetCluster)
 		if err != nil {
 			conditions.AddFalse(
 				obj,
@@ -157,7 +158,9 @@ func (r *DPUServiceCredentialRequestReconciler) reconcile(ctx context.Context, o
 
 	// Update the status of the DPUServiceCredentialRequest.
 	obj.Status.ServiceAccount = ptr.To(obj.Spec.ServiceAccount.String())
-	obj.Status.TargetClusterName = obj.Spec.TargetClusterName
+	if obj.Spec.TargetCluster != nil {
+		obj.Status.TargetCluster = ptr.To(obj.Spec.TargetCluster.String())
+	}
 
 	var token string
 	if tr != nil {
@@ -209,7 +212,7 @@ func reconcileServiceAccount(ctx context.Context, obj *dpuservicev1.DPUServiceCr
 	}
 
 	// The target cluster name diverges, delete the ServiceAccount if it exists.
-	if !equalStrings(obj.Status.TargetClusterName, obj.Spec.TargetClusterName) && obj.Status.ServiceAccount != nil {
+	if !equalName(obj.Status.TargetCluster, obj.Spec.TargetCluster) && obj.Status.ServiceAccount != nil {
 		if err := deleteServiceAccount(ctx, obj, targetClient); err != nil {
 			return nil, err
 		}
@@ -299,26 +302,14 @@ func (r *DPUServiceCredentialRequestReconciler) reconcileSecret(ctx context.Cont
 	return r.patchSecret(ctx, obj, config)
 }
 
-func (r *DPUServiceCredentialRequestReconciler) getCluster(ctx context.Context, clusterName string) (client.Client, *dpucluster.Config, error) {
-	dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, r.Client)
+func (r *DPUServiceCredentialRequestReconciler) getCluster(ctx context.Context, cluster *dpuservicev1.NamespacedName) (client.Client, *dpucluster.Config, error) {
+	dpc := &provisioningv1.DPUCluster{}
+	err := r.Client.Get(ctx, types.NamespacedName{Name: cluster.Name, Namespace: cluster.GetNamespace()}, dpc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error while getting DPF clusters: %w", err)
-	}
-	if len(dpuClusterConfigs) == 0 {
-		return nil, nil, fmt.Errorf("no cluster found")
+		return nil, nil, fmt.Errorf("error while getting DPU cluster %v: %w", cluster.Name, err)
 	}
 
-	var dpuClusterConfig *dpucluster.Config
-	for _, clusterConfig := range dpuClusterConfigs {
-		if clusterConfig.Cluster.Name == clusterName {
-			dpuClusterConfig = clusterConfig
-			break
-		}
-	}
-	if dpuClusterConfig == nil {
-		return nil, nil, fmt.Errorf("cluster %v not found", clusterName)
-	}
-
+	dpuClusterConfig := dpucluster.NewConfig(r.Client, dpc)
 	client, err := dpuClusterConfig.Client(ctx)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error while getting client for cluster %v: %w", dpuClusterConfig.Cluster.Name, err)
@@ -471,10 +462,11 @@ func (r *DPUServiceCredentialRequestReconciler) patchSecret(ctx context.Context,
 
 func (r *DPUServiceCredentialRequestReconciler) reconcileDelete(ctx context.Context, obj *dpuservicev1.DPUServiceCredentialRequest) (ctrl.Result, error) {
 	targetClient := r.Client
-	if obj.Status.TargetClusterName != nil {
-		c, _, err := r.getCluster(ctx, *obj.Status.TargetClusterName)
+	if obj.Status.TargetCluster != nil {
+		ns, name := obj.Status.GetTargetCluster()
+		c, _, err := r.getCluster(ctx, &dpuservicev1.NamespacedName{Namespace: ptr.To(ns), Name: name})
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("error while getting client for cluster %v: %w", *obj.Status.TargetClusterName, err)
+			return ctrl.Result{}, fmt.Errorf("error while getting client for cluster %v: %w", *obj.Status.TargetCluster, err)
 		}
 		targetClient = c
 	}
@@ -518,7 +510,7 @@ func deleteServiceAccount(ctx context.Context, obj *dpuservicev1.DPUServiceCrede
 
 		// Clear the ServiceAccount related fields in the status.
 		obj.Status.ServiceAccount = nil
-		obj.Status.TargetClusterName = nil
+		obj.Status.TargetCluster = nil
 		obj.Status.ExpirationTimestamp = nil
 		obj.Status.IssuedAt = nil
 	}
@@ -576,8 +568,13 @@ func getLocalClusterAccessData() ([]byte, string, error) {
 	return caBytes, "https://" + net.JoinHostPort(host, port), nil
 }
 
-// equalStrings compares two strings pointers and returns true if they are equal.
-func equalStrings(a, b *string) bool {
+// equalName compares a name with a NamespacedName.
+func equalName(a *string, namespacedName *dpuservicev1.NamespacedName) bool {
+	var b *string
+	if namespacedName != nil {
+		b = ptr.To(namespacedName.String())
+	}
+
 	if a == nil || b == nil {
 		return a == b
 	}

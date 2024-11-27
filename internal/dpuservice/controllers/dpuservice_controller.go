@@ -94,7 +94,6 @@ var applyPatchOptions = []client.PatchOption{
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPUServiceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Manager) error {
-	// Index the HelmRelease by the Source reference they point to.
 	if err := mgr.GetFieldIndexer().IndexField(ctx, &dpuservicev1.DPUService{}, dpuservicev1.InterfaceIndexKey,
 		func(o client.Object) []string {
 			obj := o.(*dpuservicev1.DPUService)
@@ -561,7 +560,6 @@ func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservi
 
 	applicationList := &argov1.ApplicationList{}
 	// List all of the applications matching this DPUService.
-	// TODO: Optimize list calls by adding indexes to the reconciler where needed.
 	if err := r.Client.List(ctx, applicationList, client.MatchingLabels{
 		dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
 		dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
