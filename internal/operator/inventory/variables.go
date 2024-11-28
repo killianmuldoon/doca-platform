@@ -75,6 +75,7 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 type Variables struct {
 	Namespace                 string
 	DPFProvisioningController DPFProvisioningVariables
+	Networking                Networking
 	DisableSystemComponents   map[string]bool
 	ImagePullSecrets          []string
 	Images                    map[string]string
@@ -85,6 +86,10 @@ type Variables struct {
 type DPFProvisioningVariables struct {
 	BFBPersistentVolumeClaimName string
 	DMSTimeout                   *int
+}
+
+type Networking struct {
+	ControlPlaneMTU int
 }
 
 func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operatorv1.DPFOperatorConfig) Variables {
@@ -128,6 +133,7 @@ func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operator
 	variables.Images = images
 	variables.HelmCharts = helmCharts
 	variables.DPUDetectorCollectors = collectors
+	variables.Networking.ControlPlaneMTU = *config.Spec.Networking.ControlPlaneMTU
 
 	return variables
 }

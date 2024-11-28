@@ -43,16 +43,39 @@ var (
 	DPFComponentLabelKey = "dpu.nvidia.com/component"
 )
 
-// Overrides exposes a set of fields which impact the recommended behavior of the DPF Operator
+// Overrides exposes a set of fields which impact the recommended behavior of the DPF Operator.
 type Overrides struct {
 	// Paused disables all reconciliation of the DPFOperatorConfig when set to true.
 	// +optional
 	Paused *bool `json:"paused,omitempty"`
 }
 
+// Networking defines the networking configuration for the system components.
+type Networking struct {
+	// ControlPlaneMTU is the MTU value to be set on the management network.
+	// The default is 1500.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=9216
+	// +kubebuilder:default=1500
+	// +optional
+	ControlPlaneMTU *int `json:"controlPlaneMTU,omitempty"`
+}
+
 // DPFOperatorConfigSpec defines the desired state of DPFOperatorConfig
 type DPFOperatorConfigSpec struct {
+	// +optional
 	Overrides *Overrides `json:"overrides,omitempty"`
+
+	// +kubebuilder:default={controlPlaneMTU: 1500}
+	// +optional
+	Networking *Networking `json:"networking,omitempty"`
+
+	// List of secret names which are used to pull images for DPF system components and DPUServices.
+	// These secrets must be in the same namespace as the DPF Operator Config and should be created before the config is created.
+	// System reconciliation will not proceed until these secrets are available.
+	// +optional
+	ImagePullSecrets []string `json:"imagePullSecrets,omitempty"`
+
 	// DPUServiceController is the configuration for the DPUServiceController
 	// +optional
 	DPUServiceController *DPUServiceControllerConfiguration `json:"dpuServiceController,omitempty"`
@@ -91,11 +114,6 @@ type DPFOperatorConfigSpec struct {
 	// OVSHelper is the configuration for the OVSHelper
 	// +optional
 	OVSHelper *OVSHelperConfiguration `json:"ovsHelper,omitempty"`
-
-	// List of secret names which are used to pull images for DPF system components and DPUServices.
-	// These secrets must be in the same namespace as the DPF Operator Config and should be created before the config is created.
-	// System reconciliation will not proceed until these secrets are available.
-	ImagePullSecrets []string `json:"imagePullSecrets,omitempty"`
 }
 
 // DPFOperatorConfigStatus defines the observed state of DPFOperatorConfig

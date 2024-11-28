@@ -70,6 +70,8 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `overrides` _[Overrides](#overrides)_ |  |  |  |
+| `networking` _[Networking](#networking)_ |  | \{ controlPlaneMTU:1500 \} |  |
+| `imagePullSecrets` _string array_ | List of secret names which are used to pull images for DPF system components and DPUServices.<br />These secrets must be in the same namespace as the DPF Operator Config and should be created before the config is created.<br />System reconciliation will not proceed until these secrets are available. |  |  |
 | `dpuServiceController` _[DPUServiceControllerConfiguration](#dpuservicecontrollerconfiguration)_ | DPUServiceController is the configuration for the DPUServiceController |  |  |
 | `provisioningController` _[ProvisioningControllerConfiguration](#provisioningcontrollerconfiguration)_ | ProvisioningController is the configuration for the ProvisioningController |  |  |
 | `serviceSetController` _[ServiceSetControllerConfiguration](#servicesetcontrollerconfiguration)_ | ServiceSetController is the configuration for the ServiceSetController |  |  |
@@ -83,7 +85,6 @@ _Appears in:_
 | `kamajiClusterManager` _[KamajiClusterManagerConfiguration](#kamajiclustermanagerconfiguration)_ | KamajiClusterManager is the configuration for the kamaji-cluster-manager |  |  |
 | `staticClusterManager` _[StaticClusterManagerConfiguration](#staticclustermanagerconfiguration)_ | StaticClusterManager is the configuration for the static-cluster-manager |  |  |
 | `ovsHelper` _[OVSHelperConfiguration](#ovshelperconfiguration)_ | OVSHelper is the configuration for the OVSHelper |  |  |
-| `imagePullSecrets` _string array_ | List of secret names which are used to pull images for DPF system components and DPUServices.<br />These secrets must be in the same namespace as the DPF Operator Config and should be created before the config is created.<br />System reconciliation will not proceed until these secrets are available. |  |  |
 
 
 #### DPFOperatorConfigStatus
@@ -275,6 +276,22 @@ _Appears in:_
 | `helmChart` _[HelmChart](#helmchart)_ | HelmChart overrides the helm chart used by NVIPAM<br />The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid<br />OCI registry or a web-based repository. |  | Pattern: `^(oci://\|https://).+$` <br /> |
 
 
+#### Networking
+
+
+
+Networking defines the networking configuration for the system components.
+
+
+
+_Appears in:_
+- [DPFOperatorConfigSpec](#dpfoperatorconfigspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `controlPlaneMTU` _integer_ | ControlPlaneMTU is the MTU value to be set on the management network.<br />The default is 1500. | 1500 | Maximum: 9216 <br />Minimum: 0 <br /> |
+
+
 #### OVSCNIConfiguration
 
 
@@ -315,7 +332,7 @@ _Appears in:_
 
 
 
-Overrides exposes a set of fields which impact the recommended behavior of the DPF Operator
+Overrides exposes a set of fields which impact the recommended behavior of the DPF Operator.
 
 
 

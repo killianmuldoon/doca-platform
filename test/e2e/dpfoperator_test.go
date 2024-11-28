@@ -607,6 +607,43 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 			// Ensure the changes are reverted before continuing.
 		}).Should(Succeed())
 	})
+
+	// Get dpuClusterConfigs to loop over all DPU clusters.
+	dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
+	Expect(err).ToNot(HaveOccurred())
+
+	It("verify that the current MTU in the DPU clusters flannel configmap is 1500", func() {
+		for _, dpuClusterConfig := range dpuClusterConfigs {
+			dpuClient, err := dpuClusterConfig.Client(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			By("verify flannel configmap for cluster " + dpuClusterConfig.Cluster.GetName())
+			flannelConfigMap := &corev1.ConfigMap{}
+			Expect(dpuClient.Get(ctx, client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: "kube-flannel-cfg"}, flannelConfigMap)).To(Succeed())
+			Expect(flannelConfigMap.Data["net-conf.json"]).To(ContainSubstring("MTU\": 1500,"))
+		}
+	})
+
+	It("change the MTU in the DPFOperatorConfig to 1501 and verify that the DPU clusters flannel configmap is updated", func() {
+		By("get the DPFOperatorConfig")
+		Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
+		By("update the MTU in the DPFOperatorConfig")
+		if config.Spec.Networking == nil {
+			config.Spec.Networking = &operatorv1.Networking{}
+		}
+		config.Spec.Networking.ControlPlaneMTU = ptr.To(1501)
+		Expect(testClient.Update(ctx, config)).To(Succeed())
+
+		for _, dpuClusterConfig := range dpuClusterConfigs {
+			dpuClient, err := dpuClusterConfig.Client(ctx)
+			Expect(err).ToNot(HaveOccurred())
+			By("verify flannel configmap for cluster " + dpuClusterConfig.Cluster.GetName())
+			Eventually(func(g Gomega) {
+				flannelConfigMap := &corev1.ConfigMap{}
+				Expect(dpuClient.Get(ctx, client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: "kube-flannel-cfg"}, flannelConfigMap)).To(Succeed())
+				Expect(flannelConfigMap.Data["net-conf.json"]).To(ContainSubstring("MTU\": 1501,"))
+			}, time.Second*300, time.Millisecond*250).Should(Succeed())
+		}
+	})
 }
 
 func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfig) {

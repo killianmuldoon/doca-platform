@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
@@ -136,6 +137,14 @@ func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateMa
 		secrets := pullSecretValueFromStrings(vars.ImagePullSecrets...)
 		edits.AddForKindS(DPUServiceKind, dpuServiceAddValueEdit(secrets, f.Name(), "imagePullSecrets"))
 	}
+
+	// Update the networking values from variables if possible.
+	networkingEdits := networkEditsForComponent(f.Name(), vars.Networking)
+	for _, edit := range networkingEdits {
+		edits.AddForKindS(DPUServiceKind, edit)
+	}
+
+	// Apply the edits.
 	if err := edits.Apply([]*unstructured.Unstructured{dpuServiceCopy}); err != nil {
 		return nil, err
 	}
@@ -252,6 +261,20 @@ func ParseHelmChartString(repoChartVersion string) (*HelmChartSource, error) {
 		Chart:   image,
 		Repo:    repo,
 	}, nil
+}
+
+func networkEditsForComponent(name string, networking Networking) []StructuredEdit {
+	edits := map[string][]StructuredEdit{
+		operatorv1.FlannelName: setFlannelMTUEdit(networking),
+	}
+	return edits[name]
+}
+
+func setFlannelMTUEdit(networking Networking) []StructuredEdit {
+	mtu := strconv.Itoa(networking.ControlPlaneMTU)
+	return []StructuredEdit{
+		dpuServiceAddValueEdit(mtu, operatorv1.FlannelName, "flannel", "mtu"),
+	}
 }
 
 type image struct {
