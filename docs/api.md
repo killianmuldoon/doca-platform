@@ -526,7 +526,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `fileName` _string_ | Specifies bfb file name on the volume or<br />use CRD name in case it is omitted. |  | Pattern: `^[A-Za-z0-9\_\-\.]+\.bfb$` <br /> |
+| `fileName` _string_ | Specifies the file name which is used to download the BFB on the volume or<br />use "namespace-CRD name" in case it is omitted. |  | Pattern: `^[A-Za-z0-9\_\-\.]+\.bfb$` <br /> |
 | `url` _string_ | The url of the bfb image to download. |  | Pattern: `^(http\|https)://.+\.bfb$` <br /> |
 
 

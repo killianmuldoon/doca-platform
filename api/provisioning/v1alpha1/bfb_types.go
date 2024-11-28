@@ -53,8 +53,8 @@ const (
 // BFBSpec defines the content of the BFB
 // +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 type BFBSpec struct {
-	// Specifies bfb file name on the volume or
-	// use CRD name in case it is omitted.
+	// Specifies the file name which is used to download the BFB on the volume or
+	// use "namespace-CRD name" in case it is omitted.
 	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9\_\-\.]+\.bfb$`
 	// +optional
 	FileName string `json:"fileName,omitempty"`
