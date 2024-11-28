@@ -26,129 +26,90 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ = Describe("DPUSet", func() {
-
-	const (
-		DefaultNS   = "dpf-provisioning-test"
-		DefaultNode = "dpf-provisioning-node-test"
-	)
-
-	var (
-		testNS   *corev1.Namespace
-		testNode *corev1.Node
-	)
-
-	var getObjKey = func(obj *provisioningv1.DPUSet) types.NamespacedName {
-		return types.NamespacedName{
-			Name:      obj.Name,
-			Namespace: obj.Namespace,
-		}
-	}
-
-	var createObj = func(name string) *provisioningv1.DPUSet {
-		return &provisioningv1.DPUSet{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: testNS.Name,
-			},
-			Spec:   provisioningv1.DPUSetSpec{},
-			Status: provisioningv1.DPUSetStatus{},
-		}
-	}
-
-	var createNode = func(ctx context.Context, name string, labels map[string]string) *corev1.Node {
-		node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: labels}}
-		Expect(k8sClient.Create(ctx, node)).NotTo(HaveOccurred())
-		return node
-	}
+	var testNS *corev1.Namespace
 
 	BeforeEach(func() {
 		By("creating the namespace")
-		testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: DefaultNS}}
+		testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "provisioning"}}
 		Expect(client.IgnoreAlreadyExists(k8sClient.Create(ctx, testNS))).To(Succeed())
-
-		By("creating the node")
-		testNode = createNode(ctx, DefaultNode, make(map[string]string))
-	})
-
-	AfterEach(func() {
-		By("deleting the namespace")
-		Expect(k8sClient.Delete(ctx, testNS)).To(Succeed())
-
-		By("Cleaning the node")
-		Expect(k8sClient.Delete(ctx, testNode)).To(Succeed())
 	})
 
 	Context("obj test context", func() {
 		ctx := context.Background()
 
-		It("create and destroy", func() {
-			By("creating the obj")
-			obj := createObj("obj-dpuset")
-			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
-			DeferCleanup(k8sClient.Delete, ctx, obj)
+		It("create  and delete DPUSet", func() {
+			dpuset := baseDPUSet(testNS.Name)
+			Expect(k8sClient.Create(ctx, dpuset)).To(Succeed())
+			DeferCleanup(k8sClient.Delete, ctx, dpuset)
 
 			objFetched := &provisioningv1.DPUSet{}
 
 			By("checking the finalizer")
 			Eventually(func(g Gomega) []string {
-				g.Expect(k8sClient.Get(ctx, getObjKey(obj), objFetched)).To(Succeed())
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(dpuset), objFetched)).To(Succeed())
 				return objFetched.Finalizers
 			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{provisioningv1.DPUSetFinalizer}))
 		})
+		It("overwrite default DPUSet automaticNodeReboot", func() {
+			dpuset := baseDPUSet(testNS.Name)
+			dpuset.Spec.DPUTemplate.Spec.AutomaticNodeReboot = ptr.To(false)
+			Expect(k8sClient.Create(ctx, dpuset)).To(Succeed())
+			DeferCleanup(k8sClient.Delete, ctx, dpuset)
 
-		It("create from yaml", func() {
-			yml := []byte(`
-apiVersion: provisioning.dpu.nvidia.com/v1alpha1
-kind: DPUSet
-metadata:
-  name: dpuset-1
-  namespace: default
-spec:
-  nodeSelector:
-    matchLabels:
-      feature.node.kubernetes.io/dpu-enabled: "true"
-  dpuSelector:
-      feature.node.kubernetes.io/dpu-0-psid: "MT_0000000375"
-      feature.node.kubernetes.io/dpu-0-pci-address: "0000-04-00"
-  strategy:
-    rollingUpdate:
-      maxUnavailable: 10%
-    type: RollingUpdate
-  dpuTemplate:
-    annotations:
-      nvidia.com/dpuOperator-override-powercycle-command: "cycle"
-    spec:
-      dpuFlavor: "hbn"
-      bfb:
-        name: "doca-24.04"
-      nodeEffect:
-        taint:
-          key: "dpu"
-          value: "provisioning"
-          effect: NoSchedule
-      cluster:
-        nodeLabels:
-          "dpf.node.dpu/role": "worker"
-`)
-			obj := &provisioningv1.DPUSet{}
-			err := yaml.UnmarshalStrict(yml, obj)
-			Expect(err).To(Succeed())
-			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
-			DeferCleanup(k8sClient.Delete, ctx, obj)
+			got := &provisioningv1.DPUSet{}
 
-			objFetched := &provisioningv1.DPUSet{}
-
-			By("checking the finalizer")
-			Eventually(func(g Gomega) []string {
-				g.Expect(k8sClient.Get(ctx, getObjKey(obj), objFetched)).To(Succeed())
-				return objFetched.Finalizers
-			}).WithTimeout(10 * time.Second).Should(ConsistOf([]string{provisioningv1.DPUSetFinalizer}))
+			By("checking the field is correctly set")
+			Eventually(func(g Gomega) {
+				g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(dpuset), got)).To(Succeed())
+				g.Expect(*got.Spec.DPUTemplate.Spec.AutomaticNodeReboot).To(BeFalse())
+			}).WithTimeout(10 * time.Second).Should(Succeed())
 		})
 	})
 })
+
+func baseDPUSet(ns string) *provisioningv1.DPUSet {
+	return &provisioningv1.DPUSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dpuset",
+			Namespace: ns,
+		},
+		Spec: provisioningv1.DPUSetSpec{
+			NodeSelector: &metav1.LabelSelector{MatchLabels: map[string]string{"feature.node.kubernetes.io/dpu-enabled": "true"}},
+			DPUSelector: map[string]string{
+				"feature.node.kubernetes.io/dpu-0-psid":        "MT_0000000375",
+				"feature.node.kubernetes.io/dpu-0-pci-address": "0000-04-00",
+			},
+			Strategy: &provisioningv1.DPUSetStrategy{
+				Type: provisioningv1.RollingUpdateStrategyType,
+				RollingUpdate: &provisioningv1.RollingUpdateDPU{
+					MaxUnavailable: &intstr.IntOrString{Type: intstr.Int, IntVal: 1},
+				},
+			},
+			DPUTemplate: provisioningv1.DPUTemplate{
+				Annotations: map[string]string{
+					"nvidia.com/dpuOperator-override-powercycle-command": "cycle",
+				},
+				Spec: provisioningv1.DPUTemplateSpec{
+					AutomaticNodeReboot: ptr.To(true),
+					DPUFlavor:           "hbn",
+					NodeEffect: &provisioningv1.NodeEffect{
+						Drain: &provisioningv1.Drain{
+							AutomaticNodeReboot: false,
+						},
+					},
+					Cluster: &provisioningv1.ClusterSpec{
+						NodeLabels: map[string]string{
+							"dpf.node.dpu/role": "worker",
+						},
+					},
+				},
+			},
+		},
+	}
+}

@@ -92,7 +92,7 @@ type DPUTemplateSpec struct {
 	// this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic
 	// +kubebuilder:default=true
 	// +optional
-	AutomaticNodeReboot bool `json:"automaticNodeReboot,omitempty"`
+	AutomaticNodeReboot *bool `json:"automaticNodeReboot,omitempty"`
 }
 
 // DPUTemplate is a template for DPU

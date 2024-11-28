@@ -309,7 +309,7 @@ func (r *DPUSetReconciler) createDPU(ctx context.Context, dpuSet *provisioningv1
 				NodeLabels: dpuSet.Spec.DPUTemplate.Spec.Cluster.NodeLabels,
 			},
 			DPUFlavor:           dpuSet.Spec.DPUTemplate.Spec.DPUFlavor,
-			AutomaticNodeReboot: dpuSet.Spec.DPUTemplate.Spec.AutomaticNodeReboot,
+			AutomaticNodeReboot: *dpuSet.Spec.DPUTemplate.Spec.AutomaticNodeReboot,
 		},
 	}
 	// do we really need this?
