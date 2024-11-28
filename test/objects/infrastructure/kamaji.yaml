@@ -51,7 +51,6 @@ spec:
     certSANs:
       - dpu-cluster-0.clastix.labs
     serviceCidr: 10.96.0.0/16
-    podCidr: 10.36.0.0/16
     dnsServiceIPs:
       - 10.96.0.10
   addons:
