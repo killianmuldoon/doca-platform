@@ -293,6 +293,10 @@ func (r *DPUSetReconciler) createDPU(ctx context.Context, dpuSet *provisioningv1
 	owner := metav1.NewControllerRef(dpuSet,
 		provisioningv1.GroupVersion.WithKind("DPUSet"))
 
+	clusterNodeLabels := map[string]string{}
+	if dpuSet.Spec.DPUTemplate.Spec.Cluster != nil {
+		clusterNodeLabels = dpuSet.Spec.DPUTemplate.Spec.Cluster.NodeLabels
+	}
 	dpu := &provisioningv1.DPU{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:            dpuName,
@@ -306,12 +310,13 @@ func (r *DPUSetReconciler) createDPU(ctx context.Context, dpuSet *provisioningv1
 			BFB:        dpuSet.Spec.DPUTemplate.Spec.BFB.Name,
 			NodeEffect: dpuSet.Spec.DPUTemplate.Spec.NodeEffect,
 			Cluster: provisioningv1.K8sCluster{
-				NodeLabels: dpuSet.Spec.DPUTemplate.Spec.Cluster.NodeLabels,
+				NodeLabels: clusterNodeLabels,
 			},
 			DPUFlavor:           dpuSet.Spec.DPUTemplate.Spec.DPUFlavor,
 			AutomaticNodeReboot: *dpuSet.Spec.DPUTemplate.Spec.AutomaticNodeReboot,
 		},
 	}
+
 	// do we really need this?
 	for k, v := range dpuSet.Spec.DPUTemplate.Annotations {
 		dpu.Annotations[k] = v

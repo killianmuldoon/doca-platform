@@ -33,11 +33,22 @@ import (
 
 var _ = Describe("DPUSet", func() {
 	var testNS *corev1.Namespace
-
+	nodeName := "dpf-provisioning-node-test"
 	BeforeEach(func() {
+		By("creating the node")
+		createNode(ctx, nodeName, map[string]string{
+			"feature.node.kubernetes.io/dpu-0-psid":        "MT_0000000375",
+			"feature.node.kubernetes.io/dpu-0-pci-address": "0000-04-00",
+			"feature.node.kubernetes.io/dpu-enabled":       "true"})
 		By("creating the namespace")
 		testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "provisioning"}}
 		Expect(client.IgnoreAlreadyExists(k8sClient.Create(ctx, testNS))).To(Succeed())
+	})
+
+	AfterEach(func() {
+		By("deleting the node")
+		Expect(k8sClient.Delete(ctx, &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: nodeName}})).To(Succeed())
+		Expect(k8sClient.DeleteAllOf(ctx, &provisioningv1.DPUSet{}, client.InNamespace(testNS.Name))).To(Succeed())
 	})
 
 	Context("obj test context", func() {
@@ -46,7 +57,6 @@ var _ = Describe("DPUSet", func() {
 		It("create  and delete DPUSet", func() {
 			dpuset := baseDPUSet(testNS.Name)
 			Expect(k8sClient.Create(ctx, dpuset)).To(Succeed())
-			DeferCleanup(k8sClient.Delete, ctx, dpuset)
 
 			objFetched := &provisioningv1.DPUSet{}
 
@@ -60,7 +70,6 @@ var _ = Describe("DPUSet", func() {
 			dpuset := baseDPUSet(testNS.Name)
 			dpuset.Spec.DPUTemplate.Spec.AutomaticNodeReboot = ptr.To(false)
 			Expect(k8sClient.Create(ctx, dpuset)).To(Succeed())
-			DeferCleanup(k8sClient.Delete, ctx, dpuset)
 
 			got := &provisioningv1.DPUSet{}
 
@@ -70,8 +79,25 @@ var _ = Describe("DPUSet", func() {
 				g.Expect(*got.Spec.DPUTemplate.Spec.AutomaticNodeReboot).To(BeFalse())
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 		})
+		It("Check a DPU is created", func() {
+			dpuset := baseDPUSet(testNS.Name)
+			Expect(k8sClient.Create(ctx, dpuset)).To(Succeed())
+
+			By("checking a DPU is created for the node")
+			Eventually(func(g Gomega) {
+				dpuList := &provisioningv1.DPUList{}
+				g.Expect(k8sClient.List(ctx, dpuList, client.InNamespace(testNS.Name))).To(Succeed())
+				g.Expect(dpuList.Items).To(HaveLen(1))
+			}).WithTimeout(10 * time.Second).Should(Succeed())
+		})
 	})
 })
+
+var createNode = func(ctx context.Context, name string, labels map[string]string) *corev1.Node {
+	node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: labels}}
+	Expect(k8sClient.Create(ctx, node)).NotTo(HaveOccurred())
+	return node
+}
 
 func baseDPUSet(ns string) *provisioningv1.DPUSet {
 	return &provisioningv1.DPUSet{
@@ -103,11 +129,8 @@ func baseDPUSet(ns string) *provisioningv1.DPUSet {
 							AutomaticNodeReboot: false,
 						},
 					},
-					Cluster: &provisioningv1.ClusterSpec{
-						NodeLabels: map[string]string{
-							"dpf.node.dpu/role": "worker",
-						},
-					},
+					// Setting cluster to nil here to test a nil-pointer error.
+					Cluster: nil,
 				},
 			},
 		},
