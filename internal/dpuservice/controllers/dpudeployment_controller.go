@@ -954,16 +954,19 @@ func convertToSFCSwitch(dpuDeploymentNamespacedName types.NamespacedName, sw dpu
 	return o
 }
 
-// reconcileDelete handles the deletion reconciliation loop
+// reconcileDelete handles the deletion reconciliation loop.
 func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeployment *dpuservicev1.DPUDeployment) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling delete")
 
+	// We first remove the DPUServiceChain, DPUServiceInterface and DPUService and then the DPUSet to ensure that the
+	// controllers running on the DPU cluster are able to run the deletion reconciliation loop and remove the
+	// finalizers. If we don't do so, there is a deadlock if all the DPUs in the DPU Cluster are added by this very
+	// same DPUDeployment.
 	for _, obj := range []client.Object{
 		&dpuservicev1.DPUServiceChain{},
 		&dpuservicev1.DPUServiceInterface{},
 		&dpuservicev1.DPUService{},
-		&provisioningv1.DPUSet{},
 	} {
 		if err := r.Client.DeleteAllOf(ctx,
 			obj,
@@ -990,57 +993,97 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 				ParentDPUDeploymentNameLabel: dpuDeployment.Name,
 			},
 		); err != nil {
-			return ctrl.Result{}, fmt.Errorf("error while listing dpuservicechains: %w", err)
+			return ctrl.Result{}, fmt.Errorf("error while listing %T: %w", obj, err)
 		}
+		var msg string
 		switch t := obj.(type) {
 		case *dpuservicev1.DPUServiceChainList:
 			dpuServiceChainItems += len(obj.(*dpuservicev1.DPUServiceChainList).Items)
 			if dpuServiceChainItems > 0 {
-				conditions.AddFalse(
-					dpuDeployment,
-					conditionType,
-					conditions.ReasonAwaitingDeletion,
-					conditions.ConditionMessage(fmt.Sprintf("There are still %d DPUServiceChains that are not completely deleted", dpuServiceChainItems)),
-				)
+				msg = fmt.Sprintf("There are still %d DPUServiceChains that are not completely deleted", dpuServiceChainItems)
+				break
 			}
+			msg = "All DPUServiceChains are deleted"
+
 		case *dpuservicev1.DPUServiceInterfaceList:
 			dpuServiceInterfaceItems += len(obj.(*dpuservicev1.DPUServiceInterfaceList).Items)
 			if dpuServiceInterfaceItems > 0 {
-				conditions.AddFalse(
-					dpuDeployment,
-					conditionType,
-					conditions.ReasonAwaitingDeletion,
-					conditions.ConditionMessage(fmt.Sprintf("There are still %d DPUServiceInterfaces that are not completely deleted", dpuServiceInterfaceItems)),
-				)
+				msg = fmt.Sprintf("There are still %d DPUServiceInterfaces that are not completely deleted", dpuServiceInterfaceItems)
+				break
 			}
+			msg = "All DPUServiceInterfaces are deleted"
 		case *dpuservicev1.DPUServiceList:
 			dpuServiceItems += len(obj.(*dpuservicev1.DPUServiceList).Items)
 			if dpuServiceItems > 0 {
-				conditions.AddFalse(
-					dpuDeployment,
-					conditionType,
-					conditions.ReasonAwaitingDeletion,
-					conditions.ConditionMessage(fmt.Sprintf("There are still %d DPUServices that are not completely deleted", dpuServiceItems)),
-				)
+				msg = fmt.Sprintf("There are still %d DPUServices that are not completely deleted", dpuServiceItems)
+				break
 			}
+			msg = "All DPUServices are deleted"
 		case *provisioningv1.DPUSetList:
 			dpuSetItems += len(obj.(*provisioningv1.DPUSetList).Items)
 			if dpuSetItems > 0 {
-				conditions.AddFalse(
-					dpuDeployment,
-					conditionType,
-					conditions.ReasonAwaitingDeletion,
-					conditions.ConditionMessage(fmt.Sprintf("There are still %d DPUSets that are not completely deleted", dpuSetItems)),
-				)
+				msg = fmt.Sprintf("There are still %d DPUSets that are not completely deleted", dpuSetItems)
+				break
 			}
+			msg = "All DPUSets are deleted"
 		default:
 			panic(fmt.Sprintf("type %v not handled", t))
 		}
+		conditions.AddFalse(
+			dpuDeployment,
+			conditionType,
+			conditions.ReasonAwaitingDeletion,
+			conditions.ConditionMessage(msg),
+		)
 	}
 
-	existingObjs := dpuServiceChainItems + dpuServiceInterfaceItems + dpuServiceItems + dpuSetItems
-	if existingObjs > 0 {
+	if dpuServiceChainItems > 0 || dpuServiceInterfaceItems > 0 || dpuServiceItems > 0 {
+		existingObjs := dpuServiceChainItems + dpuServiceInterfaceItems + dpuServiceItems + dpuSetItems
 		log.Info(fmt.Sprintf("There are still %d child objects that are not completely deleted, requeueing before removing the finalizer.", existingObjs),
+			"dpuservicechains", dpuServiceChainItems,
+			"dpuserviceinterfaces", dpuServiceInterfaceItems,
+			"dpuservices", dpuServiceItems,
+			"dpusets", dpuSetItems,
+		)
+		return ctrl.Result{RequeueAfter: dpuDeploymentReconcileDeleteRequeueDuration}, nil
+	}
+
+	if err := r.Client.DeleteAllOf(ctx,
+		&provisioningv1.DPUSet{},
+		client.InNamespace(dpuDeployment.Namespace),
+		client.MatchingLabels{
+			ParentDPUDeploymentNameLabel: dpuDeployment.Name,
+		},
+	); err != nil {
+		return ctrl.Result{}, fmt.Errorf("error while removing %T: %w", &provisioningv1.DPUSet{}, err)
+	}
+
+	dpuSetList := &provisioningv1.DPUSetList{}
+	if err := r.Client.List(ctx,
+		dpuSetList,
+		client.InNamespace(dpuDeployment.Namespace),
+		client.MatchingLabels{
+			ParentDPUDeploymentNameLabel: dpuDeployment.Name,
+		},
+	); err != nil {
+		return ctrl.Result{}, fmt.Errorf("error while listing %T: %w", dpuSetList, err)
+	}
+	dpuSetItems = len(dpuSetList.Items)
+	var msg string
+	if dpuSetItems > 0 {
+		msg = fmt.Sprintf("There are still %d DPUSets that are not completely deleted", dpuSetItems)
+	} else {
+		msg = "All DPUSets are deleted"
+	}
+	conditions.AddFalse(
+		dpuDeployment,
+		dpuservicev1.ConditionDPUSetsReconciled,
+		conditions.ReasonAwaitingDeletion,
+		conditions.ConditionMessage(msg),
+	)
+
+	if dpuSetItems > 0 {
+		log.Info(fmt.Sprintf("There are still %d child objects that are not completely deleted, requeueing before removing the finalizer.", dpuSetItems),
 			"dpuservicechains", dpuServiceChainItems,
 			"dpuserviceinterfaces", dpuServiceInterfaceItems,
 			"dpuservices", dpuServiceItems,

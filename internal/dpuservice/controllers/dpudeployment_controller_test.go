@@ -213,6 +213,163 @@ var _ = Describe("DPUDeployment Controller", func() {
 				}
 			}).WithTimeout(5 * time.Second).Should(Succeed())
 		})
+		It("should not delete the DPUSets until the rest of the child objects are deleted", func() {
+			By("Creating the dependencies")
+			bfb := getMinimalBFB("somebfb", testNS.Name)
+			Expect(testClient.Create(ctx, bfb)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
+
+			dpuFlavor := getMinimalDPUFlavor(testNS.Name)
+			Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
+
+			dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+			dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+			DeferCleanup(cleanDPUDeploymentDerivatives, testNS.Name)
+
+			By("creating the dpudeployment")
+			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+			dpuDeployment.Spec.DPUs.DPUSets = []dpuservicev1.DPUSet{
+				{
+					NameSuffix: "dpuset1",
+					NodeSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"nodekey1": "nodevalue1",
+						},
+					},
+					DPUSelector: map[string]string{
+						"dpukey1": "dpuvalue1",
+					},
+					DPUAnnotations: map[string]string{
+						"annotationkey1": "annotationvalue1",
+					},
+				},
+			}
+			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+			objs := make(map[client.Object]interface{})
+			By("checking that objects are created")
+			Eventually(func(g Gomega) {
+				gotDPUSetList := &provisioningv1.DPUSetList{}
+				g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
+				g.Expect(gotDPUSetList.Items).To(HaveLen(1))
+
+				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+				g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
+				objs[&gotDPUServiceList.Items[0]] = struct{}{}
+
+				gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+				g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
+				objs[&gotDPUServiceChainList.Items[0]] = struct{}{}
+
+				gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+				g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
+				objs[&gotDPUServiceInterfaceList.Items[0]] = struct{}{}
+			}).WithTimeout(5 * time.Second).Should(Succeed())
+
+			By("Patching the objects with a fake finalizer to prevent deletion")
+			DeferCleanup(func() {
+				By("Cleaning up the finalizers so that objects can be deleted")
+				for obj := range objs {
+					Expect(client.IgnoreNotFound(testClient.Patch(ctx, obj, client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`))))).To(Succeed())
+				}
+			})
+			gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+			Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+
+			gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
+			Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+
+			gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+			Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+			for obj, gvk := range map[client.Object]schema.GroupVersionKind{
+				&gotDPUServiceList.Items[0]:          dpuservicev1.DPUServiceGroupVersionKind,
+				&gotDPUServiceChainList.Items[0]:     dpuservicev1.DPUServiceChainGroupVersionKind,
+				&gotDPUServiceInterfaceList.Items[0]: dpuservicev1.DPUServiceInterfaceGroupVersionKind,
+			} {
+				finalizers := obj.GetFinalizers()
+				finalizers = append(finalizers, "test.io/some-finalizer")
+				obj.SetFinalizers(finalizers)
+				obj.GetObjectKind().SetGroupVersionKind(gvk)
+				obj.SetManagedFields(nil)
+				Expect(testClient.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+			}
+
+			By("deleting the resource")
+			Expect(testClient.Delete(ctx, dpuDeployment)).To(Succeed())
+
+			By("checking that all child objects but the DPUSets have deletion timestamp")
+			Eventually(func(g Gomega) {
+				gotDPUSetList := &provisioningv1.DPUSetList{}
+				g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
+				g.Expect(gotDPUSetList.Items).To(HaveLen(1))
+				g.Expect(gotDPUSetList.Items[0].DeletionTimestamp).To(BeNil())
+
+				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+				g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
+				g.Expect(gotDPUServiceList.Items[0].DeletionTimestamp).ToNot(BeNil())
+
+				gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+				g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
+				g.Expect(gotDPUServiceChainList.Items[0].DeletionTimestamp).ToNot(BeNil())
+
+				gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+				g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
+				g.Expect(gotDPUServiceInterfaceList.Items[0].DeletionTimestamp).ToNot(BeNil())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			By("Removing the fake finalizer from the objects")
+			gotDPUServiceList = &dpuservicev1.DPUServiceList{}
+			Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+
+			gotDPUServiceChainList = &dpuservicev1.DPUServiceChainList{}
+			Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+
+			gotDPUServiceInterfaceList = &dpuservicev1.DPUServiceInterfaceList{}
+			Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+			for obj, gvk := range map[client.Object]schema.GroupVersionKind{
+				&gotDPUServiceList.Items[0]:          dpuservicev1.DPUServiceGroupVersionKind,
+				&gotDPUServiceChainList.Items[0]:     dpuservicev1.DPUServiceChainGroupVersionKind,
+				&gotDPUServiceInterfaceList.Items[0]: dpuservicev1.DPUServiceInterfaceGroupVersionKind,
+			} {
+				obj.SetFinalizers([]string{})
+				obj.GetObjectKind().SetGroupVersionKind(gvk)
+				obj.SetManagedFields(nil)
+				Expect(testClient.Patch(ctx, obj, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+			}
+
+			By("checking that the child resources are removed")
+			Eventually(func(g Gomega) {
+				gotDPUSetList := &provisioningv1.DPUSetList{}
+				g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
+				g.Expect(gotDPUSetList.Items).To(BeEmpty())
+
+				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+				g.Expect(gotDPUServiceList.Items).To(BeEmpty())
+
+				gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
+				g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
+
+				gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+				g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+				g.Expect(gotDPUServiceInterfaceList.Items).To(BeEmpty())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+		})
 	})
 	Context("When unit testing individual functions", func() {
 		var testNS *corev1.Namespace
@@ -2686,18 +2843,42 @@ var _ = Describe("DPUDeployment Controller", func() {
 			dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
 			Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+			objs := make(map[client.Object]interface{})
 
 			By("Creating the DPUDeployment")
 			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+			dpuDeployment.Spec.DPUs.DPUSets = []dpuservicev1.DPUSet{
+				{
+					NameSuffix: "dpuset1",
+					NodeSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"nodekey1": "nodevalue1",
+						},
+					},
+					DPUSelector: map[string]string{
+						"dpukey1": "dpuvalue1",
+					},
+					DPUAnnotations: map[string]string{
+						"annotationkey1": "annotationvalue1",
+					},
+				},
+			}
 			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
 
 			By("Checking that the underlying resources are created and adding fake finalizer")
+			DeferCleanup(func() {
+				By("Cleaning up the finalizers so that objects can be deleted")
+				for obj := range objs {
+					Expect(client.IgnoreNotFound(testClient.Patch(ctx, obj, client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`))))).To(Succeed())
+				}
+			})
 			Eventually(func(g Gomega) {
 				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 				g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 				g.Expect(gotDPUServiceList.Items).ToNot(BeEmpty())
 				for _, dpuService := range gotDPUServiceList.Items {
+					objs[&dpuService] = struct{}{}
 					dpuService.SetFinalizers([]string{"test.dpu.nvidia.com/test"})
 					dpuService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
 					dpuService.SetManagedFields(nil)
@@ -2708,6 +2889,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
 				g.Expect(gotDPUServiceChainList.Items).ToNot(BeEmpty())
 				for _, dpuServiceChain := range gotDPUServiceChainList.Items {
+					objs[&dpuServiceChain] = struct{}{}
 					dpuServiceChain.SetFinalizers([]string{"test.dpu.nvidia.com/test"})
 					dpuServiceChain.SetGroupVersionKind(dpuservicev1.DPUServiceChainGroupVersionKind)
 					dpuServiceChain.SetManagedFields(nil)
@@ -2717,10 +2899,21 @@ var _ = Describe("DPUDeployment Controller", func() {
 				g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
 				g.Expect(gotDPUServiceInterfaceList.Items).ToNot(BeEmpty())
 				for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+					objs[&dpuServiceInterface] = struct{}{}
 					dpuServiceInterface.SetFinalizers([]string{"test.dpu.nvidia.com/test"})
 					dpuServiceInterface.SetGroupVersionKind(dpuservicev1.DPUServiceInterfaceGroupVersionKind)
 					dpuServiceInterface.SetManagedFields(nil)
 					g.Expect(testClient.Patch(ctx, &dpuServiceInterface, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+				}
+				gotDPUSetList := &provisioningv1.DPUSetList{}
+				g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
+				g.Expect(gotDPUSetList.Items).ToNot(BeEmpty())
+				for _, dpuSet := range gotDPUSetList.Items {
+					objs[&dpuSet] = struct{}{}
+					dpuSet.SetFinalizers([]string{"test.dpu.nvidia.com/test"})
+					dpuSet.SetGroupVersionKind(provisioningv1.DPUSetGroupVersionKind)
+					dpuSet.SetManagedFields(nil)
+					g.Expect(testClient.Patch(ctx, &dpuSet, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 				}
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 
@@ -2760,35 +2953,82 @@ var _ = Describe("DPUDeployment Controller", func() {
 					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
 					HaveField("Message", ContainSubstring("1")),
 				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUSetsReconciled)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
+					HaveField("Message", ContainSubstring("1")),
+				),
 			))
 
-			By("Removing finalizer from the underlying object to ensure deletion")
+			By("Removing finalizer from all the underlying objects but the DPUSets to check the next status")
 			Eventually(func(g Gomega) {
 				gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 				g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 				for _, dpuService := range gotDPUServiceList.Items {
-					dpuService.SetFinalizers([]string{})
-					dpuService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
-					dpuService.SetManagedFields(nil)
-					g.Expect(testClient.Patch(ctx, &dpuService, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+					g.Expect(testClient.Patch(ctx, &dpuService, client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`)))).To(Succeed())
 				}
 
 				gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
 				g.Expect(testClient.List(ctx, gotDPUServiceChainList)).To(Succeed())
 				for _, dpuServiceChain := range gotDPUServiceChainList.Items {
-					dpuServiceChain.SetFinalizers([]string{})
-					dpuServiceChain.SetGroupVersionKind(dpuservicev1.DPUServiceChainGroupVersionKind)
-					dpuServiceChain.SetManagedFields(nil)
-					g.Expect(testClient.Patch(ctx, &dpuServiceChain, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+					g.Expect(testClient.Patch(ctx, &dpuServiceChain, client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`)))).To(Succeed())
 				}
 
 				gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
 				g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
 				for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
-					dpuServiceInterface.SetFinalizers([]string{})
-					dpuServiceInterface.SetGroupVersionKind(dpuservicev1.DPUServiceInterfaceGroupVersionKind)
-					dpuServiceInterface.SetManagedFields(nil)
-					g.Expect(testClient.Patch(ctx, &dpuServiceInterface, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+					g.Expect(testClient.Patch(ctx, &dpuServiceInterface, client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`)))).To(Succeed())
+				}
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			By("Checking the conditions")
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
+				oldObj := &dpuservicev1.DPUDeployment{}
+				newObj := &dpuservicev1.DPUDeployment{}
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ContainElements(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServicesReconciled)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
+					HaveField("Message", ContainSubstring("are deleted")),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServiceChainsReconciled)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
+					HaveField("Message", ContainSubstring("are deleted")),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServiceInterfacesReconciled)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
+					HaveField("Message", ContainSubstring("are deleted")),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUSetsReconciled)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonAwaitingDeletion)),
+					HaveField("Message", ContainSubstring("1")),
+				),
+			))
+
+			By("Removing finalizer from the DPUSets to ensure deletion")
+			Eventually(func(g Gomega) {
+				gotDPUSetList := &provisioningv1.DPUSetList{}
+				g.Expect(testClient.List(ctx, gotDPUSetList)).To(Succeed())
+				for _, dpuSet := range gotDPUSetList.Items {
+					g.Expect(testClient.Patch(ctx, &dpuSet, client.RawPatch(types.MergePatchType, []byte(`{"metadata":{"finalizers":[]}}`)))).To(Succeed())
 				}
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
