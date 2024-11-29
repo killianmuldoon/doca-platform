@@ -10,7 +10,6 @@ spec:
     deviceID: "a2dc"
     vendor: "15b3"
     pfNames:
-    # TODO: Will this work based on naming conventions?
     - $DPU_P0#2-45
   nodeSelector:
     node-role.kubernetes.io/worker: ""

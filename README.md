@@ -6,7 +6,7 @@ DPF manages DPUs installed in nodes that are part of a Kubernetes cluster.
 
 - [System overview](docs/system_overview.md) contains a high level description of the components and functionality of DPF.
 
-- [Use cases](docs/usecases/) show how to install DPF and what to use it for.
+- [Use cases](docs/usecases/readme.md) show how to install DPF and what to use it for.
 
 - [System architecture](docs/system.md) describes the workings of the DPF system components in detail.
 
