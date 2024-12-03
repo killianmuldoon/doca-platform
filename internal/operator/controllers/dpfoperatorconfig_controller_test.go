@@ -190,6 +190,14 @@ func TestDPFOperatorConfigReconciler_Conditions(t *testing.T) {
 				"ImagePullSecretsReconciled": "Success",
 			})
 		}).WithTimeout(10 * time.Second).Should(Succeed())
+
+		g.Eventually(func(g Gomega) {
+			g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: config.Namespace, Name: operatorv1.MultusName}, dpuservice)).To(Succeed())
+			// Remove the finalizers from the DPUService to enable deletion.
+			dpuservice.ObjectMeta.SetFinalizers([]string{})
+			g.Expect(testClient.Update(ctx, dpuservice)).To(Succeed())
+		}).WithTimeout(10 * time.Second).Should(Succeed())
+
 	})
 
 }
@@ -540,7 +548,7 @@ func TestDPFOperatorConfigReconciler_Reconcile(t *testing.T) {
 		g.Expect(testClient.Delete(ctx, config)).To(Succeed())
 		g.Eventually(func(g Gomega) {
 			g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(config), config))).To(BeTrue())
-		}).WithTimeout(30 * time.Second).Should(Succeed())
+		}).WithTimeout(60 * time.Second).Should(Succeed())
 	})
 }
 

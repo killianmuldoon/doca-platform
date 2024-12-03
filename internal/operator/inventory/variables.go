@@ -133,7 +133,11 @@ func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operator
 	variables.Images = images
 	variables.HelmCharts = helmCharts
 	variables.DPUDetectorCollectors = collectors
-	variables.Networking.ControlPlaneMTU = *config.Spec.Networking.ControlPlaneMTU
 
+	// This value should never be nil in a running system as it defaulted by the OpenAPI spec. This check guards against
+	// tests etc. that may create a DPFOperatorConfig without setting this value.
+	if config.Spec.Networking != nil && config.Spec.Networking.ControlPlaneMTU != nil {
+		variables.Networking.ControlPlaneMTU = *config.Spec.Networking.ControlPlaneMTU
+	}
 	return variables
 }
