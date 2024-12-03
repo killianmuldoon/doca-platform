@@ -88,7 +88,7 @@ export SERVICE_CIDR=10.233.0.0/18
 export DPF_VERSION=v24.10.0-rc.4
 
 ## URL to the BFB used in the `bfb.yaml` and linked by the DPUSet.
-export BLUEFIELD_BITSTREAM="http://nbu-nfs.mellanox.com/auto/sw_mc_soc_release/doca_dpu/doca_2.9.0/20241103.1/bfbs/pk/bf-bundle-2.9.0-80_24.10_ubuntu-22.04_prod.bfb"
+export BLUEFIELD_BITSTREAM=""
 
 ```
 

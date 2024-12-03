@@ -249,7 +249,7 @@ func (p *DPUCNIProvisioner) configurePodToPodOnDifferentNodeConnectivity() error
 	// In our setup, we will already have a route pointing to the same CIDR via the SF designated for kubelet traffic
 	// which gets a DHCP IP in that CIDR. Given that, we need to set the metric of this route to something very high
 	// so that it's the last preferred route in the route table for that CIDR. The reason for that is this OVS bug that
-	// selects the route with the highest prio as preferred https://redmine.mellanox.com/issues/3871067.
+	// selects the route with the highest prio - see issue 3871067.
 	if err := p.addRouteIfNotExists(p.hostCIDR, p.gateway, brOVN, ptr.To[int](10000)); err != nil {
 		return fmt.Errorf("error while adding route %s %s %s: %w", p.hostCIDR, p.gateway.String(), brOVN, err)
 	}
