@@ -231,9 +231,7 @@ func (c *Client) IsIfaceInBr(ctx context.Context, bridgeName, portName string) (
 	}
 
 	var bridges []ovsmodel.Bridge
-	bridge := &ovsmodel.Bridge{
-		Name: bridgeName,
-	}
+	bridge := &ovsmodel.Bridge{}
 	err = c.WhereAll(
 		bridge,
 		model.Condition{
@@ -246,7 +244,10 @@ func (c *Client) IsIfaceInBr(ctx context.Context, bridgeName, portName string) (
 	}
 
 	if len(bridges) == 1 {
-		return true, nil
+		if bridges[0].Name == bridgeName {
+			return true, nil
+		}
+		return false, nil
 	}
 
 	return false, nil

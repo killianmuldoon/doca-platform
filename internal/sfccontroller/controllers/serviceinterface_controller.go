@@ -85,7 +85,7 @@ func AddPort(ctx context.Context, ovs ovsutils.API, portName string, ifaceExtern
 	return nil
 }
 
-func AddPatchPort(ctx context.Context, ovs ovsutils.API, brA, brB, metadata string) error {
+func AddPatchPort(ctx context.Context, ovs ovsutils.API, brA, brB string, ifaceExternalIDs map[string]string) error {
 	if err := ovs.AddPort(ctx, brA, OvnPatch, "patch"); err != nil {
 		return err
 	}
@@ -95,6 +95,10 @@ func AddPatchPort(ctx context.Context, ovs ovsutils.API, brA, brB, metadata stri
 	}
 
 	if err := ovs.AddPort(ctx, brB, OvnPatchPeer, "patch"); err != nil {
+		return err
+	}
+
+	if err := ovs.SetIfaceExternalIDs(ctx, OvnPatchPeer, ifaceExternalIDs); err != nil {
 		return err
 	}
 
@@ -137,7 +141,7 @@ func AddInterfacesToOvs(ctx context.Context, ovs ovsutils.API, serviceInterface 
 
 	if serviceInterface.Spec.InterfaceType == dpuservicev1.InterfaceTypeOVN {
 		log.Info("matched on ovn")
-		err = AddPatchPort(ctx, ovs, OVNBridge, SFCBridge, metadata)
+		err = AddPatchPort(ctx, ovs, OVNBridge, SFCBridge, map[string]string{"dpf-id": metadata})
 		if err != nil {
 			log.Info(fmt.Sprintf("failed to add port: %s", err.Error()))
 			return err
