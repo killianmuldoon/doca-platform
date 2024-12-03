@@ -393,7 +393,10 @@ func isUnavailable(dpu *provisioningv1.DPU) bool {
 func (r *DPUSetReconciler) needUpdate(ctx context.Context, dpuSet provisioningv1.DPUSet, dpu provisioningv1.DPU) (bool, error) {
 	logger := log.FromContext(ctx)
 	// update dpu node label
-	newLabel := dpuSet.Spec.DPUTemplate.Spec.Cluster.NodeLabels
+	newLabel := map[string]string{}
+	if dpuSet.Spec.DPUTemplate.Spec.Cluster != nil {
+		newLabel = dpuSet.Spec.DPUTemplate.Spec.Cluster.NodeLabels
+	}
 	oldLabel := dpu.Spec.Cluster.NodeLabels
 
 	if cutil.NeedUpdateLabels(newLabel, oldLabel) {
