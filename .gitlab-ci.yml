@@ -216,6 +216,23 @@ release:
   after_script:
     - ./hack/scripts/slack-notification.sh
 
+github-source-release:
+  interruptible: false
+  stage: build
+  retry: 1
+  needs:
+    - release
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $GITHUB_FULL_RELEASE == "true"
+      when: always
+  variables:
+    PIPELINE_NAME: "Github full release"
+  script:
+    # Note this script requires a GITHUB token to be set in the environment.
+    - ./hack/scripts/release-clean-source-github.sh
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+
 dpf-standalone-test:
   interruptible: false
   stage: build
