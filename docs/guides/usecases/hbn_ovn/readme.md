@@ -3,7 +3,7 @@
 In this configuration OVN Kubernetes is offloaded to the DPU and combined with [NVIDIA Host Based Networking (HBN)](https://docs.nvidia.com/doca/sdk/nvidia+doca+hbn+service+guide/index.html).
 
 ## Prerequisites
-The system is set up as described in the [system prerequisites](../../prerequisites.md).  The OVN Kubernetes with HBN use case has the additional requirements:
+The system is set up as described in the [system prerequisites](../prerequisites.md).  The OVN Kubernetes with HBN use case has the additional requirements:
 
 ### Software prerequisites
 This guide uses the following tools which must be installed where it is running.
@@ -14,7 +14,7 @@ This guide uses the following tools which must be installed where it is running.
 ### Network prerequisites
 TODO: Clarify networking requirements.
 For each worker node: DHCP allocation must be used for workers
-- https://gitlab-master.nvidia.com/doca-platform-foundation/doca-platform-foundation/-/blob/main/docs/provisioning/host-network-configuration-prerequisite.md#integrating-to-cloud-init
+- [Host networking must be set up as expected](../host-network-configuration-prerequisite.md)
 
 ### Kubernetes prerequisites
 - CNI not installed
@@ -1026,8 +1026,7 @@ kubectl wait --for=condition=ServiceChainSetReconciled --namespace dpf-operator-
 
 ### 6 Test traffic
 #### Add worker nodes to the cluster
-
-At this point workers should be added to the cluster. Each worker node should be configured in line with [the prerequisites](../../prerequisites.md) and the specific [OVN Kubernetes prerequisites](#worker-nodes).
+At this point workers should be added to the cluster. Each worker node should be configured in line with [the prerequisites](../prerequisites.md) and the specific [OVN Kubernetes prerequisites](#worker-nodes).
 
 As workers are added to the cluster DPUs will be provisioned and DPUServices will begin to be spun up.
 

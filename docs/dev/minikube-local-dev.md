@@ -15,14 +15,14 @@ cd <path_to_local_repo/doca-platform-foundation
 ```
 2. export minikube env vars (Linux):
 ```
+export REGISTRY=<insert_your_registry>
 export MINIKUBE_CNI=flannel
 export MINIKUBE_DRIVER=docker
 export MINIKUBE_DOCKER_MIRROR="https://registry-1.docker.io"
 export DEPLOY_KSM=true
 export DEPLOY_GRAFANA=true
 export DEPLOY_PROMETHEUS=true
-export REGISTRY=gitlab-master.nvidia.com:5005/doca-platform-foundation/doca-platform-foundation/e2e
-export IMAGE_PULL_KEY=<GITLAB_API_TOKEN>
+export IMAGE_PULL_KEY=<IMAGE_PULL_TOKEN>
 export TAG=v0.1.0-$(git rev-parse --short HEAD)-$USER-test
 ```
 _Note:_ For MAC users add:

@@ -4,11 +4,11 @@ DOCA Platform Framework (DPF) is a system that orchestrates NVIDIA Data Processi
 
 DPF manages DPUs installed in nodes that are part of a Kubernetes cluster.
 
-- [System overview](docs/system_overview.md) contains a high level description of the components and functionality of DPF.
+- [System overview](docs/architecture/system_overview.md) contains a high level description of the components and functionality of DPF.
 
-- [Use cases](docs/usecases/readme.md) show how to install DPF and what to use it for.
+- [Use cases](docs/guides/usecases/readme.md) show how to install DPF and what to use it for.
 
-- [System architecture](docs/system.md) describes the workings of the DPF system components in detail.
+- [System architecture](docs/architecture/system.md) describes the workings of the DPF system components in detail.
 
 ## Hardware
 DPF enables NVIDIA [Bluefield DPUs](https://www.nvidia.com/en-gb/networking/products/data-processing-unit/). These devices are installed in servers as PCI devices and handle network traffic through network ports. Bluefield DPUs have arm64 CPUs and run a standard Linux OS.
