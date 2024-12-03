@@ -49,14 +49,14 @@ kubectl create secret generic admin-config --from-file=kubeconfig=<path_to_kubec
 Export your NGC API key
 
 ```shell
-$ export NGC_API_KEY=XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+export NGC_API_KEY=XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ```
 
 2. Registry log in and imagePullSecrets
 
 ```shell
-$ echo "$NGC_API_KEY" | docker login nvcr.io --username \$oauthtoken --password-stdin
-$ kubectl create secret docker-registry dpf-tools-pull-secret --docker-server=nvcr.io --docker-username="\$oauthtoken" --docker-password=$NGC_API_KEY
+echo "$NGC_API_KEY" | docker login nvcr.io --username \$oauthtoken --password-stdin
+kubectl create secret docker-registry dpf-tools-pull-secret --docker-server=nvcr.io --docker-username="\$oauthtoken" --docker-password=$NGC_API_KEY
 ```
 
 #### Deploy sos-report
@@ -65,7 +65,7 @@ $ kubectl create secret docker-registry dpf-tools-pull-secret --docker-server=nv
 The following command will display the list of nodes:
 
 ```shell
-$ kubectl get nodes
+kubectl get nodes
 ```
 
 2. Then create a debug pod by deploying the following manifest:
@@ -109,6 +109,10 @@ spec:
         name: localtime
       - mountPath: /etc/machine-id
         name: machineid
+      - mountPath: /boot
+        name: boot
+      - mountPath: /usr/lib/modules/
+        name: modules
   volumes:
     - hostPath:
         path: /
@@ -116,6 +120,12 @@ spec:
     - hostPath:
         path: /run
       name: run
+    - hostPath:
+        path: /boot
+      name: boot
+    - hostPath:
+        path: /usr/lib/modules/
+      name: modules
     - hostPath:
         path: /var/log
       name: varlog
@@ -149,7 +159,7 @@ When the report has to be generated for a tenant cluster, we have to retrieve th
 1. Get the `kubeconfig` name from the dpucluster `spec`.
 
 ```shell
-$ export KUBECONFIG_NAME=$(kubectl get dpucluster -n ${NAMESPACE} ${CLUSTER_NAME} -o jsonpath='{.spec.kubeconfig}')
+export KUBECONFIG_NAME=$(kubectl get dpucluster -n ${NAMESPACE} ${CLUSTER_NAME} -o jsonpath='{.spec.kubeconfig}')
 ```  
 
 2. Create the `kubeconfig` from the secret data
@@ -175,14 +185,15 @@ kubectl create secret generic admin-config --from-file=kubeconfig=/tmp/${NAMESPA
 Export your NGC API key
 
 ```shell
-$ export NGC_API_KEY=XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+export NGC_API_KEY=XXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ```
 
 2. Registry log in and imagePullSecrets
 
 ```shell
-$ echo "$NGC_API_KEY" | docker login nvcr.io --username \$oauthtoken --password-stdin
-$ kubectl create secret docker-registry dpf-tools-pull-secret --docker-server=nvcr.io --docker-username="\$oauthtoken" --docker-password=$NGC_API_KEY
+echo "$NGC_API_KEY" | docker login nvcr.io --username \$oauthtoken --password-stdin
+kubectl create secret docker-registry dpf-tools-pull-secret --docker-server=nvcr.io --docker-username="\$oauthtoken" --docker-password=$NGC_API_KEY \
+  --kubeconfig=/tmp/${NAMESPACE}-${CLUSTER_NAME}.kubeconfig
 ```
 
 #### Deploy sos-report
@@ -191,7 +202,7 @@ $ kubectl create secret docker-registry dpf-tools-pull-secret --docker-server=nv
 The following command will display the list of nodes:
 
 ```shell
-$ kubectl get nodes
+kubectl get nodes
 ```
 
 2. Then create a debug pod by deploying the following manifest:
@@ -235,6 +246,10 @@ spec:
         name: localtime
       - mountPath: /etc/machine-id
         name: machineid
+      - mountPath: /boot
+        name: boot
+      - mountPath: /usr/lib/modules/
+        name: modules
   volumes:
     - hostPath:
         path: /
@@ -242,6 +257,12 @@ spec:
     - hostPath:
         path: /run
       name: run
+    - hostPath:
+        path: /boot
+      name: boot
+    - hostPath:
+        path: /usr/lib/modules/
+      name: modules
     - hostPath:
         path: /var/log
       name: varlog
@@ -270,5 +291,5 @@ The final repost archive is available under `/tmp` in the node filesystem.
 In order to untar it, run :
 
 ```shell
-$ tar -x --xz -f sosreport-<node_name>-<case_id>-<date>-xxx.tar.xz
-```
+tar -x --xz -f sosreport-<node_name>-<case_id>-<date>-xxx.tar.xz
+``` 
