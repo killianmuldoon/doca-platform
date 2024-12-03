@@ -13,8 +13,8 @@ spec:
         args:
         - "--leader-elect"
         - "--v=3"
-        - --dms-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/hostdriver:latest
-        - --hostnetwork-image=gitlab-master.nvidia.com:5005/doca-platform-foundation/dpf-provisioning-controller/hostdriver:v0.1
+        - --dms-image=example.com/doca-platform-foundation/dpf-provisioning-controller/hostdriver:v0.1.0
+        - --hostnetwork-image=example.com/doca-platform-foundation/dpf-provisioning-controller/hostdriver:v0.1.0
         - --bfb-pvc=bfb-pvc
         volumeMounts:
           - mountPath: /bfb
