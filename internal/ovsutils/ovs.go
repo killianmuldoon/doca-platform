@@ -59,7 +59,7 @@ func (c *Client) AddPort(ctx context.Context, bridgeName, portName, ifaceType st
 	if err != nil && !errors.Is(err, ovsclient.ErrNotFound) {
 		return err
 	}
-	// port already exist
+	// port already exists
 	if err == nil {
 		return nil
 	}
@@ -124,6 +124,12 @@ func (c *Client) DelPort(ctx context.Context, bridgeName, portName string) error
 		Name: portName,
 	}
 	err := c.Get(ctx, port)
+
+	// Make delete operations non fatal if the port does not exist
+	// ovs-vsctl --if-exist
+	if errors.Is(err, ovsclient.ErrNotFound) {
+		return nil
+	}
 	if err != nil {
 		return fmt.Errorf("faield to get port %s: %v", portName, err)
 	}
