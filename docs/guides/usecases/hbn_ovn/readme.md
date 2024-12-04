@@ -144,10 +144,11 @@ dpuServiceAccountNamespace: dpf-operator-system
 
 Verify the CNI installation with:
 ```shell
-## Ensure all pods in the ovn-kubernetes namespace are ready.
-kubectl wait --for=condition=ready --namespace ovn-kubernetes pods --all
 ## Ensure all nodes in the cluster are ready.
 kubectl wait --for=condition=ready nodes --all
+## Ensure all pods in the ovn-kubernetes namespace are ready.
+kubectl wait --for=condition=ready --namespace ovn-kubernetes pods --all --timeout=300s
+
 ```
 
 ### 2. DPF Operator installation
@@ -492,7 +493,7 @@ spec:
 
 <details><summary>SriovNetworkNodePolicy for the SR-IOV Network Operator</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/sriov_network_operator_policy.yaml)
+[embedmd]:#(manifests/04-enable-accelerated-cni/sriov_network_operator_policy.yaml)
 ```yaml
 ---
 apiVersion: sriovnetwork.openshift.io/v1
@@ -1027,7 +1028,7 @@ kubectl wait --for=condition=ServiceInterfaceSetReconciled --namespace dpf-opera
 kubectl wait --for=condition=ServiceChainSetReconciled --namespace dpf-operator-system dpuservicechain --all
 ```
 
-### 6 Test traffic
+### 6. Test traffic
 #### Add worker nodes to the cluster
 At this point workers should be added to the cluster. Each worker node should be configured in line with [the prerequisites](../prerequisites.md) and the specific [OVN Kubernetes prerequisites](#worker-nodes).
 
@@ -1042,3 +1043,38 @@ kubectl apply -f manifests/06-test-traffic
 HBN and OVN functionality can be tested by pinging between the pods and services deployed in the default namespace.
 
 TODO: Add specific user commands to test traffic.
+
+### 7. Deletion and clean up
+
+
+For DPF deletion follows a specific order defined below. The OVN Kubernetes primary CNI can not be safely deleted from the cluster.
+
+#### Delete the DPUService and DPUServiceChain objects 
+```shell
+kubectl delete -f manifests/06-test-traffic --wait
+```
+
+#### Delete DPF CNI acceleration components
+```shell
+kubectl delete -f manifests/04-enable-accelerated-cni --wait
+helm uninstall -n nvidia-network-operator network-operator --wait
+
+## Run `helm install` with the original values to delete the OVN Kubernetes webhook.
+## Note: Uninstalling OVN Kubernetes as primary CNI is not supported but this command must be run to remove the webhook and restore a functioning cluster.
+envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://nvcr.io/nvstaging/doca/ovn-kubernetes-chart --version $DPF_VERSION --values -
+```
+
+#### Delete the DPF Operator system and DPF Operator
+```shell
+kubectl delete -n dpf-operator-system dpfoperatorconfig dpfoperatorconfig --wait
+helm uninstall -n dpf-operator-system dpf-operator --wait
+```
+
+#### Delete DPF Operator dependencies
+```shell
+helm uninstall -n local-path-provisioner local-path-provisioner --wait 
+kubectl delete ns local-path-provisioner --wait 
+helm uninstall -n cert-manager cert-manager --wait 
+kubectl -n dpf-operator-system delete secret docker-registry dpf-pull-secret --wait 
+kubectl delete namespace dpf-operator-system dpu-cplane-tenant1 cert-manager nvidia-network-operator --wait
+```
