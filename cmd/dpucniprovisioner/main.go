@@ -73,6 +73,7 @@ func main() {
 	var gateway net.IP
 	var pfIPNet *net.IPNet
 	var vtepCIDR *net.IPNet
+	var gatewayDiscoveryNetwork *net.IPNet
 	if mode == dpucniprovisioner.InternalIPAM {
 		vtepIPNet, gateway, err = getInfoFromVTEPIPAllocation()
 		if err != nil {
@@ -87,6 +88,11 @@ func main() {
 		vtepCIDR, err = getVTEPCIDR()
 		if err != nil {
 			klog.Fatalf("error while parsing VTEP CIDR: %s", err.Error())
+		}
+	} else {
+		gatewayDiscoveryNetwork, err = getGatewayDiscoveryNetwork()
+		if err != nil {
+			klog.Fatalf("error while parsing the Gateway Discovery Network: %s", err.Error())
 		}
 	}
 
@@ -114,7 +120,7 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	provisioner := dpucniprovisioner.New(ctx, mode, c, ovsClient, networkhelper.New(), exec, clientset, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, node)
+	provisioner := dpucniprovisioner.New(ctx, mode, c, ovsClient, networkhelper.New(), exec, clientset, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, node, gatewayDiscoveryNetwork)
 
 	err = provisioner.RunOnce()
 	if err != nil {
@@ -230,6 +236,21 @@ func getHostCIDR() (*net.IPNet, error) {
 	}
 
 	return hostCIDR, nil
+}
+
+// getGatewayDiscoveryNetwork returns the Network to be used by the provisioner to discover the gateway
+func getGatewayDiscoveryNetwork() (*net.IPNet, error) {
+	gatewayDiscoveryNetworkRaw := os.Getenv("GATEWAY_DISCOVERY_NETWORK")
+	if gatewayDiscoveryNetworkRaw == "" {
+		return nil, errors.New("required GATEWAY_DISCOVERY_NETWORK environment variable is not set")
+	}
+
+	_, gatewayDiscoveryNetwork, err := net.ParseCIDR(gatewayDiscoveryNetworkRaw)
+	if err != nil {
+		klog.Fatalf("error while parsing Gateway Discovery Network %s as net.IPNet: %s", gatewayDiscoveryNetwork, err.Error())
+	}
+
+	return gatewayDiscoveryNetwork, nil
 }
 
 // parseMode parses the mode in which the binary should be started

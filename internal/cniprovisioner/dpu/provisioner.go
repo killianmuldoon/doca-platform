@@ -98,6 +98,9 @@ type DPUCNIProvisioner struct {
 	pfIP *net.IPNet
 	// dpuHostName is the name of the DPU.
 	dpuHostName string
+	// gatewayDiscoveryNetwork is the network from which the DPUCNIProvisioner discovers the gateway that it should be
+	// on relevant underlying systems.
+	gatewayDiscoveryNetwork *net.IPNet
 
 	// dhcpCmd is the struct that holds information about the DHCP Server process
 	dhcpCmd kexec.Cmd
@@ -119,6 +122,7 @@ func New(ctx context.Context,
 	hostCIDR *net.IPNet,
 	pfIP *net.IPNet,
 	dpuHostName string,
+	gatewayDiscoveryNetwork *net.IPNet,
 ) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
 		ctx:                       ctx,
@@ -135,6 +139,7 @@ func New(ctx context.Context,
 		pfIP:                      pfIP,
 		dpuHostName:               dpuHostName,
 		mode:                      mode,
+		gatewayDiscoveryNetwork:   gatewayDiscoveryNetwork,
 	}
 }
 
@@ -183,7 +188,7 @@ func (p *DPUCNIProvisioner) configure() error {
 	if p.mode == ExternalIPAM {
 		klog.Info("Configuring br-ovn")
 		if err := p.configureBROVN(); err != nil {
-			return fmt.Errorf("error while setting the Kubernetes Host Name in OVS: %w", err)
+			return fmt.Errorf("error while configuring br-ovn: %w", err)
 		}
 	}
 
@@ -323,14 +328,9 @@ func (p *DPUCNIProvisioner) configureBROVN() error {
 
 	p.vtepIPNet = addrs[0]
 
-	_, fakeNetwork, err := net.ParseCIDR("169.254.99.100/32")
+	gateway, err := p.networkHelper.GetGateway(p.gatewayDiscoveryNetwork)
 	if err != nil {
-		return fmt.Errorf("error while parsing fake network: %w", err)
-	}
-
-	gateway, err := p.networkHelper.GetGateway(fakeNetwork)
-	if err != nil {
-		return fmt.Errorf("error while getting IP addresses for link %s: %w", brOVN, err)
+		return fmt.Errorf("error while parsing gateway from gateway discovery network %s: %w", p.gatewayDiscoveryNetwork.String(), err)
 	}
 
 	p.gateway = gateway

@@ -67,7 +67,7 @@ var _ = Describe("DPU CNI Provisioner in Internal mode", func() {
 				},
 			}
 			kubernetesClient := testclient.NewClientset()
-			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.InternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name)
+			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.InternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name, nil)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -157,7 +157,7 @@ var _ = Describe("DPU CNI Provisioner in Internal mode", func() {
 				},
 			}
 			kubernetesClient := testclient.NewClientset()
-			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.InternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name)
+			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.InternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name, nil)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -248,7 +248,7 @@ var _ = Describe("DPU CNI Provisioner in Internal mode", func() {
 				},
 			}
 			kubernetesClient := testclient.NewClientset(fakeNode)
-			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.InternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name)
+			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.InternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name, nil)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -297,7 +297,7 @@ var _ = Describe("DPU CNI Provisioner in Internal mode", func() {
 				},
 			}
 			kubernetesClient := testclient.NewClientset(fakeNode)
-			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.InternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name)
+			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.InternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name, nil)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -366,7 +366,7 @@ var _ = Describe("DPU CNI Provisioner in Internal mode", func() {
 				},
 			}
 			kubernetesClient := testclient.NewClientset(fakeNode)
-			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.InternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name)
+			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.InternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, fakeNode.Name, nil)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -406,6 +406,8 @@ var _ = Describe("DPU CNI Provisioner in External mode", func() {
 			fakeExec := &kexecTesting.FakeExec{}
 			_, hostCIDR, err := net.ParseCIDR("10.0.100.1/24")
 			Expect(err).ToNot(HaveOccurred())
+			_, gatewayDiscoveryNetwork, err := net.ParseCIDR("169.254.99.100/32")
+			Expect(err).ToNot(HaveOccurred())
 			fakeNode := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dpu1",
@@ -415,7 +417,7 @@ var _ = Describe("DPU CNI Provisioner in External mode", func() {
 				},
 			}
 			kubernetesClient := testclient.NewClientset(fakeNode)
-			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.ExternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, nil, nil, nil, hostCIDR, nil, fakeNode.Name)
+			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.ExternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, nil, nil, nil, hostCIDR, nil, fakeNode.Name, gatewayDiscoveryNetwork)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
@@ -485,6 +487,8 @@ network:
 			fakeExec := &kexecTesting.FakeExec{}
 			_, hostCIDR, err := net.ParseCIDR("10.0.100.1/24")
 			Expect(err).ToNot(HaveOccurred())
+			_, gatewayDiscoveryNetwork, err := net.ParseCIDR("169.254.99.100/32")
+			Expect(err).ToNot(HaveOccurred())
 			fakeNode := &corev1.Node{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "dpu1",
@@ -494,7 +498,7 @@ network:
 				},
 			}
 			kubernetesClient := testclient.NewClientset(fakeNode)
-			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.ExternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, nil, nil, nil, hostCIDR, nil, fakeNode.Name)
+			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.ExternalIPAM, clock.NewFakeClock(time.Now()), ovsClient, networkhelper, fakeExec, kubernetesClient, nil, nil, nil, hostCIDR, nil, fakeNode.Name, gatewayDiscoveryNetwork)
 
 			// Prepare Filesystem
 			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
