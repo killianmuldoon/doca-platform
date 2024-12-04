@@ -104,6 +104,12 @@ spec:
                 maxItems: 50
                 minItems: 1
                 type: array
+              paused:
+                description: |-
+                  Paused indicates that the DPUService is paused.
+                  Underlying resources are also paused when this is set to true.
+                  No deletion of resources will occur when this is set to true.
+                type: boolean
               serviceDaemonSet:
                 description: ServiceDaemonSet specifies the configuration for the
                   ServiceDaemonSet.

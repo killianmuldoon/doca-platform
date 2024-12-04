@@ -1889,6 +1889,7 @@ _Appears in:_
 | `serviceDaemonSet` _[ServiceDaemonSetValues](#servicedaemonsetvalues)_ | ServiceDaemonSet specifies the configuration for the ServiceDaemonSet. |  |  |
 | `deployInCluster` _boolean_ | DeployInCluster indicates if the DPUService Helm Chart will be deployed on<br />the Host cluster. Default to false. |  |  |
 | `interfaces` _string array_ | Interfaces specifies the DPUServiceInterface names that the DPUService<br />uses in the same namespace. |  | MaxItems: 50 <br />MinItems: 1 <br /> |
+| `paused` _boolean_ | Paused indicates that the DPUService is paused.<br />Underlying resources are also paused when this is set to true.<br />No deletion of resources will occur when this is set to true. |  |  |
 
 
 #### DPUServiceStatus

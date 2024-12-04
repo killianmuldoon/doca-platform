@@ -85,13 +85,13 @@ var (
 var _ conditions.GetSet = &DPUService{}
 
 // GetConditions returns the conditions of the DPUService.
-func (c *DPUService) GetConditions() []metav1.Condition {
-	return c.Status.Conditions
+func (s *DPUService) GetConditions() []metav1.Condition {
+	return s.Status.Conditions
 }
 
 // SetConditions sets the conditions of the DPUService.
-func (c *DPUService) SetConditions(conditions []metav1.Condition) {
-	c.Status.Conditions = conditions
+func (s *DPUService) SetConditions(conditions []metav1.Condition) {
+	s.Status.Conditions = conditions
 }
 
 // +kubebuilder:object:root=true
@@ -136,6 +136,17 @@ type DPUServiceSpec struct {
 	// +kubebuilder:validation:MaxItems=50
 	// +optional
 	Interfaces []string `json:"interfaces,omitempty"`
+
+	// Paused indicates that the DPUService is paused.
+	// Underlying resources are also paused when this is set to true.
+	// No deletion of resources will occur when this is set to true.
+	// +optional
+	Paused *bool `json:"paused,omitempty"`
+}
+
+// IsPaused returns true if the DPUService is paused.
+func (s *DPUService) IsPaused() bool {
+	return s.Spec.Paused != nil && *s.Spec.Paused
 }
 
 // HelmChart reflects the helm related configuration

@@ -79,11 +79,12 @@ const (
 	dpuServiceControllerName = "dpuservice-manager"
 
 	// TODO: These constants don't belong here and should be moved as they're shared with other packages.
-	argoCDSecretLabelKey   = "argocd.argoproj.io/secret-type"
-	argoCDSecretLabelValue = "cluster"
-	dpuAppProjectName      = "doca-platform-project-dpu"
-	hostAppProjectName     = "doca-platform-project-host"
-	networkAnnotationKey   = "k8s.v1.cni.cncf.io/networks"
+	argoCDSecretLabelKey          = "argocd.argoproj.io/secret-type"
+	argoCDSecretLabelValue        = "cluster"
+	dpuAppProjectName             = "doca-platform-project-dpu"
+	hostAppProjectName            = "doca-platform-project-host"
+	networkAnnotationKey          = "k8s.v1.cni.cncf.io/networks"
+	annotationKeyAppSkipReconcile = "argocd.argoproj.io/skip-reconcile"
 )
 
 // applyPatchOptions contains options which are passed to every `client.Apply` patch.
@@ -158,7 +159,7 @@ func (r *DPUServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	}()
 
 	// Handle deletion reconciliation loop.
-	if !dpuService.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !dpuService.ObjectMeta.DeletionTimestamp.IsZero() && !dpuService.IsPaused() {
 		return r.reconcileDelete(ctx, dpuService)
 	}
 
@@ -349,6 +350,8 @@ func (r *DPUServiceReconciler) reconcileDeleteImagePullSecrets(ctx context.Conte
 }
 
 func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuservicev1.DPUService) error {
+	log := ctrllog.FromContext(ctx)
+
 	// Get the list of clusters this DPUService targets.
 	// TODO: Add some way to check if the clusters are healthy. Reconciler should retry clusters if they're unready.
 	dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, r.Client)
@@ -364,6 +367,15 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 		return fmt.Errorf("exactly one DPFOperatorConfig necessary")
 	}
 	dpfOperatorConfig := &dpfOperatorConfigList.Items[0]
+
+	// Return early if the dpuService is paused.
+	if dpuService.IsPaused() {
+		if err := r.pauseApplication(ctx, dpuClusterConfigs, dpuService, dpfOperatorConfig.GetNamespace()); err != nil {
+			return err
+		}
+		log.Info("reconciliation is paused for the DPUService")
+		return nil
+	}
 
 	serviceDaemonSet, err := r.reconcileInterfaces(ctx, dpuService)
 	if err != nil {
@@ -742,18 +754,59 @@ func (r *DPUServiceReconciler) ensureApplication(ctx context.Context, dpuService
 			return err
 		}
 	} else {
+		// Check if we are resuming from a paused state.
+		paused := gotArgoApplication.Annotations != nil && gotArgoApplication.Annotations[annotationKeyAppSkipReconcile] == "true"
+
 		// Return early if the spec has not changed.
-		if reflect.DeepEqual(gotArgoApplication.Spec, argoApplication.Spec) {
+		if reflect.DeepEqual(gotArgoApplication.Spec, argoApplication.Spec) && !paused {
 			return nil
 		}
 
 		// Copy spec to the original object and update it.
 		gotArgoApplication.Spec = argoApplication.Spec
 
+		// Remove any skip reconcile annotations.
+		delete(gotArgoApplication.Annotations, annotationKeyAppSkipReconcile)
+
 		log.Info("Updating Application", "Application", klog.KObj(gotArgoApplication))
 		if err := r.Client.Update(ctx, gotArgoApplication); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+func (r *DPUServiceReconciler) pauseApplication(ctx context.Context, dpuClusterConfigs []*dpucluster.Config, dpuService *dpuservicev1.DPUService, dpfOperatorConfigNamespace string) error {
+	project := getProjectName(dpuService)
+	if project == dpuAppProjectName {
+		for _, dpuClusterConfig := range dpuClusterConfigs {
+			if err := r.skipApplicationReconcile(ctx, dpfOperatorConfigNamespace, dpuClusterConfig.Cluster.Name, dpuService.Name); err != nil {
+				return err
+			}
+		}
+	} else {
+		if err := r.skipApplicationReconcile(ctx, dpfOperatorConfigNamespace, "in-cluster", dpuService.Name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *DPUServiceReconciler) skipApplicationReconcile(ctx context.Context, dpfOperatorConfigNamespace string, clustername, name string) error {
+	namespacedName := types.NamespacedName{Namespace: dpfOperatorConfigNamespace, Name: fmt.Sprintf("%v-%v", clustername, name)}
+	gotArgoApplication := &argov1.Application{}
+	if err := r.Client.Get(ctx, namespacedName, gotArgoApplication); err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	if gotArgoApplication.Annotations == nil {
+		gotArgoApplication.Annotations = map[string]string{}
+	}
+	gotArgoApplication.Annotations[annotationKeyAppSkipReconcile] = "true"
+	if err := r.Client.Update(ctx, gotArgoApplication); err != nil {
+		return err
 	}
 	return nil
 }

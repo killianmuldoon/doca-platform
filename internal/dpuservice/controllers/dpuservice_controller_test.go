@@ -29,6 +29,7 @@ import (
 	operatorcontroller "github.com/nvidia/doca-platform/internal/operator/controllers"
 	testutils "github.com/nvidia/doca-platform/test/utils"
 
+	"github.com/fluxcd/pkg/runtime/patch"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	appsv1 "k8s.io/api/apps/v1"
@@ -168,6 +169,38 @@ var _ = Describe("DPUService Controller", func() {
 
 			Eventually(func(g Gomega) {
 				assertDPUServiceCondition(g, testClient, dpuServices)
+			}).WithTimeout(30 * time.Second).Should(BeNil())
+
+			By("pause the DPUServices and ensure the application associated with it are paused")
+			for _, dpuService := range dpuServices {
+				patcher := patch.NewSerialPatcher(dpuService, testClient)
+				dpuService.Spec.Paused = ptr.To(true)
+				Expect(patcher.Patch(ctx, dpuService, patch.WithFieldOwner(dpuServiceControllerName))).To(Succeed())
+			}
+
+			patcher := patch.NewSerialPatcher(hostDPUService, testClient)
+			hostDPUService.Spec.Paused = ptr.To(true)
+			Expect(patcher.Patch(ctx, hostDPUService, patch.WithFieldOwner(dpuServiceControllerName))).To(Succeed())
+
+			// Ensure the applications are paused.
+			Eventually(func(g Gomega) {
+				assertApplicationPaused(g, testClient, dpuServices, clusters)
+			}).WithTimeout(30 * time.Second).Should(BeNil())
+
+			By("resume the DPUServices and ensure the application associated with it are resumed")
+			for _, dpuService := range dpuServices {
+				patcher := patch.NewSerialPatcher(dpuService, testClient)
+				dpuService.Spec.Paused = ptr.To(false)
+				Expect(patcher.Patch(ctx, dpuService, patch.WithFieldOwner(dpuServiceControllerName))).To(Succeed())
+			}
+
+			patcher = patch.NewSerialPatcher(hostDPUService, testClient)
+			hostDPUService.Spec.Paused = ptr.To(false)
+			Expect(patcher.Patch(ctx, hostDPUService, patch.WithFieldOwner(dpuServiceControllerName))).To(Succeed())
+
+			// Ensure the applications are resumed.
+			Eventually(func(g Gomega) {
+				assertApplication(g, testClient, dpuServices, []*dpuservicev1.DPUServiceInterface{dpuServiceInterface}, clusters)
 			}).WithTimeout(30 * time.Second).Should(BeNil())
 
 			By("delete the DPUService and ensure the application associated with it are deleted")
@@ -421,6 +454,19 @@ func assertDPUServiceAnnotationsClean(g Gomega, testClient client.Client, dpuSer
 	}
 }
 
+func assertApplicationPaused(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, clusters []provisioningv1.DPUCluster) {
+	applications := &argov1.ApplicationList{}
+	g.Expect(testClient.List(ctx, applications)).To(Succeed())
+
+	// Check that self-heal is disabled for all applications.
+	g.Expect(applications.Items).To(HaveLen(len(clusters)*len(dpuServices) + 1))
+	for _, app := range applications.Items {
+		skipVal, ok := app.Annotations[annotationKeyAppSkipReconcile]
+		g.Expect(ok).To(BeTrue())
+		g.Expect(skipVal).To(Equal("true"))
+	}
+}
+
 func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuservicev1.DPUService, dpuServiceInterfaces []*dpuservicev1.DPUServiceInterface, clusters []provisioningv1.DPUCluster) {
 	// Check that argoApplications are created for each of the clusters.
 	applications := &argov1.ApplicationList{}
@@ -443,6 +489,10 @@ func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuser
 			g.Expect(app.Spec.Source.RepoURL).To(Equal(service.Spec.HelmChart.Source.GetArgoRepoURL()))
 			g.Expect(app.Spec.Source.TargetRevision).To(Equal(service.Spec.HelmChart.Source.Version))
 			g.Expect(app.Spec.Source.Helm.ReleaseName).To(Equal(service.Spec.HelmChart.Source.ReleaseName))
+
+			// check application reconciliation isn't skipped
+			_, ok := app.Annotations[annotationKeyAppSkipReconcile]
+			g.Expect(ok).To(BeFalse())
 
 			// If the DPUService doesn't define a ServiceDaemonSet the below assertions are not applicable.
 			if service.Spec.ServiceDaemonSet == nil {
