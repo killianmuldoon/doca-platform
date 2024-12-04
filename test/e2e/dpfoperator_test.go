@@ -743,6 +743,17 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 		Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: hostDPUServiceName}, svc)).To(Succeed())
 		Expect(testClient.Delete(ctx, svc)).To(Succeed())
 
+		// Verify that the DPUServices are deleted
+		By("verify DPUServices is deleted in the DPU cluster")
+		Eventually(func(g Gomega) {
+			g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: hostDPUServiceName}, svc)).NotTo(Succeed())
+		}).WithTimeout(600 * time.Second).Should(Succeed())
+
+		By("verify DPUService is deleted in the host cluster")
+		Eventually(func(g Gomega) {
+			g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: dpuServiceName}, svc)).NotTo(Succeed())
+		}).WithTimeout(600 * time.Second).Should(Succeed())
+
 		dsi := &dpuservicev1.DPUServiceInterface{}
 		Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: "net1-service"}, dsi)).To(Succeed())
 		Expect(utils.CleanupAndWait(ctx, testClient, dsi)).To(Succeed())
