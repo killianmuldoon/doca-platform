@@ -390,6 +390,12 @@ func ProvisionDPUClusters(ctx context.Context, input ProvisionDPUClustersInput) 
 		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpusetUnstructured.Object, baseDPUSet)).To(Succeed())
 	})
 
+	if bfbImageURL != "" {
+		It("override BFB URL with the value from the env BFB_IMAGE_URL", func() {
+			baseBFB.Spec.URL = bfbImageURL
+		})
+	}
+
 	// Add additional annotations to the Nodes.
 	if len(input.nodeAnnotations) > 0 {
 		It("annotate nodes from cluster", func() {

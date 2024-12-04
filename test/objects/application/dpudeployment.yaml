@@ -5,7 +5,7 @@ metadata:
   namespace: dpf-operator-system
 spec:
   dpus:
-    bfb: "bf-bundle-2.7.0"
+    bfb: "bf-bundle"
     flavor: "dpf-provisioning-hbn-ovn" # Created automatically when installing DPF
     dpuSets:
     # We intentionally don't match any node to ensure that we don't trigger the provisioning flow for the time being

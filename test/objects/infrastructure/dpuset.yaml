@@ -15,7 +15,7 @@ spec:
     spec:
       dpuFlavor: dpf-provisioning-hbn-ovn
       bfb:
-        name: "bf-bundle-2.7.0"
+        name: "bf-bundle"
       nodeEffect:
         taint:
           key: "dpu"

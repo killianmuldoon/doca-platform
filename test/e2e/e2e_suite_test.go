@@ -30,6 +30,7 @@ import (
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
 	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
+	"github.com/nvidia/doca-platform/test/utils"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -60,6 +61,8 @@ var (
 	// skipCleanup indicates whether to skip the cleanup of resources created during the e2e test run.
 	// When set to true, resources will not be removed after the test completes.
 	skipCleanup = false
+	// bfbImageURL can be used to override the default BFB image URL used in the tests.
+	bfbImageURL = ""
 )
 
 func getEnvVariables() {
@@ -75,6 +78,13 @@ func getEnvVariables() {
 		skipCleanup, err = strconv.ParseBool(v)
 		if err != nil {
 			panic(fmt.Errorf("string must be a bool: %v", err))
+		}
+	}
+	if url, found := os.LookupEnv("BFB_IMAGE_URL"); found {
+		var err error
+		bfbImageURL, err = utils.ResolveBFBImageURL(url)
+		if err != nil {
+			panic(err)
 		}
 	}
 }

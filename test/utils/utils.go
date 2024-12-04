@@ -19,6 +19,9 @@ package utils
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"path/filepath"
+	"strings"
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
@@ -180,4 +183,34 @@ func GetTestDPUCluster(ns, name string) provisioningv1.DPUCluster {
 			Kubeconfig: fmt.Sprintf("%v-admin-kubeconfig", name),
 		},
 	}
+}
+
+// ResolveBFBImageURL resolves a BFB image URL to a real file path.
+// On our test environment, we can access NFS files via HTTP.
+// To be able to test the latest BFB image, we need to resolve the URL to a real file path.
+func ResolveBFBImageURL(bfbURL string) (string, error) {
+	// Parse the URL to get the path.
+	u, err := url.Parse(bfbURL)
+	if err != nil {
+		panic(err)
+	}
+
+	// Return early if the URL does not contain a wildcard or does not start with a certain path.
+	if !strings.Contains(u.Path, "*") || !strings.HasPrefix(u.Path, "/auto/sw_mc_soc_release/doca_dpu/") {
+		return bfbURL, nil
+	}
+
+	// Get the real file path from the path in the URI.
+	file, err := filepath.Glob(u.Path)
+	if err != nil {
+		return "", err
+	}
+	if len(file) == 0 {
+		return "", fmt.Errorf("no file found for %s", u.Path)
+	}
+	if len(file) > 1 {
+		return "", fmt.Errorf("multiple files found for %s", u.Path)
+	}
+
+	return fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, file[0]), nil
 }
