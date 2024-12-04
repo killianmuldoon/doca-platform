@@ -5,6 +5,9 @@ In this configuration OVN Kubernetes is offloaded to the DPU and combined with [
 ## Prerequisites
 The system is set up as described in the [system prerequisites](../prerequisites.md).  The OVN Kubernetes with HBN use case has the additional requirements:
 
+### DPU prerquisites
+- Bluefield 3 with 32GB of RAM
+
 ### Software prerequisites
 This guide uses the following tools which must be installed where it is running.
 - kubectl

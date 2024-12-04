@@ -13,7 +13,7 @@ DPF manages DPUs installed in nodes that are part of a Kubernetes cluster.
 ## Hardware
 DPF enables NVIDIA [Bluefield DPUs](https://www.nvidia.com/en-gb/networking/products/data-processing-unit/). These devices are installed in servers as PCI devices and handle network traffic through network ports. Bluefield DPUs have arm64 CPUs and run a standard Linux OS.
 
-DPF supports all Bluefield 3 DPUs with 32GB of RAM.
+DPF supports all Bluefield 3 DPUs.
 
 ## API reference
 
