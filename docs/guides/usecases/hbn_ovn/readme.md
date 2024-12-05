@@ -871,6 +871,7 @@ spec:
       template:
         metadata:
           labels:
+            ## NOTE: Interfaces inside the HBN pod must have the `_sf` suffix due to a naming convention in HBN.
             svc.dpu.nvidia.com/interface: "app_sf"
             svc.dpu.nvidia.com/service: doca-hbn
         spec:
@@ -891,6 +892,7 @@ spec:
       template:
         metadata:
           labels:
+            ## NOTE: Interfaces inside the HBN pod must have the `_sf` suffix due to a naming convention in HBN.
             svc.dpu.nvidia.com/interface: "p0_sf"
             svc.dpu.nvidia.com/service: doca-hbn
         spec:
@@ -911,6 +913,7 @@ spec:
       template:
         metadata:
           labels:
+            ## NOTE: Interfaces inside the HBN pod must have the `_sf` suffix due to a naming convention in HBN.
             svc.dpu.nvidia.com/interface: "p1_sf"
             svc.dpu.nvidia.com/service: doca-hbn
         spec:
