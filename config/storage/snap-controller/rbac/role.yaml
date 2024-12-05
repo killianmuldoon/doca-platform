@@ -1,0 +1,47 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: snap-controller-role
+rules:
+- apiGroups:
+  - authentication.k8s.io
+  resources:
+  - tokenreviews
+  verbs:
+  - create
+- apiGroups:
+  - authorization.k8s.io
+  resources:
+  - subjectaccessreviews
+  verbs:
+  - create
+- apiGroups:
+  - storage.dpu.nvidia.com
+  resources:
+  - storagepolicies
+  - volumeattachments
+  - volumes
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - storage.dpu.nvidia.com
+  resources:
+  - storagepolicies/status
+  - volumeattachments/status
+  - volumes/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - storage.dpu.nvidia.com
+  resources:
+  - volumeattachments/finalizers
+  - volumes/finalizers
+  verbs:
+  - update

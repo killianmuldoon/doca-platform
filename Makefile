@@ -142,7 +142,9 @@ $(SOS_REPORT_DIR): | $(REPOSDIR)
 	cp -Rp ./hack/tools/dpf-tools/* $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF}/
 
 ##@ Development
-GENERATE_TARGETS ?= dpuservice provisioning dpucniprovisioner servicechainset sfc-controller ovs-cni operator operator-embedded release-defaults dummydpuservice kamaji-cluster-manager static-cluster-manager dpu-detector ovn-kubernetes ovs-helper
+GENERATE_TARGETS ?= dpuservice provisioning dpucniprovisioner servicechainset sfc-controller ovs-cni operator \
+	operator-embedded release-defaults dummydpuservice kamaji-cluster-manager static-cluster-manager \
+	dpu-detector ovn-kubernetes ovs-helper storage-api storage-snap-controller
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -195,6 +197,23 @@ generate-manifests-dpuservice: controller-gen ## Generate manifests e.g. CRD, RB
 	output:rbac:dir=./config/dpuservice/rbac \
 	output:webhook:dir=./config/dpuservice/webhook \
 	webhook
+
+.PHONY: generate-manifests-storage-api
+generate-manifests-storage-api: controller-gen kustomize ## Generate Nvidia Snap CSI API
+	$(MAKE) clean-generated-yaml SRC_DIRS="./config/storage/crd/bases"
+	$(CONTROLLER_GEN) \
+	paths="./api/storage/..." \
+	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
+	output:crd:dir=./config/storage/crd/bases \
+
+.PHONY: generate-manifests-storage-snap-controller
+generate-manifests-storage-snap-controller: controller-gen kustomize ## Generate Nvidia Snap CSI API
+	$(CONTROLLER_GEN) \
+	paths="./cmd/storage/snap-controller/..." \
+	paths="./internal/storage/snap-controller/..." \
+	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
+	rbac:roleName=snap-controller-role \
+	output:rbac:dir=./config/storage/snap-controller/rbac \
 
 .PHONY: generate-manifests-ovn-kubernetes-resource-injector
 generate-manifests-ovn-kubernetes-resource-injector: envsubst ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes Resource Injector
@@ -527,7 +546,7 @@ GO_GCFLAGS ?= ""
 GO_LDFLAGS ?= "-extldflags '-static'"
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
 DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller ovs-helper
-DPU_ARCH_BUILD_TARGETS ?=
+DPU_ARCH_BUILD_TARGETS ?= storage-snap-controller
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
 # The BUNDLE_VERSION is the same as the TAG but the first character is stripped. This is used to strip a leading `v` which is invalid for Bundle versions.
@@ -595,6 +614,10 @@ binary-detector: ## Build the DPU detector binary.
 binary-ovn-kubernetes-resource-injector: ## Build the OVN Kubernetes Resource Injector.
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ovnkubernetesresourceinjector github.com/nvidia/doca-platform/cmd/ovnkubernetesresourceinjector
 
+.PHONY: binary-snap-controller
+binary-snap-controller: ## Build the snap controller controller binary.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/provisioning github.com/nvidia/doca-platform/cmd/provisioning
+
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=operator-bundle hostdriver
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
@@ -633,6 +656,9 @@ export DUMMYDPUSERVICE_IMAGE ?= $(REGISTRY)/$(DUMMYDPUSERVICE_IMAGE_NAME)
 
 DPF_TOOLS_IMAGE_NAME ?= dpf-tools
 export DPF_TOOLS_IMAGE ?= $(REGISTRY)/$(DPF_TOOLS_IMAGE_NAME)
+
+STORAGE_SNAP_CONTROLLER_NAME ?= snap-controller
+export STORAGE_SNAP_CONTROLLER_IMAGE ?= $(REGISTRY)/$(STORAGE_SNAP_CONTROLLER_NAME)
 
 ## External images that are set by the DPF Operator
 export MULTUS_IMAGE=ghcr.io/k8snetworkplumbingwg/multus-cni
@@ -856,6 +882,24 @@ docker-build-operator-bundle: generate-operator-bundle
 		-t $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION) \
 		.
 
+.PHONY: docker-build-storage-snap-controller # Build a arm64 image for snap-controller
+docker-build-storage-snap-controller:
+	docker buildx build \
+	--load \
+	--label=org.opencontainers.image.created=$(DATE) \
+	--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+	--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+	--label=org.opencontainers.image.version=$(TAG) \
+	--provenance=false \
+	--platform=linux/$(DPU_ARCH) \
+	--build-arg BUILDER_IMAGE=$(BUILD_IMAGE) \
+	--build-arg BASE_IMAGE=$(BASE_IMAGE) \
+	--build-arg GO_LDFLAGS=$(GO_LDFLAGS) \
+	--build-arg GO_GCFLAGS=$(GO_GCFLAGS) \
+	-f Dockerfile.snap-controller \
+	. \
+	-t ${STORAGE_SNAP_CONTROLLER_IMAGE}:$(TAG)
+
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the docker images for all DOCKER_BUILD_TARGETS.
 
@@ -891,6 +935,9 @@ docker-push-dummydpuservice: ## Push the docker image for dummydpuservice
 docker-push-ovn-kubernetes-resource-injector: ## Push the docker image for the OVN Kubernetes Resource Injector
 	docker push $(OVNKUBERNETES_RESOURCE_INJECTOR_IMAGE):$(TAG)
 
+.PHONY: docker-push-storage-snap-controller
+docker-push-storage-snap-controller: ## Push the docker image for snap controller
+	docker push ${STORAGE_SNAP_CONTROLLER_IMAGE}:$(TAG)
 # helm charts
 
 # By default the helm registry is assumed to be an OCI registry. This variable should be overwritten when using a https helm repository.

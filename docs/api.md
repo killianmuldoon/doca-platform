@@ -3,6 +3,7 @@
 ## Packages
 - [operator.dpu.nvidia.com/v1alpha1](#operatordpunvidiacomv1alpha1)
 - [provisioning.dpu.nvidia.com/v1alpha1](#provisioningdpunvidiacomv1alpha1)
+- [storage.dpu.nvidia.com/v1alpha1](#storagedpunvidiacomv1alpha1)
 - [svc.dpu.nvidia.com/v1alpha1](#svcdpunvidiacomv1alpha1)
 
 
@@ -1241,6 +1242,486 @@ _Appears in:_
 | --- | --- |
 | `Recreate` | Delete all the existing DPUs before creating new ones.<br /> |
 | `RollingUpdate` | Gradually scale down the old DPUs and scale up the new one.<br /> |
+
+
+
+## storage.dpu.nvidia.com/v1alpha1
+
+Package v1alpha1 contains API Schema definitions for the stroage v1alpha1 API group
+
+### Resource Types
+- [SVVolumeAttachment](#svvolumeattachment)
+- [SVVolumeAttachmentList](#svvolumeattachmentlist)
+- [StoragePolicy](#storagepolicy)
+- [StoragePolicyList](#storagepolicylist)
+- [StorageVendor](#storagevendor)
+- [StorageVendorList](#storagevendorlist)
+- [Volume](#volume)
+- [VolumeAttachment](#volumeattachment)
+- [VolumeAttachmentList](#volumeattachmentlist)
+- [VolumeList](#volumelist)
+
+
+
+#### BdevAttrs
+
+
+
+BdevAttrs represents the attributes of the underlying block device
+
+
+
+_Appears in:_
+- [DPUVolumeAttachment](#dpuvolumeattachment)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `nvmeNsID` _string_ | The namespace ID within the NVME controller |  |  |
+
+
+#### CSIReference
+
+
+
+CSIReference reference to CSI object
+
+
+
+_Appears in:_
+- [DPUVolume](#dpuvolume)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `csiDriverName` _string_ |  |  |  |
+| `storageClassName` _string_ |  |  |  |
+| `pvcRef` _[ObjectRef](#objectref)_ |  |  |  |
+
+
+
+
+#### DPUVolume
+
+
+
+DPUVolume describe volume information in DPU cluster
+
+
+
+_Appears in:_
+- [VolumeSpec](#volumespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `id` _string_ |  |  |  |
+| `capacity` _[Quantity](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#quantity-resource-api)_ |  |  |  |
+| `accessModes` _[PersistentVolumeAccessMode](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#persistentvolumeaccessmode-v1-core) array_ |  |  |  |
+| `reclaimPolicy` _[PersistentVolumeReclaimPolicy](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#persistentvolumereclaimpolicy-v1-core)_ |  |  | Enum: [Delete Retain] <br /> |
+| `storageVendorName` _string_ |  |  |  |
+| `storageVendorPluginName` _string_ |  |  |  |
+| `volumeAttributes` _object (keys:string, values:string)_ |  |  |  |
+| `csiReference` _[CSIReference](#csireference)_ |  |  |  |
+
+
+
+
+#### FSdevAttrs
+
+
+
+FSdevAttrs represents the attributes of the underlying filesystem device
+
+
+
+_Appears in:_
+- [DPUVolumeAttachment](#dpuvolumeattachment)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `filesystemTag` _string_ | Filesystem tag identified by SNAP on the host (used for the mount). Relevant for volume of type filesystem |  |  |
+
+
+#### ObjectRef
+
+
+
+ObjectRef reference to the object
+
+
+
+_Appears in:_
+- [CSIReference](#csireference)
+- [VolumeAttachmentSource](#volumeattachmentsource)
+- [VolumeAttachmentSpec](#volumeattachmentspec)
+- [VolumeSpec](#volumespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `kind` _string_ |  |  |  |
+| `apiVersion` _string_ |  |  |  |
+| `name` _string_ |  |  |  |
+| `namespace` _string_ |  |  |  |
+
+
+#### SVVolumeAttachment
+
+
+
+SVVolumeAttachment captures the intent to attach/detach the specified Volume to/from the specified node.
+
+
+
+_Appears in:_
+- [SVVolumeAttachmentList](#svvolumeattachmentlist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `storage.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `SVVolumeAttachment` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[VolumeAttachmentSpec](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#volumeattachmentspec-v1-storage)_ |  |  |  |
+| `status` _[VolumeAttachmentStatus](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#volumeattachmentstatus-v1-storage)_ |  |  |  |
+
+
+#### SVVolumeAttachmentList
+
+
+
+SVVolumeAttachmentList contains a list of SVVolumeAttachment
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `storage.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `SVVolumeAttachmentList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[SVVolumeAttachment](#svvolumeattachment) array_ |  |  |  |
+
+
+#### StoragePolicy
+
+
+
+StoragePolicy represents a storage policy which maps between policy into a list of storage vendors.
+
+
+
+_Appears in:_
+- [StoragePolicyList](#storagepolicylist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `storage.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `StoragePolicy` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[StoragePolicySpec](#storagepolicyspec)_ |  |  |  |
+| `status` _[StoragePolicyStatus](#storagepolicystatus)_ |  |  |  |
+
+
+#### StoragePolicyList
+
+
+
+StoragePolicyList contains a list of StoragePolicy
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `storage.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `StoragePolicyList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[StoragePolicy](#storagepolicy) array_ |  |  |  |
+
+
+#### StoragePolicySpec
+
+
+
+StoragePolicySpec defines the desired state of StoragePolicy
+
+
+
+_Appears in:_
+- [StoragePolicy](#storagepolicy)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `storageVendors` _string array_ | List of storage vendors |  |  |
+| `storageParameters` _object (keys:string, values:string)_ | List of storage parameters supported by the policy, values are string only |  |  |
+| `storageSelectionAlg` _[StorageSelectionAlgType](#storageselectionalgtype)_ | Algorithm used to select the storage vendor. Default: LocalNVolumes | LocalNVolumes | Enum: [Random LocalNVolumes] <br /> |
+
+
+#### StoragePolicyStatus
+
+
+
+StoragePolicyStatus defines the observed state of StoragePolicy
+
+
+
+_Appears in:_
+- [StoragePolicy](#storagepolicy)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `state` _string_ | A storage policy is valid if all provided storage vendors have a StorageVendor object with a valid storage class object |  | Enum: [Valid Invalid] <br /> |
+| `message` _string_ | Informative message when the state is invalid |  |  |
+
+
+#### StorageSelectionAlgType
+
+_Underlying type:_ _string_
+
+StorageSelectionAlgType represents the type of storage selection algorithm
+
+_Validation:_
+- Enum: [Random LocalNVolumes]
+
+_Appears in:_
+- [StoragePolicySpec](#storagepolicyspec)
+
+| Field | Description |
+| --- | --- |
+| `Random` | Random selection across the vendors defined in the StoragePolicy list.<br /> |
+| `LocalNVolumes` | Load-balancing on the number of volumes belonging to the StoragePolicy.<br />The vendor (in the StoragePolicy list) with the minimal number of volumes should be selected.<br /> |
+
+
+#### StorageVendor
+
+
+
+StorageVendor represents a storage vendor.
+Each storage vendor must have exactly one NVIDIA StorageVendor custom resource object.
+
+
+
+_Appears in:_
+- [StorageVendorList](#storagevendorlist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `storage.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `StorageVendor` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[StorageVendorSpec](#storagevendorspec)_ |  |  |  |
+
+
+#### StorageVendorList
+
+
+
+StorageVendorList contains a list of StorageVendor
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `storage.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `StorageVendorList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[StorageVendor](#storagevendor) array_ |  |  |  |
+
+
+#### StorageVendorSpec
+
+
+
+StorageVendorSpec defines the desired state of StorageVendor
+
+
+
+_Appears in:_
+- [StorageVendor](#storagevendor)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `storageClassName` _string_ | Storage vendor class name, deployed on the DPU K8S cluster. |  |  |
+| `pluginName` _string_ | Storage vendor DPU plugin name |  |  |
+
+
+#### Volume
+
+
+
+Volume represents a persistent volume on the DPU cluster.
+It maps between the tenant K8S persistent volume (PV) object on the tenant cluster into the actual volume on the DPU cluster.
+
+
+
+_Appears in:_
+- [VolumeList](#volumelist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `storage.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `Volume` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[VolumeSpec](#volumespec)_ |  |  |  |
+| `status` _[VolumeStatus](#volumestatus)_ |  |  |  |
+
+
+#### VolumeAttachment
+
+
+
+VolumeAttachment captures the intent to attach/detach the specified NV-Volume to/from the specified node.
+
+
+
+_Appears in:_
+- [VolumeAttachmentList](#volumeattachmentlist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `storage.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `VolumeAttachment` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[VolumeAttachmentSpec](#volumeattachmentspec)_ |  |  |  |
+| `status` _[VolumeAttachmentStatus](#volumeattachmentstatus)_ |  |  |  |
+
+
+#### VolumeAttachmentList
+
+
+
+VolumeAttachmentList contains a list of VolumeAttachment
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `storage.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `VolumeAttachmentList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[VolumeAttachment](#volumeattachment) array_ |  |  |  |
+
+
+#### VolumeAttachmentSource
+
+
+
+VolumeAttachmentSource references to the NV-Volume object
+
+
+
+_Appears in:_
+- [VolumeAttachmentSpec](#volumeattachmentspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `volumeAttachmentRef` _[ObjectRef](#objectref)_ | Reference to the NV-Volume object |  |  |
+
+
+#### VolumeAttachmentSpec
+
+
+
+VolumeAttachmentSpec defines the desired state of VolumeAttachment
+
+
+
+_Appears in:_
+- [VolumeAttachment](#volumeattachment)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `nodeName` _string_ | The name of the node that the volume should be attached to |  |  |
+| `source` _[VolumeAttachmentSource](#volumeattachmentsource)_ | Reference to the NV-Volume object |  |  |
+| `volumeAttachmentRef` _[ObjectRef](#objectref)_ | Reference to the SV-VolumeAttachment object |  |  |
+| `parameters` _object (keys:string, values:string)_ | Opaque static publish properties of the volume returned by the plugin |  |  |
+
+
+#### VolumeAttachmentStatus
+
+
+
+VolumeAttachmentStatus defines the observed state of VolumeAttachment
+
+
+
+_Appears in:_
+- [VolumeAttachment](#volumeattachment)
+
+
+
+#### VolumeList
+
+
+
+VolumeList contains a list of Volume
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `storage.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `VolumeList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[Volume](#volume) array_ |  |  |  |
+
+
+#### VolumeRequest
+
+
+
+VolumeRequest represents the volume's requirements
+
+
+
+_Appears in:_
+- [VolumeSpec](#volumespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `accessModes` _[PersistentVolumeAccessMode](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#persistentvolumeaccessmode-v1-core) array_ | Contains the types of access modes required |  |  |
+| `volumeMode` _[PersistentVolumeMode](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#persistentvolumemode-v1-core)_ | volumeMode defines what type of volume is required by the claim.<br />Value of Filesystem is implied when not included in claim spec. |  |  |
+
+
+#### VolumeSpec
+
+
+
+VolumeSpec defines the desired state of Volume
+
+
+
+_Appears in:_
+- [Volume](#volume)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `storageParameters` _object (keys:string, values:string)_ | List of storage parameters supported by the policy, values are string only |  |  |
+| `request` _[VolumeRequest](#volumerequest)_ | The capacity of the required storage space in bytes |  |  |
+| `storagePolicyRef` _[ObjectRef](#objectref)_ | Reference to the StoragePolicy object |  |  |
+| `storagePolicyParameters` _object (keys:string, values:string)_ | List of storage parameters supported by the policy, values are string only |  |  |
+| `volume` _[DPUVolume](#dpuvolume)_ | Describe volume information in DPU cluster |  |  |
+
+
+#### VolumeStatus
+
+
+
+VolumeStatus defines the observed state of Volume
+
+
+
+_Appears in:_
+- [Volume](#volume)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `state` _string_ |  |  | Enum: [InProgress Available] <br /> |
 
 
 

@@ -1,0 +1,42 @@
+ARG BUILDER_IMAGE=
+ARG BASE_IMAGE=
+
+FROM --platform=$BUILDPLATFORM ${BUILDER_IMAGE} AS builder
+
+ARG GO_BUILD_OPTS=
+ARG GO_LDFLAGS=
+ARG GO_GCFLAGS=
+
+# these variable are automatically set during the multiarch build by docker buildx
+ARG TARGETOS
+ARG TARGETARCH
+
+ENV GOOS=${TARGETOS}
+ENV GOARCH=${TARGETARCH}
+
+WORKDIR /workspace
+RUN mkdir bin
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+# Cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+RUN go mod download
+
+ADD cmd/storage/snap-controller/ cmd/storage/snap-controller/
+ADD api/ api/
+ADD internal/ internal/
+
+RUN go build -trimpath \
+    -ldflags="${GO_LDFLAGS}" \
+    -gcflags="${GO_GCFLAGS}" \
+    -o bin/snap-controller cmd/storage/snap-controller/main.go
+
+FROM ${BASE_IMAGE}
+
+COPY --from=builder --chown=65532:65532 /workspace/bin/snap-controller /snap-controller
+
+# by default run as non-root user, when running in "node" mode root user should be used
+USER 65532:65532
+
+ENTRYPOINT ["/snap-controller"]
