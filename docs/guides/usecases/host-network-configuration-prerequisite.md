@@ -109,3 +109,29 @@ network:
 > Note:
 > 
 > The metric of the default route must be at least 2
+
+
+## Host Routes and network acceleration
+
+When the hosts are connected both to the management network via the OOB interface, and to the high-speed network via the Bluefield PFs or VFs, the default route should be configured via the OOB. This means that the outgoing traffic will by default go through the management network.
+
+This is an issue in case some external traffic is reaching the host via the high-speed IP address. This causes asymmetric traffic routing. In addition, if the outgoing traffic is via the OOB port instead of high-speed port, the performance are far worse since the traffic is not accelerated. Similarly, traffic from high-speed network reaching the host via the OOB network will cause asymmetric traffic.
+To fix this, some source-based routing on the host is necessary, so that traffic coming to the high speed network will leave the host via the high speed network, and traffic coming from the OOB interface will also leave the host via the OOB port.
+
+The script below demonstrates an example of source-based routing to ensure proper network acceleration. It assumes that :
+
+* 192.168.0.10/24 is the host IP on the management network (OOB interface) and the gateway is 192.168.0.1
+* 10.0.0.10/22 is the host IP address on the high speed network (interface ens1f0np0) and the gateway is 10.0.0.1
+
+```sh
+# change routing table for traffic to high speed network from host OOB to use OOB port
+ip rule add priority 200 from 192.168.0.10/32 to 10.0.0.0/22 table 200
+# Route via OOB Gateway
+ip r a default via 192.168.0.1 dev br-dpu table 200
+
+# change routing table for traffic to anywhere from host high-speed IP
+ip rule add priority 201 from 10.0.0.10/32 table 201
+# route via the high speed gateway
+ip r a default via 10.0.0.1 dev ens1f0np0 table 201
+```
+
