@@ -23,7 +23,7 @@ set -o errexit
 
 files=(.gitlab
   .gitlab-ci.yml
-  docs/testing
+  docs/do_not_publish
   hack/scripts/ci-rebind-dev-wrapper.sh
   hack/scripts/ci_helm_docker_prereqs.sh
   hack/scripts/container-scanner.sh
