@@ -222,7 +222,7 @@ func (r *ServiceInterfaceReconciler) Reconcile(ctx context.Context, req ctrl.Req
 	if *serviceInterface.Spec.Node != r.NodeName {
 		// this object was not intended for this nodes
 		// skip
-		log.Info("serviceInterface.Spec.Node: %s != node: %s", *serviceInterface.Spec.Node, r.NodeName)
+		log.Info(fmt.Sprintf("serviceInterface.Spec.Node: %s != node: %s", *serviceInterface.Spec.Node, r.NodeName))
 		return ctrl.Result{}, nil
 	}
 
