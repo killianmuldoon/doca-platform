@@ -871,7 +871,6 @@ spec:
       template:
         metadata:
           labels:
-            ## NOTE: Interfaces inside the HBN pod must have the `_sf` suffix due to a naming convention in HBN.
             svc.dpu.nvidia.com/interface: "app_sf"
             svc.dpu.nvidia.com/service: doca-hbn
         spec:
@@ -879,6 +878,7 @@ spec:
           service:
             serviceID: doca-hbn
             network: mybrhbn
+            ## NOTE: Interfaces inside the HBN pod must have the `_if` suffix due to a naming convention in HBN.
             interfaceName: pf2dpu2_if
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -892,7 +892,6 @@ spec:
       template:
         metadata:
           labels:
-            ## NOTE: Interfaces inside the HBN pod must have the `_sf` suffix due to a naming convention in HBN.
             svc.dpu.nvidia.com/interface: "p0_sf"
             svc.dpu.nvidia.com/service: doca-hbn
         spec:
@@ -900,6 +899,7 @@ spec:
           service:
             serviceID: doca-hbn
             network: mybrhbn
+            ## NOTE: Interfaces inside the HBN pod must have the `_if` suffix due to a naming convention in HBN.
             interfaceName: p0_if
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -913,7 +913,6 @@ spec:
       template:
         metadata:
           labels:
-            ## NOTE: Interfaces inside the HBN pod must have the `_sf` suffix due to a naming convention in HBN.
             svc.dpu.nvidia.com/interface: "p1_sf"
             svc.dpu.nvidia.com/service: doca-hbn
         spec:
@@ -921,6 +920,7 @@ spec:
           service:
             serviceID: doca-hbn
             network: mybrhbn
+            ## NOTE: Interfaces inside the HBN pod must have the `_if` suffix due to a naming convention in HBN.
             interfaceName: p1_if
 ```
 </details>

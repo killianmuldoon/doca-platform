@@ -84,6 +84,7 @@ spec:
                             remote-as: external
 
   interfaces:
+    ## NOTE: Interfaces inside the HBN pod must have the `_if` suffix due to a naming convention in HBN.
   - name: p0_if
     network: mybrhbn
   - name: p1_if
