@@ -162,7 +162,7 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 						// Check if rshim is installed on the host for the target PCI address.
 						// If rshim is installed, then exit with an error message to prevent DMS pod creation.
 						// The error message will be used in a condition for the DPU resource.
-						fmt.Sprintf(`ls /dev | egrep 'rshim.*[0-9]+' | while read dev; do if echo 'DISPLAY_LEVEL 1' > $dev/misc && grep -q %s $dev/misc; then echo -n "%s" > /dev/termination-log; exit 1; fi; done`, pciAddress, dmsInitError),
+						fmt.Sprintf(`ls /dev | egrep 'rshim.*[0-9]+' | while read dev; do if echo 'DISPLAY_LEVEL 1' > /dev/$dev/misc && grep -q %s /dev/$dev/misc; then echo -n "%s" > /dev/termination-log; exit 1; fi; done`, pciAddress, dmsInitError),
 					},
 				},
 			},
