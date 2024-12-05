@@ -140,6 +140,30 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 	dmsCommand := fmt.Sprintf("./rshim.sh && %s -bind_address %s:%d -v 99 -auth cert -ca /etc/ssl/certs/server/ca.crt -tls_key_file /etc/ssl/certs/server/tls.key -tls_cert_file /etc/ssl/certs/server/tls.crt -password %s -username %s -image_folder %s -target_pci %s -exec_timeout %d -disable_unbind_at_activate -reboot_status_check none",
 		dmsPath, dmsServerIP, dmsServerPort, password, username, DMSImageFolder, pciAddress, option.DMSTimeout)
 
+	// Check if rshim is installed on the host for the target PCI address.
+	// If rshim is installed, then exit with an error message to prevent DMS pod creation.
+	// The error message will be used in a condition for the DPU resource.
+	rshimPreflightCommand := fmt.Sprintf(`ls /dev | egrep 'rshim.*[0-9]+' | while read dev; do if echo 'DISPLAY_LEVEL 1' > /dev/$dev/misc && grep -q %s /dev/$dev/misc; then echo -n "%s" > /dev/termination-log; exit 1; fi; done`, pciAddress, dmsInitError)
+
+	// THIS IS ONLY A TEMPORARY WORKAROUND AND WILL BE REMOVED WITH THE JANUARY RELEASE!
+	// This workaround addresses a firmware protection mechanism issue where devices
+	// are not automatically recovered after a fatal error.
+	// Fatal errors can occur during a SW_RESET, which is triggered by the DMS Pod (e.g., bfb-install).
+	//
+	// Workflow:
+	// 1. Set the `grace_period` to 0 to bypass the firmware protection mechanism and ensure devices are recovered.
+	// 2. Explicitly trigger a recovery operation on each device before proceeding with BF installation.
+	//
+	// Notes:
+	// - Physical Functions (PFs) must be handled before Virtual Functions (VFs) to avoid errors.
+	//   Improved sorting ensures PFs are processed first based on their device names.
+	// - We will only handle `p0` and `p1` PFs (representing the first two functions of the PCI device).
+	//   This is consistent with the behavior of the hostnetwork Pod, which also limits its handling to these PFs.
+	// - All VFs associated with these PFs will also be handled and recovered, but only after their corresponding PFs
+	//   have been successfully processed to ensure a stable recovery sequence.
+	//
+	devlinkGracePeriodCommand := fmt.Sprintf(`readlink /sys/bus/pci/devices/0000:%s.[01] /sys/bus/pci/devices/0000:%s.[01]/virtfn* | xargs -n1 basename | sort -u | while read pci_device; do devlink health set pci/$pci_device reporter fw_fatal grace_period 0; devlink health recover pci/$pci_device reporter fw_fatal; done`, pciAddress, pciAddress)
+
 	hostPathType := corev1.HostPathDirectory
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -159,10 +183,19 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 					},
 					Command: []string{"/bin/bash", "-c"},
 					Args: []string{
-						// Check if rshim is installed on the host for the target PCI address.
-						// If rshim is installed, then exit with an error message to prevent DMS pod creation.
-						// The error message will be used in a condition for the DPU resource.
-						fmt.Sprintf(`ls /dev | egrep 'rshim.*[0-9]+' | while read dev; do if echo 'DISPLAY_LEVEL 1' > /dev/$dev/misc && grep -q %s /dev/$dev/misc; then echo -n "%s" > /dev/termination-log; exit 1; fi; done`, pciAddress, dmsInitError),
+						rshimPreflightCommand,
+					},
+				},
+				{
+					Name:            "devlink-grace-period",
+					Image:           option.DMSImageWithTag,
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					SecurityContext: &corev1.SecurityContext{
+						Privileged: ptr.To(true),
+					},
+					Command: []string{"/bin/bash", "-xc"},
+					Args: []string{
+						devlinkGracePeriodCommand,
 					},
 				},
 			},
