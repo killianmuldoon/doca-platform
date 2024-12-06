@@ -461,18 +461,25 @@ func (r *DPUServiceCredentialRequestReconciler) patchSecret(ctx context.Context,
 }
 
 func (r *DPUServiceCredentialRequestReconciler) reconcileDelete(ctx context.Context, obj *dpuservicev1.DPUServiceCredentialRequest) (ctrl.Result, error) {
+	log := ctrllog.FromContext(ctx)
 	targetClient := r.Client
 	if obj.Status.TargetCluster != nil {
 		ns, name := obj.Status.GetTargetCluster()
 		c, _, err := r.getCluster(ctx, &dpuservicev1.NamespacedName{Namespace: ptr.To(ns), Name: name})
 		if err != nil {
-			return ctrl.Result{}, fmt.Errorf("error while getting client for cluster %v: %w", *obj.Status.TargetCluster, err)
+			if !apierrors.IsNotFound(err) {
+				return ctrl.Result{}, fmt.Errorf("get client for cluster %v: %w", *obj.Status.TargetCluster, err)
+			}
+			log.Info("DPUCluster does not exist: Skipping ServiceAccount cleanup", "namespace", ns, "name", name)
 		}
 		targetClient = c
 	}
 
-	if _, err := reconcileServiceAccount(ctx, obj, targetClient); err != nil {
-		return ctrl.Result{}, err
+	// delete the ServiceAccount if target client is available
+	if targetClient != nil {
+		if _, err := reconcileServiceAccount(ctx, obj, targetClient); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	if err := r.reconcileSecret(ctx, obj, nil, ""); err != nil {

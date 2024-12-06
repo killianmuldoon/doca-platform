@@ -1126,11 +1126,19 @@ func ValidateDPUServiceCredentialRequest(ctx context.Context) {
 		}
 		By("delete the DPUServiceCredentialRequest")
 		dcr := &dpuservicev1.DPUServiceCredentialRequest{}
-		Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceCredentialRequestNamespace, Name: dpuServiceCredentialRequestName}, dcr)).To(Succeed())
+		key := client.ObjectKey{Namespace: dpuServiceCredentialRequestNamespace, Name: dpuServiceCredentialRequestName}
+		Expect(testClient.Get(ctx, key, dcr)).To(Succeed())
 		Expect(testClient.Delete(ctx, dcr)).To(Succeed())
+		Eventually(func(g Gomega) {
+			g.Expect(testClient.Get(ctx, key, dcr)).NotTo(Succeed())
+		}).WithTimeout(300 * time.Second).Should(Succeed())
 
-		Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceCredentialRequestNamespace, Name: hostDPUServiceCredentialRequestName}, dcr)).To(Succeed())
+		key = client.ObjectKey{Namespace: dpuServiceCredentialRequestNamespace, Name: hostDPUServiceCredentialRequestName}
+		Expect(testClient.Get(ctx, key, dcr)).To(Succeed())
 		Expect(testClient.Delete(ctx, dcr)).To(Succeed())
+		Eventually(func(g Gomega) {
+			g.Expect(testClient.Get(ctx, key, dcr)).NotTo(Succeed())
+		}).WithTimeout(300 * time.Second).Should(Succeed())
 	})
 
 }

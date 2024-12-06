@@ -179,6 +179,30 @@ var _ = Describe("DPUServiceCredentialRequest Controller", func() {
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 
+		It("should successfully delete the DPUServiceCredentialRequest for deleted DPUCluster", func() {
+			dsr := getMinimalDPUServiceCredentialRequest(testNS.Name, dpuservicev1.SecretTypeKubeconfig, &dpuservicev1.NamespacedName{Name: testDPU2NS.Name, Namespace: &testNS.Name})
+
+			By("Creating DPUServiceCredentialRequest")
+			Expect(testClient.Create(ctx, dsr)).To(Succeed())
+
+			By("Reconciling the created resource")
+			Eventually(func(g Gomega) {
+				assertDPUServiceCredentialRequest(g, testClient, dsr)
+			}).WithTimeout(30 * time.Second).Should(BeNil())
+
+			By("Deleting the DPUCluster")
+			Expect(testClient.Delete(ctx, testDPU2NS)).NotTo(HaveOccurred())
+
+			By("Deleting the DPUServiceCredentialRequest")
+			Expect(testClient.Delete(ctx, dsr)).NotTo(HaveOccurred())
+
+			By("Verifying the DPUServiceCredentialRequest is deleted")
+			Eventually(func(g Gomega) {
+				err := testClient.Get(ctx, client.ObjectKeyFromObject(dsr), dsr)
+				g.Expect(apierrors.IsNotFound(err)).To(BeTrue())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+		})
+
 		It("should successfully update expired or soon expiring token for the DPUServiceCredentialRequest", func() {
 			dsr := getMinimalDPUServiceCredentialRequest(testNS.Name, dpuservicev1.SecretTypeKubeconfig, &dpuservicev1.NamespacedName{Name: testDPU1NS.Name, Namespace: &testNS.Name})
 
