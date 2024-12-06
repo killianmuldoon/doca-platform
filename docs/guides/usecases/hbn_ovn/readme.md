@@ -142,6 +142,8 @@ dpuServiceAccountNamespace: dpf-operator-system
 
 #### Verification
 
+These verification commands may need to be run multiple times to ensure the condition is met.
+
 Verify the CNI installation with:
 ```shell
 ## Ensure all nodes in the cluster are ready.
@@ -332,6 +334,8 @@ node-feature-discovery:
 
 #### Verification
 
+These verification commands may need to be run multiple times to ensure the condition is met.
+
 Verify the DPF Operator installation with:
 ```shell
 ## Ensure the DPF Operator deployment is available.
@@ -417,12 +421,15 @@ spec:
 
 
 #### Verification
+
+These verification commands may need to be run multiple times to ensure the condition is met.
+
 Verify the DPF System with:
 ```shell
 ## Ensure the provisioning and DPUService controller manager deployments are available.
 kubectl wait --for=condition=Available --namespace dpf-operator-system deployment dpf-provisioning-controller-manager dpuservice-controller-manager
-## Ensure all pods in the DPF Operator system are ready.
-kubectl wait --for=condition=ready --namespace dpf-operator-system pods --all
+## Ensure all other deployments in the DPF Operator system are Available.
+kubectl wait --for=condition=Available --namespace dpf-operator-system deployments --all
 ## Ensure the DPUCluster is ready for nodes to join.
 kubectl wait --for=condition=ready --namespace dpu-cplane-tenant1 dpucluster --all
 ```
@@ -521,6 +528,9 @@ spec:
 </details>
 
 #### Verification
+
+These verification commands may need to be run multiple times to ensure the condition is met.
+
 Verify the DPF System with:
 ```shell
 ## Ensure the provisioning and DPUService controller manager deployments are available.
@@ -1016,6 +1026,8 @@ spec:
 </details>
 
 #### Verification
+
+These verification commands may need to be run multiple times to ensure the condition is met.
 
 Verify the DPUService installation with:
 ```shell
