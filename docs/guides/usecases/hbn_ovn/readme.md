@@ -289,7 +289,7 @@ spec:
   nfs: 
     path: /mnt/dpf_share/bfb
     server: $NFS_SERVER_IP
-  persistentVolumeReclaimPolicy: Retain
+  persistentVolumeReclaimPolicy: Delete
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
