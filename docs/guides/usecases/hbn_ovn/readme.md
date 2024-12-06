@@ -387,7 +387,6 @@ metadata:
   name: bf-bundle
   namespace: dpf-operator-system
 spec:
-  fileName: "bf-bundle-2.9.0-80.bfb"
   url: $BLUEFIELD_BITSTREAM
 ```
 </details>
