@@ -279,7 +279,6 @@ dpf-standalone-stable-release:
       when: on_success
   variables:
     PIPELINE_NAME: "DPF standalone release"
-    OPERATOR_CHART_TAGS: "v0.1.0-dev-stable"
   tags:
   - release
   before_script:
@@ -289,8 +288,13 @@ dpf-standalone-stable-release:
   script:
     - make generate helm-package-operator helm-push-operator
     - docker pull $DPF_STANDALONE_IMAGE
-    - docker tag $DPF_STANDALONE_IMAGE $REGISTRY/dpf-standalone:"$OPERATOR_CHART_TAGS"
-    - docker push $REGISTRY/dpf-standalone:"$OPERATOR_CHART_TAGS"
+      ## This job requires OPERATOR_CHART_TAGS to be set in the job schedule variable.
+    - |+
+      for STABLE_TAG in $OPERATOR_CHART_TAGS
+      do
+        docker tag $DPF_STANDALONE_IMAGE $REGISTRY/dpf-standalone:"$STABLE_TAG"
+        docker push $REGISTRY/dpf-standalone:"$STABLE_TAG"
+      done
   after_script:
     - ./hack/scripts/slack-notification.sh
 
