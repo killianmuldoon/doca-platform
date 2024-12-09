@@ -82,6 +82,7 @@ CHARTSDIR ?= $(CURDIR)/hack/charts
 DPUSERVICESDIR ?= $(CURDIR)/deploy/dpuservices
 REPOSDIR ?= $(CURDIR)/hack/repos
 HELMDIR ?= $(CURDIR)/deploy/helm
+THIRDPARTYDIR ?= $(CURDIR)/third_party/forked
 
 $(LOCALBIN) $(CHARTSDIR) $(DPUSERVICESDIR) $(REPOSDIR):
 	@mkdir -p $@
@@ -122,10 +123,8 @@ $(ARGOCD_YAML): | $(CHARTSDIR)
 GITLAB_TOKEN ?= ""
 
 # OVS CNI
-OVS_CNI_REVISION ?= a9cf21cbf7834b81677085466f1f49552891dd6c
-OVS_CNI_DIR=$(REPOSDIR)/ovs-cni-$(OVS_CNI_REVISION)
-$(OVS_CNI_DIR): | $(REPOSDIR)
-	GITLAB_TOKEN=$(GITLAB_TOKEN) $(CURDIR)/hack/scripts/git-clone-repo.sh ssh://git@gitlab-master.nvidia.com:12051/doca-platform-foundation/dpf-sfc-cni.git $(OVS_CNI_DIR) $(OVS_CNI_REVISION)
+# A third party import to the repo. In future this will be further integrated.
+OVS_CNI_DIR=$(THIRDPARTYDIR)/ovs-cni
 
 # OVN Kubernetes dependencies to be able to build its docker image
 OVNKUBERNETES_REF=ab91ba0ef012731b49e15997813f3c4b89443f03
