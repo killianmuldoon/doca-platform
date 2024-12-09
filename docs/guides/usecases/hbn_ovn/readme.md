@@ -376,20 +376,6 @@ spec:
 ```
 </details>
 
-<details><summary>BFB to download Bluefield Bitstream to a shared volume</summary>
-
-[embedmd]:#(manifests/03-dpf-system-installation/bfb.yaml)
-```yaml
----
-apiVersion: provisioning.dpu.nvidia.com/v1alpha1
-kind: BFB
-metadata:
-  name: bf-bundle
-  namespace: dpf-operator-system
-spec:
-  url: $BLUEFIELD_BITSTREAM
-```
-</details>
 <details><summary>DPUCluster to serve as Kubernetes control plane for DPU nodes</summary>
 
 [embedmd]:#(manifests/03-dpf-system-installation/dpucluster.yaml)
@@ -557,6 +543,20 @@ cat manifests/05-dpuservice-installation/*.yaml | envsubst | kubectl apply -f -
 This will deploy the following objects:
 <details><summary>DPUSet to provision DPUs on worker nodes</summary>
 
+<details><summary>BFB to download Bluefield Bitstream to a shared volume</summary>
+
+[embedmd]:#(manifests/05-dpuservice-installation/bfb.yaml)
+```yaml
+---
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
+kind: BFB
+metadata:
+  name: bf-bundle
+  namespace: dpf-operator-system
+spec:
+  url: $BLUEFIELD_BITSTREAM
+```
+</details>
 [embedmd]:#(manifests/05-dpuservice-installation/dpuset.yaml)
 ```yaml
 ---
