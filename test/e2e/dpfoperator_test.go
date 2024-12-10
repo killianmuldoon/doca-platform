@@ -43,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	machineryruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -614,9 +615,13 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 		}).Should(Succeed())
 	})
 
-	// Get dpuClusterConfigs to loop over all DPU clusters.
-	dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
-	Expect(err).ToNot(HaveOccurred())
+	var dpuClusterConfigs []*dpucluster.Config
+	It("Get dpuClusterConfigs to loop over all DPU clusters.", func() {
+		var err error
+		dpuClusterConfigs, err = dpucluster.GetConfigs(ctx, testClient)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(dpuClusterConfigs).To(HaveLen(numClusters))
+	})
 
 	It("verify that the current MTU in the DPU clusters flannel configmap is 1500", func() {
 		for _, dpuClusterConfig := range dpuClusterConfigs {
@@ -629,25 +634,45 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 		}
 	})
 
-	It("change the MTU in the DPFOperatorConfig to 1501 and verify that the DPU clusters flannel configmap is updated", func() {
+	It("change the MTUs in the DPFOperatorConfig and verify that DPU Clusters are updated", func() {
 		By("get the DPFOperatorConfig")
 		Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
 		By("update the MTU in the DPFOperatorConfig")
 		if config.Spec.Networking == nil {
 			config.Spec.Networking = &operatorv1.Networking{}
 		}
-		config.Spec.Networking.ControlPlaneMTU = ptr.To(1501)
+		config.Spec.Networking.ControlPlaneMTU = ptr.To(1200)
+		config.Spec.Networking.HighSpeedMTU = ptr.To(9000)
 		Expect(testClient.Update(ctx, config)).To(Succeed())
 
 		for _, dpuClusterConfig := range dpuClusterConfigs {
 			dpuClient, err := dpuClusterConfig.Client(ctx)
 			Expect(err).ToNot(HaveOccurred())
-			By("verify flannel configmap for cluster " + dpuClusterConfig.Cluster.GetName())
+			By("verify flannel and multus for cluster " + dpuClusterConfig.Cluster.GetName())
 			Eventually(func(g Gomega) {
 				flannelConfigMap := &corev1.ConfigMap{}
-				Expect(dpuClient.Get(ctx, client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: "kube-flannel-cfg"}, flannelConfigMap)).To(Succeed())
-				Expect(flannelConfigMap.Data["net-conf.json"]).To(ContainSubstring("MTU\": 1501,"))
-			}, time.Second*300, time.Millisecond*250).Should(Succeed())
+				g.Expect(dpuClient.Get(ctx, client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: "kube-flannel-cfg"}, flannelConfigMap)).To(Succeed())
+				g.Expect(flannelConfigMap.Data["net-conf.json"]).To(ContainSubstring("MTU\": 1200,"))
+
+				netAttachDef := &unstructured.Unstructured{}
+				netAttachDef.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "k8s.cni.cncf.io",
+					Version: "v1",
+					Kind:    "NetworkAttachmentDefinition",
+				})
+
+				g.Expect(dpuClient.Get(ctx, client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: "mybrsfc"}, netAttachDef)).To(Succeed())
+				config, exists, err := unstructured.NestedString(netAttachDef.Object, "spec", "config")
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(exists).To(BeTrue())
+				g.Expect(config).To(ContainSubstring("mtu\": 9000,"))
+
+				g.Expect(dpuClient.Get(ctx, client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: "mybrhbn"}, netAttachDef)).To(Succeed())
+				config, exists, err = unstructured.NestedString(netAttachDef.Object, "spec", "config")
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(exists).To(BeTrue())
+				g.Expect(config).To(ContainSubstring("mtu\": 9000,"))
+			}, time.Second*10, time.Millisecond*250).Should(Succeed())
 		}
 	})
 }

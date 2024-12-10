@@ -59,6 +59,14 @@ type Networking struct {
 	// +kubebuilder:default=1500
 	// +optional
 	ControlPlaneMTU *int `json:"controlPlaneMTU,omitempty"`
+
+	// HighSpeedMTU is the MTU value to be set on the high-speed interface.
+	// The default is 1500.
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=9216
+	// +kubebuilder:default=1500
+	// +optional
+	HighSpeedMTU *int `json:"highSpeedMTU,omitempty"`
 }
 
 // DPFOperatorConfigSpec defines the desired state of DPFOperatorConfig

@@ -1,4 +1,5 @@
 imagePullSecrets: []
+mtu: 1500
 kubeMultusDs:
   installMultusBinary:
     containerSecurityContext:
@@ -58,31 +59,4 @@ multusDaemonConfig:
         }
       ],
       "kubeconfig": "/etc/cni/net.d/multus.d/multus.kubeconfig"
-    }
-networkAttachmentBrSFCJson: |-
-    {
-      "cniVersion": "0.4.0",
-      "type": "ovs",
-      "bridge": "br-sfc",
-      "mtu": 1500,
-      "interface_type": "dpdk",
-      "ipam": {
-        "type": "nv-ipam"
-      }
-    }
-networkAttachmentBrHBNJson: |-
-    {
-      "cniVersion": "0.4.0",
-      "type": "ovs",
-      "mtu": 1500,
-      "bridge": "br-hbn",
-      "interface_type": "dpdk"
-    }
-networkAttachmentIpRequestJson: |-
-    {
-      "cniVersion": "0.4.0",
-      "type": "dummy",
-      "ipam": {
-        "type": "nv-ipam"
-      }
     }

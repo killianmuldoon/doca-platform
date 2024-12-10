@@ -22,9 +22,7 @@ A Helm chart for Kubernetes
 | kubeMultusDs.kubeMultus.resources.requests.cpu | string | `"100m"` |  |
 | kubeMultusDs.kubeMultus.resources.requests.memory | string | `"50Mi"` |  |
 | kubernetesClusterDomain | string | `"cluster.local"` |  |
+| mtu | int | `1500` |  |
 | multus.serviceAccount.annotations | object | `{}` |  |
 | multusDaemonConfig.daemonConfigJson | string | `"{\n  \"name\": \"multus-cni-network\",\n  \"type\": \"multus\",\n  \"capabilities\": {\n    \"portMappings\": true\n  },\n  \"delegates\": [\n    {\n      \"cniVersion\": \"0.3.1\",\n      \"name\": \"default-cni-network\",\n      \"plugins\": [\n        {\n          \"type\": \"flannel\",\n          \"name\": \"flannel.1\",\n            \"delegate\": {\n              \"isDefaultGateway\": true,\n              \"hairpinMode\": true\n            }\n          },\n          {\n            \"type\": \"portmap\",\n            \"capabilities\": {\n              \"portMappings\": true\n            }\n          }\n      ]\n    }\n  ],\n  \"kubeconfig\": \"/etc/cni/net.d/multus.d/multus.kubeconfig\"\n}"` |  |
-| networkAttachmentBrHBNJson | string | `"{\n  \"cniVersion\": \"0.4.0\",\n  \"type\": \"ovs\",\n  \"mtu\": 1500,\n  \"bridge\": \"br-hbn\",\n  \"interface_type\": \"dpdk\"\n}"` |  |
-| networkAttachmentBrSFCJson | string | `"{\n  \"cniVersion\": \"0.4.0\",\n  \"type\": \"ovs\",\n  \"bridge\": \"br-sfc\",\n  \"mtu\": 1500,\n  \"interface_type\": \"dpdk\",\n  \"ipam\": {\n    \"type\": \"nv-ipam\"\n  }\n}"` |  |
-| networkAttachmentIpRequestJson | string | `"{\n  \"cniVersion\": \"0.4.0\",\n  \"type\": \"dummy\",\n  \"ipam\": {\n    \"type\": \"nv-ipam\"\n  }\n}"` |  |
 

@@ -90,6 +90,7 @@ type DPFProvisioningVariables struct {
 
 type Networking struct {
 	ControlPlaneMTU int
+	HighSpeedMTU    int
 }
 
 func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operatorv1.DPFOperatorConfig) Variables {
@@ -136,8 +137,13 @@ func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operator
 
 	// This value should never be nil in a running system as it defaulted by the OpenAPI spec. This check guards against
 	// tests etc. that may create a DPFOperatorConfig without setting this value.
-	if config.Spec.Networking != nil && config.Spec.Networking.ControlPlaneMTU != nil {
-		variables.Networking.ControlPlaneMTU = *config.Spec.Networking.ControlPlaneMTU
+	if config.Spec.Networking != nil {
+		if config.Spec.Networking.ControlPlaneMTU != nil {
+			variables.Networking.ControlPlaneMTU = *config.Spec.Networking.ControlPlaneMTU
+		}
+		if config.Spec.Networking.HighSpeedMTU != nil {
+			variables.Networking.HighSpeedMTU = *config.Spec.Networking.HighSpeedMTU
+		}
 	}
 	return variables
 }

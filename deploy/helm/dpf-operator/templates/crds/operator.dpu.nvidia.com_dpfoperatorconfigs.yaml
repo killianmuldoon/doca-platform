@@ -151,6 +151,14 @@ spec:
                     maximum: 9216
                     minimum: 0
                     type: integer
+                  highSpeedMTU:
+                    default: 1500
+                    description: |-
+                      HighSpeedMTU is the MTU value to be set on the high-speed interface.
+                      The default is 1500.
+                    maximum: 9216
+                    minimum: 0
+                    type: integer
                 type: object
               nvipam:
                 description: NVIPAM is the configuration for NVIPAM

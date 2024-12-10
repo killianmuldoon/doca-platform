@@ -266,6 +266,7 @@ func ParseHelmChartString(repoChartVersion string) (*HelmChartSource, error) {
 func networkEditsForComponent(name string, networking Networking) []StructuredEdit {
 	edits := map[string][]StructuredEdit{
 		operatorv1.FlannelName: setFlannelMTUEdit(networking),
+		operatorv1.MultusName:  setMultusMTUEdit(networking),
 	}
 	return edits[name]
 }
@@ -274,6 +275,13 @@ func setFlannelMTUEdit(networking Networking) []StructuredEdit {
 	mtu := strconv.Itoa(networking.ControlPlaneMTU)
 	return []StructuredEdit{
 		dpuServiceAddValueEdit(mtu, operatorv1.FlannelName, "flannel", "mtu"),
+	}
+}
+
+func setMultusMTUEdit(networking Networking) []StructuredEdit {
+	mtu := strconv.Itoa(networking.HighSpeedMTU)
+	return []StructuredEdit{
+		dpuServiceAddValueEdit(mtu, operatorv1.MultusName, "mtu"),
 	}
 }
 

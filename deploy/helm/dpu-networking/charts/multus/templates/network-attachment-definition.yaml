@@ -7,8 +7,17 @@ metadata:
   labels:
     {{- include "multus.labels" . | nindent 4 }}
 spec:
-  config: {{ .Values.networkAttachmentBrSFCJson | toYaml | indent
-    1 }}
+  config: |-
+    {
+      "cniVersion": "0.4.0",
+      "type": "ovs",
+      "bridge": "br-sfc",
+      "mtu": {{ .Values.mtu }},
+      "interface_type": "dpdk",
+      "ipam": {
+        "type": "nv-ipam"
+      }
+    }
 ---
 apiVersion: "k8s.cni.cncf.io/v1"
 kind: NetworkAttachmentDefinition
@@ -19,8 +28,14 @@ metadata:
   labels:
     {{- include "multus.labels" . | nindent 4 }}
 spec:
-  config: {{ .Values.networkAttachmentBrHBNJson | toYaml | indent
-    1 }}
+  config: |-
+    {
+      "cniVersion": "0.4.0",
+      "type": "ovs",
+      "mtu": {{ .Values.mtu }},
+      "bridge": "br-hbn",
+      "interface_type": "dpdk"
+    }
 ---
 apiVersion: "k8s.cni.cncf.io/v1"
 kind: NetworkAttachmentDefinition
@@ -29,5 +44,11 @@ metadata:
   labels:
     {{- include "multus.labels" . | nindent 4 }}
 spec:
-  config: {{ .Values.networkAttachmentIpRequestJson | toYaml | indent
-    1 }}
+  config: |-
+    {
+      "cniVersion": "0.4.0",
+      "type": "dummy",
+      "ipam": {
+        "type": "nv-ipam"
+      }
+    }
