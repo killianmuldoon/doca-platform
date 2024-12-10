@@ -21,14 +21,14 @@ A Helm chart for Kubernetes
 | arm64.ovsCniMarker.containerSecurityContext.privileged | bool | `true` |  |
 | arm64.ovsCniMarker.image.repository | string | `"example.com/ovs-cni-plugin"` |  |
 | arm64.ovsCniMarker.image.tag | string | `"v0.1.0"` |  |
-| arm64.ovsCniMarker.imagePullPolicy | string | `"Always"` |  |
+| arm64.ovsCniMarker.imagePullPolicy | string | `"IfNotPresent"` |  |
 | arm64.ovsCniMarker.resources.requests.cpu | string | `"10m"` |  |
 | arm64.ovsCniMarker.resources.requests.memory | string | `"10Mi"` |  |
 | arm64.ovsCniPlugin.args[0] | string | `"cp /ovs /host/opt/cni/bin/ovs && cp /ovs-mirror-producer /host/opt/cni/bin/ovs-mirror-producer && cp /ovs-mirror-consumer /host/opt/cni/bin/ovs-mirror-consumer\n"` |  |
 | arm64.ovsCniPlugin.containerSecurityContext.privileged | bool | `true` |  |
 | arm64.ovsCniPlugin.image.repository | string | `"example.com/ovs-cni-plugin"` |  |
 | arm64.ovsCniPlugin.image.tag | string | `"v0.1.0"` |  |
-| arm64.ovsCniPlugin.imagePullPolicy | string | `"Always"` |  |
+| arm64.ovsCniPlugin.imagePullPolicy | string | `"IfNotPresent"` |  |
 | arm64.ovsCniPlugin.resources.requests.cpu | string | `"10m"` |  |
 | arm64.ovsCniPlugin.resources.requests.memory | string | `"15Mi"` |  |
 | imagePullSecrets | list | `[]` |  |

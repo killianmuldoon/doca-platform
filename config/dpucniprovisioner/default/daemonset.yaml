@@ -22,7 +22,7 @@ spec:
       containers:
       - name: dpu-cni-provisioner
         image: controller
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         readinessProbe:
           exec:
             command:
