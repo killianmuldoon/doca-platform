@@ -45,3 +45,8 @@ go.work
 *.swo
 *~
 .devcontainer/
+
+
+# Ignore version file for third_party components
+third_party/forked/ovs-cni/.version
+
