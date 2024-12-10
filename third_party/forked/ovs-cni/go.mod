@@ -1,5 +1,6 @@
 module github.com/k8snetworkplumbingwg/ovs-cni
 
+go 1.22.8
 require (
 	github.com/containernetworking/cni v1.0.1
 	github.com/containernetworking/plugins v1.0.1
@@ -86,5 +87,3 @@ replace (
 	k8s.io/metrics => k8s.io/metrics v0.19.1
 	k8s.io/sample-apiserver => k8s.io/sample-apiserver v0.19.1
 )
-
-go 1.23
