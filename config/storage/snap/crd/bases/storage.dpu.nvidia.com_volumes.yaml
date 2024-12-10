@@ -139,6 +139,7 @@ spec:
             description: VolumeStatus defines the observed state of Volume
             properties:
               state:
+                description: The state of a Volume object
                 enum:
                 - InProgress
                 - Available

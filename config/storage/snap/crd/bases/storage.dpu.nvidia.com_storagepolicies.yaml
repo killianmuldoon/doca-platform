@@ -74,8 +74,6 @@ spec:
                 - Valid
                 - Invalid
                 type: string
-            required:
-            - state
             type: object
         required:
         - spec

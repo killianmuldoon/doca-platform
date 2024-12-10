@@ -22,7 +22,7 @@ import (
 	"time"
 
 	storagev1 "github.com/nvidia/doca-platform/api/storage/v1alpha1"
-	snap "github.com/nvidia/doca-platform/internal/storage/snap-controller"
+	snap "github.com/nvidia/doca-platform/internal/storage/snap/controllers"
 
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"

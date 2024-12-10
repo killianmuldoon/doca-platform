@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	storage "k8s.io/api/storage/v1"
+	storagev1 "k8s.io/api/storage/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -37,8 +37,8 @@ var SVVolumeAttachmentGroupVersionKind = GroupVersion.WithKind(SVVolumeAttachmen
 type SVVolumeAttachment struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              storage.VolumeAttachmentSpec   `json:"spec"`
-	Status            storage.VolumeAttachmentStatus `json:"status,omitempty"`
+	Spec              storagev1.VolumeAttachmentSpec   `json:"spec"`
+	Status            storagev1.VolumeAttachmentStatus `json:"status,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -14,23 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package snap
+package controllers
 
 import (
 	"context"
 
-	storagev1 "github.com/nvidia/doca-platform/api/storage/v1alpha1"
+	snapstoragev1 "github.com/nvidia/doca-platform/api/storage/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"sigs.k8s.io/controller-runtime/pkg/log"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
-	NVVolumeFinalizer = "storage.nvidia.com/volume-protection"
+	NVVolumeFinalizer      = "storage.nvidia.com/volume-protection"
+	nvVolumeControllerName = "nvVolumeController"
 )
 
 // NVVolume reconciles a Volume object
@@ -44,40 +44,60 @@ type NVVolume struct {
 // +kubebuilder:rbac:groups=storage.dpu.nvidia.com,resources=volumes/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=storage.dpu.nvidia.com,resources=volumes/finalizers,verbs=update
 
-func (r *NVVolume) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	logger := log.FromContext(ctx)
-	logger.Info("Reconciling")
+func (r *NVVolume) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
+	log := ctrllog.FromContext(ctx)
+	log.Info("Reconciling")
 
-	nvVolume := &storagev1.Volume{}
+	nvVolume := &snapstoragev1.Volume{}
 	if err := r.Get(ctx, req.NamespacedName, nvVolume); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
+	/*
+		patcher := patch.NewSerialPatcher(nvVolume, r.Client)
+		// Defer a patch call to always patch the object when Reconcile exits.
+		defer func() {
+			log.Info("Patching")
 
-	if nvVolume.DeletionTimestamp.IsZero() {
-		if !controllerutil.ContainsFinalizer(nvVolume, NVVolumeFinalizer) {
-			controllerutil.AddFinalizer(nvVolume, NVVolumeFinalizer)
-			if err := r.Update(ctx, nvVolume); err != nil {
-				return ctrl.Result{}, err
+			if err := r.updateSummary(ctx, nvVolume); err != nil {
+				reterr = kerrors.NewAggregate([]error{reterr, err})
 			}
-		}
-	} else {
-		return ctrl.Result{}, r.reconcileDelete(ctx, nvVolume)
-	}
 
+			if err := patcher.Patch(ctx, nvVolume,
+				patch.WithFieldOwner(nvVolumeControllerName),
+				patch.WithStatusObservedGeneration{},
+			); err != nil {
+				reterr = kerrors.NewAggregate([]error{reterr, err})
+			}
+		}()
+
+		// Handle deletion reconciliation loop.
+		if !nvVolume.DeletionTimestamp.IsZero() {
+			return r.reconcileDelete(ctx, nvVolume)
+		}
+		// Add finalizer if not set.
+		if !controllerutil.ContainsFinalizer(nvVolume, NVVolumeFinalizer) {
+			log.Info("Adding finalizer")
+			controllerutil.AddFinalizer(nvVolume, NVVolumeFinalizer)
+			return ctrl.Result{}, nil
+		}
+	*/
 	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *NVVolume) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&storagev1.Volume{}).
+		For(&snapstoragev1.Volume{}).
 		Complete(r)
 }
 
-func (r *NVVolume) reconcileDelete(ctx context.Context, volume *storagev1.Volume) error {
+/*
+func (r *NVVolume) reconcileDelete(_ context.Context, volume *snapstoragev1.Volume) (ctrl.Result, error) {
 	controllerutil.RemoveFinalizer(volume, NVVolumeFinalizer)
-	if err := r.Update(ctx, volume); err != nil {
-		return err
-	}
-	return nil
+	return ctrl.Result{}, nil
 }
+
+// updateSummary updates the fields of the Volume
+func (r *NVVolume) updateSummary(_ context.Context, _ *snapstoragev1.Volume) error {
+	return nil
+}*/

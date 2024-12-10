@@ -24,6 +24,10 @@ import (
 // +kubebuilder:validation:Enum=Random;LocalNVolumes
 type StorageSelectionAlgType string
 
+// StorageVendorState represents the state of storage vendor
+// +kubebuilder:validation:Enum=Valid;Invalid
+type StorageVendorState string
+
 const (
 	// StoragePolicyKind is the kind of the StoragePolicy object
 	StoragePolicyKind = "StoragePolicy"
@@ -32,6 +36,12 @@ const (
 	// Load-balancing on the number of volumes belonging to the StoragePolicy.
 	// The vendor (in the StoragePolicy list) with the minimal number of volumes should be selected.
 	LocalNVolumes StorageSelectionAlgType = "LocalNVolumes"
+	// Vaild means all provided storage vendors (storageVendors)
+	// have a StorageVendor object with a valid storage class object
+	StorageVendorStateValid StorageVendorState = "Valid"
+	// Invalid means one or more provided storage vendors (storageVendors) do not
+	// have a StorageVendor object with a valid storage class object
+	StorageVendorStateInvalid StorageVendorState = "Invalid"
 )
 
 // StoragePolicyGroupVersionKind is the GroupVersionKind of the StoragePolicy object
@@ -65,9 +75,8 @@ type StoragePolicySpec struct {
 // StoragePolicyStatus defines the observed state of StoragePolicy
 type StoragePolicyStatus struct {
 	// A storage policy is valid if all provided storage vendors have a StorageVendor object with a valid storage class object
-	// +kubebuilder:validation:Enum=Valid;Invalid
-	// +required
-	State string `json:"state,omitempty"`
+	// +optional
+	State StorageVendorState `json:"state,omitempty"`
 	// Informative message when the state is invalid
 	// +optional
 	Message string `json:"message,omitempty"`

@@ -22,9 +22,17 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// VolumeState represents the state of volume
+// +kubebuilder:validation:Enum=InProgress;Available
+type VolumeState string
+
 const (
 	// VolumeKind is the kind of the Volume object
 	VolumeKind = "Volume"
+	// InProgress means the some of related resource is still in progress
+	VolumeStateInProgress VolumeState = "InProgress"
+	// Available means that all related resources are created
+	VolumeStateAvailable VolumeState = "Available"
 )
 
 // VolumeGroupVersionKind is the GroupVersionKind of the Volume object
@@ -109,8 +117,9 @@ type VolumeSpec struct {
 
 // VolumeStatus defines the observed state of Volume
 type VolumeStatus struct {
-	// +kubebuilder:validation:Enum=InProgress;Available
-	State string `json:"state,omitempty"`
+	// The state of a Volume object
+	// +optional
+	State VolumeState `json:"state,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -143,7 +143,7 @@ $(SOS_REPORT_DIR): | $(REPOSDIR)
 ##@ Development
 GENERATE_TARGETS ?= dpuservice provisioning dpucniprovisioner servicechainset sfc-controller ovs-cni operator \
 	operator-embedded release-defaults dummydpuservice kamaji-cluster-manager static-cluster-manager \
-	dpu-detector ovn-kubernetes ovs-helper storage-api storage-snap-controller
+	dpu-detector ovn-kubernetes ovs-helper storage-snap
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -197,22 +197,17 @@ generate-manifests-dpuservice: controller-gen ## Generate manifests e.g. CRD, RB
 	output:webhook:dir=./config/dpuservice/webhook \
 	webhook
 
-.PHONY: generate-manifests-storage-api
-generate-manifests-storage-api: controller-gen kustomize ## Generate Nvidia Snap CSI API
-	$(MAKE) clean-generated-yaml SRC_DIRS="./config/storage/crd/bases"
+.PHONY: generate-manifests-storage-snap
+generate-manifests-storage-snap: controller-gen kustomize ## Generate manifests for SNAP storage in DPU cluster 
+	$(MAKE) clean-generated-yaml SRC_DIRS="./config/storage/snap/crd/bases"
 	$(CONTROLLER_GEN) \
 	paths="./api/storage/..." \
-	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
-	output:crd:dir=./config/storage/crd/bases \
-
-.PHONY: generate-manifests-storage-snap-controller
-generate-manifests-storage-snap-controller: controller-gen kustomize ## Generate Nvidia Snap CSI API
-	$(CONTROLLER_GEN) \
 	paths="./cmd/storage/snap-controller/..." \
-	paths="./internal/storage/snap-controller/..." \
+	paths="./internal/storage/snap/controllers/..." \
 	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
 	rbac:roleName=snap-controller-role \
-	output:rbac:dir=./config/storage/snap-controller/rbac \
+	output:crd:dir=./config/storage/snap/crd/bases \
+	output:rbac:dir=./config/storage/snap/rbac \
 
 .PHONY: generate-manifests-ovn-kubernetes-resource-injector
 generate-manifests-ovn-kubernetes-resource-injector: envsubst ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes Resource Injector
@@ -891,11 +886,12 @@ docker-build-storage-snap-controller:
 	--label=org.opencontainers.image.version=$(TAG) \
 	--provenance=false \
 	--platform=linux/$(DPU_ARCH) \
-	--build-arg BUILDER_IMAGE=$(BUILD_IMAGE) \
-	--build-arg BASE_IMAGE=$(BASE_IMAGE) \
-	--build-arg GO_LDFLAGS=$(GO_LDFLAGS) \
-	--build-arg GO_GCFLAGS=$(GO_GCFLAGS) \
-	-f Dockerfile.snap-controller \
+	--build-arg builder_image=$(BUILD_IMAGE) \
+	--build-arg base_image=$(BASE_IMAGE) \
+	--build-arg ldflags=$(GO_LDFLAGS) \
+	--build-arg gcflags=$(GO_GCFLAGS) \
+	--build-arg package=./cmd/storage/snap-controller \
+	-f Dockerfile \
 	. \
 	-t ${STORAGE_SNAP_CONTROLLER_IMAGE}:$(TAG)
 

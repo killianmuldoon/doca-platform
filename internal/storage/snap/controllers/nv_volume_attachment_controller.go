@@ -14,12 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package snap
+package controllers
 
 import (
 	"context"
 
-	storagev1 "github.com/nvidia/doca-platform/api/storage/v1alpha1"
+	snapstoragev1 "github.com/nvidia/doca-platform/api/storage/v1alpha1"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -69,7 +69,7 @@ func (r *NVVolumeAttachment) Reconcile(ctx context.Context, req ctrl.Request) (c
 // SetupWithManager sets up the controller with the Manager.
 func (r *NVVolumeAttachment) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&storagev1.VolumeAttachment{}).
+		For(&snapstoragev1.VolumeAttachment{}).
 		Complete(r)
 }
 

@@ -1469,7 +1469,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `state` _string_ | A storage policy is valid if all provided storage vendors have a StorageVendor object with a valid storage class object |  | Enum: [Valid Invalid] <br /> |
+| `state` _[StorageVendorState](#storagevendorstate)_ | A storage policy is valid if all provided storage vendors have a StorageVendor object with a valid storage class object |  | Enum: [Valid Invalid] <br /> |
 | `message` _string_ | Informative message when the state is invalid |  |  |
 
 
@@ -1544,6 +1544,24 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `storageClassName` _string_ | Storage vendor class name, deployed on the DPU K8S cluster. |  |  |
 | `pluginName` _string_ | Storage vendor DPU plugin name |  |  |
+
+
+#### StorageVendorState
+
+_Underlying type:_ _string_
+
+StorageVendorState represents the state of storage vendor
+
+_Validation:_
+- Enum: [Valid Invalid]
+
+_Appears in:_
+- [StoragePolicyStatus](#storagepolicystatus)
+
+| Field | Description |
+| --- | --- |
+| `Valid` | Vaild means all provided storage vendors (storageVendors)<br />have a StorageVendor object with a valid storage class object<br /> |
+| `Invalid` | Invalid means one or more provided storage vendors (storageVendors) do not<br />have a StorageVendor object with a valid storage class object<br /> |
 
 
 #### Volume
@@ -1708,6 +1726,24 @@ _Appears in:_
 | `volume` _[DPUVolume](#dpuvolume)_ | Describe volume information in DPU cluster |  |  |
 
 
+#### VolumeState
+
+_Underlying type:_ _string_
+
+VolumeState represents the state of volume
+
+_Validation:_
+- Enum: [InProgress Available]
+
+_Appears in:_
+- [VolumeStatus](#volumestatus)
+
+| Field | Description |
+| --- | --- |
+| `InProgress` | InProgress means the some of related resource is still in progress<br /> |
+| `Available` | Available means that all related resources are created<br /> |
+
+
 #### VolumeStatus
 
 
@@ -1721,7 +1757,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `state` _string_ |  |  | Enum: [InProgress Available] <br /> |
+| `state` _[VolumeState](#volumestate)_ | The state of a Volume object |  | Enum: [InProgress Available] <br /> |
 
 
 
