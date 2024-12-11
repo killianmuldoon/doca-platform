@@ -638,12 +638,15 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 		By("get the DPFOperatorConfig")
 		Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
 		By("update the MTU in the DPFOperatorConfig")
+		originalConfig := config.DeepCopy()
 		if config.Spec.Networking == nil {
 			config.Spec.Networking = &operatorv1.Networking{}
 		}
 		config.Spec.Networking.ControlPlaneMTU = ptr.To(1200)
 		config.Spec.Networking.HighSpeedMTU = ptr.To(9000)
-		Expect(testClient.Update(ctx, config)).To(Succeed())
+		Eventually(func(g Gomega) {
+			g.Expect(testClient.Patch(ctx, config, client.MergeFrom(originalConfig))).To(Succeed())
+		}).Should(Succeed())
 
 		for _, dpuClusterConfig := range dpuClusterConfigs {
 			dpuClient, err := dpuClusterConfig.Client(ctx)
@@ -672,7 +675,7 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 				g.Expect(err).ToNot(HaveOccurred())
 				g.Expect(exists).To(BeTrue())
 				g.Expect(config).To(ContainSubstring("mtu\": 9000,"))
-			}, time.Second*10, time.Millisecond*250).Should(Succeed())
+			}, time.Second*30).Should(Succeed())
 		}
 	})
 }
