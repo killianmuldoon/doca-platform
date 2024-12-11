@@ -87,14 +87,14 @@ This component set uses the Kamaji Cluster Manager - but other Cluster managers 
   * Manage the Kamaji cluster load balancer
   * Communicate with the host control plane and DPU control plane
 * BFB controller
-  * Download the Bluefield Bitstream (BFB) from a remote server
+  * Download the BFB from a remote server
   * Communicate with the host control plane and remote BFB server
 * DPUSet controller
   * Create DPU objects and manage their lifecycle
   * Select a Kubernetes control plane for DPU Cluster nodes to join
   * Communicate with the host control plane
 * DPU controller
-  * Flash the Bluefield Bitstream to the DPU
+  * Flash the BFB to the DPU
   * Communicate with the DOCA Management Service
 
 #### On each node in the host cluster
