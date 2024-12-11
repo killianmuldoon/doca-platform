@@ -33,4 +33,8 @@ const (
 	EventFailedDownloadBFBReason = "FailedDownload"
 	// EventSuccessfulDownloadBFBReason indicates that BFB is successfully downloaded.
 	EventSuccessfulDownloadBFBReason = "SuccessfulDownload"
+	// EventDownloadInProgressBFBReason indicates that BFB is being downloaded.
+	EventDownloadInProgressBFBReason = "DownloadInProgress"
+	// EventFailedGetBFBVersionReason indicates that getting the BFB version failed.
+	EventFailedGetBFBVersionReason = "FailedGetBFBVersion"
 )

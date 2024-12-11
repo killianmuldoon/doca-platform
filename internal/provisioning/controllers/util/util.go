@@ -20,10 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
-	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -83,7 +80,10 @@ const (
 
 var (
 	// Location of BFB binary files
-	BFBBaseDir = "bfb"
+	BFBBaseDir          = "bfb"
+	BFBBaseDirPath      = string(os.PathSeparator) + BFBBaseDir
+	BFBDownloader       = "bfb-downloader"
+	BFBDownloaderScript = "bfbdownloader.sh"
 )
 
 func GenerateBFCFGFileName(dpuName string) string {
@@ -94,12 +94,20 @@ func GenerateBFBCFGFilePath(filename string) string {
 	return string(os.PathSeparator) + BFBBaseDir + string(os.PathSeparator) + filename
 }
 
-func GenerateBFBTaskName(bfb provisioningv1.BFB) string {
-	return fmt.Sprintf("%s-%s", bfb.Namespace, bfb.Name)
+func GenerateBFBJobName(bfb provisioningv1.BFB) string {
+	return fmt.Sprintf("%s-%s", BFBDownloader, bfb.Name)
 }
 
 func GenerateBFBFilePath(filename string) string {
 	return string(os.PathSeparator) + BFBBaseDir + string(os.PathSeparator) + filename
+}
+
+func GenerateBFBVersionFilePath(filename string) string {
+	return string(os.PathSeparator) + BFBBaseDir + string(os.PathSeparator) + filename + "-version"
+}
+
+func GenerateBFBMD5FilePath(filename string) string {
+	return string(os.PathSeparator) + BFBBaseDir + string(os.PathSeparator) + filename + ".md5"
 }
 
 func GenerateBFBTMPFilePath(uid string) string {
@@ -307,21 +315,6 @@ func SetDPUCondition(status *provisioningv1.DPUStatus, condition *metav1.Conditi
 	status.Conditions[conditionIndex] = *condition
 	// Return true if one of the fields have changed.
 	return !isEqual
-}
-
-func ComputeMD5(filePath string) (string, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return "", err
-	}
-	defer file.Close() //nolint: errcheck
-
-	hash := md5.New()
-	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
-	}
-
-	return hex.EncodeToString(hash.Sum(nil)), nil
 }
 
 // ReplaceDaemonSetPodNodeNameNodeAffinity replaces the RequiredDuringSchedulingIgnoredDuringExecution

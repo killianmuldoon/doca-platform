@@ -65,12 +65,46 @@ type BFBSpec struct {
 	URL string `json:"url"`
 }
 
+// BFBVersions represents the version information for BFB components.
+type BFBVersions struct {
+	// BSP (Board Support Package) version.
+	// This field stores the version of the BSP, which provides essential
+	// support and drivers for the hardware platform.
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="BSP version is immutable"
+	BSP string `json:"bsp,omitempty"`
+
+	// DOCA version
+	// Specifies the version of NVIDIA's Data Center-on-a-Chip Architecture (DOCA),
+	// a platform for developing applications on DPUs
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="DOCA version is immutable"
+	DOCA string `json:"doca,omitempty"`
+
+	// UEFI (Unified Extensible Firmware Interface) version.
+	// Indicates the UEFI firmware version, which is responsible for booting
+	// the operating system and initializing hardware components
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="UEFI version is immutable"
+	UEFI string `json:"uefi,omitempty"`
+
+	// ATF (Arm Trusted Firmware) version.
+	// Contains the version of ATF, which provides a secure runtime environment
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="ATF version is immutable"
+	ATF string `json:"atf,omitempty"`
+}
+
 // BFBStatus defines the observed state of BFB
 type BFBStatus struct {
 	// The current state of BFB.
 	// +kubebuilder:default=Initializing
 	// +required
 	Phase BFBPhase `json:"phase"`
+	// BFB versions - BSP, DOCA, UEFI and ATF
+	// Holds detailed version information for each component within the BFB
+	// +optional
+	Versions BFBVersions `json:"versions,omitempty"`
 }
 
 // +kubebuilder:object:root=true

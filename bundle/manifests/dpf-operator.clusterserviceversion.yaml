@@ -84,6 +84,7 @@ spec:
           resources:
           - configmaps
           - events
+          - jobs
           - nodes
           - persistentvolumeclaims
           - pods
@@ -167,6 +168,18 @@ spec:
           - subjectaccessreviews
           verbs:
           - create
+        - apiGroups:
+          - batch
+          resources:
+          - jobs
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - cert-manager.io
           resources:

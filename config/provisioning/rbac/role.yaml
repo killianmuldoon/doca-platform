@@ -24,6 +24,7 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - jobs
   - nodes
   - pods
   - pods/exec
@@ -57,6 +58,18 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
+- apiGroups:
+  - batch
+  resources:
+  - jobs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - cert-manager.io
   resources:

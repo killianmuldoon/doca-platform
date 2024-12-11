@@ -99,7 +99,8 @@ type DPFOperatorConfigReconcilerSettings struct {
 
 // Kubernetes Objects
 // +kubebuilder:rbac:groups=core,resources=namespaces,verbs=create
-// +kubebuilder:rbac:groups=core,resources=nodes;pods;pods/exec;services;serviceaccounts;serviceaccounts/token;configmaps;persistentvolumeclaims;events;secrets,verbs=get;list;watch;create;patch;update;delete
+// +kubebuilder:rbac:groups=core,resources=nodes;pods;pods/exec;jobs;services;serviceaccounts;serviceaccounts/token;configmaps;persistentvolumeclaims;events;secrets,verbs=get;list;watch;create;patch;update;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;patch;update;delete
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=deployments;daemonsets,verbs=get;list;watch;create;patch;delete
 // +kubebuilder:rbac:groups=admissionregistration.k8s.io,resources=validatingwebhookconfigurations;mutatingwebhookconfigurations,verbs=get;list;watch;create;update;patch;delete

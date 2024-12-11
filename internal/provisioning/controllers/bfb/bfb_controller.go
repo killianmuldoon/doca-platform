@@ -23,7 +23,9 @@ import (
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb/state"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
+	bfbdownloader "github.com/nvidia/doca-platform/internal/provisioning/controllers/util/bfbdownloader"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -42,13 +44,17 @@ const (
 // BFBReconciler reconciles a BFB object
 type BFBReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Scheme *runtime.Scheme
+	util.BFBOptions
+	Recorder      record.EventRecorder
+	BFBDownloader bfbdownloader.BFBDownloader
 }
 
 // +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=bfbs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=bfbs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=bfbs/finalizers,verbs=update
+// +kubebuilder:rbac:groups="",resources=jobs;pods;pods/exec,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="batch",resources=jobs,verbs=get;list;watch;create;update;patch;delete
 
 func (r *BFBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -72,7 +78,7 @@ func (r *BFBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	currentState := state.GetBFBState(bfb, r.Recorder)
-	nextState, err := currentState.Handle(ctx, r.Client)
+	nextState, err := currentState.Handle(ctx, r.Client, r.BFBOptions, r.BFBDownloader)
 	if err != nil {
 		logger.Error(err, "BFB statue handle error", "phase", bfb.Status.Phase)
 	}

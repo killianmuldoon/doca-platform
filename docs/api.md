@@ -573,6 +573,26 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `phase` _[BFBPhase](#bfbphase)_ | The current state of BFB. | Initializing | Enum: [Initializing Downloading Ready Deleting Error] <br /> |
+| `versions` _[BFBVersions](#bfbversions)_ | BFB versions - BSP, DOCA, UEFI and ATF<br />Holds detailed version information for each component within the BFB |  |  |
+
+
+#### BFBVersions
+
+
+
+BFBVersions represents the version information for BFB components.
+
+
+
+_Appears in:_
+- [BFBStatus](#bfbstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `bsp` _string_ | BSP (Board Support Package) version.<br />This field stores the version of the BSP, which provides essential<br />support and drivers for the hardware platform. |  |  |
+| `doca` _string_ | DOCA version<br />Specifies the version of NVIDIA's Data Center-on-a-Chip Architecture (DOCA),<br />a platform for developing applications on DPUs |  |  |
+| `uefi` _string_ | UEFI (Unified Extensible Firmware Interface) version.<br />Indicates the UEFI firmware version, which is responsible for booting<br />the operating system and initializing hardware components |  |  |
+| `atf` _string_ | ATF (Arm Trusted Firmware) version.<br />Contains the version of ATF, which provides a secure runtime environment |  |  |
 
 
 #### ClusterEndpointSpec

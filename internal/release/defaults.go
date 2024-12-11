@@ -30,6 +30,7 @@ var defaultsContent []byte
 type Defaults struct {
 	DMSImage               string `yaml:"dmsImage"`
 	HostNetworkSetupImage  string `yaml:"hostNetworkSetupImage"`
+	BFBDownloaderImage     string `yaml:"bfbdownloaderImage"`
 	DPFSystemImage         string `yaml:"dpfSystemImage"`
 	DPFToolsImage          string `yaml:"dpfToolsImage"`
 	DPUNetworkingHelmChart string `yaml:"dpuNetworkingHelmChart"`
@@ -59,6 +60,9 @@ func (d *Defaults) Parse() error {
 	}
 	if len(d.HostNetworkSetupImage) == 0 {
 		return errors.New("hostNetworkSetupImage can't be empty")
+	}
+	if len(d.BFBDownloaderImage) == 0 {
+		return errors.New("bfbdownloaderImage can't be empty")
 	}
 	if len(d.DPFSystemImage) == 0 {
 		return errors.New("dpfSystemImage can't be empty")

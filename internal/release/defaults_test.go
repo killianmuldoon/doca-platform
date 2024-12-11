@@ -30,7 +30,8 @@ func TestDefaults_Parse(t *testing.T) {
 		"customOVNKubernetesDPUImage":    "example.com/cloud-orchestration-dev/dpf/killian/test/ovn-kubernetes-dpu:v0.0.0",
 		"customOVNKubernetesNonDPUImage": "example.com/cloud-orchestration-dev/dpf/killian/test/ovn-kubernetes-non-dpu:v0.0.0",
 		"dmsImage":                       "example.com/cloud-orchestration-dev/dpf/killian/test/hostdriver:v0.0.0",
-		"hostnetworksetupImage":          "example.com/cloud-orchestration-dev/dpf/killian/test/hostnetworksetup:v0.0.0",
+		"hostnetworksetupImage":          "example.com/cloud-orchestration-dev/dpf/killian/test/hostdriver:v0.0.0",
+		"bfbdownloaderImage":             "example.com/cloud-orchestration-dev/dpf/killian/test/hostdriver:v0.0.0",
 		"dpfSystemImage":                 "example.com/cloud-orchestration-dev/dpf/killian/test/dpfSystem:v0.0.0",
 		"dpuNetworkingHelmChart":         "example.com/cloud-orchestration-dev/dpf/killian/test/hostnetworksetup:v0.0.0",
 	}
@@ -62,6 +63,11 @@ func TestDefaults_Parse(t *testing.T) {
 		{
 			name:    "fail when hostnetworksetupImage empty/missing",
 			content: withoutValue(g, defaultValues, "hostnetworksetupImage"),
+			wantErr: true,
+		},
+		{
+			name:    "fail when bfbdownloaderImage empty/missing",
+			content: withoutValue(g, defaultValues, "bfbdownloaderImage"),
 			wantErr: true,
 		},
 		{

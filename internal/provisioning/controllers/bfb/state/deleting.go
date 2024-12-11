@@ -25,6 +25,7 @@ import (
 	butil "github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/events"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/bfbdownloader"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/tools/record"
@@ -37,12 +38,8 @@ type bfbDeletingState struct {
 	recorder record.EventRecorder
 }
 
-func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BFBStatus, error) {
+func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client, _ butil.BFBOptions, _ bfbdownloader.BFBDownloader) (provisioningv1.BFBStatus, error) {
 	state := st.bfb.Status.DeepCopy()
-	// make sure the bfb task is deleted from the downloading task map
-	bfbtaskName := cutil.GenerateBFBTaskName(*st.bfb)
-	butil.DownloadingTaskMap.Delete(bfbtaskName)
-	butil.DownloadingTaskMap.Delete(bfbtaskName + "cancel")
 
 	bfbFile := cutil.GenerateBFBFilePath(st.bfb.Spec.FileName)
 	err := os.Remove(bfbFile)
@@ -56,6 +53,22 @@ func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client) (p
 	err = os.Remove(tempFileName)
 	if err != nil && !os.IsNotExist(err) {
 		msg := fmt.Sprintf("Deleting BFB temp file: (%s/%s) failed", st.bfb.Namespace, st.bfb.Name)
+		st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDeleteBFBReason, msg)
+		return *state, err
+	}
+
+	versionFileName := cutil.GenerateBFBVersionFilePath(st.bfb.Spec.FileName)
+	err = os.Remove(versionFileName)
+	if err != nil && !os.IsNotExist(err) {
+		msg := fmt.Sprintf("Deleting BFB version file: (%s/%s) failed", st.bfb.Namespace, st.bfb.Name)
+		st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDeleteBFBReason, msg)
+		return *state, err
+	}
+
+	md5FileName := cutil.GenerateBFBMD5FilePath(st.bfb.Spec.FileName)
+	err = os.Remove(md5FileName)
+	if err != nil && !os.IsNotExist(err) {
+		msg := fmt.Sprintf("Deleting BFB md5 file: (%s/%s) failed", st.bfb.Namespace, st.bfb.Name)
 		st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDeleteBFBReason, msg)
 		return *state, err
 	}

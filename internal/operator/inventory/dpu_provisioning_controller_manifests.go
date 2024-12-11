@@ -347,6 +347,10 @@ func (p *provisioningControllerObjects) setDefaultImageNames(deployment *appsv1.
 	if err != nil {
 		return err
 	}
+	err = p.setFlags(c, fmt.Sprintf("--bfbdownloader-image=%s", defaults.BFBDownloaderImage))
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -20,13 +20,15 @@ import (
 	"context"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb/util"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/bfbdownloader"
 
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type State interface {
-	Handle(ctx context.Context, client client.Client) (provisioningv1.BFBStatus, error)
+	Handle(ctx context.Context, client client.Client, option util.BFBOptions, bfbDownloader bfbdownloader.BFBDownloader) (provisioningv1.BFBStatus, error)
 }
 
 func GetBFBState(bfb *provisioningv1.BFB, recorder record.EventRecorder) State {

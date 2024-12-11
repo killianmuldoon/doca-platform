@@ -26,10 +26,12 @@ import (
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb"
+	butil "github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu"
-	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
+	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpucluster"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpuset"
+	bfbdownloader "github.com/nvidia/doca-platform/internal/provisioning/controllers/util/bfbdownloader"
 	provisioningwebhooks "github.com/nvidia/doca-platform/internal/provisioning/webhooks"
 
 	maintenancev1alpha1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
@@ -82,10 +84,12 @@ func main() {
 	var probeAddr string
 	var dmsImage string
 	var hostnetworkImage string
+	var bfbdownloaderImage string
 	var imagePullSecrets string
 	var bfbPVC string
 	var dmsTimeout int
 	var dmsPodTimeout time.Duration
+	var bfbdownloaderPodTimeout time.Duration
 	var syncPeriod time.Duration
 
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
@@ -99,10 +103,12 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	fs.StringVar(&dmsImage, "dms-image", "", "The image for DMS pod.")
 	fs.StringVar(&hostnetworkImage, "hostnetwork-image", "", "The image for DMS pod.")
+	fs.StringVar(&bfbdownloaderImage, "bfbdownloader-image", "", "The image for BFBDownloader pod.")
 	fs.StringVar(&imagePullSecrets, "image-pull-secrets", "", "The image pull secrets for pods deployed by this controller.")
 	fs.StringVar(&bfbPVC, "bfb-pvc", "", "The pvc to storage bfb.")
 	fs.IntVar(&dmsTimeout, "dms-timeout", 900, "The max timeout execution in seconds of a command if not responding, 0 is unlimited.")
 	fs.DurationVar(&dmsPodTimeout, "dms-pod-timeout", 5*time.Minute, "Timeout for DMS pods")
+	fs.DurationVar(&bfbdownloaderPodTimeout, "bfbdownloader-pod-timeout", 5*time.Minute, "Timeout for BFBDownloader pods")
 	fs.DurationVar(&syncPeriod, "sync-period", 10*time.Minute, "The minimum interval at which watched resources are reconciled.")
 
 	logsv1.AddFlags(logOptions, fs)
@@ -181,7 +187,7 @@ func main() {
 	}
 
 	alloc := allocator.NewAllocator(mgr.GetClient())
-	dpuOptions := util.DPUOptions{
+	dpuOptions := dutil.DPUOptions{
 		DMSImageWithTag:         dmsImage,
 		HostnetworkImageWithTag: hostnetworkImage,
 		BFBPVC:                  bfbPVC,
@@ -208,10 +214,19 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "DPUSet")
 		os.Exit(1)
 	}
+	bfbOptions := butil.BFBOptions{
+		BFBDownloaderImageWithTag: bfbdownloaderImage,
+		BFBPVC:                    bfbPVC,
+		ImagePullSecrets:          imagePullSecretsReferences,
+		BFBDownloaderPodTimeout:   bfbdownloaderPodTimeout,
+	}
+	setupLog.Info("BFB", "options", bfbOptions)
 	if err = (&bfb.BFBReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor(bfb.BFBControllerName),
+		Client:        mgr.GetClient(),
+		Scheme:        mgr.GetScheme(),
+		BFBOptions:    bfbOptions,
+		Recorder:      mgr.GetEventRecorderFor(bfb.BFBControllerName),
+		BFBDownloader: &bfbdownloader.RealBFBDownloader{},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "BFB")
 		os.Exit(1)

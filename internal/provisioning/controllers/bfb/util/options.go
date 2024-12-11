@@ -17,16 +17,14 @@ limitations under the License.
 package util
 
 import (
-	"sync"
+	"time"
 
-	"k8s.io/apimachinery/pkg/types"
+	corev1 "k8s.io/api/core/v1"
 )
 
-var DownloadingTaskMap sync.Map
-
-type BFBTask struct {
-	TaskName string
-	URL      string
-	FileName string
-	UID      types.UID
+type BFBOptions struct {
+	BFBDownloaderImageWithTag string
+	ImagePullSecrets          []corev1.LocalObjectReference
+	BFBPVC                    string
+	BFBDownloaderPodTimeout   time.Duration
 }

@@ -20,6 +20,8 @@ import (
 	"context"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb/util"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/bfbdownloader"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -28,7 +30,7 @@ type bfbErrorState struct {
 	bfb *provisioningv1.BFB
 }
 
-func (st *bfbErrorState) Handle(ctx context.Context, _ client.Client) (provisioningv1.BFBStatus, error) {
+func (st *bfbErrorState) Handle(ctx context.Context, _ client.Client, _ util.BFBOptions, _ bfbdownloader.BFBDownloader) (provisioningv1.BFBStatus, error) {
 	state := st.bfb.Status.DeepCopy()
 	if isDeleting(st.bfb) {
 		state.Phase = provisioningv1.BFBDeleting

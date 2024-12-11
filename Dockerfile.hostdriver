@@ -34,7 +34,8 @@ FROM nvcr.io/nvidia/doca/doca:2.9.1-full-rt-host
 
 ARG TARGETARCH
 ARG MFT_VERSION=4.29.0-131
-ARG PACKAGES="dpkg-dev=1.21.1ubuntu2.3 libusb-1.0-0=2:1.0.25-1ubuntu2 ipmitool=1.8.18-11ubuntu2.1 rshim curl=7.81.0-1ubuntu1.20 screen=4.9.0-1 pv=1.6.6-1build2 bridge-utils=1.7-1ubuntu3 iptables=1.8.7-1ubuntu5.2 iproute2=5.15.0-1ubuntu2"
+ARG BFVER_COMMIT_HASH=82837284211272fe5c6c4dd7caf7912d5cb29a70
+ARG PACKAGES="dpkg-dev=1.21.1ubuntu2.3 libusb-1.0-0=2:1.0.25-1ubuntu2 ipmitool=1.8.18-11ubuntu2.1 rshim curl=7.81.0-1ubuntu1.19 screen=4.9.0-1 pv=1.6.6-1build2 bridge-utils=1.7-1ubuntu3 iptables=1.8.7-1ubuntu5.2 iproute2=5.15.0-1ubuntu2 file"
 
 # enable deb-src repos
 RUN sed -i 's/^# deb-src/deb-src/g' /etc/apt/sources.list /etc/apt/sources.list.d/*
@@ -62,6 +63,11 @@ RUN echo "ipmitool chassis power $reboot" > /usr/sbin/reboot && chmod +x /usr/sb
 
 RUN echo "echo 'running rshim'; rshim" > rshim.sh && chmod +x rshim.sh
 
+RUN curl -O https://raw.githubusercontent.com/Mellanox/bfscripts/${BFVER_COMMIT_HASH}/bfver && chmod +x bfver && mv bfver /usr/local/bin
+RUN curl -O https://raw.githubusercontent.com/Mellanox/bfscripts/${BFVER_COMMIT_HASH}/mlx-mkbfb && chmod +x mlx-mkbfb && mv mlx-mkbfb /usr/local/bin
+
+
 COPY ./internal/bf-slr/bf-slr.sh /usr/sbin
 COPY --from=builder /workspace/bin/dpu-detector .
 COPY ./internal/hostnetwork/hostnetwork.sh /usr/local/bin
+COPY ./internal/bfbdownloader/bfbdownloader.sh /usr/sbin

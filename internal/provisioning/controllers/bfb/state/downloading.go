@@ -18,22 +18,21 @@ package state
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io"
-	"net/http"
-	"os"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	butil "github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/events"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
-	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/future"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/bfbdownloader"
 
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 type bfbDownloadingState struct {
@@ -41,22 +40,36 @@ type bfbDownloadingState struct {
 	recorder record.EventRecorder
 }
 
-func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client) (provisioningv1.BFBStatus, error) {
+func (st *bfbDownloadingState) Handle(ctx context.Context, k8sClient client.Client, option butil.BFBOptions, bfbDownloader bfbdownloader.BFBDownloader) (provisioningv1.BFBStatus, error) {
 	state := st.bfb.Status.DeepCopy()
-	bfbTaskName := cutil.GenerateBFBTaskName(*st.bfb)
+	bfbJobName := cutil.GenerateBFBJobName(*st.bfb)
 
 	if isDeleting(st.bfb) {
-		// Retrieve and call the cancel function to stop the download
-		if cancelFunc, ok := butil.DownloadingTaskMap.Load(bfbTaskName + "cancel"); ok {
-			cancelFunc.(context.CancelFunc)()
-			butil.DownloadingTaskMap.Delete(bfbTaskName)
-			butil.DownloadingTaskMap.Delete(bfbTaskName + "cancel")
+		// Delete the Job if it exists
+		job := &batchv1.Job{}
+		err := k8sClient.Get(ctx, types.NamespacedName{Name: bfbJobName, Namespace: st.bfb.Namespace}, job)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				state.Phase = provisioningv1.BFBDeleting
+				return *state, nil
+			}
+			state.Phase = provisioningv1.BFBError
+			msg := fmt.Sprintf("get job %s (%s/%s) failed with error :%s", bfbJobName, st.bfb.Namespace, st.bfb.Name, err.Error())
+			st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDownloadBFBReason, msg)
+			return *state, err
+		} else {
+			if err := k8sClient.Delete(ctx, job, client.PropagationPolicy(metav1.DeletePropagationForeground)); err != nil {
+				state.Phase = provisioningv1.BFBError
+				msg := fmt.Sprintf("delete job %s (%s/%s) failed with error :%s", bfbJobName, st.bfb.Namespace, st.bfb.Name, err.Error())
+				st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDownloadBFBReason, msg)
+				return *state, err
+			}
 		}
 		state.Phase = provisioningv1.BFBDeleting
 		return *state, nil
 	}
 
-	exist, err := IsBFBExist(ctx, st.bfb.Spec.FileName)
+	exist, err := IsBFBExist(st.bfb)
 	if err != nil {
 		state.Phase = provisioningv1.BFBError
 		msg := fmt.Sprintf("Download BFB: (%s/%s) failed with error :%s", st.bfb.Namespace, st.bfb.Name, err.Error())
@@ -64,139 +77,64 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, client client.Client)
 		return *state, err
 	}
 
-	if bfbDownloader, ok := butil.DownloadingTaskMap.Load(bfbTaskName); ok {
-		// Wait for downloading task completion
-		result := bfbDownloader.(*future.Future)
-		if result.GetState() != future.Ready {
-			return *state, nil
-		}
-		// Remove downloading task context
-		butil.DownloadingTaskMap.Delete(bfbTaskName)
-		butil.DownloadingTaskMap.Delete(bfbTaskName + "cancel")
-		// Check task result
-		if _, err := result.GetResult(); err != nil {
-			if errors.Is(err, context.Canceled) {
-				state.Phase = provisioningv1.BFBDeleting
-				return *state, nil
-			} else {
-				msg := fmt.Sprintf("Download BFB: (%s/%s) failed with error :%s", st.bfb.Namespace, st.bfb.Name, err.Error())
-				st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDownloadBFBReason, msg)
-				state.Phase = provisioningv1.BFBError
-				return *state, err
-			}
-		}
-	} else if !exist {
-		// Start BFB downloading task
-		bfbTask := butil.BFBTask{
-			TaskName: bfbTaskName,
-			URL:      st.bfb.Spec.URL,
-			FileName: st.bfb.Spec.FileName,
-			UID:      st.bfb.UID,
-		}
-
-		// Create a new context for this download task
-		taskCtx, cancel := context.WithCancel(ctx)
-		// Store the cancel function in the map
-		butil.DownloadingTaskMap.Store(bfbTaskName+"cancel", cancel)
-		// Start the download with the new context
-		downloadBFB(taskCtx, bfbTask)
-	} else {
-		// There is no related downloading task and BFB file exists in cache
+	if exist {
 		state.Phase = provisioningv1.BFBReady
-		msg := fmt.Sprintf("Download BFB: (%s/%s) successful", st.bfb.Namespace, st.bfb.Name)
-		st.recorder.Eventf(st.bfb, corev1.EventTypeNormal, events.EventSuccessfulDownloadBFBReason, msg)
+		return *state, nil
 	}
 
+	nn := types.NamespacedName{
+		Namespace: st.bfb.Namespace,
+		Name:      bfbJobName,
+	}
+	job := &batchv1.Job{}
+	if err := k8sClient.Get(ctx, nn, job); err != nil {
+		if apierrors.IsNotFound(err) {
+			err = bfbDownloader.CreateBFBDownloadJob(ctx, k8sClient, st.bfb, option)
+			if err == nil {
+				return *state, nil
+			}
+			state.Phase = provisioningv1.BFBError
+			msg := fmt.Sprintf("Failed to create download job for BFB: (%s/%s), error: %s", st.bfb.Namespace, st.bfb.Name, err.Error())
+			st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDownloadBFBReason, msg)
+			return *state, err
+		}
+		state.Phase = provisioningv1.BFBError
+		msg := fmt.Sprintf("Failed to get job for BFB: (%s/%s), error: %s", st.bfb.Namespace, st.bfb.Name, err.Error())
+		st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDownloadBFBReason, msg)
+		return *state, err
+	}
+	if jobSuccess, err := bfbDownloader.ProcessJobConditions(job, option.BFBDownloaderPodTimeout); err != nil {
+		msg := fmt.Sprintf("Download BFB: (%s/%s) failed", st.bfb.Namespace, st.bfb.Name)
+		st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDownloadBFBReason, msg)
+		state.Phase = provisioningv1.BFBError
+		return *state, err
+	} else if !jobSuccess {
+		return *state, nil
+	}
+
+	msg := fmt.Sprintf("Download BFB: (%s/%s) successful", st.bfb.Namespace, st.bfb.Name)
+	st.recorder.Eventf(st.bfb, corev1.EventTypeNormal, events.EventSuccessfulDownloadBFBReason, msg)
+
+	bfbVer, err := bfbDownloader.GetBFBVersion(cutil.GenerateBFBVersionFilePath(st.bfb.Spec.FileName))
+	if err != nil {
+		msg := fmt.Sprintf("Failed getting BFB: (%s/%s) versions, err: %s", st.bfb.Namespace, st.bfb.Name, err.Error())
+		st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedGetBFBVersionReason, msg)
+		state.Phase = provisioningv1.BFBError
+		return *state, err
+	}
+
+	state.Versions = bfbVer
+	state.Phase = provisioningv1.BFBReady
 	return *state, nil
 }
 
-func downloadBFB(ctx context.Context, bfbTask butil.BFBTask) {
-	bfbDownloader := future.New(func() (any, error) {
-		logger := log.FromContext(ctx)
-		logger.V(3).Info("BFBPackage", "start downloading", bfbTask.FileName)
-
-		// Create a temporary file
-		tempFileName := cutil.GenerateBFBTMPFilePath(string(bfbTask.UID))
-		tempFile, err := os.Create(tempFileName)
-		if err != nil {
-			return nil, err
-		}
-		defer os.Remove(tempFile.Name()) //nolint: errcheck
-
-		req, err := http.NewRequestWithContext(ctx, "GET", bfbTask.URL, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		resp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("failed to get: %s status: %d", bfbTask.URL, resp.StatusCode)
-		}
-		defer resp.Body.Close() //nolint: errcheck
-
-		buf := make([]byte, 128*1024*1024)
-	copyLoop:
-		for {
-			select {
-			case <-ctx.Done():
-				logger.V(3).Info("BFBPackage", "context canceled", bfbTask.FileName)
-				return nil, nil
-			default:
-				n, err := resp.Body.Read(buf)
-				if err != nil && err != io.EOF {
-					if errors.Is(err, context.Canceled) {
-						return nil, ctx.Err()
-					}
-					return nil, fmt.Errorf("failed to read from source file: %w", err)
-				}
-				if n == 0 {
-					break copyLoop
-				}
-				if _, writeErr := tempFile.Write(buf[:n]); writeErr != nil {
-					return nil, writeErr
-				}
-			}
-		}
-
-		// Close the temp file before renaming
-		if err := tempFile.Close(); err != nil {
-			return nil, err
-		}
-
-		// Rename the temp file to the final destination
-		bfbfile := cutil.GenerateBFBFilePath(bfbTask.FileName)
-		if err := os.Rename(tempFile.Name(), bfbfile); err != nil {
-			return nil, err
-		}
-
-		if err := os.Chmod(bfbfile, 0644); err != nil {
-			return nil, err
-		}
-
-		logger.V(3).Info("createBFBPackage", "finish", bfbTask.FileName)
-		return true, nil
-	})
-	butil.DownloadingTaskMap.Store(bfbTask.TaskName, bfbDownloader)
-}
-
-func IsBFBExist(ctx context.Context, fileName string) (bool, error) {
-	logger := log.FromContext(ctx)
-	bfbFilePath := cutil.GenerateBFBFilePath(fileName)
-	_, err := os.Stat(bfbFilePath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		} else {
-			return false, err
-		}
+func IsBFBExist(bfb *provisioningv1.BFB) (bool, error) {
+	if bfb == nil {
+		return false, fmt.Errorf("BFB object is nil")
 	}
-	if md5Value, md5err := cutil.ComputeMD5(bfbFilePath); md5err == nil {
-		logger.V(3).Info(fmt.Sprintf("md5sum of %s is %s", fileName, md5Value))
+
+	if bfb.Status.Versions.DOCA != "" {
 		return true, nil
-	} else {
-		return false, fmt.Errorf("compute md5sum %v", md5err)
 	}
+	return false, nil
 }

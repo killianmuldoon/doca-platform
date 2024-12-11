@@ -349,6 +349,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 			fmt.Sprintf("--hostnetwork-image=%s", defaults.HostNetworkSetupImage),
 			fmt.Sprintf("--bfb-pvc=%s", expectedPVC),
 			fmt.Sprintf("--image-pull-secrets=%s", strings.Join([]string{expectedImagePullSecret1, expectedImagePullSecret2}, ",")),
+			fmt.Sprintf("--bfbdownloader-image=%s", defaults.BFBDownloaderImage),
 			fmt.Sprintf("--dms-timeout=%d", expectedDmsTimeout),
 		}
 		g.Expect(gotDeployment.Spec.Template.Spec.Containers).To(HaveLen(1))

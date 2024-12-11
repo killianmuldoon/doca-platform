@@ -30,10 +30,12 @@ import (
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb"
+	butil "github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpucluster"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpuset"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
+	bfbdownloader "github.com/nvidia/doca-platform/internal/provisioning/controllers/util/bfbdownloader"
 	provisioningwebhooks "github.com/nvidia/doca-platform/internal/provisioning/webhooks"
 
 	nvidiaNodeMaintenancev1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
@@ -133,11 +135,19 @@ var _ = BeforeSuite(func() {
 
 	alloc := allocator.NewAllocator(k8sManager.GetClient())
 	err = (&provisioningwebhooks.BFB{}).SetupWebhookWithManager(k8sManager)
+	bfbOptions := butil.BFBOptions{
+		BFBDownloaderImageWithTag: "example.com/doca-platform-foundation/dpf-provisioning-controller/hostdriver:v0.1.0",
+		BFBPVC:                    "bfb-pvc",
+		BFBDownloaderPodTimeout:   5 * time.Minute,
+		// ImagePullSecrets:        imagePullSecretsReferences,
+	}
 	Expect(err).NotTo(HaveOccurred())
 	bfbReconciler := &bfb.BFBReconciler{
-		Client:   k8sManager.GetClient(),
-		Scheme:   k8sManager.GetScheme(),
-		Recorder: k8sManager.GetEventRecorderFor(bfb.BFBControllerName),
+		Client:        k8sManager.GetClient(),
+		Scheme:        k8sManager.GetScheme(),
+		BFBOptions:    bfbOptions,
+		Recorder:      k8sManager.GetEventRecorderFor(bfb.BFBControllerName),
+		BFBDownloader: &bfbdownloader.MockBFBDownloader{},
 	}
 	err = bfbReconciler.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
