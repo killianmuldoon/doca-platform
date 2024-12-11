@@ -31,10 +31,11 @@ var VolumeAttachmentGroupVersionKind = GroupVersion.WithKind(VolumeAttachmentKin
 // VolumeAttachmentSource references to the NV-Volume object
 type VolumeAttachmentSource struct {
 	// Reference to the NV-Volume object
-	VolumeAttachmentRef ObjectRef `json:"volumeAttachmentRef,omitempty"`
+	VolumeRef ObjectRef `json:"volumeRef,omitempty"`
 }
 
 // DPUVolumeAttachment describe the information of DPU volume
+// +kubebuilder:validation:cel:rule="(has(self.bdevAttrs) && !has(self.fsdevAttrs)) || (!has(self.bdevAttrs) && has(self.fsdevAttrs))"
 type DPUVolumeAttachment struct {
 	// Indicates the volume is successfully attached to the DPU node
 	Attached bool `json:"attached,omitempty"`
@@ -59,7 +60,7 @@ type FSdevAttrs struct {
 // BdevAttrs represents the attributes of the underlying block device
 type BdevAttrs struct {
 	// The namespace ID within the NVME controller
-	NVMeNsID string `json:"nvmeNsID,omitempty"`
+	NVMeNsID int64 `json:"nvmeNsID,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -88,7 +89,12 @@ type VolumeAttachmentSpec struct {
 
 // VolumeAttachmentStatus defines the observed state of VolumeAttachment
 type VolumeAttachmentStatus struct {
-	// TODO: add fields
+	// Indicates the volume is successfully attached to the target storage system
+	StorageAttached bool `json:"storageAttached,omitempty"`
+	// The last error encountered during the attach operation, if any
+	Message string `json:"message,omitempty"`
+	// Details about the DPU attachment
+	DPU DPUVolumeAttachment `json:"dpu,omitempty"`
 }
 
 // +kubebuilder:object:root=true

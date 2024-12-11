@@ -1277,7 +1277,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `nvmeNsID` _string_ | The namespace ID within the NVME controller |  |  |
+| `nvmeNsID` _integer_ | The namespace ID within the NVME controller |  |  |
 
 
 #### CSIReference
@@ -1323,6 +1323,24 @@ _Appears in:_
 | `csiReference` _[CSIReference](#csireference)_ |  |  |  |
 
 
+#### DPUVolumeAttachment
+
+
+
+DPUVolumeAttachment describe the information of DPU volume
+
+
+
+_Appears in:_
+- [VolumeAttachmentStatus](#volumeattachmentstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `attached` _boolean_ | Indicates the volume is successfully attached to the DPU node |  |  |
+| `pciDeviceAddress` _string_ | PCI device address in the following format: (bus:device.function) |  |  |
+| `deviceName` _string_ | The name of the device that was created by the storage vendor plugin |  |  |
+| `bdevAttrs` _[BdevAttrs](#bdevattrs)_ | The attributes of the underlying block device |  |  |
+| `fsdevAttrs` _[FSdevAttrs](#fsdevattrs)_ | The attributes of the underlying filesystem device |  |  |
 
 
 #### FSdevAttrs
@@ -1637,7 +1655,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `volumeAttachmentRef` _[ObjectRef](#objectref)_ | Reference to the NV-Volume object |  |  |
+| `volumeRef` _[ObjectRef](#objectref)_ | Reference to the NV-Volume object |  |  |
 
 
 #### VolumeAttachmentSpec
@@ -1670,6 +1688,11 @@ VolumeAttachmentStatus defines the observed state of VolumeAttachment
 _Appears in:_
 - [VolumeAttachment](#volumeattachment)
 
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `storageAttached` _boolean_ | Indicates the volume is successfully attached to the target storage system |  |  |
+| `message` _string_ | The last error encountered during the attach operation, if any |  |  |
+| `dpu` _[DPUVolumeAttachment](#dpuvolumeattachment)_ | Details about the DPU attachment |  |  |
 
 
 #### VolumeList

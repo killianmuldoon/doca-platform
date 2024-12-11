@@ -143,7 +143,7 @@ $(SOS_REPORT_DIR): | $(REPOSDIR)
 ##@ Development
 GENERATE_TARGETS ?= dpuservice provisioning dpucniprovisioner servicechainset sfc-controller ovs-cni operator \
 	operator-embedded release-defaults dummydpuservice kamaji-cluster-manager static-cluster-manager \
-	dpu-detector ovn-kubernetes ovs-helper storage-snap
+	dpu-detector ovn-kubernetes ovs-helper storage-snap storage-snap-node-driver
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -208,6 +208,15 @@ generate-manifests-storage-snap: controller-gen kustomize ## Generate manifests 
 	rbac:roleName=snap-controller-role \
 	output:crd:dir=./config/storage/snap/crd/bases \
 	output:rbac:dir=./config/storage/snap/rbac \
+
+.PHONY: generate-manifests-storage-snap-node-driver
+generate-manifests-storage-snap-node-driver: controller-gen kustomize ## Generate NVIDIA SNAP Node Driver
+	$(CONTROLLER_GEN) \
+	paths="./cmd/storage/snap-node-driver/..." \
+	paths="./internal/storage/snap/node-driver/..." \
+	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
+	rbac:roleName=snap-node-driver-role \
+	output:rbac:dir=./config/storage/snap/node-driver/rbac \
 
 .PHONY: generate-manifests-ovn-kubernetes-resource-injector
 generate-manifests-ovn-kubernetes-resource-injector: envsubst ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes Resource Injector
@@ -552,7 +561,7 @@ GO_GCFLAGS ?= ""
 GO_LDFLAGS ?= "-extldflags '-static'"
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
 DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller ovs-helper
-DPU_ARCH_BUILD_TARGETS ?= storage-snap-controller
+DPU_ARCH_BUILD_TARGETS ?= storage-snap-controller storage-snap-node-driver
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
 # The BUNDLE_VERSION is the same as the TAG but the first character is stripped. This is used to strip a leading `v` which is invalid for Bundle versions.
@@ -624,6 +633,10 @@ binary-ovn-kubernetes-resource-injector: ## Build the OVN Kubernetes Resource In
 binary-snap-controller: ## Build the snap controller controller binary.
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/provisioning github.com/nvidia/doca-platform/cmd/provisioning
 
+.PHONY: binary-snap-node-driver
+binary-snap-node-driver: ## Build the snap node driver controller binary.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/provisioning github.com/nvidia/doca-platform/cmd/provisioning
+
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=hostdriver
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
@@ -665,6 +678,9 @@ export DPF_TOOLS_IMAGE ?= $(REGISTRY)/$(DPF_TOOLS_IMAGE_NAME)
 
 STORAGE_SNAP_CONTROLLER_NAME ?= snap-controller
 export STORAGE_SNAP_CONTROLLER_IMAGE ?= $(REGISTRY)/$(STORAGE_SNAP_CONTROLLER_NAME)
+
+STORAGE_SNAP_NODE_DRIVER_NAME ?= snap-node-driver
+export STORAGE_SNAP_NODE_DRIVER_IMAGE ?= $(REGISTRY)/$(STORAGE_SNAP_NODE_DRIVER_NAME)
 
 ## External images that are set by the DPF Operator
 export MULTUS_IMAGE=ghcr.io/k8snetworkplumbingwg/multus-cni
@@ -907,6 +923,25 @@ docker-build-storage-snap-controller:
 	. \
 	-t ${STORAGE_SNAP_CONTROLLER_IMAGE}:$(TAG)
 
+.PHONY: docker-build-storage-snap-node-driver # Build a arm64 image for snap-node-driver
+docker-build-storage-snap-node-driver:
+	docker buildx build \
+	--load \
+	--label=org.opencontainers.image.created=$(DATE) \
+	--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+	--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+	--label=org.opencontainers.image.version=$(TAG) \
+	--provenance=false \
+	--platform=linux/$(DPU_ARCH) \
+	--build-arg builder_image=$(BUILD_IMAGE) \
+	--build-arg base_image=$(BASE_IMAGE) \
+	--build-arg ldflags=$(GO_LDFLAGS) \
+	--build-arg gcflags=$(GO_GCFLAGS) \
+	--build-arg package=./cmd/storage/snap-node-driver \
+	-f Dockerfile \
+	. \
+	-t ${STORAGE_SNAP_NODE_DRIVER_IMAGE}:$(TAG)
+
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the docker images for all DOCKER_BUILD_TARGETS.
 
@@ -945,6 +980,10 @@ docker-push-ovn-kubernetes-resource-injector: ## Push the docker image for the O
 .PHONY: docker-push-storage-snap-controller
 docker-push-storage-snap-controller: ## Push the docker image for snap controller
 	docker push ${STORAGE_SNAP_CONTROLLER_IMAGE}:$(TAG)
+
+.PHONY: docker-push-storage-snap-node-driver
+docker-push-storage-snap-node-driver: ## Push the docker image for snap node driver
+	docker push ${STORAGE_SNAP_NODE_DRIVER_IMAGE}:$(TAG)
 # helm charts
 
 # By default the helm registry is assumed to be an OCI registry. This variable should be overwritten when using a https helm repository.
