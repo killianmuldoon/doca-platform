@@ -520,19 +520,31 @@ lint-helm-dummydpuservice: helm ## Run helm lint for dummydpuservice chart
 
 ##@ Release
 
-.PHONY: release
-release: generate ## Build and push helm and container images for release.
+.PHONY: release-build
+release-build: generate ## Build helm and container images for release.
 	# Build multiarch images which will run on both DPUs and x86 hosts.
 	$(MAKE) $(addprefix docker-build-,$(MULTI_ARCH_DOCKER_BUILD_TARGETS))
 	# Build arm64 images which will run on DPUs.
 	$(MAKE) ARCH=$(DPU_ARCH) $(addprefix docker-build-,$(DPU_ARCH_DOCKER_BUILD_TARGETS))
 	# Build amd64 images which will run on x86 hosts.
 	$(MAKE) ARCH=$(HOST_ARCH) $(addprefix docker-build-,$(HOST_ARCH_DOCKER_BUILD_TARGETS))
+
+	# Package the helm charts.
+	$(MAKE) helm-package-all
+
+.PHONY: release
+release: release-build ## Build and push helm and container images for release.
+
 	# Push all of the images
 	$(MAKE) docker-push-all
 
 	# Package and push the helm charts.
-	$(MAKE) helm-package-all helm-push-all
+	$(MAKE) helm-push-all
+
+.PHONY: warm-cache
+warm-cache: ## Warm the cache for the tests.
+
+	$(MAKE) release-build test lint
 
 ##@ Build
 
