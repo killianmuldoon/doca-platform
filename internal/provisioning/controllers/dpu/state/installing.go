@@ -73,11 +73,6 @@ func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client
 	logger := log.FromContext(ctx)
 	dmsTaskName := generateDMSTaskName(st.dpu)
 	state := st.dpu.Status.DeepCopy()
-	if isDeleting(st.dpu) {
-		dutil.OsInstallTaskMap.Delete(dmsTaskName)
-		state.Phase = provisioningv1.DPUDeleting
-		return *state, nil
-	}
 
 	// check whether bfb exist
 	nn := types.NamespacedName{
