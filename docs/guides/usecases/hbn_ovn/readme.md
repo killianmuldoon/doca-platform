@@ -653,15 +653,13 @@ spec:
         ]
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvstaging/doca
-      version: 1.0.0-dev.1
+      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      version: 1.0.1
       chart: doca-hbn
     values:
-      imagePullSecrets:
-      - name: dpf-pull-secret
       image:
-        repository: nvcr.io/nvstaging/doca/doca_hbn
-        tag: 2.dev.200-doca2.9.0
+        repository: nvcr.io/nvidia/doca/doca_hbn
+        tag: 2.4.1-doca2.9.1
       resources:
         memory: 6Gi
         nvidia.com/bf_sf: 3

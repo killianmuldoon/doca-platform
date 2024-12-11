@@ -18,8 +18,8 @@ spec:
         ]
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvstaging/doca # TODO: update to the public namespace
-      version: 1.0.0
+      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      version: 1.0.1
       chart: doca-hbn
     values:
       resources:
