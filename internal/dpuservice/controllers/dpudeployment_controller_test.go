@@ -862,7 +862,6 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
-
 				DeferCleanup(cleanDPUDeploymentDerivatives, testNS.Name)
 			})
 			It("should create the correct DPUSets", func() {
@@ -870,6 +869,16 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuDeployment.Spec.DPUs.DPUSets = initialDPUSetSettings
 				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+				for i := range expectedDPUSetSpecs {
+					expectedDPUSetSpecs[i].DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
+						NodeLabels: map[string]string{
+							"svc.dpu.nvidia.com/dpuservice-someservice-version": dpuServiceObjectVersionPlaceholder,
+							ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+							"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
+						},
+					}
+				}
 
 				By("checking that correct DPUSets are created")
 				Eventually(func(g Gomega) {
@@ -880,7 +889,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuSet := range gotDPUSetList.Items {
 						g.Expect(dpuSet.Labels).To(HaveLen(1))
-						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
 						g.Expect(dpuSet.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
@@ -898,6 +907,16 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
 				patcher := patch.NewSerialPatcher(dpuDeployment, testClient)
+
+				for i := range expectedDPUSetSpecs {
+					expectedDPUSetSpecs[i].DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
+						NodeLabels: map[string]string{
+							"svc.dpu.nvidia.com/dpuservice-someservice-version": dpuServiceObjectVersionPlaceholder,
+							ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+							"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
+						},
+					}
+				}
 
 				By("waiting for the initial DPUSets to be applied")
 				firstDPUSetUIDs := make([]types.UID, 0, 2)
@@ -922,7 +941,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuSet := range gotDPUSetList.Items {
 						g.Expect(dpuSet.Labels).To(HaveLen(1))
-						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
 						// Validate that the same object is updated
 						g.Expect(firstDPUSetUIDs).To(ContainElement(dpuSet.UID))
 
@@ -944,6 +963,16 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
 				patcher := patch.NewSerialPatcher(dpuDeployment, testClient)
+
+				for i := range expectedDPUSetSpecs {
+					expectedDPUSetSpecs[i].DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
+						NodeLabels: map[string]string{
+							"svc.dpu.nvidia.com/dpuservice-someservice-version": dpuServiceObjectVersionPlaceholder,
+							ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+							"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
+						},
+					}
+				}
 
 				By("waiting for the initial DPUSets to be applied")
 				firstDPUSetUIDs := make([]types.UID, 0, 2)
@@ -977,7 +1006,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuSet := range gotDPUSetList.Items {
 						g.Expect(dpuSet.Labels).To(HaveLen(1))
-						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
 						// Validate that the same object is updated
 						g.Expect(firstDPUSetUIDs).To(ContainElement(dpuSet.UID))
 
@@ -998,6 +1027,16 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
 				patcher := patch.NewSerialPatcher(dpuDeployment, testClient)
+
+				for i := range expectedDPUSetSpecs {
+					expectedDPUSetSpecs[i].DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
+						NodeLabels: map[string]string{
+							"svc.dpu.nvidia.com/dpuservice-someservice-version": dpuServiceObjectVersionPlaceholder,
+							ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+							"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
+						},
+					}
+				}
 
 				By("waiting for the initial DPUSets to be applied")
 				firstDPUSetUIDs := make(map[types.UID]interface{})
@@ -1036,7 +1075,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuSet := range gotDPUSetList.Items {
 						g.Expect(dpuSet.Labels).To(HaveLen(1))
-						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
 
 						delete(firstDPUSetUIDs, dpuSet.UID)
 
@@ -1079,6 +1118,13 @@ var _ = Describe("DPUDeployment Controller", func() {
 									},
 								},
 								AutomaticNodeReboot: ptr.To(true),
+								Cluster: &provisioningv1.ClusterSpec{
+									NodeLabels: map[string]string{
+										"svc.dpu.nvidia.com/dpuservice-someservice-version": dpuServiceObjectVersionPlaceholder,
+										ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+										"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
+									},
+								},
 							},
 						},
 					})
@@ -1093,6 +1139,16 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
 				patcher := patch.NewSerialPatcher(dpuDeployment, testClient)
+
+				for i := range expectedDPUSetSpecs {
+					expectedDPUSetSpecs[i].DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
+						NodeLabels: map[string]string{
+							"svc.dpu.nvidia.com/dpuservice-someservice-version": dpuServiceObjectVersionPlaceholder,
+							ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+							"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
+						},
+					}
+				}
 
 				By("waiting for the initial DPUSets to be applied")
 				firstDPUSetUIDs := make([]types.UID, 0, 2)
@@ -1117,7 +1173,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuSet := range gotDPUSetList.Items {
 						g.Expect(dpuSet.Labels).To(HaveLen(1))
-						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuSet.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
 						// Validate that the object was not recreated
 						g.Expect(firstDPUSetUIDs).To(ContainElement(dpuSet.UID))
 
@@ -1216,7 +1272,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
-						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
 						g.Expect(dpuServiceInterface.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
@@ -1229,6 +1285,20 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{dpuServiceObjectVersionPlaceholder},
+											},
+											{
+												Key:      ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
 										ObjectMeta: dpuservicev1.ObjectMeta{
 											Labels: map[string]string{
@@ -1251,6 +1321,20 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{dpuServiceObjectVersionPlaceholder},
+											},
+											{
+												Key:      ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
 										ObjectMeta: dpuservicev1.ObjectMeta{
 											Labels: map[string]string{
@@ -1330,7 +1414,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
-						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
 						g.Expect(dpuServiceInterface.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
@@ -1343,6 +1427,20 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{dpuServiceObjectVersionPlaceholder},
+											},
+											{
+												Key:      ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
 										ObjectMeta: dpuservicev1.ObjectMeta{
 											Labels: map[string]string{
@@ -1365,6 +1463,20 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{dpuServiceObjectVersionPlaceholder},
+											},
+											{
+												Key:      ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
 										ObjectMeta: dpuservicev1.ObjectMeta{
 											Labels: map[string]string{
@@ -1440,7 +1552,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
-						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
 						g.Expect(dpuServiceInterface.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
@@ -1453,6 +1565,20 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{dpuServiceObjectVersionPlaceholder},
+											},
+											{
+												Key:      ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
 										ObjectMeta: dpuservicev1.ObjectMeta{
 											Labels: map[string]string{
@@ -1528,7 +1654,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
-						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
 						g.Expect(dpuServiceInterface.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
@@ -1541,6 +1667,20 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{dpuServiceObjectVersionPlaceholder},
+											},
+											{
+												Key:      ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
 										ObjectMeta: dpuservicev1.ObjectMeta{
 											Labels: map[string]string{
@@ -1563,6 +1703,20 @@ var _ = Describe("DPUDeployment Controller", func() {
 						{
 							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{dpuServiceObjectVersionPlaceholder},
+											},
+											{
+												Key:      ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
 									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
 										ObjectMeta: dpuservicev1.ObjectMeta{
 											Labels: map[string]string{
@@ -1659,6 +1813,13 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
+				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+				dpuServiceTemplate.Name = "service-1"
+				dpuServiceTemplate.Spec.DeploymentServiceName = "service-1"
+				dpuServiceTemplate.Spec.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key1":"someothervalue"}`)}
+				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
 				dpuServiceConfiguration = getMinimalDPUServiceConfiguration(testNS.Name)
 				dpuServiceConfiguration.Name = "service-2"
 				dpuServiceConfiguration.Spec.DeploymentServiceName = "service-2"
@@ -1671,6 +1832,13 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
+				dpuServiceTemplate = getMinimalDPUServiceTemplate(testNS.Name)
+				dpuServiceTemplate.Name = "service-2"
+				dpuServiceTemplate.Spec.DeploymentServiceName = "service-2"
+				dpuServiceTemplate.Spec.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key3":"value3"}`)}
+				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
 				dpuServiceConfiguration = getMinimalDPUServiceConfiguration(testNS.Name)
 				dpuServiceConfiguration.Name = "service-3"
 				dpuServiceConfiguration.Spec.DeploymentServiceName = "service-3"
@@ -1681,21 +1849,6 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration.Spec.Interfaces = nil
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
-
-				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
-				dpuServiceTemplate.Name = "service-1"
-				dpuServiceTemplate.Spec.DeploymentServiceName = "service-1"
-				dpuServiceTemplate.Spec.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key1":"someothervalue"}`)}
-				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
-				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
-
-				dpuServiceTemplate = getMinimalDPUServiceTemplate(testNS.Name)
-				dpuServiceTemplate.Name = "service-2"
-				dpuServiceTemplate.Spec.DeploymentServiceName = "service-2"
-				dpuServiceTemplate.Spec.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key3":"value3"}`)}
-
-				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
-				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
 				dpuServiceTemplate = getMinimalDPUServiceTemplate(testNS.Name)
 				dpuServiceTemplate.Name = "service-3"
@@ -1730,7 +1883,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					By("checking the object metadata")
 					for _, dpuService := range gotDPUServiceList.Items {
 						g.Expect(dpuService.Labels).To(HaveLen(1))
-						g.Expect(dpuService.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
+						g.Expect(dpuService.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
 						g.Expect(dpuService.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
@@ -1772,6 +1925,24 @@ var _ = Describe("DPUDeployment Controller", func() {
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels:      map[string]string{"labelkey2": "labelval2"},
 								Annotations: map[string]string{"annkey2": "annval2"},
+								NodeSelector: &corev1.NodeSelector{
+									NodeSelectorTerms: []corev1.NodeSelectorTerm{
+										{
+											MatchExpressions: []corev1.NodeSelectorRequirement{
+												{
+													Key:      "svc.dpu.nvidia.com/dpuservice-service-2-version",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{dpuServiceObjectVersionPlaceholder},
+												},
+												{
+													Key:      "svc.dpu.nvidia.com/owned-by-dpudeployment",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name)},
+												},
+											},
+										},
+									},
+								},
 							},
 							Interfaces: []string{"dpudeployment-service-2-if2", "dpudeployment-service-2-if3"},
 						},
@@ -1788,6 +1959,24 @@ var _ = Describe("DPUDeployment Controller", func() {
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels:      map[string]string{"labelkey3": "labelval3"},
 								Annotations: map[string]string{"annkey3": "annval3"},
+								NodeSelector: &corev1.NodeSelector{
+									NodeSelectorTerms: []corev1.NodeSelectorTerm{
+										{
+											MatchExpressions: []corev1.NodeSelectorRequirement{
+												{
+													Key:      "svc.dpu.nvidia.com/dpuservice-service-3-version",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{dpuServiceObjectVersionPlaceholder},
+												},
+												{
+													Key:      "svc.dpu.nvidia.com/owned-by-dpudeployment",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name)},
+												},
+											},
+										},
+									},
+								},
 							},
 						},
 					}))
@@ -1849,6 +2038,26 @@ var _ = Describe("DPUDeployment Controller", func() {
 							},
 							ServiceID:  ptr.To[string]("dpudeployment_dpudeployment_service-1"),
 							Interfaces: []string{"dpudeployment-service-1-someinterface"},
+							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+								NodeSelector: &corev1.NodeSelector{
+									NodeSelectorTerms: []corev1.NodeSelectorTerm{
+										{
+											MatchExpressions: []corev1.NodeSelectorRequirement{
+												{
+													Key:      "svc.dpu.nvidia.com/dpuservice-service-1-version",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{dpuServiceObjectVersionPlaceholder},
+												},
+												{
+													Key:      "svc.dpu.nvidia.com/owned-by-dpudeployment",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name)},
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 						{
 							HelmChart: dpuservicev1.HelmChart{
@@ -1914,6 +2123,26 @@ var _ = Describe("DPUDeployment Controller", func() {
 						},
 						ServiceID:  ptr.To[string]("dpudeployment_dpudeployment_service-2"),
 						Interfaces: []string{"dpudeployment-service-2-someinterface"},
+						ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+							NodeSelector: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-service-2-version",
+												Operator: corev1.NodeSelectorOpIn,
+												Values:   []string{dpuServiceObjectVersionPlaceholder},
+											},
+											{
+												Key:      "svc.dpu.nvidia.com/owned-by-dpudeployment",
+												Operator: corev1.NodeSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name)},
+											},
+										},
+									},
+								},
+							},
+						},
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
@@ -1970,6 +2199,26 @@ var _ = Describe("DPUDeployment Controller", func() {
 							},
 							ServiceID:  ptr.To[string]("dpudeployment_dpudeployment_service-1"),
 							Interfaces: []string{"dpudeployment-service-1-someinterface"},
+							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+								NodeSelector: &corev1.NodeSelector{
+									NodeSelectorTerms: []corev1.NodeSelectorTerm{
+										{
+											MatchExpressions: []corev1.NodeSelectorRequirement{
+												{
+													Key:      "svc.dpu.nvidia.com/dpuservice-service-1-version",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{dpuServiceObjectVersionPlaceholder},
+												},
+												{
+													Key:      "svc.dpu.nvidia.com/owned-by-dpudeployment",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name)},
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 						{
 							HelmChart: dpuservicev1.HelmChart{
@@ -1982,6 +2231,26 @@ var _ = Describe("DPUDeployment Controller", func() {
 							},
 							ServiceID:  ptr.To[string]("dpudeployment_dpudeployment_service-2"),
 							Interfaces: []string{"dpudeployment-service-2-someinterface"},
+							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+								NodeSelector: &corev1.NodeSelector{
+									NodeSelectorTerms: []corev1.NodeSelectorTerm{
+										{
+											MatchExpressions: []corev1.NodeSelectorRequirement{
+												{
+													Key:      "svc.dpu.nvidia.com/dpuservice-service-2-version",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{dpuServiceObjectVersionPlaceholder},
+												},
+												{
+													Key:      "svc.dpu.nvidia.com/owned-by-dpudeployment",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name)},
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
@@ -2299,7 +2568,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					obj := gotDPUServiceChainList.Items[0]
 
 					g.Expect(obj.Labels).To(HaveLen(1))
-					g.Expect(obj.Labels).To(HaveKeyWithValue("dpu.nvidia.com/dpudeployment-name", "dpudeployment"))
+					g.Expect(obj.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
 					g.Expect(obj.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 
 					By("checking the spec")
@@ -2307,7 +2576,20 @@ var _ = Describe("DPUDeployment Controller", func() {
 						// TODO: Derive and add cluster selector
 						Template: dpuservicev1.ServiceChainSetSpecTemplate{
 							Spec: dpuservicev1.ServiceChainSetSpec{
-								// TODO: Figure out what to do with NodeSelector
+								NodeSelector: &metav1.LabelSelector{
+									MatchExpressions: []metav1.LabelSelectorRequirement{
+										{
+											Key:      dpuServiceChainVersionLabelKey,
+											Operator: metav1.LabelSelectorOpIn,
+											Values:   []string{dpuServiceObjectVersionPlaceholder},
+										},
+										{
+											Key:      "svc.dpu.nvidia.com/owned-by-dpudeployment",
+											Operator: metav1.LabelSelectorOpIn,
+											Values:   []string{fmt.Sprintf("%s_dpudeployment", testNS.Name)},
+										},
+									},
+								},
 								Template: dpuservicev1.ServiceChainSpecTemplate{
 									Spec: dpuservicev1.ServiceChainSpec{
 										Switches: []dpuservicev1.Switch{
@@ -3175,17 +3457,17 @@ func createReconcileDPUServicesDependencies(namespace string) {
 	Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 	DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
-	dpuServiceConfiguration = getMinimalDPUServiceConfiguration(namespace)
-	dpuServiceConfiguration.Name = "service-2"
-	dpuServiceConfiguration.Spec.DeploymentServiceName = "service-2"
-	Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
-	DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
-
 	dpuServiceTemplate := getMinimalDPUServiceTemplate(namespace)
 	dpuServiceTemplate.Name = "service-1"
 	dpuServiceTemplate.Spec.DeploymentServiceName = "service-1"
 	Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 	DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+	dpuServiceConfiguration = getMinimalDPUServiceConfiguration(namespace)
+	dpuServiceConfiguration.Name = "service-2"
+	dpuServiceConfiguration.Spec.DeploymentServiceName = "service-2"
+	Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+	DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
 	dpuServiceTemplate = getMinimalDPUServiceTemplate(namespace)
 	dpuServiceTemplate.Name = "service-2"

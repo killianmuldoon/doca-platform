@@ -91,6 +91,13 @@ type ServiceConfiguration struct {
 	DeployInCluster *bool `json:"deployInCluster,omitempty"`
 }
 
+func (s *ServiceConfiguration) ShouldDeployInCluster() bool {
+	if s.DeployInCluster == nil {
+		return false
+	}
+	return *s.DeployInCluster
+}
+
 // ServiceConfigurationHelmChart reflects the helm related configuration
 type ServiceConfigurationHelmChart struct {
 	// Values specifies Helm values to be passed to Helm template, defined as a map. This takes precedence over Values.

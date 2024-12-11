@@ -895,7 +895,7 @@ func ValidateDPUDeployment(ctx context.Context) {
 				gotDPUSetList,
 				client.InNamespace(dpuDeployment.GetNamespace()),
 				client.MatchingLabels{
-					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					"svc.dpu.nvidia.com/owned-by-dpudeployment": fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName()),
 				})).To(Succeed())
 			g.Expect(gotDPUSetList.Items).To(HaveLen(1))
 
@@ -904,7 +904,7 @@ func ValidateDPUDeployment(ctx context.Context) {
 				gotDPUServiceList,
 				client.InNamespace(dpuDeployment.GetNamespace()),
 				client.MatchingLabels{
-					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					"svc.dpu.nvidia.com/owned-by-dpudeployment": fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName()),
 				})).To(Succeed())
 			g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
 
@@ -913,7 +913,7 @@ func ValidateDPUDeployment(ctx context.Context) {
 				gotDPUServiceChainList,
 				client.InNamespace(dpuDeployment.GetNamespace()),
 				client.MatchingLabels{
-					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					"svc.dpu.nvidia.com/owned-by-dpudeployment": fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName()),
 				})).To(Succeed())
 			g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
 
@@ -922,7 +922,7 @@ func ValidateDPUDeployment(ctx context.Context) {
 				gotDPUServiceInterfaceList,
 				client.InNamespace(dpuDeployment.GetNamespace()),
 				client.MatchingLabels{
-					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					"svc.dpu.nvidia.com/owned-by-dpudeployment": fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName()),
 				})).To(Succeed())
 			g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
 		}).WithTimeout(180 * time.Second).Should(Succeed())
@@ -944,7 +944,7 @@ func ValidateDPUDeployment(ctx context.Context) {
 				gotDPUSetList,
 				client.InNamespace(dpuDeployment.GetNamespace()),
 				client.MatchingLabels{
-					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					"svc.dpu.nvidia.com/owned-by-dpudeployment": fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName()),
 				})).To(Succeed())
 			g.Expect(gotDPUSetList.Items).To(BeEmpty())
 
@@ -953,7 +953,7 @@ func ValidateDPUDeployment(ctx context.Context) {
 				gotDPUServiceList,
 				client.InNamespace(dpuDeployment.GetNamespace()),
 				client.MatchingLabels{
-					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					"svc.dpu.nvidia.com/owned-by-dpudeployment": fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName()),
 				})).To(Succeed())
 			g.Expect(gotDPUServiceList.Items).To(BeEmpty())
 
@@ -962,7 +962,7 @@ func ValidateDPUDeployment(ctx context.Context) {
 				gotDPUServiceChainList,
 				client.InNamespace(dpuDeployment.GetNamespace()),
 				client.MatchingLabels{
-					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					"svc.dpu.nvidia.com/owned-by-dpudeployment": fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName()),
 				})).To(Succeed())
 			g.Expect(gotDPUServiceChainList.Items).To(BeEmpty())
 
@@ -971,7 +971,7 @@ func ValidateDPUDeployment(ctx context.Context) {
 				gotDPUServiceInterfaceList,
 				client.InNamespace(dpuDeployment.GetNamespace()),
 				client.MatchingLabels{
-					"dpu.nvidia.com/dpudeployment-name": dpuDeployment.GetName(),
+					"svc.dpu.nvidia.com/owned-by-dpudeployment": fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName()),
 				})).To(Succeed())
 			g.Expect(gotDPUServiceInterfaceList.Items).To(BeEmpty())
 

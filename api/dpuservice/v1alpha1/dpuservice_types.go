@@ -144,6 +144,15 @@ type DPUServiceSpec struct {
 	Paused *bool `json:"paused,omitempty"`
 }
 
+// SetServiceDeamonSetNodeSelector sets the nodeSelector for the ServiceDaemonSet.
+func (s *DPUService) SetServiceDeamonSetNodeSelector(nodeSelector *corev1.NodeSelector) {
+	if s.Spec.ServiceDaemonSet == nil {
+		s.Spec.ServiceDaemonSet = &ServiceDaemonSetValues{}
+	}
+
+	s.Spec.ServiceDaemonSet.NodeSelector = nodeSelector
+}
+
 // IsPaused returns true if the DPUService is paused.
 func (s *DPUService) IsPaused() bool {
 	return s.Spec.Paused != nil && *s.Spec.Paused
