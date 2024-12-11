@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"os"
 	"time"
@@ -27,6 +28,7 @@ import (
 	sfccontroller "github.com/nvidia/doca-platform/internal/sfccontroller/controllers"
 
 	"antrea.io/antrea/pkg/ovs/openflow"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ovn-org/libovsdb/client"
 	"github.com/ovn-org/libovsdb/model"
 	"github.com/spf13/pflag"
@@ -186,18 +188,24 @@ func main() {
 
 	ctx := ctrl.SetupSignalHandler()
 
-	ovs, err := client.NewOVSDBClient(clientDBModel, client.WithEndpoint("unix:/var/run/openvswitch/db.sock"))
+	options := []client.Option{}
+
+	options = append(options, client.WithEndpoint("unix:/var/run/openvswitch/db.sock"))
+	options = append(options, client.WithInactivityCheck(30*time.Second, 15*time.Second, &backoff.ZeroBackOff{}))
+
+	ovs, err := client.NewOVSDBClient(clientDBModel, options...)
 	if err != nil {
 		setupLog.Error(err, "failed to create ovsdb client")
 		os.Exit(1)
 	}
 
-	err = ovs.Connect(ctx)
+	ctxCancel, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	err = ovs.Connect(ctxCancel)
 	if err != nil {
 		setupLog.Error(err, "failed to connect to ovs")
 		os.Exit(1)
 	}
-	defer ovs.Disconnect()
 
 	_, err = ovs.Monitor(
 		ctx,
