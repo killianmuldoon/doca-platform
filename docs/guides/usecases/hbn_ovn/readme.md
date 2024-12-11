@@ -22,6 +22,7 @@ For each worker node: DHCP allocation must be used for workers
 ### Kubernetes prerequisites
 - CNI not installed
 - kube-proxy not installed
+- coreDNS should be configured to run only on control plane nodes - e.g. using NodeAffinity. [This addresses a known issue](https://github.com/NVIDIA/doca-platform/issues/5).
 - control plane setup is complete before starting this guide
 - worker nodes are not added until indicated by this guide
 
@@ -88,10 +89,10 @@ export POD_CIDR=10.233.64.0/18
 export SERVICE_CIDR=10.233.0.0/18 
 
 ## DPF_VERSION is the version of the DPF components which will be deployed in this use case guide.
-export DPF_VERSION=v24.10.0-rc.4
+export DPF_VERSION=v24.10.0-rc.5
 
 ## URL to the BFB used in the `bfb.yaml` and linked by the DPUSet.
-export BLUEFIELD_BITSTREAM=""
+export BLUEFIELD_BITSTREAM="https://content.mellanox.com/BlueField/BFBs/Ubuntu22.04/bf-bundle-2.9.1-30_24.11_ubuntu-22.04_prod.bfb"
 
 ```
 
@@ -150,7 +151,6 @@ Verify the CNI installation with:
 kubectl wait --for=condition=ready nodes --all
 ## Ensure all pods in the ovn-kubernetes namespace are ready.
 kubectl wait --for=condition=ready --namespace ovn-kubernetes pods --all --timeout=300s
-
 ```
 
 ### 2. DPF Operator installation
@@ -178,6 +178,16 @@ startupapicheck:
   enabled: false
 crds:
   enabled: true
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: node-role.kubernetes.io/master
+              operator: Exists
+        - matchExpressions:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Exists
 tolerations:
   - operator: Exists
     effect: NoSchedule
@@ -186,6 +196,16 @@ tolerations:
     effect: NoSchedule
     key: node-role.kubernetes.io/master
 cainjector:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/master
+                operator: Exists
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
   tolerations:
     - operator: Exists
       effect: NoSchedule
@@ -194,6 +214,16 @@ cainjector:
       effect: NoSchedule
       key: node-role.kubernetes.io/master
 webhook:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/master
+                operator: Exists
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
   tolerations:
     - operator: Exists
       effect: NoSchedule
@@ -440,11 +470,33 @@ nfd:
 sriovNetworkOperator:
   enabled: true
 sriov-network-operator:
+  operator:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io/master
+                  operator: Exists
+            - matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: Exists
   crds:
     enabled: true
   sriovOperatorConfig:
     deploy: true
     configDaemonNodeSelector: null
+operator:
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/master
+                operator: Exists
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
 ```
 </details>
 
@@ -453,8 +505,32 @@ sriov-network-operator:
 The OVN Kubernetes resource injection webhook injected each pod scheduled to a worker node with a request for a VF and a Network Attachment Definition. This webhook is part of the same helm chart as the other components of the OVN Kubernetes CNI. Here it is installed by adjusting the existing helm installation to add the webhook component to the installation. 
 
 ```shell
-helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://nvcr.io/nvstaging/doca/ovn-kubernetes-chart --version $DPF_VERSION --set tags.ovn-kubernetes-resource-injector=true --reuse-values=true
+envsubst < manifests/04-enable-accelerated-cni/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://nvcr.io/nvstaging/doca/ovn-kubernetes-chart --version $DPF_VERSION --values -
 ```
+
+<details><summary>Expand for detailed helm values</summary>
+
+[embedmd]:#(manifests/04-enable-accelerated-cni/helm-values/ovn-kubernetes.yml)
+```yml
+tags:
+  ## Enable the ovn-kubernetes-resource-injector
+  ovn-kubernetes-resource-injector: true
+global:
+  imagePullSecretName: "dpf-pull-secret"
+k8sAPIServer: https://$TARGETCLUSTER_API_SERVER_HOST:$TARGETCLUSTER_API_SERVER_PORT
+ovnkube-node-dpu-host:
+  nodeMgmtPortNetdev: $DPU_P0_VF1
+  gatewayOpts: --gateway-interface=$DPU_P0
+## Note this CIDR is followed by a trailing /24 which informs OVN Kubernetes on how to split the CIDR per node.
+podNetwork: $POD_CIDR/24
+serviceNetwork: $SERVICE_CIDR
+ovn-kubernetes-resource-injector:
+  resourceName: nvidia.com/bf3-p0-vfs
+  controllerManager:
+    replicas: 3
+dpuServiceAccountNamespace: dpf-operator-system
+```
+</details>
 
 #### Apply the NICClusterConfiguration and SriovNetworkNodePolicy
 
@@ -464,7 +540,7 @@ kubectl apply -f manifests/04-enable-accelerated-cni/
 
 This will deploy the following objects:
 
-<details><summary>NICClusterPolicy for the NVIDIA Network Operator etcd</summary>
+<details><summary>NICClusterPolicy for the NVIDIA Network Operator</summary>
 
 [embedmd]:#(manifests/05-dpuservice-installation/nic_cluster_policy.yaml)
 ```yaml
@@ -522,6 +598,9 @@ Verify the DPF System with:
 kubectl wait --for=condition=Ready --namespace nvidia-network-operator pods --all
 ## Expect the following Daemonsets to be created but have zero replicas. Pods will be deployed by these Daemonsets when workers are added.
 kubectl wait ds --for=jsonpath='{.status.numberReady}'=0 --namespace nvidia-network-operator kube-multus-ds sriov-network-config-daemon sriov-device-plugin 
+## Expect the network injector to have 3 replicas running.
+kubectl wait deployment --for=jsonpath='{.status.readyReplicas}'=3 --namespace ovn-kubernetes ovn-kubernetes-ovn-kubernetes-resource-injector  
+
 ```
 
 ### 5. DPUService installation
@@ -1032,10 +1111,8 @@ Verify the DPUService installation with:
 kubectl wait --for=condition=ApplicationsReconciled --namespace dpf-operator-system  dpuservices doca-blueman-service doca-hbn doca-telemetry-service
 ## Ensure the DPUServiceIPAMs have been reconciled
 kubectl wait --for=condition=DPUIPAMObjectReconciled --namespace dpf-operator-system dpuserviceipam --all
-
 ## Ensure the DPUServiceInterfaces have been reconciled
 kubectl wait --for=condition=ServiceInterfaceSetReconciled --namespace dpf-operator-system dpuserviceinterface --all
-
 ## Ensure the DPUServiceChains have been reconciled
 kubectl wait --for=condition=ServiceChainSetReconciled --namespace dpf-operator-system dpuservicechain --all
 ```
@@ -1091,6 +1168,7 @@ kubectl -n dpf-operator-system delete secret docker-registry dpf-pull-secret --w
 kubectl delete namespace dpf-operator-system dpu-cplane-tenant1 cert-manager nvidia-network-operator --wait
 ```
 
+Note: there can be a race condition with deleting the underlying Kamaji cluster which runs the DPU cluster control plane in this guide. If that happens it may be necessary to remove finalizers manually from `DPUCluster` and `Datastore` objects.
 ## Limitations of DPF Setup
 
 ### Host network pod services

@@ -40,7 +40,8 @@ Each worker machine:
 - rshim is not installed
 
 ### Kubernetes
-- Kubernetes 1.31
+- Kubernetes 1.30
+- Control plane nodes have the labels `"node-role.kubernetes.io/control-plane" : ""`
 
 ## Network setup
 - All nodes have full internet access - both from the host out-of-band and DPU high speed interfaces. 
@@ -49,4 +50,3 @@ Each worker machine:
 - Virtual IP from the management subnet reserved for internal DPF usage.
 ### Worker machines
 - Both the oob and high-speed fabric on each node is routable
-- Provisioned with `KUBELET_ADDRESS="--node-ip=0.0.0.0"`
