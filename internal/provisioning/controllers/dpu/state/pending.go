@@ -57,6 +57,10 @@ func (st *dpuPendingState) Handle(ctx context.Context, client client.Client, _ d
 
 	// checking whether bfb is ready
 	if bfb.Status.Phase != provisioningv1.BFBReady {
+		logger.Info(fmt.Sprintf("wait for bfb %s resource", nn.String()))
+		cond := cutil.DPUCondition(provisioningv1.DPUCondBFBReady, "BFBIsNotReady", "BFB is not ready")
+		cond.Status = metav1.ConditionFalse
+		cutil.SetDPUCondition(state, cond)
 		return *state, nil
 	}
 
