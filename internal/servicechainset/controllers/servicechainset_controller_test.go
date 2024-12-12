@@ -104,11 +104,14 @@ var _ = Describe("ServiceChainSet Controller", func() {
 				assertServiceChainList(ctx, g, 3, &cleanupObjects, getTestServiceChainSpec())
 			}, timeout*30, interval).Should(Succeed())
 
-			By("Update Node-3 label to not be selected")
+			By("Patch Node-3 label to not be selected")
 			node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node3"}}
-			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(node), node)).NotTo(HaveOccurred())
-			node.Labels = make(map[string]string)
-			Expect(testClient.Update(ctx, node)).NotTo(HaveOccurred())
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(node), node)).To(Succeed())
+			patch := node.DeepCopy()
+			patch.Labels = make(map[string]string)
+			Eventually(func() error {
+				return testClient.Patch(ctx, patch, client.MergeFrom(node))
+			}, timeout, interval).Should(Succeed())
 
 			By("Reconciling the created resource, 3 nodes, 2 matching")
 			Eventually(func(g Gomega) {
@@ -132,8 +135,6 @@ var _ = Describe("ServiceChainSet Controller", func() {
 			}, timeout*30, interval).Should(Succeed())
 
 			By("Update ServiceChainSet Spec")
-			scs := &dpuservicev1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: resourceName, Namespace: defaultNS}}
-			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)).NotTo(HaveOccurred())
 			updatedSpec := &dpuservicev1.ServiceChainSpec{
 				Switches: []dpuservicev1.Switch{
 					{
@@ -149,8 +150,14 @@ var _ = Describe("ServiceChainSet Controller", func() {
 					},
 				},
 			}
-			scs.Spec.Template.Spec = *updatedSpec
-			Expect(testClient.Update(ctx, scs)).NotTo(HaveOccurred())
+
+			scs := &dpuservicev1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: resourceName, Namespace: defaultNS}}
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)).To(Succeed())
+			patch := scs.DeepCopy()
+			patch.Spec.Template.Spec = *updatedSpec
+			Eventually(func() error {
+				return testClient.Patch(ctx, patch, client.MergeFrom(scs))
+			}, timeout, interval).Should(Succeed())
 			By("Reconciling the updated resource")
 			Eventually(func(g Gomega) {
 				assertServiceChainList(ctx, g, 2, &cleanupObjects, updatedSpec)

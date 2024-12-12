@@ -106,11 +106,15 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 				assertServiceInterfaceList(ctx, g, 3, &cleanupObjects, getTestServiceInterfaceSpec())
 			}, timeout*30, interval).Should(Succeed())
 
-			By("Update Node-3 label to not be selected")
+			By("Pathc Node-3 label to not be selected")
 			node := &corev1.Node{ObjectMeta: metav1.ObjectMeta{Name: "node3"}}
-			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(node), node)).NotTo(HaveOccurred())
-			node.Labels = make(map[string]string)
-			Expect(testClient.Update(ctx, node)).NotTo(HaveOccurred())
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(node), node)).To(Succeed())
+			patch := node.DeepCopy()
+			patch.Labels = make(map[string]string)
+
+			Eventually(func() error {
+				return testClient.Patch(ctx, patch, client.MergeFrom(node))
+			}, timeout, interval).Should(Succeed())
 
 			By("Reconciling the created resource, 3 nodes, 2 matching")
 			Eventually(func(g Gomega) {
@@ -135,9 +139,10 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 				assertServiceInterfaceList(ctx, g, 2, &cleanupObjects, getTestServiceInterfaceSpec())
 			}, timeout*30, interval).Should(Succeed())
 
-			By("Update ServiceInterfaceSet Spec")
+			By("patch ServiceInterfaceSet Spec")
 			sis := &dpuservicev1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}}
-			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(sis), sis)).NotTo(HaveOccurred())
+			Expect(testClient.Get(ctx, client.ObjectKeyFromObject(sis), sis)).To(Succeed())
+			patch := sis.DeepCopy()
 			updatedSpec := &dpuservicev1.ServiceInterfaceSpec{
 				InterfaceType: dpuservicev1.InterfaceTypeVLAN,
 				Vlan: &dpuservicev1.VLAN{
@@ -153,12 +158,14 @@ var _ = Describe("ServiceInterfaceSet Controller", func() {
 					ID: 8,
 				},
 			}
-			sis.Spec.Template.Spec = *updatedSpec
-			Expect(testClient.Update(ctx, sis)).NotTo(HaveOccurred())
+			patch.Spec.Template.Spec = *updatedSpec
+			Eventually(func() error {
+				return testClient.Patch(ctx, patch, client.MergeFrom(sis))
+			}, timeout, interval).Should(Succeed())
 			By("Reconciling the updated resource")
 			Eventually(func(g Gomega) {
 				assertServiceInterfaceList(ctx, g, 2, &cleanupObjects, updatedSpec)
-			}, timeout*30, interval).Should(Succeed())
+			}, timeout, interval).Should(Succeed())
 			By("Delete ServiceInterfaceSet Spec")
 			Expect(testClient.Delete(ctx, &dpuservicev1.ServiceInterfaceSet{ObjectMeta: metav1.ObjectMeta{Name: svcIfcSetName, Namespace: defaultNS}})).To(Succeed())
 		})
