@@ -37,6 +37,9 @@ echo "$NGC_API_KEY" | docker login --username \$oauthtoken --password-stdin nvcr
 echo "$NGC_API_KEY" | helm registry login nvcr.io --username \$oauthtoken --password-stdin
 echo "$GITLAB_REGISTRY_TOKEN" | helm registry login gitlab-master.nvidia.com:5005 --username \$oauthtoken --password-stdin
 
+
+## Always attempt to log out of this registry as this token is only included during releases.
+docker logout ghcr.io/nvidia
 ## if this is a public release the GITLAB_RELEASE_TOKEN will be set and we should log in.
 if [ -n "$GITHUB_RELEASE_TOKEN" ]; then
   echo "$GITHUB_RELEASE_TOKEN" | docker login --username USERNAME --password-stdin ghcr.io/nvidia
