@@ -146,7 +146,7 @@ func main() {
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor(storagev1.VolumeKind),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "Volume")
+		setupLog.Error(err, "unable to create controller", "controller", storagev1.VolumeKind)
 		os.Exit(1)
 	}
 
@@ -155,7 +155,7 @@ func main() {
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor(storagev1.VolumeAttachmentKind),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "VolumeAttachment")
+		setupLog.Error(err, "unable to create controller", "controller", storagev1.VolumeAttachmentKind)
 		os.Exit(1)
 	}
 
@@ -164,7 +164,7 @@ func main() {
 		Scheme:   mgr.GetScheme(),
 		Recorder: mgr.GetEventRecorderFor(storagev1.StoragePolicyKind),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "StoragePolicy")
+		setupLog.Error(err, "unable to create controller", "controller", storagev1.StoragePolicyKind)
 		os.Exit(1)
 	}
 

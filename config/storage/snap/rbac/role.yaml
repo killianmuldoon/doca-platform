@@ -2,8 +2,30 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: snap-controller-role
+  name: snap-dpu
 rules:
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumeclaims
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - persistentvolumes
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - authentication.k8s.io
   resources:
@@ -32,6 +54,7 @@ rules:
   - storage.dpu.nvidia.com
   resources:
   - storagepolicies/status
+  - svvolumeattachments/status
   - volumeattachments/status
   - volumes/status
   verbs:
@@ -41,7 +64,45 @@ rules:
 - apiGroups:
   - storage.dpu.nvidia.com
   resources:
+  - svvolumeattachments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - storage.dpu.nvidia.com
+  resources:
   - volumeattachments/finalizers
   - volumes/finalizers
   verbs:
+  - update
+- apiGroups:
+  - storage.nvidia.com
+  resources:
+  - volumeattachments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - storage.nvidia.com
+  resources:
+  - volumeattachments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - storage.nvidia.com
+  resources:
+  - volumeattachments/status
+  verbs:
+  - get
+  - patch
   - update

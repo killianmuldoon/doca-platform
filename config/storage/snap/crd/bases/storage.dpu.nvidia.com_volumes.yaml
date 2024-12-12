@@ -50,6 +50,22 @@ spec:
                     items:
                       type: string
                     type: array
+                  capacityRange:
+                    description: The capacity of the required storage space in bytes
+                    properties:
+                      limit:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      request:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                    type: object
                   volumeMode:
                     description: |-
                       volumeMode defines what type of volume is required by the claim.
@@ -133,7 +149,6 @@ spec:
                 type: object
             required:
             - request
-            - storagePolicyRef
             type: object
           status:
             description: VolumeStatus defines the observed state of Volume

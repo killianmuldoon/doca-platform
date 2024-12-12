@@ -143,7 +143,7 @@ $(SOS_REPORT_DIR): | $(REPOSDIR)
 ##@ Development
 GENERATE_TARGETS ?= dpuservice provisioning dpucniprovisioner servicechainset sfc-controller ovs-cni operator \
 	operator-embedded release-defaults dummydpuservice kamaji-cluster-manager static-cluster-manager \
-	dpu-detector ovn-kubernetes ovs-helper storage-snap storage-snap-node-driver
+	dpu-detector ovn-kubernetes ovs-helper storage-snap
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -203,20 +203,13 @@ generate-manifests-storage-snap: controller-gen kustomize ## Generate manifests 
 	$(CONTROLLER_GEN) \
 	paths="./api/storage/..." \
 	paths="./cmd/storage/snap-controller/..." \
-	paths="./internal/storage/snap/controllers/..." \
-	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
-	rbac:roleName=snap-controller-role \
-	output:crd:dir=./config/storage/snap/crd/bases \
-	output:rbac:dir=./config/storage/snap/rbac \
-
-.PHONY: generate-manifests-storage-snap-node-driver
-generate-manifests-storage-snap-node-driver: controller-gen kustomize ## Generate NVIDIA SNAP Node Driver
-	$(CONTROLLER_GEN) \
 	paths="./cmd/storage/snap-node-driver/..." \
+	paths="./internal/storage/snap/controllers/..." \
 	paths="./internal/storage/snap/node-driver/..." \
 	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
-	rbac:roleName=snap-node-driver-role \
-	output:rbac:dir=./config/storage/snap/node-driver/rbac \
+	rbac:roleName=snap-dpu \
+	output:crd:dir=./config/storage/snap/crd/bases \
+	output:rbac:dir=./config/storage/snap/rbac \
 
 .PHONY: generate-manifests-ovn-kubernetes-resource-injector
 generate-manifests-ovn-kubernetes-resource-injector: envsubst ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes Resource Injector

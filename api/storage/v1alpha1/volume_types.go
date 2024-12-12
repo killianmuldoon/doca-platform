@@ -40,6 +40,9 @@ var VolumeGroupVersionKind = GroupVersion.WithKind(VolumeKind)
 
 // VolumeRequest represents the volume's requirements
 type VolumeRequest struct {
+	// The capacity of the required storage space in bytes
+	// +optional
+	CapacityRange CapacityRange `json:"capacityRange,omitempty"`
 	// Contains the types of access modes required
 	// +optional
 	AccessModes []corev1.PersistentVolumeAccessMode `json:"accessModes,omitempty"`
@@ -65,9 +68,9 @@ type ObjectRef struct {
 
 // CSIReference reference to CSI object
 type CSIReference struct {
-	CSIDriverName    string    `json:"csiDriverName,omitempty"`
-	StorageClassName string    `json:"storageClassName,omitempty"`
-	PVCRef           ObjectRef `json:"pvcRef,omitempty"`
+	CSIDriverName    string     `json:"csiDriverName,omitempty"`
+	StorageClassName string     `json:"storageClassName,omitempty"`
+	PVCRef           *ObjectRef `json:"pvcRef,omitempty"`
 }
 
 // DPUVolume describe volume information in DPU cluster
@@ -105,8 +108,8 @@ type VolumeSpec struct {
 	// +required
 	Request VolumeRequest `json:"request,omitempty"`
 	// Reference to the StoragePolicy object
-	// +required
-	StoragePolicyRef ObjectRef `json:"storagePolicyRef,omitempty"`
+	// +optional
+	StoragePolicyRef *ObjectRef `json:"storagePolicyRef,omitempty"`
 	// List of storage parameters supported by the policy, values are string only
 	// +optional
 	StoragePolicyParameters map[string]string `json:"storagePolicyParameters,omitempty"`

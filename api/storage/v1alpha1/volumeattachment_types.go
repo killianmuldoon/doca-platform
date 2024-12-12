@@ -28,10 +28,10 @@ const (
 // VolumeAttachmentGroupVersionKind is the GroupVersionKind of the VolumeAttachment object
 var VolumeAttachmentGroupVersionKind = GroupVersion.WithKind(VolumeAttachmentKind)
 
-// VolumeAttachmentSource references to the NV-Volume object
-type VolumeAttachmentSource struct {
+// VolumeSource references to the NV-Volume object
+type VolumeSource struct {
 	// Reference to the NV-Volume object
-	VolumeRef ObjectRef `json:"volumeRef,omitempty"`
+	VolumeRef *ObjectRef `json:"volumeRef,omitempty"`
 }
 
 // DPUVolumeAttachment describe the information of DPU volume
@@ -80,9 +80,9 @@ type VolumeAttachmentSpec struct {
 	// The name of the node that the volume should be attached to
 	NodeName string `json:"nodeName,omitempty"`
 	// Reference to the NV-Volume object
-	Source VolumeAttachmentSource `json:"source,omitempty"`
+	Source VolumeSource `json:"source,omitempty"`
 	// Reference to the SV-VolumeAttachment object
-	VolumeAttachmentRef ObjectRef `json:"volumeAttachmentRef,omitempty"`
+	VolumeAttachmentRef *ObjectRef `json:"volumeAttachmentRef,omitempty"`
 	// Opaque static publish properties of the volume returned by the plugin
 	Parameters map[string]string `json:"parameters,omitempty"`
 }

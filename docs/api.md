@@ -1298,6 +1298,21 @@ _Appears in:_
 | `pvcRef` _[ObjectRef](#objectref)_ |  |  |  |
 
 
+#### CapacityRange
+
+
+
+CapacityRange represents the capacity of the required storage space in bytes
+
+
+
+_Appears in:_
+- [VolumeRequest](#volumerequest)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `request` _[Quantity](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#quantity-resource-api)_ |  |  |  |
+| `limit` _[Quantity](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#quantity-resource-api)_ |  |  |  |
 
 
 #### DPUVolume
@@ -1369,8 +1384,8 @@ ObjectRef reference to the object
 
 _Appears in:_
 - [CSIReference](#csireference)
-- [VolumeAttachmentSource](#volumeattachmentsource)
 - [VolumeAttachmentSpec](#volumeattachmentspec)
+- [VolumeSource](#volumesource)
 - [VolumeSpec](#volumespec)
 
 | Field | Description | Default | Validation |
@@ -1642,22 +1657,6 @@ VolumeAttachmentList contains a list of VolumeAttachment
 | `items` _[VolumeAttachment](#volumeattachment) array_ |  |  |  |
 
 
-#### VolumeAttachmentSource
-
-
-
-VolumeAttachmentSource references to the NV-Volume object
-
-
-
-_Appears in:_
-- [VolumeAttachmentSpec](#volumeattachmentspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `volumeRef` _[ObjectRef](#objectref)_ | Reference to the NV-Volume object |  |  |
-
-
 #### VolumeAttachmentSpec
 
 
@@ -1672,7 +1671,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `nodeName` _string_ | The name of the node that the volume should be attached to |  |  |
-| `source` _[VolumeAttachmentSource](#volumeattachmentsource)_ | Reference to the NV-Volume object |  |  |
+| `source` _[VolumeSource](#volumesource)_ | Reference to the NV-Volume object |  |  |
 | `volumeAttachmentRef` _[ObjectRef](#objectref)_ | Reference to the SV-VolumeAttachment object |  |  |
 | `parameters` _object (keys:string, values:string)_ | Opaque static publish properties of the volume returned by the plugin |  |  |
 
@@ -1726,8 +1725,25 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `capacityRange` _[CapacityRange](#capacityrange)_ | The capacity of the required storage space in bytes |  |  |
 | `accessModes` _[PersistentVolumeAccessMode](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#persistentvolumeaccessmode-v1-core) array_ | Contains the types of access modes required |  |  |
 | `volumeMode` _[PersistentVolumeMode](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#persistentvolumemode-v1-core)_ | volumeMode defines what type of volume is required by the claim.<br />Value of Filesystem is implied when not included in claim spec. |  |  |
+
+
+#### VolumeSource
+
+
+
+VolumeSource references to the NV-Volume object
+
+
+
+_Appears in:_
+- [VolumeAttachmentSpec](#volumeattachmentspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `volumeRef` _[ObjectRef](#objectref)_ | Reference to the NV-Volume object |  |  |
 
 
 #### VolumeSpec
