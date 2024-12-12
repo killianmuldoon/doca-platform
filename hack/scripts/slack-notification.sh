@@ -31,6 +31,9 @@ if [[ "$CI_PIPELINE_SOURCE" != "schedule" && "$CI_PIPELINE_SOURCE" != "push" ]];
   exit 0
 fi
 
+## $CI_COMMIT_BRANCH will not be available on merge request pipelines.
+PIPELINE_NAME="$CI_COMMIT_BRANCH $PIPELINE_NAME"
+
 ## Exit if the job succeeded.
 if [[ "$CI_JOB_STATUS" == "success" ]]; then
   echo "Skipping slack notification: this pipeline succeeded"

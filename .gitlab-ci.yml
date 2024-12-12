@@ -304,7 +304,7 @@ triage:
   needs: []
   variables:
     # This is the name of the pipeline being triaged. Must match the name of the pipeline in Gitlab.
-    TRIAGE_PIPELINE_NAME: "Periodic unit test"
+    # TRIAGE_PIPELINE_NAME is set as part of the job schedule in Gitlab.
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $TRIAGE_E2E == "true"
       when: always
