@@ -280,6 +280,11 @@ func (in *FlannelConfiguration) DeepCopyInto(out *FlannelConfiguration) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.DeployInCluster != nil {
+		in, out := &in.DeployInCluster, &out.DeployInCluster
+		*out = new(bool)
+		**out = **in
+	}
 	if in.HelmChart != nil {
 		in, out := &in.HelmChart, &out.HelmChart
 		*out = new(string)
@@ -335,6 +340,11 @@ func (in *MultusConfiguration) DeepCopyInto(out *MultusConfiguration) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.DeployInCluster != nil {
+		in, out := &in.DeployInCluster, &out.DeployInCluster
+		*out = new(bool)
+		**out = **in
+	}
 	if in.HelmChart != nil {
 		in, out := &in.HelmChart, &out.HelmChart
 		*out = new(string)
@@ -363,6 +373,11 @@ func (in *NVIPAMConfiguration) DeepCopyInto(out *NVIPAMConfiguration) {
 	if in.Image != nil {
 		in, out := &in.Image, &out.Image
 		*out = new(string)
+		**out = **in
+	}
+	if in.DeployInCluster != nil {
+		in, out := &in.DeployInCluster, &out.DeployInCluster
+		*out = new(bool)
 		**out = **in
 	}
 	if in.HelmChart != nil {
@@ -420,6 +435,11 @@ func (in *OVSCNIConfiguration) DeepCopyInto(out *OVSCNIConfiguration) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.DeployInCluster != nil {
+		in, out := &in.DeployInCluster, &out.DeployInCluster
+		*out = new(bool)
+		**out = **in
+	}
 	if in.HelmChart != nil {
 		in, out := &in.HelmChart, &out.HelmChart
 		*out = new(string)
@@ -448,6 +468,11 @@ func (in *OVSHelperConfiguration) DeepCopyInto(out *OVSHelperConfiguration) {
 	if in.Image != nil {
 		in, out := &in.Image, &out.Image
 		*out = new(string)
+		**out = **in
+	}
+	if in.DeployInCluster != nil {
+		in, out := &in.DeployInCluster, &out.DeployInCluster
+		*out = new(bool)
 		**out = **in
 	}
 	if in.HelmChart != nil {
@@ -530,6 +555,11 @@ func (in *SFCControllerConfiguration) DeepCopyInto(out *SFCControllerConfigurati
 		*out = new(string)
 		**out = **in
 	}
+	if in.DeployInCluster != nil {
+		in, out := &in.DeployInCluster, &out.DeployInCluster
+		*out = new(bool)
+		**out = **in
+	}
 	if in.HelmChart != nil {
 		in, out := &in.HelmChart, &out.HelmChart
 		*out = new(string)
@@ -560,6 +590,11 @@ func (in *SRIOVDevicePluginConfiguration) DeepCopyInto(out *SRIOVDevicePluginCon
 		*out = new(string)
 		**out = **in
 	}
+	if in.DeployInCluster != nil {
+		in, out := &in.DeployInCluster, &out.DeployInCluster
+		*out = new(bool)
+		**out = **in
+	}
 	if in.HelmChart != nil {
 		in, out := &in.HelmChart, &out.HelmChart
 		*out = new(string)
@@ -588,6 +623,11 @@ func (in *ServiceSetControllerConfiguration) DeepCopyInto(out *ServiceSetControl
 	if in.Image != nil {
 		in, out := &in.Image, &out.Image
 		*out = new(string)
+		**out = **in
+	}
+	if in.DeployInCluster != nil {
+		in, out := &in.DeployInCluster, &out.DeployInCluster
+		*out = new(bool)
 		**out = **in
 	}
 	if in.HelmChart != nil {

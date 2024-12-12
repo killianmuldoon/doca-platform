@@ -67,6 +67,17 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.ServiceSetControllerName: defaults.DPUNetworkingHelmChart,
 			operatorv1.OVSHelperName:            defaults.DPUNetworkingHelmChart,
 		},
+		DeployInCluster: map[string]bool{
+			operatorv1.FlannelName:              false,
+			operatorv1.MultusName:               false,
+			operatorv1.SRIOVDevicePluginName:    false,
+			operatorv1.NVIPAMName:               false,
+			operatorv1.OVSCNIName:               false,
+			operatorv1.SFCControllerName:        false,
+			operatorv1.ServiceSetControllerName: false,
+			operatorv1.OVSHelperName:            false,
+		},
+
 		DPUDetectorCollectors: map[string]bool{},
 	}
 }
@@ -80,6 +91,7 @@ type Variables struct {
 	ImagePullSecrets          []string
 	Images                    map[string]string
 	HelmCharts                map[string]string
+	DeployInCluster           map[string]bool
 	DPUDetectorCollectors     map[string]bool
 }
 
@@ -99,6 +111,7 @@ func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operator
 	images := variables.Images
 	helmCharts := variables.HelmCharts
 	collectors := variables.DPUDetectorCollectors
+	deployInCluster := variables.DeployInCluster
 	for _, componentConfig := range config.ComponentConfigs() {
 		if componentConfig != nil {
 			disableComponents[componentConfig.Name()] = componentConfig.Disabled()
@@ -115,6 +128,13 @@ func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operator
 				helmCharts[componentConfig.Name()] = *helmConfig.GetHelmChart()
 			}
 
+			// If the component is a dpuServiceConfig override the deployment.
+			dpuServiceConfig, ok := componentConfig.(operatorv1.DPUServiceComponentConfig)
+			if ok && dpuServiceConfig != nil {
+				if dpuServiceConfig.InClusterDeployment() {
+					deployInCluster[componentConfig.Name()] = true
+				}
+			}
 			dpuDetector, ok := componentConfig.(*operatorv1.DPUDetectorConfiguration)
 			if ok && dpuDetector != nil && dpuDetector.Collectors != nil {
 				if dpuDetector.Collectors.PSID != nil {
@@ -134,7 +154,7 @@ func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operator
 	variables.Images = images
 	variables.HelmCharts = helmCharts
 	variables.DPUDetectorCollectors = collectors
-
+	variables.DeployInCluster = deployInCluster
 	// This value should never be nil in a running system as it defaulted by the OpenAPI spec. This check guards against
 	// tests etc. that may create a DPFOperatorConfig without setting this value.
 	if config.Spec.Networking != nil {

@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -110,6 +111,8 @@ func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateMa
 		NamespaceEdit(vars.Namespace),
 		LabelsEdit(labelsToAdd))
 
+	// Add deployInCluster if the value is set to true in the DPFOperatorConfig.
+	edits.AddForKindS(DPUServiceKind, dpuServiceInClusterEdit(vars.DeployInCluster[f.Name()]))
 	// The DPUNetworking helm chart has all components disabled by default. Enable this DPUService in the helm chart values.
 	if _, ok := dpuNetworkingSubCharts[f.Name()]; ok {
 		edits.AddForKindS(DPUServiceKind, dpuServiceAddValueEdit(true, f.Name(), "enabled"))
@@ -216,6 +219,17 @@ func dpuServiceAddValueEdit(value interface{}, key ...string) StructuredEdit {
 
 		dpuService.Spec.HelmChart.Values.Object = valuesObject
 		dpuService.Spec.HelmChart.Values.Raw = nil
+		return nil
+	}
+}
+
+func dpuServiceInClusterEdit(deployInCluster bool) StructuredEdit {
+	return func(obj client.Object) error {
+		dpuService, ok := obj.(*dpuservicev1.DPUService)
+		if !ok {
+			return fmt.Errorf("unexpected object kind %s. expected DPUService", obj.GetObjectKind().GroupVersionKind())
+		}
+		dpuService.Spec.DeployInCluster = ptr.To(deployInCluster)
 		return nil
 	}
 }

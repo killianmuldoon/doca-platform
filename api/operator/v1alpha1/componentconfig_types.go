@@ -102,6 +102,13 @@ type HelmComponentConfig interface {
 	GetHelmChart() *string
 }
 
+// DPUServiceComponentConfig is the shared config for DPUService components.
+//
+// +kubebuilder:object:generate=false
+type DPUServiceComponentConfig interface {
+	InClusterDeployment() bool
+}
+
 // HelmChart is a reference to a helm chart.
 // +kubebuilder:validation:Pattern=`^(oci://|https://).+$`
 // +optional
@@ -260,6 +267,9 @@ type ServiceSetControllerConfiguration struct {
 	// +optional
 	Image Image `json:"image,omitempty"`
 
+	// DeployInCluster deploys the component in the same cluster as the DPF Operator if set to true.
+	DeployInCluster *bool `json:"deployInTargetCluster,omitempty"`
+
 	// HelmChart overrides the helm chart used by the ServiceSet controller.
 	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
 	// OCI registry or a web-based repository.
@@ -282,6 +292,13 @@ func (c *ServiceSetControllerConfiguration) GetImage() *string {
 	return c.Image
 }
 
+func (c *ServiceSetControllerConfiguration) InClusterDeployment() bool {
+	if c.DeployInCluster == nil {
+		return false
+	}
+	return *c.DeployInCluster
+}
+
 func (c *ServiceSetControllerConfiguration) GetHelmChart() *string {
 	return c.HelmChart
 }
@@ -290,6 +307,9 @@ type FlannelConfiguration struct {
 	// Disable ensures the component is not deployed when set to true.
 	// +optional
 	Disable *bool `json:"disable,omitempty"`
+
+	// DeployInCluster deploys the component in the same cluster as the DPF Operator if set to true.
+	DeployInCluster *bool `json:"deployInTargetCluster,omitempty"`
 
 	// HelmChart overrides the helm chart used by the Flannel
 	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
@@ -309,6 +329,13 @@ func (c *FlannelConfiguration) Disabled() bool {
 	return *c.Disable
 }
 
+func (c *FlannelConfiguration) InClusterDeployment() bool {
+	if c.DeployInCluster == nil {
+		return false
+	}
+	return *c.DeployInCluster
+}
+
 func (c *FlannelConfiguration) GetHelmChart() *string {
 	return c.HelmChart
 }
@@ -321,6 +348,9 @@ type MultusConfiguration struct {
 	// Image overrides the container image used by Multus
 	// +optional
 	Image Image `json:"image,omitempty"`
+
+	// DeployInCluster deploys the component in the same cluster as the DPF Operator if set to true.
+	DeployInCluster *bool `json:"deployInTargetCluster,omitempty"`
 
 	// HelmChart overrides the helm chart used by Multus
 	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
@@ -344,6 +374,12 @@ func (c *MultusConfiguration) GetImage() *string {
 	return c.Image
 }
 
+func (c *MultusConfiguration) InClusterDeployment() bool {
+	if c.DeployInCluster == nil {
+		return false
+	}
+	return *c.DeployInCluster
+}
 func (c *MultusConfiguration) GetHelmChart() *string {
 	return c.HelmChart
 }
@@ -356,6 +392,9 @@ type NVIPAMConfiguration struct {
 	// Image overrides the container image used by NVIPAM
 	// +optional
 	Image Image `json:"image,omitempty"`
+
+	// DeployInCluster deploys the component in the same cluster as the DPF Operator if set to true.
+	DeployInCluster *bool `json:"deployInTargetCluster,omitempty"`
 
 	// HelmChart overrides the helm chart used by NVIPAM
 	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
@@ -379,6 +418,12 @@ func (c *NVIPAMConfiguration) GetImage() *string {
 	return c.Image
 }
 
+func (c *NVIPAMConfiguration) InClusterDeployment() bool {
+	if c.DeployInCluster == nil {
+		return false
+	}
+	return *c.DeployInCluster
+}
 func (c *NVIPAMConfiguration) GetHelmChart() *string {
 	return c.HelmChart
 }
@@ -391,6 +436,9 @@ type SRIOVDevicePluginConfiguration struct {
 	// Image overrides the container image used by the SRIOV Device Plugin
 	// +optional
 	Image Image `json:"image,omitempty"`
+
+	// DeployInCluster deploys the component in the same cluster as the DPF Operator if set to true.
+	DeployInCluster *bool `json:"deployInTargetCluster,omitempty"`
 
 	// HelmChart overrides the helm chart used by the SRIOV Device Plugin
 	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
@@ -414,6 +462,13 @@ func (c *SRIOVDevicePluginConfiguration) GetImage() *string {
 	return c.Image
 }
 
+func (c *SRIOVDevicePluginConfiguration) InClusterDeployment() bool {
+	if c.DeployInCluster == nil {
+		return false
+	}
+	return *c.DeployInCluster
+}
+
 func (c *SRIOVDevicePluginConfiguration) GetHelmChart() *string {
 	return c.HelmChart
 }
@@ -426,6 +481,9 @@ type OVSCNIConfiguration struct {
 	// Image overrides the container image used by the OVS CNI
 	// +optional
 	Image Image `json:"image,omitempty"`
+
+	// DeployInCluster deploys the component in the same cluster as the DPF Operator if set to true.
+	DeployInCluster *bool `json:"deployInTargetCluster,omitempty"`
 
 	// HelmChart overrides the helm chart used by the OVS CNI
 	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
@@ -449,6 +507,13 @@ func (c *OVSCNIConfiguration) GetImage() *string {
 	return c.Image
 }
 
+func (c *OVSCNIConfiguration) InClusterDeployment() bool {
+	if c.DeployInCluster == nil {
+		return false
+	}
+	return *c.DeployInCluster
+}
+
 func (c *OVSCNIConfiguration) GetHelmChart() *string {
 	return c.HelmChart
 }
@@ -461,6 +526,9 @@ type SFCControllerConfiguration struct {
 	// Image overrides the container image used by the SFC Controller
 	// +optional
 	Image Image `json:"image,omitempty"`
+
+	// DeployInCluster deploys the component in the same cluster as the DPF Operator if set to true.
+	DeployInCluster *bool `json:"deployInTargetCluster,omitempty"`
 
 	// HelmChart overrides the helm chart used by the SFC Controller
 	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
@@ -484,6 +552,13 @@ func (c *SFCControllerConfiguration) GetImage() *string {
 	return c.Image
 }
 
+func (c *SFCControllerConfiguration) InClusterDeployment() bool {
+	if c.DeployInCluster == nil {
+		return false
+	}
+	return *c.DeployInCluster
+}
+
 func (c *SFCControllerConfiguration) GetHelmChart() *string {
 	return c.HelmChart
 }
@@ -496,6 +571,9 @@ type OVSHelperConfiguration struct {
 	// Image overrides the container image used by the OVS Helper
 	// +optional
 	Image Image `json:"image,omitempty"`
+
+	// DeployInCluster deploys the component in the same cluster as the DPF Operator if set to true.
+	DeployInCluster *bool `json:"deployInTargetCluster,omitempty"`
 
 	// HelmChart overrides the helm chart used by the OVS Helper
 	// The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid
@@ -517,6 +595,13 @@ func (c *OVSHelperConfiguration) Disabled() bool {
 
 func (c *OVSHelperConfiguration) GetImage() *string {
 	return c.Image
+}
+
+func (c *OVSHelperConfiguration) InClusterDeployment() bool {
+	if c.DeployInCluster == nil {
+		return false
+	}
+	return *c.DeployInCluster
 }
 
 func (c *OVSHelperConfiguration) GetHelmChart() *string {

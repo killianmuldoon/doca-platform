@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -72,7 +73,9 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 	disabledTestServiceVars.DisableSystemComponents = map[string]bool{
 		serviceName: true,
 	}
-	g.Expect(err).NotTo(HaveOccurred())
+	deployInClusterVars := newDefaultVariables(defaults)
+	deployInClusterVars.DeployInCluster[serviceName] = true
+
 	tests := []struct {
 		name    string
 		in      *dpuservicev1.DPUService
@@ -102,6 +105,7 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 					},
 				},
 				Spec: dpuservicev1.DPUServiceSpec{
+					DeployInCluster: ptr.To(false),
 					HelmChart: dpuservicev1.HelmChart{
 						Source: dpuservicev1.ApplicationSource{
 							RepoURL: "helmchart.com",
@@ -139,6 +143,7 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 					},
 				},
 				Spec: dpuservicev1.DPUServiceSpec{
+					DeployInCluster: ptr.To(false),
 					HelmChart: dpuservicev1.HelmChart{
 						Source: dpuservicev1.ApplicationSource{
 							RepoURL: "helmchart.com",
@@ -159,6 +164,7 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			in: &dpuservicev1.DPUService{
 				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
 				Spec: dpuservicev1.DPUServiceSpec{
+					DeployInCluster: ptr.To(true),
 					HelmChart: dpuservicev1.HelmChart{
 						Values: &runtime.RawExtension{
 							Raw: initialValuesData,
@@ -166,8 +172,71 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 					},
 				},
 			},
-			vars:    disabledTestServiceVars,
-			want:    nil,
+			vars: imagePullSecretsVars,
+			want: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: serviceName,
+					Labels: map[string]string{
+						operatorv1.DPFComponentLabelKey: serviceName,
+					},
+				},
+				Spec: dpuservicev1.DPUServiceSpec{
+					DeployInCluster: ptr.To(false),
+					HelmChart: dpuservicev1.HelmChart{
+						Source: dpuservicev1.ApplicationSource{
+							RepoURL: "helmchart.com",
+							Path:    "",
+							Version: "v1",
+							Chart:   "chart",
+						},
+						Values: &runtime.RawExtension{
+							Raw: valuesDataWithImagePullSecrets,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "Deploy component in-cluster",
+			in: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: serviceName,
+				},
+				Spec: dpuservicev1.DPUServiceSpec{
+					HelmChart: dpuservicev1.HelmChart{
+						Values: &runtime.RawExtension{
+							Raw: initialValuesData,
+						},
+					},
+				},
+			},
+			vars: deployInClusterVars,
+			want: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: serviceName,
+					Labels: map[string]string{
+						operatorv1.DPFComponentLabelKey: serviceName,
+					},
+				},
+				Spec: dpuservicev1.DPUServiceSpec{
+					DeployInCluster: ptr.To(true),
+					HelmChart: dpuservicev1.HelmChart{
+						Source: dpuservicev1.ApplicationSource{
+							RepoURL: "helmchart.com",
+							Path:    "",
+							Version: "v1",
+							Chart:   "chart",
+						},
+						Values: &runtime.RawExtension{
+							Raw: initialValuesData,
+						},
+					},
+				},
+			},
 			wantErr: false,
 		},
 	}

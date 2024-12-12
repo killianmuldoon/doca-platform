@@ -86,6 +86,10 @@ spec:
               flannel:
                 description: Flannel is the configuration for Flannel
                 properties:
+                  deployInTargetCluster:
+                    description: DeployInCluster deploys the component in the same
+                      cluster as the DPF Operator if set to true.
+                    type: boolean
                   disable:
                     description: Disable ensures the component is not deployed when
                       set to true.
@@ -121,6 +125,10 @@ spec:
               multus:
                 description: Multus is the configuration for Multus
                 properties:
+                  deployInTargetCluster:
+                    description: DeployInCluster deploys the component in the same
+                      cluster as the DPF Operator if set to true.
+                    type: boolean
                   disable:
                     description: Disable ensures the component is not deployed when
                       set to true.
@@ -163,6 +171,10 @@ spec:
               nvipam:
                 description: NVIPAM is the configuration for NVIPAM
                 properties:
+                  deployInTargetCluster:
+                    description: DeployInCluster deploys the component in the same
+                      cluster as the DPF Operator if set to true.
+                    type: boolean
                   disable:
                     description: Disable ensures the component is not deployed when
                       set to true.
@@ -191,6 +203,10 @@ spec:
               ovsCNI:
                 description: OVSCNI is the configuration for OVSCNI
                 properties:
+                  deployInTargetCluster:
+                    description: DeployInCluster deploys the component in the same
+                      cluster as the DPF Operator if set to true.
+                    type: boolean
                   disable:
                     description: Disable ensures the component is not deployed when
                       set to true.
@@ -211,6 +227,10 @@ spec:
               ovsHelper:
                 description: OVSHelper is the configuration for the OVSHelper
                 properties:
+                  deployInTargetCluster:
+                    description: DeployInCluster deploys the component in the same
+                      cluster as the DPF Operator if set to true.
+                    type: boolean
                   disable:
                     description: Disable ensures the component is not deployed when
                       set to true.
@@ -256,6 +276,10 @@ spec:
               serviceSetController:
                 description: ServiceSetController is the configuration for the ServiceSetController
                 properties:
+                  deployInTargetCluster:
+                    description: DeployInCluster deploys the component in the same
+                      cluster as the DPF Operator if set to true.
+                    type: boolean
                   disable:
                     description: Disable ensures the component is not deployed when
                       set to true.
@@ -275,6 +299,10 @@ spec:
               sfcController:
                 description: SFCController is the configuration for the SFCController
                 properties:
+                  deployInTargetCluster:
+                    description: DeployInCluster deploys the component in the same
+                      cluster as the DPF Operator if set to true.
+                    type: boolean
                   disable:
                     description: Disable ensures the component is not deployed when
                       set to true.
@@ -295,6 +323,10 @@ spec:
               sriovDevicePlugin:
                 description: SRIOVDevicePlugin is the configuration for the SRIOVDevicePlugin
                 properties:
+                  deployInTargetCluster:
+                    description: DeployInCluster deploys the component in the same
+                      cluster as the DPF Operator if set to true.
+                    type: boolean
                   disable:
                     description: Disable ensures the component is not deployed when
                       set to true.
