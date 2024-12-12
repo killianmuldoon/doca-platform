@@ -18,6 +18,8 @@ set -o nounset
 set -o pipefail
 set -o errexit
 
+GITHUB_RELEASE_TOKEN="${GITHUB_RELEASE_TOKEN:-""}"
+
 # This script logs in to both nvcr and the gitlab registries for helm and docker using tokens taken from the environment.
 if [ -z "$GITLAB_REGISTRY_TOKEN" ] || [ -z "$NGC_API_KEY" ]; then
     echo "GITLAB_REGISTRY_TOKEN and NGC_API_KEY variables are required"
@@ -30,9 +32,15 @@ docker system prune --filter "until=48h" --all --force
 ## log in to the docker registries
 echo "$GITLAB_REGISTRY_TOKEN" | docker login --username \$oauthtoken --password-stdin gitlab-master.nvidia.com:5005
 echo "$NGC_API_KEY" | docker login --username \$oauthtoken --password-stdin nvcr.io
+
 ## log in to helm registries
 echo "$NGC_API_KEY" | helm registry login nvcr.io --username \$oauthtoken --password-stdin
 echo "$GITLAB_REGISTRY_TOKEN" | helm registry login gitlab-master.nvidia.com:5005 --username \$oauthtoken --password-stdin
+
+## if this is a public release the GITLAB_RELEASE_TOKEN will be set and we should log in.
+if [ -n "$GITHUB_RELEASE_TOKEN" ]; then
+  echo "$GITHUB_RELEASE_TOKEN" | docker login --username USERNAME --password-stdin ghcr.io/nvidia
+fi
 
 # Run the binfmt container to enable multi-architecture builds
 docker run --privileged --rm tonistiigi/binfmt --install all
