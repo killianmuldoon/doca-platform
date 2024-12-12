@@ -72,6 +72,7 @@ add_vf_to_bridge () {
         if ! ip link show master ${bridge_name} | grep -q ${vf_name}; then
             echo "Adding VF ${vf_name} to bridge ${bridge_name}"
             ip link set dev ${vf_name} master ${bridge_name}
+            ip link set dev ${vf_name} mtu ${vf_mtu}
             ip link set dev ${vf_name} up
         else
             echo "VF ${vf_name} is already part of bridge ${bridge_name}"

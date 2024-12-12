@@ -26,6 +26,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 
 	dpucniprovisioner "github.com/nvidia/doca-platform/internal/cniprovisioner/dpu"
@@ -73,6 +74,7 @@ func main() {
 	var gateway net.IP
 	var pfIPNet *net.IPNet
 	var vtepCIDR *net.IPNet
+	var ovnMTU int
 	var gatewayDiscoveryNetwork *net.IPNet
 	if mode == dpucniprovisioner.InternalIPAM {
 		vtepIPNet, gateway, err = getInfoFromVTEPIPAllocation()
@@ -88,6 +90,10 @@ func main() {
 		vtepCIDR, err = getVTEPCIDR()
 		if err != nil {
 			klog.Fatalf("error while parsing VTEP CIDR: %s", err.Error())
+		}
+		ovnMTU, err = getOVNMTU()
+		if err != nil {
+			klog.Fatalf("error while parsing MTU %s", err.Error())
 		}
 	} else {
 		gatewayDiscoveryNetwork, err = getGatewayDiscoveryNetwork()
@@ -120,7 +126,7 @@ func main() {
 		klog.Fatal(err)
 	}
 
-	provisioner := dpucniprovisioner.New(ctx, mode, c, ovsClient, networkhelper.New(), exec, clientset, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, node, gatewayDiscoveryNetwork)
+	provisioner := dpucniprovisioner.New(ctx, mode, c, ovsClient, networkhelper.New(), exec, clientset, vtepIPNet, gateway, vtepCIDR, hostCIDR, pfIPNet, node, gatewayDiscoveryNetwork, ovnMTU)
 
 	err = provisioner.RunOnce()
 	if err != nil {
@@ -251,6 +257,25 @@ func getGatewayDiscoveryNetwork() (*net.IPNet, error) {
 	}
 
 	return gatewayDiscoveryNetwork, nil
+}
+
+// getOVNMTU returns the PF MTU to be used by the provisioner
+func getOVNMTU() (int, error) {
+	mtuString := os.Getenv("OVN_MTU")
+	if mtuString == "" {
+		return 0, errors.New("required OVN_MTU environment variable is not set")
+	}
+
+	mtu, err := strconv.Atoi(mtuString)
+	if err != nil {
+		return 0, fmt.Errorf("parse environment variable OVN_MTU %s as int: %v", mtuString, err)
+	}
+
+	if mtu == 0 {
+		return 0, errors.New("invalid OVN_MTU value: 0")
+	}
+
+	return mtu, nil
 }
 
 // parseMode parses the mode in which the binary should be started

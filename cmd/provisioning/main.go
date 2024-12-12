@@ -22,6 +22,7 @@ import (
 	"strings"
 	"time"
 
+	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb"
@@ -61,6 +62,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(provisioningv1.AddToScheme(scheme))
+	utilruntime.Must(operatorv1.AddToScheme(scheme))
 
 	utilruntime.Must(maintenancev1alpha1.AddToScheme(scheme))
 	utilruntime.Must(certmanagerv1.AddToScheme(scheme))

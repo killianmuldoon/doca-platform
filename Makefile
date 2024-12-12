@@ -127,7 +127,7 @@ GITLAB_TOKEN ?= ""
 OVS_CNI_DIR=$(THIRDPARTYDIR)/ovs-cni
 
 # OVN Kubernetes dependencies to be able to build its docker image
-OVNKUBERNETES_REF=d75f9759b9c85b27ffff108e007981afeba95555
+OVNKUBERNETES_REF=65b2d5d768f380c302965d4c30f3aa61c0e730b3
 OVNKUBERNETES_DIR=$(REPOSDIR)/ovn-kubernetes-$(OVNKUBERNETES_REF)
 $(OVNKUBERNETES_DIR): | $(REPOSDIR)
 	GITLAB_TOKEN= $(CURDIR)/hack/scripts/git-clone-repo.sh https://github.com/aserdean/ovn-kubernetes $(OVNKUBERNETES_DIR) $(OVNKUBERNETES_REF)
@@ -640,7 +640,7 @@ binary-snap-node-driver: ## Build the snap node driver controller binary.
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=hostdriver
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
-MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools
+MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes #dpf-tools
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.

@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"regexp"
 
+	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
@@ -51,13 +52,13 @@ func getNumOfVFsFromFlavor(flavor *provisioningv1.DPUFlavor) (string, bool) {
 	return "", false
 }
 
-func CreateHostNetworkSetupPod(ctx context.Context, client client.Client, dpu *provisioningv1.DPU, option dutil.DPUOptions) error {
+func CreateHostNetworkSetupPod(ctx context.Context, c client.Client, dpu *provisioningv1.DPU, option dutil.DPUOptions) error {
 	logger := log.FromContext(ctx)
 	hostnetworkPodName := cutil.GenerateHostnetworkPodName(dpu.Name)
 
 	numVFs := NumofVFDefaultValue
 	flavor := &provisioningv1.DPUFlavor{}
-	if err := client.Get(ctx, types.NamespacedName{
+	if err := c.Get(ctx, types.NamespacedName{
 		Namespace: dpu.Namespace,
 		Name:      dpu.Spec.DPUFlavor,
 	}, flavor); err != nil {
@@ -74,6 +75,19 @@ func CreateHostNetworkSetupPod(ctx context.Context, client client.Client, dpu *p
 		logger.Error(err, "Failed to get pci address from node label", "dms", err)
 		return err
 	}
+
+	// Get high-speed MTU to pass it to the hostnetwork Pod.
+	dpfOperatorConfigList := operatorv1.DPFOperatorConfigList{}
+	if err := c.List(ctx, &dpfOperatorConfigList, &client.ListOptions{}); err != nil {
+		return fmt.Errorf("list DPFOperatorConfigs: %w", err)
+	}
+	if len(dpfOperatorConfigList.Items) == 0 || len(dpfOperatorConfigList.Items) > 1 {
+		return fmt.Errorf("exactly one DPFOperatorConfig necessary")
+	}
+	if dpfOperatorConfigList.Items[0].Spec.Networking == nil {
+		return fmt.Errorf("DPFOperatorConfig networking section is missing")
+	}
+	vfMTU := dpfOperatorConfigList.Items[0].Spec.Networking.HighSpeedMTU
 
 	hostPathType := corev1.HostPathDirectory
 	owner := metav1.NewControllerRef(dpu,
@@ -108,6 +122,10 @@ func CreateHostNetworkSetupPod(ctx context.Context, client client.Client, dpu *p
 						{
 							Name:  "num_of_vfs",
 							Value: numVFs,
+						},
+						{
+							Name:  "vf_mtu",
+							Value: fmt.Sprintf("%d", *vfMTU),
 						},
 					},
 
@@ -145,7 +163,7 @@ func CreateHostNetworkSetupPod(ctx context.Context, client client.Client, dpu *p
 	pod.Spec.Affinity = cutil.ReplaceDaemonSetPodNodeNameNodeAffinity(
 		pod.Spec.Affinity, dpu.Spec.NodeName)
 	pod.Spec.Tolerations = cutil.GeneratePodToleration(*dpu.Spec.NodeEffect)
-	err = client.Create(ctx, pod)
+	err = c.Create(ctx, pod)
 	if err != nil {
 		logger.Error(err, fmt.Sprintf("Failed to create %s hostnetwork pod", hostnetworkPodName))
 		return err

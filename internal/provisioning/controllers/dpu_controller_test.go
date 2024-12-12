@@ -23,11 +23,14 @@ import (
 	"os"
 	"time"
 
+	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	operatorcontroller "github.com/nvidia/doca-platform/internal/operator/controllers"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/bfcfg"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/dms"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/hostnetwork"
 	testutils "github.com/nvidia/doca-platform/test/utils"
 	"github.com/nvidia/doca-platform/test/utils/informer"
 
@@ -35,9 +38,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -1181,7 +1186,7 @@ var _ = Describe("DMS Pod", func() {
 			Expect(err).To(MatchError(ContainSubstring("persistentVolumeClaim.claimName")))
 		})
 
-		It("creating DMS Pod wit minimul options", func() {
+		It("creating DMS Pod wit minimal options", func() {
 			By("creating Issuer")
 			obj := &certmanagerv1.Issuer{
 				ObjectMeta: metav1.ObjectMeta{
@@ -1226,5 +1231,93 @@ var _ = Describe("DMS Pod", func() {
 			Expect(objFetched.OwnerReferences[0].Kind).Should(Equal("DPU"))
 			Expect(objFetched.OwnerReferences[0].Name).Should(Equal(objDPU.Name))
 		})
+
+		It("creating Hostnetwork Pod with minimal options", func() {
+			By("creating Issuer")
+			obj := &certmanagerv1.Issuer{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dpf-provisioning-selfsigned-issuer",
+					Namespace: testNS.Name,
+				},
+			}
+			Expect(k8sClient.Create(ctx, obj)).NotTo(HaveOccurred())
+
+			By("creating the dpu flavor")
+			objDPUFlavor := &provisioningv1.DPUFlavor{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      DefaultDPUName,
+					Namespace: testNS.Name,
+				},
+				Spec: provisioningv1.DPUFlavorSpec{},
+			}
+			// We cannot defer the cleanup of the DPUFlavor because it is used by the DPU.
+			Expect(k8sClient.Create(ctx, objDPUFlavor)).NotTo(HaveOccurred())
+
+			By("creating the dpu")
+			objDPU := &provisioningv1.DPU{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      DefaultDPUName,
+					Namespace: testNS.Name,
+					Labels: map[string]string{
+						"provisioning.dpu.nvidia.com/dpu-pciAddress": "0000-90-00",
+						"provisioning.dpu.nvidia.com/dpu-pf-name":    "ens1f0np0",
+					},
+				},
+				Spec: provisioningv1.DPUSpec{
+					NodeName:  testNode.Name,
+					DPUFlavor: DefaultDPUName,
+				},
+				Status: provisioningv1.DPUStatus{},
+			}
+			Expect(k8sClient.Create(ctx, objDPU)).NotTo(HaveOccurred())
+			DeferCleanup(k8sClient.Delete, ctx, objDPU)
+
+			By("creating dpf-operator-system namespace")
+			err := k8sClient.Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: operatorcontroller.DefaultDPFOperatorConfigSingletonNamespace}})
+			if !apierrors.IsAlreadyExists(err) {
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			By("creating DPFOperatorConfig")
+			dpfOperatorConfig := getMinimalDPFOperatorConfig()
+			Expect(k8sClient.Create(ctx, dpfOperatorConfig)).To(Succeed())
+			DeferCleanup(k8sClient.Delete, ctx, dpfOperatorConfig)
+
+			By("creating Hostnetwork Pod")
+			option := util.DPUOptions{
+				HostnetworkImageWithTag: "example.com/doca-platform-foundation/dpf-provisioning-controller/hostdriver:v0.1.0",
+			}
+			err = hostnetwork.CreateHostNetworkSetupPod(ctx, k8sClient, objDPU, option)
+			Expect(err).NotTo(HaveOccurred())
+
+			objFetched := &corev1.Pod{}
+
+			Expect(k8sClient.Get(ctx, client.ObjectKey{
+				Namespace: objDPU.Namespace,
+				Name:      cutil.GenerateHostnetworkPodName(objDPU.Name)},
+				objFetched)).To(Succeed())
+			Expect(objFetched.Spec.Containers[0].Env).Should(ConsistOf(
+				corev1.EnvVar{Name: "device_pci_address", Value: "0000:90:00"},
+				corev1.EnvVar{Name: "num_of_vfs", Value: "16"},
+				corev1.EnvVar{Name: "vf_mtu", Value: "9000"},
+			))
+		})
 	})
 })
+
+func getMinimalDPFOperatorConfig() *operatorv1.DPFOperatorConfig {
+	return &operatorv1.DPFOperatorConfig{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      operatorcontroller.DefaultDPFOperatorConfigSingletonName,
+			Namespace: operatorcontroller.DefaultDPFOperatorConfigSingletonNamespace,
+		},
+		Spec: operatorv1.DPFOperatorConfigSpec{
+			ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
+				BFBPersistentVolumeClaimName: "name",
+			},
+			Networking: &operatorv1.Networking{
+				HighSpeedMTU: ptr.To(9000),
+			},
+		},
+	}
+}

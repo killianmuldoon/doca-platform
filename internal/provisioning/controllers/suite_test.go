@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb"
@@ -72,6 +73,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "..", "config", "provisioning", "crd", "bases"),
+			filepath.Join("..", "..", "..", "deploy", "helm", "dpf-operator", "templates", "crds"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "cert-manager"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "nodemaintenances"),
 		},
@@ -92,6 +94,9 @@ var _ = BeforeSuite(func() {
 
 	scheme := scheme.Scheme
 	err = provisioningv1.AddToScheme(scheme)
+	Expect(err).NotTo(HaveOccurred())
+
+	err = operatorv1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	err = admissionv1.AddToScheme(scheme)

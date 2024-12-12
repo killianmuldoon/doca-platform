@@ -51,6 +51,10 @@ const (
 	InternalIPAM Mode = "internal-ipam"
 	// ExternalIPAM is the mode where an external DHCP server provides the IPs to the br-ovn and PF on the host
 	ExternalIPAM Mode = "external-ipam"
+	// geneveHeaderSize is the size of the geneve header, which is 60 bytes.
+	geneveHeaderSize = 60
+	// maxMTUSize is the maximum MTU size that can be set on a network interface.
+	maxMTUSize = 9216
 )
 
 const (
@@ -106,6 +110,8 @@ type DPUCNIProvisioner struct {
 	dhcpCmd kexec.Cmd
 	// mode is the mode in which the CNI provisioner is running
 	mode Mode
+	// ovnMTU is the MTU that is configured for OVN
+	ovnMTU int
 }
 
 // New creates a DPUCNIProvisioner that can configure the system
@@ -123,6 +129,7 @@ func New(ctx context.Context,
 	pfIP *net.IPNet,
 	dpuHostName string,
 	gatewayDiscoveryNetwork *net.IPNet,
+	ovnMTU int,
 ) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
 		ctx:                       ctx,
@@ -140,6 +147,7 @@ func New(ctx context.Context,
 		dpuHostName:               dpuHostName,
 		mode:                      mode,
 		gatewayDiscoveryNetwork:   gatewayDiscoveryNetwork,
+		ovnMTU:                    ovnMTU,
 	}
 }
 
@@ -423,12 +431,20 @@ func (p *DPUCNIProvisioner) startDHCPServer() error {
 		return fmt.Errorf("error while parsing MAC address of the PF on the host: %w", err)
 	}
 
+	// Add the geneve header size to the MTU.
+	pfMTU := p.ovnMTU + geneveHeaderSize
+
+	if pfMTU == geneveHeaderSize || pfMTU > maxMTUSize {
+		return errors.New("invalid PF MTU: it must be greater than 60 and less than or equal to 9216")
+	}
+
 	args := []string{
 		"--keep-in-foreground",
 		"--port=0",         // Disable DNS Server
 		"--log-facility=-", // Log to stderr
 		fmt.Sprintf("--interface=%s", brOVN),
 		"--dhcp-option=option:router",
+		fmt.Sprintf("--dhcp-option=option:mtu,%d", pfMTU),
 		fmt.Sprintf("--dhcp-range=%s,static", vtepNetwork.IP.String()),
 		fmt.Sprintf("--dhcp-host=%s,%s", mac, p.pfIP.IP.String()),
 	}
