@@ -33,3 +33,6 @@ echo "$NGC_API_KEY" | docker login --username \$oauthtoken --password-stdin nvcr
 ## log in to helm registries
 echo "$NGC_API_KEY" | helm registry login nvcr.io --username \$oauthtoken --password-stdin
 echo "$GITLAB_REGISTRY_TOKEN" | helm registry login gitlab-master.nvidia.com:5005 --username \$oauthtoken --password-stdin
+
+# Run the binfmt container to enable multi-architecture builds
+docker run --privileged --rm tonistiigi/binfmt --install all
