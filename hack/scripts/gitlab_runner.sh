@@ -158,8 +158,7 @@ if [[ "$REGISTER_DOCKER_RUNNER" == "true" ]]; then
     --docker-volumes="/mnt/gitlab-runner/cache:/cache" \
     --docker-shm-size=0 \
     --docker-network-mtu=0 \
-    --docker-cpus="4" \
-    --docker-memory="4000000000" || log_and_exit "Failed to register docker gitlab-runner"
+    --docker-memory="8000000000" || log_and_exit "Failed to register docker gitlab-runner"
 fi
 # Done
 echo "GitLab runner setup completed successfully"
