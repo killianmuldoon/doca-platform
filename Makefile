@@ -640,7 +640,7 @@ binary-snap-node-driver: ## Build the snap node driver controller binary.
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=hostdriver
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
-MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes #dpf-tools
+MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
