@@ -535,7 +535,7 @@ dpuServiceAccountNamespace: dpf-operator-system
 #### Apply the NICClusterConfiguration and SriovNetworkNodePolicy
 
 ```shell
-kubectl apply -f manifests/04-enable-accelerated-cni/
+cat manifests/04-enable-accelerated-cni/*.yaml | envsubst | kubectl apply -f -
 ```
 
 This will deploy the following objects:
