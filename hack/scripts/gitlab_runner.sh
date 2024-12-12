@@ -101,6 +101,11 @@ fi
 sudo sysctl fs.inotify.max_user_watches=1048576 > /dev/null || log_and_exit "Failed to set fs.inotify.max_user_watches"
 sudo sysctl fs.inotify.max_user_instances=8192 > /dev/null || log_and_exit "Failed to set fs.inotify.max_user_instances"
 
+## Set ulimit for the host
+grep -q "soft nofile 2048" || echo "* soft nofile 2048" >> /etc/security/limits.conf
+grep -q "hard nofile 2048" || echo "* hard nofile 2048" >> /etc/security/limits.conf
+
+
 ## Enable Docker building with qemu for multi-arch
 sudo docker run --privileged --rm tonistiigi/binfmt --install all > /dev/null || log_and_exit "Failed to enable Docker building with qemu"
 
