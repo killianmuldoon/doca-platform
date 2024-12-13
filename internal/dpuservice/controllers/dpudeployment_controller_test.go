@@ -1809,7 +1809,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels["labelkey1"] = "labelval1"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.DeployInCluster = ptr.To[bool](true)
 				dpuServiceConfiguration.Spec.ServiceConfiguration.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key1":"value1"}`)}
-				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{{Name: "if1", Network: "nad1"}}
+				dpuServiceConfiguration.Spec.Interfaces = nil
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
 
@@ -1909,7 +1909,6 @@ var _ = Describe("DPUDeployment Controller", func() {
 								Annotations: map[string]string{"annkey1": "annval1"},
 							},
 							DeployInCluster: ptr.To[bool](true),
-							Interfaces:      []string{"dpudeployment-service-1-if1"},
 						},
 						{
 							HelmChart: dpuservicev1.HelmChart{
@@ -2010,7 +2009,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				By("modifying the DPUServiceConfiguration object and checking the outcome")
 				dpuServiceConfiguration := &dpuservicev1.DPUServiceConfiguration{}
 				Expect(testClient.Get(ctx, types.NamespacedName{Namespace: testNS.Name, Name: "service-2"}, dpuServiceConfiguration)).To(Succeed())
-				dpuServiceConfiguration.Spec.ServiceConfiguration.DeployInCluster = ptr.To[bool](true)
+				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations = map[string]string{"some": "some"}
 				dpuServiceConfiguration.SetManagedFields(nil)
 				dpuServiceConfiguration.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
 				Expect(testClient.Patch(ctx, dpuServiceConfiguration, client.Apply, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
@@ -2068,9 +2067,29 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID:       ptr.To[string]("dpudeployment_dpudeployment_service-2"),
-							DeployInCluster: ptr.To[bool](true),
-							Interfaces:      []string{"dpudeployment-service-2-someinterface"},
+							ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-2"),
+							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+								Annotations: map[string]string{"some": "some"},
+								NodeSelector: &corev1.NodeSelector{
+									NodeSelectorTerms: []corev1.NodeSelectorTerm{
+										{
+											MatchExpressions: []corev1.NodeSelectorRequirement{
+												{
+													Key:      "svc.dpu.nvidia.com/dpuservice-service-2-version",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{dpuServiceObjectVersionPlaceholder},
+												},
+												{
+													Key:      "svc.dpu.nvidia.com/owned-by-dpudeployment",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name)},
+												},
+											},
+										},
+									},
+								},
+							},
+							Interfaces: []string{"dpudeployment-service-2-someinterface"},
 						},
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
@@ -3314,6 +3333,38 @@ var _ = Describe("DPUDeployment Controller", func() {
 				}
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
+	})
+})
+
+var _ = Describe("DPUDeployment API Validations", func() {
+	var testNS *corev1.Namespace
+	BeforeEach(func() {
+		By("Creating the namespaces")
+		testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+		Expect(testClient.Create(ctx, testNS)).To(Succeed())
+		DeferCleanup(testClient.Delete, ctx, testNS)
+	})
+	Context("When checking the DPUServiceConfiguration API validations", func() {
+		DescribeTable("Validates the interfaces and deployInCluster correctly", func(deployInCluster *bool, hasInterfaces bool, expectError bool) {
+			dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
+			dpuServiceConfiguration.Spec.ServiceConfiguration.DeployInCluster = deployInCluster
+			if !hasInterfaces {
+				dpuServiceConfiguration.Spec.Interfaces = nil
+			}
+			err := testClient.Create(ctx, dpuServiceConfiguration)
+			if expectError {
+				Expect(err).To(HaveOccurred())
+			} else {
+				Expect(err).ToNot(HaveOccurred())
+			}
+		},
+			Entry("valid config - without specifying deployInCluster and with interfaces", nil, true, false),
+			Entry("valid config - without specifying deployInCluster and without interfaces", nil, false, false),
+			Entry("valid config - with deployInCluster=false and with interfaces", ptr.To[bool](false), true, false),
+			Entry("valid config - with deployInCluster=false and without interfaces", ptr.To[bool](false), false, false),
+			Entry("valid config - with deployInCluster=true and without interfaces", ptr.To[bool](true), false, false),
+			Entry("invalid config - with deployInCluster=true and with interfaces", ptr.To[bool](true), true, true),
+		)
 	})
 })
 
