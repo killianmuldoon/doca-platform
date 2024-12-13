@@ -119,9 +119,6 @@ ARGOCD_VER=v2.10.1
 $(ARGOCD_YAML): | $(CHARTSDIR)
 	curl -fSsL "https://raw.githubusercontent.com/argoproj/argo-cd/$(ARGOCD_VER)/manifests/install.yaml" -o $(ARGOCD_YAML)
 
-# Token used to pull from internal git registries. Used to enable https authentication in git clones from the internal NVIDIA gitlab.
-GITLAB_TOKEN ?= ""
-
 # OVS CNI
 # A third party import to the repo. In future this will be further integrated.
 OVS_CNI_DIR=$(THIRDPARTYDIR)/ovs-cni
@@ -130,7 +127,9 @@ OVS_CNI_DIR=$(THIRDPARTYDIR)/ovs-cni
 OVNKUBERNETES_REF=65b2d5d768f380c302965d4c30f3aa61c0e730b3
 OVNKUBERNETES_DIR=$(REPOSDIR)/ovn-kubernetes-$(OVNKUBERNETES_REF)
 $(OVNKUBERNETES_DIR): | $(REPOSDIR)
-	GITLAB_TOKEN= $(CURDIR)/hack/scripts/git-clone-repo.sh https://github.com/aserdean/ovn-kubernetes $(OVNKUBERNETES_DIR) $(OVNKUBERNETES_REF)
+	git clone https://github.com/aserdean/ovn-kubernetes $(OVNKUBERNETES_DIR)-tmp
+	cd $(OVNKUBERNETES_DIR)-tmp && git reset --hard $(OVNKUBERNETES_REF)
+	mv $(OVNKUBERNETES_DIR)-tmp $(OVNKUBERNETES_DIR)
 
 DOCA_SOSREPORT_REPO_URL=https://github.com/NVIDIA/doca-sosreport/archive/$(DOCA_SOSREPORT_REF).tar.gz
 DOCA_SOSREPORT_REF=6b4289b9f0d9f26af177b0d1c4c009ca74bb514a
