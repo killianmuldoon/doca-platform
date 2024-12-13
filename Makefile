@@ -140,6 +140,69 @@ $(SOS_REPORT_DIR): | $(REPOSDIR)
 	| tar -xz -C ${REPOSDIR} && \
 	cp -Rp ./hack/tools/dpf-tools/* $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF}/
 
+##@ GRPC
+
+# go package for generated code
+API_PKG_GO_MOD ?= github.com/nvidia/doca-platform/api/grpc
+
+## Temporary location for GRPC files
+GRPC_TMP_DIR  ?= $(CURDIR)/_tmp
+$(GRPC_TMP_DIR):
+	@mkdir -p $@
+
+# GRPC DIRs
+GRPC_DIR ?= $(CURDIR)/api/grpc
+PROTO_DIR ?= $(GRPC_DIR)/proto
+GENERATED_CODE_DIR ?= $(GRPC_DIR)
+
+.PHONY: grpc-generate
+grpc-generate: protoc protoc-gen-go protoc-gen-go-grpc ## Generate GO client and server GRPC code
+	@echo "generate GRPC API"; \
+	echo "   go module: $(API_PKG_GO_MOD)"; \
+	echo "   output dir: $(GENERATED_CODE_DIR) "; \
+	echo "   proto dir: $(PROTO_DIR) "; \
+	cd $(PROTO_DIR) && \
+	TARGET_FILES=""; \
+	PROTOC_OPTIONS="--plugin=protoc-gen-go=$(PROTOC_GEN_GO) \
+					--plugin=protoc-gen-go-grpc=$(PROTOC_GEN_GO_GRPC) \
+					--go_out=$(GENERATED_CODE_DIR) \
+					--go_opt=module=$(API_PKG_GO_MOD) \
+					--proto_path=$(PROTO_DIR) \
+					--go-grpc_out=$(GENERATED_CODE_DIR) \
+					--go-grpc_opt=module=$(API_PKG_GO_MOD)"; \
+	echo "discovered proto files:"; \
+	for proto_file in $$(find . -name "*.proto"); do \
+		proto_file=$$(echo $$proto_file | cut -d'/' -f2-); \
+		proto_dir=$$(dirname $$proto_file); \
+		pkg_name=M$$proto_file=$(API_PKG_GO_MOD)/$$proto_dir; \
+		echo "    $$proto_file"; \
+		TARGET_FILES="$$TARGET_FILES $$proto_file"; \
+		PROTOC_OPTIONS="$$PROTOC_OPTIONS \
+						--go_opt=$$pkg_name \
+						--go-grpc_opt=$$pkg_name" ; \
+	done; \
+	$(PROTOC) $$PROTOC_OPTIONS $$TARGET_FILES
+
+.PHONY: grpc-check
+grpc-check: grpc-format grpc-lint protoc protoc-gen-go protoc-gen-go-grpc $(GRPC_TMP_DIR)  ## Check that generated GO client code match proto files
+	@rm -rf $(GRPC_TMP_DIR)/nvidia/
+	@$(MAKE) GENERATED_CODE_DIR=$(GRPC_TMP_DIR) grpc-generate
+	@diff -Naur $(GRPC_TMP_DIR)/nvidia/ $(GENERATED_CODE_DIR)/nvidia/ || \
+		(printf "\n\nOutdated files detected!\nPlease, run 'make generate' to regenerate GO code\n\n" && exit 1)
+	@echo "generated files are up to date"
+
+.PHONY: grpc-lint
+grpc-lint: buf  ## Lint GRPC files
+	@echo "lint protobuf files";
+	cd $(PROTO_DIR) && \
+	$(BUF) lint --config ../buf.yaml .
+
+.PHONY: grpc-format
+grpc-format: buf  ## Format GRPC files
+	@echo "format protobuf files";
+	cd $(PROTO_DIR) && \
+	$(BUF) format -w --exit-code
+
 ##@ Development
 GENERATE_TARGETS ?= dpuservice provisioning dpucniprovisioner servicechainset sfc-controller ovs-cni operator \
 	operator-embedded release-defaults dummydpuservice kamaji-cluster-manager static-cluster-manager \

@@ -17,6 +17,9 @@ TOOLSDIR ?= $(CURDIR)/hack/tools/bin
 $(TOOLSDIR):
 	@mkdir -p $@
 
+# Detect architecture and platform
+TOOL_ARCH := $(shell uname -m)
+TOOL_OS := $(shell uname -s | tr A-Z a-z)
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.5.0
@@ -34,6 +37,10 @@ MDTOC_VER ?= v1.4.0
 STERN_VER ?= v1.30.0
 HELM_DOCS_VER := v1.14.2
 EMBEDMD_VER ?= v1.0.0
+PROTOC_GEN_GO_VER ?= 1.35.2
+PROTOC_GEN_GO_GRPC_VER ?= 1.5.1
+BUF_VERSION ?= 1.47.2
+PROTOC_VER ?= 28.3
 
 ## Tool Binaries
 KUBECTL ?= kubectl
@@ -52,8 +59,39 @@ MDTOC ?= $(TOOLSDIR)/mdtoc-$(MDTOC_VER)
 STERN ?= $(TOOLSDIR)/stern-$(STERN_VER)
 HELM_DOCS ?= $(TOOLSDIR)/helm-docs-$(HELM_DOCS_VER)
 EMBEDMD ?= $(TOOLSDIR)/embedmd-$(EMBEDMD_VER)
+PROTOC ?= $(TOOLSDIR)/protoc/bin/protoc
+PROTOC_GEN_GO ?= $(TOOLSDIR)/protoc-gen-go
+PROTOC_GEN_GO_GRPC ?= $(TOOLSDIR)/protoc-gen-go-grpc
+BUF ?= $(TOOLSDIR)/buf
 
 ##@ Tools
+
+.PHONY: protoc
+PROTOC_REL ?= https://github.com/protocolbuffers/protobuf/releases
+protoc: $(PROTOC) ## Download protoc locally if necessary.
+$(PROTOC): | $(TOOLSDIR)
+	cd $(TOOLSDIR) && \
+	curl -L --output tmp.zip $(PROTOC_REL)/download/v$(PROTOC_VER)/protoc-$(PROTOC_VER)-$(TOOL_OS)-$(TOOL_ARCH).zip && \
+	unzip tmp.zip -d protoc && rm tmp.zip
+
+.PHONY: protoc-gen-go
+protoc-gen-go: $(PROTOC_GEN_GO) ## Download protoc-gen-go locally if necessary.
+$(PROTOC_GEN_GO): | $(TOOLSDIR)
+	GOBIN=$(TOOLSDIR) go install google.golang.org/protobuf/cmd/protoc-gen-go@v$(PROTOC_GEN_GO_VER)
+
+.PHONY: protoc-gen-go-grpc
+protoc-gen-go-grpc: $(PROTOC_GEN_GO_GRPC) ## Download protoc-gen-go locally if necessary.
+$(PROTOC_GEN_GO_GRPC): | $(TOOLSDIR)
+	GOBIN=$(TOOLSDIR) go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v$(PROTOC_GEN_GO_GRPC_VER)
+
+.PHONY: buf
+BUF_REL ?= https://github.com/bufbuild/buf/releases/download
+buf: $(BUF) ## Download buf locally if necessary
+$(BUF): | $(TOOLSDIR)
+	cd $(TOOLSDIR) && \
+	curl -sSL "$(BUF_REL)/v$(BUF_VERSION)/buf-$(TOOL_OS)-$(TOOL_ARCH)" -o "$(TOOLSDIR)/buf" && \
+	chmod +x "$(TOOLSDIR)/buf"
+
 .PHONY: kustomize
 kustomize: $(KUSTOMIZE) ## Download kustomize locally if necessary.
 $(KUSTOMIZE): | $(TOOLSDIR)
