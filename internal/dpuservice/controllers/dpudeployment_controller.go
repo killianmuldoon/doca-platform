@@ -239,6 +239,12 @@ func (r *DPUDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 //
 //nolint:unparam
 func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *dpuservicev1.DPUDeployment) (ctrl.Result, error) {
+	// dpuNodeLabels is the set of labels that will be applied to the nodes in the DPU cluster that this DPUDeployment
+	// adds. This map is supposed to be mutated by the functions that consume it.
+	// These labels are needed to perform the upgrade synchronization logic across the child objects the DPUDeployment
+	// creates.
+	dpuNodeLabels := make(map[string]string)
+
 	deps, err := prepareDependencies(ctx, r.Client, dpuDeployment)
 	if err != nil {
 		conditions.AddFalse(
@@ -277,8 +283,7 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 	}
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServiceInterfacesReconciled)
 
-	labelsMap, err := reconcileDPUServices(ctx, r.Client, dpuDeployment, deps, dpuServiceToInterfaces)
-	if err != nil {
+	if err := reconcileDPUServices(ctx, r.Client, dpuDeployment, deps, dpuServiceToInterfaces, dpuNodeLabels); err != nil {
 		conditions.AddFalse(
 			dpuDeployment,
 			dpuservicev1.ConditionDPUServicesReconciled,
@@ -289,8 +294,7 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 	}
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServicesReconciled)
 
-	svcChainlabels, err := reconcileDPUServiceChain(ctx, r.Client, dpuDeployment)
-	if err != nil {
+	if err := reconcileDPUServiceChain(ctx, r.Client, dpuDeployment, dpuNodeLabels); err != nil {
 		conditions.AddFalse(
 			dpuDeployment,
 			dpuservicev1.ConditionDPUServiceChainsReconciled,
@@ -301,7 +305,7 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 	}
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServiceChainsReconciled)
 
-	if err := reconcileDPUSets(ctx, r.Client, dpuDeployment, labelsMap, svcChainlabels); err != nil {
+	if err := reconcileDPUSets(ctx, r.Client, dpuDeployment, dpuNodeLabels); err != nil {
 		conditions.AddFalse(
 			dpuDeployment,
 			dpuservicev1.ConditionDPUSetsReconciled,
@@ -565,7 +569,7 @@ func getDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuser
 // As part of this flow, we try to find existing DPUSets and update them to match the DPUDeployment spec instead of
 // creating new ones. The reason behind that is so that we can minimize the mutations on DPU objects that impose infra
 // changes (provisioning of BFB) that may be disruptive and take a lot of time.
-func reconcileDPUSets(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, svcLabels map[string]string, chainLabels map[string]string) error {
+func reconcileDPUSets(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, dpuNodeLabels map[string]string) error {
 	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
 
 	// Grab existing DPUSets
@@ -586,8 +590,7 @@ func reconcileDPUSets(ctx context.Context, c client.Client, dpuDeployment *dpuse
 			&dpuSetOption,
 			dpuDeployment.Spec.DPUs.BFB,
 			dpuDeployment.Spec.DPUs.Flavor,
-			svcLabels,
-			chainLabels)
+			dpuNodeLabels)
 
 		if i := matchDPUSetIndex(newDPUSet, existingDPUSets.Items); i >= 0 {
 			newDPUSet.Name = existingDPUSets.Items[i].Name
@@ -633,11 +636,15 @@ func matchDPUSetIndex(expected *provisioningv1.DPUSet, existing []provisioningv1
 }
 
 // reconcileDPUServices reconciles the DPUServices created by the DPUDeployment
-func reconcileDPUServices(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, dependencies *dpuDeploymentDependencies,
-	dpuServicesToInterfaces map[string][]string) (map[string]string, error) {
+func reconcileDPUServices(
+	ctx context.Context,
+	c client.Client,
+	dpuDeployment *dpuservicev1.DPUDeployment,
+	dependencies *dpuDeploymentDependencies,
+	dpuServicesToInterfaces map[string][]string,
+	dpuNodeLabels map[string]string,
+) error {
 	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
-	labelsMap := make(map[string]string)
-
 	// Grab existing DPUServices
 	existingDPUServices := &dpuservicev1.DPUServiceList{}
 	if err := c.List(ctx,
@@ -646,7 +653,7 @@ func reconcileDPUServices(ctx context.Context, c client.Client, dpuDeployment *d
 			ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
 		},
 		client.InNamespace(dpuDeployment.Namespace)); err != nil {
-		return nil, fmt.Errorf("error while listing dpuservices: %w", err)
+		return fmt.Errorf("error while listing dpuservices: %w", err)
 	}
 
 	existingDPUServicesMap := make(map[string]dpuservicev1.DPUService)
@@ -665,7 +672,7 @@ func reconcileDPUServices(ctx context.Context, c client.Client, dpuDeployment *d
 			dpuServicesToInterfaces[dpuServiceName],
 		)
 		if err != nil {
-			return nil, fmt.Errorf("error while generating DPUService %s: %w", dpuServiceName, err)
+			return fmt.Errorf("error while generating DPUService %s: %w", dpuServiceName, err)
 		}
 
 		// we save the version in the annotations, as this will permit us to retrieve
@@ -676,13 +683,15 @@ func reconcileDPUServices(ctx context.Context, c client.Client, dpuDeployment *d
 
 		// Add the node selector to the DPUService only if it is deployed on a dpu cluster
 		if !serviceConfig.Spec.ServiceConfiguration.ShouldDeployInCluster() {
-			versionLabel := newDPUServiceObjectNodeSelectorWithOwner(getDPUServiceVersionLabelKey(dpuServiceName), dpuServiceObjectVersionPlaceholder, client.ObjectKeyFromObject(dpuDeployment))
+			nodeLabelKey := getDPUServiceVersionLabelKey(dpuServiceName)
+			nodeLabelValue := dpuServiceObjectVersionPlaceholder
+			versionLabel := newDPUServiceObjectNodeSelectorWithOwner(nodeLabelKey, nodeLabelValue, client.ObjectKeyFromObject(dpuDeployment))
 			dpuService.SetServiceDeamonSetNodeSelector(versionLabel)
-			labelsMap[dpuServiceName] = dpuServiceObjectVersionPlaceholder
+			dpuNodeLabels[nodeLabelKey] = nodeLabelValue
 		}
 
 		if err := c.Patch(ctx, dpuService, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
-			return nil, fmt.Errorf("error while patching %s %s: %w", dpuService.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuService), err)
+			return fmt.Errorf("error while patching %s %s: %w", dpuService.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuService), err)
 		}
 
 		delete(existingDPUServicesMap, dpuService.Name)
@@ -691,11 +700,11 @@ func reconcileDPUServices(ctx context.Context, c client.Client, dpuDeployment *d
 	// Cleanup the remaining stale DPUServices
 	for _, dpuService := range existingDPUServicesMap {
 		if err := c.Delete(ctx, &dpuService); err != nil {
-			return nil, fmt.Errorf("error while deleting %s %s: %w", dpuService.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuService), err)
+			return fmt.Errorf("error while deleting %s %s: %w", dpuService.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuService), err)
 		}
 	}
 
-	return labelsMap, nil
+	return nil
 }
 
 // reconcileDPUServiceInterfaces reconciles the DPUServiceInterfaces created by the DPUDeployment
@@ -750,9 +759,8 @@ func reconcileDPUServiceInterfaces(ctx context.Context, c client.Client, dpuDepl
 }
 
 // reconcileDPUServiceChain reconciles the DPUServiceChain object created by the DPUDeployment
-func reconcileDPUServiceChain(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment) (map[string]string, error) {
+func reconcileDPUServiceChain(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, dpuNodeLabels map[string]string) error {
 	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
-	labelsMap := make(map[string]string)
 
 	dpuServiceChain := generateDPUServiceChain(client.ObjectKeyFromObject(dpuDeployment), owner, dpuDeployment.Spec.ServiceChains)
 
@@ -763,15 +771,17 @@ func reconcileDPUServiceChain(ctx context.Context, c client.Client, dpuDeploymen
 	}
 
 	// Add the node selector to the DPUService only if it is deployed on a dpu cluster
-	versionLabel := newDPUServiceObjectLabelSelectorWithOwner(dpuServiceChainVersionLabelKey, dpuServiceObjectVersionPlaceholder, client.ObjectKeyFromObject(dpuDeployment))
+	nodeLabelKey := dpuServiceChainVersionLabelKey
+	nodeLabelValue := dpuServiceObjectVersionPlaceholder
+	versionLabel := newDPUServiceObjectLabelSelectorWithOwner(nodeLabelKey, nodeLabelValue, client.ObjectKeyFromObject(dpuDeployment))
 	dpuServiceChain.Spec.Template.Spec.NodeSelector = versionLabel
-	labelsMap[dpuServiceChain.Name] = dpuServiceObjectVersionPlaceholder
+	dpuNodeLabels[nodeLabelKey] = nodeLabelValue
 
 	if err := c.Patch(ctx, dpuServiceChain, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
-		return nil, fmt.Errorf("error while patching %s %s: %w", dpuServiceChain.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuServiceChain), err)
+		return fmt.Errorf("error while patching %s %s: %w", dpuServiceChain.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuServiceChain), err)
 	}
 
-	return labelsMap, nil
+	return nil
 }
 
 // generateDPUSet generates a DPUSet according to the DPUDeployment
@@ -780,8 +790,7 @@ func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 	dpuSetSettings *dpuservicev1.DPUSet,
 	bfb string,
 	dpuFlavor string,
-	svcLabels map[string]string,
-	chainLabels map[string]string,
+	dpuNodeLabels map[string]string,
 ) *provisioningv1.DPUSet {
 	dpuSet := &provisioningv1.DPUSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -814,13 +823,8 @@ func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 		ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName),
 	}
 
-	for k, v := range svcLabels {
-		nodeLabels[getDPUServiceVersionLabelKey(k)] = v
-	}
-
-	// just one label
-	for _, v := range chainLabels {
-		nodeLabels[dpuServiceChainVersionLabelKey] = v
+	for k, v := range dpuNodeLabels {
+		nodeLabels[k] = v
 	}
 
 	dpuSet.Spec.DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
