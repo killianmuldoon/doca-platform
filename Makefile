@@ -17,6 +17,7 @@
 include hack/tools/tools.mk
 
 PROJECT_NAME="DOCA Platform Framework"
+PROJECT_REPO="https://github.com/NVIDIA/doca-platform"
 DATE="$(shell date --rfc-3339=seconds)"
 FULL_COMMIT=$(shell git rev-parse HEAD)
 
@@ -757,6 +758,7 @@ docker-build-dpf-system-for-%:
 		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
 		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
 		--label=org.opencontainers.image.version=$(TAG) \
+		--label=org.opencontainers.image.source=$(PROJECT_REPO) \
 		--provenance=false \
 		--platform=linux/$* \
 		--build-arg builder_image=$(BUILD_IMAGE) \
@@ -796,6 +798,7 @@ docker-build-dpf-tools-for-%: $(SOS_REPORT_DIR)
 	--label=org.opencontainers.image.name=$(PROJECT_NAME) \
 	--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
 	--label=org.opencontainers.image.version=$(TAG) \
+	--label=org.opencontainers.image.source=$(PROJECT_REPO) \
 	--provenance=false \
 	--platform=linux/$* \
 	. \
@@ -827,6 +830,7 @@ docker-build-ipallocator: ## Build docker image for the IP Allocator
 		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
 		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
 		--label=org.opencontainers.image.version=$(TAG) \
+		--label=org.opencontainers.image.source=$(PROJECT_REPO) \
 		--provenance=false \
 		--platform=linux/$(ARCH) \
 		--build-arg builder_image=$(BUILD_IMAGE) \
@@ -848,6 +852,7 @@ docker-build-ovs-cni: $(OVS_CNI_DIR) ## Builds the OVS CNI image
 		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
 		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
 		--label=org.opencontainers.image.version=$(TAG) \
+		--label=org.opencontainers.image.source=$(PROJECT_REPO) \
 		--provenance=false \
 		--build-arg goarch=$(DPU_ARCH) \
 		--platform linux/${DPU_ARCH} \
@@ -866,6 +871,7 @@ docker-build-ovn-kubernetes-for-%: $(OVNKUBERNETES_DIR)
 		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
 		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
 		--label=org.opencontainers.image.version=$(TAG) \
+		--label=org.opencontainers.image.source=$(PROJECT_REPO) \
 		--provenance=false \
 		--platform=linux/$* \
 		--build-arg builder_image=$(BUILD_IMAGE) \
@@ -899,6 +905,7 @@ docker-build-hostdriver: ## Build docker image for DMS and hostnetwork.
 		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
 		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
 		--label=org.opencontainers.image.version=$(TAG) \
+		--label=org.opencontainers.image.source=$(PROJECT_REPO) \
 		--provenance=false \
 		--platform linux/${HOST_ARCH} \
 		--build-arg builder_image=$(BUILD_IMAGE) \
@@ -916,6 +923,7 @@ docker-build-dummydpuservice: ## Build docker images for the dummydpuservice
 		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
 		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
 		--label=org.opencontainers.image.version=$(TAG) \
+		--label=org.opencontainers.image.source=$(PROJECT_REPO) \
 		--provenance=false \
 		--platform=linux/$(DPU_ARCH) \
 		--build-arg builder_image=$(BUILD_IMAGE) \
@@ -935,6 +943,7 @@ docker-build-ovn-kubernetes-resource-injector: ## Build docker image for the OVN
 		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
 		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
 		--label=org.opencontainers.image.version=$(TAG) \
+		--label=org.opencontainers.image.source=$(PROJECT_REPO) \
 		--provenance=false \
 		--platform=linux/$(ARCH) \
 		--build-arg builder_image=$(BUILD_IMAGE) \
@@ -954,6 +963,7 @@ docker-build-operator-bundle: generate-operator-bundle
 		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
 		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
 		--label=org.opencontainers.image.version=$(TAG) \
+		--label=org.opencontainers.image.source=$(PROJECT_REPO) \
 		--provenance=false \
 		-f bundle.Dockerfile \
 		-t $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION) \
@@ -967,6 +977,7 @@ docker-build-storage-snap-controller:
 	--label=org.opencontainers.image.name=$(PROJECT_NAME) \
 	--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
 	--label=org.opencontainers.image.version=$(TAG) \
+	--label=org.opencontainers.image.source=$(PROJECT_REPO) \
 	--provenance=false \
 	--platform=linux/$(DPU_ARCH) \
 	--build-arg builder_image=$(BUILD_IMAGE) \
@@ -986,6 +997,7 @@ docker-build-storage-snap-node-driver:
 	--label=org.opencontainers.image.name=$(PROJECT_NAME) \
 	--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
 	--label=org.opencontainers.image.version=$(TAG) \
+	--label=org.opencontainers.image.source=$(PROJECT_REPO) \
 	--provenance=false \
 	--platform=linux/$(DPU_ARCH) \
 	--build-arg builder_image=$(BUILD_IMAGE) \
