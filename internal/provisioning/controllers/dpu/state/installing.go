@@ -73,6 +73,9 @@ func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client
 	logger := log.FromContext(ctx)
 	dmsTaskName := generateDMSTaskName(st.dpu)
 	state := st.dpu.Status.DeepCopy()
+	if isDeleting(st.dpu) {
+		logger.V(3).Info(fmt.Sprintf("DPU %v is deleting, but waiting for bfb-install to complete", st.dpu.Name))
+	}
 
 	// check whether bfb exist
 	nn := types.NamespacedName{
