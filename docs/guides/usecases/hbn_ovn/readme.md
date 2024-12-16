@@ -616,7 +616,6 @@ cat manifests/05-dpuservice-installation/*.yaml | envsubst | kubectl apply -f -
 ```
 
 This will deploy the following objects:
-<details><summary>DPUSet to provision DPUs on worker nodes</summary>
 
 <details><summary>BFB to download Bluefield Bitstream to a shared volume</summary>
 
@@ -632,6 +631,8 @@ spec:
   url: $BLUEFIELD_BITSTREAM
 ```
 </details>
+
+<details><summary>DPUSet to provision DPUs on worker nodes</summary>
 
 [embedmd]:#(manifests/05-dpuservice-installation/dpuset.yaml)
 ```yaml
