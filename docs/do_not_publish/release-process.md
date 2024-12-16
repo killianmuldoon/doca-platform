@@ -55,9 +55,14 @@ TODO: Define cleanup process for cleaning up old jobs once a GA release has been
 Publishing a release must be done by someone with write access to the public Github repo. @Nadav-Rub @adrianchiris and @killianmuldoon are admins who can give write access on the repo.
 This documentation has additional steps which cover the [First release] which are marked.
 
+Make sure you are part of NVIDIA GitHub organization here: https://github.com/settings/organizations.
+
+If not, you can join using https://github-onboarding.nvidia.com.
+Select NVIDIA, and input your NVIDIA email. You will get an invitation by mail.
+
 #### 1 Create a GitHub personal access token
 
-Log in to your GitHub account. Go to  https://github.com/settings/tokens.
+Log in to your GitHub account. Go to https://github.com/settings/tokens.
 
 Click `Generate new token > Generate new token (classic)`. Add "DPF release" as a Note. Set Expiration to 7 days.
 
@@ -68,7 +73,7 @@ Enable the fololowing permissions:
 
 Click `Generate token` at the bottom of the page. Make a note of the value of the generated token - YOUR_GITHUB_TOKEN - which appears on the next page. It will have the form `ghp_XXXXXX`
 
-On the Personal access tokens (classic) page click the `Configure SSO` button and go through the SSO process.
+On the Personal access tokens (classic) page click the `Configure SSO` button, select 'NVIDIA' organization and go through the SSO process.
 
 #### 2 Add the GitHub token to Gitlab
 
