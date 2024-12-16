@@ -12,6 +12,4 @@ podNetwork: $POD_CIDR/24
 serviceNetwork: $SERVICE_CIDR
 ovn-kubernetes-resource-injector:
   resourceName: nvidia.com/bf3-p0-vfs
-  controllerManager:
-    replicas: 3
 dpuServiceAccountNamespace: dpf-operator-system

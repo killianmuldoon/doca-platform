@@ -93,7 +93,6 @@ export DPF_VERSION=v24.10.0-rc.5
 
 ## URL to the BFB used in the `bfb.yaml` and linked by the DPUSet.
 export BLUEFIELD_BITSTREAM="https://content.mellanox.com/BlueField/BFBs/Ubuntu22.04/bf-bundle-2.9.1-30_24.11_ubuntu-22.04_prod.bfb"
-
 ```
 
 ### 1. CNI installation
@@ -369,7 +368,7 @@ These verification commands may need to be run multiple times to ensure the cond
 Verify the DPF Operator installation with:
 ```shell
 ## Ensure the DPF Operator deployment is available.
-kubectl wait --for=condition=Available --namespace dpf-operator-system deployment dpf-operator-controller-manager
+kubectl rollout status deployment --namespace dpf-operator-system dpf-operator-controller-manager
 ## Ensure all pods in the DPF Operator system are ready.
 kubectl wait --for=condition=ready --namespace dpf-operator-system pods --all
 ```
@@ -442,9 +441,9 @@ These verification commands may need to be run multiple times to ensure the cond
 Verify the DPF System with:
 ```shell
 ## Ensure the provisioning and DPUService controller manager deployments are available.
-kubectl wait --for=condition=Available --namespace dpf-operator-system deployment dpf-provisioning-controller-manager dpuservice-controller-manager
+kubectl rollout status deployment --namespace dpf-operator-system dpf-provisioning-controller-manager dpuservice-controller-manager
 ## Ensure all other deployments in the DPF Operator system are Available.
-kubectl wait --for=condition=Available --namespace dpf-operator-system deployments --all
+kubectl rollout status deployment --namespace dpf-operator-system
 ## Ensure the DPUCluster is ready for nodes to join.
 kubectl wait --for=condition=ready --namespace dpu-cplane-tenant1 dpucluster --all
 ```
@@ -526,8 +525,6 @@ podNetwork: $POD_CIDR/24
 serviceNetwork: $SERVICE_CIDR
 ovn-kubernetes-resource-injector:
   resourceName: nvidia.com/bf3-p0-vfs
-  controllerManager:
-    replicas: 3
 dpuServiceAccountNamespace: dpf-operator-system
 ```
 </details>
@@ -596,11 +593,10 @@ Verify the DPF System with:
 ```shell
 ## Ensure the provisioning and DPUService controller manager deployments are available.
 kubectl wait --for=condition=Ready --namespace nvidia-network-operator pods --all
-## Expect the following Daemonsets to be created but have zero replicas. Pods will be deployed by these Daemonsets when workers are added.
-kubectl wait ds --for=jsonpath='{.status.numberReady}'=0 --namespace nvidia-network-operator kube-multus-ds sriov-network-config-daemon sriov-device-plugin 
-## Expect the network injector to have 3 replicas running.
-kubectl wait deployment --for=jsonpath='{.status.readyReplicas}'=3 --namespace ovn-kubernetes ovn-kubernetes-ovn-kubernetes-resource-injector  
-
+## Expect the following Daemonsets to be successfully rolled out.
+kubectl rollout status daemonset --namespace nvidia-network-operator kube-multus-ds sriov-network-config-daemon sriov-device-plugin 
+## Expect the network injector to be successfully rolled out.
+kubectl rollout status deployment --namespace ovn-kubernetes ovn-kubernetes-ovn-kubernetes-resource-injector  
 ```
 
 ### 5. DPUService installation
@@ -636,6 +632,7 @@ spec:
   url: $BLUEFIELD_BITSTREAM
 ```
 </details>
+
 [embedmd]:#(manifests/05-dpuservice-installation/dpuset.yaml)
 ```yaml
 ---
@@ -1135,10 +1132,9 @@ TODO: Add specific user commands to test traffic.
 
 ### 7. Deletion and clean up
 
-
 For DPF deletion follows a specific order defined below. The OVN Kubernetes primary CNI can not be safely deleted from the cluster.
 
-#### Delete the DPUService and DPUServiceChain objects 
+#### Delete the test pods
 ```shell
 kubectl delete -f manifests/06-test-traffic --wait
 ```
@@ -1169,6 +1165,7 @@ kubectl delete namespace dpf-operator-system dpu-cplane-tenant1 cert-manager nvi
 ```
 
 Note: there can be a race condition with deleting the underlying Kamaji cluster which runs the DPU cluster control plane in this guide. If that happens it may be necessary to remove finalizers manually from `DPUCluster` and `Datastore` objects.
+
 ## Limitations of DPF Setup
 
 ### Host network pod services
