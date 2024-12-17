@@ -842,7 +842,7 @@ spec:
   helmChart:
     source:
       repoURL: https://helm.ngc.nvidia.com/nvidia/doca
-      version: 1.0.3
+      version: 1.0.5
       chart: doca-blueman
     values:
       imagePullSecrets:

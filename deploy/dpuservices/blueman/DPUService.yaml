@@ -6,8 +6,8 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvstaging/doca
-      version: 1.0.3
+      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      version: 1.0.5
       chart: doca-blueman
   serviceDaemonSet:
     updateStrategy:
