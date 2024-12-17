@@ -822,8 +822,8 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvstaging/doca
-      version: 0.2.2
+      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      version: 0.2.3
       chart: doca-telemetry
 ```
 </details>
@@ -841,7 +841,7 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvstaging/doca
+      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
       version: 1.0.3
       chart: doca-blueman
     values:
