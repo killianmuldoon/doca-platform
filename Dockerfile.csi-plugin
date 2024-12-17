@@ -1,0 +1,49 @@
+ARG builder_image
+
+FROM --platform=${BUILDPLATFORM} ${builder_image} AS builder
+
+WORKDIR /workspace
+
+# Copy the Go Modules manifests
+COPY go.mod go.mod
+COPY go.sum go.sum
+
+# Cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
+COPY ./ ./
+
+# Ensure that no additional tools or artifacts are included.
+RUN make clean
+
+ARG gcflags
+ARG ldflags
+ARG TARGETARCH
+
+ENV GO_LDFLAGS=\"${ldflags}\"
+ENV GO_GCFLAGS=\"${gcflags}\"
+ENV ARCH=${TARGETARCH}
+
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    make binary-csi-plugin
+
+FROM nvcr.io/nvidia/doca/doca:2.9.1-full-rt-host
+
+RUN groupadd --gid 65532 app && useradd --uid 65532 --gid 65532 -m app
+
+RUN DEBIAN_FRONTEND=noninteractive apt-get update && \
+    apt-get install -y \
+        xfsprogs \
+        e2fsprogs \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder --chown=65532:65532 /workspace/bin/csi-plugin /csi-plugin
+
+# by default run as non-root user, when running in "node" mode root user should be used
+USER 65532:65532
+
+ENTRYPOINT ["/csi-plugin"]

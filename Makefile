@@ -693,10 +693,14 @@ binary-snap-controller: ## Build the snap controller controller binary.
 binary-snap-node-driver: ## Build the snap node driver controller binary.
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/provisioning github.com/nvidia/doca-platform/cmd/provisioning
 
+.PHONY: binary-csi-plugin
+binary-csi-plugin: ## Build the csi-plugin binary.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/csi-plugin github.com/nvidia/doca-platform/cmd/storage/csi-plugin
+
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=hostdriver
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
-MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools
+MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools csi-plugin
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
@@ -737,6 +741,9 @@ export STORAGE_SNAP_CONTROLLER_IMAGE ?= $(REGISTRY)/$(STORAGE_SNAP_CONTROLLER_NA
 
 STORAGE_SNAP_NODE_DRIVER_NAME ?= snap-node-driver
 export STORAGE_SNAP_NODE_DRIVER_IMAGE ?= $(REGISTRY)/$(STORAGE_SNAP_NODE_DRIVER_NAME)
+
+CSI_DRIVER_IMAGE_NAME = csi-plugin
+export CSI_DRIVER_IMAGE ?= $(REGISTRY)/$(CSI_DRIVER_IMAGE_NAME)
 
 ## External images that are set by the DPF Operator
 export MULTUS_IMAGE=ghcr.io/k8snetworkplumbingwg/multus-cni
@@ -1008,6 +1015,42 @@ docker-build-storage-snap-node-driver:
 	-f Dockerfile \
 	. \
 	-t ${STORAGE_SNAP_NODE_DRIVER_IMAGE}:$(TAG)
+
+.PHONY: docker-build-csi-plugin # Build a multi-arch image for DPF System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
+docker-build-csi-plugin: $(addprefix docker-build-csi-plugin-for-,$(DPF_SYSTEM_ARCH))
+
+docker-build-csi-plugin-for-%:
+	# Provenance false ensures this target builds an image rather than a manifest when using buildx.
+	docker buildx build \
+		--load \
+		--label=org.opencontainers.image.created=$(DATE) \
+		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+		--label=org.opencontainers.image.version=$(TAG) \
+		--provenance=false \
+		--platform=linux/$* \
+		--build-arg builder_image=$(BUILD_IMAGE) \
+		--build-arg base_image=$(BASE_IMAGE) \
+		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
+		-f Dockerfile.csi-plugin \
+		. \
+		-t $(CSI_DRIVER_IMAGE):$(TAG)-$*
+
+.PHONY: docker-push-csi-plugin # Push a multi-arch image for csi-plugin using `docker manifest`. The variable DPF_SYSTEM_ARCH defines which architectures this target pushes for.
+docker-push-csi-plugin: $(addprefix docker-push-csi-plugin-for-,$(DPF_SYSTEM_ARCH))
+	docker manifest push --purge $(CSI_DRIVER_IMAGE):$(TAG)
+
+docker-push-csi-plugin-for-%:
+	# Tag and push the arch-specific image with the single arch-agnostic tag.
+	docker tag $(CSI_DRIVER_IMAGE):$(TAG)-$* $(CSI_DRIVER_IMAGE):$(TAG)
+	docker push $(CSI_DRIVER_IMAGE):$(TAG)
+	# This must be called in a separate target to ensure the shell command is called in the correct order.
+	$(MAKE) docker-create-manifest-for-csi-plugin
+
+docker-create-manifest-for-csi-plugin:
+	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
+	docker manifest create --amend $(CSI_DRIVER_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(CSI_DRIVER_IMAGE):$(TAG))
 
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the docker images for all DOCKER_BUILD_TARGETS.
