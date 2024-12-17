@@ -583,6 +583,10 @@ lint-helm-ovn-kubernetes: generate-manifests-ovn-kubernetes helm ## Run helm lin
 lint-helm-dummydpuservice: helm ## Run helm lint for dummydpuservice chart
 	$Q $(HELM) lint $(DUMMYDPUSERVICE_HELM_CHART)
 
+.PHONY: lint-helm-csi-plugin
+lint-helm-csi-plugin: helm ## Run helm lint for csi-plugin chart
+	$Q $(HELM) lint $(HOST_CSI_CHART)
+
 ##@ Release
 
 .PHONY: release-build
@@ -1099,7 +1103,7 @@ docker-push-storage-snap-node-driver: ## Push the docker image for snap node dri
 # By default the helm registry is assumed to be an OCI registry. This variable should be overwritten when using a https helm repository.
 export HELM_REGISTRY ?= oci://$(REGISTRY)
 
-HELM_TARGETS ?= dpu-networking operator ovn-kubernetes
+HELM_TARGETS ?= dpu-networking operator ovn-kubernetes csi-plugin
 
 # metadata for the operator helm chart
 OPERATOR_HELM_CHART_NAME ?= dpf-operator
@@ -1123,6 +1127,10 @@ OVNKUBERNETES_RESOURCE_INJECTOR_HELM_CHART_VER ?= $(TAG)
 # metadata for dummydpuservice.
 DUMMYDPUSERVICE_HELM_CHART_NAME = dummydpuservice-chart
 DUMMYDPUSERVICE_HELM_CHART ?= $(DPUSERVICESDIR)/dummydpuservice/chart
+
+HOST_CSI_CHART_NAME = snap-csi-plugin
+HOST_CSI_CHART ?= $(HELMDIR)/storage/csi-plugin
+HOST_CSI_CHART_VER ?= $(TAG)
 
 .PHONY: helm-package-all
 helm-package-all: $(addprefix helm-package-,$(HELM_TARGETS))  ## Package the helm charts for all components.
@@ -1158,6 +1166,10 @@ helm-package-ovn-kubernetes-resource-injector: $(CHARTSDIR) helm generate-manife
 helm-package-dummydpuservice: $(DPUSERVICESDIR) helm generate-manifests-dummydpuservice ## Package helm chart for dummydpuservice
 	$(HELM) package $(DUMMYDPUSERVICE_HELM_CHART) --version $(TAG) --destination $(CHARTSDIR)
 
+.PHONY: helm-package-csi-plugin
+helm-package-csi-plugin: $(CHARTSDIR) helm
+	$(HELM) package $(HOST_CSI_CHART) --version $(HOST_CSI_CHART_VER) --destination $(CHARTSDIR)
+
 .PHONY: helm-push-all
 helm-push-all: $(addprefix helm-push-,$(HELM_TARGETS))  ## Push the helm charts for all components.
 
@@ -1182,3 +1194,7 @@ helm-push-ovn-kubernetes-resource-injector: $(CHARTSDIR) helm ## Push helm chart
 .PHONY: helm-push-dummydpuservice
 helm-push-dummydpuservice: $(CHARTSDIR) helm ## Push helm chart for dummydpuservice
 	$(HELM) push $(CHARTSDIR)/$(DUMMYDPUSERVICE_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
+
+.PHONY: helm-push-csi-plugin
+helm-push-csi-plugin: $(CHARTSDIR) helm ## Push helm chart for csi-plugin
+	$(HELM) push $(CHARTSDIR)/$(HOST_CSI_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)

@@ -1,0 +1,25 @@
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUService
+metadata:
+  name: csi-plugin
+  namespace: dpf-operator-system
+spec:
+  serviceID: csi-plugin
+  deployInCluster: true
+  helmChart:
+    source:
+      repoURL: oci://harbor.mellanox.com/cloud-orchestration-dev/yk
+      version: v0.1.0
+      chart: snap-csi-plugin
+    values:
+      image:
+        repository: harbor.mellanox.com/cloud-orchestration-dev/yk/csi-plugin
+        tag: v0.1.0
+      controller:
+        config:
+          # required parameter, name of the secret that contains connection
+          # details to access the DPU cluster.
+          # this secret should be created by the DPUServiceCredentialRequest API.
+          dpuClusterSecret: csi-plugin-dpu-cluster-credentials
+          # required parameter, target namespace in the DPU cluster to create storage-related CRs
+          targetNamespace: dpf-operator-system

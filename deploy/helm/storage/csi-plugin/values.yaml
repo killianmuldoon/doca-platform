@@ -1,0 +1,182 @@
+### DPF contract ###
+
+# configuration for the service
+serviceDaemonSet:
+  # selects nodes on which this service will run by label. Can be set in DPUService `.spec.serviceDaemonSet.nodeSelector`
+  # nodeSelector:
+  #   nodeSelectorTerms:
+  #   - matchExpressions:
+  #       - key: dpu
+  #         operator: In
+  #         values:
+  #           - dpu
+  # labels on the DaemonSet and pod template. Can be set in DPUService `.spec.serviceDaemonSet.labels`
+  labels: {}
+  # annotations on the DaemonSet and pod template. Can be set in DPUService `.spec.serviceDaemonSet.annotations`
+  annotations: {}
+  # updateStrategy on the DaemonSet. Can be set in DPUService `.spec.serviceDaemonSet.updateStrategy.`
+  updateStrategy: {}
+  #  type: RollingUpdate
+  #  rollingUpdate:
+  #    maxUnavailable: 1
+
+# default image settings for plugin container
+# this image will be used for all plugin container for node and controller if they don't have explicit
+# image settings
+image:
+  repository: example.com/snap-csi-plugin
+  # if not set the .Chart.AppVersion is used
+  tag: ""
+
+# default imagePullSecrets for both pods
+imagePullSecrets: []
+
+controller:
+  config:
+    # required, target namespace in the DPU cluster to create storage objects,
+    targetNamespace: ""
+    # required, name of the secret that stores credentials and connection details for DPU cluster
+    dpuClusterSecret: ""
+  # imagePullSecrets to add to the controller Pod spec,
+  # if not set use .Values.imagePullSecrets
+  imagePullSecrets: []
+  # count of replicas for controller pod
+  replicas: 1
+  # configuration for plugin container
+  plugin:
+    # image settings for plugin container
+    image:
+      # if not set the .Values.image.repository is used
+      repository: ""
+      # if not set the .Values.image.tag is used
+      tag: ""
+    # pullPolicy for plugin image
+    pullPolicy: IfNotPresent
+    # securityContext for plugin container
+    securityContext:
+      allowPrivilegeEscalation: false
+    # resources for plugin container
+    resources: {}
+  externalProvisioner:
+    image:
+      # image settings for external-provisioner container
+      repository: "registry.k8s.io/sig-storage/csi-provisioner"
+      # tag for csi-provisioner image
+      tag: v5.1.0
+    # pullPolicy for external-provisioner image
+    pullPolicy: IfNotPresent
+    # securityContext for external-provisioner container
+    securityContext:
+      allowPrivilegeEscalation: false
+    # resources for external container
+    resources: {}
+  externalAttacher:
+    image:
+      # image settings for external-attacher container
+      repository: "registry.k8s.io/sig-storage/csi-attacher"
+      # tag for csi-attacher image
+      tag: v4.7.0
+    # pullPolicy for external-attacher image
+    pullPolicy: IfNotPresent
+    # securityContext for external-attacher container
+    securityContext:
+      allowPrivilegeEscalation: false
+    # resources for external container
+    resources: {}
+  livenessProbe:
+    image:
+      # image settings for livenessprobe container
+      repository: "registry.k8s.io/sig-storage/livenessprobe"
+      # tag for liveness-probe image
+      tag: v2.14.0
+    # pullPolicy for liveness-probe image
+    pullPolicy: IfNotPresent
+    # securityContext for liveness-probe container
+    securityContext:
+      allowPrivilegeEscalation: false
+    # resources for liveness-probe container
+    resources: {}
+  # podAnnotations to add to the Pod spec
+  podAnnotations: {}
+  # podLabels to add to the Pod spec
+  podLabels: {}
+  # podSecurityContext to add to the Pod spec
+  podSecurityContext: {}
+  #  runAsNonRoot: true
+  # nodeSelector to add to the Pod spec
+  nodeSelector: {}
+  # tolerations to add to the Pod spec
+  tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/control-plane
+      operator: Exists
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+      operator: Exists
+  # affinity to add to the Pod spec
+  affinity: {}
+
+node:
+  config:
+    # maximum number of volumes that can be publish to the node
+    maxVolumesCount: 30
+  # imagePullSecrets to add to the controller Pod spec,
+  # if not set use .Values.imagePullSecrets
+  imagePullSecrets: []
+  # configuration for plugin container
+  plugin:
+    image:
+      # if not set the .Values.image.repository is used
+      repository: ""
+      # if not set the .Values.image.tag is used
+      tag: ""
+    # pullPolicy for plugin image
+    pullPolicy: IfNotPresent
+    # securityContext for plugin container
+    securityContext:
+      runAsUser: 0
+      privileged: true
+      capabilities:
+        add: ["SYS_ADMIN"]
+      allowPrivilegeEscalation: true
+    # resources for plugin container
+    resources: {}
+  livenessProbe:
+    image:
+      # liveness-probe image name
+      repository: "registry.k8s.io/sig-storage/livenessprobe"
+      # tag for liveness-probe image
+      tag: v2.14.0
+    # pullPolicy for liveness-probe image
+    pullPolicy: IfNotPresent
+    # securityContext for liveness-probe container
+    securityContext:
+      allowPrivilegeEscalation: false
+    # resources for liveness-probe container
+    resources: {}
+  nodeDriverRegistrar:
+    image:
+      # node-driver-registrar image name
+      repository: "registry.k8s.io/sig-storage/csi-node-driver-registrar"
+      # tag for node-driver-registrar image
+      tag: v2.12.0
+    # pullPolicy for liveness-probe image
+    pullPolicy: IfNotPresent
+    # securityContext for node-driver-registrar container
+    securityContext:
+      allowPrivilegeEscalation: false
+    # resources for plugin container
+    resources: {}
+  # kubelet dir on the host
+  kubeletDir: /var/lib/kubelet
+  # podSecurityContext to add to the Pod spec
+  podSecurityContext: {}
+  #  runAsNonRoot: true
+  # tolerations to add to the Pod spec
+  tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/control-plane
+      operator: Exists
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+      operator: Exists

@@ -1,0 +1,153 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "snap-csi-plugin.fullname" . }}-node
+  labels:
+    {{- include "snap-csi-plugin.labels" . | nindent 4 }}
+    {{- with .Values.serviceDaemonSet.labels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- with .Values.serviceDaemonSet.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "snap-csi-plugin.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "snap-csi-plugin.selectorLabels" . | nindent 8 }}
+        {{- with .Values.serviceDaemonSet.labels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- with .Values.serviceDaemonSet.annotations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.serviceDaemonSet.updateStrategy }}
+      updateStrategy:
+        {{- toYaml . | nindent 4 }}
+      {{- end }}
+      {{- with .Values.node.imagePullSecrets | default .Values.imagePullSecrets | default list }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.node.podSecurityContext | nindent 8 }}
+      containers:
+        - name: plugin
+          args:
+            - '--mode=node'
+            - '--bind-address=unix:///csi/csi.sock'
+            - '--node-id=$(NODE_NAME)'
+            - '--node-max-volumes-count={{ .Values.node.config.maxVolumesCount }}'
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          image: "{{ .Values.node.plugin.image.repository | default .Values.image.repository }}:{{ .Values.node.plugin.image.tag | default .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.node.plugin.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.node.plugin.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.node.plugin.resources | nindent 12 }}
+          ports:
+            - containerPort: 9808
+              name: healthz
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 30
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+            - name: pods-mount-dir
+              mountPath: {{ .Values.node.kubeletDir }}/pods
+              mountPropagation: "Bidirectional"
+            - name: sys
+              mountPath: /sys
+            - name: csi-path
+              mountPath: {{ .Values.node.kubeletDir }}/plugins/kubernetes.io/csi
+              mountPropagation: "Bidirectional"
+            - name: dev
+              mountPath: /dev
+        - name: liveness-probe
+          image: "{{ .Values.node.livenessProbe.image.repository }}:{{ .Values.node.livenessProbe.image.tag }}"
+          args:
+            - --csi-address=/csi/csi.sock
+            - --probe-timeout=3s
+            - --v=2
+          imagePullPolicy: {{ .Values.node.livenessProbe.pullPolicy }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+          resources:
+            {{- toYaml .Values.node.livenessProbe.resources | nindent 12 }}
+        - name: node-driver-registrar
+          image: "{{ .Values.node.nodeDriverRegistrar.image.repository }}:{{ .Values.node.nodeDriverRegistrar.image.tag }}"
+          livenessProbe:
+            exec:
+              command:
+                - /csi-node-driver-registrar
+                - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+                - --mode=kubelet-registration-probe
+            initialDelaySeconds: 30
+            timeoutSeconds: 15
+          args:
+            - --v=2
+            - --csi-address=/csi/csi.sock
+            - --kubelet-registration-path=$(DRIVER_REG_SOCK_PATH)
+          env:
+            - name: DRIVER_REG_SOCK_PATH
+              value: {{ .Values.node.kubeletDir }}/plugins/snap.csi.nvidia.com/csi.sock
+          imagePullPolicy: {{ .Values.node.nodeDriverRegistrar.pullPolicy }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+            - name: registration-dir
+              mountPath: /registration
+          resources:
+            {{- toYaml .Values.node.nodeDriverRegistrar.resources | nindent 12 }}
+      volumes:
+        - name: socket-dir
+          hostPath:
+            path: {{ .Values.node.kubeletDir }}/plugins/snap.csi.nvidia.com
+            type: DirectoryOrCreate
+        - name: pods-mount-dir
+          hostPath:
+            path: {{ .Values.node.kubeletDir }}/pods
+            type: Directory
+        - name: registration-dir
+          hostPath:
+            path: {{ .Values.node.kubeletDir }}/plugins_registry
+            type: Directory
+        - name: csi-path
+          hostPath:
+            path: {{ .Values.node.kubeletDir }}/plugins/kubernetes.io/csi
+        - name: dev
+          hostPath:
+            path: /dev
+        - name: sys
+          hostPath:
+            path: /sys
+            type: Directory
+      terminationGracePeriodSeconds: 10
+      {{- with toYaml .Values.serviceDaemonSet.nodeSelector }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+              {{- . | nindent 12 }}
+      {{- end }}
+      {{- with .Values.node.tolerations | default list  }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

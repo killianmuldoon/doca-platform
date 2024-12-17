@@ -1,0 +1,132 @@
+{{- $_ := required "controller.config.dpuClusterSecret must be set" .Values.controller.config.dpuClusterSecret }}
+{{- $_ := required "controller.config.targetNamespace must be set" .Values.controller.config.targetNamespace }}
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "snap-csi-plugin.fullname" . }}-controller
+  labels:
+    {{- include "snap-csi-plugin.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "snap-csi-plugin.selectorLabels" . | nindent 6 }}
+  replicas: {{ .Values.controller.replicas }}
+  template:
+    metadata:
+      labels:
+        {{- include "snap-csi-plugin.selectorLabels" . | nindent 8 }}
+        {{- with .Values.controller.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- toYaml .Values.controller.podAnnotations | nindent 8 }}
+    spec:
+      {{- with .Values.controller.imagePullSecrets | default .Values.imagePullSecrets | default list }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.controller.podSecurityContext | nindent 8 }}
+      containers:
+        - name: plugin
+          args:
+           - --mode=controller
+           - --bind-address=unix://csi/csi.sock
+           - --controller-target-namespace={{ .Values.controller.config.targetNamespace }}
+           - --controller-dpu-cluster-api-host=$(DPU_CLUSTER_API_HOST)
+           - --controller-dpu-cluster-api-port=$(DPU_CLUSTER_API_PORT)
+           - --controller-dpu-cluster-token-file=/dpu-cluster-secret/TOKEN_FILE
+           - --controller-dpu-cluster-ca-file=/dpu-cluster-secret/KUBERNETES_CA_DATA
+          env:
+          - name: DPU_CLUSTER_API_HOST
+            valueFrom:
+              secretKeyRef:
+                name: "{{ .Values.controller.config.dpuClusterSecret }}"
+                key: KUBERNETES_SERVICE_HOST
+          - name: DPU_CLUSTER_API_PORT
+            valueFrom:
+              secretKeyRef:
+                name: "{{ .Values.controller.config.dpuClusterSecret }}"
+                key: KUBERNETES_SERVICE_PORT
+          image: "{{ .Values.controller.plugin.image.repository | default .Values.image.repository }}:{{ .Values.controller.plugin.image.tag | default .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.controller.plugin.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.controller.plugin.securityContext | nindent 12 }}
+          ports:
+            - containerPort: 9808
+              name: healthz
+              protocol: TCP
+          livenessProbe:
+            failureThreshold: 5
+            httpGet:
+              path: /healthz
+              port: healthz
+            initialDelaySeconds: 30
+            timeoutSeconds: 10
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.controller.plugin.resources | nindent 12 }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+            - name: dpu-cluster-secret
+              mountPath: /dpu-cluster-secret
+              readOnly: true
+        - name: external-provisioner
+          image: "{{ .Values.controller.externalProvisioner.image.repository }}:{{ .Values.controller.externalProvisioner.image.tag }}"
+          args:
+            - "-v=2"
+            - "--timeout=120s"
+            - "--csi-address=/csi/csi.sock"
+            - "--leader-election"
+            - "--leader-election-namespace={{ .Release.Namespace }}"
+          imagePullPolicy: {{ .Values.controller.externalProvisioner.pullPolicy }}
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+          resources: {{- toYaml .Values.controller.externalProvisioner.resources | nindent 12 }}
+        - name: external-attacher
+          image: "{{ .Values.controller.externalAttacher.image.repository }}:{{ .Values.controller.externalAttacher.image.tag }}"
+          args:
+            - "-v=2"
+            - "--timeout=120s"
+            - "--csi-address=/csi/csi.sock"
+            - "--leader-election"
+            - "--leader-election-namespace={{ .Release.Namespace }}"
+          imagePullPolicy: {{ .Values.controller.externalAttacher.pullPolicy }}
+          volumeMounts:
+            - mountPath: /csi
+              name: socket-dir
+          resources: {{- toYaml .Values.controller.externalAttacher.resources | nindent 12 }}
+        - name: liveness-probe
+          image:  "{{ .Values.controller.livenessProbe.image.repository }}:{{ .Values.controller.livenessProbe.image.tag }}"
+          args:
+            - --csi-address=/csi/csi.sock
+            - --probe-timeout=3s
+            - --v=2
+          imagePullPolicy: {{ .Values.controller.livenessProbe.pullPolicy }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /csi
+          resources: {{- toYaml .Values.controller.livenessProbe.resources | nindent 12 }}
+      volumes:
+        - name: socket-dir
+          emptyDir: { }
+        - name: dpu-cluster-secret
+          secret:
+            secretName: "{{ .Values.controller.config.dpuClusterSecret }}"
+      serviceAccountName: {{ include "snap-csi-plugin.serviceAccountName" . }}
+      terminationGracePeriodSeconds: 10
+      {{- with .Values.controller.nodeSelector | default dict }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controller.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.controller.tolerations | default list }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
