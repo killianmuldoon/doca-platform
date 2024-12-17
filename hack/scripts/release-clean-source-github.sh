@@ -19,11 +19,11 @@ set -o pipefail
 set -o errexit
 
 : ${GITHUB_RELEASE_TOKEN:?env not set}
+: ${PREVIOUS_RELEASE_TAG}:?env not set}
 : ${TAG:?env not set}
 
 files=(.gitlab
   .gitlab-ci.yml
-  docs/testing
   hack/scripts/ci-rebind-dev-wrapper.sh
   hack/scripts/ci_helm_docker_prereqs.sh
   hack/scripts/container-scanner.sh
@@ -36,21 +36,37 @@ files=(.gitlab
   hack/scripts/slack-notification.sh
 )
 
-git fetch --unshallow
+#git fetch --unshallow
 COMMIT_MESSAGE=$(git log --pretty=tformat:'Co-authored-by: %an <%ae>' | sort -u)
 
-for file in ${files[@]}; do
-  git rm -r --cached $file ;
-done
+#for file in ${files[@]}; do
+#  git rm -r --cached $file ;
+#done
 
-# TODO: After the initial release this script should produce a commit on top of the previous commit on GitHub.
-git reset --soft $(git rev-list --max-parents=0 HEAD)
 git config user.email "svc-dpf-release@nvidia.com"
 git config user.name "DPF Release bot"
 
+# TODO: After the initial release this script should produce a commit on top of the previous commit on GitHub.
+# This line can be removed at this point as it handles a special case for the first release.
+if [ "$PREVIOUS_RELEASE_TAG" == "0" ]; then
+   git reset --soft $(git rev-list --max-parents=0 HEAD)
+   git commit --author="DPF Release bot <svc-dpf-release@nvidia.com>" --amend --date=now -s -m "DPF Release $TAG" -m "$COMMIT_MESSAGE"
+ else
+   git reset --soft $(git rev-list -n 1 $PREVIOUS_RELEASE_TAG)
+   git commit --author="DPF Release bot <svc-dpf-release@nvidia.com>" --date=now -s -m "DPF Release $TAG" -m "$COMMIT_MESSAGE"
+fi
 
-git commit --author="DPF Release bot <svc-dpf-release@nvidia.com>" --date=now --amend -s -m "DPF Release $TAG" -m "$COMMIT_MESSAGE"
+git tag $TAG
 
 git remote rm public || true
-git remote add public https://$GITHUB_RELEASE_TOKEN@github.com/nvidia/doca-platform
+git remote add public https://$GITHUB_RELEASE_TOKEN@github.com/killianmuldoon/doca-platform
 git push --force public HEAD:main
+git push --force origin tag $TAG
+
+
+
+
+
+
+
+
