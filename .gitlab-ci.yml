@@ -1,0 +1,350 @@
+image: golang:1.22
+
+default:
+  interruptible: true
+
+workflow:
+  # This variable can be defined where the job is triggered. e.g. the pipeline schedule in the gitlab UI
+  name: $CI_PIPELINE_NAME
+  auto_cancel:
+    on_new_commit: interruptible
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      auto_cancel:
+        on_new_commit: none
+    - when: always # Other pipelines can run, but use the default parameters
+
+variables:
+  ## Enable timestamps in job logs. See https://docs.gitlab.com/ee/ci/yaml/ci_job_log_timestamps.html
+  FF_TIMESTAMPS: true
+  ## This is a read-only token used for pulling repositories. Defined in the DPF operator CI/CD settings.
+  GITLAB_TOKEN: $CI_TOKEN
+  ## This is a read only token for reading from the Gitlab API. Used for triage and slack notification scripts.
+  GITLAB_API_TOKEN: $API_READ_TOKEN
+  ## This is a token for pulling from the Gitlab image registry. Should be overwritten if using any other registry.
+  IMAGE_PULL_KEY: $GITLAB_REGISTRY_TOKEN
+  ARTIFACTS: $CI_PROJECT_DIR/artifacts
+  REGISTRY: gitlab-master.nvidia.com:5005/doca-platform-foundation/doca-platform-foundation/e2e
+  TAG: v0.1.0-$CI_COMMIT_SHORT_SHA-test
+  GOPATH: $CI_PROJECT_DIR/.gocache
+  DPF_STANDALONE_IMAGE: nvcr.io/nvstaging/doca/dpf-standalone:latest
+
+stages:
+  - verify
+  - build
+  - test
+  - triage
+
+lint:
+  stage: verify
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  variables:
+    GOLANGCI_LINT_CACHE: $CI_PROJECT_DIR/.golangci-cache
+    # TODO: Remove this one when bug upstream is fixed. golangci-lint should not rely on GOCACHE and instead use
+    # GOLANGCI_LINT_CACHE for all of its caching.
+    GOCACHE: $CI_PROJECT_DIR/.gocache/go-build # avoid rebuilding all the artifacts golangci-lint requires
+    GOLANGCI_LINT_GOGC: 30 # Accept longer runtimes for lower memory usage to avoid lint jobs being oom-killed
+  cache:
+    key: lint
+    when: always
+    paths:
+      - hack/tools/bin
+      - hack/repos
+      - .gocache
+      - .golangci-cache
+  before_script:
+    - rm -rf hack/repos
+    # Create the directory which is used to cache golangci-lint results.
+    # Added to .gitignore.
+    - mkdir -p .golangci-cache
+    # Create the directory which will be used as the gocache.
+    # Added to .gitignore.
+    # Required by golangci-lint to cache go mods
+    - mkdir -p .gocache
+  script:
+    - make lint
+    - make lint-helm
+
+verify:
+  stage: verify
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  variables:
+    BASE_REV: $CI_MERGE_REQUEST_DIFF_BASE_SHA # Used by the verify-copyright target
+    COMPARISON_REV: $CI_COMMIT_SHA # Used by the verify-copyright target
+    REGISTRY: example.com
+    TAG: v0.1.0
+  cache:
+    key: verify
+    when: always
+    paths:
+      - hack/tools/bin
+      - hack/repos
+      - .gocache
+  before_script:
+    # Create the directory which will be used as the gocache.
+    # Added to .gitignore.
+    - mkdir -p .gocache
+  script:
+    - make verify-generate verify-copyright
+  after_script:
+    - git diff
+
+test:
+  stage: test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $UNIT_TEST == "true"
+  cache:
+    key: test
+    when: always
+    paths:
+      - hack/tools/bin
+      - .gocache
+  artifacts:
+    when: always
+    paths:
+      - junit.xml
+    reports:
+      junit: junit.xml
+  before_script:
+    # Create the directory which will be used as the gocache.
+    # Added to .gitignore.
+    - mkdir -p .gocache
+  script:
+    - make test-report
+
+e2e:
+  stage: test
+  needs: [ ]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST == "true"
+  variables:
+    # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
+    MINIKUBE_CNI: flannel
+    MINIKUBE_DRIVER: docker
+  tags:
+    - e2e
+  cache:
+    key: e2e
+    when: always
+    paths:
+      - hack/tools/bin
+      - hack/repos
+  artifacts:
+    when: always
+    paths:
+      - artifacts/*
+  before_script:
+    - ./hack/scripts/ci_helm_docker_prereqs.sh
+    # artifacts are not correctly delete when gitlab restarts jobs.
+    - rm -rf artifacts
+    # empty the minikube image cache
+    - rm -rf  ~/.minikube/cache/images/*
+    - rm -f ~/.minikube/config/config.json
+    - make clean-test-env generate test-release-e2e-quick test-env-e2e
+  script:
+    - make test-deploy-operator-helm
+    - make test-e2e
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+    - make clean-test-env
+
+e2e-provisioning:
+  stage: test
+  needs: [release]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: on_success
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST_FULL == "true"
+      when: on_success
+  variables:
+    DPF_E2E_NUM_DPU_NODES: 1
+    PIPELINE_NAME: "Provisioning end-to-end tests"
+  tags:
+    - dpf/dpu
+  cache:
+    key: e2e
+    when: always
+    paths:
+      - hack/tools/bin
+      - hack/repos
+  artifacts:
+    when: always
+    paths:
+      - artifacts/*
+  before_script:
+    # artifacts are not correctly delete when gitlab restarts jobs.
+    - rm -rf artifacts
+    - ./hack/scripts/ci_helm_docker_prereqs.sh
+    - docker run --rm --net=host $DPF_STANDALONE_IMAGE -e ansible_password=$VM_PASSWORD -u root reset.yml
+    - make test-env-dpf-standalone
+    - ./hack/scripts/create-artefact-secrets.sh
+  script:
+    - make generate
+    - make test-deploy-operator-helm
+    - make test-e2e
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+    - docker run --rm --net=host $DPF_STANDALONE_IMAGE -e ansible_password=$VM_PASSWORD -u root reset.yml
+
+release:
+  interruptible: false
+  stage: build
+  retry: 2
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'push' && $CI_COMMIT_BRANCH == "main"
+      when: always
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_RELEASE == "true"
+      when: always
+  variables:
+    PIPELINE_NAME: "release"
+    OPERATOR_CHART_TAGS: "$TAG v0.1.0-latest"
+  tags:
+    - release
+  script:
+    - ./hack/scripts/ci_helm_docker_prereqs.sh
+    - timeout 50m make release clean-images-for-registry
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+
+github-source-release:
+  interruptible: false
+  stage: build
+  retry: 1
+  needs:
+    - release
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $GITHUB_FULL_RELEASE == "true"
+      when: always
+  variables:
+    PIPELINE_NAME: "Github full release"
+  script:
+    # Note this script requires a GITHUB token to be set in the environment.
+    - ./hack/scripts/release-clean-source-github.sh
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+
+dpf-standalone-test:
+  interruptible: false
+  stage: build
+  needs:
+    - release
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_DPF_STABLE_RELEASE == "true"
+      when: always
+  variables:
+    PIPELINE_NAME: "DPF standalone test"
+  tags:
+    - type/shell
+  before_script:
+    - ./hack/scripts/ci_helm_docker_prereqs.sh
+    - mkdir downloaded-logs
+  script:
+    - >
+      docker run --pull=always --rm --net=host -v $(pwd)/downloaded-logs:/dpf-standalone/downloaded-logs $DPF_STANDALONE_IMAGE
+      -e operator_version=$TAG
+      -e ngc_key="$NGC_API_KEY"
+      -e target_host="$DPF_STANDALONE_CI_HOST"
+      -e ansible_user=root
+      -e ansible_ssh_pass="$DPF_STANDALONE_CI_PASS"
+      -e '{"deploy_test_service": true, "reboot_on_reset": true, "collect_logs": true}'
+      $DPF_STANDALONE_EXTRA_ANSIBLE_ARGS
+      reinstall.yml
+  after_script:
+    - cp -r downloaded-logs job_artifacts
+    - rm -rf downloaded-logs
+    - ./hack/scripts/slack-notification.sh
+  artifacts:
+    when: always
+    paths:
+      - job_artifacts/*
+
+dpf-standalone-stable-release:
+  interruptible: false
+  stage: build
+  needs:
+    - release
+    - dpf-standalone-test
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_DPF_STABLE_RELEASE == "true"
+      when: on_success
+  variables:
+    PIPELINE_NAME: "DPF standalone release"
+  tags:
+  - release
+  before_script:
+    # artifacts are not correctly delete when gitlab restarts jobs.
+    - rm -rf artifacts
+    - ./hack/scripts/ci_helm_docker_prereqs.sh
+  script:
+    - make generate helm-package-operator helm-push-operator
+    - docker pull $DPF_STANDALONE_IMAGE
+      ## This job requires OPERATOR_CHART_TAGS to be set in the job schedule variable.
+    - |+
+      for STABLE_TAG in $OPERATOR_CHART_TAGS
+      do
+        docker tag $DPF_STANDALONE_IMAGE $REGISTRY/dpf-standalone:"$STABLE_TAG"
+        docker push $REGISTRY/dpf-standalone:"$STABLE_TAG"
+      done
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+
+triage:
+  interruptible: false
+  stage: triage
+  needs: []
+  variables:
+    # This is the name of the pipeline being triaged. Must match the name of the pipeline in Gitlab.
+    # TRIAGE_PIPELINE_NAME is set as part of the job schedule in Gitlab.
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $TRIAGE_E2E == "true"
+      when: always
+  image: registry.gitlab.com/gitlab-ci-utils/curl-jq:2.0.0
+  script:
+    - ./hack/scripts/periodic_test_triage.sh
+
+scan:
+  stage: test
+  needs: [release]
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $CONTAINER_SCAN == "true"
+      when: always
+  tags:
+    - type/shell
+  artifacts:
+    when: always
+    paths:
+      - /tmp/scans/results
+  before_script:
+    - ./hack/scripts/ci_helm_docker_prereqs.sh
+  script:
+    - make generate-manifests-release-defaults
+    - ./hack/scripts/container-scanner.sh
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+
+e2e-dpf-standalone-vm:
+  interruptible: false
+  stage: test
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_STANDALONE_VM == "true"
+      when: always
+  image: registry.gitlab.com/gitlab-ci-utils/curl-jq:2.0.0
+  before_script:
+    - apk add --no-cache sshpass openssh
+  script:
+    - sshpass -V
+    - ./hack/scripts/nic-cloud-gitlab-runner.sh
