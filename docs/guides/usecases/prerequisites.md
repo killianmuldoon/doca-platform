@@ -29,15 +29,15 @@ Each worker machine:
 ## System software setup
 
 ### Control plane machines
-- OVS packages - i.e. `ovs-common`, `openvswitch-switch` for Ubuntu 24.04
-- NFS packages - i.e. ` nfs-kernel-server`
+- Open vSwitch (OVS) packages - i.e. `openvswitch-switch` for Ubuntu 24.04
+- NFS client packages - i.e. ` nfs-common`
 - NFS server available with `/mnt/dpf_share` readable and writable by any user
 
 ### Worker machines
-- OVS not installed
-- `ipmitool` installed
-- DPU P0 must have DHCP enabled
-- rshim is not installed
+- Open vSwitch (OVS) not installed
+- NFS client packages - i.e. ` nfs-common`
+- NFS server available with `/mnt/dpf_share` readable and writable by any user
+- rshim package is not installed
 
 ### Kubernetes
 - Kubernetes 1.30
@@ -45,8 +45,7 @@ Each worker machine:
 
 ## Network setup
 - All nodes have full internet access - both from the host out-of-band and DPU high speed interfaces. 
-
-### Control plane machines
 - Virtual IP from the management subnet reserved for internal DPF usage.
-### Worker machines
-- Both the oob and high-speed fabric on each node is routable
+- The out-of-band management and high-speed networks are routable to each other.
+- The control plane nodes hosting the DPU control plane pods must be located on the same L2 broadcast domain.
+- The out-of-band management fabric on which control plane nodes are connected should allow MultiCast traffic (used for VRRP).

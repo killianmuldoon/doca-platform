@@ -7,7 +7,7 @@ To facilitate connectivity between the Data Processing Unit (DPU) and the Kubern
 This configuration is intended to be implemented during the host provisioning phase, prior to its integration into the Kubernetes cluster.
 
 ## Host-DPU Network Diagram
-The solution involves setting up a network bridge with an IP address and connecting the Out-of-Band (OOB) uplink (a 1 Gbps Ethernet port) to it. During the DPU provisioning process, a Virtual Function (VF) will be created for the DPU and connected to the bridge to enable connectivity.
+The solution involves setting up a linux bridge with an IP address and connecting the Out-of-Band (OOB) uplink (a 1 Gbps Ethernet port) to it. During the DPU provisioning process, a Virtual Function (VF) will be created for the DPU and connected to the bridge to enable connectivity.
 ```
              +--------------------------------+  +-------------+
              | Host                           |  | DPU         |
@@ -63,6 +63,8 @@ network:
   bridges:
     br-dpu:
       interfaces: [oob]
+      # the mac address of the oob
+      macaddress: xx:xx:xx:xx:xx:xx
       critical: true
       dhcp4: yes
       dhcp4-overrides:

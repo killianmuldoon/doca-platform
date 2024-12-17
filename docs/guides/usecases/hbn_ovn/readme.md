@@ -15,9 +15,14 @@ This guide uses the following tools which must be installed where it is running.
 - envsubst
 
 ### Network prerequisites
-TODO: Clarify networking requirements.
-For each worker node: DHCP allocation must be used for workers
+
+#### Control plane Nodes
+- out-of-band management port should be configured as OVS bridge port with "bridge-uplink" OVS metadata [This addresses a known issue](https://github.com/NVIDIA/doca-platform/issues/10).
+
+#### Worker Nodes
 - [Host networking must be set up as expected](../host-network-configuration-prerequisite.md)
+- Host high-speed port (Host PF0) must have DHCP enabled
+
 
 ### Kubernetes prerequisites
 - CNI not installed
