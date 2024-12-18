@@ -620,8 +620,8 @@ warm-cache: ## Warm the cache for the tests.
 GO_GCFLAGS ?= ""
 GO_LDFLAGS ?= "-extldflags '-static'"
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
-DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller ovs-helper
-DPU_ARCH_BUILD_TARGETS ?= storage-snap-controller storage-snap-node-driver
+DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller ovs-helper snap-controller
+DPU_ARCH_BUILD_TARGETS ?= storage-snap-node-driver
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
 # The BUNDLE_VERSION is the same as the TAG but the first character is stripped. This is used to strip a leading `v` which is invalid for Bundle versions.
@@ -691,7 +691,7 @@ binary-ovn-kubernetes-resource-injector: ## Build the OVN Kubernetes Resource In
 
 .PHONY: binary-snap-controller
 binary-snap-controller: ## Build the snap controller controller binary.
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/provisioning github.com/nvidia/doca-platform/cmd/provisioning
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/snap-controller github.com/nvidia/doca-platform/cmd/storage/snap-controller
 
 .PHONY: binary-snap-node-driver
 binary-snap-node-driver: ## Build the snap node driver controller binary.
@@ -704,7 +704,7 @@ binary-csi-plugin: ## Build the csi-plugin binary.
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=hostdriver
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
-MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools csi-plugin
+MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools csi-plugin snap-controller
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
@@ -980,8 +980,10 @@ docker-build-operator-bundle: generate-operator-bundle
 		-t $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION) \
 		.
 
-.PHONY: docker-build-storage-snap-controller # Build a arm64 image for snap-controller
-docker-build-storage-snap-controller:
+.PHONY: docker-build-snap-controller # Build a multi-arch image for snap controller. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
+docker-build-snap-controller: $(addprefix docker-build-snap-controller-for-,$(DPF_SYSTEM_ARCH))
+
+docker-build-snap-controller-for-%:
 	docker buildx build \
 	--load \
 	--label=org.opencontainers.image.created=$(DATE) \
@@ -990,7 +992,7 @@ docker-build-storage-snap-controller:
 	--label=org.opencontainers.image.version=$(TAG) \
 	--label=org.opencontainers.image.source=$(PROJECT_REPO) \
 	--provenance=false \
-	--platform=linux/$(DPU_ARCH) \
+	--platform=linux/$* \
 	--build-arg builder_image=$(BUILD_IMAGE) \
 	--build-arg base_image=$(BASE_IMAGE) \
 	--build-arg ldflags=$(GO_LDFLAGS) \
@@ -998,7 +1000,22 @@ docker-build-storage-snap-controller:
 	--build-arg package=./cmd/storage/snap-controller \
 	-f Dockerfile \
 	. \
-	-t ${STORAGE_SNAP_CONTROLLER_IMAGE}:$(TAG)
+	-t ${STORAGE_SNAP_CONTROLLER_IMAGE}:$(TAG)-$*
+
+.PHONY: docker-push-snap-controller # Push a multi-arch image for snap controller using `docker manifest`. The variable DPF_SYSTEM_ARCH defines which architectures this target pushes for.
+docker-push-snap-controller: $(addprefix docker-push-snap-controller-for-,$(DPF_SYSTEM_ARCH))
+	docker manifest push --purge $(STORAGE_SNAP_CONTROLLER_IMAGE):$(TAG)
+
+docker-push-snap-controller-for-%:
+	# Tag and push the arch-specific image with the single arch-agnostic tag.
+	docker tag $(STORAGE_SNAP_CONTROLLER_IMAGE):$(TAG)-$* $(STORAGE_SNAP_CONTROLLER_IMAGE):$(TAG)
+	docker push $(STORAGE_SNAP_CONTROLLER_IMAGE):$(TAG)
+	# This must be called in a separate target to ensure the shell command is called in the correct order.
+	$(MAKE) docker-create-manifest-for-snap-controller
+
+docker-create-manifest-for-snap-controller:
+	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
+	docker manifest create --amend $(STORAGE_SNAP_CONTROLLER_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(STORAGE_SNAP_CONTROLLER_IMAGE):$(TAG))
 
 .PHONY: docker-build-storage-snap-node-driver # Build a arm64 image for snap-node-driver
 docker-build-storage-snap-node-driver:
@@ -1090,10 +1107,6 @@ docker-push-dummydpuservice: ## Push the docker image for dummydpuservice
 .PHONY: docker-push-ovn-kubernetes-resource-injector
 docker-push-ovn-kubernetes-resource-injector: ## Push the docker image for the OVN Kubernetes Resource Injector
 	docker push $(OVNKUBERNETES_RESOURCE_INJECTOR_IMAGE):$(TAG)
-
-.PHONY: docker-push-storage-snap-controller
-docker-push-storage-snap-controller: ## Push the docker image for snap controller
-	docker push ${STORAGE_SNAP_CONTROLLER_IMAGE}:$(TAG)
 
 .PHONY: docker-push-storage-snap-node-driver
 docker-push-storage-snap-node-driver: ## Push the docker image for snap node driver
