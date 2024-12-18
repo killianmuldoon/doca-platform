@@ -20,6 +20,7 @@ set -o errexit
 
 : ${GITHUB_RELEASE_TOKEN:?env not set}
 : ${TAG:?env not set}
+: ${CI_COMMIT_BRANCH:?env not set}
 
 files=(.gitlab
   .gitlab-ci.yml
@@ -48,9 +49,11 @@ git reset --soft $(git rev-list --max-parents=0 HEAD)
 git config user.email "svc-dpf-release@nvidia.com"
 git config user.name "DPF Release bot"
 
-
 git commit --author="DPF Release bot <svc-dpf-release@nvidia.com>" --date=now --amend -s -m "DPF Release $TAG" -m "$COMMIT_MESSAGE"
 
 git remote rm public || true
 git remote add public https://$GITHUB_RELEASE_TOKEN@github.com/nvidia/doca-platform
-git push --force public HEAD:main
+
+git tag $TAG
+git push --force public HEAD:$CI_COMMIT_BRANCH
+git push --force public tag $TAG
