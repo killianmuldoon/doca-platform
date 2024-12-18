@@ -2,6 +2,57 @@
 
 In this configuration OVN Kubernetes is offloaded to the DPU and combined with [NVIDIA Host Based Networking (HBN)](https://docs.nvidia.com/doca/sdk/nvidia+doca+hbn+service+guide/index.html).
 
+<!-- toc -->
+- [Prerequisites](#prerequisites)
+  - [DPU prerquisites](#dpu-prerquisites)
+  - [Software prerequisites](#software-prerequisites)
+  - [Network prerequisites](#network-prerequisites)
+    - [Control plane Nodes](#control-plane-nodes)
+    - [Worker Nodes](#worker-nodes)
+  - [Kubernetes prerequisites](#kubernetes-prerequisites)
+    - [Control plane Nodes](#control-plane-nodes-1)
+    - [Worker Nodes](#worker-nodes-1)
+    - [Virtual functions](#virtual-functions)
+- [Installation guide](#installation-guide)
+  - [0. Required variables](#0-required-variables)
+  - [1. CNI installation](#1-cni-installation)
+    - [Create the Namespace](#create-the-namespace)
+    - [Create image pull secret](#create-image-pull-secret)
+    - [Verification](#verification)
+  - [2. DPF Operator installation](#2-dpf-operator-installation)
+    - [Log in to private registries](#log-in-to-private-registries)
+    - [Install cert-manager](#install-cert-manager)
+    - [Install a CSI to back the DPUCluster etcd](#install-a-csi-to-back-the-dpucluster-etcd)
+    - [Create secrets and storage required by the DPF Operator](#create-secrets-and-storage-required-by-the-dpf-operator)
+    - [Deploy the DPF Operator](#deploy-the-dpf-operator)
+    - [Verification](#verification-1)
+  - [3. DPF System installation](#3-dpf-system-installation)
+    - [Deploy the DPF System components](#deploy-the-dpf-system-components)
+    - [Verification](#verification-2)
+  - [4. Install components to enable accelerated CNI nodes](#4-install-components-to-enable-accelerated-cni-nodes)
+    - [Install Multus and SRIOV Network Operator using NVIDIA Network Operator](#install-multus-and-sriov-network-operator-using-nvidia-network-operator)
+    - [Install the OVN Kubernetes resource injection webhook](#install-the-ovn-kubernetes-resource-injection-webhook)
+    - [Apply the NICClusterConfiguration and SriovNetworkNodePolicy](#apply-the-nicclusterconfiguration-and-sriovnetworknodepolicy)
+    - [Verification](#verification-3)
+  - [5. DPU Provisioning and Service Installation](#5-dpu-provisioning-and-service-installation)
+    - [Label the image pull secret](#label-the-image-pull-secret)
+    - [5.1. With User-Defined DPUSet and DPUService](#51-with-user-defined-dpuset-and-dpuservice)
+      - [Create the DPF provisioning and DPUService objects](#create-the-dpf-provisioning-and-dpuservice-objects)
+    - [5.2. With DPUDeployment](#52-with-dpudeployment)
+      - [Create the DPUDeployment, DPUServiceConfig, DPUServiceTemplate and other necessary objects](#create-the-dpudeployment-dpuserviceconfig-dpuservicetemplate-and-other-necessary-objects)
+    - [Verification](#verification-4)
+  - [6. Test traffic](#6-test-traffic)
+    - [Add worker nodes to the cluster](#add-worker-nodes-to-the-cluster)
+    - [Deploy test pods](#deploy-test-pods)
+  - [7. Deletion and clean up](#7-deletion-and-clean-up)
+    - [Delete the test pods](#delete-the-test-pods)
+    - [Delete DPF CNI acceleration components](#delete-dpf-cni-acceleration-components)
+    - [Delete the DPF Operator system and DPF Operator](#delete-the-dpf-operator-system-and-dpf-operator)
+    - [Delete DPF Operator dependencies](#delete-dpf-operator-dependencies)
+- [Limitations of DPF Setup](#limitations-of-dpf-setup)
+  - [Host network pod services](#host-network-pod-services)
+<!-- /toc -->
+
 ## Prerequisites
 The system is set up as described in the [system prerequisites](../prerequisites.md).  The OVN Kubernetes with HBN use case has the additional requirements:
 
@@ -257,7 +308,6 @@ tolerations:
     effect: NoSchedule
     key: node-role.kubernetes.io/master
 ```
-
 </details>
 
 #### Create secrets and storage required by the DPF Operator
@@ -544,7 +594,7 @@ This will deploy the following objects:
 
 <details><summary>NICClusterPolicy for the NVIDIA Network Operator</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/nic_cluster_policy.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/nic_cluster_policy.yaml)
 ```yaml
 ---
 apiVersion: mellanox.com/v1alpha1
@@ -604,27 +654,36 @@ kubectl rollout status daemonset --namespace nvidia-network-operator kube-multus
 kubectl rollout status deployment --namespace ovn-kubernetes ovn-kubernetes-ovn-kubernetes-resource-injector  
 ```
 
-### 5. DPUService installation
+### 5. DPU Provisioning and Service Installation
+
+In this step we deploy our DPUs and the services that will run on them. There are two ways to do this and that will be
+explained in the following sections [5.1](#51-with-user-defined-dpuset-and-dpuservice) and [5.2](#52-with-dpudeployment).
 
 #### Label the image pull secret
 
 The image pull secret is required when using a private registry to host images and helm charts. If using a public registry this section can be ignored.
+
 ```shell
 kubectl -n ovn-kubernetes label secret dpf-pull-secret dpu.nvidia.com/image-pull-secret=""
 ```
 
-#### Create the DPF provisioning and DPUService objects
+#### 5.1. With User-Defined DPUSet and DPUService
+
+In this mode the user is expected to create their own DPUSet and DPUService objects.
+
+##### Create the DPF provisioning and DPUService objects
 
 A number of [environment variables](#0-required-variables) must be set before running this command.
+
 ```shell
-cat manifests/05-dpuservice-installation/*.yaml | envsubst | kubectl apply -f - 
+cat manifests/05.1-dpuservice-installation/*.yaml | envsubst | kubectl apply -f - 
 ```
 
 This will deploy the following objects:
 
 <details><summary>BFB to download Bluefield Bitstream to a shared volume</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/bfb.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/bfb.yaml)
 ```yaml
 ---
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
@@ -639,7 +698,7 @@ spec:
 
 <details><summary>DPUSet to provision DPUs on worker nodes</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/dpuset.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/dpuset.yaml)
 ```yaml
 ---
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
@@ -671,7 +730,7 @@ spec:
 
 <details><summary>OVN DPUService to deploy OVN workloads to the DPUs</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/ovn-dpuservice.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/ovn-dpuservice.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -707,12 +766,11 @@ spec:
         ipamVTEPIPIndex: 0
         ipamPFIPIndex: 1
 ```
-
 </details>
 
 <details><summary>HBN DPUService to deploy HBN workloads to the DPUs</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/hbn-dpuservice.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/hbn-dpuservice.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -816,7 +874,7 @@ spec:
 
 <details><summary>DOCA Telemetry Service DPUService to deploy DTS to the DPUs</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/dts-dpuservice.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/dts-dpuservice.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -835,7 +893,7 @@ spec:
 
 <details><summary>Blueman DPUService to deploy Blueman to the DPUs</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/blueman-dpuservice.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/blueman-dpuservice.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -857,7 +915,7 @@ spec:
 
 <details><summary>OVN DPUServiceCredentialRequest to allow cross cluster communication</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/ovn-credentials.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/ovn-credentials.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -882,7 +940,7 @@ spec:
 
 <details><summary>DPUServiceInterfaces for physical ports on the DPU</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/physical-ifaces.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/physical-ifaces.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -923,7 +981,7 @@ spec:
 
 <details><summary>OVN DPUServiceInterface to define the ports attached to OVN workloads on the DPU</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/ovn-iface.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/ovn-iface.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -946,7 +1004,7 @@ spec:
 
 <details><summary>HBN DPUServiceInterfaces to define the ports attached to HBN workloads on the DPU</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/hbn-ifaces.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/hbn-ifaces.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -1016,7 +1074,7 @@ spec:
 
 <details><summary>DPUServiceFunctionChain to define the HBN-OVN ServiceFunctionChain</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/hbn-ovn-chain.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/hbn-ovn-chain.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -1071,7 +1129,7 @@ spec:
 
 <details><summary>DPUServiceIPAM to set up IP Address Management on the DPUCluster</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/hbn-ovn-ipam.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/hbn-ovn-ipam.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -1089,7 +1147,464 @@ spec:
 
 <details><summary>DPUServiceIPAM for the loopback interface in HBN</summary>
 
-[embedmd]:#(manifests/05-dpuservice-installation/hbn-loopback-ipam.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/hbn-loopback-ipam.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceIPAM
+metadata:
+  name: loopback
+  namespace: dpf-operator-system
+spec:
+  ipv4Network:
+    network: "11.0.0.0/24"
+    prefixSize: 32
+```
+</details>
+
+#### 5.2. With DPUDeployment
+
+In this mode the user is expected to create a DPUDeployment object that reflects a set of DPUServices that should run on a set of DPUs.
+
+> If you want to learn more about `DPUDeployments`, feel free to check the [DPUDeployment documentation](../../dpudeployment.md).
+
+##### Create the DPUDeployment, DPUServiceConfig, DPUServiceTemplate and other necessary objects
+
+A number of [environment variables](#0-required-variables) must be set before running this command.
+```shell
+cat manifests/05.2-dpudeployment-installation/*.yaml | envsubst | kubectl apply -f - 
+```
+
+This will deploy the following objects:
+
+<details><summary>BFB to download Bluefield Bitstream to a shared volume</summary>
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/bfb.yaml)
+```yaml
+---
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
+kind: BFB
+metadata:
+  name: bf-bundle
+  namespace: dpf-operator-system
+spec:
+  url: $BLUEFIELD_BITSTREAM
+```
+</details>
+
+<details><summary>DPUDeployment to provision DPUs on worker nodes</summary>
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/dpudeployment.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUDeployment
+metadata:
+  name: ovn-hbn
+  namespace: dpf-operator-system
+spec:
+  dpus:
+    bfb: bf-bundle
+    flavor: dpf-provisioning-hbn-ovn
+    dpuSets:
+    - nameSuffix: "dpuset1"
+      nodeSelector:
+        matchLabels:
+          feature.node.kubernetes.io/dpu-enabled: "true"
+  services:
+    ovn:
+      serviceTemplate: ovn
+      serviceConfiguration: ovn
+    hbn:
+      serviceTemplate: hbn
+      serviceConfiguration: hbn
+    dts:
+      serviceTemplate: dts
+      serviceConfiguration: dts
+    blueman:
+      serviceTemplate: blueman
+      serviceConfiguration: blueman
+  serviceChains:
+  - ports:
+    - serviceInterface:
+        matchLabels:
+          uplink: p0
+    - service:
+        name: hbn
+        interface: p0_if
+  - ports:
+    - serviceInterface:
+        matchLabels:
+          uplink: p1
+    - service:
+        name: hbn
+        interface: p1_if
+  - ports:
+    - serviceInterface:
+        matchLabels:
+          port: ovn
+    - service:
+        name: hbn
+        interface: pf2dpu2_if
+```
+</details>
+
+<details><summary>OVN DPUServiceConfig and DPUServiceTemplate to deploy OVN workloads to the DPUs</summary>
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/dpuserviceconfig_ovn.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceConfiguration
+metadata:
+  name: ovn
+  namespace: dpf-operator-system
+spec:
+  deploymentServiceName: "ovn"
+  serviceConfiguration:
+    helmChart:
+      values:
+        k8sAPIServer: https://$TARGETCLUSTER_API_SERVER_HOST:$TARGETCLUSTER_API_SERVER_PORT
+        podNetwork: $POD_CIDR/24
+        serviceNetwork: $SERVICE_CIDR
+        ovnkube-node-dpu:
+          kubernetesSecretName: "ovn-dpu" # user needs to populate based on DPUServiceCredentialRequest
+          vtepCIDR: "10.0.120.0/22" # user needs to populate based on DPUServiceIPAM
+          hostCIDR: $TARGETCLUSTER_NODE_CIDR # user needs to populate
+          ipamPool: "pool1" # user needs to populate based on DPUServiceIPAM
+          ipamPoolType: "cidrpool" # user needs to populate based on DPUServiceIPAM
+          ipamVTEPIPIndex: 0
+          ipamPFIPIndex: 1
+```
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/dpuservicetemplate_ovn.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceTemplate
+metadata:
+  name: ovn
+  namespace: dpf-operator-system
+spec:
+  deploymentServiceName: "ovn"
+  helmChart:
+    source:
+      repoURL: oci://nvcr.io/nvstaging/doca
+      chart: ovn-kubernetes-chart
+      version: $DPF_VERSION
+    values:
+      tags:
+        ovn-kubernetes-resource-injector: false
+        ovnkube-node-dpu: true
+        ovnkube-node-dpu-host: false
+        ovnkube-single-node-zone: false
+        ovnkube-control-plane: false
+      global:
+        gatewayOpts: "--gateway-interface=br-ovn --gateway-uplink-port=puplinkbrovn"
+        imagePullSecretName: dpf-pull-secret
+```
+</details>
+
+<details><summary>HBN DPUServiceConfig and DPUServiceTemplate to deploy HBN workloads to the DPUs</summary>
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/dpuserviceconfig_hbn.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceConfiguration
+metadata:
+  name: hbn
+  namespace: dpf-operator-system
+spec:
+  deploymentServiceName: "hbn"
+  serviceConfiguration:
+    serviceDaemonSet:
+      annotations:
+        k8s.v1.cni.cncf.io/networks: |-
+          [
+          {"name": "iprequest", "interface": "ip_lo", "cni-args": {"poolNames": ["loopback"], "poolType": "cidrpool"}},
+          {"name": "iprequest", "interface": "ip_pf2dpu2", "cni-args": {"poolNames": ["pool1"], "poolType": "cidrpool", "allocateDefaultGateway": true}}
+          ]
+    helmChart:
+      values:
+        configuration:
+          perDPUValuesYAML: |
+            - hostnamePattern: "*"
+              values:
+                bgp_autonomous_system: 65111
+                bgp_peer_group: hbn
+          startupYAMLJ2: |
+            - header:
+                model: BLUEFIELD
+                nvue-api-version: nvue_v1
+                rev-id: 1.0
+                version: HBN 2.4.0
+            - set:
+                interface:
+                  lo:
+                    ip:
+                      address:
+                        {{ ipaddresses.ip_lo.ip }}/32: {}
+                    type: loopback
+                  p0_if,p1_if:
+                    type: swp
+                    link:
+                      mtu: 9000
+                  pf2dpu2_if:
+                    ip:
+                      address:
+                        {{ ipaddresses.ip_pf2dpu2.cidr }}: {}
+                    type: swp
+                    link:
+                      mtu: 9000
+                router:
+                  bgp:
+                    autonomous-system: {{ config.bgp_autonomous_system }}
+                    enable: on
+                    graceful-restart:
+                      mode: full
+                    router-id: {{ ipaddresses.ip_lo.ip }}
+                vrf:
+                  default:
+                    router:
+                      bgp:
+                        address-family:
+                          ipv4-unicast:
+                            enable: on
+                            redistribute:
+                              connected:
+                                enable: on
+                          ipv6-unicast:
+                            enable: on
+                            redistribute:
+                              connected:
+                                enable: on
+                        enable: on
+                        neighbor:
+                          p0_if:
+                            peer-group: {{ config.bgp_peer_group }}
+                            type: unnumbered
+                          p1_if:
+                            peer-group: {{ config.bgp_peer_group }}
+                            type: unnumbered
+                        path-selection:
+                          multipath:
+                            aspath-ignore: on
+                        peer-group:
+                          {{ config.bgp_peer_group }}:
+                            remote-as: external
+
+  interfaces:
+    ## NOTE: Interfaces inside the HBN pod must have the `_if` suffix due to a naming convention in HBN.
+  - name: p0_if
+    network: mybrhbn
+  - name: p1_if
+    network: mybrhbn
+  - name: pf2dpu2_if
+    network: mybrhbn
+```
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/dpuservicetemplate_hbn.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceTemplate
+metadata:
+  name: hbn
+  namespace: dpf-operator-system
+spec:
+  deploymentServiceName: "hbn"
+  helmChart:
+    source:
+      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      version: 1.0.1
+      chart: doca-hbn
+    values:
+      image:
+        repository: nvcr.io/nvidia/doca/doca_hbn
+        tag: 2.4.1-doca2.9.1
+      resources:
+        memory: 6Gi
+        nvidia.com/bf_sf: 3
+```
+</details>
+
+<details><summary>DOCA Telemetry Service DPUServiceConfig and DPUServiceTemplate to deploy DTS to the DPUs</summary>
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/dpuserviceconfig_dts.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceConfiguration
+metadata:
+  name: dts
+  namespace: dpf-operator-system
+spec:
+  deploymentServiceName: "dts"
+```
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/dpuservicetemplate_dts.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceTemplate
+metadata:
+  name: dts
+  namespace: dpf-operator-system
+spec:
+  deploymentServiceName: "dts"
+  helmChart:
+    source:
+      repoURL: https://helm.ngc.nvidia.com/nvstaging/doca
+      version: 0.2.2
+      chart: doca-telemetry
+```
+</details>
+
+<details><summary>Blueman DPUServiceConfig and DPUServiceTemplate to deploy Blueman to the DPUs</summary>
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/dpuserviceconfig_blueman.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceConfiguration
+metadata:
+  name: blueman
+  namespace: dpf-operator-system
+spec:
+  deploymentServiceName: "blueman"
+```
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/dpuservicetemplate_blueman.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceTemplate
+metadata:
+  name: blueman
+  namespace: dpf-operator-system
+spec:
+  deploymentServiceName: "blueman"
+  helmChart:
+    source:
+      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      version: 1.0.5
+      chart: doca-blueman
+    values:
+      imagePullSecrets:
+      - name: dpf-pull-secret
+```
+</details>
+
+<details><summary>OVN DPUServiceCredentialRequest to allow cross cluster communication</summary>
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/ovn-credentials.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceCredentialRequest
+metadata:
+  name: ovn-dpu
+  namespace: dpf-operator-system 
+spec:
+  serviceAccount:
+    name: ovn-dpu
+    namespace: dpf-operator-system 
+  duration: 24h
+  type: tokenFile
+  secret:
+    name: ovn-dpu
+    namespace: dpf-operator-system 
+  metadata:
+    labels:
+      dpu.nvidia.com/image-pull-secret: ""
+```
+</details>
+
+<details><summary>DPUServiceInterfaces for physical ports on the DPU</summary>
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/physical-ifaces.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceInterface
+metadata:
+  name: p0
+  namespace: dpf-operator-system
+spec:
+  template:
+    spec:
+      template:
+        metadata:
+          labels:
+            uplink: "p0"
+        spec:
+          interfaceType: physical
+          physical:
+            interfaceName: p0
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceInterface
+metadata:
+  name: p1
+  namespace: dpf-operator-system
+spec:
+  template:
+    spec:
+      template:
+        metadata:
+          labels:
+            uplink: "p1"
+        spec:
+          interfaceType: physical
+          physical:
+            interfaceName: p1
+```
+</details>
+
+<details><summary>OVN DPUServiceInterface to define the ports attached to OVN workloads on the DPU</summary>
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/ovn-iface.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceInterface
+metadata:
+  name: ovn
+  namespace: dpf-operator-system
+spec:
+  template:
+    spec:
+      template:
+        metadata:
+          labels:
+            port: ovn
+        spec:
+          interfaceType: ovn
+```
+</details>
+
+<details><summary>DPUServiceIPAM to set up IP Address Management on the DPUCluster</summary>
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/hbn-ovn-ipam.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceIPAM
+metadata:
+  name: pool1
+  namespace: dpf-operator-system
+spec:
+  ipv4Network:
+    network: "10.0.120.0/22"
+    gatewayIndex: 3
+    prefixSize: 29
+```
+</details>
+
+<details><summary>DPUServiceIPAM for the loopback interface in HBN</summary>
+
+[embedmd]:#(manifests/05.2-dpudeployment-installation/hbn-loopback-ipam.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -1106,9 +1621,9 @@ spec:
 
 #### Verification
 
-These verification commands may need to be run multiple times to ensure the condition is met.
+These verification commands, which are common to both the 5.1 DPUService and 5.2 DPUDeployment installations, may need to be run multiple times to ensure the condition is met.
 
-Verify the DPUService installation with:
+Verify the DPU and Service installation with:
 ```shell
 ## Ensure the DPUServices are created and have been reconciled.
 kubectl wait --for=condition=ApplicationsReconciled --namespace dpf-operator-system  dpuservices doca-blueman-service doca-hbn doca-telemetry-service
@@ -1156,6 +1671,15 @@ envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm u
 ```
 
 #### Delete the DPF Operator system and DPF Operator
+
+First we have to delete some DPUServiceInterfaces. This is necessary because of a known issue during uninstallation.
+
+```shell
+kubectl delete -n dpf-operator-system dpuserviceinterface p0 p1 ovn --wait
+```
+
+Then we can delete the config and system namespace.
+
 ```shell
 kubectl delete -n dpf-operator-system dpfoperatorconfig dpfoperatorconfig --wait
 helm uninstall -n dpf-operator-system dpf-operator --wait
