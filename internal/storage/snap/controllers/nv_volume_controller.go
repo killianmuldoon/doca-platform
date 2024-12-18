@@ -149,16 +149,16 @@ func (r *NVVolume) reconcile(ctx context.Context, nvVolume *snapstoragev1.Volume
 			storagePolicy.Namespace, storagePolicy.Name, storagePolicy.Status.State)
 	}
 
-	// set volume.Spec.StoragePolicyRef and volume.Spec.StorageParameters
+	// set volume.Spec.StoragePolicyRef and volume.Spec.StoragePolicyParameters
 	if nvVolume.Spec.StoragePolicyRef == nil {
-		log.Info("Set StoragePolicyRef and StorageParameters")
+		log.Info("Set StoragePolicyRef and StoragePolicyParameters")
 		nvVolume.Spec.StoragePolicyRef = &snapstoragev1.ObjectRef{
 			APIVersion: snapstoragev1.GroupVersion.String(),
 			Kind:       snapstoragev1.StoragePolicyKind,
 			Name:       storagePolicy.Name,
 			Namespace:  storagePolicy.Namespace,
 		}
-		nvVolume.Spec.StorageParameters = storagePolicy.Spec.StorageParameters
+		nvVolume.Spec.StoragePolicyParameters = storagePolicy.Spec.StorageParameters
 	}
 
 	// set volume.Spec.DPUVolume.CSIReference and create PVC object

@@ -163,21 +163,23 @@ func (r *NVVolumeAttachment) reconcileDelete(ctx context.Context, nvVolumeAttach
 }
 
 func (r *NVVolumeAttachment) reconcile(ctx context.Context, nvVolumeAttachment *snapstoragev1.VolumeAttachment) (ctrl.Result, error) {
+	// Retrieve the NV-Volume object to get the storage vendor name
+	if nvVolumeAttachment.Spec.Source.VolumeRef == nil {
+		return ctrl.Result{}, fmt.Errorf("the reference of NV-Volume is nil in NV-VolumeAttachment %s/%s",
+			nvVolumeAttachment.Namespace, nvVolumeAttachment.Name)
+	}
+	nvVolume := &snapstoragev1.Volume{}
+	if err := r.Get(ctx, types.NamespacedName{
+		Name:      nvVolumeAttachment.Spec.Source.VolumeRef.Name,
+		Namespace: nvVolumeAttachment.Spec.Source.VolumeRef.Namespace,
+	}, nvVolume); err != nil {
+		return ctrl.Result{}, err
+	}
+	// Set spec.parameters with NV-StoragePolicy.storageParameters
+	nvVolumeAttachment.Spec.Parameters = nvVolume.Spec.StoragePolicyParameters
+
 	// Check the csiDriver.Spec.AttachRequired to see if need create SV-VolumeAttachment
 	if nvVolumeAttachment.Spec.VolumeAttachmentRef == nil {
-		// Retrieve the NV-Volume object to get the storage vendor name
-		if nvVolumeAttachment.Spec.Source.VolumeRef == nil {
-			return ctrl.Result{}, fmt.Errorf("the reference of NV-Volume is nil in NV-VolumeAttachment %s/%s",
-				nvVolumeAttachment.Namespace, nvVolumeAttachment.Name)
-		}
-		nvVolume := &snapstoragev1.Volume{}
-		if err := r.Get(ctx, types.NamespacedName{
-			Name:      nvVolumeAttachment.Spec.Source.VolumeRef.Name,
-			Namespace: nvVolumeAttachment.Spec.Source.VolumeRef.Namespace,
-		}, nvVolume); err != nil {
-			return ctrl.Result{}, err
-		}
-
 		// Retrieve the CSI driver object to check if require attachment
 		csiDriverName := nvVolume.Spec.DPUVolume.CSIReference.CSIDriverName
 		csiDriver := &storagev1.CSIDriver{}
