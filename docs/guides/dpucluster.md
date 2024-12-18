@@ -11,7 +11,41 @@ Two implementations are included in this repo:
 
 A DPUCluster is a user API and the usage will differ depending on the implementation.
 
-When using the static cluster manager the CR will look like:
+#### Using the static cluster manager
+The static cluster manager controller should be enabled first. It is enabled by adding staticClusterManager field in the DPUOperatorConfig CR:
+
+```yaml
+apiVersion: operator.dpu.nvidia.com/v1alpha1
+kind: DPFOperatorConfig
+metadata:
+  name: dpfoperatorconfig
+  namespace: dpf-operator-system
+spec:
+  imagePullSecrets:
+  - dpf-pull-secret
+  provisioningController:
+    bfbPVCName: "bfb-pvc"
+  staticClusterManager: {}
+```
+
+Then create a secret for storing the kubeconfig of the existing Kubernetes control plane. For example, the kubeconfig is under the home directory:
+
+```shell
+TENANT_KUBE_CONFIG=`cat ~/.kube/config | base64 -w 0`
+
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+data:
+  admin.conf: ${TENANT_KUBE_CONFIG}
+kind: Secret
+metadata:
+  name: dpu-cluster-1-admin-kubeconfig
+  namespace: dpf-operator-system
+type: Opaque
+EOF
+```
+
+the DPUCluster will look like:
 
 ```yaml
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
@@ -31,7 +65,8 @@ spec:
   kubeconfig: dpu-cluster-1-admin-kubeconfig
 ```
 
-When using the Kamaji cluster manager the CR will look like:
+#### Using the Kamaji cluster manager
+The DPUCluster will look like:
 ```yaml
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
 kind: DPUCluster
