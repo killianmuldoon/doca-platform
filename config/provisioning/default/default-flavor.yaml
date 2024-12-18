@@ -1,0 +1,11 @@
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
+kind: DPUFlavor
+metadata:
+  name: default-flavor
+  namespace: dpf-provisioning
+spec:
+
+  bfcfgParameters:
+    - UPDATE_ATF_UEFI=yes
+    - UPDATE_DPU_OS=yes
+    - WITH_NIC_FW_UPDATE=yes

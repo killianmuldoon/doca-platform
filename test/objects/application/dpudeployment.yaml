@@ -6,7 +6,7 @@ metadata:
 spec:
   dpus:
     bfb: "bf-bundle"
-    flavor: "dpf-provisioning-hbn-ovn" # Created automatically when installing DPF
+    flavor: "dpf-provisioning-default-flavor" # Created automatically when installing DPF
     dpuSets:
     # We intentionally don't match any node to ensure that we don't trigger the provisioning flow for the time being
     - nameSuffix: dpuset1
