@@ -51,7 +51,7 @@ check_and_unregister_offline_runners() {
             echo "Unregistering offline runner: $runner_desc (ID: $runner_id)"
 
             # Unregister the offline runner
-            curl --silent --header "PRIVATE-TOKEN: $GITLAB_REGISTRY_TOKEN" --request DELETE "https://gitlab-master.nvidia.com/api/v4/runners/$runner_id"
+            curl --silent --header "PRIVATE-TOKEN: $GITLAB_REGISTRY_TOKEN" --request DELETE "https://gitlab-master.nvidia.com/api/v4/projects/112105/runners/$runner_id"
 
             if [[ $? -eq 0 ]]; then
                 echo "Successfully unregistered runner: $runner_desc (ID: $runner_id)"
