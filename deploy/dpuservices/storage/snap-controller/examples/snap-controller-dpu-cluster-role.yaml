@@ -60,4 +60,4 @@ roleRef:
 subjects:
   - kind: ServiceAccount
     name: snap-controller-sa
-    namespace: dpu-cplane-tenant1
+    namespace: dpf-operator-system
