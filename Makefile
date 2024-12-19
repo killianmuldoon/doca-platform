@@ -619,7 +619,7 @@ GO_GCFLAGS ?= ""
 GO_LDFLAGS ?= "-extldflags '-static'"
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
 DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller ovs-helper snap-controller
-DPU_ARCH_BUILD_TARGETS ?= storage-snap-node-driver
+DPU_ARCH_BUILD_TARGETS ?= storage-snap-node-driver storage-vendor-dpu-plugin
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
 # The BUNDLE_VERSION is the same as the TAG but the first character is stripped. This is used to strip a leading `v` which is invalid for Bundle versions.
@@ -695,6 +695,10 @@ binary-snap-controller: ## Build the snap controller controller binary.
 binary-snap-node-driver: ## Build the snap node driver controller binary.
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/provisioning github.com/nvidia/doca-platform/cmd/provisioning
 
+.PHONY: binary-storage-vendor-dpu-plugin
+binary-storage-vendor-dpu-plugin: ## Build the storage vendor DPU plugin controller binary.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/provisioning github.com/nvidia/doca-platform/cmd/provisioning
+
 .PHONY: binary-csi-plugin
 binary-csi-plugin: ## Build the csi-plugin binary.
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/csi-plugin github.com/nvidia/doca-platform/cmd/storage/csi-plugin
@@ -743,6 +747,9 @@ export STORAGE_SNAP_CONTROLLER_IMAGE ?= $(REGISTRY)/$(STORAGE_SNAP_CONTROLLER_NA
 
 STORAGE_SNAP_NODE_DRIVER_NAME ?= snap-node-driver
 export STORAGE_SNAP_NODE_DRIVER_IMAGE ?= $(REGISTRY)/$(STORAGE_SNAP_NODE_DRIVER_NAME)
+
+STORAGE_VENDOR_DPU_PLUGIN_NAME ?= storage-vendor-dpu-plugin
+export STORAGE_VENDOR_DPU_PLUGIN_IMAGE ?= $(REGISTRY)/$(STORAGE_VENDOR_DPU_PLUGIN_NAME)
 
 CSI_DRIVER_IMAGE_NAME = csi-plugin
 export CSI_DRIVER_IMAGE ?= $(REGISTRY)/$(CSI_DRIVER_IMAGE_NAME)
@@ -1035,6 +1042,25 @@ docker-build-storage-snap-node-driver:
 	. \
 	-t ${STORAGE_SNAP_NODE_DRIVER_IMAGE}:$(TAG)
 
+.PHONY: docker-build-storage-vendor-dpu-plugin # Build a arm64 image for storage-vendor-dpu-plugin
+docker-build-storage-vendor-dpu-plugin:
+	docker buildx build \
+	--load \
+	--label=org.opencontainers.image.created=$(DATE) \
+	--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+	--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+	--label=org.opencontainers.image.version=$(TAG) \
+	--provenance=false \
+	--platform=linux/$(DPU_ARCH) \
+	--build-arg builder_image=$(BUILD_IMAGE) \
+	--build-arg base_image=$(BASE_IMAGE) \
+	--build-arg ldflags=$(GO_LDFLAGS) \
+	--build-arg gcflags=$(GO_GCFLAGS) \
+	--build-arg package=./cmd/storage/storage-vendor-dpu-plugin \
+	-f Dockerfile \
+	. \
+	-t ${STORAGE_VENDOR_DPU_PLUGIN_IMAGE}:$(TAG)
+
 .PHONY: docker-build-csi-plugin # Build a multi-arch image for DPF System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
 docker-build-csi-plugin: $(addprefix docker-build-csi-plugin-for-,$(DPF_SYSTEM_ARCH))
 
@@ -1109,6 +1135,11 @@ docker-push-ovn-kubernetes-resource-injector: ## Push the docker image for the O
 .PHONY: docker-push-storage-snap-node-driver
 docker-push-storage-snap-node-driver: ## Push the docker image for snap node driver
 	docker push ${STORAGE_SNAP_NODE_DRIVER_IMAGE}:$(TAG)
+
+.PHONY: docker-push-storage-vendor-dpu-plugin
+docker-push-storage-vendor-dpu-plugin: ## Push the docker image for storage vendor dpu plugin
+	docker push ${STORAGE_VENDOR_DPU_PLUGIN_IMAGE}:$(TAG)
+
 # helm charts
 
 # By default the helm registry is assumed to be an OCI registry. This variable should be overwritten when using a https helm repository.
