@@ -17,7 +17,7 @@ In this configuration OVN Kubernetes is offloaded to the DPU and combined with [
   - [0. Required variables](#0-required-variables)
   - [1. CNI installation](#1-cni-installation)
     - [Create the Namespace](#create-the-namespace)
-    - [Create image pull secret](#create-image-pull-secret)
+    - [Docker login and create image pull secret](#docker-login-and-create-image-pull-secret)
     - [Verification](#verification)
   - [2. DPF Operator installation](#2-dpf-operator-installation)
     - [Log in to private registries](#log-in-to-private-registries)
@@ -161,10 +161,12 @@ OVN Kubernetes is used as the primary CNI for the cluster. On worker nodes the p
 kubectl create ns ovn-kubernetes
 ```
 
-#### Create image pull secret
+#### Docker login and create image pull secret
 
 The image pull secret is required when using a private registry to host images and helm charts. If using a public registry this section can be ignored.
 ```shell
+helm registry login nvcr.io --username \$oauthtoken --password $NGC_API_KEY
+
 kubectl -n ovn-kubernetes create secret docker-registry dpf-pull-secret --docker-server=nvcr.io --docker-username="\$oauthtoken" --docker-password=$NGC_API_KEY
 ````
 
@@ -290,6 +292,8 @@ webhook:
 </details>
 
 #### Install a CSI to back the DPUCluster etcd
+
+In this guide the local-path-provisioner CSI from Rancher is used to back the etcd of the Kamaji based DPUCluster. This should be substituted for a reliable performant CNI to back etcd.
 
 ```shell
 curl https://codeload.github.com/rancher/local-path-provisioner/tar.gz/v0.0.30 | tar -xz --strip=3 local-path-provisioner-0.0.30/deploy/chart/local-path-provisioner/
