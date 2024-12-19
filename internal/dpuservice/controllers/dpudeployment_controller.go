@@ -678,7 +678,7 @@ func reconcileDPUServices(
 		// we save the version in the annotations, as this will permit us to retrieve
 		// a dpuService by its version
 		dpuService.Annotations = map[string]string{
-			"dpuservice.nvidia.com/version": dpuServiceObjectVersionPlaceholder,
+			"svc.dpu.nvidia.com/dpuservice-version": dpuServiceObjectVersionPlaceholder,
 		}
 
 		// Add the node selector to the DPUService only if it is deployed on a dpu cluster
@@ -767,7 +767,7 @@ func reconcileDPUServiceChain(ctx context.Context, c client.Client, dpuDeploymen
 	// we save the version in the annotations, as this will permit us to retrieve
 	// a dpuServiceChain by its version
 	dpuServiceChain.Annotations = map[string]string{
-		"dpuservicechain.nvidia.com/version": dpuServiceObjectVersionPlaceholder,
+		"svc.dpu.nvidia.com/dpuservicechain-version": dpuServiceObjectVersionPlaceholder,
 	}
 
 	// Add the node selector to the DPUService only if it is deployed on a dpu cluster
