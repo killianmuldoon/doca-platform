@@ -175,7 +175,7 @@ kubectl -n ovn-kubernetes create secret docker-registry dpf-pull-secret --docker
 
 Install the OVN Kubernetes CNI components from the helm chart. A number of [environment variables](#0-required-variables) must be set before running this command.
 ```shell
-envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://nvcr.io/nvstaging/doca/ovn-kubernetes-chart --version $DPF_VERSION --values -
+envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://ghcr.io/nvidia/ovn-kubernetes-chart --version $DPF_VERSION --values -
 ```
 
 <details><summary>Expand for detailed helm values</summary>
@@ -399,7 +399,7 @@ spec:
 
 A number of [environment variables](#0-required-variables) must be set before running this command.
 ```shell
-envsubst < ./manifests/02-dpf-operator-installation/helm-values/dpf-operator.yml | helm upgrade --install -n dpf-operator-system dpf-operator oci://nvcr.io/nvstaging/doca/dpf-operator --version=$DPF_VERSION --values -
+envsubst < ./manifests/02-dpf-operator-installation/helm-values/dpf-operator.yml | helm upgrade --install -n dpf-operator-system dpf-operator oci://ghcr.io/nvidia/dpf-operator --version=$DPF_VERSION --values -
 ```
 
 <details><summary>Expand for detailed helm values</summary>
@@ -564,7 +564,7 @@ operator:
 The OVN Kubernetes resource injection webhook injected each pod scheduled to a worker node with a request for a VF and a Network Attachment Definition. This webhook is part of the same helm chart as the other components of the OVN Kubernetes CNI. Here it is installed by adjusting the existing helm installation to add the webhook component to the installation. 
 
 ```shell
-envsubst < manifests/04-enable-accelerated-cni/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://nvcr.io/nvstaging/doca/ovn-kubernetes-chart --version $DPF_VERSION --values -
+envsubst < manifests/04-enable-accelerated-cni/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://ghcr.io/nvidia/ovn-kubernetes-chart --version $DPF_VERSION --values -
 ```
 
 <details><summary>Expand for detailed helm values</summary>
@@ -1672,7 +1672,7 @@ helm uninstall -n nvidia-network-operator network-operator --wait
 
 ## Run `helm install` with the original values to delete the OVN Kubernetes webhook.
 ## Note: Uninstalling OVN Kubernetes as primary CNI is not supported but this command must be run to remove the webhook and restore a functioning cluster.
-envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://nvcr.io/nvstaging/doca/ovn-kubernetes-chart --version $DPF_VERSION --values -
+envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://ghcr.io/nvidia/ovn-kubernetes-chart --version $DPF_VERSION --values -
 ```
 
 #### Delete the DPF Operator system and DPF Operator

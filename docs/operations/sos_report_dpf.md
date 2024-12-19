@@ -83,7 +83,7 @@ spec:
   nodeName: ${NODE}
   containers:
   - name: dpf-tools
-    image: nvcr.io/nvstaging/doca/dpf-tools:${TAG}
+    image: ghcr.io/nvidia/dpf-tools:${TAG}
     env:
     - name: CASE_ID
       value: "${CASE_ID}"
@@ -220,7 +220,7 @@ spec:
   nodeName: ${NODE}
   containers:
   - name: dpf-tools
-    image: nvcr.io/nvstaging/doca/dpf-tools:${TAG}
+    image: ghcr.io/nvidia/dpf-tools:${TAG}
     env:
     - name: CASE_ID
       value: "${CASE_ID}"

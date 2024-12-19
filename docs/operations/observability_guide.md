@@ -54,7 +54,7 @@ for testing the monitoring stack. Please don't use this in production.
 
 ``` bash
 helm -n dpf-operator-system \
-  upgrade dpf-operator oci://nvcr.io/nvstaging/doca/dpf-operator \
+  upgrade dpf-operator oci://ghcr.io/nvidia/dpf-operator \
   --version=v0.1.0-latest \
   --values <(helm -n dpf-operator-system get values dpf-operator) \
   --set grafana.enabled=true \

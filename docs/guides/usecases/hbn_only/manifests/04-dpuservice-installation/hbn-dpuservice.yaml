@@ -22,7 +22,7 @@ spec:
         ]
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvstaging/doca
+      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
       version: 1.0.1
       chart: doca-hbn
     values:

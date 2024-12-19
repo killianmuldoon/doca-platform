@@ -284,7 +284,7 @@ spec:
 
 A number of [environment variables](#0-required-variables) must be set before running this command.
 ```shell
-envsubst < ./manifests/01-dpf-operator-installation/helm-values/dpf-operator.yml | helm upgrade --install -n dpf-operator-system dpf-operator oci://nvcr.io/nvstaging/doca/dpf-operator --version=$DPF_VERSION --values -
+envsubst < ./manifests/01-dpf-operator-installation/helm-values/dpf-operator.yml | helm upgrade --install -n dpf-operator-system dpf-operator oci://ghcr.io/nvidia/dpf-operator --version=$DPF_VERSION --values -
 ```
 
 <details><summary>Expand for detailed helm values</summary>
@@ -688,7 +688,7 @@ spec:
         ]
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvstaging/doca
+      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
       version: 1.0.1
       chart: doca-hbn
     values:
