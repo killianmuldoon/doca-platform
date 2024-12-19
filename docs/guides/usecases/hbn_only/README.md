@@ -85,6 +85,7 @@ export DPUCLUSTER_INTERFACE=
 export NFS_SERVER_IP=
 
 # API key for accessing containers and helm charts from the NGC private repository.
+# Note: This isn't technically required when using public images but is included here to demonstrate the secret flow in DPF when using images from a private registry.
 export NGC_API_KEY=
 
 ## DPF_VERSION is the version of the DPF components which will be deployed in this use case guide.
@@ -688,14 +689,14 @@ spec:
   helmChart:
     source:
       repoURL: https://helm.ngc.nvidia.com/nvstaging/doca
-      version: 1.0.0-dev.1
+      version: 1.0.1
       chart: doca-hbn
     values:
       imagePullSecrets:
       - name: dpf-pull-secret
       image:
-        repository: nvcr.io/nvstaging/doca/doca_hbn
-        tag: 2.dev.200-doca2.9.0
+        repository: nvcr.io/nvidia/doca/doca_hbn
+        tag: 2.4.1-doca2.9.1
       resources:
         memory: 6Gi
         nvidia.com/bf_sf: 4

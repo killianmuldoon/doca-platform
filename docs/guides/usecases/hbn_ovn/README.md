@@ -135,6 +135,7 @@ export DPUCLUSTER_INTERFACE=
 export NFS_SERVER_IP=
 
 # API key for accessing containers and helm charts from the NGC private repository.
+# Note: This isn't technically required when using public images but is included here to demonstrate the secret flow in DPF when using images from a private registry.
 export NGC_API_KEY=
 
 ## POD_CIDR is the CIDR used for pods in the target Kubernetes cluster.
@@ -745,7 +746,7 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: oci://nvcr.io/nvstaging/doca
+      repoURL: oci://ghcr.io/nvidia
       chart: ovn-kubernetes-chart
       version: $DPF_VERSION
     values:
@@ -1293,7 +1294,7 @@ spec:
   deploymentServiceName: "ovn"
   helmChart:
     source:
-      repoURL: oci://nvcr.io/nvstaging/doca
+      repoURL: oci://ghcr.io/nvidia
       chart: ovn-kubernetes-chart
       version: $DPF_VERSION
     values:
@@ -1459,8 +1460,8 @@ spec:
   deploymentServiceName: "dts"
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvstaging/doca
-      version: 0.2.2
+      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      version: 0.2.3
       chart: doca-telemetry
 ```
 </details>

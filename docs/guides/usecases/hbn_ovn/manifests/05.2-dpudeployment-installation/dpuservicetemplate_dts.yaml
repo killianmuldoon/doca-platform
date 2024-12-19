@@ -8,6 +8,6 @@ spec:
   deploymentServiceName: "dts"
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvstaging/doca
-      version: 0.2.2
+      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      version: 0.2.3
       chart: doca-telemetry
