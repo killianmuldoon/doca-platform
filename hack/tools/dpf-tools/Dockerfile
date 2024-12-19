@@ -2,9 +2,9 @@
 
 # Build image to compile all packages
 # The target repository is  https://github.com/NVIDIA/doca-sosreport
-FROM ubuntu:24.04 AS build
+FROM ubuntu:22.04 AS build
 
-ARG PYTHON_VERSION=3.12
+ARG PYTHON_VERSION=3.11
 
 RUN apt-get update -qy && apt-get install -qyy \
     -o APT::Install-Recommends=false \
@@ -21,7 +21,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.4.10 /uv /usr/local/bin/uv
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
     UV_PYTHON_DOWNLOADS=never \
-    UV_PYTHON=python3.12
+    UV_PYTHON=python3.11
 
 ENV VIRTUAL_ENV=/opt/venv \
     PATH="/opt/venv/bin:$PATH"
@@ -41,16 +41,17 @@ COPY sos-mlx-cloud-verification.conf .
 RUN --mount=type=cache,target=/root/.cache \
     uv venv /opt/venv && uv pip install .
 
-FROM ubuntu:24.04
+FROM ubuntu:22.04
 
 ARG TARGETARCH
 ARG KUBERNETES_VERSION=1.30
 ARG MFT_VERSION=4.29.0-131
-ARG PYTHON_VERSION=3.12
+ARG PYTHON_VERSION=3.11
 
 ENV TAR_OPTIONS="--no-same-owner"
 
-RUN apt-get update && apt-get install -y apt-transport-https ca-certificates gpg curl pciutils
+ARG PACKAGES="apt-transport-https=2.4.5 ca-certificates=20211016 gpg=2.2.27-3ubuntu2.1 curl=7.81.0-1ubuntu1.20 pciutils=1:3.7.0-6 systemd=249.11-0ubuntu3.12 util-linux=2.37.2-4ubuntu3 libudev-dev=249.11-0ubuntu3.12 lshw=02.19.git.2021.06.19.996aaad9c7-2build1 lvm2=2.03.11-2.1ubuntu4 mdadm=4.2-0ubuntu1 multipath-tools=0.8.8-1ubuntu1 iproute2=5.15.0-1ubuntu2 inetutils-traceroute=2:2.2-2 ethtool=1:5.16-1 bridge-utils=1.7-1ubuntu3"
+RUN apt-get update && apt-get install -y --allow-downgrades --no-install-recommends ${PACKAGES}
 
 RUN apt-get update -qy && apt-get install -qyy \
     -o APT::Install-Recommends=false \
