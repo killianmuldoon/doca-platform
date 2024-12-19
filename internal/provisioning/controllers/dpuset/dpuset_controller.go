@@ -392,6 +392,10 @@ func isUnavailable(dpu *provisioningv1.DPU) bool {
 // TODO: check more informations
 func (r *DPUSetReconciler) needUpdate(ctx context.Context, dpuSet provisioningv1.DPUSet, dpu provisioningv1.DPU) (bool, error) {
 	logger := log.FromContext(ctx)
+
+	if (dpu.Spec.BFB != dpuSet.Spec.DPUTemplate.Spec.BFB.Name) || (dpu.Spec.DPUFlavor != dpuSet.Spec.DPUTemplate.Spec.DPUFlavor) {
+		return true, nil
+	}
 	// update dpu node label
 	newLabel := map[string]string{}
 	if dpuSet.Spec.DPUTemplate.Spec.Cluster != nil {
@@ -415,7 +419,7 @@ func (r *DPUSetReconciler) needUpdate(ctx context.Context, dpuSet provisioningv1
 		}
 	}
 
-	return dpu.Spec.BFB != dpuSet.Spec.DPUTemplate.Spec.BFB.Name || dpu.Spec.DPUFlavor != dpuSet.Spec.DPUTemplate.Spec.DPUFlavor, nil
+	return false, nil
 }
 
 func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningv1.DPUSet,
