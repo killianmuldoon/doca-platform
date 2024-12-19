@@ -49,6 +49,7 @@ type StoragePolicy struct {
 
 // +kubebuilder:rbac:groups=storage.dpu.nvidia.com,resources=storagepolicies,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=storage.dpu.nvidia.com,resources=storagepolicies/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=storage.dpu.nvidia.com,resources=storagevendors,verbs=get;list;watch;update;patch
 
 func (r *StoragePolicy) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrllog.FromContext(ctx)

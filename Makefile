@@ -261,18 +261,12 @@ generate-manifests-dpuservice: controller-gen ## Generate manifests e.g. CRD, RB
 	webhook
 
 .PHONY: generate-manifests-storage-snap
-generate-manifests-storage-snap: controller-gen kustomize ## Generate manifests for SNAP storage in DPU cluster 
-	$(MAKE) clean-generated-yaml SRC_DIRS="./config/storage/snap/crd/bases"
+generate-manifests-storage-snap: controller-gen kustomize ## Generate CRDs for SNAP storage in DPU cluster 
+	$(MAKE) clean-generated-yaml SRC_DIRS="./config/snap/crd"
 	$(CONTROLLER_GEN) \
 	paths="./api/storage/..." \
-	paths="./cmd/storage/snap-controller/..." \
-	paths="./cmd/storage/snap-node-driver/..." \
-	paths="./internal/storage/snap/controllers/..." \
-	paths="./internal/storage/snap/node-driver/..." \
 	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
-	rbac:roleName=snap-dpu \
-	output:crd:dir=./config/storage/snap/crd/bases \
-	output:rbac:dir=./config/storage/snap/rbac \
+	output:crd:dir=./config/snap/crd \
 
 .PHONY: generate-manifests-ovn-kubernetes-resource-injector
 generate-manifests-ovn-kubernetes-resource-injector: envsubst ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes Resource Injector
@@ -586,6 +580,10 @@ lint-helm-dummydpuservice: helm ## Run helm lint for dummydpuservice chart
 .PHONY: lint-helm-csi-plugin
 lint-helm-csi-plugin: helm ## Run helm lint for csi-plugin chart
 	$Q $(HELM) lint $(HOST_CSI_CHART)
+
+.PHONY: lint-helm-snap-controller
+lint-helm-snap-controller: helm ## Run helm lint for snap controller chart
+	$Q $(HELM) lint $(SNAP_CONTROLLER_CHART)
 
 ##@ Release
 
@@ -1116,7 +1114,7 @@ docker-push-storage-snap-node-driver: ## Push the docker image for snap node dri
 # By default the helm registry is assumed to be an OCI registry. This variable should be overwritten when using a https helm repository.
 export HELM_REGISTRY ?= oci://$(REGISTRY)
 
-HELM_TARGETS ?= dpu-networking operator ovn-kubernetes csi-plugin
+HELM_TARGETS ?= dpu-networking operator ovn-kubernetes csi-plugin snap-controller
 
 # metadata for the operator helm chart
 OPERATOR_HELM_CHART_NAME ?= dpf-operator
@@ -1144,6 +1142,11 @@ DUMMYDPUSERVICE_HELM_CHART ?= $(DPUSERVICESDIR)/dummydpuservice/chart
 HOST_CSI_CHART_NAME = snap-csi-plugin
 HOST_CSI_CHART ?= $(HELMDIR)/storage/csi-plugin
 HOST_CSI_CHART_VER ?= $(TAG)
+
+# metadata for snap controller.
+SNAP_CONTROLLER_CHART_NAME = snap-controller-chart
+SNAP_CONTROLLER_CHART ?= $(HELMDIR)/storage/snap-controller
+SNAP_CONTROLLER_CHART_VER ?= $(TAG)
 
 .PHONY: helm-package-all
 helm-package-all: $(addprefix helm-package-,$(HELM_TARGETS))  ## Package the helm charts for all components.
@@ -1183,6 +1186,10 @@ helm-package-dummydpuservice: $(DPUSERVICESDIR) helm generate-manifests-dummydpu
 helm-package-csi-plugin: $(CHARTSDIR) helm
 	$(HELM) package $(HOST_CSI_CHART) --version $(HOST_CSI_CHART_VER) --destination $(CHARTSDIR)
 
+.PHONY: helm-package-snap-controller
+helm-package-snap-controller: $(CHARTSDIR) helm
+	$(HELM) package $(SNAP_CONTROLLER_CHART) --version $(SNAP_CONTROLLER_CHART_VER) --destination $(CHARTSDIR)
+
 .PHONY: helm-push-all
 helm-push-all: $(addprefix helm-push-,$(HELM_TARGETS))  ## Push the helm charts for all components.
 
@@ -1211,3 +1218,7 @@ helm-push-dummydpuservice: $(CHARTSDIR) helm ## Push helm chart for dummydpuserv
 .PHONY: helm-push-csi-plugin
 helm-push-csi-plugin: $(CHARTSDIR) helm ## Push helm chart for csi-plugin
 	$(HELM) push $(CHARTSDIR)/$(HOST_CSI_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
+
+.PHONY: helm-push-snap-controller
+helm-push-snap-controller: $(CHARTSDIR) helm ## Push helm chart for snap controller
+	$(HELM) push $(CHARTSDIR)/$(SNAP_CONTROLLER_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)

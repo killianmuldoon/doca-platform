@@ -1,0 +1,33 @@
+controller:
+  config:
+    # required, name of the secret that stores credentials and connection details for DPU cluster
+    dpuClusterSecret: ""
+  # image settings
+  image:
+    repository: example.com/snap-controller
+    # if not set the .Chart.AppVersion is used
+    tag: ""
+  # count of replicas for controller pod
+  replicas: 1
+  # podAnnotations to add to the Pod spec
+  podAnnotations: {}
+  # podLabels to add to the Pod spec
+  podLabels: {}
+  # podSecurityContext to add to the Pod spec
+  podSecurityContext: {}
+  #  runAsNonRoot: true
+  # nodeSelector to add to the Pod spec
+  nodeSelector: {}
+  # tolerations to add to the Pod spec
+  tolerations:
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/control-plane
+      operator: Exists
+    - effect: NoSchedule
+      key: node-role.kubernetes.io/master
+      operator: Exists
+  # affinity to add to the Pod spec
+  affinity: {}
+
+# default imagePullSecrets
+imagePullSecrets: []
