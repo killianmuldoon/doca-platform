@@ -54,7 +54,7 @@ type PkgWrapper interface {
 
 // New returns a new instance of the wrapper for k8s.io/mount-utils package
 func New(mounter string) PkgWrapper {
-	m := mountLib.NewWithoutSystemd(mounter)
+	m := mountLib.New(mounter)
 	return &mountUtilsWrapper{
 		mounter: m,
 		safeFormatAndMount: &mountLib.SafeFormatAndMount{
