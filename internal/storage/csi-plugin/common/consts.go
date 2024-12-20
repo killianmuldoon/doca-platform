@@ -17,14 +17,9 @@ limitations under the License.
 package common
 
 const (
-	// NVMEDriver is the name of nvme driver for linux
-	NVMEDriver = "nvme"
-	// Vendor ID for NVIDIA NICs
-	MlxVendor = "15b3"
-	// SysfsPCIPath is a PCI subsystem path in sysfs
-	SysfsPCIPath = "/sys/bus/pci"
-	// SysfsPCIDevsPath is a PCI dev path in sysfs
-	SysfsPCIDevsPath = SysfsPCIPath + "/devices"
-	// SysfsPCIDriverPath is a PCI drivers path in sysfs
-	SysfsPCIDriverPath = SysfsPCIPath + "/drivers"
+	// PluginName is the name of this CSI SP.
+	PluginName = "csi.snap.nvidia.com"
+
+	// VendorVersion is the version of this CSP SP.
+	VendorVersion = "0.0.1"
 )

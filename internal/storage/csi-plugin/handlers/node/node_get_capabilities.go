@@ -14,17 +14,24 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package common
+package node
 
-const (
-	// NVMEDriver is the name of nvme driver for linux
-	NVMEDriver = "nvme"
-	// Vendor ID for NVIDIA NICs
-	MlxVendor = "15b3"
-	// SysfsPCIPath is a PCI subsystem path in sysfs
-	SysfsPCIPath = "/sys/bus/pci"
-	// SysfsPCIDevsPath is a PCI dev path in sysfs
-	SysfsPCIDevsPath = SysfsPCIPath + "/devices"
-	// SysfsPCIDriverPath is a PCI drivers path in sysfs
-	SysfsPCIDriverPath = SysfsPCIPath + "/drivers"
+import (
+	"context"
+
+	"github.com/container-storage-interface/spec/lib/go/csi"
 )
+
+// NodeGetCapabilities is a handler for NodeGetCapabilities request
+func (h *node) NodeGetCapabilities(
+	ctx context.Context,
+	req *csi.NodeGetCapabilitiesRequest) (
+	*csi.NodeGetCapabilitiesResponse, error) {
+
+	return &csi.NodeGetCapabilitiesResponse{
+		Capabilities: []*csi.NodeServiceCapability{{
+			Type: &csi.NodeServiceCapability_Rpc{
+				Rpc: &csi.NodeServiceCapability_RPC{
+					Type: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME}}}},
+	}, nil
+}

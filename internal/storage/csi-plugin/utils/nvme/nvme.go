@@ -19,7 +19,9 @@ limitations under the License.
 package nvme
 
 import (
+	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -55,10 +57,10 @@ type nvmeUtils struct {
 // GetBlockDeviceNameForNS is an Utils interface implementation for nvmeUtils
 func (n *nvmeUtils) GetBlockDeviceNameForNS(deviceID string, namespace int32) (string, error) {
 	devName, err := n.getBlockDeviceName(deviceID, namespace)
-	if err != nil {
+	if err != nil && !errors.Is(err, fs.ErrNotExist) {
 		return "", fmt.Errorf("failed to get block device name for dev %s ns %d: %v", deviceID, namespace, err)
 	}
-	if devName == "" {
+	if err != nil || devName == "" {
 		klog.V(3).InfoS("block device not found", "deviceID", deviceID, "namespace", namespace)
 		return "", ErrBlockDeviceNotFound
 	}

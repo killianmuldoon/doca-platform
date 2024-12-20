@@ -14,17 +14,33 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package common
+package context
 
-const (
-	// NVMEDriver is the name of nvme driver for linux
-	NVMEDriver = "nvme"
-	// Vendor ID for NVIDIA NICs
-	MlxVendor = "15b3"
-	// SysfsPCIPath is a PCI subsystem path in sysfs
-	SysfsPCIPath = "/sys/bus/pci"
-	// SysfsPCIDevsPath is a PCI dev path in sysfs
-	SysfsPCIDevsPath = SysfsPCIPath + "/devices"
-	// SysfsPCIDriverPath is a PCI drivers path in sysfs
-	SysfsPCIDriverPath = SysfsPCIPath + "/drivers"
+import (
+	"context"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
+
+var _ = Describe("Context tests", func() {
+	var (
+		ctx context.Context
+	)
+
+	BeforeEach(func() {
+		ctx = context.Background()
+	})
+
+	Describe("Request ID", func() {
+		It("Set/Get Request ID", func() {
+			reqID := "req-id"
+			outCtx := SetRequestID(ctx, reqID)
+			Expect(GetRequestID(outCtx)).To(BeEquivalentTo(reqID))
+		})
+		It("Not Found", func() {
+			_, err := GetRequestID(ctx)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+})

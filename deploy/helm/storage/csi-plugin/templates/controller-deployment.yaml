@@ -38,6 +38,7 @@ spec:
            - --controller-dpu-cluster-api-port=$(DPU_CLUSTER_API_PORT)
            - --controller-dpu-cluster-token-file=/dpu-cluster-secret/TOKEN_FILE
            - --controller-dpu-cluster-ca-file=/dpu-cluster-secret/KUBERNETES_CA_DATA
+           - --v={{ .Values.controller.plugin.args.logLevel }}
           env:
           - name: DPU_CLUSTER_API_HOST
             valueFrom:

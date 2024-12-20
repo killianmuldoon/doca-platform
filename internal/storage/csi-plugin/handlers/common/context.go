@@ -17,14 +17,16 @@ limitations under the License.
 package common
 
 const (
-	// NVMEDriver is the name of nvme driver for linux
-	NVMEDriver = "nvme"
-	// Vendor ID for NVIDIA NICs
-	MlxVendor = "15b3"
-	// SysfsPCIPath is a PCI subsystem path in sysfs
-	SysfsPCIPath = "/sys/bus/pci"
-	// SysfsPCIDevsPath is a PCI dev path in sysfs
-	SysfsPCIDevsPath = SysfsPCIPath + "/devices"
-	// SysfsPCIDriverPath is a PCI drivers path in sysfs
-	SysfsPCIDriverPath = SysfsPCIPath + "/drivers"
+	VendorPrefix = "nv-"
+
+	// volume context keys
+	VolumeCtxStoragePolicyName       = "storagePolicyName"
+	VolumeCtxStorageVendorName       = "storageVendorName"
+	VolumeCtxStorageVendorPluginName = "storageVendorPluginName"
+
+	// publish context keys
+	PublishCtxNvVolumeName           = VendorPrefix + "volumeName"
+	PublishCtxNvVolumeAttachmentName = VendorPrefix + "volumeAttachmentName"
+	PublishCtxDevicePciAddress       = VendorPrefix + "pciDeviceAddress"
+	PublishCtxNvmeNsID               = VendorPrefix + "nvmeNsID"
 )

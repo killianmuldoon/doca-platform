@@ -26,8 +26,10 @@
 package mock_pci
 
 import (
+	context "context"
 	reflect "reflect"
 
+	pci "github.com/nvidia/doca-platform/internal/storage/csi-plugin/utils/pci"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -55,16 +57,103 @@ func (m *MockUtils) EXPECT() *MockUtilsMockRecorder {
 	return m.recorder
 }
 
-// LoadDriver mocks base method.
-func (m *MockUtils) LoadDriver(dev, driver string) error {
+// DisableSriovVfsDriverAutoprobe mocks base method.
+func (m *MockUtils) DisableSriovVfsDriverAutoprobe(pciAddress string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LoadDriver", dev, driver)
+	ret := m.ctrl.Call(m, "DisableSriovVfsDriverAutoprobe", pciAddress)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DisableSriovVfsDriverAutoprobe indicates an expected call of DisableSriovVfsDriverAutoprobe.
+func (mr *MockUtilsMockRecorder) DisableSriovVfsDriverAutoprobe(pciAddress any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DisableSriovVfsDriverAutoprobe", reflect.TypeOf((*MockUtils)(nil).DisableSriovVfsDriverAutoprobe), pciAddress)
+}
+
+// GetPFs mocks base method.
+func (m *MockUtils) GetPFs(vendor string, deviceIDs []string) ([]pci.DeviceInfo, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetPFs", vendor, deviceIDs)
+	ret0, _ := ret[0].([]pci.DeviceInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetPFs indicates an expected call of GetPFs.
+func (mr *MockUtilsMockRecorder) GetPFs(vendor, deviceIDs any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetPFs", reflect.TypeOf((*MockUtils)(nil).GetPFs), vendor, deviceIDs)
+}
+
+// GetSRIOVNumVFs mocks base method.
+func (m *MockUtils) GetSRIOVNumVFs(pciAddress string) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSRIOVNumVFs", pciAddress)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSRIOVNumVFs indicates an expected call of GetSRIOVNumVFs.
+func (mr *MockUtilsMockRecorder) GetSRIOVNumVFs(pciAddress any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSRIOVNumVFs", reflect.TypeOf((*MockUtils)(nil).GetSRIOVNumVFs), pciAddress)
+}
+
+// GetSRIOVTotalVFs mocks base method.
+func (m *MockUtils) GetSRIOVTotalVFs(pciAddress string) (int, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetSRIOVTotalVFs", pciAddress)
+	ret0, _ := ret[0].(int)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetSRIOVTotalVFs indicates an expected call of GetSRIOVTotalVFs.
+func (mr *MockUtilsMockRecorder) GetSRIOVTotalVFs(pciAddress any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetSRIOVTotalVFs", reflect.TypeOf((*MockUtils)(nil).GetSRIOVTotalVFs), pciAddress)
+}
+
+// InsertKernelModule mocks base method.
+func (m *MockUtils) InsertKernelModule(ctx context.Context, module string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InsertKernelModule", ctx, module)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// InsertKernelModule indicates an expected call of InsertKernelModule.
+func (mr *MockUtilsMockRecorder) InsertKernelModule(ctx, module any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertKernelModule", reflect.TypeOf((*MockUtils)(nil).InsertKernelModule), ctx, module)
+}
+
+// LoadDriver mocks base method.
+func (m *MockUtils) LoadDriver(pciAddress, driver string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LoadDriver", pciAddress, driver)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // LoadDriver indicates an expected call of LoadDriver.
-func (mr *MockUtilsMockRecorder) LoadDriver(dev, driver any) *gomock.Call {
+func (mr *MockUtilsMockRecorder) LoadDriver(pciAddress, driver any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadDriver", reflect.TypeOf((*MockUtils)(nil).LoadDriver), dev, driver)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadDriver", reflect.TypeOf((*MockUtils)(nil).LoadDriver), pciAddress, driver)
+}
+
+// SetSriovNumVfs mocks base method.
+func (m *MockUtils) SetSriovNumVfs(pciAddress string, count int) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetSriovNumVfs", pciAddress, count)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetSriovNumVfs indicates an expected call of SetSriovNumVfs.
+func (mr *MockUtilsMockRecorder) SetSriovNumVfs(pciAddress, count any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSriovNumVfs", reflect.TypeOf((*MockUtils)(nil).SetSriovNumVfs), pciAddress, count)
 }

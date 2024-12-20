@@ -28,6 +28,7 @@ A Helm chart for SNAP CSI plugin
 | controller.livenessProbe.resources | object | `{}` |  |
 | controller.livenessProbe.securityContext.allowPrivilegeEscalation | bool | `false` |  |
 | controller.nodeSelector | object | `{}` |  |
+| controller.plugin.args.logLevel | int | `2` |  |
 | controller.plugin.image.repository | string | `""` |  |
 | controller.plugin.image.tag | string | `""` |  |
 | controller.plugin.pullPolicy | string | `"IfNotPresent"` |  |
@@ -46,7 +47,7 @@ A Helm chart for SNAP CSI plugin
 | image.repository | string | `"example.com/snap-csi-plugin"` |  |
 | image.tag | string | `""` |  |
 | imagePullSecrets | list | `[]` |  |
-| node.config.maxVolumesCount | int | `30` |  |
+| node.config.snapControllerDeviceId | string | `"6001"` |  |
 | node.imagePullSecrets | list | `[]` |  |
 | node.kubeletDir | string | `"/var/lib/kubelet"` |  |
 | node.livenessProbe.image.repository | string | `"registry.k8s.io/sig-storage/livenessprobe"` |  |
@@ -59,6 +60,7 @@ A Helm chart for SNAP CSI plugin
 | node.nodeDriverRegistrar.pullPolicy | string | `"IfNotPresent"` |  |
 | node.nodeDriverRegistrar.resources | object | `{}` |  |
 | node.nodeDriverRegistrar.securityContext.allowPrivilegeEscalation | bool | `false` |  |
+| node.plugin.args.logLevel | int | `2` |  |
 | node.plugin.image.repository | string | `""` |  |
 | node.plugin.image.tag | string | `""` |  |
 | node.plugin.pullPolicy | string | `"IfNotPresent"` |  |

@@ -59,7 +59,7 @@ var _ = Describe("Pci Utils package test", func() {
 		BeforeEach(func() {
 			testCtrl = gomock.NewController(GinkgoT())
 			osLib = osMock.NewMockPkgWrapper(testCtrl)
-			pciUtils = New(osLib)
+			pciUtils = New("", osLib, nil)
 		})
 		AfterEach(func() {
 			testCtrl.Finish()
@@ -84,21 +84,21 @@ var _ = Describe("Pci Utils package test", func() {
 				osLib.EXPECT().Readlink("/sys/bus/pci/devices/0000:3b:00.2/driver").Return("../../../../bus/pci/drivers/nvme", nil)
 				Expect(pciUtils.LoadDriver("0000:3b:00.2", "nvme")).NotTo(HaveOccurred())
 			})
-			It("driver bind path doesn't exist", func() {
+			It("fail to override", func() {
 				osLib.EXPECT().Stat("/sys/bus/pci/devices/0000:3b:00.2/driver").Return(nil, os.ErrNotExist)
-				osLib.EXPECT().Stat("/sys/bus/pci/drivers/nvme/bind").Return(nil, fmt.Errorf("test error"))
+				osLib.EXPECT().WriteFile("/sys/bus/pci/devices/0000:3b:00.2/driver_override", []byte("nvme"), gomock.Any()).Return(fmt.Errorf("test error"))
 				Expect(pciUtils.LoadDriver("0000:3b:00.2", "nvme")).To(HaveOccurred())
 			})
 			It("fail to bind", func() {
 				osLib.EXPECT().Stat("/sys/bus/pci/devices/0000:3b:00.2/driver").Return(nil, os.ErrNotExist)
-				osLib.EXPECT().Stat("/sys/bus/pci/drivers/nvme/bind").Return(nil, nil)
+				osLib.EXPECT().WriteFile("/sys/bus/pci/devices/0000:3b:00.2/driver_override", []byte("nvme"), gomock.Any()).Return(nil)
 				osLib.EXPECT().WriteFile("/sys/bus/pci/drivers/nvme/bind", []byte("0000:3b:00.2"), gomock.Any()).Return(fmt.Errorf("test error"))
 				Expect(pciUtils.LoadDriver("0000:3b:00.2", "nvme")).To(HaveOccurred())
 			})
 			It("succeed", func() {
 				osLib.EXPECT().Stat("/sys/bus/pci/devices/0000:3b:00.2/driver").Return(nil, os.ErrNotExist)
-				osLib.EXPECT().Stat("/sys/bus/pci/drivers/nvme/bind").Return(nil, nil)
 				osLib.EXPECT().WriteFile("/sys/bus/pci/drivers/nvme/bind", []byte("0000:3b:00.2"), gomock.Any()).Return(nil)
+				osLib.EXPECT().WriteFile("/sys/bus/pci/devices/0000:3b:00.2/driver_override", []byte("nvme"), gomock.Any()).Return(nil)
 				Expect(pciUtils.LoadDriver("0000:3b:00.2", "nvme")).NotTo(HaveOccurred())
 			})
 		})

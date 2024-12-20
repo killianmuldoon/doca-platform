@@ -44,6 +44,10 @@ controller:
   replicas: 1
   # configuration for plugin container
   plugin:
+    # args for the plugin container
+    args:
+      # log level for the plugin container
+      logLevel: 2
     # image settings for plugin container
     image:
       # if not set the .Values.image.repository is used
@@ -118,13 +122,17 @@ controller:
 
 node:
   config:
-    # maximum number of volumes that can be publish to the node
-    maxVolumesCount: 30
+    # pci device ID of the snap controller device
+    snapControllerDeviceId: "6001"
   # imagePullSecrets to add to the controller Pod spec,
   # if not set use .Values.imagePullSecrets
   imagePullSecrets: []
   # configuration for plugin container
   plugin:
+    # args for the plugin container
+    args:
+      # log level for the plugin container
+      logLevel: 2
     image:
       # if not set the .Values.image.repository is used
       repository: ""

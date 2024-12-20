@@ -40,10 +40,11 @@ spec:
       containers:
         - name: plugin
           args:
-            - '--mode=node'
-            - '--bind-address=unix:///csi/csi.sock'
-            - '--node-id=$(NODE_NAME)'
-            - '--node-max-volumes-count={{ .Values.node.config.maxVolumesCount }}'
+            - --mode=node
+            - --bind-address=unix:///csi/csi.sock
+            - --node-id=$(NODE_NAME)
+            - --v={{ .Values.node.plugin.args.logLevel }}
+            - --node-snap-controller-device-id={{ .Values.node.config.snapControllerDeviceId }}
           env:
             - name: NODE_NAME
               valueFrom:
@@ -68,6 +69,8 @@ spec:
             timeoutSeconds: 10
             periodSeconds: 30
           volumeMounts:
+            - name: host
+              mountPath: /host
             - name: socket-dir
               mountPath: /csi
             - name: pods-mount-dir
@@ -118,6 +121,9 @@ spec:
           resources:
             {{- toYaml .Values.node.nodeDriverRegistrar.resources | nindent 12 }}
       volumes:
+        - name: host
+          hostPath:
+            path: /
         - name: socket-dir
           hostPath:
             path: {{ .Values.node.kubeletDir }}/plugins/snap.csi.nvidia.com

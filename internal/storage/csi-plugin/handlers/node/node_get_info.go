@@ -14,17 +14,21 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package common
+package node
 
-const (
-	// NVMEDriver is the name of nvme driver for linux
-	NVMEDriver = "nvme"
-	// Vendor ID for NVIDIA NICs
-	MlxVendor = "15b3"
-	// SysfsPCIPath is a PCI subsystem path in sysfs
-	SysfsPCIPath = "/sys/bus/pci"
-	// SysfsPCIDevsPath is a PCI dev path in sysfs
-	SysfsPCIDevsPath = SysfsPCIPath + "/devices"
-	// SysfsPCIDriverPath is a PCI drivers path in sysfs
-	SysfsPCIDriverPath = SysfsPCIPath + "/drivers"
+import (
+	"context"
+
+	"github.com/container-storage-interface/spec/lib/go/csi"
 )
+
+// NodeGetInfo is a handler for NodeGetInfo request
+// the plugin uses Kubernetes node name as a CSI nodeID
+func (h *node) NodeGetInfo(
+	ctx context.Context,
+	req *csi.NodeGetInfoRequest) (
+	*csi.NodeGetInfoResponse, error) {
+	return &csi.NodeGetInfoResponse{
+		NodeId: h.cfg.NodeID,
+	}, nil
+}

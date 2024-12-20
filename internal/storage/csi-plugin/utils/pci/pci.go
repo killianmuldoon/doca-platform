@@ -19,23 +19,39 @@ limitations under the License.
 package pci
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
+	"strings"
 
 	"github.com/nvidia/doca-platform/internal/storage/csi-plugin/utils/common"
 	osWrapperPkg "github.com/nvidia/doca-platform/internal/storage/csi-plugin/wrappers/os"
 
 	"k8s.io/klog/v2"
+	kexec "k8s.io/utils/exec"
 )
 
 const (
+	// path of the modalis file, used to retrieve info about vendor and deviceID
+	modaliasPath = "modalias"
+	// this path is used to check that device is VF
+	vfCheckPath = "physfn"
 	// this path is used to check driver for device
 	driverPath = "driver"
 	// file path to trigger bind to the driver
 	driverBindPath = "bind"
+	// file path to override the device driver
+	driverOverridePath = "driver_override"
+	// file path to check current number of SRIOV VFs
+	sriovNumVfsPath = "sriov_numvfs"
+	// file path to check maximum number of SRIOV VFs
+	sriovTotalVfsPath = "sriov_totalvfs"
+	// file path used to disable driver autoprobe for VFs
+	sriovDriversAutoprobePath = "sriov_drivers_autoprobe"
 )
 
 // regexp to validate PCI address, expected form is 0000:3b:00.5
@@ -45,9 +61,11 @@ var pciAddressRegexp = regexp.MustCompile(
 )
 
 // New initialize and return a new instance of pci utils
-func New(osWrapper osWrapperPkg.PkgWrapper) Utils {
+func New(hostRootFS string, osWrapper osWrapperPkg.PkgWrapper, exec kexec.Interface) Utils {
 	return &pciUtils{
-		os: osWrapper,
+		hostRootFS: hostRootFS,
+		os:         osWrapper,
+		exec:       exec,
 	}
 }
 
@@ -82,17 +100,30 @@ var ErrNotFound = errors.New("device not found")
 // Utils is the interface provided by pci utils package
 type Utils interface {
 	// LoadDriver tries to load driver for provided device, do nothing if device is already has required driver
-	LoadDriver(dev, driver string) error
+	LoadDriver(pciAddress, driver string) error
+	// GetPFs return PCI physical functions filtered by vendor and device IDs
+	GetPFs(vendor string, deviceIDs []string) ([]DeviceInfo, error)
+	// GetSRIOVNumVFs returns current number of SRIOV VFs for PF
+	GetSRIOVNumVFs(pciAddress string) (int, error)
+	// GetSRIOVTotalVFs returns maximum number of SRIOV VFs for PF
+	GetSRIOVTotalVFs(pciAddress string) (int, error)
+	// InsertKernelModule inserts kernel module
+	InsertKernelModule(ctx context.Context, module string) error
+	// DisableSriovVfsDriverAutoprobe disable driver autoprobes for the VFs on the PF
+	DisableSriovVfsDriverAutoprobe(pciAddress string) error
+	// SetSriovNumVfs configure require amount of VFs on the PF identified by the pciAddress
+	SetSriovNumVfs(pciAddress string, count int) error
 }
 
 type pciUtils struct {
-	// wrappers
-	os osWrapperPkg.PkgWrapper
+	os         osWrapperPkg.PkgWrapper
+	exec       kexec.Interface
+	hostRootFS string
 }
 
 // LoadDriver is an Utils interface implementation for pciUtils
-func (u *pciUtils) LoadDriver(dev, driver string) error {
-	curDriver, err := u.getDeviceDriver(dev)
+func (u *pciUtils) LoadDriver(pciAddress, driver string) error {
+	curDriver, err := u.getDeviceDriver(pciAddress)
 	if err != nil {
 		return fmt.Errorf("failed to read driver for device: %v", err)
 	}
@@ -100,35 +131,167 @@ func (u *pciUtils) LoadDriver(dev, driver string) error {
 		if curDriver != driver {
 			return fmt.Errorf("device is already binded to a different driver: %s", curDriver)
 		}
-		klog.V(2).InfoS("device already bound to required driver", "device", dev, "driver", driver)
+		klog.V(2).InfoS("device already bound to required driver", "device", pciAddress, "driver", driver)
 		return nil
 	}
-	// e.g. /sys/bus/pci/drivers/nvme/bind
-	bindPath := filepath.Join(common.SysfsPCIDriverPath, driver, driverBindPath)
-	if _, err := u.os.Stat(bindPath); err != nil {
-		return fmt.Errorf("failed to check bind path for the driver: %v", err)
+	// /sys/bus/pci/devices/0000:b1:00.2/driver_override
+	if err := u.os.WriteFile(filepath.Join(common.SysfsPCIDevsPath, pciAddress, driverOverridePath),
+		[]byte(driver), os.ModeAppend); err != nil {
+		return fmt.Errorf("failed to configure driver override: %v", err)
 	}
-	klog.V(2).InfoS("try to bind device to the driver", "device", dev, "driver", driver)
-	if err := u.os.WriteFile(bindPath, []byte(dev), 0200); err != nil {
+
+	klog.V(2).InfoS("try to bind device to the driver", "device", pciAddress, "driver", driver)
+	// /sys/bus/pci/drivers/nvme/bind
+	if err := u.os.WriteFile(filepath.Join(common.SysfsPCIDriverPath, driver, driverBindPath),
+		[]byte(pciAddress), os.ModeAppend); err != nil {
 		return fmt.Errorf("failed to bind device to the driver: %v", err)
 	}
-	klog.V(2).InfoS("device bind succeed", "device", dev, "driver", driver)
+	klog.V(2).InfoS("device bind succeed", "device", pciAddress, "driver", driver)
 	return nil
 }
 
-func (u *pciUtils) getDeviceDriver(address string) (string, error) {
-	return u.readSysFSLink(address, driverPath)
+// GetPFs is an Utils interface implementation for pciUtils
+func (u *pciUtils) GetPFs(vendor string, deviceIDs []string) ([]DeviceInfo, error) {
+	var pfs []DeviceInfo
+	devFolders, err := u.os.ReadDir(sysFSDevPath())
+	if err != nil {
+		return nil, fmt.Errorf("failed to read devices from sysfs: %v", err)
+	}
+	for _, devFolder := range devFolders {
+		devInfo, err := u.getDeviceInfo(devFolder.Name())
+		if err != nil {
+			// if everything work as expected this should never happen
+			klog.ErrorS(err, "failed to read device info", "device", devFolder.Name())
+			continue
+		}
+		if devInfo.VendorID == vendor {
+			var deviceIDMatch bool
+			for _, allowedDevID := range deviceIDs {
+				if devInfo.DeviceID == allowedDevID {
+					deviceIDMatch = true
+					break
+				}
+			}
+			if !deviceIDMatch {
+				continue
+			}
+			isVF, err := u.isVF(devInfo.Address)
+			if err != nil {
+				klog.ErrorS(err, "failed to check if device is VF", "device", devFolder.Name())
+				continue
+			}
+			if !isVF {
+				pfs = append(pfs, devInfo)
+			}
+		}
+	}
+	return pfs, nil
 }
 
-func (u *pciUtils) readSysFSLink(address, path string) (string, error) {
-	_, err := u.os.Stat(sysFSDevPath(address, path))
+// DisableSriovVfsDriverAutoprobe disable driver autoprobes for the VFs on the PF
+func (u *pciUtils) DisableSriovVfsDriverAutoprobe(pciAddress string) error {
+	// disable driver autoprobe for VFs
+	// e.g /sys/bus/pci/devices/0000:b1:00.2/sriov_drivers_autoprobe
+	return u.os.WriteFile(filepath.Join(common.SysfsPCIDevsPath, pciAddress, sriovDriversAutoprobePath),
+		[]byte("0"), os.ModeAppend)
+}
+
+// SetSriovNumVfs configure require amount of VFs on the PF identified by the pciAddress
+func (u *pciUtils) SetSriovNumVfs(pciAddress string, count int) error {
+	// e.g /sys/bus/pci/devices/0000:b1:00.2/sriov_numvfs
+	return u.os.WriteFile(filepath.Join(common.SysfsPCIDevsPath, pciAddress, sriovNumVfsPath),
+		[]byte(strconv.Itoa(count)), os.ModeAppend)
+}
+
+// GetSRIOVNumVFs returns current number of SRIOV VFs for PF
+func (u *pciUtils) GetSRIOVNumVFs(pciAddress string) (int, error) {
+	return u.readSriovVFsCount(pciAddress, sriovNumVfsPath)
+}
+
+// GetSRIOVTotalVFs returns maximum number of SRIOV VFs for PF
+func (u *pciUtils) GetSRIOVTotalVFs(pciAddress string) (int, error) {
+	return u.readSriovVFsCount(pciAddress, sriovTotalVfsPath)
+}
+
+func (u *pciUtils) readSriovVFsCount(pciAddress string, subpath string) (int, error) {
+	data, err := u.os.ReadFile(filepath.Join(common.SysfsPCIDevsPath, pciAddress, subpath))
+	if err != nil {
+		return 0, fmt.Errorf("failed to read %s for device %s: %v", subpath, pciAddress, err)
+	}
+	val, err := strconv.Atoi(strings.TrimSuffix(string(data), "\n"))
+	if err != nil {
+		return 0, fmt.Errorf("failed to convert %s for device %s to int: %v", subpath, pciAddress, err)
+	}
+	return val, nil
+}
+
+// InsertKernelModule is an Utils interface implementation for pciUtils
+func (u *pciUtils) InsertKernelModule(ctx context.Context, module string) error {
+	cmd := u.exec.CommandContext(ctx, "chroot", u.hostRootFS, "modprobe", module)
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to load kernel module %s: %v", module, err)
+	}
+	return nil
+}
+
+// check if provided address is PCI virtual function,
+// device is virtual function if it has link to the physical function
+func (u *pciUtils) isVF(pciAddress string) (bool, error) {
+	_, err := u.os.Stat(sysFSDevPath(pciAddress, vfCheckPath))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to check if PCI dev is VF: %v", err)
+	}
+	return true, nil
+}
+
+func (u *pciUtils) getDeviceInfo(pciAddress string) (DeviceInfo, error) {
+	_, err := u.os.Stat(sysFSDevPath(pciAddress))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return DeviceInfo{}, ErrNotFound
+		}
+		return DeviceInfo{}, fmt.Errorf("failed to check device path in sysfs: %v", err)
+	}
+	d, err := u.os.ReadFile(sysFSDevPath(pciAddress, modaliasPath))
+	if err != nil {
+		return DeviceInfo{}, fmt.Errorf("failed to read modalias file for device")
+	}
+	data := string(d)
+	if len(data) < 23 {
+		return DeviceInfo{}, fmt.Errorf("unexpected modalias file format")
+	}
+	// modalias file example
+	// pci:v000015B3d00006001sv00000000sd00000000bc01sc08i02
+	vendorID := strings.ToLower(data[9:13])
+	productID := strings.ToLower(data[18:22])
+
+	driver, err := u.getDeviceDriver(pciAddress)
+	if err != nil {
+		return DeviceInfo{}, fmt.Errorf("failed to read driver for device: %v", err)
+	}
+	return DeviceInfo{
+		Address:  pciAddress,
+		VendorID: vendorID,
+		DeviceID: productID,
+		Driver:   driver}, nil
+}
+
+func (u *pciUtils) getDeviceDriver(pciAddress string) (string, error) {
+	return u.readSysFSLink(pciAddress, driverPath)
+}
+
+func (u *pciUtils) readSysFSLink(pciAddress, path string) (string, error) {
+	_, err := u.os.Stat(sysFSDevPath(pciAddress, path))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return "", nil
 		}
 		return "", err
 	}
-	link, err := u.os.Readlink(sysFSDevPath(address, path))
+	link, err := u.os.Readlink(sysFSDevPath(pciAddress, path))
 	if err != nil {
 		return "", err
 	}

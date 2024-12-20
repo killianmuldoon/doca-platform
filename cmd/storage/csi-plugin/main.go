@@ -18,8 +18,72 @@ package main
 
 import (
 	"fmt"
+	"os"
+
+	"github.com/nvidia/doca-platform/cmd/storage/csi-plugin/options"
+	"github.com/nvidia/doca-platform/internal/storage/csi-plugin/config"
+	"github.com/nvidia/doca-platform/internal/storage/csi-plugin/manager"
+
+	"github.com/spf13/pflag"
+	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func main() {
-	fmt.Println("host-csi")
+	opts := options.New()
+	opts.AddFlags(pflag.CommandLine)
+	pflag.CommandLine.SortFlags = false
+	pflag.Parse()
+	ctrl.SetLogger(klog.Background())
+
+	if err := opts.Validate(); err != nil {
+		fmt.Println("invalid configuration: ", err.Error())
+		pflag.Usage()
+		os.Exit(1)
+	}
+
+	if err := run(opts); err != nil {
+		klog.ErrorS(err, "critical error")
+		os.Exit(1)
+	}
+}
+
+// run in the entry point of the app
+func run(opts *options.Options) error {
+	klog.Info("start storage plugin")
+	ctx := ctrl.SetupSignalHandler()
+	net, address, err := options.ParseBindAddress(opts.BindAddress)
+	if err != nil {
+		return err
+	}
+
+	mgr, err := manager.New(config.PluginConfig{
+		Common: config.Common{
+			PluginMode: config.PluginMode(opts.PluginMode),
+			ListenOptions: config.ServerBindOptions{
+				Network: net,
+				Address: address,
+			},
+		},
+		Node: config.Node{
+			NodeID:                 opts.NodeID,
+			HostRootFS:             opts.HostRootFS,
+			SnapControllerDeviceID: opts.SnapControllerDeviceID,
+		},
+		Controller: config.Controller{
+			TargetNamespace:     opts.TargetNamespace,
+			DPUClusterAPIHost:   opts.DPUClusterAPIHost,
+			DPUClusterAPIPort:   opts.DPUClusterAPIPort,
+			DPUClusterTokenFile: opts.DPUClusterTokenFile,
+			DPUClusterCAFile:    opts.DPUClusterCAFile,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to initialize manager: %v", err)
+	}
+	err = mgr.Start(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to start manager: %v", err)
+	}
+	return nil
 }

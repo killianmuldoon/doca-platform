@@ -14,17 +14,20 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package common
+package middleware
 
-const (
-	// NVMEDriver is the name of nvme driver for linux
-	NVMEDriver = "nvme"
-	// Vendor ID for NVIDIA NICs
-	MlxVendor = "15b3"
-	// SysfsPCIPath is a PCI subsystem path in sysfs
-	SysfsPCIPath = "/sys/bus/pci"
-	// SysfsPCIDevsPath is a PCI dev path in sysfs
-	SysfsPCIDevsPath = SysfsPCIPath + "/devices"
-	// SysfsPCIDriverPath is a PCI drivers path in sysfs
-	SysfsPCIDriverPath = SysfsPCIPath + "/drivers"
+import (
+	"context"
+
+	grpcCtx "github.com/nvidia/doca-platform/internal/storage/csi-plugin/grpc/context"
+
+	"github.com/google/uuid"
+	"google.golang.org/grpc"
 )
+
+// SetReqIDMiddleware generates and set request id to context, it can be used for logging and other purpose
+func SetReqIDMiddleware(ctx context.Context, req interface{},
+	info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+	ctx = grpcCtx.SetRequestID(ctx, uuid.New().String())
+	return handler(ctx, req)
+}
