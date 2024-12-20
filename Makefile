@@ -136,9 +136,7 @@ DOCA_SOSREPORT_REPO_URL=https://github.com/NVIDIA/doca-sosreport/archive/$(DOCA_
 DOCA_SOSREPORT_REF=6b4289b9f0d9f26af177b0d1c4c009ca74bb514a
 SOS_REPORT_DIR=$(REPOSDIR)/doca-sosreport-$(DOCA_SOSREPORT_REF)
 $(SOS_REPORT_DIR): | $(REPOSDIR)
-	curl -sL ${DOCA_SOSREPORT_REPO_URL} \
-	| tar -xz -C ${REPOSDIR} && \
-	cp -Rp ./hack/tools/dpf-tools/* $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF}/
+	curl -sL ${DOCA_SOSREPORT_REPO_URL} | tar -xz -C ${REPOSDIR}
 
 ##@ GRPC
 
@@ -807,6 +805,8 @@ DPF_TOOLS_BUILD_ARGS ?=
 docker-build-dpf-tools: $(addprefix docker-build-dpf-tools-for-,$(DPF_SYSTEM_ARCH))
 
 docker-build-dpf-tools-for-%: $(SOS_REPORT_DIR)
+	# Copy DPF specific files to the SOS report repo in the hack directory
+	cp -Rp ./hack/tools/dpf-tools/* $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF}/
 	cd $(REPOSDIR)/doca-sosreport-${DOCA_SOSREPORT_REF} && \
 	docker buildx build \
 	--load \
