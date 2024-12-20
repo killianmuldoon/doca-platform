@@ -1626,7 +1626,7 @@ spec:
 
 #### Verification
 
-These verification commands, which are common to both the 5.1 DPUService and 5.2 DPUDeployment installations, may need to be run multiple times to ensure the condition is met.
+These verification commands, which are common to both the [5.1 DPUService](#51-with-user-defined-dpuset-and-dpuservice) and [5.2 DPUDeployment](#52-with-dpudeployment) installations, may need to be run multiple times to ensure the condition is met.
 
 Verify the DPU and Service installation with:
 ```shell

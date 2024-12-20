@@ -24,8 +24,11 @@ In this configuration [NVIDIA Host Based Networking (HBN)](https://docs.nvidia.c
     - [Install Multus and SRIOV Network Operator using NVIDIA Network Operator](#install-multus-and-sriov-network-operator-using-nvidia-network-operator)
     - [Apply the NICClusterConfiguration and SriovNetworkNodePolicy](#apply-the-nicclusterconfiguration-and-sriovnetworknodepolicy)
     - [Verification](#verification-2)
-  - [4. DPUService installation](#4-dpuservice-installation)
-    - [Create the DPF provisioning and DPUService objects](#create-the-dpf-provisioning-and-dpuservice-objects)
+  - [4. DPU Provisioning and Service Installation](#4-dpu-provisioning-and-service-installation)
+    - [4.1. With User-Defined DPUSet and DPUService](#41-with-user-defined-dpuset-and-dpuservice)
+      - [Create the DPF provisioning and DPUService objects](#create-the-dpf-provisioning-and-dpuservice-objects)
+    - [4.2. With DPUDeployment](#42-with-dpudeployment)
+      - [Create the DPUDeployment, DPUServiceConfig, DPUServiceTemplate and other necessary objects](#create-the-dpudeployment-dpuserviceconfig-dpuservicetemplate-and-other-necessary-objects)
     - [Verification](#verification-3)
   - [5. Deletion and clean up](#5-deletion-and-clean-up)
     - [Delete DPF CNI acceleration components](#delete-dpf-cni-acceleration-components)
@@ -513,20 +516,26 @@ kubectl wait --for=condition=Ready --namespace nvidia-network-operator pods --al
 kubectl rollout status daemonset --namespace nvidia-network-operator kube-multus-ds sriov-network-config-daemon sriov-device-plugin 
 ```
 
-### 4. DPUService installation
+### 4. DPU Provisioning and Service Installation
 
-#### Create the DPF provisioning and DPUService objects
+In this step we deploy our DPUs and the services that will run on them. There are two ways to do this and that will be
+explained in the following sections [4.1](#41-with-user-defined-dpuset-and-dpuservice) and [4.2](#42-with-dpudeployment).
+
+#### 4.1. With User-Defined DPUSet and DPUService
+
+In this mode the user is expected to create their own DPUSet and DPUService objects.
+
+##### Create the DPF provisioning and DPUService objects
 
 A number of [environment variables](#0-required-variables) must be set before running this command.
 ```shell
-cat manifests/04-dpuservice-installation/*.yaml | envsubst | kubectl apply -f - 
+cat manifests/04.1-dpuservice-installation/*.yaml | envsubst | kubectl apply -f - 
 ```
-
 
 This will deploy the following objects:
 <details><summary>BFB to download Bluefield Bitstream to a shared volume</summary>
 
-[embedmd]:#(manifests/04-dpuservice-installation/bfb.yaml)
+[embedmd]:#(manifests/04.1-dpuservice-installation/bfb.yaml)
 ```yaml
 ---
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
@@ -541,7 +550,7 @@ spec:
 
 <details><summary>HBN DPUFlavor to correctly configure the DPUs on provisioning</summary>
 
-[embedmd]:#(manifests/04-dpuservice-installation/hbn-dpuflavor.yaml)
+[embedmd]:#(manifests/04.1-dpuservice-installation/hbn-dpuflavor.yaml)
 ```yaml
 ---
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
@@ -630,7 +639,7 @@ spec:
 
 <details><summary>DPUSet to provision DPUs on worker nodes</summary>
 
-[embedmd]:#(manifests/04-dpuservice-installation/dpuset.yaml)
+[embedmd]:#(manifests/04.1-dpuservice-installation/dpuset.yaml)
 ```yaml
 ---
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
@@ -662,7 +671,7 @@ spec:
 
 <details><summary>HBN DPUService to deploy HBN workloads to the DPUs</summary>
 
-[embedmd]:#(manifests/04-dpuservice-installation/hbn-dpuservice.yaml)
+[embedmd]:#(manifests/04.1-dpuservice-installation/hbn-dpuservice.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -870,7 +879,7 @@ spec:
 
 <details><summary>DPUServiceInterfaces for physical ports on the DPU</summary>
 
-[embedmd]:#(manifests/04-dpuservice-installation/physical-ifaces.yaml)
+[embedmd]:#(manifests/04.1-dpuservice-installation/physical-ifaces.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -945,7 +954,7 @@ spec:
 
 <details><summary>HBN DPUServiceInterfaces to define the ports attached to HBN workloads on the DPU</summary>
 
-[embedmd]:#(manifests/04-dpuservice-installation/hbn-ifaces.yaml)
+[embedmd]:#(manifests/04.1-dpuservice-installation/hbn-ifaces.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -1036,7 +1045,7 @@ spec:
 
 <details><summary>DPUServiceFunctionChain to define the HBN ServiceFunctionChain</summary>
 
-[embedmd]:#(manifests/04-dpuservice-installation/hbn-chain.yaml)
+[embedmd]:#(manifests/04.1-dpuservice-installation/hbn-chain.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -1102,7 +1111,7 @@ spec:
 
 <details><summary>DPUServiceIPAM to set up IP Address Management on the DPUCluster</summary>
 
-[embedmd]:#(manifests/04-dpuservice-installation/hbn-ipam.yaml)
+[embedmd]:#(manifests/04.1-dpuservice-installation/hbn-ipam.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -1131,7 +1140,528 @@ spec:
 
 <details><summary>DPUServiceIPAM for the loopback interface in HBN</summary>
 
-[embedmd]:#(manifests/04-dpuservice-installation/hbn-loopback-ipam.yaml)
+[embedmd]:#(manifests/04.1-dpuservice-installation/hbn-loopback-ipam.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceIPAM
+metadata:
+  name: loopback
+  namespace: dpf-operator-system
+spec:
+  ipv4Network:
+    network: "11.0.0.0/24"
+    prefixSize: 32
+```
+</details>
+
+#### 4.2. With DPUDeployment
+
+In this mode the user is expected to create a DPUDeployment object that reflects a set of DPUServices that should run on a set of DPUs.
+
+> If you want to learn more about `DPUDeployments`, feel free to check the [DPUDeployment documentation](../../dpudeployment.md).
+
+##### Create the DPUDeployment, DPUServiceConfig, DPUServiceTemplate and other necessary objects
+
+A number of [environment variables](#0-required-variables) must be set before running this command.
+```shell
+cat manifests/04.2-dpudeployment-installation/*.yaml | envsubst | kubectl apply -f - 
+```
+
+This will deploy the following objects:
+<details><summary>BFB to download Bluefield Bitstream to a shared volume</summary>
+
+[embedmd]:#(manifests/04.2-dpudeployment-installation/bfb.yaml)
+```yaml
+---
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
+kind: BFB
+metadata:
+  name: bf-bundle
+  namespace: dpf-operator-system
+spec:
+  url: $BLUEFIELD_BITSTREAM
+```
+</details>
+
+<details><summary>HBN DPUFlavor to correctly configure the DPUs on provisioning</summary>
+
+[embedmd]:#(manifests/04.2-dpudeployment-installation/hbn-dpuflavor.yaml)
+```yaml
+---
+apiVersion: provisioning.dpu.nvidia.com/v1alpha1
+kind: DPUFlavor
+metadata:
+  name: dpf-provisioning-hbn
+  namespace: dpf-operator-system
+spec:
+  bfcfgParameters:
+  - UPDATE_ATF_UEFI=yes
+  - UPDATE_DPU_OS=yes
+  - WITH_NIC_FW_UPDATE=yes
+  configFiles:
+  - operation: override
+    path: /etc/mellanox/mlnx-bf.conf
+    permissions: "0644"
+    raw: |
+      ALLOW_SHARED_RQ="no"
+      IPSEC_FULL_OFFLOAD="no"
+      ENABLE_ESWITCH_MULTIPORT="yes"
+  - operation: override
+    path: /etc/mellanox/mlnx-ovs.conf
+    permissions: "0644"
+    raw: |
+      CREATE_OVS_BRIDGES="no"
+  - operation: override
+    path: /etc/mellanox/mlnx-sf.conf
+    permissions: "0644"
+    raw: ""
+  grub:
+    kernelParameters:
+    - console=hvc0
+    - console=ttyAMA0
+    - earlycon=pl011,0x13010000
+    - fixrttc
+    - net.ifnames=0
+    - biosdevname=0
+    - iommu.passthrough=1
+    - cgroup_no_v1=net_prio,net_cls
+    - hugepagesz=2048kB
+    - hugepages=3072
+  nvconfig:
+  - device: '*'
+    parameters:
+    - PF_BAR2_ENABLE=0
+    - PER_PF_NUM_SF=1
+    - PF_TOTAL_SF=20
+    - PF_SF_BAR_SIZE=10
+    - NUM_PF_MSIX_VALID=0
+    - PF_NUM_PF_MSIX_VALID=1
+    - PF_NUM_PF_MSIX=228
+    - INTERNAL_CPU_MODEL=1
+    - INTERNAL_CPU_OFFLOAD_ENGINE=0
+    - SRIOV_EN=1
+    - NUM_OF_VFS=46
+    - LAG_RESOURCE_ALLOCATION=1
+  ovs:
+    rawConfigScript: |
+      _ovs-vsctl() {
+        ovs-vsctl --no-wait --timeout 15 "$@"
+      }
+
+      _ovs-vsctl set Open_vSwitch . other_config:doca-init=true
+      _ovs-vsctl set Open_vSwitch . other_config:dpdk-max-memzones=50000
+      _ovs-vsctl set Open_vSwitch . other_config:hw-offload=true
+      _ovs-vsctl set Open_vSwitch . other_config:pmd-quiet-idle=true
+      _ovs-vsctl set Open_vSwitch . other_config:max-idle=20000
+      _ovs-vsctl set Open_vSwitch . other_config:max-revalidator=5000
+      _ovs-vsctl --if-exists del-br ovsbr1
+      _ovs-vsctl --if-exists del-br ovsbr2
+      _ovs-vsctl --may-exist add-br br-sfc
+      _ovs-vsctl set bridge br-sfc datapath_type=netdev
+      _ovs-vsctl set bridge br-sfc fail_mode=secure
+      _ovs-vsctl --may-exist add-port br-sfc p0
+      _ovs-vsctl set Interface p0 type=dpdk
+      _ovs-vsctl set Port p0 external_ids:dpf-type=physical
+      ###### Temp workaround, should be fixed in hbn image (ovs-watcher) - Cannot work via flavor.
+      #_ovs-vsctl --may-exist add-br br-hbn
+      #_ovs-vsctl set bridge br-hbn datapath_type=netdev
+      #_ovs-vsctl --may-exist add-port br-hbn vxlan0brhbn || true
+      #_ovs-vsctl set int vxlan0brhbn type=vxlan options:remote_ip=flow ofport_request=1
+      #_ovs-vsctl set int vxlan0brhbn options:explicit=true
+      #_ovs-vsctl set int vxlan0brhbn options:tos=inherit
+```
+</details>
+
+<details><summary>DPUDeployment to provision DPUs on worker nodes</summary>
+
+[embedmd]:#(manifests/04.2-dpudeployment-installation/dpudeployment.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUDeployment
+metadata:
+  name: hbn-only
+  namespace: dpf-operator-system
+spec:
+  dpus:
+    bfb: bf-bundle
+    flavor: dpf-provisioning-hbn
+    dpuSets:
+    - nameSuffix: "dpuset1"
+      nodeSelector:
+        matchLabels:
+          feature.node.kubernetes.io/dpu-enabled: "true"
+  services:
+    doca-hbn:
+      serviceTemplate: doca-hbn
+      serviceConfiguration: doca-hbn
+  serviceChains:
+  - ports:
+    - serviceInterface:
+        matchLabels:
+          uplink: p0
+    - service:
+        name: doca-hbn
+        interface: p0_if
+  - ports:
+    - serviceInterface:
+        matchLabels:
+          uplink: p1
+    - service:
+        name: doca-hbn
+        interface: p1_if
+  - ports:
+    - serviceInterface:
+        matchLabels:
+          port: host_pf0_rep
+    - service:
+        name: doca-hbn
+        interface: host_pf0_sf
+  - ports:
+    - serviceInterface:
+        matchLabels:
+          port: host_pf1_rep
+    - service:
+        name: doca-hbn
+        interface: host_pf1_sf
+```
+</details>
+
+<details><summary>DPUServiceConfig and DPUServiceTemplate to deploy HBN workloads to the DPUs</summary>
+
+[embedmd]:#(manifests/04.2-dpudeployment-installation/hbn-dpuserviceconfig.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceConfiguration
+metadata:
+  name: doca-hbn
+  namespace: dpf-operator-system
+spec:
+  deploymentServiceName: "doca-hbn"
+  serviceConfiguration:
+    serviceDaemonSet:
+      annotations:
+        k8s.v1.cni.cncf.io/networks: |-
+          [
+          {"name": "iprequest", "interface": "ip_lo", "cni-args": {"poolNames": ["loopback"], "poolType": "cidrpool"}},
+          {"name": "iprequest", "interface": "ip_pf0hpf", "cni-args": {"poolNames": ["pool1"], "poolType": "cidrpool", "allocateDefaultGateway": true}},
+          {"name": "iprequest", "interface": "ip_pf1hpf", "cni-args": {"poolNames": ["pool2"], "poolType": "cidrpool", "allocateDefaultGateway": true}}
+          ]
+    helmChart:
+      values:
+        configuration:
+          perDPUValuesYAML: |
+            - hostnamePattern: "*"
+              values:
+                bgp_peer_group: hbn
+                vrf1: RED
+                vrf2: BLUE
+                l2vni1: 10010
+                l2vni2: 10020
+                l3vni1: 100001
+                l3vni2: 100002
+            - hostnamePattern: "worker1*"
+              values:
+                vlan1: 11
+                vlan2: 21
+                bgp_autonomous_system: 65101
+            - hostnamePattern: "worker2*"
+              values:
+                vlan1: 12
+                vlan2: 22
+                bgp_autonomous_system: 65201
+          startupYAMLJ2: |
+            - header:
+                model: bluefield
+                nvue-api-version: nvue_v1
+                rev-id: 1.0
+                version: HBN 2.4.0
+            - set:
+                bridge:
+                  domain:
+                    br_default:
+                      vlan:
+                        {{ config.vlan1 }}:
+                          vni:
+                            {{ config.l2vni1 }}: {}
+                        {{ config.vlan2 }}:
+                          vni:
+                            {{ config.l2vni2 }}: {}
+                evpn:
+                  enable: on
+                  route-advertise: {}
+                interface:
+                  lo:
+                    ip:
+                      address:
+                        {{ ipaddresses.ip_lo.ip }}/32: {}
+                    type: loopback
+                  p0_if,p1_if,pf0hpf_if,pf1hpf_if:
+                    type: swp
+                    link:
+                      mtu: 9000
+                  pf0hpf_if:
+                    bridge:
+                      domain:
+                        br_default:
+                          access: {{ config.vlan1 }}
+                  pf1hpf_if:
+                    bridge:
+                      domain:
+                        br_default:
+                          access: {{ config.vlan2 }}
+                  vlan{{ config.vlan1 }}:
+                    ip:
+                      address:
+                        {{ ipaddresses.ip_pf0hpf.cidr }}: {}
+                      vrf: {{ config.vrf1 }}
+                    vlan: {{ config.vlan1 }}
+                  vlan{{ config.vlan1 }},{{ config.vlan2 }}:
+                    type: svi
+                  vlan{{ config.vlan2 }}:
+                    ip:
+                      address:
+                        {{ ipaddresses.ip_pf1hpf.cidr }}: {}
+                      vrf: {{ config.vrf2 }}
+                    vlan: {{ config.vlan2 }}
+                nve:
+                  vxlan:
+                    arp-nd-suppress: on
+                    enable: on
+                    source:
+                      address: {{ ipaddresses.ip_lo.ip }}
+                router:
+                  bgp:
+                    enable: on
+                    graceful-restart:
+                      mode: full
+                vrf:
+                  default:
+                    router:
+                      bgp:
+                        address-family:
+                          ipv4-unicast:
+                            enable: on
+                            redistribute:
+                              connected:
+                                enable: on
+                          l2vpn-evpn:
+                            enable: on
+                        autonomous-system: {{ config.bgp_autonomous_system }}
+                        enable: on
+                        neighbor:
+                          p0_if:
+                            peer-group: {{ config.bgp_peer_group }}
+                            type: unnumbered
+                          p1_if:
+                            peer-group: {{ config.bgp_peer_group }}
+                            type: unnumbered
+                        path-selection:
+                          multipath:
+                            aspath-ignore: on
+                        peer-group:
+                          {{ config.bgp_peer_group }}:
+                            address-family:
+                              ipv4-unicast:
+                                enable: on
+                              l2vpn-evpn:
+                                enable: on
+                            remote-as: external
+                        router-id: {{ ipaddresses.ip_lo.ip }}
+                  {{ config.vrf1 }}:
+                    evpn:
+                      enable: on
+                      vni:
+                        {{ config.l3vni1 }}: {}
+                    loopback:
+                      ip:
+                        address:
+                          {{ ipaddresses.ip_lo.ip }}/32: {}
+                    router:
+                      bgp:
+                        address-family:
+                          ipv4-unicast:
+                            enable: on
+                            redistribute:
+                              connected:
+                                enable: on
+                            route-export:
+                              to-evpn:
+                                enable: on
+                        autonomous-system: {{ config.bgp_autonomous_system }}
+                        enable: on
+                        router-id: {{ ipaddresses.ip_lo.ip }}
+                  {{ config.vrf2 }}:
+                    evpn:
+                      enable: on
+                      vni:
+                        {{ config.l3vni2 }}: {}
+                    loopback:
+                      ip:
+                        address:
+                          {{ ipaddresses.ip_lo.ip }}/32: {}
+                    router:
+                      bgp:
+                        address-family:
+                          ipv4-unicast:
+                            enable: on
+                            redistribute:
+                              connected:
+                                enable: on
+                            route-export:
+                              to-evpn:
+                                enable: on
+                        autonomous-system: {{ config.bgp_autonomous_system }}
+                        enable: on
+                        router-id: {{ ipaddresses.ip_lo.ip }}
+
+  interfaces:
+  - name: p0_if
+    network: mybrhbn
+  - name: p1_if
+    network: mybrhbn
+  - name: host_pf0_sf
+    network: mybrhbn
+  - name: host_pf1_sf
+    network: mybrhbn
+```
+
+[embedmd]:#(manifests/04.2-dpudeployment-installation/hbn-dpuservicetemplate.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceTemplate
+metadata:
+  name: doca-hbn
+  namespace: dpf-operator-system
+spec:
+  deploymentServiceName: "doca-hbn"
+  helmChart:
+    source:
+      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      version: 1.0.1
+      chart: doca-hbn
+    values:
+      imagePullSecrets:
+        - name: dpf-pull-secret
+      image:
+        repository: nvcr.io/nvidia/doca/doca_hbn
+        tag: 2.4.1-doca2.9.1
+      resources:
+        memory: 6Gi
+        nvidia.com/bf_sf: 4
+```
+</details>
+
+<details><summary>DPUServiceInterfaces for physical ports on the DPU</summary>
+
+[embedmd]:#(manifests/04.2-dpudeployment-installation/physical-ifaces.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceInterface
+metadata:
+  name: p0
+  namespace: dpf-operator-system
+spec:
+  template:
+    spec:
+      template:
+        metadata:
+          labels:
+            uplink: "p0"
+        spec:
+          interfaceType: physical
+          physical:
+            interfaceName: p0
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceInterface
+metadata:
+  name: p1
+  namespace: dpf-operator-system
+spec:
+  template:
+    spec:
+      template:
+        metadata:
+          labels:
+            uplink: "p1"
+        spec:
+          interfaceType: physical
+          physical:
+            interfaceName: p1
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceInterface
+metadata:
+  name: host-pf0-rep
+  namespace: dpf-operator-system
+spec:
+  template:
+    spec:
+      template:
+        metadata:
+          labels:
+            hostpf: "host_pf0_rep"
+        spec:
+          interfaceType: pf
+          pf:
+            pfID: 0
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceInterface
+metadata:
+  name: host-pf1-rep
+  namespace: dpf-operator-system
+spec:
+  template:
+    spec:
+      template:
+        metadata:
+          labels:
+            hostpf: "host_pf1_rep"
+        spec:
+          interfaceType: pf
+          pf:
+            pfID: 1
+```
+</details>
+
+<details><summary>DPUServiceIPAM to set up IP Address Management on the DPUCluster</summary>
+
+[embedmd]:#(manifests/04.2-dpudeployment-installation/hbn-ipam.yaml)
+```yaml
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceIPAM
+metadata:
+  name: pool1
+  namespace: dpf-operator-system
+spec:
+  ipv4Network:
+    network: "10.0.121.0/24"
+    gatewayIndex: 2
+    prefixSize: 29
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceIPAM
+metadata:
+  name: pool2
+  namespace: dpf-operator-system
+spec:
+  ipv4Network:
+    network: "10.0.122.0/24"
+    gatewayIndex: 2
+    prefixSize: 29
+```
+</details>
+
+<details><summary>DPUServiceIPAM for the loopback interface in HBN</summary>
+
+[embedmd]:#(manifests/04.2-dpudeployment-installation/hbn-loopback-ipam.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -1148,9 +1678,10 @@ spec:
 
 #### Verification
 
-These verification commands may need to be run multiple times to ensure the condition is met.
+These verification commands, which are common to both the [4.1 DPUService](#41-with-user-defined-dpuset-and-dpuservice) and [4.2 DPUDeployment](#42-with-dpudeployment) installations, may need to be run multiple times to ensure the condition is met.
 
-Verify the DPUService installation with:
+Verify the DPU and Service installation with:
+
 ```shell
 ## Ensure the DPUServices are created and have been reconciled.
 kubectl wait --for=condition=ApplicationsReconciled --namespace dpf-operator-system  dpuservices doca-hbn
