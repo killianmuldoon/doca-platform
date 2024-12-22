@@ -812,8 +812,13 @@ spec:
         perDPUValuesYAML: |
           - hostnamePattern: "*"
             values:
-              bgp_autonomous_system: 65111
               bgp_peer_group: hbn
+          - hostnamePattern: "worker1*"
+            values:
+              bgp_autonomous_system: 65101
+          - hostnamePattern: "worker2*"
+            values:
+              bgp_autonomous_system: 65201
         startupYAMLJ2: |
           - header:
               model: BLUEFIELD
@@ -1336,8 +1341,13 @@ spec:
           perDPUValuesYAML: |
             - hostnamePattern: "*"
               values:
-                bgp_autonomous_system: 65111
                 bgp_peer_group: hbn
+            - hostnamePattern: "worker1*"
+              values:
+                bgp_autonomous_system: 65101"
+            - hostnamePattern: "worker2*"
+              values:
+                bgp_autonomous_system: 65201"
           startupYAMLJ2: |
             - header:
                 model: BLUEFIELD
