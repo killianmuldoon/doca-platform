@@ -4,7 +4,7 @@ In this configuration OVN Kubernetes is offloaded to the DPU and combined with [
 
 <!-- toc -->
 - [Prerequisites](#prerequisites)
-  - [DPU prerquisites](#dpu-prerquisites)
+  - [DPU prerequisites](#dpu-prerequisites)
   - [Software prerequisites](#software-prerequisites)
   - [Network prerequisites](#network-prerequisites)
     - [Control plane Nodes](#control-plane-nodes)
@@ -56,7 +56,7 @@ In this configuration OVN Kubernetes is offloaded to the DPU and combined with [
 ## Prerequisites
 The system is set up as described in the [system prerequisites](../prerequisites.md).  The OVN Kubernetes with HBN use case has the additional requirements:
 
-### DPU prerquisites
+### DPU prerequisites
 - Bluefield 3 with 32GB of RAM
 
 ### Software prerequisites
@@ -69,6 +69,7 @@ This guide uses the following tools which must be installed where it is running.
 
 #### Control plane Nodes
 - out-of-band management port should be configured as OVS bridge port with "bridge-uplink" OVS metadata [This addresses a known issue](https://github.com/NVIDIA/doca-platform/issues/10).
+- DNS stub resolver should be disabled if using systemd resolvd
 
 #### Worker Nodes
 - [Host networking must be set up as expected](../host-network-configuration-prerequisite.md)
