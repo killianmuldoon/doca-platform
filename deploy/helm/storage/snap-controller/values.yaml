@@ -27,7 +27,16 @@ controller:
       key: node-role.kubernetes.io/master
       operator: Exists
   # affinity to add to the Pod spec
-  affinity: {}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: "node-role.kubernetes.io/master"
+            operator: Exists
+        - matchExpressions:
+          - key: "node-role.kubernetes.io/control-plane"
+            operator: Exists
 
 # default imagePullSecrets
 imagePullSecrets: []

@@ -8,7 +8,10 @@ A Helm chart for SNAP controller
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
-| controller.affinity | object | `{}` |  |
+| controller.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key | string | `"node-role.kubernetes.io/master"` |  |
+| controller.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator | string | `"Exists"` |  |
+| controller.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].key | string | `"node-role.kubernetes.io/control-plane"` |  |
+| controller.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].operator | string | `"Exists"` |  |
 | controller.config.dpuClusterSecret | string | `""` |  |
 | controller.image.repository | string | `"example.com/snap-controller"` |  |
 | controller.image.tag | string | `""` |  |
