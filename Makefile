@@ -84,6 +84,7 @@ DPUSERVICESDIR ?= $(CURDIR)/deploy/dpuservices
 REPOSDIR ?= $(CURDIR)/hack/repos
 HELMDIR ?= $(CURDIR)/deploy/helm
 THIRDPARTYDIR ?= $(CURDIR)/third_party/forked
+EXAMPLE ?= $(CURDIR)/example
 
 $(LOCALBIN) $(CHARTSDIR) $(DPUSERVICESDIR) $(REPOSDIR):
 	@mkdir -p $@
@@ -582,6 +583,10 @@ lint-helm-csi-plugin: helm ## Run helm lint for csi-plugin chart
 .PHONY: lint-helm-snap-controller
 lint-helm-snap-controller: helm ## Run helm lint for snap controller chart
 	$Q $(HELM) lint $(SNAP_CONTROLLER_CHART)
+
+.PHONY: lint-helm-spdk-csi-controller
+lint-helm-spdk-csi-controller: helm ## Run helm lint for spdk csi controller chart
+	$Q $(HELM) lint $(SPDK_CSI_CONTROLLER_CHART)
 
 ##@ Release
 
@@ -1179,6 +1184,11 @@ SNAP_CONTROLLER_CHART_NAME = snap-controller-chart
 SNAP_CONTROLLER_CHART ?= $(HELMDIR)/storage/snap-controller
 SNAP_CONTROLLER_CHART_VER ?= $(TAG)
 
+# metadata for spdk csi controller.
+SPDK_CSI_CONTROLLER_CHART_NAME = spdk-csi-controller-chart
+SPDK_CSI_CONTROLLER_CHART ?= $(EXAMPLE)/spdk-csi/helm
+SPDK_CSI_CONTROLLER_CHART_VER ?= $(TAG)
+
 .PHONY: helm-package-all
 helm-package-all: $(addprefix helm-package-,$(HELM_TARGETS))  ## Package the helm charts for all components.
 
@@ -1221,6 +1231,10 @@ helm-package-csi-plugin: $(CHARTSDIR) helm
 helm-package-snap-controller: $(CHARTSDIR) helm
 	$(HELM) package $(SNAP_CONTROLLER_CHART) --version $(SNAP_CONTROLLER_CHART_VER) --destination $(CHARTSDIR)
 
+.PHONY: helm-package-spdk-csi-controller
+helm-package-spdk-csi-controller: $(CHARTSDIR) helm
+	$(HELM) package $(SPDK_CSI_CONTROLLER_CHART) --version $(SPDK_CSI_CONTROLLER_CHART_VER) --destination $(CHARTSDIR)
+
 .PHONY: helm-push-all
 helm-push-all: $(addprefix helm-push-,$(HELM_TARGETS))  ## Push the helm charts for all components.
 
@@ -1253,3 +1267,7 @@ helm-push-csi-plugin: $(CHARTSDIR) helm ## Push helm chart for csi-plugin
 .PHONY: helm-push-snap-controller
 helm-push-snap-controller: $(CHARTSDIR) helm ## Push helm chart for snap controller
 	$(HELM) push $(CHARTSDIR)/$(SNAP_CONTROLLER_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
+
+.PHONY: helm-push-spdk-csi-controller
+helm-push-spdk-csi-controller: $(CHARTSDIR) helm ## Push helm chart for spdk csi controller
+	$(HELM) push $(CHARTSDIR)/$(SPDK_CSI_CONTROLLER_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)

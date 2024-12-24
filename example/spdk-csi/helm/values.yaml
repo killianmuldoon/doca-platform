@@ -1,0 +1,60 @@
+image:
+  spdkcsi:
+    repository: example.com/spdkcsi
+    tag: v0.1.0
+    pullPolicy: IfNotPresent
+  csiProvisioner:
+    repository: registry.k8s.io/sig-storage/csi-provisioner
+    tag: v3.5.0
+    pullPolicy: IfNotPresent
+  nodeDriverRegistrar:
+    repository: registry.k8s.io/sig-storage/csi-node-driver-registrar
+    tag: v2.8.0
+    pullPolicy: IfNotPresent
+  csiSnapshotter:
+    repository: registry.k8s.io/sig-storage/csi-snapshotter
+    tag: v6.2.2
+    pullPolicy: IfNotPresent
+  externalSnapshotter:
+    repository: registry.k8s.io/sig-storage/snapshot-controller
+    tag: v6.2.2
+    pullPolicy: IfNotPresent
+
+# required, name of the secret that stores credentials and connection details for DPU cluster
+dpuClusterSecret: ""
+
+controller:
+  replicas: 1
+
+externallyManagedConfigmap:
+  # Specifies whether a externallyManagedConfigmap should be created
+  create: true
+
+# Configuration for the CSI to connect to the cluster
+csiConfig:
+  nodes:
+  - name: localhost
+    rpcURL: 'http://127.0.0.1:9009'
+    targetType: nvme-tcp
+    targetAddr: 127.0.0.1
+
+# tolerations to add to the Pod spec
+tolerations:
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/control-plane
+    operator: Exists
+  - effect: NoSchedule
+    key: node-role.kubernetes.io/master
+    operator: Exists
+
+# affinity to add to the Pod spec
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: "node-role.kubernetes.io/master"
+          operator: Exists
+      - matchExpressions:
+        - key: "node-role.kubernetes.io/control-plane"
+          operator: Exists

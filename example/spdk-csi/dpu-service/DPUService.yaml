@@ -1,0 +1,29 @@
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUService
+metadata:
+  name: spdk-csi-controller
+  namespace: dpu-cplane-tenant1
+spec:
+  serviceID: spdk-csi-controller
+  deployInCluster: true
+  helmChart:
+    source:
+      repoURL: oci://gitlab-master.nvidia.com:5005/pengwang/workspace
+      version: v0.1.0
+      chart: spdk-csi-controller-chart
+    values:
+      # required parameter, name of the secret that contains connection
+      # details to access the DPU cluster.
+      # this secret should be created by the DPUServiceCredentialRequest API.
+      dpuClusterSecret: spdk-csi-controller-dpu-cluster-credentials
+      image:
+        spdkcsi:
+          repository: gitlab-master.nvidia.com:5005/pengwang/workspace/spdkcsi
+          tag: v0.1.0
+      csiConfig:
+        nodes:
+        - name: nodeName
+          rpcURL: 'http://127.0.0.1:9009'
+          targetType: nvme-tcp
+          targetAddr: 127.0.0.2
+
