@@ -6,6 +6,7 @@ In this configuration [NVIDIA Host Based Networking (HBN)](https://docs.nvidia.c
 - [Prerequisites](#prerequisites)
   - [Software prerequisites](#software-prerequisites)
   - [Network prerequisites](#network-prerequisites)
+    - [Worker Nodes](#worker-nodes)
   - [Kubernetes prerequisites](#kubernetes-prerequisites)
     - [Virtual functions](#virtual-functions)
 - [Installation guide](#installation-guide)
@@ -30,7 +31,10 @@ In this configuration [NVIDIA Host Based Networking (HBN)](https://docs.nvidia.c
     - [4.2. With DPUDeployment](#42-with-dpudeployment)
       - [Create the DPUDeployment, DPUServiceConfig, DPUServiceTemplate and other necessary objects](#create-the-dpudeployment-dpuserviceconfig-dpuservicetemplate-and-other-necessary-objects)
     - [Verification](#verification-3)
-  - [5. Deletion and clean up](#5-deletion-and-clean-up)
+  - [5. Test traffic](#5-test-traffic)
+    - [Add worker nodes to the cluster](#add-worker-nodes-to-the-cluster)
+    - [Deploy test pods](#deploy-test-pods)
+  - [6. Deletion and clean up](#6-deletion-and-clean-up)
     - [Delete DPF CNI acceleration components](#delete-dpf-cni-acceleration-components)
     - [Delete the DPF Operator system and DPF Operator](#delete-the-dpf-operator-system-and-dpf-operator)
     - [Delete DPF Operator dependencies](#delete-dpf-operator-dependencies)
@@ -46,13 +50,15 @@ This guide uses the following tools which must be installed where it is running.
 - envsubst
 
 ### Network prerequisites
-TODO: Clarify networking requirements.
+
+#### Worker Nodes
 - [Host networking must be set up as expected](../host-network-configuration-prerequisite.md)
 
 ### Kubernetes prerequisites
 - control plane setup is complete before starting this guide
 - CNI installed before starting this guide
 - worker nodes are not added until indicated by this guide
+- High-speed ports are used for secondary workload network and not for primary CNI
 
 #### Virtual functions
 A number of virtual functions (VFs) will be created on hosts when provisioning DPUs. Certain of these VFs are marked for specific usage:
@@ -627,13 +633,6 @@ spec:
       _ovs-vsctl --may-exist add-port br-sfc p0
       _ovs-vsctl set Interface p0 type=dpdk
       _ovs-vsctl set Port p0 external_ids:dpf-type=physical
-      ###### Temp workaround, should be fixed in hbn image (ovs-watcher) - Cannot work via flavor.
-      #_ovs-vsctl --may-exist add-br br-hbn
-      #_ovs-vsctl set bridge br-hbn datapath_type=netdev
-      #_ovs-vsctl --may-exist add-port br-hbn vxlan0brhbn || true
-      #_ovs-vsctl set int vxlan0brhbn type=vxlan options:remote_ip=flow ofport_request=1
-      #_ovs-vsctl set int vxlan0brhbn options:explicit=true
-      #_ovs-vsctl set int vxlan0brhbn options:tos=inherit
 ```
 </details>
 
@@ -684,16 +683,16 @@ spec:
   interfaces:
   - p0-sf
   - p1-sf
-  - host-pf0-sf
-  - host-pf1-sf
+  - pf0vf10-sf
+  - pf1vf10-sf
   serviceDaemonSet:
     labels:
     annotations:
       k8s.v1.cni.cncf.io/networks: |-
         [
         {"name": "iprequest", "interface": "ip_lo", "cni-args": {"poolNames": ["loopback"], "poolType": "cidrpool"}},
-        {"name": "iprequest", "interface": "ip_pf0hpf", "cni-args": {"poolNames": ["pool1"], "poolType": "cidrpool", "allocateDefaultGateway": true}},
-        {"name": "iprequest", "interface": "ip_pf1hpf", "cni-args": {"poolNames": ["pool2"], "poolType": "cidrpool", "allocateDefaultGateway": true}}
+        {"name": "iprequest", "interface": "ip_pf0vf10", "cni-args": {"poolNames": ["pool1"], "poolType": "cidrpool", "allocateDefaultGateway": true}},
+        {"name": "iprequest", "interface": "ip_pf1vf10", "cni-args": {"poolNames": ["pool2"], "poolType": "cidrpool", "allocateDefaultGateway": true}}
         ]
   helmChart:
     source:
@@ -756,16 +755,16 @@ spec:
                     address:
                       {{ ipaddresses.ip_lo.ip }}/32: {}
                   type: loopback
-                p0_if,p1_if,pf0hpf_if,pf1hpf_if:
+                p0_if,p1_if,pf0vf10_if,pf1vf10_if:
                   type: swp
                   link:
                     mtu: 9000
-                pf0hpf_if:
+                pf0vf10_if:
                   bridge:
                     domain:
                       br_default:
                         access: {{ config.vlan1 }}
-                pf1hpf_if:
+                pf1vf10_if:
                   bridge:
                     domain:
                       br_default:
@@ -773,7 +772,7 @@ spec:
                 vlan{{ config.vlan1 }}:
                   ip:
                     address:
-                      {{ ipaddresses.ip_pf0hpf.cidr }}: {}
+                      {{ ipaddresses.ip_pf0vf10.cidr }}: {}
                     vrf: {{ config.vrf1 }}
                   vlan: {{ config.vlan1 }}
                 vlan{{ config.vlan1 }},{{ config.vlan2 }}:
@@ -781,7 +780,7 @@ spec:
                 vlan{{ config.vlan2 }}:
                   ip:
                     address:
-                      {{ ipaddresses.ip_pf1hpf.cidr }}: {}
+                      {{ ipaddresses.ip_pf1vf10.cidr }}: {}
                     vrf: {{ config.vrf2 }}
                   vlan: {{ config.vlan2 }}
               nve:
@@ -919,7 +918,7 @@ spec:
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
-  name: host-pf0-rep
+  name: pf0vf10-rep
   namespace: dpf-operator-system
 spec:
   template:
@@ -927,16 +926,18 @@ spec:
       template:
         metadata:
           labels:
-            hostpf: "host_pf0_rep"
+            vf: "pf0vf10"
         spec:
-          interfaceType: pf
-          pf:
+          interfaceType: vf
+          vf:
+            parentInterfaceRef: p0
             pfID: 0
+            vfID: 10
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
-  name: host-pf1-rep
+  name: pf1vf10-rep
   namespace: dpf-operator-system
 spec:
   template:
@@ -944,11 +945,13 @@ spec:
       template:
         metadata:
           labels:
-            hostpf: "host_pf1_rep"
+            vf: "pf1vf10"
         spec:
-          interfaceType: pf
-          pf:
+          interfaceType: vf
+          vf:
+            parentInterfaceRef: p1
             pfID: 1
+            vfID: 10
 ```
 </details>
 
@@ -960,7 +963,7 @@ spec:
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
-  name: host-pf0-sf
+  name: pf0vf10-sf
   namespace: dpf-operator-system
 spec:
   template:
@@ -968,7 +971,7 @@ spec:
       template:
         metadata:
           labels:
-            svc.dpu.nvidia.com/interface: "host_pf0_sf"
+            svc.dpu.nvidia.com/interface: "pf0vf10_sf"
             svc.dpu.nvidia.com/service: doca-hbn
         spec:
           interfaceType: service
@@ -976,12 +979,12 @@ spec:
             serviceID: doca-hbn
             network: mybrhbn
             ## NOTE: Interfaces inside the HBN pod must have the `_if` suffix due to a naming convention in HBN.
-            interfaceName: pf0hpf_if
+            interfaceName: pf0vf10_if
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
-  name: host-pf1-sf 
+  name: pf1vf10-sf 
   namespace: dpf-operator-system
 spec:
   template:
@@ -989,7 +992,7 @@ spec:
       template:
         metadata:
           labels:
-            svc.dpu.nvidia.com/interface: "host_pf1_sf"
+            svc.dpu.nvidia.com/interface: "pf1vf10_sf"
             svc.dpu.nvidia.com/service: doca-hbn
         spec:
           interfaceType: service
@@ -997,7 +1000,7 @@ spec:
             serviceID: doca-hbn
             network: mybrhbn
             ## NOTE: Interfaces inside the HBN pod must have the `_if` suffix due to a naming convention in HBN.
-            interfaceName: pf1hpf_if
+            interfaceName: pf1vf10_if
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
@@ -1092,20 +1095,19 @@ spec:
             - ports:
               - serviceInterface:
                   matchLabels:
-                    hostpf: "host_pf0_rep"
+                    vf: "pf0vf10"
               - serviceInterface:
                   matchLabels:
                     svc.dpu.nvidia.com/service: doca-hbn
-                    svc.dpu.nvidia.com/interface: "host_pf0_sf"
+                    svc.dpu.nvidia.com/interface: "pf0vf10_sf"
             - ports:
               - serviceInterface:
                   matchLabels:
-                    hostpf: "host_pf1_rep"
+                    vf: "pf1vf10"
               - serviceInterface:
                   matchLabels:
                     svc.dpu.nvidia.com/service: doca-hbn
-                    svc.dpu.nvidia.com/interface: "host_pf1_sf"
-
+                    svc.dpu.nvidia.com/interface: "pf1vf10_sf"
 ```
 </details>
 
@@ -1263,13 +1265,6 @@ spec:
       _ovs-vsctl --may-exist add-port br-sfc p0
       _ovs-vsctl set Interface p0 type=dpdk
       _ovs-vsctl set Port p0 external_ids:dpf-type=physical
-      ###### Temp workaround, should be fixed in hbn image (ovs-watcher) - Cannot work via flavor.
-      #_ovs-vsctl --may-exist add-br br-hbn
-      #_ovs-vsctl set bridge br-hbn datapath_type=netdev
-      #_ovs-vsctl --may-exist add-port br-hbn vxlan0brhbn || true
-      #_ovs-vsctl set int vxlan0brhbn type=vxlan options:remote_ip=flow ofport_request=1
-      #_ovs-vsctl set int vxlan0brhbn options:explicit=true
-      #_ovs-vsctl set int vxlan0brhbn options:tos=inherit
 ```
 </details>
 
@@ -1314,17 +1309,17 @@ spec:
   - ports:
     - serviceInterface:
         matchLabels:
-          port: host_pf0_rep
+          vf: pf0vf10
     - service:
         name: doca-hbn
         interface: host_pf0_sf
   - ports:
     - serviceInterface:
         matchLabels:
-          port: host_pf1_rep
+          vf: pf1vf10
     - service:
         name: doca-hbn
-        interface: host_pf1_sf
+        interface: pf1vf10_if
 ```
 </details>
 
@@ -1346,8 +1341,8 @@ spec:
         k8s.v1.cni.cncf.io/networks: |-
           [
           {"name": "iprequest", "interface": "ip_lo", "cni-args": {"poolNames": ["loopback"], "poolType": "cidrpool"}},
-          {"name": "iprequest", "interface": "ip_pf0hpf", "cni-args": {"poolNames": ["pool1"], "poolType": "cidrpool", "allocateDefaultGateway": true}},
-          {"name": "iprequest", "interface": "ip_pf1hpf", "cni-args": {"poolNames": ["pool2"], "poolType": "cidrpool", "allocateDefaultGateway": true}}
+          {"name": "iprequest", "interface": "ip_pf0vf10", "cni-args": {"poolNames": ["pool1"], "poolType": "cidrpool", "allocateDefaultGateway": true}},
+          {"name": "iprequest", "interface": "ip_pf1vf10", "cni-args": {"poolNames": ["pool2"], "poolType": "cidrpool", "allocateDefaultGateway": true}}
           ]
     helmChart:
       values:
@@ -1398,16 +1393,16 @@ spec:
                       address:
                         {{ ipaddresses.ip_lo.ip }}/32: {}
                     type: loopback
-                  p0_if,p1_if,pf0hpf_if,pf1hpf_if:
+                  p0_if,p1_if,pf0vf10_if,pf1vf10_if:
                     type: swp
                     link:
                       mtu: 9000
-                  pf0hpf_if:
+                  pf0vf10_if:
                     bridge:
                       domain:
                         br_default:
                           access: {{ config.vlan1 }}
-                  pf1hpf_if:
+                  pf1vf10_if:
                     bridge:
                       domain:
                         br_default:
@@ -1415,7 +1410,7 @@ spec:
                   vlan{{ config.vlan1 }}:
                     ip:
                       address:
-                        {{ ipaddresses.ip_pf0hpf.cidr }}: {}
+                        {{ ipaddresses.ip_pf0vf10.cidr }}: {}
                       vrf: {{ config.vrf1 }}
                     vlan: {{ config.vlan1 }}
                   vlan{{ config.vlan1 }},{{ config.vlan2 }}:
@@ -1423,7 +1418,7 @@ spec:
                   vlan{{ config.vlan2 }}:
                     ip:
                       address:
-                        {{ ipaddresses.ip_pf1hpf.cidr }}: {}
+                        {{ ipaddresses.ip_pf1vf10.cidr }}: {}
                       vrf: {{ config.vrf2 }}
                     vlan: {{ config.vlan2 }}
                 nve:
@@ -1522,9 +1517,9 @@ spec:
     network: mybrhbn
   - name: p1_if
     network: mybrhbn
-  - name: host_pf0_sf
+  - name: pf0vf10_if
     network: mybrhbn
-  - name: host_pf1_sf
+  - name: pf1vf10_if
     network: mybrhbn
 ```
 
@@ -1597,7 +1592,7 @@ spec:
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
-  name: host-pf0-rep
+  name: pf0vf10-rep
   namespace: dpf-operator-system
 spec:
   template:
@@ -1605,16 +1600,18 @@ spec:
       template:
         metadata:
           labels:
-            hostpf: "host_pf0_rep"
+            vf: "pf0vf10"
         spec:
-          interfaceType: pf
-          pf:
+          interfaceType: vf
+          vf:
+            parentInterface: p0
             pfID: 0
+            vfID: 10
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
-  name: host-pf1-rep
+  name: pf1vf10-rep
   namespace: dpf-operator-system
 spec:
   template:
@@ -1622,11 +1619,13 @@ spec:
       template:
         metadata:
           labels:
-            hostpf: "host_pf1_rep"
+            vf: "pf1vf10"
         spec:
-          interfaceType: pf
-          pf:
+          interfaceType: vf
+          vf:
+            parentInterface: p1
             pfID: 1
+            vfID: 10
 ```
 </details>
 
@@ -1693,10 +1692,25 @@ kubectl wait --for=condition=ServiceInterfaceSetReconciled --namespace dpf-opera
 kubectl wait --for=condition=ServiceChainSetReconciled --namespace dpf-operator-system dpuservicechain --all
 ```
 
+### 5. Test traffic
 
-### 5. Deletion and clean up
+#### Add worker nodes to the cluster
+
+At this point workers should be added to the cluster. Each worker node should be configured in line with [the prerequisites](../prerequisites.md).
+As workers are added to the cluster DPUs will be provisioned and DPUServices will begin to be spun up.
+
+#### Deploy test pods 
+
+```shell
+kubectl apply -f manifests/05-test-traffic
+```
+
+HBN functionality can be tested by pinging between the pods and services deployed in the default namespace.
+
+TODO: Add specific user commands to test traffic.
 
 
+### 6. Deletion and clean up
 For DPF deletion follows a specific order defined below. The OVN Kubernetes primary CNI can not be safely deleted from the cluster.
 
 #### Delete DPF CNI acceleration components

@@ -73,10 +73,3 @@ spec:
       _ovs-vsctl --may-exist add-port br-sfc p0
       _ovs-vsctl set Interface p0 type=dpdk
       _ovs-vsctl set Port p0 external_ids:dpf-type=physical
-      ###### Temp workaround, should be fixed in hbn image (ovs-watcher) - Cannot work via flavor.
-      #_ovs-vsctl --may-exist add-br br-hbn
-      #_ovs-vsctl set bridge br-hbn datapath_type=netdev
-      #_ovs-vsctl --may-exist add-port br-hbn vxlan0brhbn || true
-      #_ovs-vsctl set int vxlan0brhbn type=vxlan options:remote_ip=flow ofport_request=1
-      #_ovs-vsctl set int vxlan0brhbn options:explicit=true
-      #_ovs-vsctl set int vxlan0brhbn options:tos=inherit

@@ -36,7 +36,7 @@ spec:
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
-  name: host-pf0-rep
+  name: pf0vf10-rep
   namespace: dpf-operator-system
 spec:
   template:
@@ -44,16 +44,18 @@ spec:
       template:
         metadata:
           labels:
-            hostpf: "host_pf0_rep"
+            vf: "pf0vf10"
         spec:
-          interfaceType: pf
-          pf:
+          interfaceType: vf
+          vf:
+            parentInterfaceRef: p0
             pfID: 0
+            vfID: 10
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceInterface
 metadata:
-  name: host-pf1-rep
+  name: pf1vf10-rep
   namespace: dpf-operator-system
 spec:
   template:
@@ -61,8 +63,10 @@ spec:
       template:
         metadata:
           labels:
-            hostpf: "host_pf1_rep"
+            vf: "pf1vf10"
         spec:
-          interfaceType: pf
-          pf:
+          interfaceType: vf
+          vf:
+            parentInterfaceRef: p1
             pfID: 1
+            vfID: 10

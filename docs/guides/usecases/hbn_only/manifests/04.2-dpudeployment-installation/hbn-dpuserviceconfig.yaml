@@ -12,8 +12,8 @@ spec:
         k8s.v1.cni.cncf.io/networks: |-
           [
           {"name": "iprequest", "interface": "ip_lo", "cni-args": {"poolNames": ["loopback"], "poolType": "cidrpool"}},
-          {"name": "iprequest", "interface": "ip_pf0hpf", "cni-args": {"poolNames": ["pool1"], "poolType": "cidrpool", "allocateDefaultGateway": true}},
-          {"name": "iprequest", "interface": "ip_pf1hpf", "cni-args": {"poolNames": ["pool2"], "poolType": "cidrpool", "allocateDefaultGateway": true}}
+          {"name": "iprequest", "interface": "ip_pf0vf10", "cni-args": {"poolNames": ["pool1"], "poolType": "cidrpool", "allocateDefaultGateway": true}},
+          {"name": "iprequest", "interface": "ip_pf1vf10", "cni-args": {"poolNames": ["pool2"], "poolType": "cidrpool", "allocateDefaultGateway": true}}
           ]
     helmChart:
       values:
@@ -64,16 +64,16 @@ spec:
                       address:
                         {{ ipaddresses.ip_lo.ip }}/32: {}
                     type: loopback
-                  p0_if,p1_if,pf0hpf_if,pf1hpf_if:
+                  p0_if,p1_if,pf0vf10_if,pf1vf10_if:
                     type: swp
                     link:
                       mtu: 9000
-                  pf0hpf_if:
+                  pf0vf10_if:
                     bridge:
                       domain:
                         br_default:
                           access: {{ config.vlan1 }}
-                  pf1hpf_if:
+                  pf1vf10_if:
                     bridge:
                       domain:
                         br_default:
@@ -81,7 +81,7 @@ spec:
                   vlan{{ config.vlan1 }}:
                     ip:
                       address:
-                        {{ ipaddresses.ip_pf0hpf.cidr }}: {}
+                        {{ ipaddresses.ip_pf0vf10.cidr }}: {}
                       vrf: {{ config.vrf1 }}
                     vlan: {{ config.vlan1 }}
                   vlan{{ config.vlan1 }},{{ config.vlan2 }}:
@@ -89,7 +89,7 @@ spec:
                   vlan{{ config.vlan2 }}:
                     ip:
                       address:
-                        {{ ipaddresses.ip_pf1hpf.cidr }}: {}
+                        {{ ipaddresses.ip_pf1vf10.cidr }}: {}
                       vrf: {{ config.vrf2 }}
                     vlan: {{ config.vlan2 }}
                 nve:
@@ -188,7 +188,7 @@ spec:
     network: mybrhbn
   - name: p1_if
     network: mybrhbn
-  - name: host_pf0_sf
+  - name: pf0vf10_if
     network: mybrhbn
-  - name: host_pf1_sf
+  - name: pf1vf10_if
     network: mybrhbn

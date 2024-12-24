@@ -35,14 +35,14 @@ spec:
   - ports:
     - serviceInterface:
         matchLabels:
-          port: host_pf0_rep
+          vf: pf0vf10
     - service:
         name: doca-hbn
         interface: host_pf0_sf
   - ports:
     - serviceInterface:
         matchLabels:
-          port: host_pf1_rep
+          vf: pf1vf10
     - service:
         name: doca-hbn
-        interface: host_pf1_sf
+        interface: pf1vf10_if

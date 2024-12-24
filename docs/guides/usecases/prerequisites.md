@@ -29,12 +29,10 @@ Each worker machine:
 ## System software setup
 
 ### Control plane machines
-- Open vSwitch (OVS) packages - i.e. `openvswitch-switch` for Ubuntu 24.04
 - NFS client packages - i.e. ` nfs-common`
 - NFS server available with `/mnt/dpf_share` readable and writable by any user
 
 ### Worker machines
-- Open vSwitch (OVS) not installed
 - NFS client packages - i.e. ` nfs-common`
 - NFS server available with `/mnt/dpf_share` readable and writable by any user
 - rshim package is not installed

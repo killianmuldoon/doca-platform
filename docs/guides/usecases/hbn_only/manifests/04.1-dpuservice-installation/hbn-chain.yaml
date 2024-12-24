@@ -43,17 +43,16 @@ spec:
             - ports:
               - serviceInterface:
                   matchLabels:
-                    hostpf: "host_pf0_rep"
+                    vf: "pf0vf10"
               - serviceInterface:
                   matchLabels:
                     svc.dpu.nvidia.com/service: doca-hbn
-                    svc.dpu.nvidia.com/interface: "host_pf0_sf"
+                    svc.dpu.nvidia.com/interface: "pf0vf10_sf"
             - ports:
               - serviceInterface:
                   matchLabels:
-                    hostpf: "host_pf1_rep"
+                    vf: "pf1vf10"
               - serviceInterface:
                   matchLabels:
                     svc.dpu.nvidia.com/service: doca-hbn
-                    svc.dpu.nvidia.com/interface: "host_pf1_sf"
-
+                    svc.dpu.nvidia.com/interface: "pf1vf10_sf"

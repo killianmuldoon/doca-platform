@@ -68,10 +68,12 @@ This guide uses the following tools which must be installed where it is running.
 ### Network prerequisites
 
 #### Control plane Nodes
+- Open vSwitch (OVS) packages installed - i.e. `openvswitch-switch` for Ubuntu 24.04
 - out-of-band management port should be configured as OVS bridge port with "bridge-uplink" OVS metadata [This addresses a known issue](https://github.com/NVIDIA/doca-platform/issues/10).
 - DNS stub resolver should be disabled if using systemd resolvd
 
 #### Worker Nodes
+- Open vSwitch (OVS) packages not installed
 - [Host networking must be set up as expected](../host-network-configuration-prerequisite.md)
 - Host high-speed port (Host PF0) must have DHCP enabled
 
