@@ -1641,6 +1641,8 @@ spec:
 
 These verification commands, which are common to both the [5.1 DPUService](#51-with-user-defined-dpuset-and-dpuservice) and [5.2 DPUDeployment](#52-with-dpudeployment) installations, may need to be run multiple times to ensure the condition is met.
 
+Note that when using the DPUDeployment, the DPUService name will have the DPUDeployment name added as prefix. For example, `ovn-hbn-doca-hbn`. Use the correct name for the verification.
+
 Verify the DPU and Service installation with:
 ```shell
 ## Ensure the DPUServices are created and have been reconciled.
@@ -1651,6 +1653,13 @@ kubectl wait --for=condition=DPUIPAMObjectReconciled --namespace dpf-operator-sy
 kubectl wait --for=condition=ServiceInterfaceSetReconciled --namespace dpf-operator-system dpuserviceinterface --all
 ## Ensure the DPUServiceChains have been reconciled
 kubectl wait --for=condition=ServiceChainSetReconciled --namespace dpf-operator-system dpuservicechain --all
+```
+
+With DPUDeployment, verify the Service installation with:
+
+```shell
+## Ensure the DPUServices are created and have been reconciled.
+kubectl wait --for=condition=ApplicationsReconciled --namespace dpf-operator-system  dpuservices ovn-hbn-doca-hbn
 ```
 
 ### 6. Test traffic
