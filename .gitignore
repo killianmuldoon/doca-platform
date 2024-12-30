@@ -14,6 +14,7 @@ Dockerfile.cross
 hack/tools/bin
 hack/charts
 hack/repos
+deploy/helm/storage/snap-dpu/templates/crd
 
 # Repos created by e2e tests.
 scans

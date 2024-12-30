@@ -588,6 +588,10 @@ lint-helm-snap-controller: helm ## Run helm lint for snap controller chart
 lint-helm-spdk-csi-controller: helm ## Run helm lint for spdk csi controller chart
 	$Q $(HELM) lint $(SPDK_CSI_CONTROLLER_CHART)
 
+.PHONY: lint-helm-snap-dpu
+lint-helm-snap-dpu: helm ## Run helm lint for snap dpu chart
+	$Q $(HELM) lint $(SNAP_DPU_CHART)
+
 ##@ Release
 
 .PHONY: release-build
@@ -1150,7 +1154,7 @@ docker-push-storage-vendor-dpu-plugin: ## Push the docker image for storage vend
 # By default the helm registry is assumed to be an OCI registry. This variable should be overwritten when using a https helm repository.
 export HELM_REGISTRY ?= oci://$(REGISTRY)
 
-HELM_TARGETS ?= dpu-networking operator ovn-kubernetes csi-plugin snap-controller
+HELM_TARGETS ?= dpu-networking operator ovn-kubernetes csi-plugin snap-controller snap-dpu
 
 # metadata for the operator helm chart
 OPERATOR_HELM_CHART_NAME ?= dpf-operator
@@ -1188,6 +1192,11 @@ SNAP_CONTROLLER_CHART_VER ?= $(TAG)
 SPDK_CSI_CONTROLLER_CHART_NAME = spdk-csi-controller-chart
 SPDK_CSI_CONTROLLER_CHART ?= $(EXAMPLE)/spdk-csi/helm
 SPDK_CSI_CONTROLLER_CHART_VER ?= $(TAG)
+
+# metadata for snap dpu.
+SNAP_DPU_CHART_NAME = snap-dpu-chart
+SNAP_DPU_CHART ?= $(HELMDIR)/storage/snap-dpu
+SNAP_DPU_CHART_VER ?= $(TAG)
 
 .PHONY: helm-package-all
 helm-package-all: $(addprefix helm-package-,$(HELM_TARGETS))  ## Package the helm charts for all components.
@@ -1235,6 +1244,11 @@ helm-package-snap-controller: $(CHARTSDIR) helm
 helm-package-spdk-csi-controller: $(CHARTSDIR) helm
 	$(HELM) package $(SPDK_CSI_CONTROLLER_CHART) --version $(SPDK_CSI_CONTROLLER_CHART_VER) --destination $(CHARTSDIR)
 
+.PHONY: helm-package-snap-dpu
+helm-package-snap-dpu: $(CHARTSDIR) helm
+	cp -r config/snap/crd $(SNAP_DPU_CHART)/templates
+	$(HELM) package $(SNAP_DPU_CHART) --version $(SNAP_DPU_CHART_VER) --destination $(CHARTSDIR)
+
 .PHONY: helm-push-all
 helm-push-all: $(addprefix helm-push-,$(HELM_TARGETS))  ## Push the helm charts for all components.
 
@@ -1271,3 +1285,7 @@ helm-push-snap-controller: $(CHARTSDIR) helm ## Push helm chart for snap control
 .PHONY: helm-push-spdk-csi-controller
 helm-push-spdk-csi-controller: $(CHARTSDIR) helm ## Push helm chart for spdk csi controller
 	$(HELM) push $(CHARTSDIR)/$(SPDK_CSI_CONTROLLER_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
+
+.PHONY: helm-push-snap-dpu
+helm-push-snap-dpu: $(CHARTSDIR) helm ## Push helm chart for snap dpu
+	$(HELM) push $(CHARTSDIR)/$(SNAP_DPU_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)

@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "snap-dpu.fullname" . }}-doca-snap
+  labels:
+    {{- include "snap-dpu.labels" . | nindent 4 }}
+    {{- with .Values.serviceDaemonSet.labels }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+  annotations:
+    {{- with .Values.serviceDaemonSet.annotations }}
+      {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "snap-dpu.selectorLabels" . | nindent 6 }}
+  {{- with .Values.serviceDaemonSet.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        {{- include "snap-dpu.selectorLabels" . | nindent 8 }}
+        {{- with .Values.serviceDaemonSet.labels }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+      annotations:
+        {{- with .Values.serviceDaemonSet.annotations }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.serviceDaemonSet.imagePullSecrets | default list }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.docaSnap.podSecurityContext | nindent 8 }}
+      restartPolicy: {{ .Values.docaSnap.restartPolicy }}
+      hostNetwork: {{ .Values.docaSnap.hostNetwork | default false }}
+      volumes:
+        - name: hugepages
+          emptyDir:
+            medium: HugePages
+        - name: shm
+          hostPath:
+            path: /dev/shm
+            type: DirectoryOrCreate
+        - name: infiniband
+          hostPath:
+            path: /dev/infiniband
+            type: DirectoryOrCreate
+        - name: vfio
+          hostPath:
+            path: /dev/vfio
+            type: DirectoryOrCreate
+        - name: conf
+          hostPath:
+            path: /etc/nvda_snap
+            type: DirectoryOrCreate
+        - name: snap-log
+          hostPath:
+            path: /var/log/snap-log
+            type: DirectoryOrCreate
+      {{- with .Values.serviceDaemonSet.nodeSelector | default dict }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.serviceDaemonSet.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.serviceDaemonSet.tolerations | default list }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "snap-dpu.serviceAccountName" . }}
+      containers:
+        - name: doca-snap
+          image: {{ .Values.docaSnap.containerImage }}
+          imagePullPolicy: {{ .Values.docaSnap.pullPolicy }}
+          securityContext:
+            {{ toYaml .Values.docaSnap.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: hugepages
+              mountPath: /dev/hugepages
+            - name: shm
+              mountPath: /dev/shm
+            - name: infiniband
+              mountPath: /dev/infiniband
+            - name: vfio
+              mountPath: /dev/vfio
+            - name: conf
+              mountPath: /etc/nvda_snap
+            - name: snap-log
+              mountPath: /var/log/snap-log
+          resources:
+            {{ toYaml .Values.docaSnap.resources | nindent 12 }}
+          env:
+            {{- if .Values.docaSnap.env.SPDK_XLIO_PATH }}
+            - name: SPDK_XLIO_PATH
+              value: "{{ .Values.docaSnap.env.SPDK_XLIO_PATH }}"
+            {{- end }}
+            {{- if .Values.docaSnap.env.APP_ARGS }}
+            - name: APP_ARGS
+              value: "{{ .Values.docaSnap.env.APP_ARGS }}"
+            {{- end }}
+            {{- if .Values.docaSnap.env.SPDK_RPC_INIT_CONF_JSON }}
+            - name: SPDK_RPC_INIT_CONF_JSON
+              value: "{{ .Values.docaSnap.env.SPDK_RPC_INIT_CONF_JSON }}"
+            {{- end }}
+            {{- if .Values.docaSnap.env.SPDK_RPC_INIT_CONF }}
+            - name: SPDK_RPC_INIT_CONF
+              value: "{{ .Values.docaSnap.env.SPDK_RPC_INIT_CONF }}"
+            {{- end }}
+            {{- if .Values.docaSnap.env.SNAP_RPC_INIT_CONF }}
+            - name: SNAP_RPC_INIT_CONF
+              value: "{{ .Values.docaSnap.env.SNAP_RPC_INIT_CONF }}"
+            {{- end }}

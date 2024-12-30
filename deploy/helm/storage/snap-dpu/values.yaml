@@ -1,0 +1,113 @@
+# configuration for the service
+serviceDaemonSet:
+  # labels on the DaemonSet and pod template. Can be set in DPUService `.spec.serviceDaemonSet.labels`
+  labels: {}
+  # annotations on the DaemonSet and pod template. Can be set in DPUService `.spec.serviceDaemonSet.annotations`
+  annotations: {}
+  # updateStrategy on the DaemonSet. Can be set in DPUService `.spec.serviceDaemonSet.updateStrategy.`
+  updateStrategy: {}
+  #  type: RollingUpdate
+  #  rollingUpdate:
+  #    maxUnavailable: 1
+  imagePullSecrets: []
+  nodeSelector:
+    storage.nvidia.com/snap-enabled: "true"
+  tolerations: []
+  affinity: {}
+
+#==============================================================================
+# doca-snap (DaemonSet) configuration
+#==============================================================================
+docaSnap:
+  # -- DaemonSet name used in metadata. 
+  name: "doca-snap"
+
+  # -- Container image
+  containerImage: "nvcr.io/nvstaging/doca/doca_snap:4.5.0-6-doca2.9.0"
+
+  # -- Image pull secrets (if pulling from a private registry)
+  imagePullSecrets: []
+
+  # -- Restart policy for the DaemonSet pods
+  restartPolicy: "Always"
+
+  # -- Use the host network (often true for low-level DPU or system tasks)
+  hostNetwork: true
+
+  pullPolicy: IfNotPresent
+
+  # -- Security context for the container
+  securityContext:
+    privileged: true
+    capabilities:
+      add:
+        - "IPC_LOCK"
+        - "SYS_RAWIO"
+        - "SYS_NICE"
+
+  # -- Resource requests and limits
+  resources:
+    requests:
+      memory: "2Gi"
+      hugepages-2Mi: "4Gi"
+      cpu: "8"
+    limits:
+      memory: "4Gi"
+      hugepages-2Mi: "4Gi"
+      cpu: "16"
+
+  # -- Environment variables
+  env:
+    SPDK_XLIO_PATH: "" # e.g., "/usr/lib/libxlio.so" to enable XLIO
+    APP_ARGS: ""       # e.g., "--wait-for-rpc"
+    SPDK_RPC_INIT_CONF_JSON: ""  # e.g., "/etc/nvda_snap/config.json"
+    SPDK_RPC_INIT_CONF: ""       # e.g., "/etc/nvda_snap/spdk_rpc_init.conf"
+    SNAP_RPC_INIT_CONF: ""       # e.g., "/etc/nvda_snap/snap_rpc_init.conf"
+
+
+#==============================================================================
+# snap-node-driver (DaemonSet) configuration
+#==============================================================================
+snapNodeDriver:
+  image:
+    repository: "example.com/snap-node-driver"
+    # if not set the .Chart.AppVersion is used
+    tag: ""
+  pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+  env: []
+  # example:
+  #  - name: SOME_DRIVER_ENV
+  #    value: "someValue"
+
+
+#==============================================================================
+# storage-vendor-dpu-plugin (DaemonSet) configuration
+#==============================================================================
+storagePlugin:
+  image:
+    repository: "example.com/storage-vendor-dpu-plugin"
+    # if not set the .Chart.AppVersion is used
+    tag: ""
+  pullPolicy: IfNotPresent
+
+  resources:
+    limits:
+      cpu: 200m
+      memory: 256Mi
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+  env: []
+  # example:
+  #   - name: GRPC_SOCKET_PATH
+  #     value: "/var/run/dpu-plugin.sock"
