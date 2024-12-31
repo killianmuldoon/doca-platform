@@ -576,9 +576,9 @@ lint-helm-ovn-kubernetes: generate-manifests-ovn-kubernetes helm ## Run helm lin
 lint-helm-dummydpuservice: helm ## Run helm lint for dummydpuservice chart
 	$Q $(HELM) lint $(DUMMYDPUSERVICE_HELM_CHART)
 
-.PHONY: lint-helm-csi-plugin
-lint-helm-csi-plugin: helm ## Run helm lint for csi-plugin chart
-	$Q $(HELM) lint $(HOST_CSI_CHART)
+.PHONY: lint-helm-snap-csi-plugin
+lint-helm-snap-csi-plugin: helm ## Run helm lint for snap-csi-plugin chart
+	$Q $(HELM) lint $(SNAP_CSI_PLUGIN_CHART)
 
 .PHONY: lint-helm-snap-controller
 lint-helm-snap-controller: helm ## Run helm lint for snap controller chart
@@ -706,14 +706,14 @@ binary-snap-node-driver: ## Build the snap node driver controller binary.
 binary-storage-vendor-dpu-plugin: ## Build the storage vendor DPU plugin controller binary.
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/provisioning github.com/nvidia/doca-platform/cmd/provisioning
 
-.PHONY: binary-csi-plugin
-binary-csi-plugin: ## Build the csi-plugin binary.
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/csi-plugin github.com/nvidia/doca-platform/cmd/storage/csi-plugin
+.PHONY: binary-snap-csi-plugin
+binary-snap-csi-plugin: ## Build the snap-csi-plugin binary.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/snap-csi-plugin github.com/nvidia/doca-platform/cmd/storage/snap-csi-plugin
 
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=hostdriver
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
-MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools csi-plugin snap-controller
+MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools snap-csi-plugin snap-controller
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
@@ -758,8 +758,8 @@ export STORAGE_SNAP_NODE_DRIVER_IMAGE ?= $(REGISTRY)/$(STORAGE_SNAP_NODE_DRIVER_
 STORAGE_VENDOR_DPU_PLUGIN_NAME ?= storage-vendor-dpu-plugin
 export STORAGE_VENDOR_DPU_PLUGIN_IMAGE ?= $(REGISTRY)/$(STORAGE_VENDOR_DPU_PLUGIN_NAME)
 
-CSI_DRIVER_IMAGE_NAME = csi-plugin
-export CSI_DRIVER_IMAGE ?= $(REGISTRY)/$(CSI_DRIVER_IMAGE_NAME)
+STORAGE_SNAP_CSI_DRIVER_IMAGE_NAME = snap-csi-plugin
+export STORAGE_SNAP_CSI_DRIVER_IMAGE ?= $(REGISTRY)/$(STORAGE_SNAP_CSI_DRIVER_IMAGE_NAME)
 
 ## External images that are set by the DPF Operator
 export MULTUS_IMAGE=ghcr.io/k8snetworkplumbingwg/multus-cni
@@ -1070,10 +1070,10 @@ docker-build-storage-vendor-dpu-plugin:
 	. \
 	-t ${STORAGE_VENDOR_DPU_PLUGIN_IMAGE}:$(TAG)
 
-.PHONY: docker-build-csi-plugin # Build a multi-arch image for DPF System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
-docker-build-csi-plugin: $(addprefix docker-build-csi-plugin-for-,$(DPF_SYSTEM_ARCH))
+.PHONY: docker-build-snap-csi-plugin # Build a multi-arch image for DPF System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
+docker-build-snap-csi-plugin: $(addprefix docker-build-snap-csi-plugin-for-,$(DPF_SYSTEM_ARCH))
 
-docker-build-csi-plugin-for-%:
+docker-build-snap-csi-plugin-for-%:
 	# Provenance false ensures this target builds an image rather than a manifest when using buildx.
 	docker buildx build \
 		--load \
@@ -1087,24 +1087,24 @@ docker-build-csi-plugin-for-%:
 		--build-arg base_image=$(BASE_IMAGE) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
-		-f Dockerfile.csi-plugin \
+		-f Dockerfile.snap-csi-plugin \
 		. \
-		-t $(CSI_DRIVER_IMAGE):$(TAG)-$*
+		-t $(STORAGE_SNAP_CSI_DRIVER_IMAGE):$(TAG)-$*
 
-.PHONY: docker-push-csi-plugin # Push a multi-arch image for csi-plugin using `docker manifest`. The variable DPF_SYSTEM_ARCH defines which architectures this target pushes for.
-docker-push-csi-plugin: $(addprefix docker-push-csi-plugin-for-,$(DPF_SYSTEM_ARCH))
-	docker manifest push --purge $(CSI_DRIVER_IMAGE):$(TAG)
+.PHONY: docker-push-snap-csi-plugin # Push a multi-arch image for snap-csi-plugin using `docker manifest`. The variable DPF_SYSTEM_ARCH defines which architectures this target pushes for.
+docker-push-snap-csi-plugin: $(addprefix docker-push-snap-csi-plugin-for-,$(DPF_SYSTEM_ARCH))
+	docker manifest push --purge $(STORAGE_SNAP_CSI_DRIVER_IMAGE):$(TAG)
 
-docker-push-csi-plugin-for-%:
+docker-push-snap-csi-plugin-for-%:
 	# Tag and push the arch-specific image with the single arch-agnostic tag.
-	docker tag $(CSI_DRIVER_IMAGE):$(TAG)-$* $(CSI_DRIVER_IMAGE):$(TAG)
-	docker push $(CSI_DRIVER_IMAGE):$(TAG)
+	docker tag $(STORAGE_SNAP_CSI_DRIVER_IMAGE):$(TAG)-$* $(STORAGE_SNAP_CSI_DRIVER_IMAGE):$(TAG)
+	docker push $(STORAGE_SNAP_CSI_DRIVER_IMAGE):$(TAG)
 	# This must be called in a separate target to ensure the shell command is called in the correct order.
-	$(MAKE) docker-create-manifest-for-csi-plugin
+	$(MAKE) docker-create-manifest-for-snap-csi-plugin
 
-docker-create-manifest-for-csi-plugin:
+docker-create-manifest-for-snap-csi-plugin:
 	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
-	docker manifest create --amend $(CSI_DRIVER_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(CSI_DRIVER_IMAGE):$(TAG))
+	docker manifest create --amend $(STORAGE_SNAP_CSI_DRIVER_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(STORAGE_SNAP_CSI_DRIVER_IMAGE):$(TAG))
 
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the docker images for all DOCKER_BUILD_TARGETS.
@@ -1154,7 +1154,7 @@ docker-push-storage-vendor-dpu-plugin: ## Push the docker image for storage vend
 # By default the helm registry is assumed to be an OCI registry. This variable should be overwritten when using a https helm repository.
 export HELM_REGISTRY ?= oci://$(REGISTRY)
 
-HELM_TARGETS ?= dpu-networking operator ovn-kubernetes csi-plugin snap-controller snap-dpu
+HELM_TARGETS ?= dpu-networking operator ovn-kubernetes snap-csi-plugin snap-controller snap-dpu
 
 # metadata for the operator helm chart
 OPERATOR_HELM_CHART_NAME ?= dpf-operator
@@ -1179,9 +1179,10 @@ OVNKUBERNETES_RESOURCE_INJECTOR_HELM_CHART_VER ?= $(TAG)
 DUMMYDPUSERVICE_HELM_CHART_NAME = dummydpuservice-chart
 DUMMYDPUSERVICE_HELM_CHART ?= $(DPUSERVICESDIR)/dummydpuservice/chart
 
-HOST_CSI_CHART_NAME = snap-csi-plugin
-HOST_CSI_CHART ?= $(HELMDIR)/storage/csi-plugin
-HOST_CSI_CHART_VER ?= $(TAG)
+# metadata for snap-csi-plugin.
+SNAP_CSI_PLUGIN_CHART_NAME = snap-csi-plugin-chart
+SNAP_CSI_PLUGIN_CHART ?= $(HELMDIR)/storage/snap-csi-plugin
+SNAP_CSI_PLUGIN_CHART_VER ?= $(TAG)
 
 # metadata for snap controller.
 SNAP_CONTROLLER_CHART_NAME = snap-controller-chart
@@ -1232,9 +1233,9 @@ helm-package-ovn-kubernetes-resource-injector: $(CHARTSDIR) helm generate-manife
 helm-package-dummydpuservice: $(DPUSERVICESDIR) helm generate-manifests-dummydpuservice ## Package helm chart for dummydpuservice
 	$(HELM) package $(DUMMYDPUSERVICE_HELM_CHART) --version $(TAG) --destination $(CHARTSDIR)
 
-.PHONY: helm-package-csi-plugin
-helm-package-csi-plugin: $(CHARTSDIR) helm
-	$(HELM) package $(HOST_CSI_CHART) --version $(HOST_CSI_CHART_VER) --destination $(CHARTSDIR)
+.PHONY: helm-package-snap-csi-plugin
+helm-package-snap-csi-plugin: $(CHARTSDIR) helm
+	$(HELM) package $(SNAP_CSI_PLUGIN_CHART) --version $(SNAP_CSI_PLUGIN_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-snap-controller
 helm-package-snap-controller: $(CHARTSDIR) helm
@@ -1274,9 +1275,9 @@ helm-push-ovn-kubernetes-resource-injector: $(CHARTSDIR) helm ## Push helm chart
 helm-push-dummydpuservice: $(CHARTSDIR) helm ## Push helm chart for dummydpuservice
 	$(HELM) push $(CHARTSDIR)/$(DUMMYDPUSERVICE_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
 
-.PHONY: helm-push-csi-plugin
-helm-push-csi-plugin: $(CHARTSDIR) helm ## Push helm chart for csi-plugin
-	$(HELM) push $(CHARTSDIR)/$(HOST_CSI_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
+.PHONY: helm-push-snap-csi-plugin
+helm-push-snap-csi-plugin: $(CHARTSDIR) helm ## Push helm chart for snap-csi-plugin
+	$(HELM) push $(CHARTSDIR)/$(SNAP_CSI_PLUGIN_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-snap-controller
 helm-push-snap-controller: $(CHARTSDIR) helm ## Push helm chart for snap controller
