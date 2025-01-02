@@ -73,7 +73,7 @@ func (st *dpuInitializingState) Handle(ctx context.Context, c client.Client, _ d
 		return *state, nil
 	}
 
-	state.Phase = provisioningv1.DPUNodeEffect
+	state.Phase = provisioningv1.DPUPending
 	cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondInitialized, "", ""))
 	return *state, nil
 }

@@ -50,7 +50,7 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, k8sClient client.Clien
 
 	if nodeEffect.NoEffect {
 		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"NoEffect\" for node: %s", st.dpu.Spec.NodeName))
-		state.Phase = provisioningv1.DPUPending
+		state.Phase = provisioningv1.DPUDMSDeployment
 		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
 		return *state, nil
 	}
@@ -124,7 +124,7 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, k8sClient client.Clien
 			}
 		}
 	}
-	state.Phase = provisioningv1.DPUPending
+	state.Phase = provisioningv1.DPUDMSDeployment
 	cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
 
 	return *state, nil

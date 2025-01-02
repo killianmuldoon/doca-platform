@@ -61,10 +61,11 @@ func (st *dpuPendingState) Handle(ctx context.Context, client client.Client, _ d
 		cond := cutil.DPUCondition(provisioningv1.DPUCondBFBReady, "BFBIsNotReady", "BFB is not ready")
 		cond.Status = metav1.ConditionFalse
 		cutil.SetDPUCondition(state, cond)
-		return *state, nil
+		// we return an error here so that the DPU can be reconciled
+		return *state, fmt.Errorf("BFB is not ready")
 	}
 
-	state.Phase = provisioningv1.DPUDMSDeployment
+	state.Phase = provisioningv1.DPUNodeEffect
 	cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondBFBReady, "", ""))
 
 	return *state, nil
