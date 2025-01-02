@@ -111,3 +111,15 @@ storagePlugin:
   # example:
   #   - name: GRPC_SOCKET_PATH
   #     value: "/var/run/dpu-plugin.sock"
+
+#==============================================================================
+# RBAC roles for clients from host cluster
+#==============================================================================
+
+rbacRoles:
+  snapCsiPlugin:
+    create: true
+    serviceAccount: snap-csi-plugin-sa
+  snapController:
+    create: true
+    serviceAccount: snap-controller-sa

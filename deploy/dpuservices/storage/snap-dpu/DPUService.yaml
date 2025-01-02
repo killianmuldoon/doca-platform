@@ -25,4 +25,10 @@ spec:
         image:
           repository: gitlab-master.nvidia.com:5005/pengwang/workspace/storage-vendor-dpu-plugin
           tag: v0.1.0
-
+      # RBAC roles for clients from host cluster
+      # serviceAccount names must be aligned with the serviceAccount names from DPUServiceCredentialRequest
+      rbacRoles:
+        snapCsiPlugin:
+          serviceAccount: snap-csi-plugin-sa
+        snapController:
+          serviceAccount: snap-controller-sa

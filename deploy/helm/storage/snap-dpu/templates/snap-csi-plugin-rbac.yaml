@@ -1,8 +1,9 @@
+{{ if .Values.rbacRoles.snapCsiPlugin.create }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: snap-csi-plugin-role
+  name: {{ include "snap-dpu.fullname" . }}-snap-csi-plugin-role
 rules:
   - apiGroups: [ "storage.dpu.nvidia.com" ]
     resources: [ "volumes", "volumeattachments" ]
@@ -11,12 +12,13 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: snap-csi-plugin-binding
+  name: {{ include "snap-dpu.fullname" . }}-snap-csi-plugin-binding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: snap-csi-plugin-role
+  name: {{ include "snap-dpu.fullname" . }}-snap-csi-plugin-role
 subjects:
   - kind: ServiceAccount
-    name: snap-csi-plugin-sa
-    namespace: dpf-operator-system
+    name: {{ .Values.rbacRoles.snapCsiPlugin.serviceAccount }}
+    namespace: {{ .Release.Namespace }}
+{{ end }}

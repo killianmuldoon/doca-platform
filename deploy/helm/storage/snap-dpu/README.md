@@ -17,6 +17,10 @@ Helm chart that deploys doca-snap, snap-node-driver, and storage-vendor-dpu-plug
 | docaSnap.resources | object | `{"limits":{"cpu":"16","hugepages-2Mi":"4Gi","memory":"4Gi"},"requests":{"cpu":"8","hugepages-2Mi":"4Gi","memory":"2Gi"}}` | Resource requests and limits |
 | docaSnap.restartPolicy | string | `"Always"` | Restart policy for the DaemonSet pods |
 | docaSnap.securityContext | object | `{"capabilities":{"add":["IPC_LOCK","SYS_RAWIO","SYS_NICE"]},"privileged":true}` | Security context for the container |
+| rbacRoles.snapController.create | bool | `true` |  |
+| rbacRoles.snapController.serviceAccount | string | `"snap-controller-sa"` |  |
+| rbacRoles.snapCsiPlugin.create | bool | `true` |  |
+| rbacRoles.snapCsiPlugin.serviceAccount | string | `"snap-csi-plugin-sa"` |  |
 | serviceDaemonSet.affinity | object | `{}` |  |
 | serviceDaemonSet.annotations | object | `{}` |  |
 | serviceDaemonSet.imagePullSecrets | list | `[]` |  |
