@@ -10,7 +10,7 @@ metadata:
     app: cert-manager
     app.kubernetes.io/instance: cert-manager
     app.kubernetes.io/name: cert-manager
-    app.kubernetes.io/version: v1.13.3
+    app.kubernetes.io/version: v1.16.2
     operators.coreos.com/openshift-cert-manager-operator.cert-manager-operator: ""
   name: certificates.cert-manager.io
   uid: 926f1056-a44f-41f8-8db1-402e7eb7c23e

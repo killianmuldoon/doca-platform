@@ -35,7 +35,7 @@ NODE_DISK="${NODE_DISK:-"100g"}"
 MINIKUBE_CNI="${MINIKUBE_CNI:-kindnet}"
 MINIKUBE_KUBERNETES_VERSION="${MINIKUBE_KUBERNETES_VERSION:-"v1.30.2"}"
 MINIKUBE_DOCKER_MIRROR="${MINIKUBE_DOCKER_MIRROR:-"https://dockerhub.nvidia.com"}"
-CERT_MANAGER_VERSION="v1.13.3"
+CERT_MANAGER_VERSION="v1.16.2"
 ADD_CONTROL_PLANE_TAINTS="${ADD_CONTROL_PLANE_TAINTS:-"false"}"
 
 ## Detect the OS.
@@ -103,7 +103,7 @@ if [[ "$ADD_CONTROL_PLANE_TAINTS" == "true" ]]; then
 fi
 
 imagesToCache="
-quay.io/jetstack/cert-manager-controller:v1.13.3
+quay.io/jetstack/cert-manager-controller:v1.16.2
 cfssl/cfssl:latest
 quay.io/argoproj/argocd:v2.11.1
 clastix/kubectl:v1.29
@@ -111,7 +111,7 @@ public.ecr.aws/docker/library/redis:7.2.4-alpine
 quay.io/metallb/speaker:v0.9.6
 quay.io/metallb/controller:v0.9.6
 gcr.io/k8s-minikube/storage-provisioner:v5
-quay.io/jetstack/cert-manager-cainjector:v1.13.3
+quay.io/jetstack/cert-manager-cainjector:v1.16.2
 "
 
 if [[ "$MINIKUBE_CACHE_ADD_IMAGES" == "true" ]]; then
