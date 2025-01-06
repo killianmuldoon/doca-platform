@@ -21,16 +21,6 @@ pci_sys_dir="/sys/bus/pci/devices"
 br_dpu_dir="/sys/class/net/${bridge_name}"
 dpu_device_list=("0xa2dc" "0xa2d6")
 
-# get PF from PCI address
-get_net_devices_from_pci () {
-    local pci_address=$1
-    device_list=($(find "${pci_sys_dir}/${pci_address}/net" -mindepth 1 -maxdepth 1))
-    for device_path in "${device_list[@]}"; do
-        device=$(basename "${device_path}")
-        echo ${device}
-    done
-}
-
 bridge_check () {
     while true; do
         if [ -d "${br_dpu_dir}" ]; then
@@ -55,9 +45,9 @@ bridge_check () {
 
 create_VFs () {
     local pf_device=$1
-    vf_num=$(cat /sys/class/net/${pf_device}/device/sriov_numvfs)
+    vf_num=$(cat ${pci_sys_dir}/${pf_device}/sriov_numvfs)
     if [ "$vf_num" -eq 0 ]; then
-        echo ${num_of_vfs} > /sys/class/net/${pf_device}/device/sriov_numvfs
+        echo ${num_of_vfs} > ${pci_sys_dir}/${pf_device}/sriov_numvfs
         echo "Set the number of VFs to ${num_of_vfs}."
     else
         echo "the num of vf: ${vf_num} is set before"
@@ -66,7 +56,7 @@ create_VFs () {
 
 add_vf_to_bridge () {
     local pf_device=$1
-    vf_device=$(find /sys/class/net/${pf_device}/device/virtfn0/net -mindepth 1 -maxdepth 1 -type d)
+    vf_device=$(find ${pci_sys_dir}/${pf_device}/virtfn0/net -mindepth 1 -maxdepth 1 -type d)
     if [ -n "${vf_device}" ]; then
         vf_name=$(basename ${vf_device})
         if ! ip link show master ${bridge_name} | grep -q ${vf_name}; then
@@ -84,7 +74,7 @@ add_vf_to_bridge () {
 
 delete_vf_from_bridge() {
     local pf_device=$1
-    vf_device=$(find /sys/class/net/"${pf_device}"/device/virtfn0/net -mindepth 1 -maxdepth 1 -type d)
+    vf_device=$(find ${pci_sys_dir}/"${pf_device}"/device/virtfn0/net -mindepth 1 -maxdepth 1 -type d)
     if [ -z "${vf_device}" ]; then
         echo "No VF found, no need to delete VF from ${pf_device}"
         return 0
@@ -117,17 +107,15 @@ fi
 
 while true; do
     p0="${device_pci_address}.0"
-    pf_device_p0=$(get_net_devices_from_pci ${p0})
 
-    create_VFs ${pf_device_p0}
+    create_VFs ${p0}
 
     p1="${device_pci_address}.1"
-    pf_device_p1=$(get_net_devices_from_pci ${p1})
     if [ -d "${pci_sys_dir}/${p1}" ]; then
         deviceID=$(cat ${pci_sys_dir}/${p1}/device)
         for dpu_device in "${dpu_device_list[@]}"; do
             if [ "${dpu_device}" = "${deviceID}" ]; then
-                create_VFs ${pf_device_p1}
+                create_VFs ${p1}
                 break
             fi
         done
@@ -136,8 +124,8 @@ while true; do
     bridge_check
 
     # Add VF0 of the PF0 device to the bridge
-    trap "delete_vf_from_bridge ${pf_device_p0}" EXIT
-    add_vf_to_bridge ${pf_device_p0}
+    trap "delete_vf_from_bridge ${p0}" EXIT
+    add_vf_to_bridge ${p0}
 
     touch /tmp/hostnetwork_succeed
     sleep 5
