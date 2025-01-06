@@ -1739,7 +1739,7 @@ helm uninstall -n dpf-operator-system dpf-operator --wait
 helm uninstall -n local-path-provisioner local-path-provisioner --wait 
 kubectl delete ns local-path-provisioner --wait 
 helm uninstall -n cert-manager cert-manager --wait 
-kubectl -n dpf-operator-system delete secret docker-registry dpf-pull-secret --wait
+kubectl -n dpf-operator-system delete secret dpf-pull-secret --wait
 kubectl delete pv bfb-pv
 kubectl delete namespace dpf-operator-system dpu-cplane-tenant1 cert-manager nvidia-network-operator --wait
 ```

@@ -1,10 +1,9 @@
-# OVN Kubernetes with Host Based Networking
+# OVN Kubernetes
 
-In this configuration OVN Kubernetes is offloaded to the DPU and combined with [NVIDIA Host Based Networking (HBN)](https://docs.nvidia.com/doca/sdk/nvidia+doca+hbn+service+guide/index.html).
+In this configuration OVN Kubernetes is offloaded to the DPU.
 
 <!-- toc -->
 - [Prerequisites](#prerequisites)
-  - [DPU prerequisites](#dpu-prerequisites)
   - [Software prerequisites](#software-prerequisites)
   - [Network prerequisites](#network-prerequisites)
     - [Control plane Nodes](#control-plane-nodes)
@@ -54,10 +53,7 @@ In this configuration OVN Kubernetes is offloaded to the DPU and combined with [
 <!-- /toc -->
 
 ## Prerequisites
-The system is set up as described in the [system prerequisites](../prerequisites.md).  The OVN Kubernetes with HBN use case has the additional requirements:
-
-### DPU prerequisites
-- Bluefield 3 with 32GB of RAM
+The system is set up as described in the [system prerequisites](../prerequisites.md). The OVN Kubernetes deployment has these additional requirements: 
 
 ### Software prerequisites
 This guide uses the following tools which must be installed where it is running.
@@ -75,13 +71,19 @@ This guide uses the following tools which must be installed where it is running.
 #### Worker Nodes
 - Open vSwitch (OVS) packages not installed
 - [Host networking must be set up as expected](../host-network-configuration-prerequisite.md)
-- Host high-speed port (Host PF0) must have DHCP enabled
-
+- Only a single DPU uplink is used with this deployment (p0).
+- All worker nodes are connected to the same L2 broadcast domain (VLAN) on the high-speed network.
+- Host high-speed port (Host PF0) must have DHCP enabled.
+- An external DHCP Server should be used for the high-speed network:
+  - The DHCP server must not assign a default gateway to the DHCP clients.
+  - The DHCP server should assign a special route (option 121) for a "dummy" IP subnet with a next hop address of the actual default gateway router serving the high-speed network.<br>
+  - The special route (which is configurable) is used by DPF to inject the default gateway into the overlay network. By default, DPF is looking for the subnet 169.254.99.100/32 in the special route and extracts the gateway address.<br>
+  - The gateway value sent using option 121 should be calculated according to RFC3442 (An online calculator exists). For example, the value of "20:a9:fe:63:64:0a:00:7b:fe" represents a route to 169.254.99.100/32 via 10.0.123.254.
 
 ### Kubernetes prerequisites
 - CNI not installed
 - kube-proxy not installed
-- coreDNS should be configured to run only on control plane nodes - e.g. using NodeAffinity. [This addresses a known issue](https://github.com/NVIDIA/doca-platform/issues/5).
+- coreDNS should be configured to run only on control plane nodes - e.g. using NodeAffinity.
 - control plane setup is complete before starting this guide
 - worker nodes are not added until indicated by this guide
 
@@ -131,7 +133,7 @@ export DPU_P0=
 ## DPU_P0_VF1 is the name of the second Virtual Function (VF) of the first port of the DPU. This name must be the same on all worker nodes.
 export DPU_P0_VF1=
 
-## Interface on which the DPUCluster load balancer will listen. Should be the management interface of the control plane node.
+## Interface/bridge on which the DPUCluster load balancer will listen. Should be the management interface/bridge of the control plane node.
 export DPUCLUSTER_INTERFACE=
 
 # IP address to the NFS server used as storage for the BFB.
@@ -767,121 +769,9 @@ spec:
         imagePullSecretName: dpf-pull-secret
       ovnkube-node-dpu:
         kubernetesSecretName: "ovn-dpu" # user needs to populate based on DPUServiceCredentialRequest
-        vtepCIDR: "10.0.120.0/22" # user needs to populate based on DPUServiceIPAM
         hostCIDR: $TARGETCLUSTER_NODE_CIDR
-        ipamPool: "pool1" # user needs to populate based on DPUServiceIPAM
-        ipamPoolType: "cidrpool" # user needs to populate based on DPUServiceIPAM
-        ipamVTEPIPIndex: 0
-        ipamPFIPIndex: 1
-```
-</details>
-
-<details><summary>HBN DPUService to deploy HBN workloads to the DPUs</summary>
-
-[embedmd]:#(manifests/05.1-dpuservice-installation/hbn-dpuservice.yaml)
-```yaml
----
-apiVersion: svc.dpu.nvidia.com/v1alpha1
-kind: DPUService
-metadata:
-  name: doca-hbn
-  namespace: dpf-operator-system
-spec:
-  serviceID: doca-hbn
-  interfaces:
-  - p0-sf
-  - p1-sf
-  - app-sf
-  serviceDaemonSet:
-    annotations:
-      k8s.v1.cni.cncf.io/networks: |-
-        [
-        {"name": "iprequest", "interface": "ip_lo", "cni-args": {"poolNames": ["loopback"], "poolType": "cidrpool"}},
-        {"name": "iprequest", "interface": "ip_pf2dpu2", "cni-args": {"poolNames": ["pool1"], "poolType": "cidrpool", "allocateDefaultGateway": true}}
-        ]
-  helmChart:
-    source:
-      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
-      version: 1.0.1
-      chart: doca-hbn
-    values:
-      image:
-        repository: nvcr.io/nvidia/doca/doca_hbn
-        tag: 2.4.1-doca2.9.1
-      resources:
-        memory: 6Gi
-        nvidia.com/bf_sf: 3
-      configuration:
-        perDPUValuesYAML: |
-          - hostnamePattern: "*"
-            values:
-              bgp_peer_group: hbn
-          - hostnamePattern: "worker1*"
-            values:
-              bgp_autonomous_system: 65101
-          - hostnamePattern: "worker2*"
-            values:
-              bgp_autonomous_system: 65201
-        startupYAMLJ2: |
-          - header:
-              model: BLUEFIELD
-              nvue-api-version: nvue_v1
-              rev-id: 1.0
-              version: HBN 2.4.0
-          - set:
-              interface:
-                lo:
-                  ip:
-                    address:
-                      {{ ipaddresses.ip_lo.ip }}/32: {}
-                  type: loopback
-                p0_if,p1_if:
-                  type: swp
-                  link:
-                    mtu: 9000
-                pf2dpu2_if:
-                  ip:
-                    address:
-                      {{ ipaddresses.ip_pf2dpu2.cidr }}: {}
-                  type: swp
-                  link:
-                    mtu: 9000
-              router:
-                bgp:
-                  autonomous-system: {{ config.bgp_autonomous_system }}
-                  enable: on
-                  graceful-restart:
-                    mode: full
-                  router-id: {{ ipaddresses.ip_lo.ip }}
-              vrf:
-                default:
-                  router:
-                    bgp:
-                      address-family:
-                        ipv4-unicast:
-                          enable: on
-                          redistribute:
-                            connected:
-                              enable: on
-                        ipv6-unicast:
-                          enable: on
-                          redistribute:
-                            connected:
-                              enable: on
-                      enable: on
-                      neighbor:
-                        p0_if:
-                          peer-group: {{ config.bgp_peer_group }}
-                          type: unnumbered
-                        p1_if:
-                          peer-group: {{ config.bgp_peer_group }}
-                          type: unnumbered
-                      path-selection:
-                        multipath:
-                          aspath-ignore: on
-                      peer-group:
-                        {{ config.bgp_peer_group }}:
-                          remote-as: external
+        externalDHCP: true
+        gatewayDiscoveryNetwork: "169.254.99.100/32" # This is a "dummy" subnet used to get the default gateway address from DHCP server (via option 121)
 ```
 </details>
 
@@ -972,23 +862,6 @@ spec:
           interfaceType: physical
           physical:
             interfaceName: p0
----
-apiVersion: svc.dpu.nvidia.com/v1alpha1
-kind: DPUServiceInterface
-metadata:
-  name: p1
-  namespace: dpf-operator-system
-spec:
-  template:
-    spec:
-      template:
-        metadata:
-          labels:
-            uplink: "p1"
-        spec:
-          interfaceType: physical
-          physical:
-            interfaceName: p1
 ```
 </details>
 
@@ -1014,90 +887,25 @@ spec:
 ```
 </details>
 
+<details><summary>DPUServiceFunctionChain to define the OVN ServiceFunctionChain</summary>
 
-<details><summary>HBN DPUServiceInterfaces to define the ports attached to HBN workloads on the DPU</summary>
-
-[embedmd]:#(manifests/05.1-dpuservice-installation/hbn-ifaces.yaml)
-```yaml
----
-apiVersion: svc.dpu.nvidia.com/v1alpha1
-kind: DPUServiceInterface
-metadata:
-  name: app-sf 
-  namespace: dpf-operator-system
-spec:
-  template:
-    spec:
-      template:
-        metadata:
-          labels:
-            svc.dpu.nvidia.com/interface: "app_sf"
-            svc.dpu.nvidia.com/service: doca-hbn
-        spec:
-          interfaceType: service
-          service:
-            serviceID: doca-hbn
-            network: mybrhbn
-            ## NOTE: Interfaces inside the HBN pod must have the `_if` suffix due to a naming convention in HBN.
-            interfaceName: pf2dpu2_if
----
-apiVersion: svc.dpu.nvidia.com/v1alpha1
-kind: DPUServiceInterface
-metadata:
-  name: p0-sf
-  namespace: dpf-operator-system
-spec:
-  template:
-    spec:
-      template:
-        metadata:
-          labels:
-            svc.dpu.nvidia.com/interface: "p0_sf"
-            svc.dpu.nvidia.com/service: doca-hbn
-        spec:
-          interfaceType: service
-          service:
-            serviceID: doca-hbn
-            network: mybrhbn
-            ## NOTE: Interfaces inside the HBN pod must have the `_if` suffix due to a naming convention in HBN.
-            interfaceName: p0_if
----
-apiVersion: svc.dpu.nvidia.com/v1alpha1
-kind: DPUServiceInterface
-metadata:
-  name: p1-sf
-  namespace: dpf-operator-system
-spec:
-  template:
-    spec:
-      template:
-        metadata:
-          labels:
-            svc.dpu.nvidia.com/interface: "p1_sf"
-            svc.dpu.nvidia.com/service: doca-hbn
-        spec:
-          interfaceType: service
-          service:
-            serviceID: doca-hbn
-            network: mybrhbn
-            ## NOTE: Interfaces inside the HBN pod must have the `_if` suffix due to a naming convention in HBN.
-            interfaceName: p1_if
-```
-</details>
-
-<details><summary>DPUServiceFunctionChain to define the HBN-OVN ServiceFunctionChain</summary>
-
-[embedmd]:#(manifests/05.1-dpuservice-installation/hbn-ovn-chain.yaml)
+[embedmd]:#(manifests/05.1-dpuservice-installation/ovn-chain.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUServiceChain
 metadata:
-  name: hbn-to-fabric
+  name: ovn-to-fabric
   namespace: dpf-operator-system
 spec:
   template:
     spec:
+      nodeSelector:
+        matchExpressions:
+        - key: kubernetes.io/os
+          operator: In
+          values:
+          - "linux"
       template:
         spec:
           switches:
@@ -1107,71 +915,7 @@ spec:
                     uplink: p0
               - serviceInterface:
                   matchLabels:
-                    svc.dpu.nvidia.com/service: doca-hbn
-                    svc.dpu.nvidia.com/interface: "p0_sf"
-            - ports:
-              - serviceInterface:
-                  matchLabels:
-                    uplink: p1
-              - serviceInterface:
-                  matchLabels:
-                    svc.dpu.nvidia.com/service: doca-hbn
-                    svc.dpu.nvidia.com/interface: "p1_sf"
----
-apiVersion: svc.dpu.nvidia.com/v1alpha1
-kind: DPUServiceChain
-metadata:
-  name: ovn-to-hbn
-  namespace: dpf-operator-system
-spec:
-  template:
-    spec:
-      template:
-        spec:
-          switches:
-            - ports:
-              - serviceInterface:
-                  matchLabels:
-                    svc.dpu.nvidia.com/service: doca-hbn
-                    svc.dpu.nvidia.com/interface: "app_sf"
-              - serviceInterface:
-                  matchLabels:
                     port: ovn
-```
-</details>
-
-<details><summary>DPUServiceIPAM to set up IP Address Management on the DPUCluster</summary>
-
-[embedmd]:#(manifests/05.1-dpuservice-installation/hbn-ovn-ipam.yaml)
-```yaml
----
-apiVersion: svc.dpu.nvidia.com/v1alpha1
-kind: DPUServiceIPAM
-metadata:
-  name: pool1
-  namespace: dpf-operator-system
-spec:
-  ipv4Network:
-    network: "10.0.120.0/22"
-    gatewayIndex: 3
-    prefixSize: 29
-```
-</details>
-
-<details><summary>DPUServiceIPAM for the loopback interface in HBN</summary>
-
-[embedmd]:#(manifests/05.1-dpuservice-installation/hbn-loopback-ipam.yaml)
-```yaml
----
-apiVersion: svc.dpu.nvidia.com/v1alpha1
-kind: DPUServiceIPAM
-metadata:
-  name: loopback
-  namespace: dpf-operator-system
-spec:
-  ipv4Network:
-    network: "11.0.0.0/24"
-    prefixSize: 32
 ```
 </details>
 
@@ -1213,7 +957,7 @@ spec:
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUDeployment
 metadata:
-  name: ovn-hbn
+  name: ovn
   namespace: dpf-operator-system
 spec:
   dpus:
@@ -1228,9 +972,6 @@ spec:
     ovn:
       serviceTemplate: ovn
       serviceConfiguration: ovn
-    hbn:
-      serviceTemplate: hbn
-      serviceConfiguration: hbn
     dts:
       serviceTemplate: dts
       serviceConfiguration: dts
@@ -1242,23 +983,9 @@ spec:
     - serviceInterface:
         matchLabels:
           uplink: p0
-    - service:
-        name: hbn
-        interface: p0_if
-  - ports:
-    - serviceInterface:
-        matchLabels:
-          uplink: p1
-    - service:
-        name: hbn
-        interface: p1_if
-  - ports:
     - serviceInterface:
         matchLabels:
           port: ovn
-    - service:
-        name: hbn
-        interface: pf2dpu2_if
 ```
 </details>
 
@@ -1282,12 +1009,9 @@ spec:
         serviceNetwork: $SERVICE_CIDR
         ovnkube-node-dpu:
           kubernetesSecretName: "ovn-dpu" # user needs to populate based on DPUServiceCredentialRequest
-          vtepCIDR: "10.0.120.0/22" # user needs to populate based on DPUServiceIPAM
           hostCIDR: $TARGETCLUSTER_NODE_CIDR # user needs to populate
-          ipamPool: "pool1" # user needs to populate based on DPUServiceIPAM
-          ipamPoolType: "cidrpool" # user needs to populate based on DPUServiceIPAM
-          ipamVTEPIPIndex: 0
-          ipamPFIPIndex: 1
+          externalDHCP: true
+          gatewayDiscoveryNetwork: "169.254.99.100/32" # This is a "dummy" subnet used to get the default gateway address from DHCP server (via option 121)
 ```
 
 [embedmd]:#(manifests/05.2-dpudeployment-installation/dpuservicetemplate_ovn.yaml)
@@ -1315,135 +1039,6 @@ spec:
       global:
         gatewayOpts: "--gateway-interface=br-ovn --gateway-uplink-port=puplinkbrovn"
         imagePullSecretName: dpf-pull-secret
-```
-</details>
-
-<details><summary>HBN DPUServiceConfig and DPUServiceTemplate to deploy HBN workloads to the DPUs</summary>
-
-[embedmd]:#(manifests/05.2-dpudeployment-installation/dpuserviceconfig_hbn.yaml)
-```yaml
----
-apiVersion: svc.dpu.nvidia.com/v1alpha1
-kind: DPUServiceConfiguration
-metadata:
-  name: hbn
-  namespace: dpf-operator-system
-spec:
-  deploymentServiceName: "hbn"
-  serviceConfiguration:
-    serviceDaemonSet:
-      annotations:
-        k8s.v1.cni.cncf.io/networks: |-
-          [
-          {"name": "iprequest", "interface": "ip_lo", "cni-args": {"poolNames": ["loopback"], "poolType": "cidrpool"}},
-          {"name": "iprequest", "interface": "ip_pf2dpu2", "cni-args": {"poolNames": ["pool1"], "poolType": "cidrpool", "allocateDefaultGateway": true}}
-          ]
-    helmChart:
-      values:
-        configuration:
-          perDPUValuesYAML: |
-            - hostnamePattern: "*"
-              values:
-                bgp_peer_group: hbn
-            - hostnamePattern: "worker1*"
-              values:
-                bgp_autonomous_system: 65101"
-            - hostnamePattern: "worker2*"
-              values:
-                bgp_autonomous_system: 65201"
-          startupYAMLJ2: |
-            - header:
-                model: BLUEFIELD
-                nvue-api-version: nvue_v1
-                rev-id: 1.0
-                version: HBN 2.4.0
-            - set:
-                interface:
-                  lo:
-                    ip:
-                      address:
-                        {{ ipaddresses.ip_lo.ip }}/32: {}
-                    type: loopback
-                  p0_if,p1_if:
-                    type: swp
-                    link:
-                      mtu: 9000
-                  pf2dpu2_if:
-                    ip:
-                      address:
-                        {{ ipaddresses.ip_pf2dpu2.cidr }}: {}
-                    type: swp
-                    link:
-                      mtu: 9000
-                router:
-                  bgp:
-                    autonomous-system: {{ config.bgp_autonomous_system }}
-                    enable: on
-                    graceful-restart:
-                      mode: full
-                    router-id: {{ ipaddresses.ip_lo.ip }}
-                vrf:
-                  default:
-                    router:
-                      bgp:
-                        address-family:
-                          ipv4-unicast:
-                            enable: on
-                            redistribute:
-                              connected:
-                                enable: on
-                          ipv6-unicast:
-                            enable: on
-                            redistribute:
-                              connected:
-                                enable: on
-                        enable: on
-                        neighbor:
-                          p0_if:
-                            peer-group: {{ config.bgp_peer_group }}
-                            type: unnumbered
-                          p1_if:
-                            peer-group: {{ config.bgp_peer_group }}
-                            type: unnumbered
-                        path-selection:
-                          multipath:
-                            aspath-ignore: on
-                        peer-group:
-                          {{ config.bgp_peer_group }}:
-                            remote-as: external
-
-  interfaces:
-    ## NOTE: Interfaces inside the HBN pod must have the `_if` suffix due to a naming convention in HBN.
-  - name: p0_if
-    network: mybrhbn
-  - name: p1_if
-    network: mybrhbn
-  - name: pf2dpu2_if
-    network: mybrhbn
-```
-
-[embedmd]:#(manifests/05.2-dpudeployment-installation/dpuservicetemplate_hbn.yaml)
-```yaml
----
-apiVersion: svc.dpu.nvidia.com/v1alpha1
-kind: DPUServiceTemplate
-metadata:
-  name: hbn
-  namespace: dpf-operator-system
-spec:
-  deploymentServiceName: "hbn"
-  helmChart:
-    source:
-      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
-      version: 1.0.1
-      chart: doca-hbn
-    values:
-      image:
-        repository: nvcr.io/nvidia/doca/doca_hbn
-        tag: 2.4.1-doca2.9.1
-      resources:
-        memory: 6Gi
-        nvidia.com/bf_sf: 3
 ```
 </details>
 
@@ -1560,23 +1155,6 @@ spec:
           interfaceType: physical
           physical:
             interfaceName: p0
----
-apiVersion: svc.dpu.nvidia.com/v1alpha1
-kind: DPUServiceInterface
-metadata:
-  name: p1
-  namespace: dpf-operator-system
-spec:
-  template:
-    spec:
-      template:
-        metadata:
-          labels:
-            uplink: "p1"
-        spec:
-          interfaceType: physical
-          physical:
-            interfaceName: p1
 ```
 </details>
 
@@ -1602,51 +1180,16 @@ spec:
 ```
 </details>
 
-<details><summary>DPUServiceIPAM to set up IP Address Management on the DPUCluster</summary>
-
-[embedmd]:#(manifests/05.2-dpudeployment-installation/hbn-ovn-ipam.yaml)
-```yaml
----
-apiVersion: svc.dpu.nvidia.com/v1alpha1
-kind: DPUServiceIPAM
-metadata:
-  name: pool1
-  namespace: dpf-operator-system
-spec:
-  ipv4Network:
-    network: "10.0.120.0/22"
-    gatewayIndex: 3
-    prefixSize: 29
-```
-</details>
-
-<details><summary>DPUServiceIPAM for the loopback interface in HBN</summary>
-
-[embedmd]:#(manifests/05.2-dpudeployment-installation/hbn-loopback-ipam.yaml)
-```yaml
----
-apiVersion: svc.dpu.nvidia.com/v1alpha1
-kind: DPUServiceIPAM
-metadata:
-  name: loopback
-  namespace: dpf-operator-system
-spec:
-  ipv4Network:
-    network: "11.0.0.0/24"
-    prefixSize: 32
-```
-</details>
-
 #### Verification
 
 These verification commands, which are common to both the [5.1 DPUService](#51-with-user-defined-dpuset-and-dpuservice) and [5.2 DPUDeployment](#52-with-dpudeployment) installations, may need to be run multiple times to ensure the condition is met.
 
-Note that when using the DPUDeployment, the DPUService name will have the DPUDeployment name added as prefix. For example, `ovn-hbn-doca-hbn`. Use the correct name for the verification.
+Note that when using the DPUDeployment, the DPUService name will have the DPUDeployment name added as prefix. For example, `ovn-ovn`. Use the correct name for the verification.
 
 Verify the DPU and Service installation with:
 ```shell
 ## Ensure the DPUServices are created and have been reconciled.
-kubectl wait --for=condition=ApplicationsReconciled --namespace dpf-operator-system  dpuservices doca-blueman-service doca-hbn doca-telemetry-service
+kubectl wait --for=condition=ApplicationsReconciled --namespace dpf-operator-system  dpuservices doca-blueman-service doca-telemetry-service
 ## Ensure the DPUServiceIPAMs have been reconciled
 kubectl wait --for=condition=DPUIPAMObjectReconciled --namespace dpf-operator-system dpuserviceipam --all
 ## Ensure the DPUServiceInterfaces have been reconciled
@@ -1659,7 +1202,7 @@ With DPUDeployment, verify the Service installation with:
 
 ```shell
 ## Ensure the DPUServices are created and have been reconciled.
-kubectl wait --for=condition=ApplicationsReconciled --namespace dpf-operator-system  dpuservices ovn-hbn-doca-hbn
+kubectl wait --for=condition=ApplicationsReconciled --namespace dpf-operator-system  dpuservices ovn-ovn
 ```
 
 ### 6. Test traffic
@@ -1674,7 +1217,7 @@ As workers are added to the cluster DPUs will be provisioned and DPUServices wil
 kubectl apply -f manifests/06-test-traffic
 ```
 
-HBN and OVN functionality can be tested by pinging between the pods and services deployed in the default namespace.
+OVN functionality can be tested by pinging between the pods and services deployed in the default namespace.
 
 TODO: Add specific user commands to test traffic.
 
@@ -1702,7 +1245,7 @@ envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm u
 First we have to delete some DPUServiceInterfaces. This is necessary because of a known issue during uninstallation.
 
 ```shell
-kubectl delete -n dpf-operator-system dpuserviceinterface p0 p1 ovn --wait
+kubectl delete -n dpf-operator-system dpuserviceinterface p0 ovn --wait
 ```
 
 Then we can delete the config and system namespace.

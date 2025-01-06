@@ -4,3 +4,4 @@ DPUServices can require specific hardware and networking configuration. These us
 
 - [Host Based Networking and OVN Kubernetes](hbn_ovn/)
 - [Host Based Networking on its own](hbn_only/)
+- [OVN Kubernetes on its own](ovn_only/)
