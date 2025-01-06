@@ -79,6 +79,25 @@ func (r *BFB) ValidateCreate(ctx context.Context, obj runtime.Object) (admission
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *BFB) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
+	oldBFB, ok := oldObj.(*provisioningv1.BFB)
+	if !ok {
+		return admission.Warnings{}, apierrors.NewBadRequest(fmt.Sprintf("invalid object type expected BFB got %s", oldObj.GetObjectKind().GroupVersionKind().String()))
+	}
+
+	newBFB, ok := newObj.(*provisioningv1.BFB)
+	if !ok {
+		return admission.Warnings{}, apierrors.NewBadRequest(fmt.Sprintf("invalid object type expected BFB got %s", newObj.GetObjectKind().GroupVersionKind().String()))
+	}
+
+	// In order to handle the problem of first installing crd, then submitting a BFB without filename, and finally starting webhook.
+	if oldBFB.Spec.FileName == "" {
+		newBFB.Spec.FileName = fmt.Sprintf("%s-%s%s", oldBFB.Namespace, oldBFB.Name, BFBFileNameExtension)
+		return nil, nil
+	}
+
+	if newBFB.Spec.FileName == "" || (newBFB.Spec.FileName != oldBFB.Spec.FileName) {
+		return nil, fmt.Errorf("fileName is immutable")
+	}
 	return nil, nil
 }
 

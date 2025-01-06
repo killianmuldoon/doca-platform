@@ -52,12 +52,12 @@ spec:
                 description: The url of the bfb image to download.
                 pattern: ^(http|https)://.+\.bfb$
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
             required:
             - url
             type: object
-            x-kubernetes-validations:
-            - message: Value is immutable
-              rule: self == oldSelf
           status:
             default:
               phase: Initializing

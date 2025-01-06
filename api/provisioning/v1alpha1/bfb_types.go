@@ -51,7 +51,6 @@ const (
 )
 
 // BFBSpec defines the content of the BFB
-// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 type BFBSpec struct {
 	// Specifies the file name which is used to download the BFB on the volume or
 	// use "namespace-CRD name" in case it is omitted.
@@ -62,6 +61,7 @@ type BFBSpec struct {
 	// The url of the bfb image to download.
 	// +kubebuilder:validation:Pattern=`^(http|https)://.+\.bfb$`
 	// +required
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	URL string `json:"url"`
 }
 
