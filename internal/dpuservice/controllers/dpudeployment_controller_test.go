@@ -30,6 +30,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -154,7 +155,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				} {
 					g.Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
 					g.Expect(obj.GetFinalizers()).To(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
-					g.Expect(obj.GetLabels()).To(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+					g.Expect(obj.GetLabels()).To(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
 				}
 			}).WithTimeout(5 * time.Second).Should(Succeed())
 
@@ -209,7 +210,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				} {
 					g.Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
 					g.Expect(obj.GetFinalizers()).ToNot(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
-					g.Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+					g.Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
 				}
 			}).WithTimeout(5 * time.Second).Should(Succeed())
 		})
@@ -368,6 +369,131 @@ var _ = Describe("DPUDeployment Controller", func() {
 				gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
 				g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
 				g.Expect(gotDPUServiceInterfaceList.Items).To(BeEmpty())
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+		})
+	})
+	Context("When reconciling multiple resources", func() {
+		var testNS *corev1.Namespace
+		BeforeEach(func() {
+			By("Creating the namespaces")
+			testNS = &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+			Expect(testClient.Create(ctx, testNS)).To(Succeed())
+			DeferCleanup(testClient.Delete, ctx, testNS)
+		})
+		It("should cleanup child objects on delete", func() {
+			By("Creating the dependencies")
+			bfb := getMinimalBFB("somebfb", testNS.Name)
+			Expect(testClient.Create(ctx, bfb)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, bfb)
+
+			dpuFlavor := getMinimalDPUFlavor(testNS.Name)
+			Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuFlavor)
+
+			dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+			dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+			DeferCleanup(cleanDPUDeploymentDerivatives, testNS.Name)
+
+			By("creating the dpudeployments")
+			dpusets := []dpuservicev1.DPUSet{
+				{
+					NameSuffix: "dpuset1",
+					NodeSelector: &metav1.LabelSelector{
+						MatchLabels: map[string]string{
+							"nodekey1": "nodevalue1",
+						},
+					},
+					DPUSelector: map[string]string{
+						"dpukey1": "dpuvalue1",
+					},
+					DPUAnnotations: map[string]string{
+						"annotationkey1": "annotationvalue1",
+					},
+				},
+			}
+
+			dpuDeployment1 := getMinimalDPUDeployment(testNS.Name)
+			dpuDeployment1.Name = "dpudeployment1"
+			dpuDeployment1.Spec.DPUs.DPUSets = dpusets
+			Expect(testClient.Create(ctx, dpuDeployment1)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment1)
+
+			dpuDeployment2 := getMinimalDPUDeployment(testNS.Name)
+			dpuDeployment2.Name = "dpudeployment2"
+			dpuDeployment2.Spec.DPUs.DPUSets = dpusets
+			Expect(testClient.Create(ctx, dpuDeployment2)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment1)
+
+			By("checking that dependencies are marked")
+			Eventually(func(g Gomega) {
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
+				} {
+					g.Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					g.Expect(obj.GetFinalizers()).To(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
+					g.Expect(obj.GetLabels()).To(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment1)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
+					g.Expect(obj.GetLabels()).To(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment2)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
+				}
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			By("Deleting all the dependencies")
+			Expect(testClient.Delete(ctx, bfb)).To(Succeed())
+			Expect(testClient.Delete(ctx, dpuFlavor)).To(Succeed())
+			Expect(testClient.Delete(ctx, dpuServiceConfiguration)).To(Succeed())
+			Expect(testClient.Delete(ctx, dpuServiceTemplate)).To(Succeed())
+
+			By("Deleting the first dpudeployment")
+			Expect(testClient.Delete(ctx, dpuDeployment1)).To(Succeed())
+
+			By("checking that dependencies are marked only for the second dpudeployment and finalizer still in place")
+			Eventually(func(g Gomega) {
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
+				} {
+					g.Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+					g.Expect(obj.GetFinalizers()).To(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
+					g.Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment1)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
+					g.Expect(obj.GetLabels()).To(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment2)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
+				}
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			By("checking that the dependencies still exist")
+			Consistently(func(g Gomega) {
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
+				} {
+					g.Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
+				}
+			}).WithTimeout(5 * time.Second).Should(Succeed())
+
+			By("Deleting the second dpudeployment and verify that this is the time the finalizer is removed")
+			Expect(testClient.Delete(ctx, dpuDeployment2)).To(Succeed())
+
+			By("checking that the dependencies are removed")
+			Eventually(func(g Gomega) {
+				for obj, key := range map[client.Object]client.ObjectKey{
+					&provisioningv1.BFB{}:                   client.ObjectKeyFromObject(bfb),
+					&provisioningv1.DPUFlavor{}:             client.ObjectKeyFromObject(dpuFlavor),
+					&dpuservicev1.DPUServiceConfiguration{}: client.ObjectKeyFromObject(dpuServiceConfiguration),
+					&dpuservicev1.DPUServiceTemplate{}:      client.ObjectKeyFromObject(dpuServiceTemplate),
+				} {
+					g.Expect(apierrors.IsNotFound(testClient.Get(ctx, key, obj))).To(BeTrue(), fmt.Sprintf("%T", obj))
+				}
 			}).WithTimeout(30 * time.Second).Should(Succeed())
 		})
 	})
@@ -554,7 +680,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				} {
 					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
 					Expect(obj.GetFinalizers()).To(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
-					Expect(obj.GetLabels()).To(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).To(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
 				}
 
 				By("Checking the rest of the objects after update")
@@ -566,7 +692,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				} {
 					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
 					Expect(obj.GetFinalizers()).ToNot(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
-					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
 				}
 			})
 			It("should clean only the stale dependencies", func() {
@@ -586,7 +712,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				} {
 					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
 					Expect(obj.GetFinalizers()).To(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
-					Expect(obj.GetLabels()).To(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).To(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
 				}
 
 				By("Checking the rest of the objects after update")
@@ -598,7 +724,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				} {
 					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
 					Expect(obj.GetFinalizers()).ToNot(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
-					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
 				}
 				By("Updating the DPUDeployment deps")
 				svc := dpuservicev1.DPUDeploymentServiceConfiguration{
@@ -625,7 +751,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				} {
 					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
 					Expect(obj.GetFinalizers()).To(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
-					Expect(obj.GetLabels()).To(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).To(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
 				}
 
 				By("Checking the rest of the objects after update")
@@ -637,7 +763,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				} {
 					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
 					Expect(obj.GetFinalizers()).ToNot(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
-					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
 				}
 			})
 			It("should be able to mark and clean stale dependencies that other controller have applied finalizers and labels to", func() {
@@ -667,7 +793,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
 					Expect(obj.GetFinalizers()).To(ContainElements(dpuservicev1.DPUDeploymentFinalizer, "test.io/some-finalizer"), fmt.Sprintf("%T", obj))
 					Expect(obj.GetLabels()).To(And(
-						HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name),
+						HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)), dependentDPUDeploymentLabelValue),
 						HaveKeyWithValue("some", "label"),
 					), fmt.Sprintf("%T", obj))
 				}
@@ -682,7 +808,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
 					Expect(obj.GetFinalizers()).ToNot(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
 					Expect(obj.GetFinalizers()).To(ContainElement("test.io/some-finalizer"), fmt.Sprintf("%T", obj))
-					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
 					Expect(obj.GetLabels()).To(HaveKeyWithValue("some", "label"), fmt.Sprintf("%T", obj))
 				}
 
@@ -724,7 +850,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
 					Expect(obj.GetFinalizers()).To(ContainElements(dpuservicev1.DPUDeploymentFinalizer, "test.io/some-finalizer"), fmt.Sprintf("%T", obj))
 					Expect(obj.GetLabels()).To(And(
-						HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name),
+						HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)), dependentDPUDeploymentLabelValue),
 						HaveKeyWithValue("some", "label"),
 					), fmt.Sprintf("%T", obj))
 				}
@@ -739,7 +865,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					Expect(testClient.Get(ctx, key, obj)).To(Succeed(), fmt.Sprintf("%T", obj))
 					Expect(obj.GetFinalizers()).ToNot(ContainElement(dpuservicev1.DPUDeploymentFinalizer), fmt.Sprintf("%T", obj))
 					Expect(obj.GetFinalizers()).To(ContainElement("test.io/some-finalizer"), fmt.Sprintf("%T", obj))
-					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(DependentDPUDeploymentNameLabel, dpuDeployment.Name), fmt.Sprintf("%T", obj))
+					Expect(obj.GetLabels()).ToNot(HaveKeyWithValue(getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)), dependentDPUDeploymentLabelValue), fmt.Sprintf("%T", obj))
 					Expect(obj.GetLabels()).To(HaveKeyWithValue("some", "label"), fmt.Sprintf("%T", obj))
 				}
 			})

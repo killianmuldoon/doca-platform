@@ -27,6 +27,7 @@ import (
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
+	"github.com/nvidia/doca-platform/internal/digest"
 	"github.com/nvidia/doca-platform/internal/dpuservice/utils"
 	dpfutils "github.com/nvidia/doca-platform/internal/utils"
 
@@ -56,8 +57,11 @@ const (
 	ParentDPUDeploymentNameLabel = "svc.dpu.nvidia.com/owned-by-dpudeployment"
 	// DPUServiceChainVersionLabelKey is the key for the DPUServiceChain version that is used as labels on DPUSets and NodeSelector in DPUServiceChains>
 	dpuServiceChainVersionLabelKey = "svc.dpu.nvidia.com/dpuservicechain-version"
-	// DependentDPUDeploymentNameLabel contains the name of the DPUDeployment object that relies on this resource
-	DependentDPUDeploymentNameLabel = "dpu.nvidia.com/consumed-by-dpudeployment-name"
+	// dependentDPUDeploymentLabelKeyPrefix is the prefix of the label key that is applied to dependent objects of
+	// a DPUDeployment
+	dependentDPUDeploymentLabelKeyPrefix = "svc.dpu.nvidia.com/consumed-by-dpudeployment"
+	// dependentDPUDeploymentLabelValue is the label value that is applied to dependent objects of a DPUDeployment
+	dependentDPUDeploymentLabelValue = ""
 
 	// ServiceInterfaceInterfaceNameLabel label identifies a specific interface of a DPUService.
 	ServiceInterfaceInterfaceNameLabel = "svc.dpu.nvidia.com/interface"
@@ -394,7 +398,7 @@ func cleanAllStaleDependencies(ctx context.Context, c client.Client, dpuDeployme
 			obj,
 			client.InNamespace(dpuDeployment.Namespace),
 			client.MatchingLabels{
-				DependentDPUDeploymentNameLabel: dpuDeployment.Name,
+				getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)): dependentDPUDeploymentLabelValue,
 			},
 		); err != nil {
 			return fmt.Errorf("error while listing %T: %w", obj, err)
@@ -409,7 +413,7 @@ func cleanAllStaleDependencies(ctx context.Context, c client.Client, dpuDeployme
 					}
 				}
 				patcher := patch.NewSerialPatcher(&dpuServiceConfiguration, c)
-				unmarkDependency(&dpuServiceConfiguration)
+				unmarkDependency(dpuDeployment, &dpuServiceConfiguration)
 
 				if err := patcher.Patch(ctx, &dpuServiceConfiguration, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
 					return fmt.Errorf("error while patching %s %s: %w", dpuServiceConfiguration.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuServiceConfiguration), err)
@@ -424,7 +428,7 @@ func cleanAllStaleDependencies(ctx context.Context, c client.Client, dpuDeployme
 					}
 				}
 				patcher := patch.NewSerialPatcher(&dpuServiceTemplate, c)
-				unmarkDependency(&dpuServiceTemplate)
+				unmarkDependency(dpuDeployment, &dpuServiceTemplate)
 
 				if err := patcher.Patch(ctx, &dpuServiceTemplate, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
 					return fmt.Errorf("error while patching %s %s: %w", dpuServiceTemplate.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuServiceTemplate), err)
@@ -437,7 +441,7 @@ func cleanAllStaleDependencies(ctx context.Context, c client.Client, dpuDeployme
 					continue
 				}
 				patcher := patch.NewSerialPatcher(&bfb, c)
-				unmarkDependency(&bfb)
+				unmarkDependency(dpuDeployment, &bfb)
 
 				if err := patcher.Patch(ctx, &bfb, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
 					return fmt.Errorf("error while patching %s %s: %w", bfb.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&bfb), err)
@@ -450,7 +454,7 @@ func cleanAllStaleDependencies(ctx context.Context, c client.Client, dpuDeployme
 					continue
 				}
 				patcher := patch.NewSerialPatcher(&dpuFlavor, c)
-				unmarkDependency(&dpuFlavor)
+				unmarkDependency(dpuDeployment, &dpuFlavor)
 
 				if err := patcher.Patch(ctx, &dpuFlavor, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
 					return fmt.Errorf("error while patching %s %s: %w", dpuFlavor.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuFlavor), err)
@@ -470,16 +474,22 @@ func markDependency(o client.Object, dpuDeployment *dpuservicev1.DPUDeployment) 
 	if labels == nil {
 		labels = make(map[string]string)
 	}
-	labels[DependentDPUDeploymentNameLabel] = dpuDeployment.Name
+	labels[getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment))] = dependentDPUDeploymentLabelValue
 	o.SetLabels(labels)
 }
 
 // unmarkDependency removes the identifiers for a dependency that is no longer referenced in the DPUDeployment
-func unmarkDependency(o client.Object) {
-	controllerutil.RemoveFinalizer(o, dpuservicev1.DPUDeploymentFinalizer)
+func unmarkDependency(dpuDeployment *dpuservicev1.DPUDeployment, o client.Object) {
 	labels := o.GetLabels()
-	delete(labels, DependentDPUDeploymentNameLabel)
+	delete(labels, getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)))
 	o.SetLabels(labels)
+
+	for k := range labels {
+		if strings.HasPrefix(k, dependentDPUDeploymentLabelKeyPrefix) {
+			return
+		}
+	}
+	controllerutil.RemoveFinalizer(o, dpuservicev1.DPUDeploymentFinalizer)
 }
 
 // verifyResourceFitting verifies that the user provided resources for DPUServices can fit the resources defined in the
@@ -1174,7 +1184,7 @@ func releaseAllDependencies(ctx context.Context, c client.Client, dpuDeployment 
 			obj,
 			client.InNamespace(dpuDeployment.Namespace),
 			client.MatchingLabels{
-				DependentDPUDeploymentNameLabel: dpuDeployment.Name,
+				getDependentDPUDeploymentLabelKey(client.ObjectKeyFromObject(dpuDeployment)): dependentDPUDeploymentLabelValue,
 			},
 		); err != nil {
 			return fmt.Errorf("error while listing %T: %w", obj, err)
@@ -1184,7 +1194,7 @@ func releaseAllDependencies(ctx context.Context, c client.Client, dpuDeployment 
 			objs := obj.(*dpuservicev1.DPUServiceConfigurationList).Items
 			for _, o := range objs {
 				patcher := patch.NewSerialPatcher(&o, c)
-				unmarkDependency(&o)
+				unmarkDependency(dpuDeployment, &o)
 
 				if err := patcher.Patch(ctx, &o, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
 					return fmt.Errorf("error while patching %s %s: %w", o.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&o), err)
@@ -1194,7 +1204,7 @@ func releaseAllDependencies(ctx context.Context, c client.Client, dpuDeployment 
 			objs := obj.(*dpuservicev1.DPUServiceTemplateList).Items
 			for _, o := range objs {
 				patcher := patch.NewSerialPatcher(&o, c)
-				unmarkDependency(&o)
+				unmarkDependency(dpuDeployment, &o)
 
 				if err := patcher.Patch(ctx, &o, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
 					return fmt.Errorf("error while patching %s %s: %w", o.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&o), err)
@@ -1204,7 +1214,7 @@ func releaseAllDependencies(ctx context.Context, c client.Client, dpuDeployment 
 			objs := obj.(*provisioningv1.BFBList).Items
 			for _, o := range objs {
 				patcher := patch.NewSerialPatcher(&o, c)
-				unmarkDependency(&o)
+				unmarkDependency(dpuDeployment, &o)
 
 				if err := patcher.Patch(ctx, &o, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
 					return fmt.Errorf("error while patching %s %s: %w", o.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&o), err)
@@ -1214,7 +1224,7 @@ func releaseAllDependencies(ctx context.Context, c client.Client, dpuDeployment 
 			objs := obj.(*provisioningv1.DPUFlavorList).Items
 			for _, o := range objs {
 				patcher := patch.NewSerialPatcher(&o, c)
-				unmarkDependency(&o)
+				unmarkDependency(dpuDeployment, &o)
 
 				if err := patcher.Patch(ctx, &o, patch.WithFieldOwner(dpuDeploymentControllerName)); err != nil {
 					return fmt.Errorf("error while patching %s %s: %w", o.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&o), err)
@@ -1344,6 +1354,12 @@ func getDPUServiceVersionLabelKey(name string) string {
 
 func getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName types.NamespacedName) string {
 	return fmt.Sprintf("%s_%s", dpuDeploymentNamespacedName.Namespace, dpuDeploymentNamespacedName.Name)
+}
+
+// getDependentDPUDeploymentLabelKey returns the label key that should be applied to dependent objects of the
+// DPUDeployment
+func getDependentDPUDeploymentLabelKey(dpuDeploymentNamespacedName types.NamespacedName) string {
+	return fmt.Sprintf("%s-%s", dependentDPUDeploymentLabelKeyPrefix, digest.Short(digest.FromObjects(dpuDeploymentNamespacedName), 10))
 }
 
 // deleteElementOrNil deletes an element from a slice or returns nil if this is the last element in the slice
