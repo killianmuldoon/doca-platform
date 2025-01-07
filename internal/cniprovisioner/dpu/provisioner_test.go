@@ -528,15 +528,10 @@ network:
 			gateway := net.ParseIP("192.168.1.254")
 			By("Checking the first run")
 			ovsClient.EXPECT().SetKubernetesHostNodeName("host1")
-
-			networkhelper.EXPECT().GetLinkIPAddresses("br-ovn").Return([]*net.IPNet{brOVNAddress}, nil)
-			networkhelper.EXPECT().GetGateway(fakeNetwork).Return(gateway, nil)
-			networkhelper.EXPECT().RouteExists(hostCIDR, gateway, "br-ovn")
-			networkhelper.EXPECT().AddRoute(hostCIDR, gateway, "br-ovn", ptr.To[int](10000))
-			ovsClient.EXPECT().SetOVNEncapIP(brOVNAddress.IP)
+			networkhelper.EXPECT().GetLinkIPAddresses("br-ovn").Return([]*net.IPNet{}, nil)
 
 			err = provisioner.RunOnce()
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).To(HaveOccurred())
 
 			By("Checking the second run")
 			ovsClient.EXPECT().SetKubernetesHostNodeName("host1")
@@ -548,8 +543,105 @@ network:
 			err = provisioner.RunOnce()
 			Expect(err).ToNot(HaveOccurred())
 
+			By("Checking the third run")
+			ovsClient.EXPECT().SetKubernetesHostNodeName("host1")
+			networkhelper.EXPECT().GetLinkIPAddresses("br-ovn").Return([]*net.IPNet{brOVNAddress}, nil)
+			networkhelper.EXPECT().GetGateway(fakeNetwork).Return(gateway, nil)
+			networkhelper.EXPECT().RouteExists(hostCIDR, gateway, "br-ovn").Return(true, nil)
+			ovsClient.EXPECT().SetOVNEncapIP(brOVNAddress.IP)
+
+			err = provisioner.RunOnce()
+			Expect(err).ToNot(HaveOccurred())
+
 			By("Checking that netplan was restarted only once")
 			Expect(fakeExec.CommandCalls).To(Equal(1))
+		})
+		It("should not run netplan apply when in cooldown period and when network and ovs clients are mocked like in the real world", func(ctx context.Context) {
+			testCtrl := gomock.NewController(GinkgoT())
+			ovsClient := ovsclientMock.NewMockOVSClient(testCtrl)
+			networkhelper := networkhelperMock.NewMockNetworkHelper(testCtrl)
+			fakeExec := &kexecTesting.FakeExec{}
+			_, hostCIDR, err := net.ParseCIDR("10.0.100.1/24")
+			Expect(err).ToNot(HaveOccurred())
+			_, gatewayDiscoveryNetwork, err := net.ParseCIDR("169.254.99.100/32")
+			Expect(err).ToNot(HaveOccurred())
+			fakeNode := &corev1.Node{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dpu1",
+					Labels: map[string]string{
+						"provisioning.dpu.nvidia.com/host": "host1",
+					},
+				},
+			}
+			kubernetesClient := testclient.NewClientset(fakeNode)
+			fakeClock := clock.NewFakeClock(time.Now())
+			provisioner := dpucniprovisioner.New(context.Background(), dpucniprovisioner.ExternalIPAM, fakeClock, ovsClient, networkhelper, fakeExec, kubernetesClient, nil, nil, nil, hostCIDR, nil, fakeNode.Name, gatewayDiscoveryNetwork, 0)
+
+			// Prepare Filesystem
+			tmpDir, err := os.MkdirTemp("", "dpucniprovisioner")
+			defer func() {
+				err := os.RemoveAll(tmpDir)
+				Expect(err).ToNot(HaveOccurred())
+			}()
+			Expect(err).NotTo(HaveOccurred())
+			provisioner.FileSystemRoot = tmpDir
+			netplanDirPath := filepath.Join(tmpDir, "/etc/netplan")
+			Expect(os.MkdirAll(netplanDirPath, 0755)).To(Succeed())
+			ovnInputDirPath := filepath.Join(tmpDir, "/etc/init-output")
+			Expect(os.MkdirAll(ovnInputDirPath, 0755)).To(Succeed())
+
+			fakeCommand := kexecTesting.FakeCommandAction(func(cmd string, args ...string) kexec.Cmd {
+				Expect(cmd).To(Equal("netplan"))
+				Expect(args).To(Equal([]string{"apply"}))
+				return kexec.New().Command("echo")
+			})
+			fakeExec.CommandScript = append(fakeExec.CommandScript, fakeCommand, fakeCommand)
+
+			brOVNAddress, err := netlink.ParseIPNet("192.168.0.3/23")
+			Expect(err).ToNot(HaveOccurred())
+			_, fakeNetwork, err := net.ParseCIDR("169.254.99.100/32")
+			Expect(err).ToNot(HaveOccurred())
+			gateway := net.ParseIP("192.168.1.254")
+
+			By("Checking the first run")
+			ovsClient.EXPECT().SetKubernetesHostNodeName("host1")
+			networkhelper.EXPECT().GetLinkIPAddresses("br-ovn").Return([]*net.IPNet{}, nil)
+
+			err = provisioner.RunOnce()
+			Expect(err).To(HaveOccurred())
+
+			fakeClock.Step(60 * time.Second)
+
+			By("Checking the second run")
+			ovsClient.EXPECT().SetKubernetesHostNodeName("host1")
+			networkhelper.EXPECT().GetLinkIPAddresses("br-ovn").Return([]*net.IPNet{}, nil)
+
+			err = provisioner.RunOnce()
+			Expect(err).To(HaveOccurred())
+
+			fakeClock.Step(60 * time.Second)
+
+			By("Checking the third run")
+			ovsClient.EXPECT().SetKubernetesHostNodeName("host1")
+			networkhelper.EXPECT().GetLinkIPAddresses("br-ovn").Return([]*net.IPNet{}, nil)
+
+			err = provisioner.RunOnce()
+			Expect(err).To(HaveOccurred())
+
+			fakeClock.Step(60 * time.Second)
+
+			By("Checking the fourth run")
+			ovsClient.EXPECT().SetKubernetesHostNodeName("host1")
+			networkhelper.EXPECT().GetLinkIPAddresses("br-ovn").Return([]*net.IPNet{brOVNAddress}, nil)
+			networkhelper.EXPECT().GetGateway(fakeNetwork).Return(gateway, nil)
+			networkhelper.EXPECT().RouteExists(hostCIDR, gateway, "br-ovn").Return(true, nil)
+			ovsClient.EXPECT().SetOVNEncapIP(brOVNAddress.IP)
+
+			err = provisioner.RunOnce()
+			Expect(err).ToNot(HaveOccurred())
+
+			By("Checking that netplan was restarted only once")
+			Expect(fakeExec.CommandCalls).To(Equal(2))
 		})
 	})
 })

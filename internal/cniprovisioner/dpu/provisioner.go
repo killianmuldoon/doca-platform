@@ -24,6 +24,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/networkhelper"
@@ -69,12 +70,17 @@ const (
 	ovnInputRouterSubnetPath = "/etc/init-output/ovn_gateway_router_subnet"
 	// brOVNNetplanConfigPath is the path to the file which contains the netplan configuration for br-ovn
 	brOVNNetplanConfigPath = "/etc/netplan/80-br-ovn.yaml"
-	// netplanApplyDonePath is a file that indicates that a netplan apply has already ran and was successful
+	// netplanApplyDonePath is a file that indicates that a netplan apply has already ran and was successful. The content
+	// of the file is used to create a cooldown period before re-issuing a subsequent netplan apply command.
 	netplanApplyDonePath = "/etc/netplan/.dpucniprovisioner.done"
+	// netplanApplyCooldownDuration determines the cooldown period of a successful netplan apply command before a
+	// subsequent netplan apply command is executed.
+	netplanApplyCooldownDuration = time.Minute * 2
 )
 
 type DPUCNIProvisioner struct {
 	ctx                       context.Context
+	clock                     clock.Clock
 	ensureConfigurationTicker clock.Ticker
 	ovsClient                 ovsclient.OVSClient
 	networkHelper             networkhelper.NetworkHelper
@@ -133,6 +139,7 @@ func New(ctx context.Context,
 ) *DPUCNIProvisioner {
 	return &DPUCNIProvisioner{
 		ctx:                       ctx,
+		clock:                     clock,
 		ensureConfigurationTicker: clock.NewTicker(30 * time.Second),
 		ovsClient:                 ovsClient,
 		networkHelper:             networkHelper,
@@ -324,7 +331,7 @@ func (p *DPUCNIProvisioner) writeFilesForOVN() error {
 
 // configureBROVN requests an IP via DHCP for br-ovn and mutates the relevant fields of the DPUCNIProvisioner objects
 func (p *DPUCNIProvisioner) configureBROVN() error {
-	if err := p.requestIPForBROVN(); err != nil {
+	if err := p.writeNetplanFileForBROVN(); err != nil {
 		return fmt.Errorf("error while br-ovn netplan: %w", err)
 	}
 
@@ -334,7 +341,11 @@ func (p *DPUCNIProvisioner) configureBROVN() error {
 	}
 
 	if len(addrs) != 1 {
-		return fmt.Errorf("exactly 1 IP is expected in %s", brOVN)
+		if err := p.runNetplanApply(); err != nil {
+			return fmt.Errorf("error running netplan apply: %w", err)
+		}
+
+		return fmt.Errorf("exactly 1 IP is expected in %s, but found %d", brOVN, len(addrs))
 	}
 
 	p.vtepIPNet = addrs[0]
@@ -374,8 +385,8 @@ func (p *DPUCNIProvisioner) writeOVNInputRouterSubnetPath() error {
 	return nil
 }
 
-// requestIPForBROVN writes a netplan file and runs netplan apply to request an IP for br-ovn
-func (p *DPUCNIProvisioner) requestIPForBROVN() error {
+// writeNetplanFileForBROVN writes a netplan file for br-ovn to request dhcp
+func (p *DPUCNIProvisioner) writeNetplanFileForBROVN() error {
 	configPath := filepath.Join(p.FileSystemRoot, brOVNNetplanConfigPath)
 	content := fmt.Sprintf(`
 network:
@@ -392,13 +403,29 @@ network:
 		return fmt.Errorf("error while writing file %s: %w", configPath, err)
 	}
 
+	return nil
+}
+
+// runNetplanApply runs netplan apply while respecting the cooldown period after a successful netplan apply
+func (p *DPUCNIProvisioner) runNetplanApply() error {
 	applyDonePath := filepath.Join(p.FileSystemRoot, netplanApplyDonePath)
-	_, err := os.Stat(applyDonePath)
-	if err == nil {
-		klog.Info("netplan apply already ran, not rerunning")
+	lastSuccessfulRunTimestampRaw, err := os.ReadFile(applyDonePath)
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("error while reading %s: %w", applyDonePath, err)
+	}
+
+	var lastSuccessfulRunTimestampRawInt int
+	if string(lastSuccessfulRunTimestampRaw) != "" {
+		lastSuccessfulRunTimestampRawInt, err = strconv.Atoi(string(lastSuccessfulRunTimestampRaw))
+		if err != nil {
+			return fmt.Errorf("error parsing timestamp from string %s: %w", lastSuccessfulRunTimestampRaw, err)
+		}
+	}
+
+	lastSuccessfulRunTimestamp := time.Unix(int64(lastSuccessfulRunTimestampRawInt), 0)
+	if lastSuccessfulRunTimestamp.Add(netplanApplyCooldownDuration).After(p.clock.Now()) {
+		klog.Info("netplan apply is in cool down period, skipping apply")
 		return nil
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("error when calling stat on %s: %w", applyDonePath, err)
 	}
 
 	cmd := p.exec.Command("netplan", "apply")
@@ -410,10 +437,10 @@ network:
 		return fmt.Errorf("error running netplan: stdout='%s' stderr='%s': %w", stdout.String(), stderr.String(), err)
 	}
 
-	_, err = os.Create(applyDonePath)
-	if err != nil {
-		return fmt.Errorf("error creating %s file: %w", applyDonePath, err)
+	if err = os.WriteFile(applyDonePath, []byte(strconv.Itoa(int(p.clock.Now().Unix()))), 0644); err != nil {
+		return fmt.Errorf("error writing file %s: %w", applyDonePath, err)
 	}
+
 	return nil
 }
 
