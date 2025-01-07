@@ -80,6 +80,12 @@ rules:
   - list
   - watch
 - apiGroups:
+  - operator.dpu.nvidia.com
+  resources:
+  - dpfoperatorconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
   - provisioning.dpu.nvidia.com
   resources:
   - bfbs

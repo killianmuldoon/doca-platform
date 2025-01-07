@@ -71,6 +71,7 @@ MINIKUBE_ARGS="${MINIKUBE_ARGS:-"\
   --cni $MINIKUBE_CNI \
   --kubernetes-version $MINIKUBE_KUBERNETES_VERSION \
   --registry-mirror="$MINIKUBE_DOCKER_MIRROR" \
+  --extra-config=apiserver.enable-admission-plugins=OwnerReferencesPermissionEnforcement \ # This admission plugin is enabled by default in OpenShift and is enabled in our testing environment to ensure compatibility.
   --preload=true \
   --addons metallb"}"
 
