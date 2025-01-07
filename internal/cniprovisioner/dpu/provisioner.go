@@ -183,6 +183,9 @@ func (p *DPUCNIProvisioner) EnsureConfiguration() {
 		case <-p.ctx.Done():
 			return
 		case <-p.ensureConfigurationTicker.C():
+			if err := p.configure(); err != nil {
+				klog.Errorf("failed to ensure configuration: %s", err.Error())
+			}
 		}
 	}
 }
