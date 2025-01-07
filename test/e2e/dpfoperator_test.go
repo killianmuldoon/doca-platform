@@ -686,7 +686,6 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 	dpuServiceNamespace := "dpu-test-ns"
 
 	It("create a DPUService and check Objects and ImagePullSecrets are mirrored correctly", func() {
-
 		By("create namespace for DPUService")
 		testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceNamespace}}
 		testNS.SetLabels(cleanupLabels)
@@ -761,25 +760,44 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 		if skipCleanup {
 			Skip("Skip cleanup resources")
 		}
-		By("delete the DPUServices")
+
+		By("pause dpuservice reconciliation")
 		svc := &dpuservicev1.DPUService{}
+		Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: hostDPUServiceName}, svc)).To(Succeed())
+		svc.Spec.Paused = ptr.To(true)
+		Eventually(testClient.Update).WithArguments(ctx, svc).Should(Succeed())
+
+		By("delete the DPUServices")
+		svc = &dpuservicev1.DPUService{}
 		// Delete the DPUCluster DPUService.
 		Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: dpuServiceName}, svc)).To(Succeed())
 		Expect(testClient.Delete(ctx, svc)).To(Succeed())
 
 		// Delete the host cluster DPUService.
+		svc = &dpuservicev1.DPUService{}
 		Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: hostDPUServiceName}, svc)).To(Succeed())
 		Expect(testClient.Delete(ctx, svc)).To(Succeed())
 
 		// Verify that the DPUServices are deleted
 		By("verify DPUServices is deleted in the DPU cluster")
 		Eventually(func(g Gomega) {
-			g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: hostDPUServiceName}, svc)).NotTo(Succeed())
+			g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: dpuServiceName}, svc)).ToNot(Succeed())
 		}).WithTimeout(600 * time.Second).Should(Succeed())
 
-		By("verify DPUService is deleted in the host cluster")
+		By("verify DPUService is not deleted in the host cluster")
 		Eventually(func(g Gomega) {
-			g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: dpuServiceName}, svc)).NotTo(Succeed())
+			svc = &dpuservicev1.DPUService{}
+			g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: hostDPUServiceName}, svc)).To(Succeed())
+		}).WithTimeout(600 * time.Second).Should(Succeed())
+
+		By("resume dpuservice reconciliation")
+		svc.Spec.Paused = ptr.To(false)
+		Eventually(testClient.Update).WithArguments(ctx, svc).Should(Succeed())
+
+		// Verify that the DPUServices are deleted
+		By("verify DPUServices is deleted in the host cluster")
+		Eventually(func(g Gomega) {
+			g.Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: hostDPUServiceName}, svc)).ToNot(Succeed())
 		}).WithTimeout(600 * time.Second).Should(Succeed())
 
 		dsi := &dpuservicev1.DPUServiceInterface{}

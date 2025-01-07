@@ -256,6 +256,17 @@ func (r *DPUServiceReconciler) reconcileDeleteApplications(ctx context.Context, 
 				return ctrl.Result{}, err
 			}
 		}
+
+		// unpause the application if it is paused so that it can be deleted.
+		if isSkipReconcileAnnotationSet(&app) {
+			app.Annotations[annotationKeyAppSkipReconcile] = "false"
+			if err := r.Client.Update(ctx, &app); err != nil {
+				// Tolerate if the application is not found and already deleted.
+				if !apierrors.IsNotFound(err) {
+					return ctrl.Result{}, err
+				}
+			}
+		}
 	}
 
 	// List Applications again to verify if it is in deletion.
@@ -755,11 +766,8 @@ func (r *DPUServiceReconciler) ensureApplication(ctx context.Context, dpuService
 			return err
 		}
 	} else {
-		// Check if we are resuming from a paused state.
-		paused := gotArgoApplication.Annotations != nil && gotArgoApplication.Annotations[annotationKeyAppSkipReconcile] == "true"
-
 		// Return early if the spec has not changed.
-		if reflect.DeepEqual(gotArgoApplication.Spec, argoApplication.Spec) && !paused {
+		if reflect.DeepEqual(gotArgoApplication.Spec, argoApplication.Spec) && !isSkipReconcileAnnotationSet(gotArgoApplication) {
 			return nil
 		}
 
@@ -1020,4 +1028,8 @@ func getRandomKVPair[T any](m map[string]T) (string, T) {
 		return k, v
 	}
 	return "", result
+}
+
+func isSkipReconcileAnnotationSet(app *argov1.Application) bool {
+	return app.Annotations != nil && app.Annotations[annotationKeyAppSkipReconcile] == "true"
 }
