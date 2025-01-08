@@ -190,6 +190,9 @@ func (r *NVVolume) reconcile(ctx context.Context, nvVolume *snapstoragev1.Volume
 						pv.Name, nvVolume.Namespace, nvVolume.Name)
 					return ctrl.Result{}, errors.New(msg)
 				}
+				if nvVolume.Labels == nil {
+					nvVolume.Labels = map[string]string{}
+				}
 				nvVolume.Labels["volumeId"] = string(nvVolume.ObjectMeta.UID)
 				nvVolume.Status.State = snapstoragev1.VolumeStateAvailable
 				return ctrl.Result{}, nil
