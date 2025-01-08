@@ -1,6 +1,12 @@
-# DOCA Platform Framework
+# DOCA Platform Framework (DPF)
 
-DOCA Platform Framework (DPF) manages NVIDIA DPUs and services running on them in a Kubernetes cluster. A second Kubernetes cluster - called a DPUCluster - manages the lifecycle of services running on the DPUs. This is a high-level overview of the components and flows of the DPF system. For more detailed information on setup and usage - including dependencies and prerequisites - see the installation guide.
+DOCA Platform Framework (DPF) streamlines the provisioning and orchestration of NVIDIA BlueField DPUs in Kubernetes environments. 
+
+It implements a dual-cluster architecture:
+- **Host Cluster**: Provisions and managed DPUs and hosting DPU Cluster control plane components.
+- **DPU Cluster**: Manages the lifecycle of services deployed on DPUs.
+
+Refer to the installation guide for setup details, dependencies, and prerequisites.
 
 <!-- toc -->
 - [DPF system components](#dpf-system-components)
@@ -101,7 +107,7 @@ This component set uses the Kamaji Cluster Manager - but other Cluster managers 
 * Node feature discovery - including DPU Detector
     * Add information about DPUs to the Kubernetes Node representing the host node
     * Communicate with the host control plane and host node filesystem
-* DOCA management service
+* [DOCA Management Service (DMS)](https://docs.nvidia.com/doca/sdk/nvidia+doca+management+service+guide/index.html)
   * Flash a BFB to DPU hardware
   * Communicate with the BlueField DPU and DPU Controller
 * Hostnetwork configuration
@@ -136,7 +142,7 @@ This component set uses the Kamaji Cluster Manager - but other Cluster managers 
   * Manage the lifecycle of the DPUServiceChain created by users
   * Communicate with the host control plane and DPU control plane
 #### In the DPU cluster control plane
-* NVIPAM
+* NVIDIA IPAM Plugin (NVIPAM)
   * Manage allocation of IPs in the DPU cluster
   * Communicate with the DPU control plane
 * ServiceChainSet controller
@@ -157,7 +163,7 @@ This component set uses the Kamaji Cluster Manager - but other Cluster managers 
 * ServiceFunctionChain CNI
   * Adds ovs network interfaces to pods
   * Communicate with Container Runtime Interface and host OVS
-* NVIPAM
+* NVIDIA IPAM Plugin (NVIPAM)
   * Allocate IPs for pods on the DPU node
   * Communicate with the DPU control plane and host OS
 * Multus

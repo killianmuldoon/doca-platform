@@ -1,23 +1,32 @@
-# DOCA Platform Framework
+# DOCA Platform Framework (DPF)
 
-DOCA Platform Framework (DPF) is a system that orchestrates NVIDIA Data Processing Units (DPU) using a Kubernetes API. It provisions and manages DPU devices and orchestrates specialized DPUServices which run on those devices.
+## Overview
+DOCA Platform Framework (DPF) is a system that provisions and orchestrates [NVIDIA BlueField DPUs](https://www.nvidia.com/en-gb/networking/products/data-processing-unit/) in cloud environments.
 
-DPF manages DPUs installed in nodes that are part of a Kubernetes cluster.
+## Key Features
+- **Kubernetes Integration**: Streamlines DPU provisioning and management via Kubernetes APIs.
+- **DPU Service Orchestration**: Enables efficient deployment and orchestration of services on DPUs.
+- **Cluster Management**: Simplifies the management of DPUs within Kubernetes clusters.
 
-- [System overview](docs/architecture/system_overview.md) contains a high level description of the components and functionality of DPF.
+## Hardware support
+DPF supports NVIDIA BlueField-3 DPUs. 
 
-- [Use cases](docs/guides/usecases/) show how to install DPF and what to use it for.
+BlueField DPUs are installed as PCI devices in servers to manage various types of network traffic, such as data center communication and storage traffic, through dedicated ports. They feature arm64 CPUs running Linux OS and [NVIDIA DOCA Software](https://developer.nvidia.com/networking/doca) components.
 
-- [System architecture](docs/architecture/system.md) describes the workings of the DPF system components in detail.
+Refer to [Prerequisites](docs/guides/usecases/prerequisites.md) for detailed hardware requirements.
 
-## Hardware
-DPF enables NVIDIA [Bluefield DPUs](https://www.nvidia.com/en-gb/networking/products/data-processing-unit/). These devices are installed in servers as PCI devices and handle network traffic through network ports. Bluefield DPUs have arm64 CPUs and run a standard Linux OS.
+## Documentation
 
-DPF supports all Bluefield 3 DPUs.
+- [System overview](docs/architecture/system_overview.md): High-level description of DPF components and functionality.
+
+- [System architecture](docs/architecture/system.md): Detailed explanation of DPF components and their interactions.
+
+- [User guide](docs/guides/usecases/): Guides on installing and utilizing DPF effectively for specific use-cases.
+
 
 ## API reference
 
-The DPF API is documented [here](docs/api.md).
+Comprehensive DPF API documentation is available [here](docs/api.md).
 
 ## Contributing
 

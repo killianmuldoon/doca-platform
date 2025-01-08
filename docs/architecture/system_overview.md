@@ -1,7 +1,8 @@
-## DOCA Platform Framework
+## DOCA Platform Framework (DPF)
 
+DOCA Platform Framework (DPF) streamlines the provisioning and orchestration of NVIDIA BlueField DPUs in Kubernetes environments.
+It supports scalable deployment and management of DPUs and the services running on them.
 
-A system for provisioning and managing DPUs and the DOCA services that run on them. Enable DPUs and DOCA Services deployment and management at scale.
 
 ```mermaid
 %%{
@@ -270,4 +271,4 @@ style z fill:#76B900,stroke:#FFF,stroke-width:2px
 4. OVN is the primary network which links workload pods with the ServiceFunctionChains operating on the DPU node
 5. All pods get a VF from the Bluefield which is used for the primary network
 6. OVN processing offloaded to DPU
-7. Other network functions - like an L3 firewall using HBN - can be added to the service chain for a pod.
+7. Other network functions - like an BGP router and L3 firewall using HBN - can be added to the service chain for a pod.
