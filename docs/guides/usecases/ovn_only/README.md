@@ -2,6 +2,13 @@
 
 In this configuration OVN Kubernetes is offloaded to the DPU.
 
+> [!WARNING]  
+>
+> Due to several known issues regarding the stability of this specific deployment 
+> use-case (OVN Kubernetes), it should be considered a proof-of-concept in this release.  
+>
+> Please use it at your own risk!
+
 <!-- toc -->
 - [Prerequisites](#prerequisites)
   - [Software prerequisites](#software-prerequisites)
