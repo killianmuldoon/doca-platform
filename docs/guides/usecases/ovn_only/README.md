@@ -63,7 +63,7 @@ In this configuration OVN Kubernetes is offloaded to the DPU.
 The system is set up as described in the [system prerequisites](../prerequisites.md). The OVN Kubernetes deployment has these additional requirements: 
 
 ### Software prerequisites
-This guide uses the following tools which must be installed where it is running.
+This guide uses the following tools which must be installed on the machine where the commands contained in this guide run..
 - kubectl
 - helm
 - envsubst
@@ -72,7 +72,7 @@ This guide uses the following tools which must be installed where it is running.
 
 #### Control plane Nodes
 - Open vSwitch (OVS) packages installed - i.e. `openvswitch-switch` for Ubuntu 24.04
-- out-of-band management port should be configured as OVS bridge port with "bridge-uplink" OVS metadata [This addresses a known issue](https://github.com/NVIDIA/doca-platform/issues/10).
+- out-of-band management port should be configured as OVS bridge port with "bridge-uplink" OVS metadata [This addresses a known issue](../../../release-notes/v24.10.0.md#known-issues-and-limitations).
 - DNS stub resolver should be disabled if using systemd resolvd
 
 #### Worker Nodes
@@ -157,8 +157,8 @@ export POD_CIDR=10.233.64.0/18
 ## This is a CIDR in the form e.g. 10.10.10.0/24
 export SERVICE_CIDR=10.233.0.0/18 
 
-## DPF_VERSION is the version of the DPF components which will be deployed in this use case guide.
-export DPF_VERSION=v24.10.0-rc.5
+## DPF_VERSION is the version of the DPF components which will be deployed in this guide.
+export DPF_VERSION=v24.10.0
 
 ## URL to the BFB used in the `bfb.yaml` and linked by the DPUSet.
 export BLUEFIELD_BITSTREAM="https://content.mellanox.com/BlueField/BFBs/Ubuntu22.04/bf-bundle-2.9.1-30_24.11_ubuntu-22.04_prod.bfb"

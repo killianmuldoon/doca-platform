@@ -24,6 +24,7 @@ set -o errexit
 
 files=(.gitlab
   .gitlab-ci.yml
+  CONVENTIONS.md
   docs/do_not_publish
   hack/scripts/ci-rebind-dev-wrapper.sh
   hack/scripts/ci_helm_docker_prereqs.sh

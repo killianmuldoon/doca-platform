@@ -44,7 +44,7 @@ In this configuration [NVIDIA Host Based Networking (HBN)](https://docs.nvidia.c
 The system is set up as described in the [system prerequisites](../prerequisites.md).  The HBN DPUService has the additional requirements:
 
 ### Software prerequisites
-This guide uses the following tools which must be installed where it is running.
+This guide uses the following tools which must be installed on the machine where the commands contained in this guide run..
 - kubectl
 - helm
 - envsubst
@@ -97,8 +97,8 @@ export NFS_SERVER_IP=
 # Note: This isn't technically required when using public images but is included here to demonstrate the secret flow in DPF when using images from a private registry.
 export NGC_API_KEY=
 
-## DPF_VERSION is the version of the DPF components which will be deployed in this use case guide.
-export DPF_VERSION=v24.10.0-rc.5
+## DPF_VERSION is the version of the DPF components which will be deployed in this guide.
+export DPF_VERSION=v24.10.0
 
 ## URL to the BFB used in the `bfb.yaml` and linked by the DPUSet.
 export BLUEFIELD_BITSTREAM="https://content.mellanox.com/BlueField/BFBs/Ubuntu22.04/bf-bundle-2.9.1-30_24.11_ubuntu-22.04_prod.bfb"

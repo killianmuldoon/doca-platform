@@ -23,6 +23,7 @@ Refer to [Prerequisites](docs/guides/usecases/prerequisites.md) for detailed har
 
 - [User guide](docs/guides/usecases/): Guides on installing and utilizing DPF effectively for specific use-cases.
 
+- [Release notes](docs/release-notes/README.md): Features and known issues for specific DPF versions.
 
 ## API reference
 

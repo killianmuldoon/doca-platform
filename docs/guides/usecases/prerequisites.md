@@ -1,9 +1,9 @@
 # DPF System setup
 
-DPF makes a number of assumptions about the hardware, software and networking of the machines it runs on. Some of the specific [use cases](guides/usecases/) add their own requirements.
+DPF makes a number of assumptions about the hardware, software and networking of the machines it runs on. Some of the specific [user guides](guides/usecases/) add their own requirements.
 
 ## Hardware setup
-There are 3 control plane machines serving many worker nodes in a cluster running DPF.
+There is a high availability control plane machines serving many worker nodes in a cluster running DPF.
 
 ### Control plane machines
 Each control plane machine:
@@ -24,6 +24,7 @@ Each worker machine:
 #### DPUs
 - Bluefield 3
 - 32 GB memory
+- Flashed with NVIDIA BFB with DOCA version 2.5 or higher 
 - out-of-band management port is not used
 
 ## System software setup

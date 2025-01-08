@@ -6,11 +6,11 @@ Before deploying DPF, ensure the following prerequisites are met:
 - [DPF System Setup Prerequisites](prerequisites.md)
 - [Host Network Configuration Prerequisites](host-network-configuration-prerequisite.md)
 
-## Use cases
+## User guide
 
 DPF enables a range of deployment scenarios by combining specific DPU services into service chains. These chains provide flexibility and efficiency for complex networking workflows. 
 
-Each service combination may require tailored configurations on the DPU for optimal performance. Below are the validated use cases with corresponding deployment guides.
+Each service combination may require tailored configurations on the DPU for optimal performance. Below are the validated user guides with corresponding deployment guides.
 
 ### HBN and OVN
 
