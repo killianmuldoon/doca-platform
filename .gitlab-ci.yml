@@ -39,6 +39,9 @@ lint:
   stage: verify
   needs: []
   rules:
+    - changes:
+        - "*.md"
+      when: never
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
   variables:
     GOLANGCI_LINT_CACHE: $CI_PROJECT_DIR/.golangci-cache
@@ -96,6 +99,9 @@ verify:
 test:
   stage: test
   rules:
+    - changes:
+        - "*.md"
+      when: never
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_PIPELINE_SOURCE == "schedule" && $UNIT_TEST == "true"
   cache:
@@ -121,6 +127,9 @@ e2e:
   stage: test
   needs: [ ]
   rules:
+    - changes:
+        - "*.md"
+      when: never
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
     - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST == "true"
   variables:
