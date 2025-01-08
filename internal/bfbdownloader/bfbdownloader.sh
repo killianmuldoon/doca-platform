@@ -59,7 +59,7 @@ download_and_setup_bfb_files() {
 
         echo "Download and setup of $FINAL_FILE completed successfully."
     else
-        echo "File $FINAL_FILE already exists. Skipping download and setup."
+        echo "File $FINAL_FILE already exists. Skipping download."
     fi
 }
 

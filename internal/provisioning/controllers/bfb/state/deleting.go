@@ -73,6 +73,13 @@ func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client, _ 
 		return *state, err
 	}
 
+	bfbJobName := cutil.GenerateBFBJobName(*st.bfb)
+	if err := cutil.DeleteJobIfExists(ctx, client, bfbJobName, st.bfb.Namespace); err != nil {
+		msg := fmt.Sprintf("Deleting job %s (%s/%s) failed with error :%s", bfbJobName, st.bfb.Namespace, st.bfb.Name, err.Error())
+		st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedDownloadBFBReason, msg)
+		return *state, err
+	}
+
 	controllerutil.RemoveFinalizer(st.bfb, provisioningv1.BFBFinalizer)
 	if err := client.Update(ctx, st.bfb); err != nil {
 		return *state, err

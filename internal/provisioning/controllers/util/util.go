@@ -30,6 +30,7 @@ import (
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
 
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -463,4 +464,19 @@ func GetClientset(ctx context.Context, client crclient.Client, dc *provisioningv
 		return nil, nil, err
 	}
 	return clientSet, kubeConfig, nil
+}
+
+func DeleteJobIfExists(ctx context.Context, k8sClient crclient.Client, bfbJobName string, namespace string) error {
+	job := &batchv1.Job{}
+	err := k8sClient.Get(ctx, types.NamespacedName{Name: bfbJobName, Namespace: namespace}, job)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		}
+		return err
+	}
+	if err := k8sClient.Delete(ctx, job, crclient.PropagationPolicy(metav1.DeletePropagationForeground)); err != nil {
+		return err
+	}
+	return nil
 }

@@ -45,6 +45,7 @@ func GetBFBState(bfb *provisioningv1.BFB, recorder record.EventRecorder) State {
 	case provisioningv1.BFBReady:
 		return &bfbReadyState{
 			bfb,
+			recorder,
 		}
 	case provisioningv1.BFBDeleting:
 		return &bfbDeletingState{

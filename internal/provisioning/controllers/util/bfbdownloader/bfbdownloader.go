@@ -35,6 +35,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const (
+	BackoffLimit = 0
+)
+
 // BFBDownloader is an interface for creating and managing BFB download jobs.
 type BFBDownloader interface {
 	CreateBFBDownloadJob(ctx context.Context, client client.Client, bfb *provisioningv1.BFB, option util.BFBOptions) error
@@ -67,6 +71,7 @@ func (r *RealBFBDownloader) CreateBFBDownloadJob(ctx context.Context, client cli
 			},
 		},
 		Spec: batchv1.JobSpec{
+			BackoffLimit: &[]int32{BackoffLimit}[0],
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      jobName,
