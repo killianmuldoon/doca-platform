@@ -28,7 +28,7 @@ import (
 	"time"
 
 	"github.com/nvidia/doca-platform/internal/cniprovisioner/utils/networkhelper"
-	dpu "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/state"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/state/gnoi"
 	"github.com/nvidia/doca-platform/internal/utils/ovsclient"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -230,9 +230,9 @@ func (p *DPUCNIProvisioner) findAndSetKubernetesHostNameInOVS() error {
 	if err != nil {
 		return fmt.Errorf("error while getting Kubernetes Node: %w", err)
 	}
-	hostName, ok := n.Labels[dpu.HostNameDPULabelKey]
+	hostName, ok := n.Labels[gnoi.HostNameDPULabelKey]
 	if !ok {
-		return fmt.Errorf("required label %s is not set on node %s in the DPU cluster", dpu.HostNameDPULabelKey, p.dpuHostName)
+		return fmt.Errorf("required label %s is not set on node %s in the DPU cluster", gnoi.HostNameDPULabelKey, p.dpuHostName)
 	}
 
 	if err := p.ovsClient.SetKubernetesHostNodeName(hostName); err != nil {

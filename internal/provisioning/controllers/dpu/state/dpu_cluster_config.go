@@ -27,34 +27,29 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type dpuClusterConfig struct {
-	dpu *provisioningv1.DPU
-}
-
-func (st *dpuClusterConfig) Handle(ctx context.Context, client crclient.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
+func ClusterConfig(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
 
-	state := st.dpu.Status.DeepCopy()
-	if isDeleting(st.dpu) {
+	state := dpu.Status.DeepCopy()
+	if !dpu.DeletionTimestamp.IsZero() {
 		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
-	dpuName := st.dpu.Name
-	tenantNamespace := st.dpu.Spec.Cluster.Namespace
-	tenantName := st.dpu.Spec.Cluster.Name
+	dpuName := dpu.Name
+	tenantNamespace := dpu.Spec.Cluster.Namespace
+	tenantName := dpu.Spec.Cluster.Name
 
 	dpuCluster := &provisioningv1.DPUCluster{}
-	err := client.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: tenantName}, dpuCluster)
+	err := ctrlCtx.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: tenantName}, dpuCluster)
 	if err != nil {
 		return *state, err
 	}
 
-	newClient, err := dpucluster.NewConfig(client, dpuCluster).Client(ctx)
+	newClient, err := dpucluster.NewConfig(ctrlCtx.Client, dpuCluster).Client(ctx)
 	if err != nil {
 		return *state, err
 	}
@@ -69,7 +64,7 @@ func (st *dpuClusterConfig) Handle(ctx context.Context, client crclient.Client, 
 	}
 
 	// Patch DPU labels to Kamaji Node
-	if err = util.AddLabelsToNode(ctx, newClient, node, st.dpu.Spec.Cluster.NodeLabels); err != nil {
+	if err = util.AddLabelsToNode(ctx, newClient, node, dpu.Spec.Cluster.NodeLabels); err != nil {
 		return *state, err
 	}
 

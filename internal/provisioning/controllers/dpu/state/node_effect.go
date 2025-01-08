@@ -34,45 +34,45 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type dpuNodeEffectState struct {
-	dpu *provisioningv1.DPU
-}
+const (
+	errorOccurredReason string = "ErrorOccured"
+)
 
-func (st *dpuNodeEffectState) Handle(ctx context.Context, k8sClient client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
+func NodeEffect(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
-	state := st.dpu.Status.DeepCopy()
-	if isDeleting(st.dpu) {
+	state := dpu.Status.DeepCopy()
+	if !dpu.DeletionTimestamp.IsZero() {
 		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
-	nodeEffect := st.dpu.Spec.NodeEffect
+	nodeEffect := dpu.Spec.NodeEffect
 
 	if nodeEffect.NoEffect {
-		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"NoEffect\" for node: %s", st.dpu.Spec.NodeName))
-		state.Phase = provisioningv1.DPUDMSDeployment
+		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"NoEffect\" for node: %s", dpu.Spec.NodeName))
+		state.Phase = provisioningv1.DPUInitializeInterface
 		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
 		return *state, nil
 	}
 
-	nodeName := st.dpu.Spec.NodeName
+	nodeName := dpu.Spec.NodeName
 
 	nn := types.NamespacedName{
 		Namespace: "",
 		Name:      nodeName,
 	}
 	node := &corev1.Node{}
-	if err := k8sClient.Get(ctx, nn, node); err != nil {
+	if err := ctrlCtx.Get(ctx, nn, node); err != nil {
 		return *state, fmt.Errorf("failed to get node %s: %v", nodeName, err)
 	}
 
 	if len(nodeEffect.CustomLabel) != 0 {
-		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"CustomLabel\" for node: %s", st.dpu.Spec.NodeName))
-		if err := cutil.AddLabelsToNode(ctx, k8sClient, node, nodeEffect.CustomLabel); err != nil {
+		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"CustomLabel\" for node: %s", dpu.Spec.NodeName))
+		if err := cutil.AddLabelsToNode(ctx, ctrlCtx.Client, node, nodeEffect.CustomLabel); err != nil {
 			return *state, err
 		}
 	} else if nodeEffect.Taint != nil {
-		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"Taint\" for node: %s", st.dpu.Spec.NodeName))
+		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"Taint\" for node: %s", dpu.Spec.NodeName))
 		taintExist := false
 		for _, t := range node.Spec.Taints {
 			if t.Key == nodeEffect.Taint.Key {
@@ -82,23 +82,23 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, k8sClient client.Clien
 		}
 		if !taintExist {
 			node.Spec.Taints = append(node.Spec.Taints, *nodeEffect.Taint)
-			if err := k8sClient.Update(ctx, node); err != nil {
+			if err := ctrlCtx.Client.Update(ctx, node); err != nil {
 				return *state, err
 			}
 		}
 	} else if nodeEffect.Drain != nil {
 		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"Drain\" for node: %s", nodeName))
 		maintenanceNN := types.NamespacedName{
-			Namespace: st.dpu.Namespace,
+			Namespace: dpu.Namespace,
 			Name:      nodeName,
 		}
 		maintenance := &maintenancev1alpha1.NodeMaintenance{}
-		if err := k8sClient.Get(ctx, maintenanceNN, maintenance); err != nil {
+		if err := ctrlCtx.Client.Get(ctx, maintenanceNN, maintenance); err != nil {
 			if apierrors.IsNotFound(err) {
 				// Create node maintenance CR
-				owner := metav1.NewControllerRef(st.dpu, provisioningv1.DPUGroupVersionKind)
+				owner := metav1.NewControllerRef(dpu, provisioningv1.DPUGroupVersionKind)
 				logger.V(3).Info(fmt.Sprintf("Createing NodeMaintenance (%s)", maintenanceNN))
-				if err = createNodeMaintenance(ctx, k8sClient, owner, nodeName, st.dpu.Namespace); err != nil {
+				if err = createNodeMaintenance(ctx, ctrlCtx.Client, owner, nodeName, dpu.Namespace); err != nil {
 					setDPUCondNodeEffectReady(state, metav1.ConditionFalse, errorOccurredReason, err.Error())
 					state.Phase = provisioningv1.DPUError
 					return *state, fmt.Errorf("failed to get NodeMaintenance (%s), err: %v", maintenanceNN, err)
@@ -110,7 +110,7 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, k8sClient client.Clien
 				return *state, fmt.Errorf("failed to get NodeMaintenance (%s), err: %v", maintenanceNN, err)
 			}
 		} else {
-			if err := addAdditionalRequestor(ctx, k8sClient, maintenance); err != nil {
+			if err := addAdditionalRequestor(ctx, ctrlCtx.Client, maintenance); err != nil {
 				setDPUCondNodeEffectReady(state, metav1.ConditionFalse, errorOccurredReason, err.Error())
 				state.Phase = provisioningv1.DPUError
 				return *state, err
@@ -124,7 +124,7 @@ func (st *dpuNodeEffectState) Handle(ctx context.Context, k8sClient client.Clien
 			}
 		}
 	}
-	state.Phase = provisioningv1.DPUDMSDeployment
+	state.Phase = provisioningv1.DPUInitializeInterface
 	cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
 
 	return *state, nil

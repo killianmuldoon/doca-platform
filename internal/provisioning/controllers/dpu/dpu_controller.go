@@ -24,30 +24,69 @@ import (
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/state"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/state/gnoi"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/state/redfish"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
+
+type PhaseHandlerFunc func(context.Context, *provisioningv1.DPU, *util.ControllerContext) (provisioningv1.DPUStatus, error)
 
 // DPUControllerName is used when reporting events
 const DPUControllerName = "dpu"
 
 // DPUReconciler reconciles a DPU object
 type DPUReconciler struct {
-	client.Client
-	Scheme *runtime.Scheme
-	util.DPUOptions
-	Recorder  record.EventRecorder
-	Allocator allocator.Allocator
+	ctrlCtx  *util.ControllerContext
+	handlers map[provisioningv1.DPUPhase]PhaseHandlerFunc
+}
+
+func NewDPUReconciler(mgr manager.Manager, alloc allocator.Allocator, options util.DPUOptions) *DPUReconciler {
+	ctrlCtx := &util.ControllerContext{
+		Client:           mgr.GetClient(),
+		Scheme:           mgr.GetScheme(),
+		Recorder:         mgr.GetEventRecorderFor(DPUControllerName),
+		Options:          options,
+		ClusterAllocator: alloc,
+	}
+	handlers := map[provisioningv1.DPUPhase]PhaseHandlerFunc{
+		"":                              state.Initializing,
+		provisioningv1.DPUInitializing:  state.Initializing,
+		provisioningv1.DPUNodeEffect:    state.NodeEffect,
+		provisioningv1.DPUPending:       state.Pending,
+		provisioningv1.DPURebooting:     state.Rebooting,
+		provisioningv1.DPUClusterConfig: state.ClusterConfig,
+		provisioningv1.DPUReady:         state.Ready,
+		provisioningv1.DPUDeleting:      state.Deleting,
+		provisioningv1.DPUError:         state.Error,
+	}
+	switch options.DPUInstallInterface {
+	case string(provisioningv1.InstallViaHost):
+		handlers[provisioningv1.DPUInitializeInterface] = gnoi.DeployDMS
+		handlers[provisioningv1.DPUHostNetworkConfiguration] = gnoi.SetupNetwork
+		handlers[provisioningv1.DPUOSInstalling] = gnoi.Installing
+	case string(provisioningv1.InstallViaRedFish):
+		handlers[provisioningv1.DPUInitializeInterface] = redfish.InitializeInterface
+		handlers[provisioningv1.DPUConfigFWParameters] = redfish.ConfigFWParameters
+		handlers[provisioningv1.DPUOSInstalling] = redfish.Installing
+	default:
+		panic(fmt.Errorf("unsupported interface %q. Supported: %s,%s",
+			options.DPUInstallInterface, provisioningv1.InstallViaHost, provisioningv1.InstallViaRedFish))
+	}
+
+	return &DPUReconciler{
+		ctrlCtx:  ctrlCtx,
+		handlers: handlers,
+	}
 }
 
 // +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpus,verbs=get;list;watch;create;update;patch;delete
@@ -70,7 +109,7 @@ func (r *DPUReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	logger.Info("Reconcile")
 
 	dpu := &provisioningv1.DPU{}
-	if err := r.Get(ctx, req.NamespacedName, dpu); err != nil {
+	if err := r.ctrlCtx.Client.Get(ctx, req.NamespacedName, dpu); err != nil {
 		if apierrors.IsNotFound(err) {
 			return ctrl.Result{}, nil
 		}
@@ -80,17 +119,25 @@ func (r *DPUReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	// Add finalizer if not set and DPU is not currently deleting.
 	if !controllerutil.ContainsFinalizer(dpu, provisioningv1.DPUFinalizer) && dpu.DeletionTimestamp.IsZero() {
 		controllerutil.AddFinalizer(dpu, provisioningv1.DPUFinalizer)
-		if err := r.Client.Update(ctx, dpu); err != nil {
+		if err := r.ctrlCtx.Client.Update(ctx, dpu); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to add DPU finalizer %w", err)
 		}
 		return ctrl.Result{}, nil
 	}
 	// This is to cache the DPUs that are created with the cluster field set in their manifests, such DPUs will not go through the Allocate() procedure in Initialization phase
 	// PS: Users are able to create DPUs without DPUSets, which is not officially supported but also not forbidden. If the cluster field is empty, a DPUCluster will be allocated for it as usual.
-	r.Allocator.SaveAssignedDPU(dpu)
+	r.ctrlCtx.ClusterAllocator.SaveAssignedDPU(dpu)
 
-	currentState := state.GetDPUState(dpu, r.Allocator)
-	nextState, err := currentState.Handle(ctx, r.Client, r.DPUOptions)
+	h := r.handlers[dpu.Status.Phase]
+	if h == nil {
+		// Unmatching states indicate that the DPU was provisioned using an old version of provisioning-controller.
+		// TODO: delete the DPU and reprovision
+		err := fmt.Errorf("unsupported phase %q", dpu.Status.Phase)
+		logger.Error(err, err.Error())
+		return ctrl.Result{}, err
+	}
+
+	nextState, err := h(ctx, dpu, r.ctrlCtx)
 	if err != nil {
 		logger.Error(err, "Statue handle error")
 	}
@@ -98,7 +145,7 @@ func (r *DPUReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		logger.Info("Update DPU status", "current phase", dpu.Status.Phase, "next phase", nextState.Phase)
 		dpu.Status = nextState
 
-		if err := r.Client.Status().Update(ctx, dpu); err != nil {
+		if err := r.ctrlCtx.Client.Status().Update(ctx, dpu); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update DPU %w", err)
 		}
 	} else if nextState.Phase != provisioningv1.DPUError {
@@ -126,7 +173,7 @@ func (r *DPUReconciler) nonInitializedDPU(ctx context.Context, obj client.Object
 		return nil
 	}
 	dpuList := &provisioningv1.DPUList{}
-	if err := r.Client.List(ctx, dpuList); err != nil {
+	if err := r.ctrlCtx.Client.List(ctx, dpuList); err != nil {
 		log.FromContext(ctx).Error(fmt.Errorf("failed to list DPUs, err: %v", err), "")
 		return nil
 	}

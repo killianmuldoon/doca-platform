@@ -436,8 +436,8 @@ func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningv1.DPUSet,
 		case provisioningv1.DPUPending:
 			dpuStatistics[provisioningv1.DPUPending]++
 
-		case provisioningv1.DPUDMSDeployment:
-			dpuStatistics[provisioningv1.DPUDMSDeployment]++
+		case provisioningv1.DPUInitializeInterface:
+			dpuStatistics[provisioningv1.DPUInitializeInterface]++
 
 		case provisioningv1.DPUHostNetworkConfiguration:
 			dpuStatistics[provisioningv1.DPUHostNetworkConfiguration]++

@@ -29,18 +29,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type dpuErrorState struct {
-	dpu *provisioningv1.DPU
-}
-
-func (st *dpuErrorState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
-	state := st.dpu.Status.DeepCopy()
-	if isDeleting(st.dpu) {
+func Error(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext) (provisioningv1.DPUStatus, error) {
+	state := dpu.Status.DeepCopy()
+	if !dpu.DeletionTimestamp.IsZero() {
 		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
-	if err := RemoveNodeEffect(ctx, client, *st.dpu.Spec.NodeEffect, st.dpu.Spec.NodeName, st.dpu.Namespace); err != nil {
+	if err := RemoveNodeEffect(ctx, ctrlCtx.Client, *dpu.Spec.NodeEffect, dpu.Spec.NodeName, dpu.Namespace); err != nil {
 		return *state, err
 	}
 	return *state, nil

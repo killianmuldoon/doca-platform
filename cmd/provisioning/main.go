@@ -91,6 +91,7 @@ func main() {
 	var dmsPodTimeout time.Duration
 	var bfbdownloaderPodTimeout time.Duration
 	var syncPeriod time.Duration
+	var dpuInstallInterface string
 
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -110,6 +111,7 @@ func main() {
 	fs.DurationVar(&dmsPodTimeout, "dms-pod-timeout", 5*time.Minute, "Timeout for DMS pods")
 	fs.DurationVar(&bfbdownloaderPodTimeout, "bfbdownloader-pod-timeout", 5*time.Minute, "Timeout for BFBDownloader pods")
 	fs.DurationVar(&syncPeriod, "sync-period", 10*time.Minute, "The minimum interval at which watched resources are reconciled.")
+	fs.StringVar(&dpuInstallInterface, "dpu-install-interface", string(provisioningv1.InstallViaHost), "the interface used to provision DPUs")
 
 	logsv1.AddFlags(logOptions, fs)
 
@@ -194,15 +196,11 @@ func main() {
 		DMSTimeout:              dmsTimeout,
 		DMSPodTimeout:           dmsPodTimeout,
 		ImagePullSecrets:        imagePullSecretsReferences,
+		DPUInstallInterface:     dpuInstallInterface,
 	}
 	setupLog.Info("DPU", "options", dpuOptions)
-	if err = (&dpu.DPUReconciler{
-		Client:     mgr.GetClient(),
-		Scheme:     mgr.GetScheme(),
-		Recorder:   mgr.GetEventRecorderFor(dpu.DPUControllerName),
-		DPUOptions: dpuOptions,
-		Allocator:  alloc,
-	}).SetupWithManager(mgr); err != nil {
+
+	if err = (dpu.NewDPUReconciler(mgr, alloc, dpuOptions)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPU")
 		os.Exit(1)
 	}

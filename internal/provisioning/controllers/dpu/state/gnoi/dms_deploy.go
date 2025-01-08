@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package state
+package gnoi
 
 import (
 	"context"
@@ -31,7 +31,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -39,27 +38,23 @@ const (
 	errorOccurredReason string = "ErrorOccured"
 )
 
-type dmsDeploymentState struct {
-	dpu *provisioningv1.DPU
-}
-
-func (st *dmsDeploymentState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
+func DeployDMS(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
-	state := st.dpu.Status.DeepCopy()
-	if isDeleting(st.dpu) {
+	state := dpu.Status.DeepCopy()
+	if !dpu.DeletionTimestamp.IsZero() {
 		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
-	dmsPodName := cutil.GenerateDMSPodName(st.dpu.Name)
+	dmsPodName := cutil.GenerateDMSPodName(dpu.Name)
 
 	nn := types.NamespacedName{
-		Namespace: st.dpu.Namespace,
+		Namespace: dpu.Namespace,
 		Name:      dmsPodName,
 	}
 	pod := &corev1.Pod{}
-	if err := client.Get(ctx, nn, pod); err != nil {
+	if err := ctrlCtx.Get(ctx, nn, pod); err != nil {
 		if apierrors.IsNotFound(err) {
-			err = dms.CreateDMSPod(ctx, client, st.dpu, option)
+			err = dms.CreateDMSPod(ctx, ctrlCtx.Client, dpu, ctrlCtx.Options)
 			if err == nil {
 				return *state, nil
 			}
@@ -112,7 +107,7 @@ func (st *dmsDeploymentState) Handle(ctx context.Context, client client.Client, 
 		return handleDMSPodFailure(state, "DMSPodFailed", "DMS Pod Failed")
 
 	default:
-		if isTimeout(pod, option.DMSPodTimeout) {
+		if isTimeout(pod, ctrlCtx.Options.DMSPodTimeout) {
 			return handleDMSPodFailure(state, "DMSPodTimedout", "DMS Pod didn't run and timed out")
 		}
 	}

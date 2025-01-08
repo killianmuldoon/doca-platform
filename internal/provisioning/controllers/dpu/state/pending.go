@@ -26,28 +26,23 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type dpuPendingState struct {
-	dpu *provisioningv1.DPU
-}
-
-func (st *dpuPendingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
+func Pending(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
-	state := st.dpu.Status.DeepCopy()
-	if isDeleting(st.dpu) {
+	state := dpu.Status.DeepCopy()
+	if !dpu.DeletionTimestamp.IsZero() {
 		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
 	nn := types.NamespacedName{
-		Namespace: st.dpu.Namespace,
-		Name:      st.dpu.Spec.BFB,
+		Namespace: dpu.Namespace,
+		Name:      dpu.Spec.BFB,
 	}
 	bfb := &provisioningv1.BFB{}
-	if err := client.Get(ctx, nn, bfb); err != nil {
+	if err := ctrlCtx.Get(ctx, nn, bfb); err != nil {
 		logger.Error(err, fmt.Sprintf("get bfb %s failed", nn.String()))
 		cond := cutil.DPUCondition(provisioningv1.DPUCondBFBReady, "GetBFBFailed", err.Error())
 		cond.Status = metav1.ConditionFalse

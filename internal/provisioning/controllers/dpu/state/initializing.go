@@ -21,33 +21,26 @@ import (
 	"fmt"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type dpuInitializingState struct {
-	dpu   *provisioningv1.DPU
-	alloc allocator.Allocator
-}
-
-func (st *dpuInitializingState) Handle(ctx context.Context, c client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
+func Initializing(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
-	state := st.dpu.Status.DeepCopy()
-	if isDeleting(st.dpu) {
+	state := dpu.Status.DeepCopy()
+	if !dpu.DeletionTimestamp.IsZero() {
 		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
 	node := &corev1.Node{}
-	if err := c.Get(ctx, types.NamespacedName{
+	if err := ctrlCtx.Get(ctx, types.NamespacedName{
 		Namespace: "",
-		Name:      st.dpu.Spec.NodeName,
+		Name:      dpu.Spec.NodeName,
 	}, node); err != nil {
 		return *state, err
 	}
@@ -61,15 +54,15 @@ func (st *dpuInitializingState) Handle(ctx context.Context, c client.Client, _ d
 		return *state, nil
 	}
 
-	if st.dpu.Spec.Cluster.Name == "" {
-		rst, err := st.alloc.Allocate(ctx, st.dpu)
+	if dpu.Spec.Cluster.Name == "" {
+		rst, err := ctrlCtx.ClusterAllocator.Allocate(ctx, dpu)
 		if err != nil {
 			logger.Error(err, "failed to allocate DPUCluster")
 			cond := cutil.NewCondition(provisioningv1.DPUCondInitialized.String(), err, "DPUClusterNotReady", err.Error())
 			cutil.SetDPUCondition(state, cond)
 			return *state, nil
 		}
-		logger.V(2).Info("allocate cluster %s for DPU %s", rst, cutil.GetNamespacedName(st.dpu))
+		logger.V(2).Info("allocate cluster %s for DPU %s", rst, cutil.GetNamespacedName(dpu))
 		return *state, nil
 	}
 

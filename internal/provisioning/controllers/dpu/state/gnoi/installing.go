@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package state
+package gnoi
 
 import (
 	"bytes"
@@ -65,28 +65,24 @@ const (
 	HostNameDPULabelKey = "provisioning.dpu.nvidia.com/host"
 )
 
-type dpuOSInstallingState struct {
-	dpu *provisioningv1.DPU
-}
-
-func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
+func Installing(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
-	dmsTaskName := generateDMSTaskName(st.dpu)
-	state := st.dpu.Status.DeepCopy()
-	if isDeleting(st.dpu) {
-		logger.V(3).Info(fmt.Sprintf("DPU %v is deleting, but waiting for bfb-install to complete", st.dpu.Name))
+	dmsTaskName := generateDMSTaskName(dpu)
+	state := dpu.Status.DeepCopy()
+	if !dpu.DeletionTimestamp.IsZero() {
+		logger.V(3).Info(fmt.Sprintf("DPU %v is deleting, but waiting for bfb-install to complete", dpu.Name))
 	}
 
 	// check whether bfb exist
 	nn := types.NamespacedName{
-		Namespace: st.dpu.Namespace,
-		Name:      st.dpu.Spec.BFB,
+		Namespace: dpu.Namespace,
+		Name:      dpu.Spec.BFB,
 	}
 	bfb := &provisioningv1.BFB{}
-	if err := client.Get(ctx, nn, bfb); err != nil {
+	if err := ctrlCtx.Get(ctx, nn, bfb); err != nil {
 		if apierrors.IsNotFound(err) {
 			// BFB does not exist, dpu keeps in installing state.
-			logger.V(3).Info(fmt.Sprintf("BFB %v is not ready for DMS %v", st.dpu.Spec.BFB, dmsTaskName))
+			logger.V(3).Info(fmt.Sprintf("BFB %v is not ready for DMS %v", dpu.Spec.BFB, dmsTaskName))
 			return *state, nil
 		}
 		return *state, err
@@ -107,7 +103,7 @@ func (st *dpuOSInstallingState) Handle(ctx context.Context, client client.Client
 			logger.V(3).Info(fmt.Sprintf("DMS task %v is being processed", dmsTaskName))
 		}
 	} else {
-		dmsHandler(ctx, client, st.dpu, bfb)
+		dmsHandler(ctx, ctrlCtx.Client, dpu, bfb)
 	}
 
 	return *state, nil

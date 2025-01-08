@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package state
+package gnoi
 
 import (
 	"context"
@@ -29,35 +29,30 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
 	InitContainerMaxRestartCount = 10
 )
 
-type dpuHostNetworkConfigState struct {
-	dpu *provisioningv1.DPU
-}
+func SetupNetwork(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext) (provisioningv1.DPUStatus, error) {
+	state := dpu.Status.DeepCopy()
 
-func (st *dpuHostNetworkConfigState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
-	state := st.dpu.Status.DeepCopy()
-
-	if isDeleting(st.dpu) {
+	if !dpu.DeletionTimestamp.IsZero() {
 		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
-	hostNetworkPodName := cutil.GenerateHostnetworkPodName(st.dpu.Name)
+	hostNetworkPodName := cutil.GenerateHostnetworkPodName(dpu.Name)
 
 	nn := types.NamespacedName{
-		Namespace: st.dpu.Namespace,
+		Namespace: dpu.Namespace,
 		Name:      hostNetworkPodName,
 	}
 	pod := &corev1.Pod{}
-	if err := client.Get(ctx, nn, pod); err != nil {
+	if err := ctrlCtx.Get(ctx, nn, pod); err != nil {
 		if apierrors.IsNotFound(err) {
-			return *state, hostnetwork.CreateHostNetworkSetupPod(ctx, client, st.dpu, option)
+			return *state, hostnetwork.CreateHostNetworkSetupPod(ctx, ctrlCtx.Client, dpu, ctrlCtx.Options)
 		}
 		return *state, err
 	} else {

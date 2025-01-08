@@ -32,6 +32,7 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb"
 	butil "github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpucluster"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpuset"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
@@ -154,12 +155,7 @@ var _ = BeforeSuite(func() {
 
 	err = (&provisioningwebhooks.DPU{}).SetupWebhookWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
-	dpuReconciler := &dpu.DPUReconciler{
-		Client:    k8sManager.GetClient(),
-		Scheme:    k8sManager.GetScheme(),
-		Recorder:  k8sManager.GetEventRecorderFor(dpu.DPUControllerName),
-		Allocator: alloc,
-	}
+	dpuReconciler := dpu.NewDPUReconciler(k8sManager, alloc, util.DPUOptions{DPUInstallInterface: string(provisioningv1.InstallViaHost)})
 	err = dpuReconciler.SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

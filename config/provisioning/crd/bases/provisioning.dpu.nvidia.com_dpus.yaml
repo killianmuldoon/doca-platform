@@ -239,7 +239,6 @@ spec:
                 - Initializing
                 - Node Effect
                 - Pending
-                - DMS Deployment
                 - OS Installing
                 - DPU Cluster Config
                 - Host Network Configuration
@@ -247,6 +246,7 @@ spec:
                 - Error
                 - Deleting
                 - Rebooting
+                - Initialize Interface
                 type: string
               requiredReset:
                 description: whether require reset of DPU

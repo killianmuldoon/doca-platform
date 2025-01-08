@@ -20,7 +20,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
+
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var OsInstallTaskMap sync.Map
@@ -34,4 +39,13 @@ type DPUOptions struct {
 	BFBPVC                   string
 	DMSTimeout               int
 	DMSPodTimeout            time.Duration
+	DPUInstallInterface      string
+}
+
+type ControllerContext struct {
+	client.Client
+	Scheme           *runtime.Scheme
+	Options          DPUOptions
+	Recorder         record.EventRecorder
+	ClusterAllocator allocator.Allocator
 }

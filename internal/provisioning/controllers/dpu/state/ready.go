@@ -36,59 +36,42 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type dpuReadyState struct {
-	dpu *provisioningv1.DPU
-}
-
-func (st *dpuReadyState) Handle(ctx context.Context, client client.Client, option dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
+func Ready(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
-	state := st.dpu.Status.DeepCopy()
-	if isDeleting(st.dpu) {
+	state := dpu.Status.DeepCopy()
+	if !dpu.DeletionTimestamp.IsZero() {
 		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
-	if err := healthyCheck(ctx, st.dpu, client, option); err != nil {
+	if err := healthyCheck(ctx, dpu, ctrlCtx.Client, ctrlCtx.Options); err != nil {
 		state.Phase = provisioningv1.DPUError
 		updateFalseDPUCondReady(state, "DPUNodeNotReady", err.Error())
 	}
 
-	if err := HandleNodeEffect(ctx, client, *st.dpu.Spec.NodeEffect, st.dpu.Spec.NodeName, st.dpu.Namespace); err != nil {
+	if err := HandleNodeEffect(ctx, ctrlCtx.Client, *dpu.Spec.NodeEffect, dpu.Spec.NodeName, dpu.Namespace); err != nil {
 		state.Phase = provisioningv1.DPUError
 		updateFalseDPUCondReady(state, "NodeEffectError", err.Error())
 		return *state, err
 	}
 
-	nn := types.NamespacedName{
-		Namespace: st.dpu.Namespace,
-		Name:      st.dpu.Name,
-	}
-
-	dpu := provisioningv1.DPU{}
-	if err := client.Get(ctx, nn, &dpu); err != nil {
-		updateFalseDPUCondReady(state, "DPUGetError", err.Error())
-		return *state, err
-	}
-
-	dpuName := dpu.Name
-
 	tenantNamespace := dpu.Spec.Cluster.Namespace
 	tenantName := dpu.Spec.Cluster.Name
 
 	dpuCluster := &provisioningv1.DPUCluster{}
-	err := client.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: tenantName}, dpuCluster)
+	err := ctrlCtx.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: tenantName}, dpuCluster)
 	if err != nil {
 		return *state, err
 	}
 
-	newClient, err := dpucluster.NewConfig(client, dpuCluster).Client(ctx)
+	newClient, err := dpucluster.NewConfig(ctrlCtx.Client, dpuCluster).Client(ctx)
 	if err != nil {
 		updateFalseDPUCondReady(state, "DPUClusterClientGetError", err.Error())
 		return *state, err
 	}
 
 	node := &corev1.Node{}
-	if err := newClient.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: dpuName}, node); err != nil {
+	if err := newClient.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: dpu.Name}, node); err != nil {
 		updateFalseDPUCondReady(state, "DPUNodeGetError", err.Error())
 		return *state, err
 	}

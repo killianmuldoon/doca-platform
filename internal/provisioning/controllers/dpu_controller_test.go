@@ -528,7 +528,7 @@ var _ = Describe("DPU", func() {
 					HaveField("Status", metav1.ConditionFalse),
 				),
 			))
-			Expect(objFetched.Status.Phase).Should(Equal(provisioningv1.DPUDMSDeployment))
+			Expect(objFetched.Status.Phase).Should(Equal(provisioningv1.DPUInitializeInterface))
 
 			By("deleting objs")
 			cleanupObjs := []client.Object{}
@@ -647,7 +647,7 @@ var _ = Describe("DPU", func() {
 					HaveField("Status", metav1.ConditionFalse),
 				),
 			))
-			Expect(objFetched.Status.Phase).Should(Equal(provisioningv1.DPUDMSDeployment))
+			Expect(objFetched.Status.Phase).Should(Equal(provisioningv1.DPUInitializeInterface))
 
 			By("deleting objs")
 			cleanupObjs := []client.Object{}
@@ -773,7 +773,7 @@ var _ = Describe("DPU", func() {
 					HaveField("Status", metav1.ConditionFalse),
 				),
 			))
-			Expect(objFetched.Status.Phase).Should(Equal(provisioningv1.DPUDMSDeployment))
+			Expect(objFetched.Status.Phase).Should(Equal(provisioningv1.DPUInitializeInterface))
 
 			By("deleting objs")
 			cleanupObjs := []client.Object{}
@@ -902,7 +902,7 @@ var _ = Describe("DPU", func() {
 					HaveField("Status", metav1.ConditionFalse),
 				),
 			))
-			Expect(objFetched.Status.Phase).Should(Equal(provisioningv1.DPUDMSDeployment))
+			Expect(objFetched.Status.Phase).Should(Equal(provisioningv1.DPUInitializeInterface))
 
 			By("deleting objs")
 			cleanupObjs := []client.Object{}

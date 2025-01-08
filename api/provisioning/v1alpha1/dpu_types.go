@@ -31,7 +31,7 @@ var DPUGroupVersionKind = GroupVersion.WithKind(DPUKind)
 // DPUPhase describes current state of DPU.
 // Only one of the following state may be specified.
 // Default is Initializing.
-// +kubebuilder:validation:Enum="Initializing";"Node Effect";"Pending";"DMS Deployment";"OS Installing";"DPU Cluster Config";"Host Network Configuration";"Ready";"Error";"Deleting";"Rebooting"
+// +kubebuilder:validation:Enum="Initializing";"Node Effect";"Pending";"OS Installing";"DPU Cluster Config";"Host Network Configuration";"Ready";"Error";"Deleting";"Rebooting";"Initialize Interface"
 type DPUPhase string
 
 // These are the valid statuses of DPU.
@@ -44,8 +44,10 @@ const (
 	DPUNodeEffect DPUPhase = "Node Effect"
 	// DPUPending means the controller is waiting for the BFB to be ready.
 	DPUPending DPUPhase = "Pending"
-	// DPUDMSDeployment means the controller will create the DMS pod and proxy pod.
-	DPUDMSDeployment DPUPhase = "DMS Deployment"
+	// DPUConfigFWParameters means the controller will manipulate DPU firmware, e.g., set DPU mode, check firmware version
+	DPUConfigFWParameters DPUPhase = "ConfigFWParameters"
+	// DPUInitializeInterface means the controller will intitialize the interface used to provision the DPUs, e.g., create the DMS pod, set up RedFish account.
+	DPUInitializeInterface DPUPhase = "Initialize Interface"
 	// DPUOSInstalling means the controller will provision the DPU through the DMS gNOI interface.
 	DPUOSInstalling DPUPhase = "OS Installing"
 	// DPUClusterConfig  means the node configuration and Kubernetes Node join procedure are in progress .
@@ -73,6 +75,13 @@ const (
 	DPUCondRebooted         DPUConditionType = "Rebooted"
 	DPUCondHostNetworkReady DPUConditionType = "HostNetworkReady"
 	DPUCondReady            DPUConditionType = "Ready"
+)
+
+type DPUInstallInterfaceType string
+
+const (
+	InstallViaHost    DPUInstallInterfaceType = "host"
+	InstallViaRedFish DPUInstallInterfaceType = "redfish"
 )
 
 func (ct DPUConditionType) String() string {

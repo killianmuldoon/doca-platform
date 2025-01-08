@@ -31,41 +31,26 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type dpuRebootingState struct {
-	dpu *provisioningv1.DPU
-}
-
-func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
+func Rebooting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
 
-	rebootTaskName := generateRebootTaskName(st.dpu)
-	state := st.dpu.Status.DeepCopy()
-	if isDeleting(st.dpu) {
+	rebootTaskName := generateRebootTaskName(dpu)
+	state := dpu.Status.DeepCopy()
+	if !dpu.DeletionTimestamp.IsZero() {
 		dutil.RebootTaskMap.Delete(rebootTaskName)
 		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
 
 	nn := types.NamespacedName{
-		Namespace: st.dpu.Namespace,
-		Name:      st.dpu.Name,
-	}
-
-	dpu := provisioningv1.DPU{}
-	if err := client.Get(ctx, nn, &dpu); err != nil {
-		return *state, err
-	}
-
-	nn = types.NamespacedName{
 		Namespace: "",
 		Name:      dpu.Spec.NodeName,
 	}
 	node := &corev1.Node{}
-	if err := client.Get(ctx, nn, node); err != nil {
+	if err := ctrlCtx.Get(ctx, nn, node); err != nil {
 		return *state, err
 	}
 
@@ -80,7 +65,7 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 
 	duration := int(metav1.Now().Sub(cond.LastTransitionTime.Time).Seconds())
 	// If we can not get uptime, the host should be rebooting
-	uptime, err := HostUptime(st.dpu.Namespace, cutil.GenerateDMSPodName(st.dpu.Name), "")
+	uptime, err := HostUptime(dpu.Namespace, cutil.GenerateDMSPodName(dpu.Name), "")
 	if err != nil {
 		return *state, err
 	}
@@ -111,7 +96,7 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 			return *state, nil
 		} else if rebootType == reboot.PowerCycle {
 			logger.Info(fmt.Sprintf("powercycle with command %q", cmd))
-			if _, _, err := cutil.RemoteExec(st.dpu.Namespace, cutil.GenerateDMSPodName(st.dpu.Name), "", cmd); err != nil {
+			if _, _, err := cutil.RemoteExec(dpu.Namespace, cutil.GenerateDMSPodName(dpu.Name), "", cmd); err != nil {
 				// TODO: broadcast an event
 				return *state, err
 			}
@@ -128,11 +113,13 @@ func (st *dpuRebootingState) Handle(ctx context.Context, client client.Client, _
 							cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondRebooted, "", ""))
 							return *state, nil
 						} else {
-							return updateState(state, provisioningv1.DPUError, err.Error()), err
+							state.Phase = provisioningv1.DPUError
+							cutil.SetDPUCondition(state, cutil.NewCondition(string(provisioningv1.DPUCondRebooted), err, "RebootFailed", ""))
+							return *state, err
 						}
 					}
 				} else {
-					rebootHandler(ctx, st.dpu, pciAddress, cmd)
+					rebootHandler(ctx, dpu, pciAddress, cmd)
 				}
 			}
 		}

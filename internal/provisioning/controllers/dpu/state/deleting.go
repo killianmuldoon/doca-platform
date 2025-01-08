@@ -22,7 +22,6 @@ import (
 	"os"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
@@ -36,21 +35,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-type dpuDeletingState struct {
-	dpu   *provisioningv1.DPU
-	alloc allocator.Allocator
-}
-
-func (st *dpuDeletingState) Handle(ctx context.Context, client crclient.Client, _ dutil.DPUOptions) (provisioningv1.DPUStatus, error) {
+func Deleting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext) (provisioningv1.DPUStatus, error) {
 	logger := log.FromContext(ctx)
-	state := st.dpu.Status.DeepCopy()
-	st.alloc.ReleaseDPU(st.dpu)
+	state := dpu.Status.DeepCopy()
+	ctrlCtx.ClusterAllocator.ReleaseDPU(dpu)
 
-	if err := RemoveNodeEffect(ctx, client, *st.dpu.Spec.NodeEffect, st.dpu.Spec.NodeName, st.dpu.Namespace); err != nil {
+	if err := RemoveNodeEffect(ctx, ctrlCtx.Client, *dpu.Spec.NodeEffect, dpu.Spec.NodeName, dpu.Namespace); err != nil {
 		return *state, err
 	}
 
-	cfgVersion := cutil.GenerateBFCFGFileName(st.dpu.Name)
+	cfgVersion := cutil.GenerateBFCFGFileName(dpu.Name)
 
 	// Make sure there is no old bf cfg file in the shared volume
 	cfgFile := cutil.GenerateBFBCFGFilePath(cfgVersion)
@@ -63,47 +57,47 @@ func (st *dpuDeletingState) Handle(ctx context.Context, client crclient.Client, 
 	deleteObjects := []crclient.Object{
 		&certmanagerv1.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cutil.GenerateDMSServerCertName(st.dpu.Name),
-				Namespace: st.dpu.Namespace,
+				Name:      cutil.GenerateDMSServerCertName(dpu.Name),
+				Namespace: dpu.Namespace,
 			},
 		},
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cutil.GenerateDMSServerSecretName(st.dpu.Name),
-				Namespace: st.dpu.Namespace,
+				Name:      cutil.GenerateDMSServerSecretName(dpu.Name),
+				Namespace: dpu.Namespace,
 			},
 		},
 		&corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cutil.GenerateDMSPodName(st.dpu.Name),
-				Namespace: st.dpu.Namespace,
+				Name:      cutil.GenerateDMSPodName(dpu.Name),
+				Namespace: dpu.Namespace,
 			},
 		},
 		&corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cutil.GenerateHostnetworkPodName(st.dpu.Name),
-				Namespace: st.dpu.Namespace,
+				Name:      cutil.GenerateHostnetworkPodName(dpu.Name),
+				Namespace: dpu.Namespace,
 			},
 		},
 	}
 
-	objects, err := cutil.GetObjects(client, deleteObjects)
+	objects, err := cutil.GetObjects(ctrlCtx.Client, deleteObjects)
 	if err != nil {
 		return *state, err
 	}
 	for _, object := range objects {
 		logger.V(3).Info(fmt.Sprintf("delete object %s/%s", object.GetNamespace(), object.GetName()))
-		if err := cutil.DeleteObject(client, object); err != nil {
+		if err := cutil.DeleteObject(ctrlCtx.Client, object); err != nil {
 			return *state, err
 		}
 	}
-	if err := deleteNode(ctx, client, st.dpu); err != nil {
+	if err := deleteNode(ctx, ctrlCtx.Client, dpu); err != nil {
 		logger.Error(err, "failed to delete Node from DPU cluster, retry")
 		return *state, fmt.Errorf("failed to delete node, err: %v", err)
 	}
 	if len(objects) == 0 {
-		controllerutil.RemoveFinalizer(st.dpu, provisioningv1.DPUFinalizer)
-		if err := client.Update(ctx, st.dpu); err != nil {
+		controllerutil.RemoveFinalizer(dpu, provisioningv1.DPUFinalizer)
+		if err := ctrlCtx.Update(ctx, dpu); err != nil {
 			return *state, err
 		}
 	}
