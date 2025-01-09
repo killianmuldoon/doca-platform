@@ -101,6 +101,21 @@ spec:
                       OCI registry or a web-based repository.
                     pattern: ^(oci://|https://).+$
                     type: string
+                  image:
+                    description: Images overrides the container images used by flannel
+                    properties:
+                      flannelCNI:
+                        description: FlannelCNI must be set if FlannelImages is set.
+                        minLength: 1
+                        type: string
+                      kubeFlannel:
+                        description: KubeFlannel must be set if FlannelImages is set.
+                        minLength: 1
+                        type: string
+                    required:
+                    - flannelCNI
+                    - kubeFlannel
+                    type: object
                 type: object
               imagePullSecrets:
                 description: |-

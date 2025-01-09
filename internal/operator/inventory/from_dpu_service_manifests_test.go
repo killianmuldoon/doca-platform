@@ -76,6 +76,27 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 	deployInClusterVars := newDefaultVariables(defaults)
 	deployInClusterVars.DeployInCluster[serviceName] = true
 
+	flannelImageVariables := newDefaultVariables(defaults)
+	flannelImageVariables.Images[operatorv1.FlannelName] = "registry.com/image:v1.1.1,registry.com/image-cni:v1.1.1"
+	valuesWithFlannelVariables := initialValuesObject.DeepCopy()
+
+	valuesWithFlannelVariables.Object["flannel"] = map[string]interface{}{
+		"enabled": true,
+		"flannel": map[string]interface{}{
+			"image": map[string]interface{}{
+				"repository": "registry.com/image",
+				"tag":        "v1.1.1",
+			},
+			"mtu": "0",
+			"image_cni": map[string]interface{}{
+				"repository": "registry.com/image-cni",
+				"tag":        "v1.1.1",
+			},
+		},
+	}
+	valuesDataWithFlannelVariables, err := json.Marshal(valuesWithFlannelVariables)
+	g.Expect(err).NotTo(HaveOccurred())
+
 	tests := []struct {
 		name    string
 		in      *dpuservicev1.DPUService
@@ -87,6 +108,9 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			name: "Preserve values from the template",
 			in: &dpuservicev1.DPUService{
 				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: serviceName,
+				},
 				Spec: dpuservicev1.DPUServiceSpec{
 					HelmChart: dpuservicev1.HelmChart{
 						Values: &runtime.RawExtension{
@@ -125,6 +149,9 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			name: "Merge imagepullsecrets into the the template",
 			in: &dpuservicev1.DPUService{
 				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: serviceName,
+				},
 				Spec: dpuservicev1.DPUServiceSpec{
 					HelmChart: dpuservicev1.HelmChart{
 						Values: &runtime.RawExtension{
@@ -162,6 +189,9 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 		{
 			name: "Disable component by setting enabled: false in the helm values",
 			in: &dpuservicev1.DPUService{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: serviceName,
+				},
 				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
 				Spec: dpuservicev1.DPUServiceSpec{
 					DeployInCluster: ptr.To(true),
@@ -239,6 +269,47 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "Substitute images in flannel DPUService",
+			in: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: operatorv1.FlannelName,
+				},
+				Spec: dpuservicev1.DPUServiceSpec{
+					HelmChart: dpuservicev1.HelmChart{
+						Values: &runtime.RawExtension{
+							Raw: initialValuesData,
+						},
+					},
+				},
+			},
+			vars: flannelImageVariables,
+			want: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: operatorv1.FlannelName,
+					Labels: map[string]string{
+						operatorv1.DPFComponentLabelKey: operatorv1.FlannelName,
+					},
+				},
+				Spec: dpuservicev1.DPUServiceSpec{
+					DeployInCluster: ptr.To(false),
+					HelmChart: dpuservicev1.HelmChart{
+						Source: dpuservicev1.ApplicationSource{
+							RepoURL: "oci://example.com",
+							Path:    "",
+							Version: "v0.1.0",
+							Chart:   "dpu-networking",
+						},
+						Values: &runtime.RawExtension{
+							Raw: valuesDataWithFlannelVariables,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -246,7 +317,7 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 			g.Expect(err).ToNot(HaveOccurred())
 
 			f := &fromDPUService{
-				name:       serviceName,
+				name:       tt.in.Name,
 				dpuService: &unstructured.Unstructured{Object: un},
 			}
 			tt.vars.HelmCharts[serviceName] = "helmchart.com/chart:v1"

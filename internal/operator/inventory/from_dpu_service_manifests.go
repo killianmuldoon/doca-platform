@@ -317,39 +317,51 @@ func parseImageString(repoImageVersion string) (*image, error) {
 }
 
 // imageEditsForComponent contains the correct functions to set images in each of the components deployed by covered by the DPUNetworking helm chart.
+// imageOverride can be a comma-delimited string and each part of the string will be parsed as an image.
 func imageEditsForComponent(name string, imageOverride string) ([]StructuredEdit, error) {
-	imageToSet, err := parseImageString(imageOverride)
-	if err != nil {
-		return nil, err
+	images := []*image{}
+	for _, override := range strings.Split(imageOverride, ",") {
+		i, err := parseImageString(override)
+		if err != nil {
+			return nil, err
+		}
+		images = append(images, i)
 	}
-	edits := map[string][]StructuredEdit{
-		operatorv1.FlannelName:              setFlannelImage(imageToSet),
-		operatorv1.ServiceSetControllerName: setServiceSetControllerImage(imageToSet),
-		operatorv1.MultusName:               setMultusImage(imageToSet),
-		operatorv1.SRIOVDevicePluginName:    setSRIOVDevicePluginImage(imageToSet),
-		operatorv1.OVSCNIName:               setOVSCNIImage(imageToSet),
-		operatorv1.NVIPAMName:               setNVIPAMImage(imageToSet),
-		operatorv1.SFCControllerName:        setSFCControllerImage(imageToSet),
-		operatorv1.OVSHelperName:            setOVSHelperImage(imageToSet),
+	edits := map[string]func(...*image) []StructuredEdit{
+		operatorv1.FlannelName:              setFlannelImage,
+		operatorv1.ServiceSetControllerName: setServiceSetControllerImage,
+		operatorv1.MultusName:               setMultusImage,
+		operatorv1.SRIOVDevicePluginName:    setSRIOVDevicePluginImage,
+		operatorv1.OVSCNIName:               setOVSCNIImage,
+		operatorv1.NVIPAMName:               setNVIPAMImage,
+		operatorv1.SFCControllerName:        setSFCControllerImage,
+		operatorv1.OVSHelperName:            setOVSHelperImage,
 	}
 	editForComponent, ok := edits[name]
 	if !ok {
 		return nil, fmt.Errorf("failed to find image edit for component %q", name)
 	}
-	return editForComponent, nil
+	return editForComponent(images...), nil
 }
 
-func setFlannelImage(imageOverride *image) []StructuredEdit {
+func setFlannelImage(imageOverride ...*image) []StructuredEdit {
+	kubeFlannelImage := imageOverride[0]
+	cniImage := imageOverride[1]
 	repoPath := []string{operatorv1.FlannelName, "flannel", "image", "repository"}
 	tagPath := []string{operatorv1.FlannelName, "flannel", "image", "tag"}
+	repoPathCNI := []string{operatorv1.FlannelName, "flannel", "image_cni", "repository"}
+	tagPathCNI := []string{operatorv1.FlannelName, "flannel", "image_cni", "tag"}
 
 	return []StructuredEdit{
-		dpuServiceAddValueEdit(imageOverride.repoImage, repoPath...),
-		dpuServiceAddValueEdit(imageOverride.tag, tagPath...),
+		dpuServiceAddValueEdit(kubeFlannelImage.repoImage, repoPath...),
+		dpuServiceAddValueEdit(kubeFlannelImage.tag, tagPath...),
+		dpuServiceAddValueEdit(cniImage.repoImage, repoPathCNI...),
+		dpuServiceAddValueEdit(cniImage.tag, tagPathCNI...),
 	}
 }
 
-func setServiceSetControllerImage(imageOverride *image) []StructuredEdit {
+func setServiceSetControllerImage(imageOverrides ...*image) []StructuredEdit {
+	imageOverride := imageOverrides[0]
 	repoPath := []string{operatorv1.ServiceSetControllerName, "controllerManager", "manager", "image", "repository"}
 	tagPath := []string{operatorv1.ServiceSetControllerName, "controllerManager", "manager", "image", "tag"}
 
@@ -359,7 +371,9 @@ func setServiceSetControllerImage(imageOverride *image) []StructuredEdit {
 	}
 }
 
-func setSFCControllerImage(imageOverride *image) []StructuredEdit {
+func setSFCControllerImage(imageOverrides ...*image) []StructuredEdit {
+	imageOverride := imageOverrides[0]
+
 	repoPath := []string{operatorv1.SFCControllerName, "controllerManager", "manager", "image", "repository"}
 	tagPath := []string{operatorv1.SFCControllerName, "controllerManager", "manager", "image", "tag"}
 
@@ -369,7 +383,9 @@ func setSFCControllerImage(imageOverride *image) []StructuredEdit {
 	}
 }
 
-func setOVSHelperImage(imageOverride *image) []StructuredEdit {
+func setOVSHelperImage(imageOverrides ...*image) []StructuredEdit {
+	imageOverride := imageOverrides[0]
+
 	repoPath := []string{operatorv1.OVSHelperName, "ovsHelper", "image", "repository"}
 	tagPath := []string{operatorv1.OVSHelperName, "ovsHelper", "image", "tag"}
 
@@ -380,7 +396,9 @@ func setOVSHelperImage(imageOverride *image) []StructuredEdit {
 }
 
 // ovsCNI has two containers which both use the same image.
-func setOVSCNIImage(imageOverride *image) []StructuredEdit {
+func setOVSCNIImage(imageOverrides ...*image) []StructuredEdit {
+	imageOverride := imageOverrides[0]
+
 	markerRepoPath := []string{operatorv1.OVSCNIName, "arm64", "ovsCniMarker", "image", "repository"}
 	markerTagPath := []string{operatorv1.OVSCNIName, "arm64", "ovsCniMarker", "image", "tag"}
 	pluginRepoPath := []string{operatorv1.OVSCNIName, "arm64", "ovsCniPlugin", "image", "repository"}
@@ -395,7 +413,9 @@ func setOVSCNIImage(imageOverride *image) []StructuredEdit {
 }
 
 // multus has two containers which both use the same image.
-func setMultusImage(imageOverride *image) []StructuredEdit {
+func setMultusImage(imageOverrides ...*image) []StructuredEdit {
+	imageOverride := imageOverrides[0]
+
 	installerRepoPath := []string{operatorv1.MultusName, "kubeMultusDs", "installMultusBinary", "image", "repository"}
 	installerTagPath := []string{operatorv1.MultusName, "kubeMultusDs", "installMultusBinary", "image", "tag"}
 	daemonSetRepoPath := []string{operatorv1.MultusName, "kubeMultusDs", "kubeMultus", "image", "repository"}
@@ -409,7 +429,9 @@ func setMultusImage(imageOverride *image) []StructuredEdit {
 	}
 }
 
-func setSRIOVDevicePluginImage(imageOverride *image) []StructuredEdit {
+func setSRIOVDevicePluginImage(imageOverrides ...*image) []StructuredEdit {
+	imageOverride := imageOverrides[0]
+
 	repoPath := []string{operatorv1.SRIOVDevicePluginName, "kubeSriovDevicePlugin", "kubeSriovdp", "image", "repository"}
 	tagPath := []string{operatorv1.SRIOVDevicePluginName, "kubeSriovDevicePlugin", "kubeSriovdp", "image", "tag"}
 	return []StructuredEdit{
@@ -418,7 +440,9 @@ func setSRIOVDevicePluginImage(imageOverride *image) []StructuredEdit {
 	}
 }
 
-func setNVIPAMImage(imageOverride *image) []StructuredEdit {
+func setNVIPAMImage(imageOverrides ...*image) []StructuredEdit {
+	imageOverride := imageOverrides[0]
+
 	tagPath := []string{operatorv1.NVIPAMName, "nvIpam", "image", "tag"}
 	repoPath := []string{operatorv1.NVIPAMName, "nvIpam", "image", "repository"}
 	return []StructuredEdit{

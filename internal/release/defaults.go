@@ -40,6 +40,9 @@ type Defaults struct {
 	NVIPAMImage  string `yaml:"nvipamImage"`
 	OVSCNIImage  string `yaml:"ovsCniImage"`
 
+	KubeFlannelImage string `yaml:"kubeFlannelImage"`
+	FlannelCNIImage  string `yaml:"flannelCNIImage"`
+
 	// CustomOVNKubernetesDPUImage is the default custom OVN Kubernetes image that should be deployed to the DPU
 	// enabled workers.
 	CustomOVNKubernetesImage string `yaml:"customOVNKubernetesImage"`
@@ -85,6 +88,13 @@ func (d *Defaults) Parse() error {
 	if len(d.OVSCNIImage) == 0 {
 		return errors.New("ovsCniImage can't be empty")
 	}
+	if len(d.KubeFlannelImage) == 0 {
+		return errors.New("kubeFlannelImage can't be empty")
+	}
+	if len(d.FlannelCNIImage) == 0 {
+		return errors.New("flannelCNIImage can't be empty")
+	}
+
 	return nil
 }
 

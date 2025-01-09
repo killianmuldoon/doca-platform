@@ -172,8 +172,26 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `disable` _boolean_ | Disable ensures the component is not deployed when set to true. |  |  |
+| `image` _[FlannelImages](#flannelimages)_ | Images overrides the container images used by flannel |  |  |
 | `deployInTargetCluster` _boolean_ | DeployInCluster deploys the component in the same cluster as the DPF Operator if set to true. |  |  |
 | `helmChart` _[HelmChart](#helmchart)_ | HelmChart overrides the helm chart used by the Flannel<br />The URL must begin with either 'oci://' or 'https://', ensuring it points to a valid<br />OCI registry or a web-based repository. |  | Pattern: `^(oci://\|https://).+$` <br /> |
+
+
+#### FlannelImages
+
+
+
+
+
+
+
+_Appears in:_
+- [FlannelConfiguration](#flannelconfiguration)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `flannelCNI` _string_ | FlannelCNI must be set if FlannelImages is set. |  | MinLength: 1 <br /> |
+| `kubeFlannel` _string_ | KubeFlannel must be set if FlannelImages is set. |  | MinLength: 1 <br /> |
 
 
 #### HelmChart

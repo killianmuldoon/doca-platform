@@ -691,6 +691,83 @@ func verifyPVC(g Gomega, deployment *appsv1.Deployment, expected string) {
 	g.Expect(bfbPVC.ClaimName).To(Equal(expected))
 }
 
+func TestDPFOperatorConfigValidation(t *testing.T) {
+	g := NewWithT(t)
+	testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+	// Create the namespace for the test.
+	g.Expect(testClient.Create(ctx, testNS)).To(Succeed())
+
+	tests := []struct {
+		name    string
+		wantErr bool
+		input   *operatorv1.DPFOperatorConfig
+	}{
+		{
+			name:    "spec provisioningController.BFBPersistentVolumeClaimName is always required",
+			wantErr: true,
+			input: &operatorv1.DPFOperatorConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "config",
+					Namespace: testNS.Name,
+				},
+			},
+		},
+		{
+			name:    "spec flannel.Images.KubeFlannel is required if spec flannel.Images is set",
+			wantErr: true,
+			input: &operatorv1.DPFOperatorConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "config",
+					Namespace: testNS.Name,
+				},
+				Spec: operatorv1.DPFOperatorConfigSpec{
+					ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
+						BFBPersistentVolumeClaimName: "something",
+					},
+					Flannel: &operatorv1.FlannelConfiguration{
+						Images: &operatorv1.FlannelImages{
+							FlannelCNI: "something",
+							//KubeFlannel is missing
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "spec flannel.Images.FlannelCNI is required if spec flannel.Images is set",
+			wantErr: true,
+			input: &operatorv1.DPFOperatorConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "config",
+					Namespace: testNS.Name,
+				},
+				Spec: operatorv1.DPFOperatorConfigSpec{
+					ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
+						BFBPersistentVolumeClaimName: "something",
+					},
+					Flannel: &operatorv1.FlannelConfiguration{
+						Images: &operatorv1.FlannelImages{
+							KubeFlannel: "something",
+							//FlannelCNI is missing
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := testClient.Create(ctx, tt.input)
+			if tt.wantErr {
+				g.Expect(err).To(HaveOccurred())
+			} else {
+				g.Expect(err).NotTo(HaveOccurred())
+			}
+		})
+	}
+}
+
 func TestApplySetCreationUpgradeDeletion(t *testing.T) {
 	g := NewWithT(t)
 	ns := "test-generateandpatchobjects"
@@ -782,7 +859,6 @@ func TestApplySetCreationUpgradeDeletion(t *testing.T) {
 		g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(applySet), applySet))).To(BeTrue())
 
 	})
-
 }
 
 func testApplySet(namespace string, component inventory.Component) *corev1.Secret {

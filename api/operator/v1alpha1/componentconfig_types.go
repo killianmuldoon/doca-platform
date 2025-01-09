@@ -16,6 +16,12 @@ limitations under the License.
 
 package v1alpha1
 
+import (
+	"strings"
+
+	"k8s.io/utils/ptr"
+)
+
 const (
 	ProvisioningControllerName = "provisioning-controller"
 	DPUServiceControllerName   = "dpuservice-controller"
@@ -87,6 +93,10 @@ type ComponentConfig interface {
 //
 // +kubebuilder:object:generate=false
 type ImageComponentConfig interface {
+	// GetImage returns a string with one or more images to be configured for the components.
+	// This is a comma-delimited string if the component has more than one image to be configured.
+	// In the case of multiple images the component's `manifest` logic should account for the structure and order of the images.
+	// TODO: Consider returning map[string]string here to account for components with multiple containers.
 	GetImage() *string
 }
 
@@ -308,6 +318,10 @@ type FlannelConfiguration struct {
 	// +optional
 	Disable *bool `json:"disable,omitempty"`
 
+	// Images overrides the container images used by flannel
+	// +optional
+	Images *FlannelImages `json:"image,omitempty"`
+
 	// DeployInCluster deploys the component in the same cluster as the DPF Operator if set to true.
 	DeployInCluster *bool `json:"deployInTargetCluster,omitempty"`
 
@@ -316,6 +330,17 @@ type FlannelConfiguration struct {
 	// OCI registry or a web-based repository.
 	// +optional
 	HelmChart HelmChart `json:"helmChart,omitempty"`
+}
+
+type FlannelImages struct {
+	// FlannelCNI must be set if FlannelImages is set.
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	FlannelCNI string `json:"flannelCNI,omitempty"`
+	// KubeFlannel must be set if FlannelImages is set.
+	// +kubebuilder:validation:MinLength=1
+	// +required
+	KubeFlannel string `json:"kubeFlannel,omitempty"`
 }
 
 func (c *FlannelConfiguration) Name() string {
@@ -334,6 +359,19 @@ func (c *FlannelConfiguration) InClusterDeployment() bool {
 		return false
 	}
 	return *c.DeployInCluster
+}
+
+// GetImage returns a comma-delimited list of the Flannel images with a specified order.
+// KubeFlannel is first and FlannelCNi is second.
+func (c *FlannelConfiguration) GetImage() *string {
+	if c.Images == nil {
+		return nil
+	}
+	// If either of fields is nil setting images does not work.
+	if c.Images.KubeFlannel == "" || c.Images.FlannelCNI == "" {
+		return nil
+	}
+	return ptr.To(strings.Join([]string{c.Images.KubeFlannel, c.Images.FlannelCNI}, ","))
 }
 
 func (c *FlannelConfiguration) GetHelmChart() *string {

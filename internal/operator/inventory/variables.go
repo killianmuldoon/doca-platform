@@ -17,6 +17,8 @@ limitations under the License.
 package inventory
 
 import (
+	"strings"
+
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/release"
 )
@@ -56,6 +58,7 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.MultusName:            defaults.MultusImage,
 			operatorv1.SRIOVDevicePluginName: defaults.SRIOVDPImage,
 			operatorv1.NVIPAMName:            defaults.NVIPAMImage,
+			operatorv1.FlannelName:           strings.Join([]string{defaults.KubeFlannelImage, defaults.FlannelCNIImage}, ","),
 		},
 		HelmCharts: map[string]string{
 			operatorv1.FlannelName:              defaults.DPUNetworkingHelmChart,
