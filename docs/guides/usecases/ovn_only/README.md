@@ -817,9 +817,6 @@ spec:
       repoURL: https://helm.ngc.nvidia.com/nvidia/doca
       version: 1.0.5
       chart: doca-blueman
-    values:
-      imagePullSecrets:
-      - name: dpf-pull-secret
 ```
 </details>
 
@@ -1110,9 +1107,6 @@ spec:
       repoURL: https://helm.ngc.nvidia.com/nvidia/doca
       version: 1.0.5
       chart: doca-blueman
-    values:
-      imagePullSecrets:
-      - name: dpf-pull-secret
 ```
 </details>
 
