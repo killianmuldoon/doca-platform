@@ -201,3 +201,8 @@ func Get(obj GetSet, conditionType ConditionType) *metav1.Condition {
 	}
 	return nil
 }
+
+func IsTrue(obj GetSet, conditionType ConditionType) bool {
+	condition := Get(obj, conditionType)
+	return condition != nil && condition.Status == metav1.ConditionTrue
+}

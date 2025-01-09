@@ -54,14 +54,27 @@ type DPUServiceConfigurationSpec struct {
 	// DPUDeployment object.
 	// +required
 	DeploymentServiceName string `json:"deploymentServiceName"`
+
 	// ServiceConfiguration contains fields that are configured on the generated DPUService.
 	// +optional
 	ServiceConfiguration ServiceConfiguration `json:"serviceConfiguration,omitempty"`
+
 	// Interfaces specifies the DPUServiceInterface to be generated for the generated DPUService.
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=50
 	// +optional
 	Interfaces []ServiceInterfaceTemplate `json:"interfaces,omitempty"`
+
+	// NodeEffect specifies the effect of the DPUService on the node
+	// +optional
+	NodeEffect *NodeEffect `json:"nodeEffect,omitempty"`
+}
+
+// NodeEffect is the effect of the DPUService on the node
+type NodeEffect struct {
+	// Drain specifies if the node should be drained before the DPUService is deployed. Default to false.
+	// +optional
+	Drain bool `json:"drain,omitempty"`
 }
 
 // ServiceInterfaceTemplate contains the information related to an interface of the DPUService
@@ -112,6 +125,7 @@ type DPUServiceConfigurationServiceDaemonSetValues struct {
 	// Labels specifies labels which are added to the ServiceDaemonSet.
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
+
 	// Annotations specifies annotations which are added to the ServiceDaemonSet.
 	// +optional
 	Annotations map[string]string `json:"annotations,omitempty"`

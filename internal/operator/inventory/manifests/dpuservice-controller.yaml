@@ -75,6 +75,15 @@ spec:
                 maxItems: 50
                 minItems: 1
                 type: array
+              nodeEffect:
+                description: NodeEffect specifies the effect of the DPUService on
+                  the node
+                properties:
+                  drain:
+                    description: Drain specifies if the node should be drained before
+                      the DPUService is deployed. Default to false.
+                    type: boolean
+                type: object
               serviceConfiguration:
                 description: ServiceConfiguration contains fields that are configured
                   on the generated DPUService.
@@ -761,6 +770,13 @@ spec:
                 - bfb
                 - flavor
                 type: object
+              revisionHistoryLimit:
+                default: 10
+                description: |-
+                  The maximum number of revisions that can be retained during upgrades.
+                  Defaults to 10.
+                format: int32
+                type: integer
               serviceChains:
                 description: ServiceChains contains the configuration related to the
                   DPUServiceChains that the DPUDeployment creates.

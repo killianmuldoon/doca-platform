@@ -2075,6 +2075,7 @@ _Appears in:_
 | `dpus` _[DPUs](#dpus)_ | DPUs contains the DPU related configuration |  |  |
 | `services` _object (keys:string, values:[DPUDeploymentServiceConfiguration](#dpudeploymentserviceconfiguration))_ | Services contains the DPUDeploymentService related configuration. The key is the deploymentServiceName and the value is its<br />configuration. All underlying objects must specify the same deploymentServiceName in order to be able to be consumed by the<br />DPUDeployment. |  |  |
 | `serviceChains` _[DPUDeploymentSwitch](#dpudeploymentswitch) array_ | ServiceChains contains the configuration related to the DPUServiceChains that the DPUDeployment creates. |  | MaxItems: 50 <br />MinItems: 1 <br /> |
+| `revisionHistoryLimit` _integer_ | The maximum number of revisions that can be retained during upgrades.<br />Defaults to 10. | 10 |  |
 
 
 #### DPUDeploymentStatus
@@ -2277,6 +2278,7 @@ _Appears in:_
 | `deploymentServiceName` _string_ | DeploymentServiceName is the name of the DPU service this configuration refers to. It must match<br />.spec.deploymentServiceName of a DPUServiceTemplate object and one of the keys in .spec.services of a<br />DPUDeployment object. |  |  |
 | `serviceConfiguration` _[ServiceConfiguration](#serviceconfiguration)_ | ServiceConfiguration contains fields that are configured on the generated DPUService. |  |  |
 | `interfaces` _[ServiceInterfaceTemplate](#serviceinterfacetemplate) array_ | Interfaces specifies the DPUServiceInterface to be generated for the generated DPUService. |  | MaxItems: 50 <br />MinItems: 1 <br /> |
+| `nodeEffect` _[NodeEffect](#nodeeffect)_ | NodeEffect specifies the effect of the DPUService on the node |  |  |
 
 
 #### DPUServiceConfigurationStatus
@@ -2781,6 +2783,22 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `name` _string_ | Name of the object. |  |  |
 | `namespace` _string_ | Namespace of the object, if not provided the object will be looked up in<br />the same namespace as the referring object |  |  |
+
+
+#### NodeEffect
+
+
+
+NodeEffect is the effect of the DPUService on the node
+
+
+
+_Appears in:_
+- [DPUServiceConfigurationSpec](#dpuserviceconfigurationspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `drain` _boolean_ | Drain specifies if the node should be drained before the DPUService is deployed. Default to false. |  |  |
 
 
 #### ObjectMeta

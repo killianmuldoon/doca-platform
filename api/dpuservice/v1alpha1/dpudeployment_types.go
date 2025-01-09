@@ -103,6 +103,12 @@ type DPUDeploymentSpec struct {
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=50
 	ServiceChains []DPUDeploymentSwitch `json:"serviceChains"`
+
+	// The maximum number of revisions that can be retained during upgrades.
+	// Defaults to 10.
+	// +optional
+	// +kubebuilder:default=10
+	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
 }
 
 // DPUs contains the DPU related configuration
