@@ -159,6 +159,8 @@ func (r *NVVolumeAttachment) reconcileDelete(ctx context.Context, nvVolumeAttach
 			return ctrl.Result{}, err
 		}
 	}
+
+	controllerutil.RemoveFinalizer(nvVolumeAttachment, nvVolumeAttachmentFinalizer)
 	return ctrl.Result{}, nil
 }
 
