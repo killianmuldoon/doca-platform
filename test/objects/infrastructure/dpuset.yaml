@@ -13,7 +13,7 @@ spec:
     type: RollingUpdate
   dpuTemplate:
     spec:
-      dpuFlavor: dpf-provisioning-default-flavor
+      dpuFlavor: dpf-provisioning-hbn-ovn
       bfb:
         name: "bf-bundle"
       nodeEffect:
