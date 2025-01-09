@@ -318,7 +318,8 @@ func (r *NVVolume) localNVolumesAlg(ctx context.Context, storagePolicy *snapstor
 
 	// find the vendor with minimal number of volumes.
 	min := math.MaxInt
-	vendor := ""
+	// if all vendor has no volume, will select the first vendor from storage policy vendor list
+	vendor := storagePolicy.Spec.StorageVendors[0]
 	for storageVendor, volumeCounter := range vendorCounterMap {
 		if volumeCounter < min {
 			min = volumeCounter
