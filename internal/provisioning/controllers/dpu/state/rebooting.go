@@ -144,9 +144,9 @@ func rebootHandler(ctx context.Context, dpu *provisioningv1.DPU, pciAddress stri
 	dmsTask := future.New(func() (any, error) {
 		// Shutdown ARM
 		logger.V(3).Info(fmt.Sprintf("Bluefield System-Level-Reset ARM shutdown command: %s for dpu: %s", bfSLRShutdownARM, dpu.Name))
-		if out, _, err := cutil.RemoteExec(dpu.Namespace, cutil.GenerateDMSPodName(dpu.Name), "", bfSLRShutdownARM); err != nil {
+		if out, errMsg, err := cutil.RemoteExec(dpu.Namespace, cutil.GenerateDMSPodName(dpu.Name), "", bfSLRShutdownARM); err != nil {
 			logger.Error(err, fmt.Sprintf("DPU %s failed to shutdown ARM: %v, output: %s", dpu.Name, err, out))
-			return future.Ready, err
+			return future.Ready, fmt.Errorf("DPU %s reboot failed: %v, output: %s", dpu.Name, err, errMsg)
 		} else {
 			logger.V(3).Info(fmt.Sprintf("DPU %s Bluefield System-Level-Reset result: %s", dpu.Name, out))
 		}
