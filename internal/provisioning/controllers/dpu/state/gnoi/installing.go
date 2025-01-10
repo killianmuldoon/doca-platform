@@ -38,7 +38,6 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/reboot"
 
 	"github.com/openconfig/gnmi/proto/gnmi"
-	ospb "github.com/openconfig/gnoi/os"
 	"github.com/openconfig/gnoi/system"
 	tpb "github.com/openconfig/gnoi/types"
 	"github.com/openconfig/gnoigo"
@@ -88,22 +87,35 @@ func Installing(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Con
 		return *state, err
 	}
 
-	if dmsTask, ok := dutil.OsInstallTaskMap.Load(dmsTaskName); ok {
-		result := dmsTask.(*future.Future)
-		if result.GetState() == future.Ready {
+	if task, ok := dutil.OsInstallTaskMap.Load(dmsTaskName); ok {
+		taskWithRetry := task.(dutil.TaskWithRetry)
+		retryCount := taskWithRetry.RetryCount
+		dmsTask := taskWithRetry.Task
+		if dmsTask.GetState() == future.Ready {
 			dutil.OsInstallTaskMap.Delete(dmsTaskName)
-			if _, err := result.GetResult(); err == nil {
+			if _, err := dmsTask.GetResult(); err == nil {
 				logger.V(3).Info(fmt.Sprintf("DMS task %v is finished", dmsTaskName))
 				return updateState(state, provisioningv1.DPURebooting, "DPU is rebooting"), nil
 			} else {
-				logger.V(3).Info(fmt.Sprintf("DMS task %v is failed with err: %v", dmsTaskName, err))
-				return updateState(state, provisioningv1.DPUError, err.Error()), err
+				if retryCount >= MaxRetryCount {
+					logger.V(3).Info(fmt.Sprintf("DMS task %v is failed with err: %v", dmsTaskName, err))
+					return updateState(state, provisioningv1.DPUError, err.Error()), err
+				} else {
+					msg := fmt.Sprintf("DMS task %v retried %d times, error: %v", dmsTaskName, retryCount, err)
+					logger.Info(msg)
+					// Retry the os install process
+					dmsHandler(ctx, ctrlCtx.Client, dpu, bfb, retryCount+1)
+					cond := cutil.DPUCondition(provisioningv1.DPUCondOSInstalled, "", msg)
+					cond.Status = metav1.ConditionFalse
+					cutil.SetDPUCondition(state, cond)
+					return *state, nil
+				}
 			}
 		} else {
 			logger.V(3).Info(fmt.Sprintf("DMS task %v is being processed", dmsTaskName))
 		}
 	} else {
-		dmsHandler(ctx, ctrlCtx.Client, dpu, bfb)
+		dmsHandler(ctx, ctrlCtx.Client, dpu, bfb, 0)
 	}
 
 	return *state, nil
@@ -194,7 +206,7 @@ func createGRPCConnection(ctx context.Context, client client.Client, dpu *provis
 	return conn, nil
 }
 
-func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv1.DPU, bfb *provisioningv1.BFB) {
+func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv1.DPU, bfb *provisioningv1.BFB, retry int) {
 	dmsTaskName := generateDMSTaskName(dpu)
 	dmsTask := future.New(func() (any, error) {
 		logger := log.FromContext(ctx)
@@ -203,7 +215,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		conn, err := createGRPCConnection(ctx, k8sClient, dpu)
 		if err != nil {
 			logger.Error(err, fmt.Sprintf("Error creating gRPC connection: %v", err))
-			return future.Ready, err
+			return nil, err
 		}
 		defer conn.Close() //nolint: errcheck
 		gnoiClient := gnoigo.NewClients(conn)
@@ -214,7 +226,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 			logger.V(3).Info(fmt.Sprintf("Set DPU mode to DPU %s successfully, %v", dpu.Name, resp.String()))
 		} else {
 			logger.Error(err, "failed set DPU mode", "DPU", dpu.Name)
-			return future.Ready, err
+			return nil, err
 		}
 
 		logger.V(3).Info(fmt.Sprintf("TLS Connection established between DPU controller to DMS %s", dmsTaskName))
@@ -245,7 +257,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		}
 		dc := &provisioningv1.DPUCluster{}
 		if err := k8sClient.Get(ctx, types.NamespacedName{Namespace: dpu.Spec.Cluster.Namespace, Name: dpu.Spec.Cluster.Name}, dc); err != nil {
-			return "", fmt.Errorf("failed to get DPUCluster, err: %v", err)
+			return nil, fmt.Errorf("failed to get DPUCluster, err: %v", err)
 		}
 		node := &corev1.Node{}
 		if err := k8sClient.Get(ctx, types.NamespacedName{
@@ -296,21 +308,12 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		// set 30 minutes timeout for OS installation
 		activateCtx, cancel := context.WithTimeout(context.Background(), 30*60*time.Second)
 		defer cancel()
-		var response *ospb.ActivateResponse
-		for retry := 1; retry <= MaxRetryCount; retry++ {
-			response, err = gnoigo.Execute(activateCtx, gnoiClient, activateOp)
-			logger.V(3).Info(fmt.Sprintf("DMS task %s is finished", dmsTaskName))
-			if err == nil {
-				break
-			} else {
-				logger.Error(err, fmt.Sprintf("DMS %s failed to Execute activateOp, retry %d", dmsTaskName, retry))
-			}
-		}
-		if err != nil {
+		if response, err := gnoigo.Execute(activateCtx, gnoiClient, activateOp); err != nil {
+			logger.Error(err, fmt.Sprintf("DMS %s failed to Execute activateOp", dmsTaskName))
 			return nil, err
+		} else {
+			logger.V(3).Info("Performed activateOp", "response", response)
 		}
-
-		logger.V(3).Info("Performed activateOp", "response", response)
 
 		ticker := time.NewTicker(3 * time.Second)
 		defer ticker.Stop()
@@ -366,7 +369,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 						dpu.Spec.Cluster.NodeLabels["provisioning.dpu.nvidia.com/DOCA-BFB-version"] = cutil.GenerateBFBVersionFromURL(bfb.Spec.URL)
 						dpu.Spec.Cluster.NodeLabels[HostNameDPULabelKey] = dpu.Spec.NodeName
 						if err := k8sClient.Patch(ctx, dpu, patch); err != nil {
-							return future.Ready, err
+							return nil, err
 						}
 						return nil, nil
 					case system.RebootStatus_STATUS_RETRIABLE_FAILURE:
@@ -383,7 +386,11 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 			}
 		}
 	})
-	dutil.OsInstallTaskMap.Store(dmsTaskName, dmsTask)
+	taskWithRetryCount := dutil.TaskWithRetry{
+		Task:       dmsTask,
+		RetryCount: retry,
+	}
+	dutil.OsInstallTaskMap.Store(dmsTaskName, taskWithRetryCount)
 }
 
 func generateDMSTaskName(dpu *provisioningv1.DPU) string {

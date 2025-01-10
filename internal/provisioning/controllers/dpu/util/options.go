@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/future"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -30,6 +31,11 @@ import (
 
 var OsInstallTaskMap sync.Map
 var RebootTaskMap sync.Map
+
+type TaskWithRetry struct {
+	Task       *future.Future
+	RetryCount int
+}
 
 type DPUOptions struct {
 	DMSImageWithTag          string
