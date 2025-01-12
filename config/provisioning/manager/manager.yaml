@@ -66,11 +66,11 @@ spec:
         # More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/
         resources:
           limits:
-            cpu: 4
-            memory: 8Gi
+            cpu: 2
+            memory: 2Gi
           requests:
             cpu: 1
-            memory: 2Gi
+            memory: 1Gi
         ports:
           - containerPort: 8080
             name: metrics

@@ -30,13 +30,10 @@ import (
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-)
-
-const (
-	BackoffLimit = 0
 )
 
 // BFBDownloader is an interface for creating and managing BFB download jobs.
@@ -71,14 +68,13 @@ func (r *RealBFBDownloader) CreateBFBDownloadJob(ctx context.Context, client cli
 			},
 		},
 		Spec: batchv1.JobSpec{
-			BackoffLimit: &[]int32{BackoffLimit}[0],
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      jobName,
 					Namespace: bfb.Namespace,
 				},
 				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyNever,
+					RestartPolicy: corev1.RestartPolicyOnFailure,
 					Containers: []corev1.Container{
 						{
 							Name:            cutil.BFBDownloader,
@@ -93,6 +89,16 @@ func (r *RealBFBDownloader) CreateBFBDownloadJob(ctx context.Context, client cli
 							Command: []string{"/bin/bash", "-c", "--"},
 							Args: []string{
 								bfbDownloaderCommand,
+							},
+							Resources: corev1.ResourceRequirements{
+								Limits: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("4"),
+									corev1.ResourceMemory: resource.MustParse("8Gi"),
+								},
+								Requests: corev1.ResourceList{
+									corev1.ResourceCPU:    resource.MustParse("1"),
+									corev1.ResourceMemory: resource.MustParse("2Gi"),
+								},
 							},
 						},
 					},
