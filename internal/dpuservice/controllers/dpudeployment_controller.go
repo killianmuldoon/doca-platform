@@ -791,14 +791,14 @@ func reconcileDPUServices(
 		}
 
 		if err := c.Patch(ctx, newSvc, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
-			errs = append(errs, fmt.Errorf("error while patching %s %s: %w", newSvc.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(newSvc), err))
+			errs = append(errs, fmt.Errorf("failed to patch DPUService %s: %w", client.ObjectKeyFromObject(newSvc), err))
 		}
 	}
 
 	// Cleanup the remaining stale DPUServices
 	for _, dpuService := range existingDPUServicesMap {
 		if err := c.Delete(ctx, &dpuService); err != nil {
-			return requeue, fmt.Errorf("error while deleting %s %s: %w", dpuService.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuService), err)
+			return requeue, fmt.Errorf("failed to delete DPUService %s: %w", client.ObjectKeyFromObject(&dpuService), err)
 		}
 	}
 
@@ -806,13 +806,45 @@ func reconcileDPUServices(
 }
 
 // pauseStaleDPUServices disable reconciliation on previous versions of a DPUService up to the revisionHistoryLimit
-// all older versions will be deleted
+// all older versions will be deleted.
+// Any used interfaces will also be released so that they can be used by new revisions.
 func pauseStaleDPUServices(ctx context.Context, c client.Client, dpuServices []dpuservicev1.DPUService) error {
+	interfaces := map[types.NamespacedName]struct{}{}
+	dpuServiceNames := make(map[string]struct{})
 	for _, dpuService := range dpuServices {
 		dpuService.Spec.Paused = ptr.To(true)
 		dpuService.SetManagedFields(nil)
 		if err := c.Patch(ctx, &dpuService, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
-			return fmt.Errorf("error while patching %s %s: %w", dpuService.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuService), err)
+			return fmt.Errorf("failed to patch DPUService %s: %w", client.ObjectKeyFromObject(&dpuService), err)
+		}
+		dpuServiceNames[dpuService.Name] = struct{}{}
+		// collect interfaces to release
+		for _, intf := range dpuService.Spec.Interfaces {
+			interfaces[types.NamespacedName{Namespace: dpuService.Namespace, Name: intf}] = struct{}{}
+		}
+	}
+
+	// attempt to release the interfaces so that they can be used by new revisions
+	for intf := range interfaces {
+		dpuServiceInterface := &dpuservicev1.DPUServiceInterface{}
+		if err := c.Get(ctx, intf, dpuServiceInterface); err != nil {
+			// if the interface is not found, we can ignore it
+			if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("failed to get DPUServiceInterface %s: %w", intf.String(), err)
+			}
+			continue
+		}
+		annotations := dpuServiceInterface.GetAnnotations()
+		// remove the DPUServiceInterface annotation to release it from the DPUService
+		if annotations != nil {
+			if _, ok := dpuServiceNames[annotations[dpuservicev1.DPUServiceInterfaceAnnotationKey]]; ok {
+				delete(annotations, dpuservicev1.DPUServiceInterfaceAnnotationKey)
+				dpuServiceInterface.SetManagedFields(nil)
+				dpuServiceInterface.SetGroupVersionKind(dpuservicev1.DPUServiceInterfaceGroupVersionKind)
+				if err := c.Update(ctx, dpuServiceInterface); err != nil {
+					return fmt.Errorf("failed to update DPUServiceInterface %s: %w", client.ObjectKeyFromObject(dpuServiceInterface), err)
+				}
+			}
 		}
 	}
 	return nil
