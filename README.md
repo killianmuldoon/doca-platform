@@ -28,7 +28,3 @@ Refer to [Prerequisites](docs/guides/usecases/prerequisites.md) for detailed har
 ## API reference
 
 Comprehensive DPF API documentation is available [here](docs/api.md).
-
-## Contributing
-
-This repository follows the following [conventions](CONVENTIONS.md).
