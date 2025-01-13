@@ -39,7 +39,7 @@ shutdown_timeout = 0
     MaxUploadedArchiveSize = 0
   [runners.docker]
     tls_verify = false
-    image = "golang:1.22.0"
+    image = "golang:1.23.4"
     privileged = false
     disable_entrypoint_overwrite = false
     oom_kill_disable = false

@@ -1,6 +1,6 @@
 module github.com/k8snetworkplumbingwg/ovs-cni
 
-go 1.22.8
+go 1.23.0
 
 require (
 	github.com/containernetworking/cni v1.0.1
@@ -15,9 +15,9 @@ require (
 	github.com/ovn-org/libovsdb v0.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/vishvananda/netlink v1.2.1-beta.2
-	k8s.io/api v0.30.1
-	k8s.io/apimachinery v0.30.1
-	k8s.io/client-go v0.30.1
+	k8s.io/api v0.32.0
+	k8s.io/apimachinery v0.32.0
+	k8s.io/client-go v0.32.0
 	kubevirt.io/qe-tools v0.1.6
 )
 

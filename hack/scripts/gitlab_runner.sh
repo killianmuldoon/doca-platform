@@ -44,7 +44,7 @@ REGISTER_DOCKER_RUNNER="${REGISTER_DOCKER_RUNNER:-"true"}"
 PROJECT_ID="112105"
 SHELL_TAG_LIST="${SHELL_TAG_LIST:-"type/shell,e2e,release"}"
 DOCKER_TAG_LIST="type/docker"
-GO_VERSION="1.22.3"
+GO_VERSION="1.23.4"
 GITLAB_RUNNER_VERSION="17.1.0"
 
 ## Install JQ for json parsing
@@ -155,7 +155,7 @@ if [[ "$REGISTER_DOCKER_RUNNER" == "true" ]]; then
     --token "$register_token" \
     --executor="docker" \
     --docker-tlsverify=false \
-    --docker-image golang:1.22.0 \
+    --docker-image golang:1.23.4 \
     --docker-privileged=false \
     --docker-disable-entrypoint-overwrite=false \
     --docker-oom-kill-disable=false \
