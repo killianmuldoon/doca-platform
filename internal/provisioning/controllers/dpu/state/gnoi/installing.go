@@ -171,21 +171,15 @@ func createGRPCConnection(ctx context.Context, client client.Client, dpu *provis
 		return nil, fmt.Errorf("failed to load client cert and key: %v", err)
 	}
 
-	// Retrieve the DMS Server secret
-	dmsServerSecret := &corev1.Secret{}
-	if err := client.Get(ctx, types.NamespacedName{Namespace: dpu.Namespace, Name: cutil.GenerateDMSServerSecretName(dpu.Name)}, dmsServerSecret); err != nil {
-		return nil, fmt.Errorf("get server secret: %v", err)
-	}
-
-	// Extract the CA certificate from the Server secret
-	serverCACert, caCertOk := dmsServerSecret.Data["ca.crt"]
+	// Extract the CA certificate
+	caCert, caCertOk := dmsClientSecret.Data["ca.crt"]
 	if !caCertOk {
 		return nil, fmt.Errorf("ca.crt not found in Server secret")
 	}
 
 	// Create a certificate pool and add the CA certificate
 	certPool := x509.NewCertPool()
-	if !certPool.AppendCertsFromPEM(serverCACert) {
+	if !certPool.AppendCertsFromPEM(caCert) {
 		return nil, fmt.Errorf("failed to append Server certificate")
 	}
 
