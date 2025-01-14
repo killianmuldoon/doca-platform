@@ -1554,6 +1554,9 @@ spec:
         - --bfb-pvc=bfb-pvc
         command:
         - /provisioning
+        env:
+        - name: GRPC_ENFORCE_ALPN_ENABLED
+          value: "false"
         image: example.com/dpf-system:v0.1.0
         livenessProbe:
           httpGet:

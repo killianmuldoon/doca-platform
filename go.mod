@@ -14,15 +14,15 @@ require (
 	github.com/golang/glog v1.2.4
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
-	github.com/openconfig/gnmi v0.10.0
-	github.com/openconfig/gnoi v0.4.1
-	github.com/openconfig/gnoigo v0.0.0-20240320202954-ebd033e3542c
+	github.com/openconfig/gnmi v0.12.0
+	github.com/openconfig/gnoi v0.6.0
+	github.com/openconfig/gnoigo v0.0.0-20240820205259-23ac4e061cc2
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/ovn-org/libovsdb v0.7.0
 	github.com/spf13/pflag v1.0.6-0.20201009195203-85dd5c8bc61c
 	github.com/vishvananda/netlink v1.3.0
 	go.uber.org/mock v0.5.0
-	google.golang.org/grpc v1.66.3
+	google.golang.org/grpc v1.69.4
 	gopkg.in/k8snetworkplumbingwg/multus-cni.v4 v4.0.2
 	k8s.io/api v0.32.0
 	k8s.io/apimachinery v0.32.0
@@ -65,6 +65,8 @@ require (
 	github.com/moby/sys/mountinfo v0.7.2 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
+	github.com/openconfig/bootz v0.3.1 // indirect
+	github.com/openconfig/gnsi v1.7.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
@@ -136,7 +138,7 @@ require (
 	golang.org/x/time v0.8.0 // indirect
 	golang.org/x/tools v0.28.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20241015192408-796eee8c2d53 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20241230172942-26aa7a208def // indirect
 	google.golang.org/protobuf v1.36.1
 	gopkg.in/inf.v0 v0.9.1 // indirect
