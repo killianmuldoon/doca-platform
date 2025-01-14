@@ -25,8 +25,11 @@ set -o errexit
 # Define the function to handle cleanup
 cleanup() {
     # Remove temporary files on exit or error
+    local TEMP_FILE="$opt_base_dir/bfb-${opt_uid}"
+    local MD5_LOG_FILE="$opt_base_dir/${opt_file}.md5"
+    local OUTPUT_FILE="$opt_versions_output"
     [[ -n "$TEMP_FILE" ]] && rm -f "$TEMP_FILE"
-    [[ -n "$opt_versions_output" ]] && rm -f "$opt_versions_output"
+    [[ -n "$OUTPUT_FILE" ]] && rm -f "$OUTPUT_FILE"
     [[ -n "$MD5_LOG_FILE" ]] && rm -f "$MD5_LOG_FILE"
 }
 
@@ -97,8 +100,21 @@ run_bfver_with_retry() {
     for ((i=1; i<=MAX_RETRIES; i++)); do
         echo "Attempt $i of $MAX_RETRIES..."
         if timeout 30s bfver -f "$(realpath "$FINAL_FILE")" > "$OUTPUT_FILE" 2>&1; then
+            # Check if the error message is file not found
+            if grep -q "bfver: warn: $(realpath "$FINAL_FILE") does not exist, skipping" "$OUTPUT_FILE"; then
+                echo "bfver failed with error: file not found, skipping"
+                exit 1
+            fi
             echo "bfver completed successfully. Output saved to $OUTPUT_FILE."
             break # Exit loop on success
+        else
+            # Check if the error message is file not found
+            if grep -q "bfver: warn: $(realpath "$FINAL_FILE") does not exist, skipping" "$OUTPUT_FILE"; then
+                echo "bfver failed with error: file not found, skipping"
+                exit 1
+            fi
+            echo "bfver failed with an unknown error"
+            exit 1
         fi
 
         # Check if the maximum number of retries is reached
