@@ -126,7 +126,7 @@ $(ARGOCD_YAML): | $(CHARTSDIR)
 OVS_CNI_DIR=$(THIRDPARTYDIR)/ovs-cni
 
 # OVN Kubernetes dependencies to be able to build its docker image
-OVNKUBERNETES_REF=52d00a1b906de56895c3a8be73052c445c838d75
+OVNKUBERNETES_REF=d7ce0d0b9799bfbd9bb4cb7be7f025ed9a181ff0
 OVNKUBERNETES_DIR=$(REPOSDIR)/ovn-kubernetes-$(OVNKUBERNETES_REF)
 $(OVNKUBERNETES_DIR): | $(REPOSDIR)
 	git clone https://github.com/aserdean/ovn-kubernetes $(OVNKUBERNETES_DIR)-tmp
