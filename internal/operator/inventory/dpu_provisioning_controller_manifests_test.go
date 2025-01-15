@@ -295,7 +295,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		g.Expect(err).NotTo(HaveOccurred())
 
 		// Expect the CRD and Namespace to have been removed. There are 5 CRDs and 1 Namespace in the manifest file.
-		g.Expect(generatedObjs).To(HaveLen(len(originalObjs) - 7))
+		g.Expect(generatedObjs).To(HaveLen(len(originalObjs) - 6))
 
 		// Expect the namespaces for all of the namespace scoped objects to equal the namespace in variables.
 		for _, obj := range generatedObjs {

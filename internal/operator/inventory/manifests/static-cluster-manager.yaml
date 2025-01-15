@@ -129,19 +129,6 @@ subjects:
   name: static-cm-controller-manager
   namespace: dpf-operator-system
 ---
-apiVersion: v1
-kind: Namespace
-metadata:
-  labels:
-    app.kubernetes.io/component: manager
-    app.kubernetes.io/created-by: cluster-manager
-    app.kubernetes.io/instance: system
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: namespace
-    app.kubernetes.io/part-of: cluster-manager
-    control-plane: controller-manager
-  name: dpf-operator-system
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:

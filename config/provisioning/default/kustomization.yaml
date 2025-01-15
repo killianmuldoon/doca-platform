@@ -27,6 +27,49 @@ resources:
 #- ../prometheus
 - flavor-hbn-ovn.yaml
 
+sortOptions:
+  order: legacy
+  legacySortOptions:
+    orderFirst:
+      -  PriorityClass
+      -  Namespace
+      -  NetworkPolicy
+      -  ResourceQuota
+      -  LimitRange
+      -  PodSecurityPolicy
+      -  PodDisruptionBudget
+      -  ServiceAccount
+      -  Secret
+      -  SecretList
+      -  ConfigMap
+      -  StorageClass
+      -  PersistentVolume
+      -  PersistentVolumeClaim
+      -  CustomResourceDefinition
+      -  ClusterRole
+      -  ClusterRoleList
+      -  ClusterRoleBinding
+      -  ClusterRoleBindingList
+      -  Role
+      -  RoleList
+      -  RoleBinding
+      -  RoleBindingList
+      -  Service
+      -  DaemonSet
+      -  Pod
+      -  ReplicationController
+      -  ReplicaSet
+      -  Deployment
+      -  HorizontalPodAutoscaler
+      -  StatefulSet
+      -  Job
+      -  CronJob
+      -  IngressClass
+      -  Ingress
+      -  APIService
+      - Certificate
+      - Issuer
+
 patchesStrategicMerge:
 - manager_alpn_disable.yaml
 - manager_controller_patch.yaml

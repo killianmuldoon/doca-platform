@@ -8,6 +8,49 @@ namespace: dpuservice-controller-system
 # field above.
 namePrefix: dpuservice-
 
+sortOptions:
+  order: legacy
+  legacySortOptions:
+    orderFirst:
+      -  PriorityClass
+      -  Namespace
+      -  NetworkPolicy
+      -  ResourceQuota
+      -  LimitRange
+      -  PodSecurityPolicy
+      -  PodDisruptionBudget
+      -  ServiceAccount
+      -  Secret
+      -  SecretList
+      -  ConfigMap
+      -  StorageClass
+      -  PersistentVolume
+      -  PersistentVolumeClaim
+      -  CustomResourceDefinition
+      -  ClusterRole
+      -  ClusterRoleList
+      -  ClusterRoleBinding
+      -  ClusterRoleBindingList
+      -  Role
+      -  RoleList
+      -  RoleBinding
+      -  RoleBindingList
+      -  Service
+      -  DaemonSet
+      -  Pod
+      -  ReplicationController
+      -  ReplicaSet
+      -  Deployment
+      -  HorizontalPodAutoscaler
+      -  StatefulSet
+      -  Job
+      -  CronJob
+      -  IngressClass
+      -  Ingress
+      -  APIService
+      - Certificate
+      - Issuer
+
 labels:
   - includeTemplates: true
     includeSelectors: true
