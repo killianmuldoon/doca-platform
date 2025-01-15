@@ -2,12 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   labels:
-    app.kubernetes.io/name: clusterrole
-    app.kubernetes.io/instance: dpudevice-viewer-role
     app.kubernetes.io/component: rbac
-    app.kubernetes.io/created-by: dpf-provisioning-controller
-    app.kubernetes.io/part-of: dpf-provisioning-controller
-    app.kubernetes.io/managed-by: kustomize
   name: dpudevice-viewer-role
 rules:
 - apiGroups:

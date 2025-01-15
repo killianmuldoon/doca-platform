@@ -5,6 +5,7 @@ metadata:
     controller-gen.kubebuilder.io/version: v0.16.5
     helm.sh/resource-policy: keep
   labels:
+    app.kubernetes.io/part-of: dpf-operator-controller-manager
     dpu.nvidia.com/component: dpf-operator-controller-manager
   name: dpuservicechains.svc.dpu.nvidia.com
 spec:

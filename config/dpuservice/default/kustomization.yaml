@@ -56,6 +56,7 @@ labels:
     includeSelectors: true
     pairs:
       dpu.nvidia.com/component: dpuservice-controller-manager
+      app.kubernetes.io/part-of: dpuservice-controller-manager
 
 resources:
 - ../crd

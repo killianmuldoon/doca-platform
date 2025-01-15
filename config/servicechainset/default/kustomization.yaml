@@ -8,12 +8,6 @@ namespace: dpf-operator-system
 # field above.
 namePrefix: dpf-operator-
 
-labels:
-  - includeTemplates: true
-    includeSelectors: true
-    pairs:
-      dpu.nvidia.com/component: servicefunctionchainset-controller-manager
-
 sortOptions:
   order: legacy
   legacySortOptions:
@@ -61,3 +55,10 @@ resources:
 - ../crd
 - ../rbac
 - ../manager
+
+labels:
+  - includeSelectors: true
+    includeTemplates: true
+    pairs:
+      dpu.nvidia.com/component: servicechainset-controller
+      app.kubernetes.io/part-of: servicechainset-controller

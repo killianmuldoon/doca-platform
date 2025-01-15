@@ -49,3 +49,10 @@ sortOptions:
     - Issuer
     orderLast: null
   order: legacy
+
+labels:
+- includeSelectors: true
+  includeTemplates: true
+  pairs:
+    app.kubernetes.io/part-of: dpu-detector
+    dpu.nvidia.com/component: dpu-detector

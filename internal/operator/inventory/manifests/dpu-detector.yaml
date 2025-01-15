@@ -2,16 +2,19 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   labels:
-    dpu.nvidia.com/component: dpf-dpu-detector
+    app.kubernetes.io/part-of: dpu-detector
+    dpu.nvidia.com/component: dpu-detector
   name: dpf-dpu-detector
 spec:
   selector:
     matchLabels:
-      dpu.nvidia.com/component: dpf-dpu-detector
+      app.kubernetes.io/part-of: dpu-detector
+      dpu.nvidia.com/component: dpu-detector
   template:
     metadata:
       labels:
-        dpu.nvidia.com/component: dpf-dpu-detector
+        app.kubernetes.io/part-of: dpu-detector
+        dpu.nvidia.com/component: dpu-detector
     spec:
       containers:
       - command:

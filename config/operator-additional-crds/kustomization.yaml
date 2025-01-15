@@ -12,3 +12,4 @@ labels:
     includeTemplates: true
     pairs:
       dpu.nvidia.com/component: dpf-operator-controller-manager
+      app.kubernetes.io/part-of: dpf-operator-controller-manager

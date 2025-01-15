@@ -3,17 +3,14 @@ kind: DaemonSet
 metadata:
   name: dpf-dpu-detector
   labels:
-    dpu.nvidia.com/component: dpf-dpu-detector
 spec:
   selector:
     matchLabels:
-      dpu.nvidia.com/component: dpf-dpu-detector
   updateStrategy:
     type: RollingUpdate
   template:
     metadata:
       labels:
-        dpu.nvidia.com/component: dpf-dpu-detector
     spec:
       serviceAccountName: dpf-operator-controller-manager
       hostNetwork: true

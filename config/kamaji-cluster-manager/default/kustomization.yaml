@@ -55,3 +55,11 @@ sortOptions:
       -  APIService
       - Certificate
       - Issuer
+
+
+labels:
+  - includeTemplates: true
+    includeSelectors: true
+    pairs:
+      dpu.nvidia.com/component: kamaji-cluster-manager
+      app.kubernetes.io/part-of: kamaji-cluster-manager

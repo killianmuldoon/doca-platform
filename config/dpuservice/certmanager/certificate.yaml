@@ -5,13 +5,7 @@ apiVersion: cert-manager.io/v1
 kind: Issuer
 metadata:
   labels:
-    control-plane: controller-manager
-    app.kubernetes.io/name: namespace
-    app.kubernetes.io/instance: system
     app.kubernetes.io/component: manager
-    app.kubernetes.io/created-by: dpf-operator
-    app.kubernetes.io/part-of: dpf-operator
-    app.kubernetes.io/managed-by: kustomize
   name: selfsigned-issuer
   namespace: system
 spec:
@@ -21,13 +15,8 @@ apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
   labels:
-    control-plane: controller-manager
-    app.kubernetes.io/name: namespace
-    app.kubernetes.io/instance: system
     app.kubernetes.io/component: manager
-    app.kubernetes.io/created-by: dpf-operator
     app.kubernetes.io/part-of: dpf-operator
-    app.kubernetes.io/managed-by: kustomize
   name: serving-cert  # this name should match the one appeared in default/kustomization.yaml
   namespace: system
 spec:

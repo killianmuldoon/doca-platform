@@ -8,11 +8,12 @@ namespace: dpf-provisioning
 # field above.
 namePrefix: dpf-provisioning-
 
-# Labels to add to all resources and selectors.
-#labels:
-#- includeSelectors: true
-#  pairs:
-#    someName: someValue
+labels:
+  - includeSelectors: true
+    includeTemplates: true
+    pairs:
+      dpu.nvidia.com/component: dpf-provisioning-controller-manager
+      app.kubernetes.io/part-of: dpf-provisioning-controller-manager
 
 resources:
 - ../crd
