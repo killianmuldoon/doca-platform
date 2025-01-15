@@ -68,32 +68,32 @@ func TestDPFOperatorConfigReconciler_reconcileDelete(t *testing.T) {
 	}{
 		{
 			name:                      "Deletion works with no finalizers set",
-			dpuDeploymentObjsExpected: false,
 			serviceChainObjsExpected:  false,
+			dpuDeploymentObjsExpected: false,
 			dpuServiceObjsExpected:    false,
 			provisioningObjsExpected:  false,
 		},
 		{
-			name:                      "Ensure DPUService, Provisioning and ServiceChain is not deleted if DPUDeployment has finalizer",
-			gvkWithFinalizer:          &dpuservicev1.DPUDeploymentGroupVersionKind,
-			dpuDeploymentObjsExpected: false,
-			serviceChainObjsExpected:  true,
-			dpuServiceObjsExpected:    true,
-			provisioningObjsExpected:  true,
-		},
-		{
-			name:                      "Ensure DPUService, Provisioning is not deleted if ServiceChain has finalizer",
+			name:                      "Ensure DPUService, Provisioning, dpuDeployment is not deleted if ServiceChain has finalizer",
 			gvkWithFinalizer:          &dpuservicev1.DPUServiceChainGroupVersionKind,
-			dpuDeploymentObjsExpected: false,
 			serviceChainObjsExpected:  false,
+			dpuDeploymentObjsExpected: true,
 			dpuServiceObjsExpected:    true,
 			provisioningObjsExpected:  true,
 		},
 		{
-			name:                      "Ensure Provisioning is not deleted if DPUSet has finalizer",
-			gvkWithFinalizer:          &dpuservicev1.DPUServiceGroupVersionKind,
-			dpuDeploymentObjsExpected: false,
+			name:                      "Ensure Provisioning, DPUService is not deleted if DPUDeployment has finalizer",
+			gvkWithFinalizer:          &dpuservicev1.DPUDeploymentGroupVersionKind,
 			serviceChainObjsExpected:  false,
+			dpuDeploymentObjsExpected: false,
+			dpuServiceObjsExpected:    true,
+			provisioningObjsExpected:  true,
+		},
+		{
+			name:                      "Ensure Provisioning is not deleted if DPUService has finalizer",
+			gvkWithFinalizer:          &dpuservicev1.DPUServiceGroupVersionKind,
+			serviceChainObjsExpected:  false,
+			dpuDeploymentObjsExpected: false,
 			dpuServiceObjsExpected:    false,
 			provisioningObjsExpected:  true,
 		},
@@ -149,7 +149,7 @@ func TestDPFOperatorConfigReconciler_reconcileDelete(t *testing.T) {
 			// Wait for the existing objects to eventually get into the correct state.
 			g.Eventually(func(g Gomega) {
 
-				_ = r.reconcileDelete(ctx, dpfOperatorConfig)
+				_, _ = r.reconcileDelete(ctx, dpfOperatorConfig)
 				// 1) Expect the DPUDeployment objects to match the expected state.
 				g.Expect(objectsInListStillExist(r.Client, dpuDeploymentResources)).To(Equal(tt.dpuDeploymentObjsExpected))
 				// 2) Expect the ServiceChain objects to match the expected state.
@@ -162,7 +162,7 @@ func TestDPFOperatorConfigReconciler_reconcileDelete(t *testing.T) {
 
 			// Ensure the state does not change.
 			g.Consistently(func(g Gomega) {
-				_ = r.reconcileDelete(ctx, dpfOperatorConfig)
+				_, _ = r.reconcileDelete(ctx, dpfOperatorConfig)
 				// 1) Expect the DPUDeployment list to have the right number of members.
 				g.Expect(objectsInListStillExist(r.Client, dpuDeploymentResources)).To(Equal(tt.dpuDeploymentObjsExpected))
 				// 2) Expect the ServiceChain list to have the right number of members.
@@ -181,11 +181,113 @@ func TestDPFOperatorConfigReconciler_reconcileDelete(t *testing.T) {
 					g.Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred())
 				}
 				// Expect the reconcileDelete method to finish with no errors.
-				g.Expect(r.reconcileDelete(ctx, dpfOperatorConfig)).To(Succeed())
+				_, err := r.reconcileDelete(ctx, dpfOperatorConfig)
+				g.Expect(err).NotTo(HaveOccurred())
 				// Expect the DPFOperatorConfig to have no finalizer.
 				g.Expect(dpfOperatorConfig.GetFinalizers()).To(BeEmpty())
 			}).WithTimeout(50 * time.Second).Should(Succeed())
 
+		})
+	}
+}
+
+func TestMatchLabels(t *testing.T) {
+	tests := []struct {
+		name          string
+		resources     []unstructured.Unstructured
+		exclusionList []string
+		expected      []unstructured.Unstructured
+	}{
+		{
+			name: "Match all objects",
+			resources: []unstructured.Unstructured{
+				{
+					Object: map[string]interface{}{
+						"kind": dpuservicev1.DPUServiceChainGroupVersionKind,
+						"metadata": map[string]interface{}{
+							"labels": map[string]interface{}{
+								dpuservicev1.ParentDPUDeploymentNameLabel: "some-chain",
+							},
+						},
+					},
+				},
+				{
+					Object: map[string]interface{}{
+						"kind": dpuservicev1.DPUServiceGroupVersionKind,
+						"metadata": map[string]interface{}{
+							"labels": map[string]interface{}{
+								dpuservicev1.ParentDPUDeploymentNameLabel: "some-service",
+							},
+						},
+					},
+				},
+			},
+			exclusionList: []string{dpuservicev1.ParentDPUDeploymentNameLabel},
+			expected:      []unstructured.Unstructured{},
+		},
+		{
+			name: "No match",
+			resources: []unstructured.Unstructured{
+				{
+					Object: map[string]interface{}{
+						"kind": dpuservicev1.DPUServiceGroupVersionKind,
+						"metadata": map[string]interface{}{
+							"labels": map[string]interface{}{
+								"svc.dpu.nvidia.com/component": "dpf-operator",
+							},
+						},
+					},
+				},
+			},
+			exclusionList: []string{dpuservicev1.ParentDPUDeploymentNameLabel},
+			expected: []unstructured.Unstructured{
+				{
+					Object: map[string]interface{}{
+						"kind": dpuservicev1.DPUServiceGroupVersionKind,
+						"metadata": map[string]interface{}{
+							"labels": map[string]interface{}{
+								"svc.dpu.nvidia.com/component": "dpf-operator",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "No labels",
+			resources: []unstructured.Unstructured{
+				{
+					Object: map[string]interface{}{
+						"kind": dpuservicev1.DPUServiceIPAMGroupVersionKind,
+						"metadata": map[string]interface{}{
+							"labels": nil,
+						},
+					},
+				},
+			},
+			exclusionList: []string{dpuservicev1.ParentDPUDeploymentNameLabel},
+			expected: []unstructured.Unstructured{
+				{
+					Object: map[string]interface{}{
+						"kind": dpuservicev1.DPUServiceIPAMGroupVersionKind,
+						"metadata": map[string]interface{}{
+							"labels": nil,
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			res := make([]unstructured.Unstructured, 0)
+			for _, obj := range tt.resources {
+				if !matchLabelExclusionList(obj.GetLabels(), tt.exclusionList) {
+					res = append(res, obj)
+				}
+				g.Expect(res).To(Equal(tt.expected))
+			}
 		})
 	}
 }

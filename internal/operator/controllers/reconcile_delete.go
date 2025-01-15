@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
@@ -31,14 +32,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/klog/v2"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+var reconcileDeleteRequeueDuration = 30 * time.Second
+
 // The DPFOperatorConfig reconciler is responsible for ensuring that the entire DPF system is uninstalled on deletion.
 // This deletion follows a specified order - DPUServices must be fully deleted before the dpuservice-controller is deleted.
-func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) error {
+func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling delete")
 
@@ -48,7 +52,7 @@ func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOp
 		log.Error(err, "Waiting for DPF resources to be deleted")
 		conditions.AddFalse(dpfOperatorConfig, operatorv1.SystemComponentsReconciledCondition, conditions.ReasonAwaitingDeletion,
 			conditions.ConditionMessage(fmt.Sprintf("System DPUServices awaiting deletion: %s", err)))
-		return err
+		return ctrl.Result{RequeueAfter: reconcileDeleteRequeueDuration}, nil
 	}
 
 	log.Info("Ensuring DPF system components are deleted")
@@ -64,7 +68,7 @@ func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOp
 		log.Error(kerrors.NewAggregate(errs), "Waiting for system components to be deleted")
 		conditions.AddFalse(dpfOperatorConfig, operatorv1.SystemComponentsReconciledCondition, conditions.ReasonAwaitingDeletion,
 			conditions.ConditionMessage(fmt.Sprintf("System components awaiting deletion: %s", kerrors.NewAggregate(errs).Error())))
-		return kerrors.NewAggregate(errs)
+		return ctrl.Result{}, kerrors.NewAggregate(errs)
 	}
 
 	conditions.AddTrue(dpfOperatorConfig, operatorv1.SystemComponentsReconciledCondition)
@@ -72,7 +76,7 @@ func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOp
 	log.Info("Removing finalizer")
 	controllerutil.RemoveFinalizer(dpfOperatorConfig, operatorv1.DPFOperatorConfigFinalizer)
 	// We should have an ownerReference chain in order to delete subordinate objects.
-	return nil
+	return ctrl.Result{}, nil
 }
 
 // provisioningResources tracks the provisioning resources which need to be deleted by the DPF Operator.
@@ -98,48 +102,81 @@ var serviceChainResources = []schema.GroupVersionKind{
 
 var dpuDeploymentResources = []schema.GroupVersionKind{
 	dpuservicev1.DPUDeploymentGroupVersionKind,
+	dpuservicev1.DPUServiceTemplateGroupVersionKind,
+	dpuservicev1.DPUServiceConfigurationGroupVersionKind,
 }
-var orderedDeleteList = [][]schema.GroupVersionKind{
-	// DPUDeployments must be deleted first to ensure the DPUDeployment controller does not recreate objects.
-	dpuDeploymentResources,
+
+var orderedDeleteList = []func(ctx context.Context, c client.Client) error{
 	// ServiceChain objects must be deleted before DPUServices as system DPUServices - e.g. the SFC controller - implement their deletion.
-	serviceChainResources,
+	deleteServiceChainResources,
+	// DPUDeployments must be deleted after ServiceChains as those objects may depend on the DPUDeployment owned dpusets.
+	deleteDpuDeploymentResources,
 	// DPUService objects should be deleted before provisioning objects as their deletion depends on the existence of the DPUCluster.
-	dpuserviceResources,
+	deleteDpuServiceResources,
 	// Provisioning objects can be deleted last.
-	provisioningResources,
+	deleteProvisioningResources,
+}
+
+func deleteServiceChainResources(ctx context.Context, c client.Client) error {
+	return deleteResources(ctx, c, serviceChainResources, []string{dpuservicev1.ParentDPUDeploymentNameLabel})
+}
+
+func deleteDpuServiceResources(ctx context.Context, c client.Client) error {
+	return deleteResources(ctx, c, dpuserviceResources, []string{dpuservicev1.ParentDPUDeploymentNameLabel})
+}
+
+func deleteDpuDeploymentResources(ctx context.Context, c client.Client) error {
+	return deleteResources(ctx, c, dpuDeploymentResources, []string{})
+}
+
+func deleteProvisioningResources(ctx context.Context, c client.Client) error {
+	return deleteResources(ctx, c, provisioningResources, []string{})
+}
+
+func deleteResources(ctx context.Context, c client.Client, gvkList []schema.GroupVersionKind, labelExclusionList []string) error {
+	var errs []error
+	for _, resource := range gvkList {
+		// Check if any objects of that type remain in the cluster.
+		objListKind := fmt.Sprintf("%vList", resource.Kind)
+		list := &unstructured.UnstructuredList{}
+		list.SetGroupVersionKind(resource.GroupVersion().WithKind(objListKind))
+		if err := c.List(ctx, list); err != nil {
+			return err
+		}
+
+		// If no items exist all are deleted.
+		if len(list.Items) == 0 {
+			continue
+		}
+
+		awaitingDeletion := 0
+		for _, obj := range list.Items {
+			// Skip objects with labels in the exclusion list.
+			if matchLabelExclusionList(obj.GetLabels(), labelExclusionList) {
+				continue
+			}
+			awaitingDeletion++
+			if err := c.Delete(ctx, &obj); client.IgnoreNotFound(err) != nil {
+				errs = append(errs, err)
+			}
+		}
+
+		if awaitingDeletion > 0 {
+			errs = append(errs, fmt.Errorf("%d instances of resource Kind %v still exist. ", awaitingDeletion, resource))
+		}
+	}
+	return kerrors.NewAggregate(errs)
 }
 
 func (r *DPFOperatorConfigReconciler) deleteDPFResources(ctx context.Context) error {
-
 	// For each kind of resource controlled by the DPF Operator.
 	// The groups of resources must be deleted following this order to ensure deletion is not blocked either by removing
 	// controllers required for deletion or recreating objects while deletion is ongoing.
-	for _, gvkList := range orderedDeleteList {
-		var errs []error
-		for _, resource := range gvkList {
-			// Check if any objects of that type remain in the cluster.
-			objListKind := fmt.Sprintf("%vList", resource.Kind)
-			list := &unstructured.UnstructuredList{}
-			list.SetGroupVersionKind(resource.GroupVersion().WithKind(objListKind))
-			if err := r.Client.List(ctx, list); err != nil {
-				return err
-			}
-
-			// If no items exist all are deleted.
-			if len(list.Items) == 0 {
-				continue
-			}
-			for _, obj := range list.Items {
-				errs = append(errs, fmt.Errorf("%d instances of resource Kind %v still exist. ", len(list.Items), resource))
-				if err := r.Client.Delete(ctx, &obj); client.IgnoreNotFound(err) != nil {
-					errs = append(errs, err)
-				}
-			}
-		}
-		// If there are any errors return before proceeding to the next stage of deletion.
-		if len(errs) > 0 {
-			return kerrors.NewAggregate(errs)
+	for _, deleteFunc := range orderedDeleteList {
+		err := deleteFunc(ctx, r.Client)
+		if err != nil {
+			// If there are any errors return before proceeding to the next stage of deletion.
+			return err
 		}
 	}
 	return nil
@@ -167,4 +204,18 @@ func (r *DPFOperatorConfigReconciler) deleteSystemComponent(ctx context.Context,
 		}
 	}
 	return kerrors.NewAggregate(errs)
+}
+
+// matchLabelExclusionList returns true if any of the labels in the exclusion list are present in the object.
+func matchLabelExclusionList(labels map[string]string, labelExclusionList []string) bool {
+	if labels == nil {
+		return false
+	}
+
+	for _, exclude := range labelExclusionList {
+		if _, ok := labels[exclude]; ok {
+			return true
+		}
+	}
+	return false
 }

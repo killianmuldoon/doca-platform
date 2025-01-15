@@ -53,9 +53,6 @@ import (
 
 const (
 	dpuDeploymentControllerName = "dpudeploymentcontroller"
-
-	// ParentDPUDeploymentNameLabel contains the name of the DPUDeployment object that owns the resource
-	ParentDPUDeploymentNameLabel = "svc.dpu.nvidia.com/owned-by-dpudeployment"
 	// DPUServiceChainVersionLabelKey is the key for the DPUServiceChain version that is used as labels on DPUSets and NodeSelector in DPUServiceChains>
 	dpuServiceChainVersionLabelKey = "svc.dpu.nvidia.com/dpuservicechain-version"
 	// dependentDPUDeploymentLabelKeyPrefix is the prefix of the label key that is applied to dependent objects of
@@ -592,7 +589,7 @@ func reconcileDPUSets(ctx context.Context, c client.Client, dpuDeployment *dpuse
 	if err := c.List(ctx,
 		existingDPUSets,
 		client.MatchingLabels{
-			ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
+			dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
 		},
 		client.InNamespace(dpuDeployment.Namespace)); err != nil {
 		return fmt.Errorf("error while listing dpusets : %w", err)
@@ -667,7 +664,7 @@ func reconcileDPUServices(
 	if err := c.List(ctx,
 		existingDPUServices,
 		client.MatchingLabels{
-			ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
+			dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
 		},
 		client.InNamespace(dpuDeployment.Namespace)); err != nil {
 		return requeue, fmt.Errorf("failed to list existing DPUServices: %w", err)
@@ -894,7 +891,7 @@ func reconcileDPUServiceInterfaces(ctx context.Context, c client.Client, dpuDepl
 	if err := c.List(ctx,
 		existingDPUServiceInterfaces,
 		client.MatchingLabels{
-			ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
+			dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
 		},
 		client.InNamespace(dpuDeployment.Namespace)); err != nil {
 		return nil, fmt.Errorf("error while listing DPUServiceInterfaces: %w", err)
@@ -975,7 +972,7 @@ func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 			Name:      fmt.Sprintf("%s-%s", dpuDeploymentNamespacedName.Name, dpuSetSettings.NameSuffix),
 			Namespace: dpuDeploymentNamespacedName.Namespace,
 			Labels: map[string]string{
-				ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName),
+				dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName),
 			},
 		},
 		Spec: provisioningv1.DPUSetSpec{
@@ -998,7 +995,7 @@ func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 	}
 
 	nodeLabels := map[string]string{
-		ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName),
+		dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName),
 	}
 
 	for k, v := range dpuNodeLabels {
@@ -1058,7 +1055,7 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 				dpuServiceVersionAnnotationKey: versionDigest,
 			},
 			Labels: map[string]string{
-				ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName),
+				dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName),
 			},
 		},
 		Spec: dpuservicev1.DPUServiceSpec{
@@ -1100,7 +1097,7 @@ func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, o
 			Name:      dpuDeploymentNamespacedName.Name,
 			Namespace: dpuDeploymentNamespacedName.Namespace,
 			Labels: map[string]string{
-				ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName),
+				dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName),
 			},
 		},
 		Spec: dpuservicev1.DPUServiceChainSpec{
@@ -1132,7 +1129,7 @@ func generateDPUServiceInterface(dpuDeploymentNamespacedName types.NamespacedNam
 			Namespace: dpuDeploymentNamespacedName.Namespace,
 			Labels: map[string]string{
 				// TODO: Add additional label to select in the DPUServiceChain accordingly
-				ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName),
+				dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName),
 			},
 		},
 		Spec: dpuservicev1.DPUServiceInterfaceSpec{
@@ -1216,7 +1213,7 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 			obj,
 			client.InNamespace(dpuDeployment.Namespace),
 			client.MatchingLabels{
-				ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
+				dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
 			},
 		); err != nil {
 			return ctrl.Result{}, fmt.Errorf("error while removing %T: %w", obj, err)
@@ -1234,7 +1231,7 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 			obj,
 			client.InNamespace(dpuDeployment.Namespace),
 			client.MatchingLabels{
-				ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
+				dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
 			},
 		); err != nil {
 			return ctrl.Result{}, fmt.Errorf("error while listing %T: %w", obj, err)
@@ -1296,7 +1293,7 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 		&provisioningv1.DPUSet{},
 		client.InNamespace(dpuDeployment.Namespace),
 		client.MatchingLabels{
-			ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
+			dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
 		},
 	); err != nil {
 		return ctrl.Result{}, fmt.Errorf("error while removing %T: %w", &provisioningv1.DPUSet{}, err)
@@ -1307,7 +1304,7 @@ func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeploy
 		dpuSetList,
 		client.InNamespace(dpuDeployment.Namespace),
 		client.MatchingLabels{
-			ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
+			dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
 		},
 	); err != nil {
 		return ctrl.Result{}, fmt.Errorf("error while listing %T: %w", dpuSetList, err)
@@ -1426,7 +1423,7 @@ func (r *DPUDeploymentReconciler) updateSummary(ctx context.Context, dpuDeployme
 		if err := r.Client.List(ctx,
 			objs,
 			client.MatchingLabels{
-				ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
+				dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
 			},
 			client.InNamespace(dpuDeployment.Namespace),
 		); err != nil {
@@ -1557,7 +1554,7 @@ func newDPUServiceObjectNodeSelectorWithOwner(versionKey, version string, owner 
 						Values:   []string{version},
 					},
 					{
-						Key:      ParentDPUDeploymentNameLabel,
+						Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 						Operator: corev1.NodeSelectorOpIn,
 						Values:   []string{getParentDPUDeploymentLabelValue(owner)},
 					},
@@ -1577,7 +1574,7 @@ func newDPUServiceObjectLabelSelectorWithOwner(versionKey, version string, owner
 				Values:   []string{version},
 			},
 			{
-				Key:      ParentDPUDeploymentNameLabel,
+				Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 				Operator: metav1.LabelSelectorOpIn,
 				Values:   []string{getParentDPUDeploymentLabelValue(owner)},
 			},

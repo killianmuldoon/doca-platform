@@ -25,6 +25,8 @@ import (
 const (
 	DPUDeploymentFinalizer = "dpu.nvidia.com/dpudeployment"
 	DPUDeploymentKind      = "DPUDeployment"
+	// ParentDPUDeploymentNameLabel contains the name of the DPUDeployment object that owns the resource
+	ParentDPUDeploymentNameLabel = "svc.dpu.nvidia.com/owned-by-dpudeployment"
 )
 
 var DPUDeploymentGroupVersionKind = GroupVersion.WithKind(DPUDeploymentKind)

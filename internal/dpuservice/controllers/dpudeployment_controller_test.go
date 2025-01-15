@@ -1006,7 +1006,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						NodeLabels: map[string]string{
 							"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
 							"svc.dpu.nvidia.com/dpuservice-someservice-version": versionDigest,
-							ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+							dpuservicev1.ParentDPUDeploymentNameLabel:           fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
 						},
 					}
 				}
@@ -1044,7 +1044,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						NodeLabels: map[string]string{
 							"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
 							"svc.dpu.nvidia.com/dpuservice-someservice-version": versionDigest,
-							ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+							dpuservicev1.ParentDPUDeploymentNameLabel:           fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
 						},
 					}
 				}
@@ -1098,7 +1098,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					expectedDPUSetSpecs[i].DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
 						NodeLabels: map[string]string{
 							"svc.dpu.nvidia.com/dpuservice-someservice-version": versionDigest,
-							ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+							dpuservicev1.ParentDPUDeploymentNameLabel:           fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
 							"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
 						},
 					}
@@ -1177,7 +1177,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					expectedDPUSetSpecs[i].DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
 						NodeLabels: map[string]string{
 							"svc.dpu.nvidia.com/dpuservice-someservice-version": versionDigest,
-							ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+							dpuservicev1.ParentDPUDeploymentNameLabel:           fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
 							"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
 						},
 					}
@@ -1228,7 +1228,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					expectedDPUSetSpecs[i].DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
 						NodeLabels: map[string]string{
 							"svc.dpu.nvidia.com/dpuservice-someservice-version": versionDigest2,
-							ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+							dpuservicev1.ParentDPUDeploymentNameLabel:           fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
 							"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
 						},
 					}
@@ -1326,7 +1326,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					expectedDPUSetSpecs[i].DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
 						NodeLabels: map[string]string{
 							"svc.dpu.nvidia.com/dpuservice-someservice-version": versionDigest,
-							ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+							dpuservicev1.ParentDPUDeploymentNameLabel:           fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
 							"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
 						},
 					}
@@ -1390,7 +1390,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					expectedDPUSetSpecs[i].DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
 						NodeLabels: map[string]string{
 							"svc.dpu.nvidia.com/dpuservice-someservice-version": versionDigest,
-							ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+							dpuservicev1.ParentDPUDeploymentNameLabel:           fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
 							"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
 						},
 					}
@@ -1479,7 +1479,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								Cluster: &provisioningv1.ClusterSpec{
 									NodeLabels: map[string]string{
 										"svc.dpu.nvidia.com/dpuservice-someservice-version": versionDigest,
-										ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+										dpuservicev1.ParentDPUDeploymentNameLabel:           fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
 										"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
 									},
 								},
@@ -1502,7 +1502,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					expectedDPUSetSpecs[i].DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
 						NodeLabels: map[string]string{
 							"svc.dpu.nvidia.com/dpuservice-someservice-version": versionDigest,
-							ParentDPUDeploymentNameLabel:                        fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
+							dpuservicev1.ParentDPUDeploymentNameLabel:           fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name),
 							"svc.dpu.nvidia.com/dpuservicechain-version":        dpuServiceObjectVersionPlaceholder,
 						},
 					}
@@ -1651,7 +1651,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 												Values:   []string{dpuServiceObjectVersionPlaceholder},
 											},
 											{
-												Key:      ParentDPUDeploymentNameLabel,
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 												Operator: metav1.LabelSelectorOpIn,
 												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 											},
@@ -1687,7 +1687,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 												Values:   []string{dpuServiceObjectVersionPlaceholder},
 											},
 											{
-												Key:      ParentDPUDeploymentNameLabel,
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 												Operator: metav1.LabelSelectorOpIn,
 												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 											},
@@ -1793,7 +1793,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 												Values:   []string{dpuServiceObjectVersionPlaceholder},
 											},
 											{
-												Key:      ParentDPUDeploymentNameLabel,
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 												Operator: metav1.LabelSelectorOpIn,
 												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 											},
@@ -1829,7 +1829,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 												Values:   []string{dpuServiceObjectVersionPlaceholder},
 											},
 											{
-												Key:      ParentDPUDeploymentNameLabel,
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 												Operator: metav1.LabelSelectorOpIn,
 												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 											},
@@ -1931,7 +1931,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 												Values:   []string{dpuServiceObjectVersionPlaceholder},
 											},
 											{
-												Key:      ParentDPUDeploymentNameLabel,
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 												Operator: metav1.LabelSelectorOpIn,
 												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 											},
@@ -2033,7 +2033,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 												Values:   []string{dpuServiceObjectVersionPlaceholder},
 											},
 											{
-												Key:      ParentDPUDeploymentNameLabel,
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 												Operator: metav1.LabelSelectorOpIn,
 												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 											},
@@ -2069,7 +2069,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 												Values:   []string{dpuServiceObjectVersionPlaceholder},
 											},
 											{
-												Key:      ParentDPUDeploymentNameLabel,
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 												Operator: metav1.LabelSelectorOpIn,
 												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 											},
@@ -2555,7 +2555,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 													Values:   []string{versionDigest1},
 												},
 												{
-													Key:      ParentDPUDeploymentNameLabel,
+													Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 													Operator: corev1.NodeSelectorOpIn,
 													Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 												},
@@ -2587,7 +2587,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 													Values:   []string{versionDigest2},
 												},
 												{
-													Key:      ParentDPUDeploymentNameLabel,
+													Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 													Operator: corev1.NodeSelectorOpIn,
 													Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 												},
@@ -2621,7 +2621,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 													Values:   []string{versionDigest2b},
 												},
 												{
-													Key:      ParentDPUDeploymentNameLabel,
+													Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 													Operator: corev1.NodeSelectorOpIn,
 													Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 												},
@@ -2710,7 +2710,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 													Values:   []string{versionDigest1},
 												},
 												{
-													Key:      ParentDPUDeploymentNameLabel,
+													Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 													Operator: corev1.NodeSelectorOpIn,
 													Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 												},
@@ -2742,7 +2742,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 													Values:   []string{versionDigest2b},
 												},
 												{
-													Key:      ParentDPUDeploymentNameLabel,
+													Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 													Operator: corev1.NodeSelectorOpIn,
 													Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 												},
@@ -2845,7 +2845,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 													Values:   []string{versionDigest1},
 												},
 												{
-													Key:      ParentDPUDeploymentNameLabel,
+													Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 													Operator: corev1.NodeSelectorOpIn,
 													Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 												},
@@ -2877,7 +2877,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 													Values:   []string{versionDigest2},
 												},
 												{
-													Key:      ParentDPUDeploymentNameLabel,
+													Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 													Operator: corev1.NodeSelectorOpIn,
 													Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 												},
@@ -2912,7 +2912,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 													Values:   []string{versionDigest2b},
 												},
 												{
-													Key:      ParentDPUDeploymentNameLabel,
+													Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 													Operator: corev1.NodeSelectorOpIn,
 													Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 												},
@@ -2989,7 +2989,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 												Values:   []string{versionDigest1},
 											},
 											{
-												Key:      ParentDPUDeploymentNameLabel,
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 												Operator: corev1.NodeSelectorOpIn,
 												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 											},
@@ -3021,7 +3021,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 												Values:   []string{versionDigest2},
 											},
 											{
-												Key:      ParentDPUDeploymentNameLabel,
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 												Operator: corev1.NodeSelectorOpIn,
 												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 											},
@@ -3070,7 +3070,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 												Values:   []string{versionDigest},
 											},
 											{
-												Key:      ParentDPUDeploymentNameLabel,
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 												Operator: corev1.NodeSelectorOpIn,
 												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 											},
@@ -3185,7 +3185,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 													Values:   []string{versionDigest1},
 												},
 												{
-													Key:      ParentDPUDeploymentNameLabel,
+													Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 													Operator: corev1.NodeSelectorOpIn,
 													Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 												},
@@ -3217,7 +3217,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 													Values:   []string{versionDigest},
 												},
 												{
-													Key:      ParentDPUDeploymentNameLabel,
+													Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
 													Operator: corev1.NodeSelectorOpIn,
 													Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
 												},

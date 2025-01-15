@@ -170,7 +170,7 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// Handle deletion reconciliation loop.
 	if !dpfOperatorConfig.ObjectMeta.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, r.reconcileDelete(ctx, dpfOperatorConfig)
+		return r.reconcileDelete(ctx, dpfOperatorConfig)
 	}
 
 	// Add finalizer if not set.
