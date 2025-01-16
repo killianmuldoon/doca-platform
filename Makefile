@@ -448,7 +448,7 @@ DEPLOY_GRAFANA ?= false
 DEPLOY_PROMETHEUS ?= false
 
 .PHONY: test-deploy-operator-helm
-test-deploy-operator-helm: helm ## Deploy the DPF Operator using helm
+test-deploy-operator-helm: helm helm-package-operator ## Deploy the DPF Operator using helm
 	$(HELM) upgrade --install --create-namespace --namespace $(OPERATOR_NAMESPACE) \
 		--set controllerManager.image.repository=$(DPF_SYSTEM_IMAGE)\
 		--set controllerManager.image.tag=$(TAG) \
