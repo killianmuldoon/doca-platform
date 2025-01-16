@@ -30,6 +30,13 @@ _Note:_ For MAC users add:
 export MINIKUBE_DRIVER=qemu
 export MINIKUBE_EXTRA_ARGS="--network=socket_vmnet"
 ```
+_Note:_ Example using NVIDIA Gitlab container registry:
+  - Fork the repo https://gitlab-master.nvidia.com/doca-platform-foundation
+  - Add the token with write_registry permission https://gitlab-master.nvidia.com/azala/doca-platform-foundation/-/settings/access_tokens
+```
+IMAGE_PULL_KEY=<token from above link>
+REGISTRY=<gitlab-master.nvidia.com:5005/<gitlab_username>/doca-platform-foundation>
+```
 3. Generate all 
 ```
 make generate
