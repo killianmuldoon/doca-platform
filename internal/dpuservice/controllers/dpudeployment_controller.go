@@ -276,19 +276,7 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 	}
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionResourceFittingReady)
 
-	dpuServiceToInterfaces, err := reconcileDPUServiceInterfaces(ctx, r.Client, dpuDeployment, deps)
-	if err != nil {
-		conditions.AddFalse(
-			dpuDeployment,
-			dpuservicev1.ConditionDPUServiceInterfacesReconciled,
-			conditions.ReasonError,
-			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
-		)
-		return ctrl.Result{}, fmt.Errorf("error while reconciling the DPUServiceInterfaces: %w", err)
-	}
-	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServiceInterfacesReconciled)
-
-	requeue, err := reconcileDPUServices(ctx, r.Client, dpuDeployment, deps, dpuServiceToInterfaces, dpuNodeLabels)
+	requeue, err := reconcileDPUServices(ctx, r.Client, dpuDeployment, deps, dpuNodeLabels)
 	if err != nil {
 		conditions.AddFalse(
 			dpuDeployment,
@@ -299,6 +287,18 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 		return ctrl.Result{}, fmt.Errorf("error while reconciling the DPUServices: %w", err)
 	}
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServicesReconciled)
+
+	err = reconcileDPUServiceInterfaces(ctx, r.Client, dpuDeployment, deps, dpuNodeLabels)
+	if err != nil {
+		conditions.AddFalse(
+			dpuDeployment,
+			dpuservicev1.ConditionDPUServiceInterfacesReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
+		return ctrl.Result{}, fmt.Errorf("error while reconciling the DPUServiceInterfaces: %w", err)
+	}
+	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServiceInterfacesReconciled)
 
 	if err := reconcileDPUServiceChain(ctx, r.Client, dpuDeployment, dpuNodeLabels); err != nil {
 		conditions.AddFalse(
@@ -653,7 +653,6 @@ func reconcileDPUServices(
 	c client.Client,
 	dpuDeployment *dpuservicev1.DPUDeployment,
 	dependencies *dpuDeploymentDependencies,
-	dpuServicesToInterfaces map[string][]string,
 	dpuNodeLabels map[string]string,
 ) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
@@ -680,7 +679,7 @@ func reconcileDPUServices(
 	for dpuServiceName := range dpuDeployment.Spec.Services {
 		serviceConfig := dependencies.DPUServiceConfigurations[dpuServiceName]
 		serviceTemplate := dependencies.DPUServiceTemplates[dpuServiceName]
-		interfaces := dpuServicesToInterfaces[dpuServiceName]
+		interfaces := retrieveInterfacesFromDPUServiceConfiguration(dependencies.DPUServiceConfigurations[dpuServiceName], dpuServiceName, dpuDeployment.Name)
 		versionDigest := calculateDPUServiceVersionDigest(serviceConfig, serviceTemplate, interfaces)
 
 		newSvc, err := generateDPUService(client.ObjectKeyFromObject(dpuDeployment),
@@ -883,7 +882,7 @@ func cleanStaleDPUServices(ctx context.Context, c client.Client, oldSvcs []dpuse
 }
 
 // reconcileDPUServiceInterfaces reconciles the DPUServiceInterfaces created by the DPUDeployment
-func reconcileDPUServiceInterfaces(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, dependencies *dpuDeploymentDependencies) (map[string][]string, error) {
+func reconcileDPUServiceInterfaces(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, dependencies *dpuDeploymentDependencies, dpuNodeLabels map[string]string) error {
 	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
 
 	// Grab existing DPUServiceInterface
@@ -894,16 +893,13 @@ func reconcileDPUServiceInterfaces(ctx context.Context, c client.Client, dpuDepl
 			dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
 		},
 		client.InNamespace(dpuDeployment.Namespace)); err != nil {
-		return nil, fmt.Errorf("error while listing DPUServiceInterfaces: %w", err)
+		return fmt.Errorf("error while listing DPUServiceInterfaces: %w", err)
 	}
 
 	existingDPUServiceInterfacesMap := make(map[string]dpuservicev1.DPUServiceInterface)
 	for _, dpuServiceInterface := range existingDPUServiceInterfaces.Items {
 		existingDPUServiceInterfacesMap[dpuServiceInterface.Name] = dpuServiceInterface
 	}
-
-	// dpuServiceToInterfaces used by other relevant functions to get the name of the current interfaces per dpuservice
-	dpuServiceToInterfaces := map[string][]string{}
 
 	// Create or update DPUServiceInterfaces to match what is defined in the DPUDeployment
 	for dpuServiceName := range dpuDeployment.Spec.Services {
@@ -912,13 +908,13 @@ func reconcileDPUServiceInterfaces(ctx context.Context, c client.Client, dpuDepl
 				owner,
 				dpuServiceName,
 				serviceInterface,
+				dpuNodeLabels,
 			)
 
 			if err := c.Patch(ctx, dpuServiceInterface, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
-				return nil, fmt.Errorf("error while patching %s %s: %w", dpuServiceInterface.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuServiceInterface), err)
+				return fmt.Errorf("error while patching %s %s: %w", dpuServiceInterface.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuServiceInterface), err)
 			}
 
-			dpuServiceToInterfaces[dpuServiceName] = append(dpuServiceToInterfaces[dpuServiceName], dpuServiceInterface.Name)
 			delete(existingDPUServiceInterfacesMap, dpuServiceInterface.Name)
 		}
 	}
@@ -926,11 +922,11 @@ func reconcileDPUServiceInterfaces(ctx context.Context, c client.Client, dpuDepl
 	// Cleanup the remaining stale DPUServiceInterfaces
 	for _, dpuServiceInterface := range existingDPUServiceInterfacesMap {
 		if err := c.Delete(ctx, &dpuServiceInterface); err != nil {
-			return nil, fmt.Errorf("error while deleting %s %s: %w", dpuServiceInterface.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuServiceInterface), err)
+			return fmt.Errorf("error while deleting %s %s: %w", dpuServiceInterface.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuServiceInterface), err)
 		}
 	}
 
-	return dpuServiceToInterfaces, nil
+	return nil
 }
 
 // reconcileDPUServiceChain reconciles the DPUServiceChain object created by the DPUDeployment
@@ -1122,10 +1118,11 @@ func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, o
 }
 
 // generateDPUServiceInterface generates a DPUServiceInterface according to the DPUDeployment
-func generateDPUServiceInterface(dpuDeploymentNamespacedName types.NamespacedName, owner *metav1.OwnerReference, dpuServiceName string, serviceInterface dpuservicev1.ServiceInterfaceTemplate) *dpuservicev1.DPUServiceInterface {
+func generateDPUServiceInterface(dpuDeploymentNamespacedName types.NamespacedName, owner *metav1.OwnerReference, dpuServiceName string, serviceInterface dpuservicev1.ServiceInterfaceTemplate, dpuNodeLabels map[string]string) *dpuservicev1.DPUServiceInterface {
+	dpuServiceLabelKey := getDPUServiceVersionLabelKey(dpuServiceName)
 	dpuServiceInterface := &dpuservicev1.DPUServiceInterface{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s-%s", dpuDeploymentNamespacedName.Name, dpuServiceName, strings.ReplaceAll(serviceInterface.Name, "_", "-")),
+			Name:      generateDPUServiceInterfaceName(dpuDeploymentNamespacedName.Name, dpuServiceName, serviceInterface.Name),
 			Namespace: dpuDeploymentNamespacedName.Namespace,
 			Labels: map[string]string{
 				// TODO: Add additional label to select in the DPUServiceChain accordingly
@@ -1136,7 +1133,7 @@ func generateDPUServiceInterface(dpuDeploymentNamespacedName types.NamespacedNam
 			// TODO: Derive and add cluster selector
 			Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 				Spec: dpuservicev1.ServiceInterfaceSetSpec{
-					NodeSelector: newDPUServiceObjectLabelSelectorWithOwner(getDPUServiceVersionLabelKey(dpuServiceName), dpuServiceObjectVersionPlaceholder, dpuDeploymentNamespacedName),
+					NodeSelector: newDPUServiceObjectLabelSelectorWithOwner(dpuServiceLabelKey, dpuNodeLabels[dpuServiceLabelKey], dpuDeploymentNamespacedName),
 					Template: dpuservicev1.ServiceInterfaceSpecTemplate{
 						ObjectMeta: dpuservicev1.ObjectMeta{
 							Labels: map[string]string{
@@ -1637,4 +1634,21 @@ func sortDPUServicesByCreationTimestamp(dpuServices []dpuservicev1.DPUService) {
 	slices.SortFunc(dpuServices, func(t, u dpuservicev1.DPUService) int {
 		return t.CreationTimestamp.Compare(u.CreationTimestamp.Time)
 	})
+}
+
+func retrieveInterfacesFromDPUServiceConfiguration(dpuServiceConfiguration *dpuservicev1.DPUServiceConfiguration, dpuServiceName, dpuDeploymentName string) []string {
+	if len(dpuServiceConfiguration.Spec.Interfaces) == 0 {
+		return nil
+	}
+
+	interfaces := make([]string, 0, len(dpuServiceConfiguration.Spec.Interfaces))
+	for _, serviceInterface := range dpuServiceConfiguration.Spec.Interfaces {
+		interfaces = append(interfaces, generateDPUServiceInterfaceName(dpuDeploymentName, dpuServiceName, serviceInterface.Name))
+	}
+
+	return interfaces
+}
+
+func generateDPUServiceInterfaceName(dpuDeploymentName, dpuServiceName, serviceInterfaceName string) string {
+	return fmt.Sprintf("%s-%s-%s", dpuDeploymentName, dpuServiceName, strings.ReplaceAll(serviceInterfaceName, "_", "-"))
 }
