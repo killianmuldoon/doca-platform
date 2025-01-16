@@ -480,6 +480,8 @@ Package v1alpha1 contains API Schema definitions for the provisioning.dpu v1alph
 - [DPUFlavor](#dpuflavor)
 - [DPUFlavorList](#dpuflavorlist)
 - [DPUList](#dpulist)
+- [DPUNode](#dpunode)
+- [DPUNodeList](#dpunodelist)
 - [DPUSet](#dpuset)
 - [DPUSetList](#dpusetlist)
 
@@ -707,6 +709,23 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `registryEndpoint` _string_ | RegistryEndpoint is the endpoint of the container registry. |  |  |
+
+
+#### DMSAddress
+
+
+
+DMSAddress represents the IP and Port configuration for DMS.
+
+
+
+_Appears in:_
+- [DPUNodeSpec](#dpunodespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ip` _string_ | IP address in IPv4 format. |  | Format: ipv4 <br /> |
+| `port` _integer_ | Port number. |  | Minimum: 1 <br /> |
 
 
 #### DPU
@@ -1025,6 +1044,109 @@ DPUList contains a list of DPU
 | `kind` _string_ | `DPUList` | | |
 | `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
 | `items` _[DPU](#dpu) array_ |  |  |  |
+
+
+#### DPUNode
+
+
+
+DPUNode is the Schema for the dpunodes API
+
+
+
+_Appears in:_
+- [DPUNodeList](#dpunodelist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `provisioning.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `DPUNode` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[DPUNodeSpec](#dpunodespec)_ |  |  |  |
+| `status` _[DPUNodeStatus](#dpunodestatus)_ |  |  |  |
+
+
+
+
+
+
+#### DPUNodeList
+
+
+
+DPUNodeList contains a list of DPUNode
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `provisioning.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `DPUNodeList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[DPUNode](#dpunode) array_ |  |  |  |
+
+
+#### DPUNodePhaseType
+
+_Underlying type:_ _string_
+
+DPUNodePhaseType describes current state of DPUNode.
+Only one of the following state may be specified.
+
+_Validation:_
+- Enum: [Not Ready Ready Invalid DPU Details DPUNode Reboot In Progress DPU Update In Progress]
+
+_Appears in:_
+- [DPUNodeStatus](#dpunodestatus)
+
+| Field | Description |
+| --- | --- |
+| `Not Ready` | DPUNodeNotReady means the DPU is not ready.<br /> |
+| `Ready` | DPUNodeReady means the DPU is ready to be used.<br /> |
+| `Invalid DPU Details` | DPUNodeInvalidDPUDetails means the DPU details provided are invalid.<br /> |
+| `DPUNode Reboot In Progress` | DPUNodeRebootInProgress means the DPUNode is in the process of rebooting.<br /> |
+| `DPU Update In Progress` | DPUNodeDPUUpdateInProgress means the DPU is in the process of being updated.<br /> |
+
+
+
+
+#### DPUNodeSpec
+
+
+
+DPUNodeSpec defines the desired state of DPUNode
+
+
+
+_Appears in:_
+- [DPUNode](#dpunode)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `kubeNodeRef` _string_ | The name of the Kubernetes Node object that this DPUNode represents.<br />This field is optional and only relevant if the x86 host is part of the DPF Kubernetes cluster. |  |  |
+| `nodeRebootMethod` _string_ | Defines the method for rebooting the host.<br />One of the following options can be chosen for this field:<br />   - "external": Reboot the host via an external means, not controlled by the<br />     DPU controller.<br />   - "custom_script": Reboot the host by executing a custom script.<br />   - "DMS": Use the DPU's DMS interface to reboot the host. | external | Enum: [external custom_script DMS] <br /> |
+| `nodeDMSAddress` _[DMSAddress](#dmsaddress)_ | The IP address and port where the DMS is exposed. Only applicable if dpuInstallInterface is set to gNOI. |  |  |
+| `dpus` _object (keys:string, values:boolean)_ | A map containing names of each DPUDevice attached to the node. |  |  |
+
+
+#### DPUNodeStatus
+
+
+
+DPUNodeStatus defines the observed state of DPUNode
+
+
+
+_Appears in:_
+- [DPUNode](#dpunode)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `phase` _[DPUNodePhaseType](#dpunodephasetype)_ | The current state of DPUNode.<br />Can be one of the following:<br />   - DPUNodeNotReady: Not Ready<br />   - DPUNodeReady: Ready<br />   - DPUNodeInvalidDPUDetails: Invalid DPU Details<br />   - DPUNodeRebootInProgress: DPUNode Reboot In Progress<br />   - DPUNodeDPUUpdateInProgress: DPU Update In Progress | Not Ready | Enum: [Not Ready Ready Invalid DPU Details DPUNode Reboot In Progress DPU Update In Progress] <br /> |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | Conditions represent the latest available observations of an object's state. |  | Type: array <br /> |
+| `dpuInstallInterface` _string_ | The name of the interface which will be used to install the bfb image, can be one of gNOI,redfish |  | Enum: [gNOI redfish] <br /> |
 
 
 #### DPUPhase

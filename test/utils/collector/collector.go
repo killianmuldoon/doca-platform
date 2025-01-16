@@ -144,6 +144,7 @@ func (c *Cluster) run(ctx context.Context) error {
 		provisioningv1.DPUGroupVersionKind,
 		provisioningv1.DPUSetGroupVersionKind,
 		provisioningv1.BFBGroupVersionKind,
+		provisioningv1.DPUNodeGroupVersionKind,
 		provisioningv1.DPUClusterGroupVersionKind,
 		dpuservicev1.DPUServiceGroupVersionKind,
 		dpuservicev1.DPUDeploymentGroupVersionKind,
