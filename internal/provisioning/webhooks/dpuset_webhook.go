@@ -29,6 +29,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation/field"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -78,7 +79,7 @@ func (r *DPUSet) Default(ctx context.Context, obj runtime.Object) error {
 
 	if dpuSet.Spec.DPUTemplate.Spec.NodeEffect == nil {
 		dpuSet.Spec.DPUTemplate.Spec.NodeEffect = &provisioningv1.NodeEffect{
-			NoEffect: true,
+			NoEffect: ptr.To(true),
 		}
 	}
 	return nil
@@ -99,9 +100,6 @@ func (r *DPUSet) ValidateCreate(ctx context.Context, obj runtime.Object) (admiss
 
 	}
 
-	if err := ValidateNodeEffect(*dpuSet.Spec.DPUTemplate.Spec.NodeEffect); err != nil {
-		errs = append(errs, field.Invalid(newPath.Child("dpu_template.spec.node_effect"), dpuSet.Spec.DPUTemplate.Spec.NodeEffect, err.Error()))
-	}
 	if err := reboot.ValidateHostPowerCycleRequire(dpuSet.Spec.DPUTemplate.Annotations); err != nil {
 		errs = append(errs, field.Invalid(newPath.Child("dpu_template.annotations", reboot.HostPowerCycleRequireKey), dpuSet.Annotations[reboot.HostPowerCycleRequireKey], err.Error()))
 	}
@@ -127,10 +125,6 @@ func (r *DPUSet) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Obje
 	if err := validateStrategy(*dpuSet.Spec.Strategy); err != nil {
 		errs = append(errs, field.Invalid(newPath.Child("strategy"), dpuSet.Spec.Strategy, err.Error()))
 
-	}
-
-	if err := ValidateNodeEffect(*dpuSet.Spec.DPUTemplate.Spec.NodeEffect); err != nil {
-		errs = append(errs, field.Invalid(newPath.Child("dpu_template.spec.node_effect"), dpuSet.Spec.Strategy, err.Error()))
 	}
 
 	if len(errs) != 0 {
@@ -167,25 +161,5 @@ func validateStrategy(strategy provisioningv1.DPUSetStrategy) error {
 		}
 	}
 
-	return nil
-}
-
-func ValidateNodeEffect(nodeEffect provisioningv1.NodeEffect) error {
-	count := 0
-	if nodeEffect.Taint != nil {
-		count++
-	}
-	if nodeEffect.NoEffect {
-		count++
-	}
-	if len(nodeEffect.CustomLabel) != 0 {
-		count++
-	}
-	if nodeEffect.Drain != nil {
-		count++
-	}
-	if count > 1 {
-		return errors.New("nodeEffect can only be one of \"taint\", \"noEffect\" , \"drain\" and \"customLabel\"")
-	}
 	return nil
 }

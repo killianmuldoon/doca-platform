@@ -964,6 +964,11 @@ func (in *NodeEffect) DeepCopyInto(out *NodeEffect) {
 		*out = new(corev1.Taint)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.NoEffect != nil {
+		in, out := &in.NoEffect, &out.NoEffect
+		*out = new(bool)
+		**out = **in
+	}
 	if in.CustomLabel != nil {
 		in, out := &in.CustomLabel, &out.CustomLabel
 		*out = make(map[string]string, len(*in))

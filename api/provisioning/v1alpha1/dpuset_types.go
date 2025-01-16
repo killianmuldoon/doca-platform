@@ -103,13 +103,16 @@ type DPUTemplate struct {
 	Spec DPUTemplateSpec `json:"spec,omitempty"`
 }
 
+// NodeEffect is the effect the DPU has on Nodes during provisioning.
+// Only one of Taint, NoEffect, CustomLabel and Drain can be set.
+// +kubebuilder:validation:XValidation:rule="(has(self.taint) && !has(self.noEffect) && !has(self.customLabel) && !has(self.drain) || has(self.noEffect) && !has(self.taint) && !has(self.customLabel) && !has(self.drain) || has(self.customLabel) && !has(self.taint) && !has(self.noEffect) && !has(self.drain) || has(self.drain) && !has(self.taint) && !has(self.noEffect) && !has(self.customLabel))", message="only one of taint, noEffect, drain or customLabel can be set"
 type NodeEffect struct {
 	// Add specify taint on the DPU node
 	// +optional
 	Taint *corev1.Taint `json:"taint,omitempty"`
 	// Do not do any action on the DPU node
 	// +optional
-	NoEffect bool `json:"noEffect,omitempty"`
+	NoEffect *bool `json:"noEffect,omitempty"`
 	// Add specify labels on the DPU node
 	// +optional
 	CustomLabel map[string]string `json:"customLabel,omitempty"`

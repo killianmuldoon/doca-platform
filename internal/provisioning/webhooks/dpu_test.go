@@ -23,10 +23,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("DPU", func() {
@@ -108,6 +110,56 @@ var _ = Describe("DPU", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.NodeEffect.Drain).NotTo(BeNil())
 			Expect(objFetched.Spec.NodeEffect.Drain.AutomaticNodeReboot).To(BeTrue())
+		})
+
+		It("only one field may be set in spec.nodeEffect", func() {
+			obj := createObj("checking-node-effect")
+			// Error when creating a DPU with a nodeEffect setting taint and customLabel.
+			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
+				Taint: &corev1.Taint{
+					Key:    "foo",
+					Effect: corev1.TaintEffectNoSchedule,
+				},
+				CustomLabel: map[string]string{
+					"foo": "bar",
+				},
+			}
+			Expect(k8sClient.Create(ctx, obj)).NotTo(Succeed())
+
+			// Error when creating a DPU with a nodeEffect setting taint and drain.
+			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
+				Taint: &corev1.Taint{
+					Key:    "foo",
+					Effect: corev1.TaintEffectNoSchedule,
+				},
+				Drain: &provisioningv1.Drain{
+					AutomaticNodeReboot: true,
+				},
+			}
+			Expect(k8sClient.Create(ctx, obj)).NotTo(Succeed())
+
+			// Error when creating a DPU with a nodeeffect setting Drain and NoEffect
+			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
+				Drain: &provisioningv1.Drain{},
+				CustomLabel: map[string]string{
+					"foo": "bar",
+				},
+			}
+			Expect(k8sClient.Create(ctx, obj)).NotTo(Succeed())
+
+			// Error when creating a DPU with a nodeeffect setting Drain and NoEffect
+			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
+				NoEffect: ptr.To(true),
+				CustomLabel: map[string]string{
+					"foo": "bar",
+				},
+			}
+			Expect(k8sClient.Create(ctx, obj)).NotTo(Succeed())
+			// Accepted when creating a DPU with an empty nodeEffect.
+			obj.Spec.NodeEffect = nil
+			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
+			Expect(k8sClient.Get(ctx, getObjKey(obj), obj)).To(Succeed())
+			Expect(obj.Spec.NodeEffect).To(Equal(&provisioningv1.NodeEffect{Drain: &provisioningv1.Drain{AutomaticNodeReboot: true}}))
 		})
 
 		It("spec.nodeName is immutable", func() {

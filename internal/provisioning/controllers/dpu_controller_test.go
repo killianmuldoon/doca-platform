@@ -220,7 +220,7 @@ var _ = Describe("DPU", func() {
 			obj := createObj("obj-dpu")
 			obj.Spec.NodeName = testNode.Name
 			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
-				NoEffect: true,
+				NoEffect: ptr.To(true),
 			}
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
@@ -258,7 +258,7 @@ var _ = Describe("DPU", func() {
 			obj := createObj("obj-dpu")
 			obj.Spec.NodeName = testNode.Name
 			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
-				NoEffect: true,
+				NoEffect: ptr.To(true),
 			}
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
@@ -298,7 +298,7 @@ var _ = Describe("DPU", func() {
 			obj := createObj("obj-dpu")
 			obj.Spec.NodeName = testNode.Name
 			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
-				NoEffect: true,
+				NoEffect: ptr.To(true),
 			}
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
@@ -436,7 +436,7 @@ var _ = Describe("DPU", func() {
 			obj.Spec.BFB = DefaultBFB
 			obj.Spec.NodeName = testNode.Name
 			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
-				NoEffect: true,
+				NoEffect: ptr.To(true),
 			}
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 

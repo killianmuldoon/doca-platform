@@ -77,47 +77,6 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /validate-provisioning-dpu-nvidia-com-v1alpha1-dpudevice
-  failurePolicy: Fail
-  name: vdpdevices.kb.io
-  rules:
-  - apiGroups:
-    - provisioning.dpu.nvidia.com
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    - DELETE
-    resources:
-    - dpudevices
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
-      path: /validate-provisioning-dpu-nvidia-com-v1alpha1-dpu
-  failurePolicy: Fail
-  name: vdpu.kb.io
-  rules:
-  - apiGroups:
-    - provisioning.dpu.nvidia.com
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - dpus
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
       path: /validate-provisioning-dpu-nvidia-com-v1alpha1-dpuflavor
   failurePolicy: Fail
   name: vdpuflavor.kb.io

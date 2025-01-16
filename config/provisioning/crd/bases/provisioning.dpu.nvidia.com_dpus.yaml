@@ -136,6 +136,15 @@ spec:
                     - key
                     type: object
                 type: object
+                x-kubernetes-validations:
+                - message: only one of taint, noEffect, drain or customLabel can be
+                    set
+                  rule: (has(self.taint) && !has(self.noEffect) && !has(self.customLabel)
+                    && !has(self.drain) || has(self.noEffect) && !has(self.taint)
+                    && !has(self.customLabel) && !has(self.drain) || has(self.customLabel)
+                    && !has(self.taint) && !has(self.noEffect) && !has(self.drain)
+                    || has(self.drain) && !has(self.taint) && !has(self.noEffect)
+                    && !has(self.customLabel))
               nodeName:
                 description: Specifies Node this DPU belongs to
                 type: string

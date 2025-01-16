@@ -763,6 +763,15 @@ spec:
                     - key
                     type: object
                 type: object
+                x-kubernetes-validations:
+                - message: only one of taint, noEffect, drain or customLabel can be
+                    set
+                  rule: (has(self.taint) && !has(self.noEffect) && !has(self.customLabel)
+                    && !has(self.drain) || has(self.noEffect) && !has(self.taint)
+                    && !has(self.customLabel) && !has(self.drain) || has(self.customLabel)
+                    && !has(self.taint) && !has(self.noEffect) && !has(self.drain)
+                    || has(self.drain) && !has(self.taint) && !has(self.noEffect)
+                    && !has(self.customLabel))
               nodeName:
                 description: Specifies Node this DPU belongs to
                 type: string
@@ -1031,6 +1040,15 @@ spec:
                             - key
                             type: object
                         type: object
+                        x-kubernetes-validations:
+                        - message: only one of taint, noEffect, drain or customLabel
+                            can be set
+                          rule: (has(self.taint) && !has(self.noEffect) && !has(self.customLabel)
+                            && !has(self.drain) || has(self.noEffect) && !has(self.taint)
+                            && !has(self.customLabel) && !has(self.drain) || has(self.customLabel)
+                            && !has(self.taint) && !has(self.noEffect) && !has(self.drain)
+                            || has(self.drain) && !has(self.taint) && !has(self.noEffect)
+                            && !has(self.customLabel))
                     type: object
                 type: object
               nodeSelector:
@@ -1609,47 +1627,6 @@ webhooks:
     - DELETE
     resources:
     - bfbs
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: dpf-provisioning-webhook-service
-      namespace: dpf-provisioning
-      path: /validate-provisioning-dpu-nvidia-com-v1alpha1-dpudevice
-  failurePolicy: Fail
-  name: vdpdevices.kb.io
-  rules:
-  - apiGroups:
-    - provisioning.dpu.nvidia.com
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    - DELETE
-    resources:
-    - dpudevices
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: dpf-provisioning-webhook-service
-      namespace: dpf-provisioning
-      path: /validate-provisioning-dpu-nvidia-com-v1alpha1-dpu
-  failurePolicy: Fail
-  name: vdpu.kb.io
-  rules:
-  - apiGroups:
-    - provisioning.dpu.nvidia.com
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - dpus
   sideEffects: None
 - admissionReviewVersions:
   - v1

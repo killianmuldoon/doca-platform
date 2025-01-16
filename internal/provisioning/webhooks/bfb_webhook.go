@@ -134,7 +134,7 @@ func (r *BFB) ValidateDelete(ctx context.Context, obj runtime.Object) (admission
 		}
 	}
 	if len(ref) > 0 {
-		return nil, fmt.Errorf("being refferred to by DPU(s) %s, you must delete the DPU(s) first", ref)
+		return nil, fmt.Errorf("being referred to by DPU(s) %s, you must delete the DPU(s) first", ref)
 	}
 	return nil, nil
 }

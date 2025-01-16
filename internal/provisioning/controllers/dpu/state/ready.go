@@ -127,7 +127,7 @@ func updateFalseDPUCondReady(status *provisioningv1.DPUStatus, reason string, me
 }
 
 func HandleNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect provisioningv1.NodeEffect, nodeName string, namespace string) error {
-	if nodeEffect.NoEffect {
+	if nodeEffect.NoEffect != nil && *nodeEffect.NoEffect {
 		return nil
 	}
 

@@ -31,7 +31,7 @@ import (
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpucluster"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpuset"
-	bfbdownloader "github.com/nvidia/doca-platform/internal/provisioning/controllers/util/bfbdownloader"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/bfbdownloader"
 	provisioningwebhooks "github.com/nvidia/doca-platform/internal/provisioning/webhooks"
 
 	maintenancev1alpha1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
@@ -242,20 +242,12 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "BFB")
 		os.Exit(1)
 	}
-	if err = (&provisioningwebhooks.DPU{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "DPU")
-		os.Exit(1)
-	}
 	if err = (&provisioningwebhooks.DPUSet{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DPUSet")
 		os.Exit(1)
 	}
 	if err = (&provisioningwebhooks.DPUFlavor{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "DPUFlavor")
-		os.Exit(1)
-	}
-	if err = (&provisioningwebhooks.DPUDevice{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "DPUDevice")
 		os.Exit(1)
 	}
 	// +kubebuilder:scaffold:builder

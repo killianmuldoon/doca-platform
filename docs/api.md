@@ -1303,7 +1303,8 @@ _Appears in:_
 
 
 
-
+NodeEffect is the effect the DPU has on Nodes during provisioning.
+Only one of Taint, NoEffect, CustomLabel and Drain can be set.
 
 
 

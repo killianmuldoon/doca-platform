@@ -23,10 +23,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("DPUSet", func() {
@@ -117,6 +119,84 @@ var _ = Describe("DPUSet", func() {
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched.Spec.DPUTemplate.Spec.Cluster.NodeLabels).To(Equal(newValue))
+		})
+
+		It("nodeEffect is updated", func() {
+			refValue := map[string]string{"k1": "v1"}
+			newValue := map[string]string{"k1": "v11", "k2": "v2"}
+
+			obj := createObj("node-effect-object")
+			obj.Spec.DPUTemplate.Spec.Cluster = &provisioningv1.ClusterSpec{
+				NodeLabels: refValue,
+			}
+			obj.Spec.DPUTemplate.Spec.NodeEffect = &provisioningv1.NodeEffect{
+				Taint: &corev1.Taint{
+					Key:    "foo",
+					Effect: corev1.TaintEffectNoSchedule,
+				},
+			}
+
+			err := k8sClient.Create(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+
+			obj.Spec.DPUTemplate.Spec.Cluster.NodeLabels = newValue
+			err = k8sClient.Update(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+
+			objFetched := &provisioningv1.DPUSet{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(objFetched.Spec.DPUTemplate.Spec.Cluster.NodeLabels).To(Equal(newValue))
+		})
+
+		It("only one field may be set in spec.nodeEffect", func() {
+			obj := createObj("checking-node-effect")
+			// Error when creating a DPUSet with a nodeEffect setting taint and customLabel.
+			obj.Spec.DPUTemplate.Spec.NodeEffect = &provisioningv1.NodeEffect{
+				Taint: &corev1.Taint{
+					Key:    "foo",
+					Effect: corev1.TaintEffectNoSchedule,
+				},
+				CustomLabel: map[string]string{
+					"foo": "bar",
+				},
+			}
+			Expect(k8sClient.Create(ctx, obj)).NotTo(Succeed())
+
+			// Error when creating a DPUSet with a nodeEffect setting taint and drain.
+			obj.Spec.DPUTemplate.Spec.NodeEffect = &provisioningv1.NodeEffect{
+				Taint: &corev1.Taint{
+					Key:    "foo",
+					Effect: corev1.TaintEffectNoSchedule,
+				},
+				Drain: &provisioningv1.Drain{
+					AutomaticNodeReboot: true,
+				},
+			}
+			Expect(k8sClient.Create(ctx, obj)).NotTo(Succeed())
+
+			// Error when creating a DPUSet with a nodeeffect setting Drain and NoEffect
+			obj.Spec.DPUTemplate.Spec.NodeEffect = &provisioningv1.NodeEffect{
+				Drain: &provisioningv1.Drain{},
+				CustomLabel: map[string]string{
+					"foo": "bar",
+				},
+			}
+			Expect(k8sClient.Create(ctx, obj)).NotTo(Succeed())
+
+			// Error when creating a DPUSet with a nodeeffect setting Drain and NoEffect
+			obj.Spec.DPUTemplate.Spec.NodeEffect = &provisioningv1.NodeEffect{
+				NoEffect: ptr.To(true),
+				CustomLabel: map[string]string{
+					"foo": "bar",
+				},
+			}
+			Expect(k8sClient.Create(ctx, obj)).NotTo(Succeed())
+			// Accepted when creating a DPUSet with an empty nodeEffect only
+			obj.Spec.DPUTemplate.Spec.NodeEffect = nil
+			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
+			Expect(k8sClient.Get(ctx, getObjKey(obj), obj)).To(Succeed())
+			Expect(obj.Spec.DPUTemplate.Spec.NodeEffect).To(Equal(&provisioningv1.NodeEffect{Drain: &provisioningv1.Drain{AutomaticNodeReboot: true}}))
 		})
 
 		It("create from yaml", func() {

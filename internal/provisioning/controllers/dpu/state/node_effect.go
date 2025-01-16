@@ -48,7 +48,7 @@ func NodeEffect(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Con
 
 	nodeEffect := dpu.Spec.NodeEffect
 
-	if nodeEffect.NoEffect {
+	if nodeEffect.NoEffect != nil && *nodeEffect.NoEffect {
 		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"NoEffect\" for node: %s", dpu.Spec.NodeName))
 		state.Phase = provisioningv1.DPUInitializeInterface
 		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
