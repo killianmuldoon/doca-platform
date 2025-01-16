@@ -31,7 +31,6 @@ GOTESTSUM_VERSION ?= v1.12.0
 ENVSUBST_VERSION ?= v1.4.2
 HELM_VER ?= v3.16.3
 MINIKUBE_VER ?= v1.34.0
-OPERATOR_SDK_VER ?= v1.38.0
 GEN_API_REF_DOCS_VERSION ?= 0ad85c56e5a611240525e8b4a641b9cee33acd9a
 MDTOC_VER ?= v1.4.0
 STERN_VER ?= v1.30.0
@@ -53,7 +52,6 @@ GOTESTSUM ?= $(TOOLSDIR)/gotestsum-$(GOTESTSUM_VERSION)
 ENVSUBST ?= $(TOOLSDIR)/envsubst-$(ENVSUBST_VERSION)
 HELM ?= $(TOOLSDIR)/helm-$(HELM_VER)
 MINIKUBE ?= $(TOOLSDIR)/minikube-$(MINIKUBE_VER)
-OPERATOR_SDK ?= $(TOOLSDIR)/operator-sdk-$(OPERATOR_SDK_VER)
 GEN_CRD_API_REFERENCE_DOCS ?= $(TOOLSDIR)/crd-ref-docs-$(GEN_API_REF_DOCS_VERSION)
 MDTOC ?= $(TOOLSDIR)/mdtoc-$(MDTOC_VER)
 STERN ?= $(TOOLSDIR)/stern-$(STERN_VER)
@@ -173,15 +171,6 @@ $(MINIKUBE): | $(TOOLSDIR)
 	$Q echo "Installing minikube-$(MINIKUBE_VER) to $(TOOLSDIR)"
 	$Q curl -fsSL https://storage.googleapis.com/minikube/releases/$(MINIKUBE_VER)/minikube-$(OS)-$(ARCH) -o $(MINIKUBE)
 	$Q chmod +x $(MINIKUBE)
-
-# operator-sdk is used to generate operator-sdk bundles
-.PHONY: operator-sdk
-operator-sdk: $(OPERATOR_SDK) ## Download operator-sdk locally if necessary.
-OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download
-$(OPERATOR_SDK): | $(TOOLSDIR)
-	$Q echo "Installing operator-sdk-$(OPERATOR_SDK_VER) to $(TOOLSDIR)"
-	$Q curl -sSfL $(OPERATOR_SDK_DL_URL)/$(OPERATOR_SDK_VER)/operator-sdk_$(OS)_$(ARCH) -o $(OPERATOR_SDK)
-	$Q chmod +x $(OPERATOR_SDK)
 
 # helm-docs is used to generate helm chart documentation
 helm-docs: $(HELM_DOCS)

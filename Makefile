@@ -209,7 +209,7 @@ GENERATE_TARGETS ?= dpuservice provisioning dpucniprovisioner servicechainset sf
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
-	$(MAKE) generate-mocks generate-modules generate-manifests generate-go-deepcopy generate-operator-bundle generate-docs
+	$(MAKE) generate-mocks generate-modules generate-manifests generate-go-deepcopy generate-docs
 
 .PHONY: generate-mocks
 generate-mocks: mockgen ## Generate mocks
@@ -366,39 +366,6 @@ generate-manifests-dpu-detector: kustomize ## Generate manifests for dpu-detecto
 generate-manifests-ovn-kubernetes: $(OVNKUBERNETES_DIR) envsubst ## Generate manifests for ovn-kubernetes
 	$(ENVSUBST) < $(OVNKUBERNETES_HELM_CHART)/values.yaml.tmpl > $(OVNKUBERNETES_HELM_CHART)/values.yaml
 
-.PHONY: generate-operator-bundle
-generate-operator-bundle: helm operator-sdk generate-manifests-operator helm-package-operator ## Generate bundle manifests and metadata, then validate generated files.
-	# First template the actual manifests to include using helm.
-	mkdir -p hack/charts/dpf-operator/
-	$(HELM) template --namespace $(OPERATOR_NAMESPACE) \
-		--set image=$(DPF_SYSTEM_IMAGE):$(TAG) $(OPERATOR_HELM_CHART) \
-		--set argo-cd.enabled=false \
-		--set node-feature-discovery.enabled=false \
-		--set kube-state-metrics.enabled=false \
-		--set kamaji.enabled=false \
-		--set kamaji-etcd.enabled=false \
-		--set grafana.enabled=false \
-		--set prometheus.enabled=false \
-		--set maintenance-operator-chart.enabled=false \
-		--set templateOperatorBundle=true > hack/charts/dpf-operator/manifests.yaml
-
-	# Then clean the bundle directory to have a proper diff.
-	rm bundle/manifests/*
-
-	# Next generate the operator bundle.
-	# Note we need to explicitly set stdin to null using < /dev/null.
-	$(OPERATOR_SDK) generate bundle \
-	--overwrite --package dpf-operator --version $(BUNDLE_VERSION) --default-channel=$(BUNDLE_VERSION) --channels=$(BUNDLE_VERSION) \
-	--deploy-dir hack/charts/dpf-operator --crds-dir deploy/helm/dpf-operator/templates/crds 	</dev/null
-
-	# We need to ensure operator-sdk receives nothing on stdin by explicitly redirecting null there.
-	# Remove the createdAt field to prevent rebasing issues.
-	# TODO: Currently the clusterserviceversion is not being correctly generated e.g. metadata is missing.
-	# MacOS: We have to ensure that we are using gnu sed. Install gnu-sed via homebrew and put it somewhere in your PATH.
-	#   e.g.: ln -s /opt/homebrew/bin/gsed $HOME/bin/sed
-	$Q sed -i '/  createdAt:/d'  bundle/manifests/dpf-operator.clusterserviceversion.yaml
-	$(OPERATOR_SDK) bundle validate ./bundle
-
 .PHONY: generate-manifests-dummydpuservice
 generate-manifests-dummydpuservice: envsubst ## Generate values for dummydpuservice helm chart.
 	$(ENVSUBST) < deploy/dpuservices/dummydpuservice/chart/values.yaml.tmpl > deploy/dpuservices/dummydpuservice/chart/values.yaml
@@ -452,8 +419,6 @@ test-report: envtest gotestsum ## Run tests and generate a junit style report
 
 .PHONY: test-release-e2e-quick
 test-release-e2e-quick: # Build images required for the quick DPF e2e test.
-	# Build and push the dpuservice, provisioning, operator and operator-bundle images.
-	# The quick test will only run on amd64 nodes.
 	$(MAKE) docker-build-dpf-system-for-$(ARCH) docker-push-dpf-system-for-$(ARCH)
 
 	# Build and push all the helm charts
@@ -513,15 +478,6 @@ test-install-operator-lifecycle-manager:
 	$(KUBECTL) rollout status -w deployment/olm-operator --namespace=olm
 	$(KUBECTL) rollout status -w deployment/catalog-operator --namespace=olm
 
-
-OPERATOR_SDK_RUN_BUNDLE_EXTRA_ARGS ?= ""
-.PHONY: test-deploy-operator-operator-sdk
-test-deploy-operator-operator-sdk: operator-sdk kustomize test-install-operator-lifecycle-manager ## Deploy the DPF Operator using operator-sdk
-	# Create the namespace for the operator to be installed.
-	$(KUBECTL) create namespace $(OPERATOR_NAMESPACE)
-	# TODO: This flow does not work on MacOS dues to some issue pulling images. Should be enabled to make local testing equivalent to CI.
-	$(OPERATOR_SDK) run bundle --namespace $(OPERATOR_NAMESPACE) --index-image quay.io/operator-framework/opm:$(OPERATOR_REGISTRY_VERSION) $(OPERATOR_SDK_RUN_BUNDLE_EXTRA_ARGS) $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
-
 ARTIFACTS_DIR ?= $(CURDIR)/artifacts
 .PHONY: test-cache-images
 test-cache-images: minikube ## Add images to the minikube cache based on the artifacts directory created in e2e.
@@ -553,9 +509,7 @@ verify-generate: generate ## Verify auto-generated code did not change
 	$(info checking for git diff after running 'make generate')
 	# Use intent-to-add to check for untracked files after generation.
 	git add -N .
-	$Q git diff --quiet ':!bundle' ; if [ $$? -eq 1 ] ; then echo "Please, commit manifests after running 'make generate'"; exit 1 ; fi
-	# Files under `bundle` are verified here. The createdAt field is excluded as it is always updated at generation time and is not relevant to the bundle.
-	$Q git diff --quiet -I'^    createdAt: ' bundle ; if [ $$? -eq 1 ] ; then echo "Please, commit manifests after running 'make generate'"; exit 1 ; fi
+	$Q git diff --quiet ; if [ $$? -eq 1 ] ; then echo "Please, commit manifests after running 'make generate'"; exit 1 ; fi
 
 .PHONY: verify-copyright
 verify-copyright: ## Verify copyrights for project files
@@ -628,9 +582,6 @@ BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
 DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller ovs-helper snap-controller
 DPU_ARCH_BUILD_TARGETS ?= storage-snap-node-driver storage-vendor-dpu-plugin
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
-
-# The BUNDLE_VERSION is the same as the TAG but the first character is stripped. This is used to strip a leading `v` which is invalid for Bundle versions.
-$(eval BUNDLE_VERSION := $$$(TAG))
 
 HOST_ARCH = amd64
 DPU_ARCH = arm64
@@ -735,9 +686,6 @@ export HOSTDRIVER_IMAGE ?= $(REGISTRY)/hostdriver
 IPALLOCATOR_IMAGE_NAME ?= ip-allocator
 export IPALLOCATOR_IMAGE ?= $(REGISTRY)/$(IPALLOCATOR_IMAGE_NAME)
 
-OPERATOR_BUNDLE_NAME ?= dpf-operator-bundle
-OPERATOR_BUNDLE_REGISTRY ?= $(REGISTRY)
-OPERATOR_BUNDLE_IMAGE ?= $(OPERATOR_BUNDLE_REGISTRY)/$(OPERATOR_BUNDLE_NAME)
 
 # Images that are running on DPU worker nodes (arm64)
 DPUCNIPROVISIONER_IMAGE_NAME ?= dpu-cni-provisioner
@@ -980,20 +928,6 @@ docker-build-ovn-kubernetes-resource-injector: ## Build docker image for the OVN
 		. \
 		-t $(OVNKUBERNETES_RESOURCE_INJECTOR_IMAGE):$(TAG)
 
-.PHONY: docker-build-operator-bundle # Build the docker image for the Operator bundle. Not included in docker-build-all.
-docker-build-operator-bundle: generate-operator-bundle
-	docker buildx build \
-		--load \
-		--label=org.opencontainers.image.created=$(DATE) \
-		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
-		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
-		--label=org.opencontainers.image.version=$(TAG) \
-		--label=org.opencontainers.image.source=$(PROJECT_REPO) \
-		--provenance=false \
-		-f bundle.Dockerfile \
-		-t $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION) \
-		.
-
 .PHONY: docker-build-snap-controller # Build a multi-arch image for snap controller. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
 docker-build-snap-controller: $(addprefix docker-build-snap-controller-for-,$(DPF_SYSTEM_ARCH))
 
@@ -1127,11 +1061,6 @@ docker-push-dpucniprovisioner: ## Push the docker image for DPU CNI Provisioner.
 .PHONY: docker-push-ipallocator
 docker-push-ipallocator: ## Push the docker image for IP Allocator.
 	docker push $(IPALLOCATOR_IMAGE):$(TAG)
-
-.PHONY: docker-push-operator-bundle # Push the docker image for the Operator bundle. Not included in docker-build-all.
-docker-push-operator-bundle: ## Push the bundle image.
-	docker push $(OPERATOR_BUNDLE_IMAGE):$(BUNDLE_VERSION)
-
 
 .PHONY: docker-push-dummydpuservice
 docker-push-dummydpuservice: ## Push the docker image for dummydpuservice
