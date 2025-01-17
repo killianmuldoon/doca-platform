@@ -145,6 +145,7 @@ rules:
   - dpuserviceinterfaces/finalizers
   - dpuserviceipams/finalizers
   - dpuservices/finalizers
+  - dpuservicetemplates/finalizers
   verbs:
   - update
 - apiGroups:
@@ -156,6 +157,7 @@ rules:
   - dpuserviceinterfaces/status
   - dpuserviceipams/status
   - dpuservices/status
+  - dpuservicetemplates/status
   verbs:
   - get
   - patch

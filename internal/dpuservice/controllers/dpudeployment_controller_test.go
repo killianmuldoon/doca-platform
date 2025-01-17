@@ -45,16 +45,19 @@ import (
 //nolint:goconst
 var _ = Describe("DPUDeployment Controller", func() {
 	defaultPauseDPUServiceReconciler := pauseDPUServiceReconciler
+	defaultPauseDPUServiceTemplateReconciler := pauseDPUServiceTemplateReconciler
 	defaultDPUDeploymentReconcileDeleteRequeueDuration := reconcileRequeueDuration
 	BeforeEach(func() {
 		DeferCleanup(func() {
 			pauseDPUServiceReconciler = defaultPauseDPUServiceReconciler
+			pauseDPUServiceTemplateReconciler = defaultPauseDPUServiceTemplateReconciler
 			reconcileRequeueDuration = defaultDPUDeploymentReconcileDeleteRequeueDuration
 		})
 
 		// These are modified to speed up the testing suite and also simplify the deletion logic
 		pauseDPUServiceReconciler = true
 		reconcileRequeueDuration = 1 * time.Second
+		pauseDPUServiceTemplateReconciler = true
 	})
 	Context("When reconciling a resource", func() {
 		var testNS *corev1.Namespace

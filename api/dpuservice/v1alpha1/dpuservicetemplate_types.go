@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/nvidia/doca-platform/internal/conditions"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -24,10 +26,34 @@ import (
 const (
 	// DPUServiceTemplateKind is the kind of the DPUServiceTemplate object
 	DPUServiceTemplateKind = "DPUServiceTemplate"
+	// DPUServiceTemplateFinalizer is the finalizer added to DPUServiceTemplate objects by their controller
+	DPUServiceTemplateFinalizer = "dpu.nvidia.com/dpuservicetemplate"
 )
 
 // DPUServiceTemplateGroupVersionKind is the GroupVersionKind of the DPUServiceTemplate object
 var DPUServiceTemplateGroupVersionKind = GroupVersion.WithKind(DPUServiceTemplateKind)
+
+// Status related variables
+const (
+	ConditionDPUServiceTemplateReconciled conditions.ConditionType = "DPUServiceTemplateReconciled"
+)
+
+var (
+	DPUServiceTemplateConditions = []conditions.ConditionType{
+		conditions.TypeReady,
+		ConditionDPUServiceTemplateReconciled,
+	}
+)
+
+var _ conditions.GetSet = &DPUDeployment{}
+
+func (c *DPUServiceTemplate) GetConditions() []metav1.Condition {
+	return c.Status.Conditions
+}
+
+func (c *DPUServiceTemplate) SetConditions(conditions []metav1.Condition) {
+	c.Status.Conditions = conditions
+}
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
@@ -64,7 +90,12 @@ type DPUServiceTemplateSpec struct {
 }
 
 // DPUServiceTemplateStatus defines the observed state of DPUServiceTemplate
-type DPUServiceTemplateStatus struct{}
+type DPUServiceTemplateStatus struct {
+	// Conditions reflect the status of the object
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+	// ObservedGeneration records the Generation observed on the object the last time it was patched.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+}
 
 // +kubebuilder:object:root=true
 

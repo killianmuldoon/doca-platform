@@ -128,6 +128,12 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(testManager)
 	Expect(err).ToNot(HaveOccurred())
 
+	err = (&DPUServiceTemplateReconciler{
+		Client: testClient,
+		Scheme: testManager.GetScheme(),
+	}).SetupWithManager(testManager)
+	Expect(err).ToNot(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = testManager.Start(ctx)

@@ -254,6 +254,7 @@ rules:
   - dpuserviceinterfaces/finalizers
   - dpuserviceipams/finalizers
   - dpuservices/finalizers
+  - dpuservicetemplates/finalizers
   - servicechains/finalizers
   - serviceinterfaces/finalizers
   verbs:
@@ -267,6 +268,7 @@ rules:
   - dpuserviceinterfaces/status
   - dpuserviceipams/status
   - dpuservices/status
+  - dpuservicetemplates/status
   - servicechains/status
   - serviceinterfaces/status
   verbs:

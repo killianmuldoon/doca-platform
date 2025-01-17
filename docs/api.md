@@ -2770,6 +2770,10 @@ DPUServiceTemplateStatus defines the observed state of DPUServiceTemplate
 _Appears in:_
 - [DPUServiceTemplate](#dpuservicetemplate)
 
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | Conditions reflect the status of the object |  |  |
+| `observedGeneration` _integer_ | ObservedGeneration records the Generation observed on the object the last time it was patched. |  |  |
 
 
 #### DPUSet
