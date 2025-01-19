@@ -37,6 +37,7 @@ import (
 	"github.com/nvidia/doca-platform/internal/operator/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -139,6 +140,7 @@ func (c *Cluster) run(ctx context.Context) error {
 		corev1.SchemeGroupVersion.WithKind("Secret"),
 		corev1.SchemeGroupVersion.WithKind("PersistentVolumeClaim"),
 		appsv1.SchemeGroupVersion.WithKind("DaemonSet"),
+		batchv1.SchemeGroupVersion.WithKind("Job"),
 		operatorv1.DPFOperatorConfigGroupVersionKind,
 		provisioningv1.DPUFlavorGroupVersionKind,
 		provisioningv1.DPUGroupVersionKind,
@@ -148,6 +150,8 @@ func (c *Cluster) run(ctx context.Context) error {
 		provisioningv1.DPUClusterGroupVersionKind,
 		dpuservicev1.DPUServiceGroupVersionKind,
 		dpuservicev1.DPUDeploymentGroupVersionKind,
+		dpuservicev1.DPUServiceTemplateGroupVersionKind,
+		dpuservicev1.DPUServiceConfigurationGroupVersionKind,
 		dpuservicev1.DPUServiceCredentialRequestGroupVersionKind,
 		dpuservicev1.DPUServiceIPAMGroupVersionKind,
 		dpuservicev1.DPUServiceChainGroupVersionKind,
