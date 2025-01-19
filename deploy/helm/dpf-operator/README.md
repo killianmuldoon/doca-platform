@@ -12,7 +12,7 @@ DPF Operator manages the lifecycle of a DOCA Platform Framework system.
 | https://clastix.github.io/charts | kamaji | 1.0.0 |
 | https://clastix.github.io/charts | kamaji-etcd | 0.9.0 |
 | https://grafana.github.io/helm-charts | grafana | 8.4.6 |
-| https://kubernetes-sigs.github.io/node-feature-discovery/charts | node-feature-discovery | 0.16.5 |
+| https://kubernetes-sigs.github.io/node-feature-discovery/charts | node-feature-discovery | 0.17.1 |
 | https://prometheus-community.github.io/helm-charts | kube-state-metrics | 5.25.1 |
 | https://prometheus-community.github.io/helm-charts | prometheus | 25.26.0 |
 | oci://ghcr.io/mellanox | maintenance-operator-chart | 0.1.1 |

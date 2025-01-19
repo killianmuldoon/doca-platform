@@ -10,7 +10,7 @@ dependencies:
     repository: "https://argoproj.github.io/argo-helm"
     condition: argo-cd.enabled
   - name: node-feature-discovery
-    version: "0.16.5"
+    version: "0.17.1"
     repository: "https://kubernetes-sigs.github.io/node-feature-discovery/charts"
     condition: node-feature-discovery.enabled
   - name: kube-state-metrics
