@@ -491,6 +491,12 @@ test-e2e: stern ## Run e2e tests
 clean-test-env: minikube ## Clean test environment (teardown minikube cluster)
 	$(MINIKUBE) delete -p $(TEST_CLUSTER_NAME)
 
+
+##@ validate commit
+.PHONY: commit-check
+commit-check: conform ## Run conform to validate commit message
+	$(CONFORM) enforce
+
 ##@ lint and verify
 GOLANGCI_LINT_GOGC ?= "100"
 .PHONY: lint

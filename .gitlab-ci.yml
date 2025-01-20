@@ -35,6 +35,15 @@ stages:
   - test
   - triage
 
+
+commit-check:
+  stage: verify
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+  script:
+    - make commit-check 
+
 lint:
   stage: verify
   needs: []

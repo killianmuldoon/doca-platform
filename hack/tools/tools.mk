@@ -40,6 +40,7 @@ PROTOC_GEN_GO_VER ?= 1.35.2
 PROTOC_GEN_GO_GRPC_VER ?= 1.5.1
 BUF_VERSION ?= 1.47.2
 PROTOC_VER ?= 28.3
+CONFORM_VERSION ?= v0.1.0-alpha.30
 
 ## Tool Binaries
 KUBECTL ?= kubectl
@@ -61,8 +62,14 @@ PROTOC ?= $(TOOLSDIR)/protoc/bin/protoc
 PROTOC_GEN_GO ?= $(TOOLSDIR)/protoc-gen-go
 PROTOC_GEN_GO_GRPC ?= $(TOOLSDIR)/protoc-gen-go-grpc
 BUF ?= $(TOOLSDIR)/buf
+CONFORM ?= $(TOOLSDIR)/conform-$(CONFORM_VERSION)
 
 ##@ Tools
+
+.PHONY: conform
+conform: $(CONFORM) ## Download conform locally if necessary.
+$(CONFORM): | $(TOOLSDIR)
+	$(call go-install-tool,$(CONFORM),github.com/siderolabs/conform/cmd/conform,$(CONFORM_VERSION))
 
 .PHONY: protoc
 PROTOC_REL ?= https://github.com/protocolbuffers/protobuf/releases
