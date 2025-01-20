@@ -1,8 +1,11 @@
+{{- if and .Values.dpu.enabled .Values.dpu.rbacRoles.spdkCsiController.create }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: spdk-csi-controller-role
+  name: {{ include "spdk-csi-controller.fullname" . }}-role
+  labels:
+    {{- include "spdk-csi-controller.labels" . | nindent 4 }}
 rules:
 - apiGroups: [""]
   resources: ["secrets"]
@@ -41,12 +44,15 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: spdk-csi-controller-binding
+  name: {{ include "spdk-csi-controller.fullname" . }}-binding
+  labels:
+    {{- include "spdk-csi-controller.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: spdk-csi-controller-role
+  name: {{ include "spdk-csi-controller.fullname" . }}-role
 subjects:
   - kind: ServiceAccount
-    name: spdk-csi-controller-sa
-    namespace: dpf-operator-system
+    name: "{{ .Values.dpu.rbacRoles.spdkCsiController.serviceAccount }}"
+    namespace: "{{ .Release.Namespace }}"
+{{- end }}

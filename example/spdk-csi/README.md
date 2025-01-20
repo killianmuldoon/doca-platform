@@ -40,3 +40,4 @@ to access a cluster. Need update the `namespace` base on the namespace where the
 to access a cluster. Need update the `namespace` base on the namespace where the `DPUCluster` is in your DPF environment. Also need update the `spec.helmChart.values.csiConfig` according to your spdk storage.
 
 - `$ kubectl apply -f dpu-service/DPUService.yaml`
+- `$ kubectl apply -f dpu-service/DPUService-dpu.yaml`
