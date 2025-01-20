@@ -119,7 +119,7 @@ type DPUSpec struct {
 	PCIAddress string `json:"pciAddress,omitempty"`
 
 	// Specifies how changes to the DPU should affect the Node
-	// +kubebuilder:default={drain: {automaticNodeReboot: true}}
+	// +kubebuilder:default={drain: true}
 	// +optional
 	NodeEffect *NodeEffect `json:"nodeEffect,omitempty"`
 

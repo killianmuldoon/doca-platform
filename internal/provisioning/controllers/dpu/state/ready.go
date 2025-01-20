@@ -127,7 +127,7 @@ func updateFalseDPUCondReady(status *provisioningv1.DPUStatus, reason string, me
 }
 
 func HandleNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect provisioningv1.NodeEffect, nodeName string, namespace string) error {
-	if nodeEffect.NoEffect != nil && *nodeEffect.NoEffect {
+	if nodeEffect.IsNoEffect() {
 		return nil
 	}
 
@@ -158,7 +158,7 @@ func HandleNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect p
 		}
 	}
 
-	if nodeEffect.Drain != nil {
+	if nodeEffect.IsDrain() {
 		return DeleteNodeMaintenanceCR(ctx, k8sClient, nodeName, namespace)
 	}
 	return nil

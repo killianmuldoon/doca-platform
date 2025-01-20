@@ -101,8 +101,7 @@ spec:
                 type: string
               nodeEffect:
                 default:
-                  drain:
-                    automaticNodeReboot: true
+                  drain: true
                 description: Specifies how changes to the DPU should affect the Node
                 properties:
                   customLabel:
@@ -112,13 +111,7 @@ spec:
                     type: object
                   drain:
                     description: Drain the K8s host node by NodeMaintenance operator
-                    properties:
-                      automaticNodeReboot:
-                        default: true
-                        description: Specifies if the DPU controller should automatically
-                          reboot the node on upgrades
-                        type: boolean
-                    type: object
+                    type: boolean
                   noEffect:
                     description: Do not do any action on the DPU node
                     type: boolean

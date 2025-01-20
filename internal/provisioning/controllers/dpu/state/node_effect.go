@@ -48,7 +48,7 @@ func NodeEffect(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Con
 
 	nodeEffect := dpu.Spec.NodeEffect
 
-	if nodeEffect.NoEffect != nil && *nodeEffect.NoEffect {
+	if nodeEffect.IsNoEffect() {
 		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"NoEffect\" for node: %s", dpu.Spec.NodeName))
 		state.Phase = provisioningv1.DPUInitializeInterface
 		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondNodeEffectReady, "", ""))
@@ -86,7 +86,7 @@ func NodeEffect(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Con
 				return *state, err
 			}
 		}
-	} else if nodeEffect.Drain != nil {
+	} else if nodeEffect.IsDrain() {
 		logger.V(3).Info(fmt.Sprintf("NodeEffect is set to \"Drain\" for node: %s", nodeName))
 		maintenanceNN := types.NamespacedName{
 			Namespace: dpu.Namespace,

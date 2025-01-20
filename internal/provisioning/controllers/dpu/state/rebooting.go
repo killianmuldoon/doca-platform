@@ -79,7 +79,7 @@ func Rebooting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 		return *state, nil
 	}
 
-	if (dpu.Spec.NodeEffect != nil && dpu.Spec.NodeEffect.Drain != nil && dpu.Spec.NodeEffect.Drain.AutomaticNodeReboot) ||
+	if (dpu.Spec.NodeEffect != nil && dpu.Spec.NodeEffect.IsDrain()) ||
 		dpu.Spec.AutomaticNodeReboot {
 		cmd, rebootType, err := reboot.GenerateCmd(node.Annotations, dpu.Annotations)
 		if err != nil {

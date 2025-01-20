@@ -1286,7 +1286,7 @@ _Appears in:_
 | `nodeName` _string_ | Specifies Node this DPU belongs to |  |  |
 | `bfb` _string_ | Specifies name of the bfb CR to use for this DPU |  |  |
 | `pciAddress` _string_ | The PCI device related DPU |  |  |
-| `nodeEffect` _[NodeEffect](#nodeeffect)_ | Specifies how changes to the DPU should affect the Node | \{ drain:map[automaticNodeReboot:true] \} |  |
+| `nodeEffect` _[NodeEffect](#nodeeffect)_ | Specifies how changes to the DPU should affect the Node | \{ drain:true \} |  |
 | `cluster` _[K8sCluster](#k8scluster)_ | Specifies details on the K8S cluster to join |  |  |
 | `dpuFlavor` _string_ | DPUFlavor is the name of the DPUFlavor that will be used to deploy the DPU. |  |  |
 | `automaticNodeReboot` _boolean_ | Specifies if the DPU controller should automatically reboot the node on upgrades,<br />this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic | true |  |
@@ -1344,26 +1344,10 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `bfb` _[BFBReference](#bfbreference)_ | Specifies a BFB CR |  |  |
-| `nodeEffect` _[NodeEffect](#nodeeffect)_ | Specifies how changes to the DPU should affect the Node | \{ drain:map[automaticNodeReboot:true] \} |  |
+| `nodeEffect` _[NodeEffect](#nodeeffect)_ | Specifies how changes to the DPU should affect the Node | \{ drain:true \} |  |
 | `cluster` _[ClusterSpec](#clusterspec)_ | Specifies details on the K8S cluster to join |  |  |
 | `dpuFlavor` _string_ | DPUFlavor is the name of the DPUFlavor that will be used to deploy the DPU. |  |  |
 | `automaticNodeReboot` _boolean_ | Specifies if the DPU controller should automatically reboot the node on upgrades,<br />this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic | true |  |
-
-
-#### Drain
-
-
-
-Drain the K8s host node by NodeMaintenance operator
-
-
-
-_Appears in:_
-- [NodeEffect](#nodeeffect)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `automaticNodeReboot` _boolean_ | Specifies if the DPU controller should automatically reboot the node on upgrades | true |  |
 
 
 #### Firmware
@@ -1439,7 +1423,7 @@ _Appears in:_
 | `taint` _[Taint](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#taint-v1-core)_ | Add specify taint on the DPU node |  |  |
 | `noEffect` _boolean_ | Do not do any action on the DPU node |  |  |
 | `customLabel` _object (keys:string, values:string)_ | Add specify labels on the DPU node |  |  |
-| `drain` _[Drain](#drain)_ | Drain the K8s host node by NodeMaintenance operator |  |  |
+| `drain` _boolean_ | Drain the K8s host node by NodeMaintenance operator |  |  |
 
 
 #### RollingUpdateDPU

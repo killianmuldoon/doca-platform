@@ -125,9 +125,7 @@ func baseDPUSet(ns string) *provisioningv1.DPUSet {
 					AutomaticNodeReboot: ptr.To(true),
 					DPUFlavor:           "hbn",
 					NodeEffect: &provisioningv1.NodeEffect{
-						Drain: &provisioningv1.Drain{
-							AutomaticNodeReboot: false,
-						},
+						Drain: ptr.To(true),
 					},
 					// Setting cluster to nil here to test a nil-pointer error.
 					Cluster: nil,

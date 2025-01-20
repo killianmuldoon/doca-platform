@@ -43,11 +43,11 @@ func Error(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Controll
 }
 
 func RemoveNodeEffect(ctx context.Context, k8sClient client.Client, nodeEffect provisioningv1.NodeEffect, nodeName string, namespace string) error {
-	if nodeEffect.NoEffect != nil && *nodeEffect.NoEffect {
+	if nodeEffect.IsNoEffect() {
 		return nil
 	}
 
-	if nodeEffect.Drain != nil {
+	if nodeEffect.IsDrain() {
 		return DeleteNodeMaintenanceCR(ctx, k8sClient, nodeName, namespace)
 	}
 

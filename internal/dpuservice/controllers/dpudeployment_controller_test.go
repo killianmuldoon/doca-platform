@@ -939,9 +939,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 								DPUFlavor: "someflavor",
 								NodeEffect: &provisioningv1.NodeEffect{
-									Drain: &provisioningv1.Drain{
-										AutomaticNodeReboot: true,
-									},
+									Drain: ptr.To(true),
 								},
 								AutomaticNodeReboot: ptr.To(true),
 							},
@@ -969,9 +967,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 								DPUFlavor: "someflavor",
 								NodeEffect: &provisioningv1.NodeEffect{
-									Drain: &provisioningv1.Drain{
-										AutomaticNodeReboot: true,
-									},
+									Drain: ptr.To(true),
 								},
 								AutomaticNodeReboot: ptr.To(true),
 							},
@@ -1474,9 +1470,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 								DPUFlavor: "someflavor",
 								NodeEffect: &provisioningv1.NodeEffect{
-									Drain: &provisioningv1.Drain{
-										AutomaticNodeReboot: true,
-									},
+									Drain: ptr.To(true),
 								},
 								AutomaticNodeReboot: ptr.To(true),
 								Cluster: &provisioningv1.ClusterSpec{

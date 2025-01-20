@@ -370,9 +370,7 @@ var _ = Describe("DPU", func() {
 			obj.Spec.NodeName = testNode.Name
 			obj.Spec.BFB = DefaultBFB
 			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
-				Drain: &provisioningv1.Drain{
-					AutomaticNodeReboot: true,
-				},
+				Drain: ptr.To(true),
 			}
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 

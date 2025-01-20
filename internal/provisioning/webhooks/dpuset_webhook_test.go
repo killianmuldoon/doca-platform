@@ -169,15 +169,13 @@ var _ = Describe("DPUSet", func() {
 					Key:    "foo",
 					Effect: corev1.TaintEffectNoSchedule,
 				},
-				Drain: &provisioningv1.Drain{
-					AutomaticNodeReboot: true,
-				},
+				Drain: ptr.To(true),
 			}
 			Expect(k8sClient.Create(ctx, obj)).NotTo(Succeed())
 
 			// Error when creating a DPUSet with a nodeeffect setting Drain and NoEffect
 			obj.Spec.DPUTemplate.Spec.NodeEffect = &provisioningv1.NodeEffect{
-				Drain: &provisioningv1.Drain{},
+				Drain: ptr.To(true),
 				CustomLabel: map[string]string{
 					"foo": "bar",
 				},
@@ -196,7 +194,7 @@ var _ = Describe("DPUSet", func() {
 			obj.Spec.DPUTemplate.Spec.NodeEffect = nil
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			Expect(k8sClient.Get(ctx, getObjKey(obj), obj)).To(Succeed())
-			Expect(obj.Spec.DPUTemplate.Spec.NodeEffect).To(Equal(&provisioningv1.NodeEffect{Drain: &provisioningv1.Drain{AutomaticNodeReboot: true}}))
+			Expect(obj.Spec.DPUTemplate.Spec.NodeEffect).To(Equal(&provisioningv1.NodeEffect{Drain: ptr.To(true)}))
 		})
 
 		It("create from yaml", func() {

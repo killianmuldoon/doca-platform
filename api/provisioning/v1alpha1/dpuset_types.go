@@ -79,7 +79,7 @@ type DPUTemplateSpec struct {
 	// Specifies a BFB CR
 	BFB BFBReference `json:"bfb,omitempty"`
 	// Specifies how changes to the DPU should affect the Node
-	// +kubebuilder:default={drain: {automaticNodeReboot: true}}
+	// +kubebuilder:default={drain: true}
 	// +optional
 	NodeEffect *NodeEffect `json:"nodeEffect,omitempty"`
 	// Specifies details on the K8S cluster to join
@@ -118,15 +118,21 @@ type NodeEffect struct {
 	CustomLabel map[string]string `json:"customLabel,omitempty"`
 	// Drain the K8s host node by NodeMaintenance operator
 	// +optional
-	Drain *Drain `json:"drain,omitempty"`
+	Drain *bool `json:"drain,omitempty"`
 }
 
-// Drain the K8s host node by NodeMaintenance operator
-type Drain struct {
-	// Specifies if the DPU controller should automatically reboot the node on upgrades
-	// +kubebuilder:default=true
-	// +optional
-	AutomaticNodeReboot bool `json:"automaticNodeReboot,omitempty"`
+func (n *NodeEffect) IsDrain() bool {
+	if n.Drain == nil {
+		return false
+	}
+	return *n.Drain
+}
+
+func (n *NodeEffect) IsNoEffect() bool {
+	if n.NoEffect == nil {
+		return false
+	}
+	return *n.NoEffect
 }
 
 // DPUSetSpec defines the desired state of DPUSet

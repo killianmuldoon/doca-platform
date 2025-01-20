@@ -108,8 +108,7 @@ var _ = Describe("DPU", func() {
 			objFetched := &provisioningv1.DPU{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(objFetched.Spec.NodeEffect.Drain).NotTo(BeNil())
-			Expect(objFetched.Spec.NodeEffect.Drain.AutomaticNodeReboot).To(BeTrue())
+			Expect(objFetched.Spec.NodeEffect.IsDrain()).To(BeTrue())
 		})
 
 		It("only one field may be set in spec.nodeEffect", func() {
@@ -132,15 +131,13 @@ var _ = Describe("DPU", func() {
 					Key:    "foo",
 					Effect: corev1.TaintEffectNoSchedule,
 				},
-				Drain: &provisioningv1.Drain{
-					AutomaticNodeReboot: true,
-				},
+				Drain: ptr.To(true),
 			}
 			Expect(k8sClient.Create(ctx, obj)).NotTo(Succeed())
 
 			// Error when creating a DPU with a nodeeffect setting Drain and NoEffect
 			obj.Spec.NodeEffect = &provisioningv1.NodeEffect{
-				Drain: &provisioningv1.Drain{},
+				Drain: ptr.To(true),
 				CustomLabel: map[string]string{
 					"foo": "bar",
 				},
@@ -159,7 +156,7 @@ var _ = Describe("DPU", func() {
 			obj.Spec.NodeEffect = nil
 			Expect(k8sClient.Create(ctx, obj)).To(Succeed())
 			Expect(k8sClient.Get(ctx, getObjKey(obj), obj)).To(Succeed())
-			Expect(obj.Spec.NodeEffect).To(Equal(&provisioningv1.NodeEffect{Drain: &provisioningv1.Drain{AutomaticNodeReboot: true}}))
+			Expect(obj.Spec.NodeEffect).To(Equal(&provisioningv1.NodeEffect{Drain: ptr.To(true)}))
 		})
 
 		It("spec.nodeName is immutable", func() {
