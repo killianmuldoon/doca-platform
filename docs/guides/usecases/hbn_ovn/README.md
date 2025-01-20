@@ -1344,10 +1344,10 @@ spec:
                 bgp_peer_group: hbn
             - hostnamePattern: "worker1*"
               values:
-                bgp_autonomous_system: 65101"
+                bgp_autonomous_system: 65101
             - hostnamePattern: "worker2*"
               values:
-                bgp_autonomous_system: 65201"
+                bgp_autonomous_system: 65201
           startupYAMLJ2: |
             - header:
                 model: BLUEFIELD
