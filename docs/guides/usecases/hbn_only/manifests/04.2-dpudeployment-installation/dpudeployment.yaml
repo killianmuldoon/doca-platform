@@ -38,7 +38,7 @@ spec:
           vf: pf0vf10
     - service:
         name: doca-hbn
-        interface: host_pf0_sf
+        interface: pf0vf10_if
   - ports:
     - serviceInterface:
         matchLabels:

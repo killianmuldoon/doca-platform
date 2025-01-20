@@ -1312,7 +1312,7 @@ spec:
           vf: pf0vf10
     - service:
         name: doca-hbn
-        interface: host_pf0_sf
+        interface: pf0vf10_if
   - ports:
     - serviceInterface:
         matchLabels:
@@ -1604,7 +1604,7 @@ spec:
         spec:
           interfaceType: vf
           vf:
-            parentInterface: p0
+            parentInterfaceRef: p0
             pfID: 0
             vfID: 10
 ---
@@ -1623,7 +1623,7 @@ spec:
         spec:
           interfaceType: vf
           vf:
-            parentInterface: p1
+            parentInterfaceRef: p1
             pfID: 1
             vfID: 10
 ```
