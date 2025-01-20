@@ -576,7 +576,7 @@ warm-cache: ## Warm the cache for the tests.
 GO_GCFLAGS ?= ""
 GO_LDFLAGS ?= "-extldflags '-static'"
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
-DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller ovs-helper snap-controller
+DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller ovs-helper snap-controller dpfctl
 DPU_ARCH_BUILD_TARGETS ?= storage-snap-node-driver storage-vendor-dpu-plugin
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
@@ -657,6 +657,14 @@ binary-storage-vendor-dpu-plugin: ## Build the storage vendor DPU plugin control
 .PHONY: binary-snap-csi-plugin
 binary-snap-csi-plugin: ## Build the snap-csi-plugin binary.
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/snap-csi-plugin github.com/nvidia/doca-platform/cmd/storage/snap-csi-plugin
+
+.PHONY: binary-dpfctl
+binary-dpfctl: ## Build the dpfctl binary.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/dpfctl github.com/nvidia/doca-platform/cmd/dpfctl
+
+.PHONY: install-dpfctl
+install-dpfctl: binary-dpfctl ## Install the dpfctl binary.
+	install -m 755 $(LOCALBIN)/dpfctl $(GOPATH)/bin/dpfctl
 
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=hostdriver
