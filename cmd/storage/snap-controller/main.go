@@ -22,6 +22,7 @@ import (
 	"time"
 
 	storagev1 "github.com/nvidia/doca-platform/api/storage/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/storage"
 	snap "github.com/nvidia/doca-platform/internal/storage/snap/controllers"
 
 	"github.com/spf13/pflag"
@@ -64,6 +65,7 @@ func main() {
 	var enableHTTP2 bool
 	var probeAddr string
 	var syncPeriod time.Duration
+	var configNamespace string
 
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -74,6 +76,8 @@ func main() {
 		"If set the metrics endpoint is served insecure without AuthN/AuthZ.")
 	fs.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	fs.StringVar(&configNamespace, "config-namespace", storage.DefaultNS,
+		"The name of the namespace where to search for configuration (storagePolicy, storageVendor)")
 
 	logsv1.AddFlags(logOptions, fs)
 
@@ -142,9 +146,10 @@ func main() {
 	}
 
 	if err = (&snap.NVVolume{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Recorder: mgr.GetEventRecorderFor(storagev1.VolumeKind),
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Recorder:        mgr.GetEventRecorderFor(storagev1.VolumeKind),
+		ConfigNamespace: configNamespace,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", storagev1.VolumeKind)
 		os.Exit(1)

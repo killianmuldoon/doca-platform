@@ -52,8 +52,9 @@ const (
 // NVVolume reconciles a Volume object
 type NVVolume struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Recorder record.EventRecorder
+	Scheme          *runtime.Scheme
+	Recorder        record.EventRecorder
+	ConfigNamespace string
 }
 
 // +kubebuilder:rbac:groups=storage.dpu.nvidia.com,resources=volumes,verbs=get;list;watch;update;patch
@@ -135,7 +136,7 @@ func (r *NVVolume) reconcile(ctx context.Context, nvVolume *snapstoragev1.Volume
 	storagePolicy := &snapstoragev1.StoragePolicy{}
 	storagePolicyNN := types.NamespacedName{
 		Name:      storagePolicyName,
-		Namespace: storage.DefaultNS,
+		Namespace: r.ConfigNamespace,
 	}
 	if err := r.Get(ctx, storagePolicyNN, storagePolicy); err != nil {
 		if apierrors.IsNotFound(err) {
@@ -212,7 +213,7 @@ func (r *NVVolume) handlePVC(ctx context.Context, nvVolume *snapstoragev1.Volume
 	storageVendor := &snapstoragev1.StorageVendor{}
 	storageVendorNN := types.NamespacedName{
 		Name:      storageVendorName,
-		Namespace: storage.DefaultNS,
+		Namespace: r.ConfigNamespace,
 	}
 
 	if err := r.Get(ctx, storageVendorNN, storageVendor); err != nil {
@@ -251,7 +252,7 @@ func (r *NVVolume) handlePVC(ctx context.Context, nvVolume *snapstoragev1.Volume
 	storageClass := &storagev1.StorageClass{}
 	if err := r.Get(ctx, types.NamespacedName{
 		Name:      storageClassName,
-		Namespace: storage.DefaultNS,
+		Namespace: r.ConfigNamespace,
 	}, storageClass); err != nil {
 		return ctrl.Result{}, err
 	}
