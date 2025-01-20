@@ -4,7 +4,6 @@ namespace: dpf-operator-system
 namePrefix: dpf-operator-
 resources:
   - ../dpuservice/crd
-  - ../servicechainset/crd
   - ../provisioning/crd
 
 labels:

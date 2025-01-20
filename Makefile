@@ -259,6 +259,18 @@ generate-manifests-dpuservice: controller-gen ## Generate manifests e.g. CRD, RB
 	output:webhook:dir=./config/dpuservice/webhook \
 	webhook
 
+.PHONY: generate-manifests-servicechainset
+generate-manifests-servicechainset: controller-gen kustomize envsubst ## Generate manifests e.g. CRD, RBAC. for the servicechainset controller.
+	# TODO: Clean up pod-ipam-injector generation
+	$(CONTROLLER_GEN) \
+	paths="./cmd/servicechainset/..." \
+	paths="./internal/servicechainset/..." \
+	paths="./internal/pod-ipam-injector/..." \
+	rbac:roleName=dpf-servicechain-controller-manager \
+	output:rbac:dir=deploy/helm/dpu-networking/charts/servicechainset-controller/templates;
+	find config/dpuservice/crd/bases/ -type f -not -name '*_dpu*' -exec cp {} deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/ \;
+	$(ENVSUBST) < deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml.tmpl > deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml
+
 .PHONY: generate-manifests-storage-snap
 generate-manifests-storage-snap: controller-gen kustomize ## Generate CRDs for SNAP storage in DPU cluster 
 	$(MAKE) clean-generated-yaml SRC_DIRS="./config/snap/crd"
@@ -291,21 +303,6 @@ generate-manifests-operator-embedded: kustomize envsubst generate-manifests-dpus
 	$(KUSTOMIZE) build --reorder=none config/dpuservice/default > $(EMBEDDED_MANIFESTS_DIR)/dpuservice-controller.yaml
 	$(KUSTOMIZE) build --reorder=none config/kamaji-cluster-manager/default > $(EMBEDDED_MANIFESTS_DIR)/kamaji-cluster-manager.yaml
 	$(KUSTOMIZE) build --reorder=none config/static-cluster-manager/default > $(EMBEDDED_MANIFESTS_DIR)/static-cluster-manager.yaml
-
-.PHONY: generate-manifests-servicechainset
-generate-manifests-servicechainset: controller-gen kustomize envsubst ## Generate manifests e.g. CRD, RBAC. for the servicechainset controller.
-	$(MAKE) clean-generated-yaml SRC_DIRS="./config/servicechainset/crd/bases"
-	$(CONTROLLER_GEN) \
-	paths="./cmd/servicechainset/..." \
-	paths="./internal/servicechainset/..." \
-	paths="./internal/pod-ipam-injector/..." \
-	paths="./api/dpuservice/..." \
-	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
-	rbac:roleName=manager-role \
-	output:crd:dir=./config/servicechainset/crd/bases \
-	output:rbac:dir=./config/servicechainset/rbac
-	find config/servicechainset/crd/bases/ -type f -not -name '*_dpu*' -exec cp {} deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/ \;
-	$(ENVSUBST) < deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml.tmpl > deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml
 
 
 .PHONY: generate-manifests-sfc-controller
