@@ -577,7 +577,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `fileName` _string_ | Specifies the file name which is used to download the BFB on the volume or<br />use "namespace-CRD name" in case it is omitted. |  | Pattern: `^[A-Za-z0-9\_\-\.]+\.bfb$` <br /> |
+| `fileName` _string_ | Specifies the file name where the BFB is downloaded on the volume. |  | Pattern: `^[A-Za-z0-9\_\-\.]+\.bfb$` <br /> |
 | `url` _string_ | The url of the bfb image to download. |  | Pattern: `^(http\|https)://.+\.bfb$` <br /> |
 
 
@@ -594,6 +594,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
+| `fileName` _string_ | Filename is the name of the file where the BFB can be accessed on its volume.<br />This is the same as `.spec.Filename` if set. |  |  |
 | `phase` _[BFBPhase](#bfbphase)_ | The current state of BFB. | Initializing | Enum: [Initializing Downloading Ready Deleting Error] <br /> |
 | `versions` _[BFBVersions](#bfbversions)_ | BFB versions - BSP, DOCA, UEFI and ATF<br />Holds detailed version information for each component within the BFB |  |  |
 

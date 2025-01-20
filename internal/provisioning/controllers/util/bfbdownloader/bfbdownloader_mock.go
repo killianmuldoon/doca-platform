@@ -69,7 +69,7 @@ func (m *MockBFBDownloader) CreateBFBDownloadJob(ctx context.Context, client cli
 		return err
 	}
 	logger.V(3).Info(fmt.Sprintf("%s job created", jobName))
-	if err = createFakeBFBFile(cutil.GenerateBFBFilePath(bfb.Spec.FileName)); err != nil {
+	if err = createFakeBFBFile(cutil.GenerateBFBFilePath(bfb.Status.FileName)); err != nil {
 		return err
 	}
 	return nil

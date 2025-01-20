@@ -30,13 +30,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 )
 
-// +kubebuilder:webhook:path=/mutate-provisioning-dpu-nvidia-com-v1alpha1-bfb,mutating=true,failurePolicy=fail,sideEffects=None,groups=provisioning.dpu.nvidia.com,resources=bfbs,verbs=create;update,versions=v1alpha1,name=mbfb.kb.io,admissionReviewVersions=v1
 // +kubebuilder:webhook:path=/validate-provisioning-dpu-nvidia-com-v1alpha1-bfb,mutating=false,failurePolicy=fail,sideEffects=None,groups=provisioning.dpu.nvidia.com,resources=bfbs,verbs=create;update;delete,versions=v1alpha1,name=vbfb.kb.io,admissionReviewVersions=v1
 
 // BFB implements a webhook for the BFB object.
 type BFB struct{}
 
-var _ webhook.CustomDefaulter = &BFB{}
 var _ webhook.CustomValidator = &BFB{}
 
 const (
@@ -53,23 +51,8 @@ func (r *BFB) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	bfbMgr = mgr
 	return ctrl.NewWebhookManagedBy(mgr).
 		For(&provisioningv1.BFB{}).
-		WithDefaulter(r).
 		WithValidator(r).
 		Complete()
-}
-
-// Default implements webhook.Defaulter so a webhook will be registered for the type
-func (r *BFB) Default(ctx context.Context, obj runtime.Object) error {
-	bfb, ok := obj.(*provisioningv1.BFB)
-	if !ok {
-		return apierrors.NewBadRequest(fmt.Sprintf("invalid object type expected BFB got %s", obj.GetObjectKind().GroupVersionKind().String()))
-	}
-
-	bfblog.V(4).Info("default", "name", bfb.Name)
-	if bfb.Spec.FileName == "" {
-		bfb.Spec.FileName = fmt.Sprintf("%s-%s%s", bfb.Namespace, bfb.Name, BFBFileNameExtension)
-	}
-	return nil
 }
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
@@ -79,25 +62,6 @@ func (r *BFB) ValidateCreate(ctx context.Context, obj runtime.Object) (admission
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *BFB) ValidateUpdate(ctx context.Context, oldObj, newObj runtime.Object) (admission.Warnings, error) {
-	oldBFB, ok := oldObj.(*provisioningv1.BFB)
-	if !ok {
-		return admission.Warnings{}, apierrors.NewBadRequest(fmt.Sprintf("invalid object type expected BFB got %s", oldObj.GetObjectKind().GroupVersionKind().String()))
-	}
-
-	newBFB, ok := newObj.(*provisioningv1.BFB)
-	if !ok {
-		return admission.Warnings{}, apierrors.NewBadRequest(fmt.Sprintf("invalid object type expected BFB got %s", newObj.GetObjectKind().GroupVersionKind().String()))
-	}
-
-	// In order to handle the problem of first installing crd, then submitting a BFB without filename, and finally starting webhook.
-	if oldBFB.Spec.FileName == "" {
-		newBFB.Spec.FileName = fmt.Sprintf("%s-%s%s", oldBFB.Namespace, oldBFB.Name, BFBFileNameExtension)
-		return nil, nil
-	}
-
-	if newBFB.Spec.FileName == "" || (newBFB.Spec.FileName != oldBFB.Spec.FileName) {
-		return nil, fmt.Errorf("fileName is immutable")
-	}
 	return nil, nil
 }
 

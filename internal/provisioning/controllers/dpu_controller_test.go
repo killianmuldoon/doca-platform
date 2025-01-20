@@ -122,7 +122,7 @@ var _ = Describe("DPU", func() {
 			g.Expect(k8sClient.Get(ctx, client.ObjectKeyFromObject(obj), objFetched)).To(Succeed())
 			return objFetched.Status.Phase
 		}).WithTimeout(30 * time.Second).WithPolling(100 * time.Millisecond).Should(Equal(provisioningv1.BFBReady))
-		_, err = os.Stat(cutil.GenerateBFBFilePath(objFetched.Spec.FileName))
+		_, err = os.Stat(cutil.GenerateBFBFilePath(objFetched.Status.FileName))
 		Expect(err).NotTo(HaveOccurred())
 
 		By("closing server")

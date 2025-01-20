@@ -41,7 +41,7 @@ type bfbDeletingState struct {
 func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client, _ butil.BFBOptions, _ bfbdownloader.BFBDownloader) (provisioningv1.BFBStatus, error) {
 	state := st.bfb.Status.DeepCopy()
 
-	bfbFile := cutil.GenerateBFBFilePath(st.bfb.Spec.FileName)
+	bfbFile := cutil.GenerateBFBFilePath(st.bfb.Status.FileName)
 	err := os.Remove(bfbFile)
 	if err != nil && !os.IsNotExist(err) {
 		msg := fmt.Sprintf("Deleting BFB: (%s/%s) failed", st.bfb.Namespace, st.bfb.Name)
@@ -57,7 +57,7 @@ func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client, _ 
 		return *state, err
 	}
 
-	versionFileName := cutil.GenerateBFBVersionFilePath(st.bfb.Spec.FileName)
+	versionFileName := cutil.GenerateBFBVersionFilePath(st.bfb.Status.FileName)
 	err = os.Remove(versionFileName)
 	if err != nil && !os.IsNotExist(err) {
 		msg := fmt.Sprintf("Deleting BFB version file: (%s/%s) failed", st.bfb.Namespace, st.bfb.Name)
@@ -65,7 +65,7 @@ func (st *bfbDeletingState) Handle(ctx context.Context, client client.Client, _ 
 		return *state, err
 	}
 
-	md5FileName := cutil.GenerateBFBMD5FilePath(st.bfb.Spec.FileName)
+	md5FileName := cutil.GenerateBFBMD5FilePath(st.bfb.Status.FileName)
 	err = os.Remove(md5FileName)
 	if err != nil && !os.IsNotExist(err) {
 		msg := fmt.Sprintf("Deleting BFB md5 file: (%s/%s) failed", st.bfb.Namespace, st.bfb.Name)

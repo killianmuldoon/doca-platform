@@ -87,7 +87,7 @@ func (st *bfbDownloadingState) Handle(ctx context.Context, k8sClient client.Clie
 	msg := fmt.Sprintf("Download BFB: (%s/%s) successful", st.bfb.Namespace, st.bfb.Name)
 	st.recorder.Eventf(st.bfb, corev1.EventTypeNormal, events.EventSuccessfulDownloadBFBReason, msg)
 
-	bfbVer, err := bfbDownloader.GetBFBVersion(cutil.GenerateBFBVersionFilePath(st.bfb.Spec.FileName))
+	bfbVer, err := bfbDownloader.GetBFBVersion(cutil.GenerateBFBVersionFilePath(st.bfb.Status.FileName))
 	if err != nil {
 		msg := fmt.Sprintf("Failed getting BFB: (%s/%s) versions, err: %s", st.bfb.Namespace, st.bfb.Name, err.Error())
 		st.recorder.Eventf(st.bfb, corev1.EventTypeWarning, events.EventFailedGetBFBVersionReason, msg)

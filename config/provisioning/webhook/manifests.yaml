@@ -10,26 +10,6 @@ webhooks:
     service:
       name: webhook-service
       namespace: system
-      path: /mutate-provisioning-dpu-nvidia-com-v1alpha1-bfb
-  failurePolicy: Fail
-  name: mbfb.kb.io
-  rules:
-  - apiGroups:
-    - provisioning.dpu.nvidia.com
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - bfbs
-  sideEffects: None
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: webhook-service
-      namespace: system
       path: /mutate-provisioning-dpu-nvidia-com-v1alpha1-dpuset
   failurePolicy: Fail
   name: mdpuset.kb.io

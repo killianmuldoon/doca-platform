@@ -52,11 +52,11 @@ const (
 
 // BFBSpec defines the content of the BFB
 type BFBSpec struct {
-	// Specifies the file name which is used to download the BFB on the volume or
-	// use "namespace-CRD name" in case it is omitted.
+	// Specifies the file name where the BFB is downloaded on the volume.
 	// +kubebuilder:validation:Pattern=`^[A-Za-z0-9\_\-\.]+\.bfb$`
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	// +optional
-	FileName string `json:"fileName,omitempty"`
+	FileName *string `json:"fileName,omitempty"`
 
 	// The url of the bfb image to download.
 	// +kubebuilder:validation:Pattern=`^(http|https)://.+\.bfb$`
@@ -97,6 +97,9 @@ type BFBVersions struct {
 
 // BFBStatus defines the observed state of BFB
 type BFBStatus struct {
+	// Filename is the name of the file where the BFB can be accessed on its volume.
+	// This is the same as `.spec.Filename` if set.
+	FileName string `json:"fileName,omitempty"`
 	// The current state of BFB.
 	// +kubebuilder:default=Initializing
 	// +required

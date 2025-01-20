@@ -226,12 +226,12 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		logger.V(3).Info(fmt.Sprintf("TLS Connection established between DPU controller to DMS %s", dmsTaskName))
 
 		osInstall := gos.NewInstallOperation()
-		osInstall.Version(bfb.Spec.FileName)
+		osInstall.Version(bfb.Status.FileName)
 		// Open the file at the specified path
-		fullFileName := cutil.GenerateBFBFilePath(bfb.Spec.FileName)
+		fullFileName := cutil.GenerateBFBFilePath(bfb.Status.FileName)
 		bfbfile, err := os.Open(fullFileName)
 		if err != nil {
-			logger.Error(err, "failed to open file", "name", bfb.Spec.FileName)
+			logger.Error(err, "failed to open file", "name", bfb.Status.FileName)
 			return nil, err
 		}
 		defer bfbfile.Close() //nolint: errcheck
@@ -286,9 +286,9 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 			logger.V(3).Info(fmt.Sprintf("DMS %s Performed BF configuration %v", dmsTaskName, response))
 		}
 
-		bfbPathInDms := dms.DMSImageFolder + string(filepath.Separator) + bfb.Spec.FileName
+		bfbPathInDms := dms.DMSImageFolder + string(filepath.Separator) + bfb.Status.FileName
 		if md5, _, err := computeBFBMD5InDms(dpu.Namespace, cutil.GenerateDMSPodName(dpu.Name), "", bfbPathInDms); err == nil {
-			logger.V(3).Info(fmt.Sprintf("md5sum of %s in DMS is %s", bfb.Spec.FileName, md5))
+			logger.V(3).Info(fmt.Sprintf("md5sum of %s in DMS is %s", bfb.Status.FileName, md5))
 		} else {
 			logger.Error(err, "Failed to get md5sum from dms", "md5", dpu)
 		}
@@ -296,7 +296,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		activateOp := gos.NewActivateOperation()
 		noReboot := false
 		activateOp.NoReboot(noReboot)
-		activateOp.Version(fmt.Sprintf("%s;%s", bfb.Spec.FileName, cfgVersion))
+		activateOp.Version(fmt.Sprintf("%s;%s", bfb.Status.FileName, cfgVersion))
 
 		logger.V(3).Info("Starting execute activate operation")
 		// set 30 minutes timeout for OS installation

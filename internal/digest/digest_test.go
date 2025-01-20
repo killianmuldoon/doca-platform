@@ -23,6 +23,7 @@ import (
 
 	. "github.com/onsi/gomega"
 	"github.com/opencontainers/go-digest"
+	"k8s.io/utils/ptr"
 )
 
 func Test_Digest(t *testing.T) {
@@ -55,7 +56,7 @@ func Test_Digest(t *testing.T) {
 			name: "bfb and dpuFlavor",
 			objects: []any{
 				provisioningv1.BFBSpec{
-					FileName: "test",
+					FileName: ptr.To("test"),
 					URL:      "http://dummy-bfb-url.com",
 				},
 				provisioningv1.DPUFlavorSpec{

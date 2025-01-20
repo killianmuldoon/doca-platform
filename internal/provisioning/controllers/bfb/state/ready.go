@@ -62,7 +62,7 @@ func (st *bfbReadyState) Handle(ctx context.Context, client client.Client, optio
 
 // check whether BFB file exist
 func checkingBFBFile(bfb provisioningv1.BFB) (bool, error) {
-	fullFileName := cutil.GenerateBFBFilePath(bfb.Spec.FileName)
+	fullFileName := cutil.GenerateBFBFilePath(bfb.Status.FileName)
 	if _, err := os.Stat(fullFileName); err != nil {
 		return false, err
 	}

@@ -37,6 +37,11 @@ func (st *bfbInitializingState) Handle(ctx context.Context, client client.Client
 		return *state, nil
 	}
 
+	if st.bfb.Spec.FileName != nil {
+		state.FileName = *st.bfb.Spec.FileName
+	} else {
+		state.FileName = util.DefaultBFBFilename(st.bfb)
+	}
 	state.Phase = provisioningv1.BFBDownloading
 	return *state, nil
 }

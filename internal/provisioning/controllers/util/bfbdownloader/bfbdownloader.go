@@ -53,10 +53,10 @@ func (r *RealBFBDownloader) CreateBFBDownloadJob(ctx context.Context, client cli
 		"%s --url=%s --file=%s --uid=%s --base-dir=%s --versions-output=%s",
 		cutil.BFBDownloaderScript,
 		bfb.Spec.URL,
-		bfb.Spec.FileName,
+		bfb.Status.FileName,
 		string(bfb.UID),
 		cutil.BFBBaseDirPath,
-		cutil.GenerateBFBVersionFilePath(bfb.Spec.FileName),
+		cutil.GenerateBFBVersionFilePath(bfb.Status.FileName),
 	)
 
 	job := &batchv1.Job{

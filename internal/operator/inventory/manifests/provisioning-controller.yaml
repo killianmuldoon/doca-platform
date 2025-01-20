@@ -54,11 +54,13 @@ spec:
             description: BFBSpec defines the content of the BFB
             properties:
               fileName:
-                description: |-
-                  Specifies the file name which is used to download the BFB on the volume or
-                  use "namespace-CRD name" in case it is omitted.
+                description: Specifies the file name where the BFB is downloaded on
+                  the volume.
                 pattern: ^[A-Za-z0-9\_\-\.]+\.bfb$
                 type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               url:
                 description: The url of the bfb image to download.
                 pattern: ^(http|https)://.+\.bfb$
@@ -74,6 +76,11 @@ spec:
               phase: Initializing
             description: BFBStatus defines the observed state of BFB
             properties:
+              fileName:
+                description: |-
+                  Filename is the name of the file where the BFB can be accessed on its volume.
+                  This is the same as `.spec.Filename` if set.
+                type: string
               phase:
                 default: Initializing
                 description: The current state of BFB.
@@ -1542,26 +1549,6 @@ metadata:
     dpu.nvidia.com/component: dpf-provisioning-controller-manager
   name: dpf-provisioning-mutating-webhook-configuration
 webhooks:
-- admissionReviewVersions:
-  - v1
-  clientConfig:
-    service:
-      name: dpf-provisioning-webhook-service
-      namespace: dpf-provisioning
-      path: /mutate-provisioning-dpu-nvidia-com-v1alpha1-bfb
-  failurePolicy: Fail
-  name: mbfb.kb.io
-  rules:
-  - apiGroups:
-    - provisioning.dpu.nvidia.com
-    apiVersions:
-    - v1alpha1
-    operations:
-    - CREATE
-    - UPDATE
-    resources:
-    - bfbs
-  sideEffects: None
 - admissionReviewVersions:
   - v1
   clientConfig:

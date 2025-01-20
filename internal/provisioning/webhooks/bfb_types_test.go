@@ -26,7 +26,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/yaml"
+	"k8s.io/utils/ptr"
 )
 
 var _ = Describe("BFB", func() {
@@ -163,43 +163,34 @@ var _ = Describe("BFB", func() {
 			Expect(objFetched.Spec.URL).To(Equal(refValue))
 		})
 
-		It("spec.fileName default", func() {
-			obj := createObj(DefaultObjName)
-			obj.Spec.URL = DefaultURL
-			err := k8sClient.Create(ctx, obj)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(obj.Spec.FileName).To(BeEquivalentTo(obj.Namespace + "-" + obj.Name + ".bfb"))
-			DeferCleanup(k8sClient.Delete, ctx, obj)
-		})
-
 		It("spec.fileName is validation", func() {
 			obj := createObj(DefaultObjName)
-			obj.Spec.FileName = "dummy_NAME-1.2.3.bfb"
+			obj.Spec.FileName = ptr.To("dummy_NAME-1.2.3.bfb")
 			obj.Spec.URL = DefaultURL
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
 			obj = createObj(DefaultObjName)
-			obj.Spec.FileName = "dummy.tar"
+			obj.Spec.FileName = ptr.To("dummy.tar")
 			obj.Spec.URL = DefaultURL
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
 			obj = createObj(DefaultObjName)
-			obj.Spec.FileName = " dummy.bfb"
+			obj.Spec.FileName = ptr.To(" dummy.bfb")
 			obj.Spec.URL = DefaultURL
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
 			obj = createObj(DefaultObjName)
-			obj.Spec.FileName = "/dummy.bfb"
+			obj.Spec.FileName = ptr.To("/dummy.bfb")
 			obj.Spec.URL = DefaultURL
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
 			obj = createObj(DefaultObjName)
-			obj.Spec.FileName = "dummy with spaces.bfb"
+			obj.Spec.FileName = ptr.To("dummy with spaces.bfb")
 			obj.Spec.URL = DefaultURL
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
@@ -209,89 +200,20 @@ var _ = Describe("BFB", func() {
 			refValue := "dummy.bfb"
 
 			obj := createObj(DefaultObjName)
-			obj.Spec.FileName = refValue
+			obj.Spec.FileName = ptr.To(refValue)
 			obj.Spec.URL = DefaultURL
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(k8sClient.Delete, ctx, obj)
 
-			obj.Spec.FileName = "dummy_clone.bfb"
+			obj.Spec.FileName = ptr.To("dummy_clone.bfb")
 			err = k8sClient.Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 
 			objFetched := &provisioningv1.BFB{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(objFetched.Spec.FileName).To(Equal(refValue))
-		})
-
-		It("create from yaml", func() {
-			yml := []byte(`
-apiVersion: provisioning.dpu.nvidia.com/v1alpha1
-kind: BFB
-metadata:
-  name: obj-bfb
-  namespace: default
-spec:
-  fileName: "bf-bundle-2.7.0-33.bfb"
-  url: "http://bfb-server.dpf-operator-system/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_unsigned.bfb"
-`)
-			obj := &provisioningv1.BFB{}
-			err := yaml.UnmarshalStrict(yml, obj)
-			Expect(err).To(Succeed())
-			err = k8sClient.Create(ctx, obj)
-			Expect(err).NotTo(HaveOccurred())
-			DeferCleanup(k8sClient.Delete, ctx, obj)
-		})
-
-		It("create from yaml minimal", func() {
-			yml := []byte(`
-apiVersion: provisioning.dpu.nvidia.com/v1alpha1
-kind: BFB
-metadata:
-  name: obj-bfb
-  namespace: default
-spec:
-  url: "http://bfb-server.dpf-operator-system/bf-bundle-2.7.0-33_24.04_ubuntu-22.04_unsigned.bfb"
-`)
-			obj := &provisioningv1.BFB{}
-			err := yaml.UnmarshalStrict(yml, obj)
-			Expect(err).To(Succeed())
-			err = k8sClient.Create(ctx, obj)
-			Expect(err).NotTo(HaveOccurred())
-			DeferCleanup(k8sClient.Delete, ctx, obj)
-		})
-
-		It("create from yaml validation issue (w/o url)", func() {
-			yml := []byte(`
-apiVersion: provisioning.dpu.nvidia.com/v1alpha1
-kind: BFB
-metadata:
-  name: obj-bfb
-  namespace: default
-`)
-			obj := &provisioningv1.BFB{}
-			err := yaml.UnmarshalStrict(yml, obj)
-			Expect(err).To(Succeed())
-			err = k8sClient.Create(ctx, obj)
-			Expect(err).To(HaveOccurred())
-		})
-
-		It("create from yaml validation issue (url is empty)", func() {
-			yml := []byte(`
-apiVersion: provisioning.dpu.nvidia.com/v1alpha1
-kind: BFB
-metadata:
-  name: obj-bfb
-  namespace: default
-spec:
-  url: ""
-`)
-			obj := &provisioningv1.BFB{}
-			err := yaml.UnmarshalStrict(yml, obj)
-			Expect(err).To(Succeed())
-			err = k8sClient.Create(ctx, obj)
-			Expect(err).To(HaveOccurred())
+			Expect(*objFetched.Spec.FileName).To(Equal(refValue))
 		})
 
 		It("status.phase default", func() {

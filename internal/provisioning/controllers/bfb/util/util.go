@@ -17,14 +17,23 @@ limitations under the License.
 package util
 
 import (
+	"fmt"
 	"time"
+
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 )
+
+const BFBFileNameExtension = ".bfb"
 
 type BFBOptions struct {
 	BFBDownloaderImageWithTag string
 	ImagePullSecrets          []corev1.LocalObjectReference
 	BFBPVC                    string
 	BFBDownloaderPodTimeout   time.Duration
+}
+
+func DefaultBFBFilename(bfb *provisioningv1.BFB) string {
+	return fmt.Sprintf("%s-%s%s", bfb.Namespace, bfb.Name, BFBFileNameExtension)
 }
