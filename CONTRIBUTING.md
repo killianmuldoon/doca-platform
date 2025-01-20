@@ -1,15 +1,22 @@
 # Contribution guide
-This project is in an early development phase and has a lightweight contribution process.
 
-## Merging changes
-One approval from another reviewer and a positive CI signal is required to merge changes. Changes should be merged by the author.
+This guide is intended for anyone working with the DPF code base, whether contributing
+new code or documentation, or reviewing contributions. The purpose of this guide
+is to assist new contributors in finding the information they need to get started.
+It also aims to ensure the ongoing improvement of the code base by outlining expectations
+for code quality, testing, and documentation.
 
-## Reviews
-Reviews should be lightweight to not slow down contributions.
+# Understanding the project
 
-Reviews should focus on:
-- Structure - Does the code meet the structure defined for the repo?
-- Suitable testing  - Is the happy path covered in unit and integration tests?
+A couple of resources exist to understand the [architecture](./docs/architecture) of DPF and an introductory demo is available.
+
+The [API](./api) folder contains all the custom resources definitions.
+
+You will find corresponding documentation on how to use each CR under [guides](./docs/guides).
+
+## Understanding the code
+
+We use [controller-runtime](https://pkg.go.dev/sigs.k8s.io/controller-runtime) to develop our controllers.
 
 ## Repository Structure
 
@@ -93,32 +100,25 @@ The below is a representation of how multiple components are structured in the r
 │                 ├── dpuservice_controller.go
 ```
 
-## Developer Certificate of Origin
+# Documentation
 
-All contributions comply with the [Developer Certificate of Origin](https://developercertificate.org/):
-  ```
-    Developer Certificate of Origin
-    Version 1.1
-    
-    Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
-    1 Letterman Drive
-    Suite D4700
-    San Francisco, CA, 94129
-    
-    Everyone is permitted to copy and distribute verbatim copies of this license document, but changing it is not allowed.
+If a contribution alters how users interact with, build, or test our product, the
+documentation must be updated accordingly. API-related changes should include corresponding
+updates in the [guide](./docs/guides/) directory. Specific use cases that involve
+multiple changes and require extensive technical writing are beyond the scope of
+this guide and should be addressed in its own separate change.
 
-    Developer's Certificate of Origin 1.1
-    
-    By making a contribution to this project, I certify that:
-    
-    (a) The contribution was created in whole or in part by me and I have the right to submit it under the open source license indicated in the file; or
-    
-    (b) The contribution is based upon previous work that, to the best of my knowledge, is covered under an appropriate open source license and I have the right under that license to submit that work with modifications, whether created in whole or in part by me, under the same open source license (unless I am permitted to submit under a different license), as indicated in the file; or
-    
-    (c) The contribution was provided directly to me by some other person who certified (a), (b) or (c) and I have not modified it.
-    
-    (d) I understand and agree that this project and the contribution are public and that a record of the contribution (including all personal information I submit with it, including my sign-off) is maintained indefinitely and may be redistributed consistent with this project or the open source license(s) involved.
-  ```
+# Style
+
+We use Golang as our primary language. The Go team has compiled a set of comments
+from code reviews and made them available. All code must adhere to the
+[Go Code Review Comments](https://go.dev/wiki/CodeReviewComments) guidelines.
+
+The [kubernetes api-conventions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md)
+are a good practice to adopt.
+
+There is also the [conditions](https://docs.google.com/document/d/1xD-dILlCL6NIRwfx86bSlmt9OD-M6--cFxPCAiWCWZA/edit?tab=t.0#heading=h.6h9i92rt5dee)
+doc that list our convention in regards to `status` conditions.
 
 ## Log Convention
 
@@ -129,3 +129,81 @@ All contributions comply with the [Developer Certificate of Origin](https://deve
 - `klog.V(4).InfoS` - Debug level verbosity
 
 xref: https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md#what-method-to-use
+
+# Tests
+
+We expect contributors to thoroughly test their contributions to ensure they work
+correctly before reaching the code review stage. New contributions should include tests,
+as this helps improve the robustness and overall health of the code base by checking
+for correct behavior and preventing regressions. Tests can be either unit tests or
+end-to-end tests, depending on the specific case.
+
+
+# Developer Certificate of Origin
+
+By contributing to this project you agree to the Developer Certificate of Origin (DCO).
+This document was created by the Linux Kernel community and is a simple statement that you,
+as a contributor, have the legal right to make the contribution.
+
+All contributions comply with the [Developer Certificate of Origin](./DCO)
+
+
+# Run and Release DPF
+
+Prerequisites:
+- go >= 1.22
+- kubectl >= 1.29
+- kustomize >= 5.4
+- coreutils (on Mac OS)
+- docker buildx
+- ginkgo (optional)
+
+## Run the test suite
+
+You can run the unit tests with:
+
+```shell
+make test
+```
+
+Add specific test arguments:
+
+```shell
+GO_TEST_ARGS="-race" make test
+```
+
+We use `ginkgo`  in our controllers. To run a specific test:
+
+``` shell
+ginkgo -v --focus "should update the existing disruptive DPUService on update of the DPUServiceCo
+nfiguration" internal/dpuservice/controllers/
+```
+
+A specific [guide](./docs/dev/minikube-local-dev.md) exists to run tests with `minikube`.
+
+## Release DPF
+
+In order to release the whole project for a specific architecture:
+
+```shell
+ARCH=amd64 REGISTRY=harbor.mellanox.com/<repo_namespace> TAG=v0.0.0-<xxx> make release
+```
+
+# Review Process
+
+One approval from another reviewer and a positive CI signal is required to merge changes.
+For substantial changes, or if a maintainer feels unqualified to review a specific part,
+additional reviewers will be requested. This may involve more people in the review process,
+and you might be asked to resubmit the pull request (PR) or divide the changes into multiple PRs.
+
+The reviewer will evaluate the PR based on the following criteria:
+- Is the functionality useful?
+- Does the code perform as intended?
+- Is the user experience satisfactory?
+- Are tests included, correct, sensible, and useful?
+- Is the documentation updated accordingly?
+
+# Format of the Commit Message
+
+We use the [conventional commit standard](https://www.conventionalcommits.org/en/v1.0.0/).
+For more helpful advice on documenting your work, refer to the [following article](https://chris.beams.io/posts/git-commit/#seven-rules).
