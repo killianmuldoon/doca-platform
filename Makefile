@@ -226,7 +226,7 @@ generate-modules: ## Run go mod tidy to update go modules
 generate-manifests: $(addprefix generate-manifests-,$(GENERATE_TARGETS)) ## Run all generate-manifests-* targets
 
 .PHONY: generate-manifests-operator
-generate-manifests-operator: controller-gen kustomize envsubst helm ## Generate manifests e.g. CRD, RBAC. for the operator controller.
+generate-manifests-operator: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the operator controller.
 	$(MAKE) clean-generated-yaml SRC_DIRS="./deploy/helm/dpf-operator/templates/crds/"
 	$(CONTROLLER_GEN) \
 	paths="./cmd/operator/..." \
@@ -241,8 +241,6 @@ generate-manifests-operator: controller-gen kustomize envsubst helm ## Generate 
 	output:rbac:dir=./deploy/helm/dpf-operator/templates
 	## Copy all other CRD definitions to the operator helm directory
 	$(KUSTOMIZE) build config/operator-additional-crds -o  deploy/helm/dpf-operator/templates/crds/;
-	## Set the image name and tag in the operator helm chart values
-	$(ENVSUBST) < deploy/helm/dpf-operator/values.yaml.tmpl > deploy/helm/dpf-operator/values.yaml
 
 .PHONY: generate-manifests-dpuservice
 generate-manifests-dpuservice: controller-gen ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
@@ -1153,7 +1151,11 @@ helm-package-dpu-networking: $(CHARTSDIR) helm ## Package helm chart for service
 
 OPERATOR_CHART_TAGS ?=$(TAG)
 .PHONY: helm-package-operator
-helm-package-operator: $(CHARTSDIR) helm ## Package helm chart for DPF Operator
+helm-package-operator: $(CHARTSDIR) helm yq ## Package helm chart for DPF Operator
+	## Set the default images used in the chart.
+	$(YQ) e -i '.controllerManager.image.repository = env(DPF_SYSTEM_IMAGE)'  deploy/helm/dpf-operator/values.yaml
+	$(YQ) e -i '.controllerManager.image.tag = env(TAG)'  deploy/helm/dpf-operator/values.yaml
+
 	## Update the helm dependencies for the chart.
 	$(HELM) repo add argo https://argoproj.github.io/argo-helm
 	$(HELM) repo add nfd https://kubernetes-sigs.github.io/node-feature-discovery/charts

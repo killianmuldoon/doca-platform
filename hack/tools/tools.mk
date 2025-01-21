@@ -41,6 +41,8 @@ PROTOC_GEN_GO_GRPC_VER ?= 1.5.1
 BUF_VERSION ?= 1.47.2
 PROTOC_VER ?= 28.3
 CONFORM_VERSION ?= v0.1.0-alpha.30
+YQ_VERSION ?= v4.45.1
+
 
 ## Tool Binaries
 KUBECTL ?= kubectl
@@ -63,8 +65,14 @@ PROTOC_GEN_GO ?= $(TOOLSDIR)/protoc-gen-go
 PROTOC_GEN_GO_GRPC ?= $(TOOLSDIR)/protoc-gen-go-grpc
 BUF ?= $(TOOLSDIR)/buf
 CONFORM ?= $(TOOLSDIR)/conform-$(CONFORM_VERSION)
+YQ ?= $(TOOLSDIR)/yq-$(YQ_VERSION)
 
 ##@ Tools
+
+.PHONY: yq
+yq: $(YQ) ## Download conform locally if necessary.
+$(YQ): | $(TOOLSDIR)
+	$(call go-install-tool,$(YQ),github.com/mikefarah/yq/v4,$(YQ_VERSION))
 
 .PHONY: conform
 conform: $(CONFORM) ## Download conform locally if necessary.

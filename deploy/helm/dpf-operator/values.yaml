@@ -4,7 +4,7 @@ controllerManager:
     allowPrivilegeEscalation: false
     capabilities:
       drop:
-      - ALL
+        - ALL
   image:
     repository: example.com/dpf-system
     tag: v0.1.0
@@ -29,7 +29,6 @@ tolerations:
   - key: node-role.kubernetes.io/control-plane
     operator: Exists
     effect: NoSchedule
-
 ## installed dependencies except for kamaji.
 argo-cd:
   enabled: true
@@ -57,7 +56,6 @@ argo-cd:
       - key: node-role.kubernetes.io/control-plane
         operator: Exists
         effect: NoSchedule
-
 ## NFD configuration
 node-feature-discovery:
   enabled: true
@@ -105,7 +103,6 @@ node-feature-discovery:
       - key: node-role.kubernetes.io/control-plane
         operator: Exists
         effect: NoSchedule
-
 ## kamaji configuration.
 kamaji-etcd:
   enabled: true
@@ -162,12 +159,11 @@ kamaji:
   cfssl:
     image:
       tag: v1.6.5
-
 ## prometheus configuration.
 prometheus:
   enabled: false
-## Unfortunately, there is no affinity and tolerations value in the prometheus helm chart.
-## This is only necessary for dev purposes anyway. We should not run this stack on our control planes.
+  ## Unfortunately, there is no affinity and tolerations value in the prometheus helm chart.
+  ## This is only necessary for dev purposes anyway. We should not run this stack on our control planes.
   alertmanager:
     enabled: false
   prometheus-node-exporter:
@@ -200,7 +196,6 @@ prometheus:
         - source_labels: [__meta_kubernetes_pod_container_port_name]
           action: keep
           regex: metrics
-
 ## grafana configuration
 grafana:
   enabled: false
@@ -216,29 +211,28 @@ grafana:
           access: proxy
           isDefault: true
   dashboardProviders:
-   dashboardproviders.yaml:
-     apiVersion: 1
-     providers:
-       - name: 'default'
-         orgId: 1
-         folder: ''
-         type: file
-         disableDeletion: false
-         editable: true
-         options:
-           path: /var/lib/grafana/dashboards/default
-       - name: 'debug'
-         orgId: 1
-         folder: 'debug'
-         type: file
-         disableDeletion: false
-         editable: true
-         options:
-           path: /var/lib/grafana/dashboards/debug
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/default
+        - name: 'debug'
+          orgId: 1
+          folder: 'debug'
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards/debug
   dashboardsConfigMaps:
     default: dpf-operator-grafana-dashboards
     debug: dpf-operator-grafana-debug-dashboards
-
 ## kube-state-metrics configuration
 kube-state-metrics:
   enabled: false
@@ -302,7 +296,6 @@ kube-state-metrics:
       - apiGroups: ["apiextensions.k8s.io"]
         resources: ["customresourcedefinitions"]
         verbs: ["list", "watch"]
-
 ## maintenance-operator chart configuration
 maintenance-operator-chart:
   enabled: true
