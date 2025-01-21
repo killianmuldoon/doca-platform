@@ -52,7 +52,10 @@ const (
 	DMSClientSecret string = "dpf-provisioning-client-secret"
 )
 
-func Address(ip string) string {
+func Address(ip string, dpu *provisioningv1.DPU) string {
+	if portOverride, ok := dpu.Annotations[cutil.OverrideDMSPortAnnotationKey]; ok {
+		return portOverride
+	}
 	return fmt.Sprintf("%s:%d", ip, dmsServerPort)
 }
 
@@ -97,7 +100,7 @@ func createServerCertificate(ctx context.Context, client client.Client, name str
 
 func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1.DPU, option dutil.DPUOptions) error {
 	logger := log.FromContext(ctx)
-	dmsPodName := cutil.GenerateDMSPodName(dpu.Name)
+	dmsPodName := cutil.GenerateDMSPodName(dpu)
 
 	owner := metav1.NewControllerRef(dpu,
 		provisioningv1.GroupVersion.WithKind("DPU"))

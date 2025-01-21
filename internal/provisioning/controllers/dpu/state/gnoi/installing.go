@@ -135,7 +135,7 @@ func updateState(state *provisioningv1.DPUStatus, phase provisioningv1.DPUPhase,
 func createGRPCConnection(ctx context.Context, client client.Client, dpu *provisioningv1.DPU) (*grpc.ClientConn, error) {
 	nn := types.NamespacedName{
 		Namespace: dpu.Namespace,
-		Name:      cutil.GenerateDMSPodName(dpu.Name),
+		Name:      cutil.GenerateDMSPodName(dpu),
 	}
 	pod := &corev1.Pod{}
 	if err := client.Get(ctx, nn, pod); err != nil {
@@ -189,7 +189,7 @@ func createGRPCConnection(ctx context.Context, client client.Client, dpu *provis
 		RootCAs:      certPool,
 	}
 
-	serverAddress := dms.Address(pod.Status.PodIP)
+	serverAddress := dms.Address(pod.Status.PodIP, dpu)
 
 	// Create a gRPC connection using grpc.NewClient
 	conn, err := grpc.NewClient(serverAddress, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
@@ -287,7 +287,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		}
 
 		bfbPathInDms := dms.DMSImageFolder + string(filepath.Separator) + bfb.Status.FileName
-		if md5, _, err := computeBFBMD5InDms(dpu.Namespace, cutil.GenerateDMSPodName(dpu.Name), "", bfbPathInDms); err == nil {
+		if md5, _, err := computeBFBMD5InDms(dpu.Namespace, cutil.GenerateDMSPodName(dpu), "", bfbPathInDms); err == nil {
 			logger.V(3).Info(fmt.Sprintf("md5sum of %s in DMS is %s", bfb.Status.FileName, md5))
 		} else {
 			logger.Error(err, "Failed to get md5sum from dms", "md5", dpu)

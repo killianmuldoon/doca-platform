@@ -45,7 +45,7 @@ func DeployDMS(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 		state.Phase = provisioningv1.DPUDeleting
 		return *state, nil
 	}
-	dmsPodName := cutil.GenerateDMSPodName(dpu.Name)
+	dmsPodName := cutil.GenerateDMSPodName(dpu)
 
 	nn := types.NamespacedName{
 		Namespace: dpu.Namespace,
@@ -89,7 +89,7 @@ func DeployDMS(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 
 	case corev1.PodRunning:
 		// a simple probe to check if the DMS server is ready
-		addr := dms.Address(pod.Status.PodIP)
+		addr := dms.Address(pod.Status.PodIP, dpu)
 		conn, err := net.DialTimeout("tcp", addr, 5*time.Second)
 		if err != nil {
 			logger.V(3).Info(fmt.Sprintf("the DMS server %s (%s) is not ready yet, err: %v", addr, dmsPodName, err))

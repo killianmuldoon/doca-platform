@@ -77,6 +77,10 @@ const (
 	// ProvisioningGroupName is the provisioning group, used to identify provisioning as
 	// additional Requestors in NodeMaintenance CR.
 	ProvisioningGroupName = "provisioning.dpu.nvidia.com"
+
+	// OverrideDMSPodNameAnnotationKey overrides the namespace and name of the pod used as DMS.
+	OverrideDMSPodNameAnnotationKey = "provisioning.dpu.nvidia.com/override-dms-pod-name"
+	OverrideDMSPortAnnotationKey    = "provisioning.dpu.nvidia.com/override-dms-port"
 )
 
 var (
@@ -121,8 +125,11 @@ func GenerateBFBVersionFromURL(bfbURL string) string {
 	return version
 }
 
-func GenerateDMSPodName(dpuName string) string {
-	return fmt.Sprintf("%s-%s", dpuName, "dms")
+func GenerateDMSPodName(dpu *provisioningv1.DPU) string {
+	if name, ok := dpu.Annotations[OverrideDMSPodNameAnnotationKey]; ok {
+		return name
+	}
+	return fmt.Sprintf("%s-%s", dpu.Name, "dms")
 }
 
 func GenerateCACertName(dpuNamespace string) string {

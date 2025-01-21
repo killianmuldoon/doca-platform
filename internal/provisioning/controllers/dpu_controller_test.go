@@ -1224,7 +1224,7 @@ var _ = Describe("DMS Pod", func() {
 
 			Expect(k8sClient.Get(ctx, client.ObjectKey{
 				Namespace: objDPU.Namespace,
-				Name:      cutil.GenerateDMSPodName(objDPU.Name)},
+				Name:      cutil.GenerateDMSPodName(objDPU)},
 				objFetched)).To(Succeed())
 			Expect(objFetched.OwnerReferences[0].Kind).Should(Equal("DPU"))
 			Expect(objFetched.OwnerReferences[0].Name).Should(Equal(objDPU.Name))

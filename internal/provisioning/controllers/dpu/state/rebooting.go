@@ -65,7 +65,7 @@ func Rebooting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 
 	duration := int(metav1.Now().Sub(cond.LastTransitionTime.Time).Seconds())
 	// If we can not get uptime, the host should be rebooting
-	uptime, err := HostUptime(dpu.Namespace, cutil.GenerateDMSPodName(dpu.Name), "")
+	uptime, err := HostUptime(dpu.Namespace, cutil.GenerateDMSPodName(dpu), "")
 	if err != nil {
 		return *state, err
 	}
@@ -96,7 +96,7 @@ func Rebooting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 			return *state, nil
 		} else if rebootType == reboot.PowerCycle {
 			logger.Info(fmt.Sprintf("powercycle with command %q", cmd))
-			if _, _, err := cutil.RemoteExec(dpu.Namespace, cutil.GenerateDMSPodName(dpu.Name), "", cmd); err != nil {
+			if _, _, err := cutil.RemoteExec(dpu.Namespace, cutil.GenerateDMSPodName(dpu), "", cmd); err != nil {
 				// TODO: broadcast an event
 				return *state, err
 			}
@@ -144,7 +144,7 @@ func rebootHandler(ctx context.Context, dpu *provisioningv1.DPU, pciAddress stri
 	dmsTask := future.New(func() (any, error) {
 		// Shutdown ARM
 		logger.V(3).Info(fmt.Sprintf("Bluefield System-Level-Reset ARM shutdown command: %s for dpu: %s", bfSLRShutdownARM, dpu.Name))
-		if out, errMsg, err := cutil.RemoteExec(dpu.Namespace, cutil.GenerateDMSPodName(dpu.Name), "", bfSLRShutdownARM); err != nil {
+		if out, errMsg, err := cutil.RemoteExec(dpu.Namespace, cutil.GenerateDMSPodName(dpu), "", bfSLRShutdownARM); err != nil {
 			logger.Error(err, fmt.Sprintf("DPU %s failed to shutdown ARM: %v, output: %s", dpu.Name, err, out))
 			return future.Ready, fmt.Errorf("DPU %s reboot failed: %v, output: %s", dpu.Name, err, errMsg)
 		} else {
@@ -153,7 +153,7 @@ func rebootHandler(ctx context.Context, dpu *provisioningv1.DPU, pciAddress stri
 
 		// Reboot Host
 		logger.V(3).Info(fmt.Sprintf("Bluefield System-Level-Reset reboot host command: %s for dpu: %s", bfSLRSRebootHost, dpu.Name))
-		if out, _, err := cutil.RemoteExec(dpu.Namespace, cutil.GenerateDMSPodName(dpu.Name), "", bfSLRSRebootHost); err != nil {
+		if out, _, err := cutil.RemoteExec(dpu.Namespace, cutil.GenerateDMSPodName(dpu), "", bfSLRSRebootHost); err != nil {
 			logger.Error(err, fmt.Sprintf("Failed to reboot host: %v, output: %s", err, out))
 			return future.Ready, err
 		}

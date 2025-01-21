@@ -102,7 +102,7 @@ func Ready(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Controll
 func healthyCheck(ctx context.Context, dpu *provisioningv1.DPU, client client.Client, option dutil.DPUOptions) error {
 	nn := types.NamespacedName{
 		Namespace: dpu.Namespace,
-		Name:      cutil.GenerateDMSPodName(dpu.Name),
+		Name:      cutil.GenerateDMSPodName(dpu),
 	}
 	dmsPod := &corev1.Pod{}
 	if err := client.Get(ctx, nn, dmsPod); err != nil {
