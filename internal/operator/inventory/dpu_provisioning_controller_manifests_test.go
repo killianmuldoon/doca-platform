@@ -275,7 +275,7 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		}
 	})
 
-	// This test is customized for the current Provisioning manifest, internal/operator/inventory/manifests/provisioningctrl.yaml.
+	// This test is customized for the current Provisioning manifest, internal/operator/inventory/manifests/provisioning-controller.yaml.
 	// These tests should be reviewed every time the manifest is updated
 	t.Run("test field modification", func(t *testing.T) {
 		ns := "namespace-one"
@@ -294,10 +294,9 @@ func TestProvisioningControllerObjects_GenerateManifests(t *testing.T) {
 		generatedObjs, err := provCtrl.GenerateManifests(vars, skipApplySetCreationOption{})
 		g.Expect(err).NotTo(HaveOccurred())
 
-		// Expect the CRD and Namespace to have been removed. There are 5 CRDs and 1 Namespace in the manifest file.
-		g.Expect(generatedObjs).To(HaveLen(len(originalObjs) - 6))
+		g.Expect(generatedObjs).To(HaveLen(len(originalObjs)))
 
-		// Expect the namespaces for all of the namespace scoped objects to equal the namespace in variables.
+		// Expect the namespaces for the namespace scoped objects to equal the namespace in variables.
 		for _, obj := range generatedObjs {
 			if !isClusterScoped(obj.GetObjectKind().GroupVersionKind().Kind) {
 				g.Expect(obj.GetNamespace()).To(Equal(ns), obj.GetObjectKind().GroupVersionKind().String())

@@ -67,21 +67,22 @@ func (p *provisioningControllerObjects) Parse() (err error) {
 
 	deploymentFound := false
 	for _, obj := range objs {
-		// Exclude Namespace and CustomResourceDefinition as the operator should not deploy these resources.
-		if obj.GetKind() == string(NamespaceKind) || obj.GetKind() == string(CustomResourceDefinitionKind) {
-			continue
-		}
+		switch ObjectKind(obj.GetKind()) {
+		// Namespace and CustomResourceDefinition can not be part of the manifests.
+		case NamespaceKind, CustomResourceDefinitionKind:
+			return fmt.Errorf("can not parse manifest %s: %s not allowed ", obj.GetName(), obj.GetKind())
 		// If the object is the dpf-provisioning-controller-manager Deployment validate it
-		if obj.GetKind() == string(DeploymentKind) && obj.GetName() == dpfProvisioningControllerName {
-			deploymentFound = true
-			err = p.validateDeployment(obj)
-			if err != nil {
-				return err
+		case DeploymentKind:
+			if obj.GetName() == dpfProvisioningControllerName {
+				deploymentFound = true
+				err = p.validateDeployment(obj)
+				if err != nil {
+					return err
+				}
 			}
 		}
 		p.objects = append(p.objects, obj)
 	}
-
 	if !deploymentFound {
 		return fmt.Errorf("error while converting Provisioning Controller manifests to objects: Deployment not found")
 	}

@@ -16,7 +16,6 @@ labels:
       app.kubernetes.io/part-of: dpf-provisioning-controller-manager
 
 resources:
-- ../crd
 - ../webhook
 - ../rbac
 - ../manager

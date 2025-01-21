@@ -56,11 +56,9 @@ func (d *dpuServiceControllerObjects) Parse() error {
 
 	for i, obj := range objects {
 		switch ObjectKind(obj.GetKind()) {
-		// Namespace and CustomResourceDefinition are dropped as they are handled elsewhere.
-		case NamespaceKind:
-			continue
-		case CustomResourceDefinitionKind:
-			continue
+		// Namespace and CustomResourceDefinition can not be part of the manifests.
+		case NamespaceKind, CustomResourceDefinitionKind:
+			return fmt.Errorf("can not parse manifest %s: %s not allowed ", obj.GetName(), obj.GetKind())
 		}
 		d.objects = append(d.objects, objects[i])
 	}

@@ -59,7 +59,6 @@ labels:
       app.kubernetes.io/part-of: dpuservice-controller-manager
 
 resources:
-- ../crd
 - ../webhook
 - ../rbac
 - ../manager
