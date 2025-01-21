@@ -159,6 +159,23 @@ spec:
               phase: Initializing
             description: DPUStatus defines the observed state of DPU
             properties:
+              addresses:
+                description: The DPU node's IP addresses
+                items:
+                  description: NodeAddress contains information for the node's address.
+                  properties:
+                    address:
+                      description: The node address.
+                      type: string
+                    type:
+                      description: Node address type, one of Hostname, ExternalIP
+                        or InternalIP.
+                      type: string
+                  required:
+                  - address
+                  - type
+                  type: object
+                type: array
               bfbVersion:
                 description: bfb version of this DPU
                 type: string

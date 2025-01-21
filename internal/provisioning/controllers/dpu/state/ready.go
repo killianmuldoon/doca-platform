@@ -19,6 +19,7 @@ package state
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
@@ -74,6 +75,11 @@ func Ready(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Controll
 	if err := newClient.Get(ctx, types.NamespacedName{Namespace: tenantNamespace, Name: dpu.Name}, node); err != nil {
 		updateFalseDPUCondReady(state, "DPUNodeGetError", err.Error())
 		return *state, err
+	}
+
+	if !reflect.DeepEqual(state.Addresses, node.Status.Addresses) {
+		state.Addresses = make([]corev1.NodeAddress, len(node.Status.Addresses))
+		copy(state.Addresses, node.Status.Addresses)
 	}
 
 	if !cutil.IsNodeReady(node) {

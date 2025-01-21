@@ -1312,6 +1312,7 @@ _Appears in:_
 | `pciDevice` _string_ | pci device information of this DPU |  |  |
 | `requiredReset` _boolean_ | whether require reset of DPU |  |  |
 | `firmware` _[Firmware](#firmware)_ | the firmware information of DPU |  |  |
+| `addresses` _[NodeAddress](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#nodeaddress-v1-core) array_ | The DPU node's IP addresses |  |  |
 
 
 #### DPUTemplate

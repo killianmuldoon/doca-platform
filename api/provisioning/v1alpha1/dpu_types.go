@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -163,6 +164,10 @@ type DPUStatus struct {
 	// the firmware information of DPU
 	// +optional
 	Firmware Firmware `json:"firmware,omitempty"`
+
+	// The DPU node's IP addresses
+	// +optional
+	Addresses []corev1.NodeAddress `json:"addresses,omitempty"`
 }
 
 type Firmware struct {
