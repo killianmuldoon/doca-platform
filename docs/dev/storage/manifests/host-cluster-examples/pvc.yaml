@@ -1,8 +1,10 @@
+---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  generateName: myclaim
+  name: myclaim
 spec:
+  storageClassName: snap
   accessModes:
     - ReadWriteOnce
   volumeMode: Block

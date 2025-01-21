@@ -32,6 +32,8 @@ spec:
           image: "{{ .Values.controller.image.repository }}:{{ .Values.controller.image.tag | default .Chart.AppVersion }}"
           command:
           - /manager
+          args:
+           - --config-namespace={{ .Values.controller.config.configNamespace | default .Release.Namespace }}
           env:
           - name: KUBERNETES_SERVICE_HOST
             valueFrom:

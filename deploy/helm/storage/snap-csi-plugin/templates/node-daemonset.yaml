@@ -12,6 +12,10 @@ metadata:
       {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
+  {{- with .Values.serviceDaemonSet.updateStrategy }}
+  updateStrategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "snap-csi-plugin.selectorLabels" . | nindent 6 }}
@@ -27,10 +31,6 @@ spec:
           {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.serviceDaemonSet.updateStrategy }}
-      updateStrategy:
-        {{- toYaml . | nindent 4 }}
-      {{- end }}
       {{- with .Values.node.imagePullSecrets | default .Values.imagePullSecrets | default list }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

@@ -12,9 +12,10 @@ A Helm chart for SNAP controller
 | controller.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator | string | `"Exists"` |  |
 | controller.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].key | string | `"node-role.kubernetes.io/control-plane"` |  |
 | controller.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].operator | string | `"Exists"` |  |
+| controller.config.configNamespace | string | `"nvidia-storage"` |  |
 | controller.config.dpuClusterSecret | string | `""` |  |
 | controller.image.repository | string | `"example.com/snap-controller"` |  |
-| controller.image.tag | string | `""` |  |
+| controller.image.tag | string | `"v0.1.0"` |  |
 | controller.nodeSelector | object | `{}` |  |
 | controller.podAnnotations | object | `{}` |  |
 | controller.podLabels | object | `{}` |  |

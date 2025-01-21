@@ -83,9 +83,9 @@ snapNodeDriver:
   labels: {}
   annotations: {}
   image:
-    repository: example.com/snap-node-driver
+    repository: ${STORAGE_SNAP_NODE_DRIVER_IMAGE}
     # if not set the .Chart.AppVersion is used
-    tag: v0.1.0
+    tag: ${TAG}
   pullPolicy: IfNotPresent
   imagePullSecrets: []
   resources:
@@ -110,9 +110,9 @@ storagePlugin:
   labels: {}
   annotations: {}
   image:
-    repository: example.com/storage-vendor-dpu-plugin
+    repository: ${STORAGE_VENDOR_DPU_PLUGIN_IMAGE}
     # if not set the .Chart.AppVersion is used
-    tag: v0.1.0
+    tag: ${TAG}
   pullPolicy: IfNotPresent
   imagePullSecrets: []
   resources:

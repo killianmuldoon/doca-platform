@@ -45,7 +45,7 @@ A Helm chart for SNAP CSI plugin
 | controller.tolerations[1].key | string | `"node-role.kubernetes.io/master"` |  |
 | controller.tolerations[1].operator | string | `"Exists"` |  |
 | image.repository | string | `"example.com/snap-csi-plugin"` |  |
-| image.tag | string | `""` |  |
+| image.tag | string | `"v0.1.0"` |  |
 | imagePullSecrets | list | `[]` |  |
 | node.config.snapControllerDeviceId | string | `"6001"` |  |
 | node.imagePullSecrets | list | `[]` |  |

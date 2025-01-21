@@ -1,0 +1,61 @@
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUService
+metadata:
+  name: snap-dpu
+  namespace: dpf-operator-system
+spec:
+  serviceID: snap-dpu
+  interfaces:
+    - snap-sf
+  helmChart:
+    source:
+      repoURL: oci://$DPF_REGISTRY
+      version: $DPF_VERSION
+      chart: snap-dpu-chart
+    values:
+      imagePullSecrets: $DPF_IMAGE_PULL_SECRET
+      docaSnap:
+        hostNetwork: false
+        resources:
+          requests:
+            memory: "2Gi"
+            hugepages-2Mi: "4Gi"
+            cpu: "8"
+            nvidia.com/bf_sf: 1
+          limits:
+            memory: "4Gi"
+            hugepages-2Mi: "4Gi"
+            cpu: "16"
+            nvidia.com/bf_sf: 1
+        image:
+          repository: nvcr.io/nvstaging/doca/doca_snap
+          tag: 4.6.0-doca2.10.0
+        imagePullSecrets:
+          - name: dpf-pull-secret
+        env:
+          SNAP_RPC_INIT_CONF: "/etc/nvda_snap/snap_rpc_init.conf"
+      snapNodeDriver:
+        image:
+          repository: $DPF_REGISTRY/snap-node-driver
+          tag: $DPF_VERSION
+      storagePlugin:
+        image:
+          repository: $DPF_REGISTRY/storage-vendor-dpu-plugin
+          tag: $DPF_VERSION
+      # RBAC roles for clients from host cluster
+      # serviceAccount names must be aligned with the serviceAccount names from DPUServiceCredentialRequest
+      rbacRoles:
+        snapCsiPlugin:
+          serviceAccount: snap-csi-plugin-sa
+        snapController:
+          serviceAccount: snap-controller-sa
+      configuration:
+        storageVendors:
+          - name: nvidia
+            storageClassName: spdkcsi-sc
+            pluginName: nvidia
+        storagePolicies:
+          - name: policy1
+            storageVendors: ["nvidia"]
+            storageSelectionAlg: "Random"

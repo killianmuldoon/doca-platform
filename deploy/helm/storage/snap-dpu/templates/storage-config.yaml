@@ -1,0 +1,23 @@
+{{- range .Values.configuration.storageVendors }}
+---
+apiVersion: storage.dpu.nvidia.com/v1alpha1
+kind: StorageVendor
+metadata:
+  name: "{{ .name }}"
+  namespace: "{{ .namespace | default $.Release.Namespace }}"
+spec:
+  storageClassName: "{{ .storageClassName }}"
+  pluginName: "{{ .pluginName }}"
+{{- end }}
+
+{{- range .Values.configuration.storagePolicies }}
+---
+apiVersion: storage.dpu.nvidia.com/v1alpha1
+kind: StoragePolicy
+metadata:
+  name: "{{ .name }}"
+  namespace: "{{ .namespace | default $.Release.Namespace }}"
+spec:
+  storageVendors: {{ .storageVendors | default list | toJson }}
+  storageSelectionAlg: "{{ .storageSelectionAlg }}"
+{{- end }}

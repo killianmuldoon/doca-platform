@@ -277,7 +277,11 @@ generate-manifests-storage-snap: controller-gen kustomize ## Generate CRDs for S
 	$(CONTROLLER_GEN) \
 	paths="./api/storage/..." \
 	crd:crdVersions=v1,generateEmbeddedObjectMeta=true \
-	output:crd:dir=./config/snap/crd \
+	output:crd:dir=./config/snap/crd
+	## Set the image names and tags for storage-related charts
+	$(ENVSUBST) < deploy/helm/storage/snap-controller/values.yaml.tmpl > deploy/helm/storage/snap-controller/values.yaml
+	$(ENVSUBST) < deploy/helm/storage/snap-csi-plugin/values.yaml.tmpl > deploy/helm/storage/snap-csi-plugin/values.yaml
+	$(ENVSUBST) < deploy/helm/storage/snap-dpu/values.yaml.tmpl > deploy/helm/storage/snap-dpu/values.yaml
 
 .PHONY: generate-manifests-ovn-kubernetes-resource-injector
 generate-manifests-ovn-kubernetes-resource-injector: envsubst ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes Resource Injector
@@ -1174,11 +1178,11 @@ helm-package-dummydpuservice: $(DPUSERVICESDIR) helm generate-manifests-dummydpu
 	$(HELM) package $(DUMMYDPUSERVICE_HELM_CHART) --version $(TAG) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-snap-csi-plugin
-helm-package-snap-csi-plugin: $(CHARTSDIR) helm
+helm-package-snap-csi-plugin: $(CHARTSDIR) helm generate-manifests-storage-snap
 	$(HELM) package $(SNAP_CSI_PLUGIN_CHART) --version $(SNAP_CSI_PLUGIN_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-snap-controller
-helm-package-snap-controller: $(CHARTSDIR) helm
+helm-package-snap-controller: $(CHARTSDIR) helm generate-manifests-storage-snap
 	$(HELM) package $(SNAP_CONTROLLER_CHART) --version $(SNAP_CONTROLLER_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-spdk-csi-controller
@@ -1186,7 +1190,7 @@ helm-package-spdk-csi-controller: $(CHARTSDIR) helm
 	$(HELM) package $(SPDK_CSI_CONTROLLER_CHART) --version $(SPDK_CSI_CONTROLLER_CHART_VER) --destination $(CHARTSDIR)
 
 .PHONY: helm-package-snap-dpu
-helm-package-snap-dpu: $(CHARTSDIR) helm
+helm-package-snap-dpu: $(CHARTSDIR) helm generate-manifests-storage-snap
 	cp -r config/snap/crd $(SNAP_DPU_CHART)/templates
 	$(HELM) package $(SNAP_DPU_CHART) --version $(SNAP_DPU_CHART_VER) --destination $(CHARTSDIR)
 

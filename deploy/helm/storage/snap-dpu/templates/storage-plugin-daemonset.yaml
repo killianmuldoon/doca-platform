@@ -4,17 +4,18 @@ metadata:
   name: {{ include "snap-dpu.fullname" . }}-plugin
   labels:
     {{- include "snap-dpu.labels" . | nindent 4 }}
-    {{- with .Values.serviceDaemonSet.labels }}
+    {{- include "snap-dpu.storagePlugin.selectorLabels" . | nindent 4 }}
+    {{- with .Values.storagePlugin.labels }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
   annotations:
-    {{- with .Values.serviceDaemonSet.annotations }}
+    {{- with .Values.storagePlugin.annotations }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
   selector:
     matchLabels:
-      {{- include "snap-dpu.selectorLabels" . | nindent 6 }}
+      {{- include "snap-dpu.storagePlugin.selectorLabels" . | nindent 6 }}
   {{- with .Values.serviceDaemonSet.updateStrategy }}
   updateStrategy:
     {{- toYaml . | nindent 4 }}
@@ -22,34 +23,31 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "snap-dpu.selectorLabels" . | nindent 8 }}
-        {{- with .Values.serviceDaemonSet.labels }}
+        {{- include "snap-dpu.storagePlugin.selectorLabels" . | nindent 8 }}
+        {{- with .Values.storagePlugin.labels }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
       annotations:
-        {{- with .Values.serviceDaemonSet.annotations }}
+        {{- with .Values.storagePlugin.annotations }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.serviceDaemonSet.imagePullSecrets | default list }}
+      {{- with .Values.storagePlugin.imagePullSecrets | default .Values.imagePullSecrets | default list }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       securityContext:
         {{- toYaml .Values.storagePlugin.podSecurityContext | nindent 8 }}
-      {{- with .Values.serviceDaemonSet.nodeSelector | default dict }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.serviceDaemonSet.affinity }}
+      {{- with toYaml .Values.serviceDaemonSet.nodeSelector }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+              {{- . | nindent 12 }}
       {{- end }}
-      {{- with .Values.serviceDaemonSet.tolerations | default list }}
+      {{- with .Values.tolerations | default list }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "snap-dpu.serviceAccountName" . }}
       containers:
         - name: storage-plugin
           image: "{{ .Values.storagePlugin.image.repository }}:{{ .Values.storagePlugin.image.tag | default .Chart.AppVersion }}"
@@ -61,3 +59,20 @@ spec:
             {{- end }}
           resources:
             {{- toYaml .Values.storagePlugin.resources | nindent 12 }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/lib/nvidia/storage/snap/plugins/nvidia
+            - name: providers
+              mountPath: /var/lib/nvidia/storage/snap/providers
+              mountPropagation: "HostToContainer"
+          securityContext:
+            {{- toYaml .Values.storagePlugin.securityContext | nindent 12 }}
+      volumes:
+        - name: socket-dir
+          hostPath:
+            path: /var/lib/nvidia/storage/snap/plugins/nvidia
+            type: DirectoryOrCreate
+        - name: providers
+          hostPath:
+            path: /var/lib/nvidia/storage/snap/providers
+            type: DirectoryOrCreate

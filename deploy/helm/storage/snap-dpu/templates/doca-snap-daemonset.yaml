@@ -4,6 +4,7 @@ metadata:
   name: {{ include "snap-dpu.fullname" . }}-doca-snap
   labels:
     {{- include "snap-dpu.labels" . | nindent 4 }}
+    {{- include "snap-dpu.docaSnap.selectorLabels" . | nindent 4 }}
     {{- with .Values.serviceDaemonSet.labels }}
       {{- toYaml . | nindent 4 }}
     {{- end }}
@@ -14,7 +15,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      {{- include "snap-dpu.selectorLabels" . | nindent 6 }}
+      {{- include "snap-dpu.docaSnap.selectorLabels" . | nindent 6 }}
   {{- with .Values.serviceDaemonSet.updateStrategy }}
   updateStrategy:
     {{- toYaml . | nindent 4 }}
@@ -22,7 +23,7 @@ spec:
   template:
     metadata:
       labels:
-        {{- include "snap-dpu.selectorLabels" . | nindent 8 }}
+        {{- include "snap-dpu.docaSnap.selectorLabels" . | nindent 8 }}
         {{- with .Values.serviceDaemonSet.labels }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -31,7 +32,7 @@ spec:
           {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      {{- with .Values.serviceDaemonSet.imagePullSecrets | default list }}
+      {{- with .Values.docaSnap.imagePullSecrets | default .Values.imagePullSecrets | default list }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -63,22 +64,33 @@ spec:
           hostPath:
             path: /var/log/snap-log
             type: DirectoryOrCreate
-      {{- with .Values.serviceDaemonSet.nodeSelector | default dict }}
-      nodeSelector:
-        {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- with .Values.serviceDaemonSet.affinity }}
+        - name: socket-dir
+          hostPath:
+            path: /var/lib/nvidia/storage/snap/providers/nvidia
+            type: DirectoryOrCreate
+      {{- with toYaml .Values.serviceDaemonSet.nodeSelector }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+              {{- . | nindent 12 }}
       {{- end }}
-      {{- with .Values.serviceDaemonSet.tolerations | default list }}
+      {{- with .Values.tolerations | default list }}
       tolerations:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "snap-dpu.serviceAccountName" . }}
+      initContainers:
+        - name: init
+          image: "{{ .Values.docaSnap.image.repository }}:{{ .Values.docaSnap.image.tag }}"
+          imagePullPolicy: {{ .Values.docaSnap.pullPolicy }}
+          command: ['sh', '-c', "cd /var/tmp && ln -sf spdk.sock snap.sock"]
+          securityContext:
+            {{ toYaml .Values.docaSnap.securityContext | nindent 12 }}
+          volumeMounts:
+            - name: socket-dir
+              mountPath: /var/tmp
       containers:
         - name: doca-snap
-          image: {{ .Values.docaSnap.containerImage }}
+          image: "{{ .Values.docaSnap.image.repository }}:{{ .Values.docaSnap.image.tag }}"
           imagePullPolicy: {{ .Values.docaSnap.pullPolicy }}
           securityContext:
             {{ toYaml .Values.docaSnap.securityContext | nindent 12 }}
@@ -95,6 +107,8 @@ spec:
               mountPath: /etc/nvda_snap
             - name: snap-log
               mountPath: /var/log/snap-log
+            - name: socket-dir
+              mountPath: /var/tmp
           resources:
             {{ toYaml .Values.docaSnap.resources | nindent 12 }}
           env:
@@ -117,4 +131,8 @@ spec:
             {{- if .Values.docaSnap.env.SNAP_RPC_INIT_CONF }}
             - name: SNAP_RPC_INIT_CONF
               value: "{{ .Values.docaSnap.env.SNAP_RPC_INIT_CONF }}"
+            {{- end }}
+            {{- if .Values.docaSnap.env.SNAP_SPDK_SOCK }}
+            - name: SNAP_SPDK_SOCK
+              value: "{{ .Values.docaSnap.env.SNAP_SPDK_SOCK }}"
             {{- end }}

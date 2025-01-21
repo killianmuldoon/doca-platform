@@ -1,0 +1,26 @@
+---
+apiVersion: "svc.dpu.nvidia.com/v1alpha1"
+kind: DPUServiceInterface
+metadata:
+  name: snap-sf
+  namespace: dpf-operator-system
+spec:
+  template:
+    spec:
+      nodeSelector:
+        matchExpressions:
+          - key: kubernetes.io/os
+            operator: In
+            values:
+              - "linux"
+      template:
+        metadata:
+          labels:
+            svc.dpu.nvidia.com/service: snap-dpu
+            svc.dpu.nvidia.com/interface: app_sf
+        spec:
+          interfaceType: service
+          service:
+            interfaceName: app_sf
+            serviceID: snap-dpu
+            network: dpf-operator-system/mybrsfc

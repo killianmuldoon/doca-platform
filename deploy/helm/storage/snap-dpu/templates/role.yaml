@@ -9,6 +9,7 @@ rules:
   - "storage.dpu.nvidia.com"
   resources:
   - volumeattachments
+  - volumes
   verbs:
   - create
   - delete
@@ -21,12 +22,14 @@ rules:
   - "storage.dpu.nvidia.com"
   resources:
   - volumeattachments/finalizers
+  - volumes/finalizers
   verbs:
   - update
 - apiGroups:
   - "storage.dpu.nvidia.com"
   resources:
   - volumeattachments/status
+  - volumes/status
   verbs:
   - get
   - patch

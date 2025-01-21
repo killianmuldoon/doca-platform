@@ -6,9 +6,9 @@ controller:
     configNamespace: "nvidia-storage"
   # image settings
   image:
-    repository: example.com/snap-controller
+    repository: ${STORAGE_SNAP_CONTROLLER_IMAGE}
     # if not set the .Chart.AppVersion is used
-    tag: v0.1.0
+    tag: ${TAG}
   # count of replicas for controller pod
   replicas: 1
   # podAnnotations to add to the Pod spec

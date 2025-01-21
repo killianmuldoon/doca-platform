@@ -1,3 +1,4 @@
+---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
 kind: DPUService
 metadata:
@@ -8,13 +9,13 @@ spec:
   deployInCluster: true
   helmChart:
     source:
-      repoURL: oci://nvcr.io/nvstaging/doca
-      version: v0.1.0
+      repoURL: oci://$DPF_REGISTRY
+      version: $DPF_VERSION
       chart: snap-csi-plugin-chart
     values:
       image:
-        repository: nvcr.io/nvstaging/doca/snap-csi-plugin
-        tag: v0.1.0
+        repository: $DPF_REGISTRY/snap-csi-plugin
+        tag: $DPF_VERSION
       controller:
         config:
           # required parameter, name of the secret that contains connection

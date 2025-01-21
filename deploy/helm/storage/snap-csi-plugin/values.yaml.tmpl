@@ -24,9 +24,9 @@ serviceDaemonSet:
 # this image will be used for all plugin container for node and controller if they don't have explicit
 # image settings
 image:
-  repository: example.com/snap-csi-plugin
+  repository: ${STORAGE_SNAP_CSI_DRIVER_IMAGE}
   # if not set the .Chart.AppVersion is used
-  tag: v0.1.0
+  tag: ${TAG}
 
 # default imagePullSecrets for both pods
 imagePullSecrets: []

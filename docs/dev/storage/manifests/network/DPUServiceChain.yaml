@@ -1,0 +1,32 @@
+---
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceChain
+metadata:
+  name: spdk-chain
+  namespace: dpf-operator-system
+spec:
+  template:
+    spec:
+      nodeSelector:
+        matchExpressions:
+          - key: kubernetes.io/os
+            operator: In
+            values:
+              - "linux"
+      template:
+        spec:
+          switches:
+            - ports:
+                - serviceInterface:
+                    matchLabels:
+                      uplink: p1
+                - serviceInterface:
+                    matchLabels:
+                      uplink: pf1hpf
+                - serviceInterface:
+                    matchLabels:
+                      svc.dpu.nvidia.com/service: snap-dpu
+                      svc.dpu.nvidia.com/interface: app_sf
+                    ipam:
+                      matchLabels:
+                        svc.dpu.nvidia.com/pool: spdk-pool

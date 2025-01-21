@@ -35,7 +35,6 @@ Common labels
 */}}
 {{- define "snap-dpu.labels" -}}
 helm.sh/chart: {{ include "snap-dpu.chart" . }}
-{{ include "snap-dpu.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,8 +44,18 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "snap-dpu.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "snap-dpu.name" . }}
+{{- define "snap-dpu.docaSnap.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "snap-dpu.name" . }}-doca-snap
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "snap-dpu.snapNodeDriver.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "snap-dpu.name" . }}-node-driver
+app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}
+
+{{- define "snap-dpu.storagePlugin.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "snap-dpu.name" . }}-plugin
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
