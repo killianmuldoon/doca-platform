@@ -205,7 +205,7 @@ grpc-format: buf  ## Format GRPC files
 ##@ Development
 GENERATE_TARGETS ?= dpuservice provisioning servicechainset sfc-controller operator \
 	operator-embedded release-defaults kamaji-cluster-manager static-cluster-manager \
-	ovn-kubernetes storage-snap
+	ovn-kubernetes storage-snap mock-dms
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -241,6 +241,13 @@ generate-manifests-operator: controller-gen kustomize ## Generate manifests e.g.
 	output:rbac:dir=./deploy/helm/dpf-operator/templates
 	## Copy all other CRD definitions to the operator helm directory
 	$(KUSTOMIZE) build config/operator-additional-crds -o  deploy/helm/dpf-operator/templates/crds/;
+
+.PHONE: generate-manifests-mock-dms
+generate-manifests-mock-dms: controller-gen
+	$(CONTROLLER_GEN) \
+	paths="./test/mock/dms/..." \
+	rbac:roleName=mock-dms-manager-role \
+	output:rbac:dir=./test/mock/dms/chart/templates/
 
 .PHONY: generate-manifests-dpuservice
 generate-manifests-dpuservice: controller-gen ## Generate manifests e.g. CRD, RBAC. for the dpuservice controller.
@@ -433,6 +440,14 @@ test-deploy-operator-helm: helm helm-package-operator ## Deploy the DPF Operator
 		--set grafana.enabled=$(DEPLOY_GRAFANA) \
 		--set prometheus.enabled=$(DEPLOY_PROMETHEUS) \
 		dpf-operator $(OPERATOR_HELM_CHART)
+
+.PHONY: test-deploy-mock-dms
+test-deploy-mock-dms: kustomize
+	$(HELM) upgrade --install --create-namespace --namespace $(OPERATOR_NAMESPACE) \
+		--set controllerManager.manager.image.repository=$(MOCK_DMS_IMAGE)\
+		--set controllerManager.manager.image.tag=$(TAG) \
+		--set imagePullSecrets[0].name=dpf-pull-secret \
+		mock-dms $(MOCK_DMS_HELM_CHART)
 
 OLM_VERSION ?= v0.28.0
 OPERATOR_REGISTRY_VERSION ?= v1.43.1
@@ -654,7 +669,7 @@ install-dpfctl: binary-dpfctl ## Install the dpfctl binary.
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=hostdriver
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
-MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools snap-csi-plugin snap-controller
+MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools snap-csi-plugin snap-controller mock-dms
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
@@ -683,6 +698,9 @@ DPUCNIPROVISIONER_IMAGE ?= $(REGISTRY)/$(DPUCNIPROVISIONER_IMAGE_NAME)
 
 DUMMYDPUSERVICE_IMAGE_NAME ?= dummydpuservice
 export DUMMYDPUSERVICE_IMAGE ?= $(REGISTRY)/$(DUMMYDPUSERVICE_IMAGE_NAME)
+
+MOCK_DMS_IMAGE_NAME ?= mock-dms
+MOCK_DMS_IMAGE ?= $(REGISTRY)/$(MOCK_DMS_IMAGE_NAME)
 
 DPF_TOOLS_IMAGE_NAME ?= dpf-tools
 export DPF_TOOLS_IMAGE ?= $(REGISTRY)/$(DPF_TOOLS_IMAGE_NAME)
@@ -902,6 +920,26 @@ docker-build-dummydpuservice: ## Build docker images for the dummydpuservice
 		. \
 		-t $(DUMMYDPUSERVICE_IMAGE):$(TAG)
 
+.PHONY: docker-build-mock-dms
+docker-build-mock-dms: ## Build docker images for the mock-dms
+	docker buildx build \
+		--load \
+		--label=org.opencontainers.image.created=$(DATE) \
+		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+		--label=org.opencontainers.image.version=$(TAG) \
+		--label=org.opencontainers.image.source=$(PROJECT_REPO) \
+		--provenance=false \
+		--platform=linux/$(ARCH) \
+		--build-arg builder_image=$(BUILD_IMAGE) \
+		--build-arg base_image=$(BASE_IMAGE) \
+		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
+		--build-arg package=./test/mock/dms \
+		-f Dockerfile \
+		. \
+		-t $(MOCK_DMS_IMAGE):$(TAG)
+
 .PHONY: docker-build-ovn-kubernetes-resource-injector
 docker-build-ovn-kubernetes-resource-injector: ## Build docker image for the OVN Kubernetes Resource Injector
 	docker buildx build \
@@ -1060,6 +1098,10 @@ docker-push-ipallocator: ## Push the docker image for IP Allocator.
 docker-push-dummydpuservice: ## Push the docker image for dummydpuservice
 	docker push $(DUMMYDPUSERVICE_IMAGE):$(TAG)
 
+.PHONY: docker-push-mock-dms
+docker-push-mock-dms: ## Push the docker image for dummydpuservice
+	docker push $(MOCK_DMS_IMAGE):$(TAG)
+
 .PHONY: docker-push-ovn-kubernetes-resource-injector
 docker-push-ovn-kubernetes-resource-injector: ## Push the docker image for the OVN Kubernetes Resource Injector
 	docker push $(OVNKUBERNETES_RESOURCE_INJECTOR_IMAGE):$(TAG)
@@ -1121,6 +1163,9 @@ SPDK_CSI_CONTROLLER_CHART_VER ?= $(TAG)
 SNAP_DPU_CHART_NAME = snap-dpu-chart
 SNAP_DPU_CHART ?= $(HELMDIR)/storage/snap-dpu
 SNAP_DPU_CHART_VER ?= $(TAG)
+
+# metadata for mock dms.
+MOCK_DMS_HELM_CHART ?=test/mock/dms/chart
 
 .PHONY: helm-package-all
 helm-package-all: $(addprefix helm-package-,$(HELM_TARGETS))  ## Package the helm charts for all components.
