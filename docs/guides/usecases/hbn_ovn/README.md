@@ -129,6 +129,7 @@ export DPUCLUSTER_VIP=
 export DPU_P0=
 
 ## DPU_P0_VF1 is the name of the second Virtual Function (VF) of the first port of the DPU. This name must be the same on all worker nodes.
+## Note: The VF will be created after the DPU is provisioned and the phase "Host Network Configuration" is completed.
 export DPU_P0_VF1=
 
 ## Interface on which the DPUCluster load balancer will listen. Should be the management interface of the control plane node.
