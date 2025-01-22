@@ -146,6 +146,10 @@ export DPUCLUSTER_INTERFACE=
 # IP address to the NFS server used as storage for the BFB.
 export NFS_SERVER_IP=
 
+# The repository URL for the OVN Kubernetes Helm chart. This should be set to the repository where the OVN Kubernetes Helm chart is hosted.
+# Usually this is the NVIDIA GHCR repository. For development purposes, this can be set to a different repository.
+export OVN_KUBERNETES_REPO_URL=ghcr.io/nvidia
+
 # API key for accessing containers and helm charts from the NGC private repository.
 # Note: This isn't technically required when using public images but is included here to demonstrate the secret flow in DPF when using images from a private registry.
 export NGC_API_KEY=
@@ -758,7 +762,7 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: oci://ghcr.io/nvidia
+      repoURL: oci://$OVN_KUBERNETES_REPO_URL
       chart: ovn-kubernetes-chart
       version: $DPF_VERSION
     values:
@@ -1030,7 +1034,7 @@ spec:
   deploymentServiceName: "ovn"
   helmChart:
     source:
-      repoURL: oci://ghcr.io/nvidia
+      repoURL: oci://$OVN_KUBERNETES_REPO_URL
       chart: ovn-kubernetes-chart
       version: $DPF_VERSION
     values:
