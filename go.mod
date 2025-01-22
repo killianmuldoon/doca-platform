@@ -10,8 +10,10 @@ require (
 	github.com/Mellanox/maintenance-operator/api v0.1.1
 	github.com/cert-manager/cert-manager v1.16.2
 	github.com/containernetworking/cni v1.2.3
+	github.com/fatih/color v1.17.0
 	github.com/fluxcd/pkg/runtime v0.52.0
 	github.com/golang/glog v1.2.4
+	github.com/olekukonko/tablewriter v0.0.5
 	github.com/onsi/ginkgo/v2 v2.22.2
 	github.com/onsi/gomega v1.36.2
 	github.com/openconfig/gnmi v0.12.0
@@ -61,6 +63,9 @@ require (
 	github.com/huandu/xstrings v1.5.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
+	github.com/mattn/go-colorable v0.1.13 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-runewidth v0.0.14 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/spdystream v0.5.0 // indirect
@@ -69,6 +74,7 @@ require (
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/openconfig/bootz v0.3.1 // indirect
 	github.com/openconfig/gnsi v1.7.0 // indirect
+	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
