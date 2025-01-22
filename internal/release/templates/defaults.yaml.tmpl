@@ -5,7 +5,6 @@ bfbdownloaderImage: ${HOSTDRIVER_IMAGE}:${TAG}
 dpfSystemImage: ${DPF_SYSTEM_IMAGE}:${TAG}
 dpfToolsImage: ${DPF_TOOLS_IMAGE}:${TAG}
 ovsCniImage: ${OVS_CNI_IMAGE}:${TAG}
-customOVNKubernetesImage: ${OVNKUBERNETES_IMAGE}:${TAG}
 
 ## Helm charts built as part of the DPF release.
 dpuNetworkingHelmChart: ${HELM_REGISTRY}/${DPU_NETWORKING_HELM_CHART_NAME}:${TAG}
@@ -14,5 +13,5 @@ dpuNetworkingHelmChart: ${HELM_REGISTRY}/${DPU_NETWORKING_HELM_CHART_NAME}:${TAG
 multusImage: ${MULTUS_IMAGE}:${MULTUS_TAG}
 sriovDPImage: ${SRIOVDP_IMAGE}:${SRIOVDP_TAG}
 nvipamImage: ${NVIPAM_IMAGE}:${NVIPAM_TAG}
-kubeFlannelImage: docker.io/flannel/flannel:v0.26.2
-flannelCNIImage: docker.io/flannel/flannel-cni-plugin:v1.6.0-flannel1
+kubeFlannelImage: ${KUBE_FLANNEL_IMAGE}:${KUBE_FLANNEL_TAG}
+flannelCNIImage: ${FLANNEL_CNI_IMAGE}:${FLANNEL_CNI_TAG}

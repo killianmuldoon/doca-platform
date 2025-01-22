@@ -5,7 +5,6 @@ bfbdownloaderImage: example.com/hostdriver:v0.1.0
 dpfSystemImage: example.com/dpf-system:v0.1.0
 dpfToolsImage: example.com/dpf-tools:v0.1.0
 ovsCniImage: example.com/ovs-cni-plugin:v0.1.0
-customOVNKubernetesImage: example.com/ovn-kubernetes:v0.1.0
 
 ## Helm charts built as part of the DPF release.
 dpuNetworkingHelmChart: oci://example.com/dpu-networking:v0.1.0

@@ -203,9 +203,9 @@ grpc-format: buf  ## Format GRPC files
 	$(BUF) format -w --exit-code
 
 ##@ Development
-GENERATE_TARGETS ?= dpuservice provisioning dpucniprovisioner servicechainset sfc-controller ovs-cni operator \
-	operator-embedded release-defaults dummydpuservice kamaji-cluster-manager static-cluster-manager \
-	dpu-detector ovn-kubernetes ovs-helper storage-snap
+GENERATE_TARGETS ?= dpuservice provisioning servicechainset sfc-controller operator \
+	operator-embedded release-defaults kamaji-cluster-manager static-cluster-manager \
+	ovn-kubernetes storage-snap
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -267,7 +267,6 @@ generate-manifests-servicechainset: controller-gen kustomize envsubst ## Generat
 	rbac:roleName=dpf-servicechain-controller-manager \
 	output:rbac:dir=deploy/helm/dpu-networking/charts/servicechainset-controller/templates;
 	find config/dpuservice/crd/bases/ -type f -not -name '*_dpu*' -exec cp {} deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/ \;
-	$(ENVSUBST) < deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml.tmpl > deploy/helm/dpu-networking/charts/servicechainset-controller/values.yaml
 
 .PHONY: generate-manifests-storage-snap
 generate-manifests-storage-snap: controller-gen kustomize ## Generate CRDs for SNAP storage in DPU cluster 
@@ -285,10 +284,6 @@ generate-manifests-storage-snap: controller-gen kustomize ## Generate CRDs for S
 generate-manifests-ovn-kubernetes-resource-injector: envsubst ## Generate manifests e.g. CRD, RBAC. for the OVN Kubernetes Resource Injector
 	$(ENVSUBST) < deploy/helm/ovn-kubernetes-resource-injector/values.yaml.tmpl > deploy/helm/ovn-kubernetes-resource-injector/values.yaml
 
-.PHONY: generate-manifests-dpucniprovisioner
-generate-manifests-dpucniprovisioner: kustomize ## Generates DPU CNI provisioner manifests
-	cd config/dpucniprovisioner/default && $(KUSTOMIZE) edit set image controller=$(DPUCNIPROVISIONER_IMAGE):$(TAG)
-
 RELEASE_FILE = ./internal/release/manifests/defaults.yaml
 
 .PHONY: generate-manifests-release-defaults
@@ -298,7 +293,7 @@ generate-manifests-release-defaults: envsubst ## Generates manifests that contai
 TEMPLATES_DIR ?= $(CURDIR)/internal/operator/inventory/templates
 EMBEDDED_MANIFESTS_DIR ?= $(CURDIR)/internal/operator/inventory/manifests
 .PHONY: generate-manifests-operator-embedded
-generate-manifests-operator-embedded: kustomize envsubst generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults generate-manifests-kamaji-cluster-manager generate-manifests-static-cluster-manager generate-manifests-dpu-detector ## Generates manifests that are embedded into the operator binary.
+generate-manifests-operator-embedded: kustomize envsubst generate-manifests-dpuservice generate-manifests-provisioning generate-manifests-release-defaults generate-manifests-kamaji-cluster-manager generate-manifests-static-cluster-manager ## Generates manifests that are embedded into the operator binary.
 	# Reorder none here ensure that we generate the kustomize files in a specific order to be consumed by the DPF Operator.
 	$(KUSTOMIZE) build --reorder=none config/provisioning/default > $(EMBEDDED_MANIFESTS_DIR)/provisioning-controller.yaml
 	$(KUSTOMIZE) build --reorder=none config/dpu-detector > $(EMBEDDED_MANIFESTS_DIR)/dpu-detector.yaml
@@ -306,22 +301,10 @@ generate-manifests-operator-embedded: kustomize envsubst generate-manifests-dpus
 	$(KUSTOMIZE) build --reorder=none config/kamaji-cluster-manager/default > $(EMBEDDED_MANIFESTS_DIR)/kamaji-cluster-manager.yaml
 	$(KUSTOMIZE) build --reorder=none config/static-cluster-manager/default > $(EMBEDDED_MANIFESTS_DIR)/static-cluster-manager.yaml
 
-
 .PHONY: generate-manifests-sfc-controller
 generate-manifests-sfc-controller: envsubst generate-manifests-servicechainset
 	cp deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/svc.dpu.nvidia.com_servicechains.yaml deploy/helm/dpu-networking/charts/sfc-controller/templates/crds/
 	cp deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/svc.dpu.nvidia.com_serviceinterfaces.yaml deploy/helm/dpu-networking/charts/sfc-controller/templates/crds/
-	# Template the image name and tag used in the helm templates.
-	$(ENVSUBST) < deploy/helm/dpu-networking/charts/sfc-controller/values.yaml.tmpl > deploy/helm/dpu-networking/charts/sfc-controller/values.yaml
-
-.PHONY: generate-manifests-ovs-helper
-generate-manifests-ovs-helper: envsubst # Generates manifests for the OVS Helper.
-	# Template the image name and tag used in the helm templates.
-	$(ENVSUBST) < deploy/helm/dpu-networking/charts/ovs-helper/values.yaml.tmpl > deploy/helm/dpu-networking/charts/ovs-helper/values.yaml
-
-.PHONY: generate-manifests-ovs-cni
-generate-manifests-ovs-cni: envsubst ## Generate values for OVS helm chart.
-	$(ENVSUBST) < deploy/helm/dpu-networking/charts/ovs-cni/values.yaml.tmpl > deploy/helm/dpu-networking/charts/ovs-cni/values.yaml
 
 .PHONY: generate-manifests-provisioning
 generate-manifests-provisioning: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
@@ -345,7 +328,6 @@ generate-manifests-kamaji-cluster-manager: controller-gen kustomize ## Generate 
 	paths="./internal/clustermanager/kamaji/..." \
 	rbac:roleName=manager-role \
 	output:rbac:dir=./config/kamaji-cluster-manager/rbac
-	cd config/kamaji-cluster-manager/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-static-cluster-manager
 generate-manifests-static-cluster-manager: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC. for the DPF provisioning controller.
@@ -355,11 +337,6 @@ generate-manifests-static-cluster-manager: controller-gen kustomize ## Generate 
 	paths="./internal/clustermanager/static/..." \
 	rbac:roleName=manager-role \
 	output:rbac:dir=./config/static-cluster-manager/rbac
-	cd config/static-cluster-manager/manager && $(KUSTOMIZE) edit set image controller=$(DPF_SYSTEM_IMAGE):$(TAG)
-
-.PHONY: generate-manifests-dpu-detector
-generate-manifests-dpu-detector: kustomize ## Generate manifests for dpu-detector
-	cd config/dpu-detector && $(KUSTOMIZE) edit set image dpu-detector=$(HOSTDRIVER_IMAGE):$(TAG)
 
 .PHONY: generate-manifests-ovn-kubernetes
 generate-manifests-ovn-kubernetes: $(OVNKUBERNETES_DIR) envsubst ## Generate manifests for ovn-kubernetes
@@ -729,6 +706,10 @@ export SRIOVDP_IMAGE=ghcr.io/k8snetworkplumbingwg/sriov-network-device-plugin
 export SRIOVDP_TAG=v3.6.2
 export NVIPAM_IMAGE=ghcr.io/mellanox/nvidia-k8s-ipam
 export NVIPAM_TAG=v0.3.5
+export KUBE_FLANNEL_IMAGE=docker.io/flannel/flannel
+export KUBE_FLANNEL_TAG=v0.26.2
+export FLANNEL_CNI_IMAGE=docker.io/flannel/flannel-cni-plugin
+export FLANNEL_CNI_TAG=v1.6.0-flannel1
 
 DPF_SYSTEM_ARCH ?= $(HOST_ARCH) $(DPU_ARCH)
 .PHONY: docker-build-dpf-system # Build a multi-arch image for DPF System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.

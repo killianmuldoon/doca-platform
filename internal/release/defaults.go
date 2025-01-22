@@ -42,10 +42,6 @@ type Defaults struct {
 
 	KubeFlannelImage string `yaml:"kubeFlannelImage"`
 	FlannelCNIImage  string `yaml:"flannelCNIImage"`
-
-	// CustomOVNKubernetesDPUImage is the default custom OVN Kubernetes image that should be deployed to the DPU
-	// enabled workers.
-	CustomOVNKubernetesImage string `yaml:"customOVNKubernetesImage"`
 }
 
 // Parse parses the defaults from the embedded generated YAML file
@@ -54,9 +50,6 @@ func (d *Defaults) Parse() error {
 	err := yaml.Unmarshal(defaultsContent, d)
 	if err != nil {
 		return err
-	}
-	if len(d.CustomOVNKubernetesImage) == 0 {
-		return errors.New("customOVNKubernetesDPUImage can't be empty")
 	}
 	if len(d.DMSImage) == 0 {
 		return errors.New("dmsImage can't be empty")
