@@ -7,6 +7,6 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      repoURL: $NGC_HELM_REGISTRY_REPO_URL
       version: 0.2.3
       chart: doca-telemetry

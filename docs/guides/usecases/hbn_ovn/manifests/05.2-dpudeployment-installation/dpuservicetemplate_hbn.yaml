@@ -8,7 +8,7 @@ spec:
   deploymentServiceName: "hbn"
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      repoURL: $NGC_HELM_REGISTRY_REPO_URL
       version: 1.0.1
       chart: doca-hbn
     values:

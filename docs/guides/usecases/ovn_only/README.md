@@ -147,6 +147,10 @@ export DPUCLUSTER_INTERFACE=
 # IP address to the NFS server used as storage for the BFB.
 export NFS_SERVER_IP=
 
+# The repository URL for the NVIDIA Helm chart registry. This should be set to the repository where the NVIDIA Helm charts are hosted.
+# Usually this is the NVIDIA Helm NGC registry. For development purposes, this can be set to a different repository.
+export NGC_HELM_REGISTRY_REPO_URL=https://helm.ngc.nvidia.com/nvidia/doca
+
 # The repository URL for the OVN Kubernetes Helm chart. This should be set to the repository where the OVN Kubernetes Helm chart is hosted.
 # Usually this is the NVIDIA GHCR repository. For development purposes, this can be set to a different repository.
 export OVN_KUBERNETES_REPO_URL=ghcr.io/nvidia
@@ -192,7 +196,7 @@ kubectl -n ovn-kubernetes create secret docker-registry dpf-pull-secret --docker
 
 Install the OVN Kubernetes CNI components from the helm chart. A number of [environment variables](#0-required-variables) must be set before running this command.
 ```shell
-envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://ghcr.io/nvidia/ovn-kubernetes-chart --version $DPF_VERSION --values -
+envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes ${OVN_KUBERNETES_REPO_URL}/ovn-kubernetes-chart --version $DPF_VERSION --values -
 ```
 
 <details><summary>Expand for detailed helm values</summary>
@@ -581,7 +585,7 @@ operator:
 The OVN Kubernetes resource injection webhook injected each pod scheduled to a worker node with a request for a VF and a Network Attachment Definition. This webhook is part of the same helm chart as the other components of the OVN Kubernetes CNI. Here it is installed by adjusting the existing helm installation to add the webhook component to the installation. 
 
 ```shell
-envsubst < manifests/04-enable-accelerated-cni/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://ghcr.io/nvidia/ovn-kubernetes-chart --version $DPF_VERSION --values -
+envsubst < manifests/04-enable-accelerated-cni/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes ${OVN_KUBERNETES_REPO_URL}/ovn-kubernetes-chart --version $DPF_VERSION --values -
 ```
 
 <details><summary>Expand for detailed helm values</summary>
@@ -763,7 +767,7 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: oci://$OVN_KUBERNETES_REPO_URL
+      repoURL: $OVN_KUBERNETES_REPO_URL
       chart: ovn-kubernetes-chart
       version: $DPF_VERSION
     values:
@@ -800,7 +804,7 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      repoURL: $NGC_HELM_REGISTRY_REPO_URL
       version: 0.2.3
       chart: doca-telemetry
 ```
@@ -819,7 +823,7 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      repoURL: $NGC_HELM_REGISTRY_REPO_URL
       version: 1.0.5
       chart: doca-blueman
 ```
@@ -1035,7 +1039,7 @@ spec:
   deploymentServiceName: "ovn"
   helmChart:
     source:
-      repoURL: oci://$OVN_KUBERNETES_REPO_URL
+      repoURL: $OVN_KUBERNETES_REPO_URL
       chart: ovn-kubernetes-chart
       version: $DPF_VERSION
     values:
@@ -1077,7 +1081,7 @@ spec:
   deploymentServiceName: "dts"
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      repoURL: $NGC_HELM_REGISTRY_REPO_URL
       version: 0.2.3
       chart: doca-telemetry
 ```
@@ -1109,7 +1113,7 @@ spec:
   deploymentServiceName: "blueman"
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      repoURL: $NGC_HELM_REGISTRY_REPO_URL
       version: 1.0.5
       chart: doca-blueman
 ```
@@ -1243,7 +1247,7 @@ helm uninstall -n nvidia-network-operator network-operator --wait
 
 ## Run `helm install` with the original values to delete the OVN Kubernetes webhook.
 ## Note: Uninstalling OVN Kubernetes as primary CNI is not supported but this command must be run to remove the webhook and restore a functioning cluster.
-envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes oci://ghcr.io/nvidia/ovn-kubernetes-chart --version $DPF_VERSION --values -
+envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes ${OVN_KUBERNETES_REPO_URL}/ovn-kubernetes-chart --version $DPF_VERSION --values -
 ```
 
 #### Delete the DPF Operator system and DPF Operator

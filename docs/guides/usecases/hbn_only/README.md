@@ -93,6 +93,10 @@ export DPUCLUSTER_INTERFACE=
 # IP address to the NFS server used as storage for the BFB.
 export NFS_SERVER_IP=
 
+# The repository URL for the NVIDIA Helm chart registry. This should be set to the repository where the NVIDIA Helm charts are hosted.
+# Usually this is the NVIDIA Helm NGC registry. For development purposes, this can be set to a different repository.
+export NGC_HELM_REGISTRY_REPO_URL=https://helm.ngc.nvidia.com/nvidia/doca
+
 # API key for accessing containers and helm charts from the NGC private repository.
 # Note: This isn't technically required when using public images but is included here to demonstrate the secret flow in DPF when using images from a private registry.
 export NGC_API_KEY=
@@ -696,7 +700,7 @@ spec:
         ]
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      repoURL: $NGC_HELM_REGISTRY_REPO_URL
       version: 1.0.1
       chart: doca-hbn
     values:
@@ -1535,7 +1539,7 @@ spec:
   deploymentServiceName: "doca-hbn"
   helmChart:
     source:
-      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
+      repoURL: $NGC_HELM_REGISTRY_REPO_URL
       version: 1.0.1
       chart: doca-hbn
     values:

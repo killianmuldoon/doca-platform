@@ -8,7 +8,7 @@ spec:
   deploymentServiceName: "ovn"
   helmChart:
     source:
-      repoURL: oci://$OVN_KUBERNETES_REPO_URL
+      repoURL: $OVN_KUBERNETES_REPO_URL
       chart: ovn-kubernetes-chart
       version: $DPF_VERSION
     values:
