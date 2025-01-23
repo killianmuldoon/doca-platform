@@ -19,6 +19,7 @@ package dpuset
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -430,59 +431,15 @@ func updateDPUSetStatus(ctx context.Context, dpuSet *provisioningv1.DPUSet,
 		switch dpu.Status.Phase {
 		case "":
 			dpuStatistics[provisioningv1.DPUInitializing]++
-
-		case provisioningv1.DPUInitializing:
-			dpuStatistics[provisioningv1.DPUInitializing]++
-
-		case provisioningv1.DPUPending:
-			dpuStatistics[provisioningv1.DPUPending]++
-
-		case provisioningv1.DPUInitializeInterface:
-			dpuStatistics[provisioningv1.DPUInitializeInterface]++
-
-		case provisioningv1.DPUHostNetworkConfiguration:
-			dpuStatistics[provisioningv1.DPUHostNetworkConfiguration]++
-
-		case provisioningv1.DPUOSInstalling:
-			dpuStatistics[provisioningv1.DPUOSInstalling]++
-
-		case provisioningv1.DPUClusterConfig:
-			dpuStatistics[provisioningv1.DPUClusterConfig]++
-
-		case provisioningv1.DPUReady:
-			dpuStatistics[provisioningv1.DPUReady]++
-
-		case provisioningv1.DPUError:
-			dpuStatistics[provisioningv1.DPUError]++
-
-		case provisioningv1.DPUDeleting:
-			dpuStatistics[provisioningv1.DPUDeleting]++
+		default:
+			dpuStatistics[dpu.Status.Phase]++
 		}
 	}
-
-	needUpdate := false
-	if len(dpuStatistics) != len(dpuSet.Status.DPUStatistics) {
-		needUpdate = true
-	} else {
-		for key, count1 := range dpuStatistics {
-			count2, ok := dpuSet.Status.DPUStatistics[key]
-			if !ok {
-				needUpdate = true
-				break
-			} else if count1 != count2 {
-				needUpdate = true
-				break
-			}
-		}
+	if reflect.DeepEqual(dpuStatistics, dpuSet.Status.DPUStatistics) {
+		return nil
 	}
-	if needUpdate {
-		dpuSet.Status.DPUStatistics = dpuStatistics
-		if err := client.Status().Update(ctx, dpuSet); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	dpuSet.Status.DPUStatistics = dpuStatistics
+	return client.Status().Update(ctx, dpuSet)
 }
 
 func (r *DPUSetReconciler) finalizeDPUSet(ctx context.Context, dpuSet *provisioningv1.DPUSet) error {
