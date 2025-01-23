@@ -20,13 +20,18 @@ import (
 	"bytes"
 	"context"
 	"testing"
+	"time"
 
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
 	"github.com/olekukonko/tablewriter"
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -37,6 +42,7 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 	tests := []struct {
 		name           string
 		objectsTree    []client.Object
+		condition      metav1.Condition
 		expectedPrefix []string
 	}{
 		{
@@ -44,8 +50,76 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 			objectsTree: []client.Object{
 				defaultDPFOperatorConfig(),
 			},
+			condition: getTrueCondition(),
 			expectedPrefix: []string{
 				"DPFOperatorConfig/test  True  Success",
+			},
+		},
+		{
+			name: "Add DPFOperatorConfig with false condition",
+			objectsTree: []client.Object{
+				defaultDPFOperatorConfig(),
+			},
+			condition: getFalseCondition(),
+			expectedPrefix: []string{
+				"DPFOperatorConfig/test  False  SomethingWentWrong",
+			},
+		},
+		{
+			name: "Add DPUCluster",
+			objectsTree: []client.Object{
+				defaultDPFOperatorConfig(),
+				defaultDPUCluster(),
+			},
+			condition: getTrueCondition(),
+			expectedPrefix: []string{
+				"DPFOperatorConfig/test  True  Success",
+				"└─DPUClusters",
+				"  └─DPUCluster/test     True  Success",
+			},
+		},
+		{
+			name: "Add DPUSet",
+			objectsTree: []client.Object{
+				defaultDPFOperatorConfig(),
+				defaultDPUSet(),
+			},
+			condition: getTrueCondition(),
+			expectedPrefix: []string{
+				"DPFOperatorConfig/test  True  Success",
+				"└─DPUSets",
+				"  └─DPUSet/test",
+			},
+		},
+		{
+			name: "Add DPU",
+			objectsTree: []client.Object{
+				defaultDPFOperatorConfig(),
+				defaultDPU(),
+			},
+			condition: getTrueCondition(),
+			expectedPrefix: []string{
+				"DPFOperatorConfig/test  True  Success",
+				"└─DPUs",
+				"  └─DPU/orphaned-dpu    True  Success",
+			},
+		},
+		{
+			name: "Add DPUSet with DPU and DPU w/o DPUSet",
+			objectsTree: []client.Object{
+				defaultDPFOperatorConfig(),
+				defaultDPUSet(),
+				defaultDPU(),
+				defaultDPUFromDPUSet(),
+			},
+			condition: getTrueCondition(),
+			expectedPrefix: []string{
+				"DPFOperatorConfig/test  True  Success",
+				"├─DPUSets",
+				"│ └─DPUSet/test",
+				"│   └─DPU/test          True  Success",
+				"└─DPUs",
+				"  └─DPU/orphaned-dpu    True  Success",
 			},
 		},
 	}
@@ -53,7 +127,15 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, obj := range tt.objectsTree {
 				g.Expect(testClient.Create(ctx, obj)).To(Succeed())
-				updateStatus(ctx, g, obj)
+
+				// We have to convert the object to unstructured to set the status conditions.
+				// We don't have access to the status field of the client.Object directly.
+				u := unstructured.Unstructured{}
+				g.Expect(scheme.Scheme.Convert(obj, &u, nil)).To(Succeed())
+				unstructuredGetSet(&u).SetConditions([]metav1.Condition{tt.condition})
+
+				// Update the status.
+				g.Expect(testClient.Status().Update(ctx, &u)).To(Succeed())
 			}
 
 			td, err := TreeDiscovery(context.Background(), testClient, ObjectTreeOptions{})
@@ -69,16 +151,32 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 			addObjectRow("", tbl, td, td.GetRoot())
 			tbl.Render()
 			g.Expect(output.String()).Should(MatchTable(tt.expectedPrefix))
+
+			// Cleanup resources for next run
+			for _, obj := range tt.objectsTree {
+				g.Expect(testClient.Delete(ctx, obj)).To(Succeed())
+			}
 		})
 	}
 }
 
-func updateStatus(ctx context.Context, g *WithT, obj client.Object) {
-	switch v := obj.(type) {
-	case *operatorv1.DPFOperatorConfig:
-		conditions.AddTrue(v, conditions.TypeReady)
+func getTrueCondition() metav1.Condition {
+	return metav1.Condition{
+		Type:               string(conditions.TypeReady),
+		Status:             metav1.ConditionTrue,
+		Reason:             "Success",
+		LastTransitionTime: metav1.Time{Time: time.Now()},
 	}
-	g.Expect(testClient.Status().Update(ctx, obj)).To(Succeed())
+}
+
+func getFalseCondition() metav1.Condition {
+	return metav1.Condition{
+		Type:               string(conditions.TypeReady),
+		Status:             metav1.ConditionFalse,
+		Reason:             "SomethingWentWrong",
+		Message:            "Failed",
+		LastTransitionTime: metav1.Time{Time: time.Now()},
+	}
 }
 
 func defaultDPFOperatorConfig() *operatorv1.DPFOperatorConfig {
@@ -87,6 +185,40 @@ func defaultDPFOperatorConfig() *operatorv1.DPFOperatorConfig {
 		Spec: operatorv1.DPFOperatorConfigSpec{
 			ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
 				BFBPersistentVolumeClaimName: "oof",
+			},
+		},
+	}
+}
+
+func defaultDPUCluster() *provisioningv1.DPUCluster {
+	return &provisioningv1.DPUCluster{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec: provisioningv1.DPUClusterSpec{
+			Type: "static",
+		},
+	}
+}
+
+func defaultDPUSet() *provisioningv1.DPUSet {
+	return &provisioningv1.DPUSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+	}
+}
+
+func defaultDPU() *provisioningv1.DPU {
+	return &provisioningv1.DPU{
+		ObjectMeta: metav1.ObjectMeta{Name: "orphaned-dpu", Namespace: "default"},
+	}
+}
+
+func defaultDPUFromDPUSet() *provisioningv1.DPU {
+	return &provisioningv1.DPU{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "default",
+			Labels: map[string]string{
+				util.DPUSetNameLabel:      "test",
+				util.DPUSetNamespaceLabel: "default",
 			},
 		},
 	}

@@ -275,3 +275,16 @@ func newConditionDescriptor(c *metav1.Condition, wrapLines bool) conditionDescri
 
 	return v
 }
+
+func showResource(showResources string, objKind string) bool {
+	if showResources == "" || showResources == "all" {
+		return true
+	}
+	kinds := strings.Split(showResources, ",")
+	for _, kind := range kinds {
+		if strings.EqualFold(objKind, kind) || strings.EqualFold(objKind+"s", kind) {
+			return true
+		}
+	}
+	return false
+}

@@ -28,6 +28,7 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -84,7 +85,7 @@ func UnstructuredUnmarshalField(obj *unstructured.Unstructured, v interface{}, f
 
 // Adoption from: https://github.com/kubernetes-sigs/cluster-api/blob/release-1.9/cmd/clusterctl/client/tree/util.go#L78
 func getReadyCondition(obj client.Object) *metav1.Condition {
-	getter := objToGetter(obj)
+	getter := objToGetSet(obj)
 	if getter == nil {
 		return nil
 	}
@@ -94,7 +95,7 @@ func getReadyCondition(obj client.Object) *metav1.Condition {
 // GetOtherConditions returns the other conditions (all the conditions except ready) for an object, if defined.
 // Adoption from: https://github.com/kubernetes-sigs/cluster-api/blob/release-1.9/cmd/clusterctl/client/tree/util.go#L104
 func GetOtherConditions(obj client.Object) []*metav1.Condition {
-	getter := objToGetter(obj)
+	getter := objToGetSet(obj)
 	var conds []*metav1.Condition
 	for _, c := range getter.GetConditions() {
 		if c.Type != string(conditions.TypeReady) {
@@ -109,24 +110,27 @@ func GetOtherConditions(obj client.Object) []*metav1.Condition {
 
 // Adoption from: https://github.com/kubernetes-sigs/cluster-api/blob/release-1.9/cmd/clusterctl/client/tree/util.go#L139
 func setReadyCondition(obj client.Object, ready *metav1.Condition) {
-	setter, ok := obj.(conditions.GetSet)
-	if !ok {
+	setter := objToGetSet(obj)
+	if setter == nil {
 		return
 	}
 	setter.SetConditions([]metav1.Condition{*ready})
 }
 
 // Adoption from: https://github.com/kubernetes-sigs/cluster-api/blob/release-1.9/cmd/clusterctl/client/tree/util.go#L147
-func objToGetter(obj client.Object) conditions.GetSet {
+func objToGetSet(obj client.Object) conditions.GetSet {
 	if getter, ok := obj.(conditions.GetSet); ok {
 		return getter
 	}
 
-	objUnstructured, ok := obj.(*unstructured.Unstructured)
+	objUnstructured := unstructured.Unstructured{}
+	_, ok := obj.(*unstructured.Unstructured)
 	if !ok {
-		return nil
+		if err := scheme.Scheme.Convert(obj, &objUnstructured, nil); err != nil {
+			return nil
+		}
 	}
-	getter := unstructuredGetSet(objUnstructured)
+	getter := unstructuredGetSet(&objUnstructured)
 	return getter
 }
 

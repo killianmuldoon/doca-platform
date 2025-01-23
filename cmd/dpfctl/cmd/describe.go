@@ -114,6 +114,7 @@ func runDescribe(cmd *cobra.Command) error {
 	}
 
 	t, err := dpfctl.TreeDiscovery(ctx, c, dpfctl.ObjectTreeOptions{
+		ShowResources:       opts.showResources,
 		ShowOtherConditions: opts.showOtherConditions,
 		Grouping:            opts.grouping,
 		WrapLines:           opts.wrapLines,

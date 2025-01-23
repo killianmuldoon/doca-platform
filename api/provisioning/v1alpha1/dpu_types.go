@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/nvidia/doca-platform/internal/conditions"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -87,6 +89,18 @@ const (
 
 func (ct DPUConditionType) String() string {
 	return string(ct)
+}
+
+var _ conditions.GetSet = &DPU{}
+
+// GetConditions returns the conditions of the DPUService.
+func (s *DPU) GetConditions() []metav1.Condition {
+	return s.Status.Conditions
+}
+
+// SetConditions sets the conditions of the DPUService.
+func (s *DPU) SetConditions(conditions []metav1.Condition) {
+	s.Status.Conditions = conditions
 }
 
 type K8sCluster struct {

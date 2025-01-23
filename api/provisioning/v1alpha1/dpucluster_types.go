@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/nvidia/doca-platform/internal/conditions"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -53,6 +55,18 @@ const (
 	PhaseNotReady ClusterPhase = "NotReady"
 	PhaseFailed   ClusterPhase = "Failed"
 )
+
+var _ conditions.GetSet = &DPUCluster{}
+
+// GetConditions returns the conditions of the DPUService.
+func (s *DPUCluster) GetConditions() []metav1.Condition {
+	return s.Status.Conditions
+}
+
+// SetConditions sets the conditions of the DPUService.
+func (s *DPUCluster) SetConditions(conditions []metav1.Condition) {
+	s.Status.Conditions = conditions
+}
 
 const (
 	FinalizerCleanUp         = "provisioning.dpu.nvidia.com/cluster-manager-clean-up"

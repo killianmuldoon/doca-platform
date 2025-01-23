@@ -30,6 +30,9 @@ import (
 
 // ObjectTreeOptions defines the options for an ObjectTree.
 type ObjectTreeOptions struct {
+	// ShowResources is a list of comma separated kind or kind/name that should be shown in the output.
+	ShowResources string
+
 	// ShowOtherConditions is a list of comma separated kind or kind/name for which we should add the ShowObjectConditionsAnnotation
 	// to signal to the presentation layer to show all the conditions for the objects.
 	ShowOtherConditions string
@@ -78,6 +81,11 @@ func NewObjectTree(root client.Object, options ObjectTreeOptions) *ObjectTree {
 }
 
 func (od ObjectTree) AddMultipleWithHeader(parent client.Object, objs []client.Object, headerName string, opts ...AddObjectOption) {
+	// Return early if there are no objects to add. This prevents the creation of a virtual object with no children.
+	if len(objs) == 0 {
+		return
+	}
+
 	virtualObj := VirtualObject(headerName, headerName, headerName)
 	od.Add(parent, virtualObj)
 	for _, obj := range objs {
