@@ -74,6 +74,7 @@ spec:
                             type: string
                           description: DPUAnnotations is the annotations to be added
                             to the DPU object created by the DPUSet.
+                          maxProperties: 50
                           type: object
                         dpuSelector:
                           additionalProperties:
@@ -137,6 +138,11 @@ spec:
                       required:
                       - nameSuffix
                       type: object
+                      x-kubernetes-validations:
+                      - message: should not contain dpu.nvidia.com/ and should not
+                          end with dpu.nvidia.com
+                        rule: '!(has(self.dpuAnnotations) && (self.dpuAnnotations.exists(key,
+                          key.contains(''dpu.nvidia.com/'') || key.endsWith(''dpu.nvidia.com'')))) '
                     maxItems: 50
                     minItems: 1
                     type: array

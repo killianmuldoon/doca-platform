@@ -132,6 +132,8 @@ type DPUs struct {
 	DPUSets []DPUSet `json:"dpuSets,omitempty"`
 }
 
+// +kubebuilder:validation:XValidation:rule="!(has(self.dpuAnnotations) && (self.dpuAnnotations.exists(key, key.contains('dpu.nvidia.com/') || key.endsWith('dpu.nvidia.com')))) ", message="should not contain dpu.nvidia.com/ and should not end with dpu.nvidia.com"
+
 // DPUSet contains configuration for the DPUSet to be created by the DPUDeployment
 type DPUSet struct {
 	// NameSuffix is the suffix to be added to the name of the DPUSet object created by the DPUDeployment.
@@ -150,6 +152,7 @@ type DPUSet struct {
 
 	// DPUAnnotations is the annotations to be added to the DPU object created by the DPUSet.
 	// +optional
+	// +kubebuilder:validation:MaxProperties=50
 	DPUAnnotations map[string]string `json:"dpuAnnotations,omitempty"`
 }
 

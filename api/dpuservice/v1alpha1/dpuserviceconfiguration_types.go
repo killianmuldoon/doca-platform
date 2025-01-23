@@ -121,13 +121,17 @@ type ServiceConfigurationHelmChart struct {
 }
 
 // DPUServiceConfigurationServiceDaemonSetValues reflects the Helm related configuration
+// +kubebuilder:validation:XValidation:rule="!(has(self.labels) && (self.labels.exists(key, key.contains('dpu.nvidia.com/') || key.endsWith('dpu.nvidia.com')))) ", message="labels should not contain dpu.nvidia.com/ and should not end with dpu.nvidia.com"
+// +kubebuilder:validation:XValidation:rule="!(has(self.annotations) && (self.annotations.exists(key, key.contains('dpu.nvidia.com/') || key.endsWith('dpu.nvidia.com')))) ", message="annotations should not contain dpu.nvidia.com/ and should not end with dpu.nvidia.com"
 type DPUServiceConfigurationServiceDaemonSetValues struct {
 	// Labels specifies labels which are added to the ServiceDaemonSet.
 	// +optional
+	// +kubebuilder:validation:MaxProperties=50
 	Labels map[string]string `json:"labels,omitempty"`
 
 	// Annotations specifies annotations which are added to the ServiceDaemonSet.
 	// +optional
+	// +kubebuilder:validation:MaxProperties=50
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 

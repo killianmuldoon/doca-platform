@@ -116,14 +116,25 @@ spec:
                           type: string
                         description: Annotations specifies annotations which are added
                           to the ServiceDaemonSet.
+                        maxProperties: 50
                         type: object
                       labels:
                         additionalProperties:
                           type: string
                         description: Labels specifies labels which are added to the
                           ServiceDaemonSet.
+                        maxProperties: 50
                         type: object
                     type: object
+                    x-kubernetes-validations:
+                    - message: labels should not contain dpu.nvidia.com/ and should
+                        not end with dpu.nvidia.com
+                      rule: '!(has(self.labels) && (self.labels.exists(key, key.contains(''dpu.nvidia.com/'')
+                        || key.endsWith(''dpu.nvidia.com'')))) '
+                    - message: annotations should not contain dpu.nvidia.com/ and
+                        should not end with dpu.nvidia.com
+                      rule: '!(has(self.annotations) && (self.annotations.exists(key,
+                        key.contains(''dpu.nvidia.com/'') || key.endsWith(''dpu.nvidia.com'')))) '
                 type: object
             required:
             - deploymentServiceName

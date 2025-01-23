@@ -2367,8 +2367,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `labels` _object (keys:string, values:string)_ | Labels specifies labels which are added to the ServiceDaemonSet. |  |  |
-| `annotations` _object (keys:string, values:string)_ | Annotations specifies annotations which are added to the ServiceDaemonSet. |  |  |
+| `labels` _object (keys:string, values:string)_ | Labels specifies labels which are added to the ServiceDaemonSet. |  | MaxProperties: 50 <br /> |
+| `annotations` _object (keys:string, values:string)_ | Annotations specifies annotations which are added to the ServiceDaemonSet. |  | MaxProperties: 50 <br /> |
 
 
 #### DPUServiceConfigurationSpec
@@ -2778,7 +2778,7 @@ _Appears in:_
 | `nameSuffix` _string_ | NameSuffix is the suffix to be added to the name of the DPUSet object created by the DPUDeployment. |  | MaxLength: 63 <br />MinLength: 1 <br /> |
 | `nodeSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#labelselector-v1-meta)_ | NodeSelector defines the nodes that the DPUSet should target |  |  |
 | `dpuSelector` _object (keys:string, values:string)_ | DPUSelector defines the DPUs that the DPUSet should target |  |  |
-| `dpuAnnotations` _object (keys:string, values:string)_ | DPUAnnotations is the annotations to be added to the DPU object created by the DPUSet. |  |  |
+| `dpuAnnotations` _object (keys:string, values:string)_ | DPUAnnotations is the annotations to be added to the DPU object created by the DPUSet. |  | MaxProperties: 50 <br /> |
 
 
 #### DPUs
