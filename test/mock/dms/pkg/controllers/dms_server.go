@@ -14,13 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package dpu
+package controllers
 
 import (
 	"context"
 	"fmt"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	"github.com/nvidia/doca-platform/test/mock/dms/pkg/server"
 
 	"github.com/fluxcd/pkg/runtime/patch"
@@ -45,8 +46,6 @@ type DMSServerReconciler struct {
 // +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpus/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=pods;pods/exec;nodes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=patch;update;delete;create
-
-const DMSAddressAnnotationKey = "dpu.nvidia.com/dms-address-override"
 
 func (r *DMSServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrllog.FromContext(ctx)
@@ -80,15 +79,11 @@ func (r *DMSServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	// If the address annotation isn't set create a server, add the annotation and patch the DPU.
-	_, ok := dpu.Annotations[DMSAddressAnnotationKey]
-	if !ok {
-		err := r.AddDMSListenerForDPU(dpu)
-		return ctrl.Result{}, err
-	}
+	// Add the annotation and patch the DPU.
+	err := r.AddDMSListenerForDPU(dpu)
 
 	// If we have an error we have to requeue the DPU and let controller-runtime handle the error.
-	return ctrl.Result{}, nil
+	return ctrl.Result{}, err
 }
 
 // AddDMSListenerForDPU adds a new listener.
@@ -96,6 +91,11 @@ func (r *DMSServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 // Create new listener in the mux.
 // Add the annotation.
 func (r *DMSServerReconciler) AddDMSListenerForDPU(dpu *provisioningv1.DPU) error {
+	if dpu.Annotations == nil {
+		dpu.Annotations = map[string]string{}
+	}
+	dpu.Annotations[util.OverrideDMSPodNameAnnotationKey] = "pod-1"
+	dpu.Annotations[util.OverrideDMSPortAnnotationKey] = "20000"
 	return nil
 }
 
@@ -103,5 +103,6 @@ func (r *DMSServerReconciler) AddDMSListenerForDPU(dpu *provisioningv1.DPU) erro
 func (r *DMSServerReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&provisioningv1.DPU{}).
+		Named("dms-server").
 		Complete(r)
 }
