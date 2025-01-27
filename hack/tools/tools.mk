@@ -18,8 +18,20 @@ $(TOOLSDIR):
 	@mkdir -p $@
 
 # Detect architecture and platform
-TOOL_ARCH := $(shell uname -m)
-TOOL_OS := $(shell uname -s | tr A-Z a-z)
+TOOL_ARCH ?= $(shell uname -m)
+TOOL_OS ?= $(shell uname -s | tr A-Z a-z)
+
+# PROTOC uses values for Mac OS and arch which are distinct from the uname values.
+PROTOC_OS = $(TOOL_OS)
+ifeq ($(TOOL_OS),darwin)
+  PROTOC_OS = osx
+endif
+
+PROTOC_ARCH = $(TOOL_ARCH)
+ifeq ($(TOOL_ARCH),arm64)
+  PROTOC_ARCH = aarch_64
+endif
+
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.5.0
@@ -84,7 +96,7 @@ PROTOC_REL ?= https://github.com/protocolbuffers/protobuf/releases
 protoc: $(PROTOC) ## Download protoc locally if necessary.
 $(PROTOC): | $(TOOLSDIR)
 	cd $(TOOLSDIR) && \
-	curl -L --output tmp.zip $(PROTOC_REL)/download/v$(PROTOC_VER)/protoc-$(PROTOC_VER)-$(TOOL_OS)-$(TOOL_ARCH).zip && \
+	curl -L --output tmp.zip $(PROTOC_REL)/download/v$(PROTOC_VER)/protoc-$(PROTOC_VER)-$(PROTOC_OS)-$(PROTOC_ARCH).zip && \
 	unzip tmp.zip -d protoc && rm tmp.zip
 
 .PHONY: protoc-gen-go
