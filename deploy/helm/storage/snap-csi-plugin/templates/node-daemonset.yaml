@@ -69,8 +69,6 @@ spec:
             timeoutSeconds: 10
             periodSeconds: 30
           volumeMounts:
-            - name: host
-              mountPath: /host
             - name: socket-dir
               mountPath: /csi
             - name: pods-mount-dir
@@ -83,6 +81,9 @@ spec:
               mountPropagation: "Bidirectional"
             - name: dev
               mountPath: /dev
+            - name: host
+              mountPath: /host
+              mountPropagation: "Bidirectional"
         - name: liveness-probe
           image: "{{ .Values.node.livenessProbe.image.repository }}:{{ .Values.node.livenessProbe.image.tag }}"
           args:
