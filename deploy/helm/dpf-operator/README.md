@@ -69,11 +69,16 @@ DPF Operator manages the lifecycle of a DOCA Platform Framework system.
 | grafana.enabled | bool | `false` |  |
 | grafana.persistence.enabled | bool | `true` |  |
 | imagePullSecrets | list | `[]` |  |
+| kamaji-etcd-defrag.backoffLimit | int | `6` |  |
+| kamaji-etcd-defrag.defragRule | string | `"dbQuotaUsage > 0.8 || dbSize - dbSizeInUse > 200*1024*1024"` |  |
+| kamaji-etcd-defrag.enabled | bool | `true` |  |
+| kamaji-etcd-defrag.image | string | `"ghcr.io/ahrtr/etcd-defrag:v0.22.0"` |  |
+| kamaji-etcd-defrag.schedule | string | `"0 0 * * *"` |  |
+| kamaji-etcd-defrag.successfulJobsHistoryLimit | int | `3` |  |
 | kamaji-etcd.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key | string | `"node-role.kubernetes.io/master"` |  |
 | kamaji-etcd.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator | string | `"Exists"` |  |
 | kamaji-etcd.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].key | string | `"node-role.kubernetes.io/control-plane"` |  |
 | kamaji-etcd.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].operator | string | `"Exists"` |  |
-| kamaji-etcd.autoCompactionRetention | int | `0` |  |
 | kamaji-etcd.datastore.annotations."helm.sh/resource-policy" | string | `"keep"` |  |
 | kamaji-etcd.datastore.enabled | bool | `true` |  |
 | kamaji-etcd.datastore.name | string | `"default"` |  |
