@@ -15,7 +15,6 @@ Service chain modifications are not supported.
 These are the required steps for upgrading DPU services:
 1) Update the DPU service YAML in the DPF deployment environment to include the required version (In the case of the OVN DPU Service, you can modify the $DTS_VERSION variable), here's an example (with the DTS DPU Service):
 
-[embedmd]:#(usecases/hbn_ovn/manifests/05.1-dpuservice-installation/dts-dpuservice.yaml)
 ```yaml
 ---
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -26,7 +25,7 @@ metadata:
 spec:
   helmChart:
     source:
-      repoURL: $NGC_HELM_REGISTRY_REPO_URL
+      repoURL: https://helm.ngc.nvidia.com/nvidia/doca
       version: 0.2.3
       chart: doca-telemetry
 ```

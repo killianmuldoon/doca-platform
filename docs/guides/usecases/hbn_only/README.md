@@ -90,15 +90,19 @@ export DPU_P0=
 ## Interface on which the DPUCluster load balancer will listen. Should be the management interface of the control plane node.
 export DPUCLUSTER_INTERFACE=
 
-# IP address to the NFS server used as storage for the BFB.
+## IP address to the NFS server used as storage for the BFB.
 export NFS_SERVER_IP=
 
-# The repository URL for the NVIDIA Helm chart registry. This should be set to the repository where the NVIDIA Helm charts are hosted.
-# Usually this is the NVIDIA Helm NGC registry. For development purposes, this can be set to a different repository.
+## The repository URL for the NVIDIA Helm chart registry.
+## Usually this is the NVIDIA Helm NGC registry. For development purposes, this can be set to a different repository.
 export NGC_HELM_REGISTRY_REPO_URL=https://helm.ngc.nvidia.com/nvidia/doca
 
-# API key for accessing containers and helm charts from the NGC private repository.
-# Note: This isn't technically required when using public images but is included here to demonstrate the secret flow in DPF when using images from a private registry.
+## The repository URL for the HBN container image.
+## Usually this is the NVIDIA NGC registry. For development purposes, this can be set to a different repository.
+export HBN_NGC_IMAGE_URL=nvcr.io/nvidia/doca/doca_hbn
+
+## API key for accessing containers and helm charts from the NGC private repository.
+## Note: This isn't technically required when using public images but is included here to demonstrate the secret flow in DPF when using images from a private registry.
 export NGC_API_KEY=
 
 ## DPF_VERSION is the version of the DPF components which will be deployed in this guide.
@@ -707,7 +711,7 @@ spec:
       imagePullSecrets:
       - name: dpf-pull-secret
       image:
-        repository: nvcr.io/nvidia/doca/doca_hbn
+        repository: $HBN_NGC_IMAGE_URL
         tag: 2.4.1-doca2.9.1
       resources:
         memory: 6Gi
@@ -1546,7 +1550,7 @@ spec:
       imagePullSecrets:
         - name: dpf-pull-secret
       image:
-        repository: nvcr.io/nvidia/doca/doca_hbn
+        repository: $HBN_NGC_IMAGE_URL
         tag: 2.4.1-doca2.9.1
       resources:
         memory: 6Gi

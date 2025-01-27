@@ -24,7 +24,7 @@ spec:
       chart: doca-hbn
     values:
       image:
-        repository: nvcr.io/nvidia/doca/doca_hbn
+        repository: $HBN_NGC_IMAGE_URL
         tag: 2.4.1-doca2.9.1
       resources:
         memory: 6Gi
