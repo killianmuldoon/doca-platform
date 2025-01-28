@@ -1525,7 +1525,7 @@
         "x": 12,
         "y": 6
       },
-      "id": 21,
+      "id": 150,
       "options": {
         "cellHeight": "sm",
         "footer": {
@@ -1550,7 +1550,7 @@
           "disableTextWrap": false,
           "editorMode": "code",
           "exemplar": false,
-          "expr": "dpu_info{}",
+          "expr": "dpucluster_info{}",
           "format": "table",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
@@ -1562,7 +1562,7 @@
           "useBackend": false
         }
       ],
-      "title": "DPUs",
+      "title": "DPUClusters",
       "transformations": [
         {
           "id": "organize",
@@ -1960,6 +1960,145 @@
         }
       ],
       "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true,
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "id": 21,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "frameIndex": 0,
+        "showHeader": true,
+        "sortBy": []
+      },
+      "pluginVersion": "11.1.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "disableTextWrap": false,
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "dpu_info{}",
+          "format": "table",
+          "fullMetaSearch": false,
+          "includeNullMetadata": true,
+          "instant": true,
+          "interval": "",
+          "legendFormat": "Auto",
+          "range": false,
+          "refId": "A",
+          "useBackend": false
+        }
+      ],
+      "title": "DPUs",
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Value": true,
+              "__name__": true,
+              "app_kubernetes_io_component": true,
+              "app_kubernetes_io_instance": true,
+              "app_kubernetes_io_managed_by": true,
+              "app_kubernetes_io_name": true,
+              "app_kubernetes_io_part_of": true,
+              "app_kubernetes_io_version": true,
+              "customresource_group": true,
+              "customresource_kind": true,
+              "customresource_version": true,
+              "helm_sh_chart": true,
+              "instance": true,
+              "job": true,
+              "node": true,
+              "service": true,
+              "uid": true
+            },
+            "includeByName": {},
+            "indexByName": {
+              "Time": 4,
+              "Value": 20,
+              "__name__": 5,
+              "app_kubernetes_io_component": 7,
+              "app_kubernetes_io_instance": 8,
+              "app_kubernetes_io_managed_by": 9,
+              "app_kubernetes_io_name": 10,
+              "app_kubernetes_io_part_of": 11,
+              "app_kubernetes_io_version": 12,
+              "customresource_group": 13,
+              "customresource_kind": 14,
+              "customresource_version": 15,
+              "firmware": 2,
+              "helm_sh_chart": 6,
+              "instance": 16,
+              "job": 17,
+              "name": 1,
+              "namespace": 0,
+              "node": 3,
+              "service": 18,
+              "uid": 19
+            },
+            "renameByName": {
+              "firmware": "Firmware",
+              "name": "Name",
+              "namespace": "Namespace",
+              "node": "",
+              "node_name": "Node Name"
+            }
+          }
+        }
+      ],
+      "type": "table"
     }
   ],
   "refresh": "1m",
@@ -2265,6 +2404,6 @@
   "timezone": "browser",
   "title": "DOCA Platform Framework State",
   "uid": "bdwdkx2p9kqgwd",
-  "version": 3,
+  "version": 1,
   "weekStart": ""
 }
