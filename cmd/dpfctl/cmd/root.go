@@ -17,9 +17,16 @@ limitations under the License.
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
+)
+
+// version is the version passed by the main package.
+var (
+	version     string
+	versionFlag bool
 )
 
 // TODO: can be integrated as a kubectl plugin
@@ -30,13 +37,30 @@ var rootCmd = &cobra.Command{
 	Use:   "dpfctl",
 	Short: "A CLI tool for the DOCA Platform Framework",
 	Long:  "Get useful information about the DOCA Platform Framework for debugging and troubleshooting.",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if versionFlag {
+			return printVersion()
+		}
+		return cmd.Help()
+	},
+}
+
+func init() {
+	rootCmd.Flags().BoolVarP(&versionFlag, "version", "v", false, "Print the version of dpfctl")
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
+func Execute(v string) {
+	version = v
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
+}
+
+func printVersion() error {
+	// TODO: add server version.
+	fmt.Printf("Client Version: %s\n", version)
+	return nil
 }

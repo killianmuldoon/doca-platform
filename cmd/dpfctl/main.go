@@ -18,6 +18,9 @@ package main
 
 import "github.com/nvidia/doca-platform/cmd/dpfctl/cmd"
 
+// version is set by the Makefile.
+var version = "unknown"
+
 func main() {
-	cmd.Execute()
+	cmd.Execute(version)
 }
