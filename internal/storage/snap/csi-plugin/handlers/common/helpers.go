@@ -73,5 +73,5 @@ func FieldIsRequiredError(filedName string) error {
 }
 
 func FieldIsRequired(filedName string) string {
-	return filedName + ": field is is required"
+	return filedName + ": field is required"
 }

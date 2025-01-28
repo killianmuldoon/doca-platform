@@ -43,7 +43,7 @@ func (h *controller) ControllerUnpublishVolume(
 
 	reqLog := logr.FromContextOrDiscard(ctx)
 	if req.VolumeId == "" {
-		return nil, common.FieldIsRequiredError("VolumeID")
+		return nil, common.FieldIsRequiredError("VolumeId")
 	}
 	if req.NodeId == "" {
 		return nil, common.FieldIsRequiredError("NodeId")

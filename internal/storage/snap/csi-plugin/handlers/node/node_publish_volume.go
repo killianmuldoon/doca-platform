@@ -1,5 +1,5 @@
 /*
-Copyright 2024 NVIDIA
+Copyright 2025 NVIDIA
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ func (h *node) NodePublishVolume(ctx context.Context,
 	stagingPath := h.getStagingPath(req.StagingTargetPath, req.VolumeId)
 	reqLog = reqLog.WithValues("stagingPath", stagingPath, "targetPath", req.TargetPath)
 
-	if err := h.mount.EnsureFileExist(req.TargetPath, 0664); err != nil {
+	if err := h.mount.EnsureFileExist(req.TargetPath, 0644); err != nil {
 		reqLog.Error(err, "can't create publish path for the volume")
 		return nil, status.Error(codes.Internal, "can't create staging path for the volume")
 	}

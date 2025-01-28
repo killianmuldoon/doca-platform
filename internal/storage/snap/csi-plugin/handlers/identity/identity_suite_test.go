@@ -14,24 +14,16 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package node
+package identity
 
 import (
-	"context"
+	"testing"
 
-	"github.com/container-storage-interface/spec/lib/go/csi"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-// NodeGetCapabilities is a handler for NodeGetCapabilities request
-func (h *node) NodeGetCapabilities(
-	ctx context.Context,
-	req *csi.NodeGetCapabilitiesRequest) (
-	*csi.NodeGetCapabilitiesResponse, error) {
-
-	return &csi.NodeGetCapabilitiesResponse{
-		Capabilities: []*csi.NodeServiceCapability{{
-			Type: &csi.NodeServiceCapability_Rpc{
-				Rpc: &csi.NodeServiceCapability_RPC{
-					Type: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME}}}},
-	}, nil
+func TestIdentity(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Identity Suite")
 }

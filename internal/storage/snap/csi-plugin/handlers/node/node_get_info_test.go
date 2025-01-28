@@ -19,19 +19,29 @@ package node
 import (
 	"context"
 
+	"github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/config"
+
 	"github.com/container-storage-interface/spec/lib/go/csi"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
 )
 
-// NodeGetCapabilities is a handler for NodeGetCapabilities request
-func (h *node) NodeGetCapabilities(
-	ctx context.Context,
-	req *csi.NodeGetCapabilitiesRequest) (
-	*csi.NodeGetCapabilitiesResponse, error) {
+var _ = Describe("NodeGetInfo", func() {
+	var (
+		nodeHandler *node
+	)
 
-	return &csi.NodeGetCapabilitiesResponse{
-		Capabilities: []*csi.NodeServiceCapability{{
-			Type: &csi.NodeServiceCapability_Rpc{
-				Rpc: &csi.NodeServiceCapability_RPC{
-					Type: csi.NodeServiceCapability_RPC_STAGE_UNSTAGE_VOLUME}}}},
-	}, nil
-}
+	BeforeEach(func() {
+		nodeHandler = &node{
+			cfg: config.Node{NodeID: "test-node-id"},
+		}
+	})
+
+	It("should return NodeID from configuration", func() {
+		resp, err := nodeHandler.NodeGetInfo(context.Background(), &csi.NodeGetInfoRequest{})
+
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp).NotTo(BeNil())
+		Expect(resp.NodeId).To(Equal("test-node-id"))
+	})
+})

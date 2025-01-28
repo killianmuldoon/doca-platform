@@ -49,13 +49,13 @@ func (h *controller) ControllerPublishVolume(
 	*csi.ControllerPublishVolumeResponse, error) {
 	reqLog := logr.FromContextOrDiscard(ctx)
 	if req.VolumeId == "" {
-		return nil, common.FieldIsRequiredError("VolumeID")
+		return nil, common.FieldIsRequiredError("VolumeId")
 	}
 	if req.NodeId == "" {
 		return nil, common.FieldIsRequiredError("NodeId")
 	}
 
-	if err := common.CheckVolumeCapability("VolumeCapability", req.VolumeCapability); err != nil {
+	if err := common.ValidateVolumeCapability(req.VolumeCapability); err != nil {
 		return nil, err
 	}
 

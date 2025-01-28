@@ -36,7 +36,7 @@ func (h *controller) ValidateVolumeCapabilities(
 	reqLog := logr.FromContextOrDiscard(ctx)
 
 	if req.VolumeId == "" {
-		return nil, common.FieldIsRequiredError("VolumeID")
+		return nil, common.FieldIsRequiredError("VolumeId")
 	}
 	if err := common.ValidateVolumeCapabilities(req.VolumeCapabilities); err != nil {
 		return nil, err

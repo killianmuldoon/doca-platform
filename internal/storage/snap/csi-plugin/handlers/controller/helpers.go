@@ -91,7 +91,7 @@ func getDPUNameByNodeName(ctx context.Context, c client.Client, nodeName string)
 		// this should never happen
 		return "", fmt.Errorf("bug: getDPUNameByNodeName returned DPU that doesn't math the node")
 	}
-	return dpuList.Items[0].Spec.NodeName, nil
+	return dpuList.Items[0].Name, nil
 }
 
 // build volume context map from the volume object
@@ -111,9 +111,6 @@ func convertCSIVolumeMode(volCaps []*csi.VolumeCapability) *corev1.PersistentVol
 	typeFS := corev1.PersistentVolumeFilesystem
 	typeBlock := corev1.PersistentVolumeBlock
 	for _, c := range volCaps {
-		if c.AccessMode == nil || c.AccessMode.Mode == 0 {
-			continue
-		}
 		switch c.GetAccessType().(type) {
 		case *csi.VolumeCapability_Block:
 			return &typeBlock

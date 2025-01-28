@@ -1,5 +1,5 @@
 /*
-Copyright 2024 NVIDIA
+Copyright 2025 NVIDIA
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -47,7 +47,7 @@ func (h *node) NodeStageVolume(
 	if req.StagingTargetPath == "" {
 		return nil, common.FieldIsRequiredError("StagingTargetPath")
 	}
-	if err := common.CheckVolumeCapability("VolumeCapability", req.VolumeCapability); err != nil {
+	if err := common.ValidateVolumeCapability(req.VolumeCapability); err != nil {
 		return nil, err
 	}
 	if req.PublishContext[common.PublishCtxDevicePciAddress] == "" {
@@ -132,7 +132,7 @@ func (h *node) getBlockDevice(ctx context.Context, pciAddress string, nvmeNsID i
 
 func (h *node) stageVolume(ctx context.Context, devicePath, stagePath string) error {
 	reqLog := logr.FromContextOrDiscard(ctx)
-	if err := h.mount.EnsureFileExist(stagePath, 0664); err != nil {
+	if err := h.mount.EnsureFileExist(stagePath, 0644); err != nil {
 		reqLog.Error(err, "can't create staging path for the volume")
 		return status.Error(codes.Internal, "can't create staging path for the volume")
 	}
