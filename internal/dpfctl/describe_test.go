@@ -22,6 +22,7 @@ import (
 	"testing"
 	"time"
 
+	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
@@ -39,39 +40,41 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 	g := NewWithT(t)
 	ctx := context.Background()
 
+	type objectsWithConditions struct {
+		object     client.Object
+		conditions []metav1.Condition
+	}
+
 	tests := []struct {
 		name           string
-		objectsTree    []client.Object
-		condition      metav1.Condition
+		objectsTree    []objectsWithConditions
+		opts           ObjectTreeOptions
 		expectedPrefix []string
 	}{
 		{
 			name: "Add DPFOperatorConfig",
-			objectsTree: []client.Object{
-				defaultDPFOperatorConfig(),
+			objectsTree: []objectsWithConditions{
+				{object: defaultDPFOperatorConfig(), conditions: getTrueCondition()},
 			},
-			condition: getTrueCondition(),
 			expectedPrefix: []string{
 				"DPFOperatorConfig/test  True  Success",
 			},
 		},
 		{
 			name: "Add DPFOperatorConfig with false condition",
-			objectsTree: []client.Object{
-				defaultDPFOperatorConfig(),
+			objectsTree: []objectsWithConditions{
+				{object: defaultDPFOperatorConfig(), conditions: getFalseCondition()},
 			},
-			condition: getFalseCondition(),
 			expectedPrefix: []string{
 				"DPFOperatorConfig/test  False  SomethingWentWrong",
 			},
 		},
 		{
 			name: "Add DPUCluster",
-			objectsTree: []client.Object{
-				defaultDPFOperatorConfig(),
-				defaultDPUCluster(),
+			objectsTree: []objectsWithConditions{
+				{object: defaultDPFOperatorConfig(), conditions: getTrueCondition()},
+				{object: defaultDPUCluster(), conditions: getTrueCondition()},
 			},
-			condition: getTrueCondition(),
 			expectedPrefix: []string{
 				"DPFOperatorConfig/test  True  Success",
 				"└─DPUClusters",
@@ -80,11 +83,10 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 		},
 		{
 			name: "Add DPUSet",
-			objectsTree: []client.Object{
-				defaultDPFOperatorConfig(),
-				defaultDPUSet(),
+			objectsTree: []objectsWithConditions{
+				{object: defaultDPFOperatorConfig(), conditions: getTrueCondition()},
+				{object: defaultDPUSet(), conditions: getTrueCondition()},
 			},
-			condition: getTrueCondition(),
 			expectedPrefix: []string{
 				"DPFOperatorConfig/test  True  Success",
 				"└─DPUSets",
@@ -93,11 +95,10 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 		},
 		{
 			name: "Add DPU",
-			objectsTree: []client.Object{
-				defaultDPFOperatorConfig(),
-				defaultDPU(),
+			objectsTree: []objectsWithConditions{
+				{object: defaultDPFOperatorConfig(), conditions: getTrueCondition()},
+				{object: defaultDPU(), conditions: getTrueCondition()},
 			},
-			condition: getTrueCondition(),
 			expectedPrefix: []string{
 				"DPFOperatorConfig/test  True  Success",
 				"└─DPUs",
@@ -106,13 +107,12 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 		},
 		{
 			name: "Add DPUSet with DPU and DPU w/o DPUSet",
-			objectsTree: []client.Object{
-				defaultDPFOperatorConfig(),
-				defaultDPUSet(),
-				defaultDPU(),
-				defaultDPUFromDPUSet(),
+			objectsTree: []objectsWithConditions{
+				{object: defaultDPFOperatorConfig(), conditions: getTrueCondition()},
+				{object: defaultDPUSet(), conditions: getTrueCondition()},
+				{object: defaultDPU(), conditions: getTrueCondition()},
+				{object: defaultDPUFromDPUSet(), conditions: getTrueCondition()},
 			},
-			condition: getTrueCondition(),
 			expectedPrefix: []string{
 				"DPFOperatorConfig/test  True  Success",
 				"├─DPUSets",
@@ -122,23 +122,92 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 				"  └─DPU/orphaned-dpu    True  Success",
 			},
 		},
+		// TODO: add test case to show Argo Applications. This is not trivial because Argos conditions are no
+		// metav1.Condition type but argov1.ApplicationCondition type.
+		{
+			name: "Add DPUService without showing Applications",
+			objectsTree: []objectsWithConditions{
+				{object: defaultDPFOperatorConfig(), conditions: getTrueCondition()},
+				{object: defaultDPUService(), conditions: getTrueCondition()},
+			},
+			expectedPrefix: []string{
+				"DPFOperatorConfig/test  True  Success",
+				"└─DPUServices",
+				"  └─DPUService/test     True  Success",
+			},
+		},
+		{
+			name: "Add all resources",
+			objectsTree: []objectsWithConditions{
+				{object: defaultDPFOperatorConfig(), conditions: getTrueCondition()},
+				{object: defaultDPUService(), conditions: getTrueCondition()},
+				{object: defaultDPUSet(), conditions: getTrueCondition()},
+				{object: defaultDPU(), conditions: getTrueCondition()},
+				{object: defaultDPUFromDPUSet(), conditions: getTrueCondition()},
+			},
+			expectedPrefix: []string{
+				"DPFOperatorConfig/test  True  Success",
+				"├─DPUServices",
+				"│ └─DPUService/test     True  Success",
+				"├─DPUSets",
+				"│ └─DPUSet/test",
+				"│   └─DPU/test          True  Success",
+				"└─DPUs",
+				"  └─DPU/orphaned-dpu    True  Success",
+			},
+		},
+		{
+			name: "Add all resources with conditions",
+			objectsTree: []objectsWithConditions{
+				{object: defaultDPFOperatorConfig(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUService(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUSet(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPU(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUFromDPUSet(), conditions: getRandomConditionsWithReadyTrueCondition()},
+			},
+			opts: ObjectTreeOptions{
+				ShowOtherConditions: "all",
+			},
+			expectedPrefix: []string{
+				"DPFOperatorConfig/test                True   Success",
+				"│           ├─RandomReady             False  SomethingWentWrong",
+				"│           └─RandomReconciled        True   Success",
+				"├─DPUServices",
+				"│ └─DPUService/test                   True   Success",
+				"│               ├─RandomReady         False  SomethingWentWrong",
+				"│               └─RandomReconciled    True   Success",
+				"├─DPUSets",
+				"│ └─DPUSet/test",
+				"│   └─DPU/test                        True   Success",
+				"│                 ├─RandomReady       False  SomethingWentWrong",
+				"│                 └─RandomReconciled  True   Success",
+				"└─DPUs",
+				"  └─DPU/orphaned-dpu                  True   Success",
+				"                ├─RandomReady         False  SomethingWentWrong",
+				"                └─RandomReconciled    True   Success",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for _, obj := range tt.objectsTree {
-				g.Expect(testClient.Create(ctx, obj)).To(Succeed())
+			for _, ot := range tt.objectsTree {
+				g.Expect(testClient.Create(ctx, ot.object)).To(Succeed())
+
+				// Get object to test
+				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(ot.object), ot.object)).To(Succeed())
+				g.Expect(ot.object).ToNot(BeNil())
 
 				// We have to convert the object to unstructured to set the status conditions.
 				// We don't have access to the status field of the client.Object directly.
 				u := unstructured.Unstructured{}
-				g.Expect(scheme.Scheme.Convert(obj, &u, nil)).To(Succeed())
-				unstructuredGetSet(&u).SetConditions([]metav1.Condition{tt.condition})
+				g.Expect(scheme.Scheme.Convert(ot.object, &u, nil)).To(Succeed())
+				unstructuredGetSet(&u).SetConditions(ot.conditions)
 
 				// Update the status.
 				g.Expect(testClient.Status().Update(ctx, &u)).To(Succeed())
 			}
 
-			td, err := TreeDiscovery(context.Background(), testClient, ObjectTreeOptions{})
+			td, err := TreeDiscovery(context.Background(), testClient, tt.opts)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(td).ToNot(BeNil())
 
@@ -153,29 +222,10 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 			g.Expect(output.String()).Should(MatchTable(tt.expectedPrefix))
 
 			// Cleanup resources for next run
-			for _, obj := range tt.objectsTree {
-				g.Expect(testClient.Delete(ctx, obj)).To(Succeed())
+			for _, ot := range tt.objectsTree {
+				g.Expect(testClient.Delete(ctx, ot.object)).To(Succeed())
 			}
 		})
-	}
-}
-
-func getTrueCondition() metav1.Condition {
-	return metav1.Condition{
-		Type:               string(conditions.TypeReady),
-		Status:             metav1.ConditionTrue,
-		Reason:             "Success",
-		LastTransitionTime: metav1.Time{Time: time.Now()},
-	}
-}
-
-func getFalseCondition() metav1.Condition {
-	return metav1.Condition{
-		Type:               string(conditions.TypeReady),
-		Status:             metav1.ConditionFalse,
-		Reason:             "SomethingWentWrong",
-		Message:            "Failed",
-		LastTransitionTime: metav1.Time{Time: time.Now()},
 	}
 }
 
@@ -220,6 +270,67 @@ func defaultDPUFromDPUSet() *provisioningv1.DPU {
 				util.DPUSetNameLabel:      "test",
 				util.DPUSetNamespaceLabel: "default",
 			},
+		},
+	}
+}
+
+func defaultDPUService() *dpuservicev1.DPUService {
+	return &dpuservicev1.DPUService{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec: dpuservicev1.DPUServiceSpec{
+			HelmChart: dpuservicev1.HelmChart{
+				Source: dpuservicev1.ApplicationSource{
+					RepoURL: "oci://foobar",
+					Version: "1.0.0",
+				},
+			},
+		},
+	}
+}
+
+func getTrueCondition() []metav1.Condition {
+	return []metav1.Condition{
+		{
+			Type:               string(conditions.TypeReady),
+			Status:             metav1.ConditionTrue,
+			Reason:             "Success",
+			LastTransitionTime: metav1.Time{Time: time.Now()},
+		},
+	}
+}
+
+func getFalseCondition() []metav1.Condition {
+	return []metav1.Condition{
+		{
+			Type:               string(conditions.TypeReady),
+			Status:             metav1.ConditionFalse,
+			Reason:             "SomethingWentWrong",
+			Message:            "Failed",
+			LastTransitionTime: metav1.Time{Time: time.Now()},
+		},
+	}
+}
+
+func getRandomConditionsWithReadyTrueCondition() []metav1.Condition {
+	return []metav1.Condition{
+		{
+			Type:               string(conditions.TypeReady),
+			Status:             metav1.ConditionTrue,
+			Reason:             "Success",
+			LastTransitionTime: metav1.Time{Time: time.Now()},
+		},
+		{
+			Type:               "RandomReconciled",
+			Status:             metav1.ConditionTrue,
+			Reason:             "Success",
+			LastTransitionTime: metav1.Time{Time: time.Now()},
+		},
+		{
+			Type:               "RandomReady",
+			Status:             metav1.ConditionFalse,
+			Reason:             "SomethingWentWrong",
+			Message:            "Failed",
+			LastTransitionTime: metav1.Time{Time: time.Now()},
 		},
 	}
 }

@@ -37,6 +37,9 @@ type ObjectTreeOptions struct {
 	// to signal to the presentation layer to show all the conditions for the objects.
 	ShowOtherConditions string
 
+	// ExpandResources is a list of comma separated kind or kind/name that should be expanded in the output.
+	ExpandResources string
+
 	// Echo displays objects if the object's ready condition has the
 	// same Status, Severity and Reason of the parent's object ready condition (it is an echo)
 	Echo bool

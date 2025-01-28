@@ -288,3 +288,16 @@ func showResource(showResources string, objKind string) bool {
 	}
 	return false
 }
+
+func isWorkloadKind(kind string) bool {
+	validKinds := map[string]struct{}{
+		"Deployment":  {},
+		"StatefulSet": {},
+		"DaemonSet":   {},
+		"Job":         {},
+		"CronJob":     {},
+		"ReplicaSet":  {},
+	}
+	_, exists := validKinds[kind]
+	return exists
+}

@@ -21,8 +21,11 @@ import (
 	"fmt"
 	"time"
 
+	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/argocd/api/application"
+	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -60,6 +63,10 @@ func TreeDiscovery(ctx context.Context, c client.Client, opts ObjectTreeOptions)
 	}
 
 	if err = addDPUs(ctx, scope, dpfOperatorConfig, nil); err != nil {
+		return nil, err
+	}
+
+	if err = addDPUServices(ctx, scope, dpfOperatorConfig, nil); err != nil {
 		return nil, err
 	}
 
@@ -207,4 +214,100 @@ func addDPUs(ctx context.Context, o objectScope, root client.Object, matchLabels
 	}
 
 	return nil
+}
+
+func addDPUServices(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels) error {
+	if !showResource(o.opts.ShowResources, dpuservicev1.DPUServiceKind) {
+		return nil
+	}
+
+	// Override the ShowResources option to show all the resources recursively.
+	o.opts.ShowResources = ""
+
+	dpuServiceList := &dpuservicev1.DPUServiceList{}
+	if err := o.client.List(ctx, dpuServiceList, matchLabels); err != nil {
+		return err
+	}
+
+	addToTree := []client.Object{}
+	for _, dpuService := range dpuServiceList.Items {
+		dpuService.TypeMeta = metav1.TypeMeta{
+			Kind:       dpuservicev1.DPUServiceKind,
+			APIVersion: dpuservicev1.GroupVersion.String(),
+		}
+		addToTree = append(addToTree, &dpuService)
+
+		// Return early if we should not expand DPUServices.
+		if !isObjDebug(&dpuService, o.opts.ExpandResources) {
+			continue
+		}
+		if err := addArgoApplication(ctx, o, dpuService); err != nil {
+			return fmt.Errorf("get application information: %w", err)
+		}
+	}
+
+	o.tree.AddMultipleWithHeader(root, addToTree, "DPUServices")
+	return nil
+}
+
+func addArgoApplication(ctx context.Context, o objectScope, dpuService dpuservicev1.DPUService) error {
+	if !showResource(o.opts.ShowResources, application.ApplicationKind) {
+		return nil
+	}
+
+	applications := argov1.ApplicationList{}
+	if err := o.client.List(ctx, &applications, client.MatchingLabels{
+		dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
+		dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
+	}); err != nil {
+		return err
+	}
+	for _, appObj := range applications.Items {
+		virtApp := VirtualObject(appObj.GetNamespace(), application.ApplicationKind, appObj.GetName())
+		virtApp.SetAnnotations(nil)
+		conditions := argoStatusResourcesToConditions(appObj.Status)
+		// add conditions to unstructured object under .status.conditions
+		virtApp.Object["status"] = map[string]interface{}{
+			"conditions": conditions,
+		}
+		o.tree.Add(dpuService.DeepCopy(), virtApp)
+	}
+	return nil
+}
+
+// argoStatusResourcesToConditions converts the argo status resources to metav1 conditions.
+func argoStatusResourcesToConditions(status argov1.ApplicationStatus) []metav1.Condition {
+	conditions := []metav1.Condition{}
+	lastTransitionTime := status.ReconciledAt
+	for _, c := range status.Resources {
+		if !isWorkloadKind(c.Kind) {
+			continue
+		}
+		var cStatus, message string
+		if c.Health != nil {
+			cStatus = string(c.Health.Status)
+			message = c.Health.Message
+		}
+		conditions = append(conditions, metav1.Condition{
+			Type:               fmt.Sprintf("%s/%s", c.Kind, c.Name),
+			Status:             metav1.ConditionStatus(c.Status),
+			LastTransitionTime: *lastTransitionTime,
+			Reason:             cStatus,
+			Message:            message,
+		})
+	}
+
+	// Add ready condition
+	cond := metav1.Condition{
+		Type:               "Ready",
+		Status:             metav1.ConditionTrue,
+		LastTransitionTime: *lastTransitionTime,
+		Reason:             "Success",
+	}
+	if status.Health.Status != argov1.HealthStatusHealthy {
+		cond.Status = metav1.ConditionFalse
+		cond.Reason = string(status.Health.Status)
+	}
+	conditions = append(conditions, cond)
+	return conditions
 }

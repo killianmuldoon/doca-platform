@@ -44,6 +44,7 @@ func TestMain(m *testing.M) {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
 			filepath.Join("..", "..", "deploy", "helm", "dpf-operator", "templates", "crds"),
+			filepath.Join("..", "..", "test", "objects", "crd", "argocd"),
 		},
 		ErrorIfCRDPathMissing: true,
 

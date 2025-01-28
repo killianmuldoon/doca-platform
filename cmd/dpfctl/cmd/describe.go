@@ -36,7 +36,7 @@ import (
 type describeOptions struct {
 	showOtherConditions string
 	showResources       string
-	showApplications    bool
+	expandResources     string
 	grouping            bool // TODO: Currently not working as expected
 	color               bool
 	wrapLines           bool
@@ -58,8 +58,8 @@ var describeCmd = &cobra.Command{
 # Show all conditions for DPUService and DPU resources
 %[1]s describe --show-conditions=DPUService,DPU
 
-# Display Applications managed by a DPUService
-%[1]s describe --show-applications
+# Expand the resources for a DPUService
+%[1]s describe --expand-resources=DPUService
 
 # Display conditions for all resources
 %[1]s describe --show-conditions=all
@@ -83,11 +83,12 @@ func init() {
 	describeCmd.Flags().StringVar(&opts.showOtherConditions, "show-conditions", "",
 		"list of comma separated kind or kind/name for which the command should show all the object's conditions (use 'all' to show conditions for everything).")
 
+	// TODO: add also support for kind/name. Currently this is not implemented as we return early without knowing the kind name.
 	describeCmd.Flags().StringVar(&opts.showResources, "show-resources", "",
-		"list of comma separated kind or kind/name for which the command should show all the object's resources (default value is 'all').")
+		"list of comma separated kind for which the command should show all the object's resources (default value is 'all').")
 
-	describeCmd.Flags().BoolVar(&opts.showApplications, "show-applications", false,
-		"show also Applications that are deployed by a DPUService.")
+	describeCmd.Flags().StringVar(&opts.expandResources, "expand-resources", "",
+		"list of comma separated kind or kind/name for which the command should show all the object's child resources (default value is '').")
 
 	describeCmd.Flags().BoolVar(&opts.grouping, "grouping", false,
 		"enable grouping of objects by kind.")
@@ -116,6 +117,7 @@ func runDescribe(cmd *cobra.Command) error {
 	t, err := dpfctl.TreeDiscovery(ctx, c, dpfctl.ObjectTreeOptions{
 		ShowResources:       opts.showResources,
 		ShowOtherConditions: opts.showOtherConditions,
+		ExpandResources:     opts.expandResources,
 		Grouping:            opts.grouping,
 		WrapLines:           opts.wrapLines,
 		Colors:              opts.color,
