@@ -575,6 +575,9 @@ warm-cache: ## Warm the cache for the tests.
 
 GO_GCFLAGS ?= ""
 GO_LDFLAGS ?= "-extldflags '-static'"
+
+STORAGE_SNAP_CSI_DRIVER_GO_LDFLAGS ?= "$(shell echo $(GO_LDFLAGS)) -X github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/common.VendorVersion=$(TAG)"
+
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
 DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller ovs-helper snap-controller dpfctl
 DPU_ARCH_BUILD_TARGETS ?= storage-snap-node-driver storage-vendor-dpu-plugin
@@ -656,7 +659,9 @@ binary-storage-vendor-dpu-plugin: ## Build the storage vendor DPU plugin control
 
 .PHONY: binary-snap-csi-plugin
 binary-snap-csi-plugin: ## Build the snap-csi-plugin binary.
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/snap-csi-plugin github.com/nvidia/doca-platform/cmd/storage/snap-csi-plugin
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build \
+		-ldflags=$(STORAGE_SNAP_CSI_DRIVER_GO_LDFLAGS) \
+		-gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/snap-csi-plugin github.com/nvidia/doca-platform/cmd/storage/snap-csi-plugin
 
 .PHONY: binary-dpfctl
 binary-dpfctl: ## Build the dpfctl binary.
@@ -1051,7 +1056,7 @@ docker-build-snap-csi-plugin-for-%:
 		--platform=linux/$* \
 		--build-arg builder_image=$(BUILD_IMAGE) \
 		--build-arg base_image=$(BASE_IMAGE) \
-		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg ldflags=$(STORAGE_SNAP_CSI_DRIVER_GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
 		-f Dockerfile.snap-csi-plugin \
 		. \

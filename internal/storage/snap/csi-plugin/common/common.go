@@ -16,7 +16,7 @@ limitations under the License.
 
 package common
 
-const (
+var (
 	// PluginName is the name of this CSI SP.
 	PluginName = "csi.snap.nvidia.com"
 

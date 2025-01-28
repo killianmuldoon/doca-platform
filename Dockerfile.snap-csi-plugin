@@ -22,7 +22,7 @@ ARG gcflags
 ARG ldflags
 ARG TARGETARCH
 
-ENV GO_LDFLAGS=\"${ldflags}\"
+ENV STORAGE_SNAP_CSI_DRIVER_GO_LDFLAGS=\"${ldflags}\"
 ENV GO_GCFLAGS=\"${gcflags}\"
 ENV ARCH=${TARGETARCH}
 
