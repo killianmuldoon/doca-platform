@@ -144,16 +144,28 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 				{object: defaultDPUSet(), conditions: getTrueCondition()},
 				{object: defaultDPU(), conditions: getTrueCondition()},
 				{object: defaultDPUFromDPUSet(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceChain(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceInterface(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceIPAM(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceCredentialRequest(), conditions: getTrueCondition()},
 			},
 			expectedPrefix: []string{
-				"DPFOperatorConfig/test  True  Success",
+				"DPFOperatorConfig/test                True  Success",
+				"├─DPUServiceChain",
+				"│ └─DPUServiceChain/test              True  Success",
+				"├─DPUServiceCredentialRequest",
+				"│ └─DPUServiceCredentialRequest/test  True  Success",
+				"├─DPUServiceIPAM",
+				"│ └─DPUServiceIPAM/test               True  Success",
+				"├─DPUServiceInterface",
+				"│ └─DPUServiceInterface/test          True  Success",
 				"├─DPUServices",
-				"│ └─DPUService/test     True  Success",
+				"│ └─DPUService/test                   True  Success",
 				"├─DPUSets",
 				"│ └─DPUSet/test",
-				"│   └─DPU/test          True  Success",
+				"│   └─DPU/test                        True  Success",
 				"└─DPUs",
-				"  └─DPU/orphaned-dpu    True  Success",
+				"  └─DPU/orphaned-dpu                  True  Success",
 			},
 		},
 		{
@@ -164,6 +176,10 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 				{object: defaultDPUSet(), conditions: getRandomConditionsWithReadyTrueCondition()},
 				{object: defaultDPU(), conditions: getRandomConditionsWithReadyTrueCondition()},
 				{object: defaultDPUFromDPUSet(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUServiceChain(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUServiceInterface(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUServiceIPAM(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUServiceCredentialRequest(), conditions: getRandomConditionsWithReadyTrueCondition()},
 			},
 			opts: ObjectTreeOptions{
 				ShowOtherConditions: "all",
@@ -172,6 +188,22 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 				"DPFOperatorConfig/test                True   Success",
 				"│           ├─RandomReady             False  SomethingWentWrong",
 				"│           └─RandomReconciled        True   Success",
+				"├─DPUServiceChain",
+				"│ └─DPUServiceChain/test              True   Success",
+				"│               ├─RandomReady         False  SomethingWentWrong",
+				"│               └─RandomReconciled    True   Success",
+				"├─DPUServiceCredentialRequest",
+				"│ └─DPUServiceCredentialRequest/test  True   Success",
+				"│               ├─RandomReady         False  SomethingWentWrong",
+				"│               └─RandomReconciled    True   Success",
+				"├─DPUServiceIPAM",
+				"│ └─DPUServiceIPAM/test               True   Success",
+				"│               ├─RandomReady         False  SomethingWentWrong",
+				"│               └─RandomReconciled    True   Success",
+				"├─DPUServiceInterface",
+				"│ └─DPUServiceInterface/test          True   Success",
+				"│               ├─RandomReady         False  SomethingWentWrong",
+				"│               └─RandomReconciled    True   Success",
 				"├─DPUServices",
 				"│ └─DPUService/test                   True   Success",
 				"│               ├─RandomReady         False  SomethingWentWrong",
@@ -284,6 +316,52 @@ func defaultDPUService() *dpuservicev1.DPUService {
 					Version: "1.0.0",
 				},
 			},
+		},
+	}
+}
+
+func defaultDPUServiceChain() *dpuservicev1.DPUServiceChain {
+	sc := &dpuservicev1.DPUServiceChain{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+	}
+	sc.Spec.Template.Spec.Template.Spec.Switches = []dpuservicev1.Switch{
+		{
+			Ports: []dpuservicev1.Port{
+				{
+					ServiceInterface: dpuservicev1.ServiceIfc{
+						MatchLabels: map[string]string{"foo": "bar"},
+					},
+				},
+			},
+		},
+	}
+	return sc
+}
+
+func defaultDPUServiceInterface() *dpuservicev1.DPUServiceInterface {
+	si := &dpuservicev1.DPUServiceInterface{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+	}
+	si.Spec.Template.Spec.Template.Spec.InterfaceType = "vf"
+	si.Spec.Template.Spec.Template.Spec.VF = &dpuservicev1.VF{
+		VFID:               1,
+		PFID:               1,
+		ParentInterfaceRef: "eth0",
+	}
+	return si
+}
+
+func defaultDPUServiceIPAM() *dpuservicev1.DPUServiceIPAM {
+	return &dpuservicev1.DPUServiceIPAM{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+	}
+}
+
+func defaultDPUServiceCredentialRequest() *dpuservicev1.DPUServiceCredentialRequest {
+	return &dpuservicev1.DPUServiceCredentialRequest{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec: dpuservicev1.DPUServiceCredentialRequestSpec{
+			Type: "kubeconfig",
 		},
 	}
 }

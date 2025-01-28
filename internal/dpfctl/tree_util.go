@@ -96,6 +96,9 @@ func getReadyCondition(obj client.Object) *metav1.Condition {
 // Adoption from: https://github.com/kubernetes-sigs/cluster-api/blob/release-1.9/cmd/clusterctl/client/tree/util.go#L104
 func GetOtherConditions(obj client.Object) []*metav1.Condition {
 	getter := objToGetSet(obj)
+	if getter == nil {
+		return nil
+	}
 	var conds []*metav1.Condition
 	for _, c := range getter.GetConditions() {
 		if c.Type != string(conditions.TypeReady) {
@@ -123,14 +126,13 @@ func objToGetSet(obj client.Object) conditions.GetSet {
 		return getter
 	}
 
-	objUnstructured := unstructured.Unstructured{}
-	_, ok := obj.(*unstructured.Unstructured)
+	objUnstructured, ok := obj.(*unstructured.Unstructured)
 	if !ok {
 		if err := scheme.Scheme.Convert(obj, &objUnstructured, nil); err != nil {
 			return nil
 		}
 	}
-	getter := unstructuredGetSet(&objUnstructured)
+	getter := unstructuredGetSet(objUnstructured)
 	return getter
 }
 
