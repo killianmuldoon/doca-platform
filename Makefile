@@ -665,7 +665,9 @@ binary-snap-csi-plugin: ## Build the snap-csi-plugin binary.
 
 .PHONY: binary-dpfctl
 binary-dpfctl: ## Build the dpfctl binary.
-	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build -ldflags=$(GO_LDFLAGS) -ldflags="-X 'main.version=$(TAG)'" -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/dpfctl github.com/nvidia/doca-platform/cmd/dpfctl
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build \
+		-ldflags="$(shell echo $(GO_LDFLAGS)) -X main.version=$(TAG)" \
+		-gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/dpfctl github.com/nvidia/doca-platform/cmd/dpfctl
 
 .PHONY: install-dpfctl
 install-dpfctl: binary-dpfctl ## Install the dpfctl binary.
