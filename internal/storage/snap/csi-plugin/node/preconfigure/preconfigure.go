@@ -28,7 +28,11 @@ import (
 	"k8s.io/klog/v2"
 )
 
-func New(config config.Node, pci utilsPci.Utils) runner.Runnable {
+type Preconfigure interface {
+	runner.Runnable
+}
+
+func New(config config.Node, pci utilsPci.Utils) Preconfigure {
 	return &preconfigure{
 		config:  config,
 		pci:     pci,

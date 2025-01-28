@@ -29,8 +29,8 @@ import (
 	os "os"
 	reflect "reflect"
 
-	mountlib "github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/wrappers/mountlib"
 	gomock "go.uber.org/mock/gomock"
+	mount "k8s.io/mount-utils"
 )
 
 // MockUtils is a mock of Utils interface.
@@ -58,11 +58,11 @@ func (m *MockUtils) EXPECT() *MockUtilsMockRecorder {
 }
 
 // CheckMountExists mocks base method.
-func (m *MockUtils) CheckMountExists(src, mountPoint string) (bool, mountlib.MountInfo, error) {
+func (m *MockUtils) CheckMountExists(src, mountPoint string) (bool, mount.MountInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CheckMountExists", src, mountPoint)
 	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(mountlib.MountInfo)
+	ret1, _ := ret[1].(mount.MountInfo)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }

@@ -37,12 +37,11 @@ import (
 	utilsPci "github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/utils/pci"
 	"github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/utils/runner"
 	"github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/utils/sync"
-	mountLibWrapperPkg "github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/wrappers/mountlib"
-	osWrapperPkg "github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/wrappers/os"
 
 	"github.com/container-storage-interface/spec/lib/go/csi"
 	"google.golang.org/grpc"
 	"k8s.io/klog/v2"
+	kmount "k8s.io/mount-utils"
 	kexec "k8s.io/utils/exec"
 )
 
@@ -58,12 +57,7 @@ func New(pluginConfig config.PluginConfig, options ...Option) (*ServiceManager, 
 		o.set(&opts)
 	}
 	var err error
-	if opts.osWrapper == nil {
-		opts.osWrapper = osWrapperPkg.New()
-	}
-	if opts.runner == nil {
-		opts.runner = runner.New()
-	}
+
 	if opts.dependenciesWaitTimeout == nil {
 		dependenciesWaitTimeout := defaultDependenciesWaitTimeout
 		opts.dependenciesWaitTimeout = &dependenciesWaitTimeout
@@ -71,11 +65,10 @@ func New(pluginConfig config.PluginConfig, options ...Option) (*ServiceManager, 
 	mgr := &ServiceManager{
 		serverBindOptions:       pluginConfig.ListenOptions,
 		dependenciesWaitTimeout: *opts.dependenciesWaitTimeout,
-		os:                      opts.osWrapper,
-		runner:                  opts.runner,
+		runner:                  runner.New(),
 	}
 
-	mgr.grpcServer = getGRPCServer(&opts)
+	mgr.grpcServer = getGRPCServer()
 
 	klog.V(2).Info("register identity service")
 	if opts.identityHandler == nil {
@@ -88,23 +81,31 @@ func New(pluginConfig config.PluginConfig, options ...Option) (*ServiceManager, 
 
 	switch pluginConfig.PluginMode {
 	case config.PluginModeController:
+		klog.V(2).Info("register clusterhelper")
+		if opts.clusterhelper == nil {
+			opts.clusterhelper = clusterhelper.New(pluginConfig.Controller)
+		}
+		mgr.runner.AddService("clusterhelper", opts.clusterhelper)
+
 		klog.V(2).Info("register controller service")
 		if opts.controllerHandler == nil {
-			klog.V(2).Info("register clusterhelper")
-			clusterHelper := clusterhelper.New(pluginConfig.Controller)
-			mgr.runner.AddService("clusterhelper", clusterHelper)
-			opts.controllerHandler = controller.New(pluginConfig.Controller, clusterHelper)
+			opts.controllerHandler = controller.New(pluginConfig.Controller, opts.clusterhelper)
 		}
 		csi.RegisterControllerServer(mgr.grpcServer, opts.controllerHandler)
 	case config.PluginModeNode:
-		pciUtils := utilsPci.New(pluginConfig.Node.HostRootFS, mgr.os, kexec.New())
+		pciUtils := utilsPci.New(pluginConfig.Node.HostRootFS, kexec.New())
+
 		klog.V(2).Info("register preconfigure")
-		mgr.runner.AddService("preconfigure", preconfigure.New(pluginConfig.Node, pciUtils))
+		if opts.preconfigure == nil {
+			opts.preconfigure = preconfigure.New(pluginConfig.Node, pciUtils)
+		}
+		mgr.runner.AddService("preconfigure", opts.preconfigure)
+
 		klog.V(2).Info("register node service")
 		if opts.nodeHandler == nil {
 			opts.nodeHandler = node.New(pluginConfig.Node,
-				utilsMount.New(mgr.os, mountLibWrapperPkg.New(mountLibWrapperPkg.DefaultMounter)),
-				utilsNvme.New(mgr.os),
+				utilsMount.New(kmount.New(utilsMount.DefaultMounter)),
+				utilsNvme.New(),
 				pciUtils,
 			)
 		}
@@ -116,10 +117,7 @@ func New(pluginConfig config.PluginConfig, options ...Option) (*ServiceManager, 
 	return mgr, nil
 }
 
-func getGRPCServer(opts *managerOptions) *grpc.Server {
-	if opts.newGRPCServerFunc != nil {
-		return opts.newGRPCServerFunc()
-	}
+func getGRPCServer() *grpc.Server {
 	return grpc.NewServer(grpc.ChainUnaryInterceptor(
 		middleware.SetReqIDMiddleware,
 		middleware.SetLoggerMiddleware,
@@ -137,9 +135,7 @@ type ServiceManager struct {
 	dependenciesWaitTimeout time.Duration
 
 	grpcServer *grpc.Server
-
-	os     osWrapperPkg.PkgWrapper
-	runner runner.Runner
+	runner     runner.Runner
 }
 
 type grpcServerWrapper struct {
@@ -208,7 +204,7 @@ func (m *ServiceManager) removeStaleUnixSocket() error {
 	if m.serverBindOptions.Network != config.NetUnix {
 		return nil
 	}
-	finfo, err := m.os.Stat(m.serverBindOptions.Address)
+	finfo, err := os.Stat(m.serverBindOptions.Address)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return nil
@@ -218,7 +214,7 @@ func (m *ServiceManager) removeStaleUnixSocket() error {
 	if finfo.Mode().Type() != fs.ModeSocket {
 		return fmt.Errorf("socket path already exist, but it is not a socket")
 	}
-	err = m.os.RemoveAll(m.serverBindOptions.Address)
+	err = os.RemoveAll(m.serverBindOptions.Address)
 	if err != nil {
 		return fmt.Errorf("failed to remove socket file: %v", err)
 	}

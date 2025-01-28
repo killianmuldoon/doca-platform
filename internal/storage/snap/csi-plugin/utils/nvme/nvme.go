@@ -22,17 +22,20 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/utils/common"
-	osWrapperPkg "github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/wrappers/os"
 
 	"k8s.io/klog/v2"
 )
 
 var ErrBlockDeviceNotFound = fmt.Errorf("block device not found")
+
+// used in tests to change fs root
+var fsRoot = ""
 
 // Utils is the interface provided by nvme utils package
 type Utils interface {
@@ -44,15 +47,11 @@ type Utils interface {
 }
 
 // New initialize and return a new instance of nvme utils
-func New(osWrapper osWrapperPkg.PkgWrapper) Utils {
-	return &nvmeUtils{
-		os: osWrapper,
-	}
+func New() Utils {
+	return &nvmeUtils{}
 }
 
-type nvmeUtils struct {
-	os osWrapperPkg.PkgWrapper
-}
+type nvmeUtils struct{}
 
 // GetBlockDeviceNameForNS is an Utils interface implementation for nvmeUtils
 func (n *nvmeUtils) GetBlockDeviceNameForNS(deviceID string, namespace int32) (string, error) {
@@ -70,8 +69,8 @@ func (n *nvmeUtils) GetBlockDeviceNameForNS(deviceID string, namespace int32) (s
 
 func (n *nvmeUtils) getBlockDeviceName(deviceID string, namespace int32) (string, error) {
 	// e.g. /sys/bus/pci/drivers/nvme/0000:3b:00.6/nvme
-	devDriverPath := filepath.Join(common.SysfsPCIDriverPath, common.NVMEDriver, deviceID, common.NVMEDriver)
-	ctrlDirs, err := n.os.ReadDir(devDriverPath)
+	devDriverPath := filepath.Join(fsRoot, common.SysfsPCIDriverPath, common.NVMEDriver, deviceID, common.NVMEDriver)
+	ctrlDirs, err := os.ReadDir(devDriverPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read device info: %w", err)
 	}
@@ -81,14 +80,14 @@ func (n *nvmeUtils) getBlockDeviceName(deviceID string, namespace int32) (string
 	// e.g. /sys/bus/pci/drivers/nvme/0000:3b:00.6/nvme/nvme3
 	// assumption is that each VF will have only one NVME controller
 	ctrlDirPath := filepath.Join(devDriverPath, ctrlDirs[0].Name())
-	dirs, err := n.os.ReadDir(ctrlDirPath)
+	dirs, err := os.ReadDir(ctrlDirPath)
 	if err != nil {
 		return "", err
 	}
 	for _, d := range dirs {
 		// e.g. /sys/bus/pci/drivers/nvme/0000:3b:00.6/nvme/nvme3/nvme2n1/nsid
 		nsIDFilePath := filepath.Join(ctrlDirPath, d.Name(), "nsid")
-		data, err := n.os.ReadFile(nsIDFilePath)
+		data, err := os.ReadFile(nsIDFilePath)
 		if err != nil {
 			continue
 		}

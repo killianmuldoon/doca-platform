@@ -24,10 +24,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	mountLibWrapperPkg "github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/wrappers/mountlib"
-	osWrapperPkg "github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/wrappers/os"
-
 	"k8s.io/klog/v2"
+	kmount "k8s.io/mount-utils"
+)
+
+// procMountInfoPath is the location of the mountinfo file
+var procMountInfoPath = "/proc/self/mountinfo"
+
+const (
+	// DefaultMounter contains path to the mounter tool which should be used by default
+	DefaultMounter = "/bin/mount"
 )
 
 // Utils is the interface provided by mount utils
@@ -38,28 +44,26 @@ type Utils interface {
 	// UnmountAndRemove unmounts given target if it is mounted and remove the target path
 	UnmountAndRemove(target string) error
 	// CheckMountExists check if the provided src is mounted to the provided mount point
-	CheckMountExists(src, mountPoint string) (bool, mountLibWrapperPkg.MountInfo, error)
+	CheckMountExists(src, mountPoint string) (bool, kmount.MountInfo, error)
 	// EnsureFileExist creates a file with specified path and all parent directories
 	// if required
 	EnsureFileExist(path string, mode os.FileMode) error
 }
 
 // New initialize and return instance of mount utils
-func New(osWrapper osWrapperPkg.PkgWrapper, mountLibWrapper mountLibWrapperPkg.PkgWrapper) Utils {
+func New(mounter kmount.Interface) Utils {
 	return &mountUtils{
-		os:       osWrapper,
-		mountLib: mountLibWrapper,
+		mounter: mounter,
 	}
 }
 
 type mountUtils struct {
-	mountLib mountLibWrapperPkg.PkgWrapper
-	os       osWrapperPkg.PkgWrapper
+	mounter kmount.Interface
 }
 
 // Mount is an Utils interface implementation for mountUtils
 func (m *mountUtils) Mount(source string, target string, fstype string, options []string) error {
-	return m.mountLib.Mount(source, target, fstype, options)
+	return m.mounter.Mount(source, target, fstype, options)
 }
 
 // UnmountAndRemove is an Utils interface implementation for UnmountAndRemove
@@ -69,11 +73,11 @@ func (m *mountUtils) UnmountAndRemove(target string) error {
 		return err
 	}
 	if isMount {
-		if err := m.unmount(target); err != nil {
+		if err := m.mounter.Unmount(target); err != nil {
 			return err
 		}
 	}
-	if err := m.os.RemoveAll(target); err != nil {
+	if err := os.RemoveAll(target); err != nil {
 		return fmt.Errorf("failed to remove target path: %v", err)
 	}
 	return nil
@@ -81,52 +85,52 @@ func (m *mountUtils) UnmountAndRemove(target string) error {
 
 // EnsureFileExist is an Utils interface implementation for EnsureFileExist
 func (m *mountUtils) EnsureFileExist(path string, mode os.FileMode) error {
-	exist, err := m.mountLib.PathExists(path)
+	exist, err := kmount.PathExists(path)
 	if err != nil {
 		return fmt.Errorf("failed to check stats for the file: %v", err)
 	}
 	if exist {
 		return nil
 	}
-	if err := m.os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return fmt.Errorf("failed to create dir: %v", err)
 	}
-	if err := m.os.WriteFile(path, []byte{}, mode); err != nil {
+	if err := os.WriteFile(path, []byte{}, mode); err != nil {
 		return fmt.Errorf("failed to create file: %v", err)
 	}
 	return nil
 }
 
 // CheckMountExists is an Utils interface implementation for CheckMountExists
-func (m *mountUtils) CheckMountExists(src, mountPoint string) (bool, mountLibWrapperPkg.MountInfo, error) {
+func (m *mountUtils) CheckMountExists(src, mountPoint string) (bool, kmount.MountInfo, error) {
 	mounts, err := m.getMounts(src)
 	if err != nil {
-		return false, mountLibWrapperPkg.MountInfo{}, fmt.Errorf("failed to read mounts for src: %v", err)
+		return false, kmount.MountInfo{}, fmt.Errorf("failed to read mounts for src: %v", err)
 	}
 	for _, mnt := range mounts {
 		if mnt.MountPoint == mountPoint {
 			return true, mnt, nil
 		}
 	}
-	return false, mountLibWrapperPkg.MountInfo{}, nil
+	return false, kmount.MountInfo{}, nil
 }
 
 // return list of valid mounts for the src
-func (m *mountUtils) getMounts(src string) ([]mountLibWrapperPkg.MountInfo, error) {
-	mounts, err := m.mountLib.ParseMountInfo(mountLibWrapperPkg.DefaultProcMountInfoPath)
+func (m *mountUtils) getMounts(src string) ([]kmount.MountInfo, error) {
+	mounts, err := kmount.ParseMountInfo(procMountInfoPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read mounts: %v", err)
 	}
-	result := make([]mountLibWrapperPkg.MountInfo, 0, len(mounts))
+	result := make([]kmount.MountInfo, 0, len(mounts))
 	for _, mnt := range mounts {
 		if !isMountSourceMatch(src, mnt) {
 			continue
 		}
-		exist, err := m.mountLib.PathExists(mnt.MountPoint)
-		if err != nil && !m.mountLib.IsCorruptedMnt(err) {
+		exist, err := kmount.PathExists(mnt.MountPoint)
+		if err != nil && !kmount.IsCorruptedMnt(err) {
 			return nil, fmt.Errorf("failed to check mount: %v", err)
 		}
-		if !exist || m.mountLib.IsCorruptedMnt(err) {
+		if !exist || kmount.IsCorruptedMnt(err) {
 			klog.InfoS("invalid mount detected, ignore the mount",
 				"src", src, "mountPoint", mnt.MountPoint)
 			continue
@@ -138,7 +142,7 @@ func (m *mountUtils) getMounts(src string) ([]mountLibWrapperPkg.MountInfo, erro
 
 // src device for the mount point can be in a different fields in the mountInfo structure(depending on the mount type)
 // this function knows which fields to check
-func isMountSourceMatch(src string, mnt mountLibWrapperPkg.MountInfo) bool {
+func isMountSourceMatch(src string, mnt kmount.MountInfo) bool {
 	if mnt.Source == src {
 		return true
 	}
@@ -158,14 +162,14 @@ func isMountSourceMatch(src string, mnt mountLibWrapperPkg.MountInfo) bool {
 
 // check if provided path is mount point(something is mounted to this path)
 func (m *mountUtils) isMountPoint(mountPoint string) (bool, error) {
-	exist, err := m.mountLib.PathExists(mountPoint)
+	exist, err := kmount.PathExists(mountPoint)
 	if err != nil {
 		return false, fmt.Errorf("mount point check error: %v", err)
 	}
 	if !exist {
 		return false, nil
 	}
-	mounts, err := m.mountLib.ParseMountInfo(mountLibWrapperPkg.DefaultProcMountInfoPath)
+	mounts, err := kmount.ParseMountInfo(procMountInfoPath)
 	if err != nil {
 		return false, fmt.Errorf("failed to read mounts: %v", err)
 	}
@@ -175,16 +179,4 @@ func (m *mountUtils) isMountPoint(mountPoint string) (bool, error) {
 		}
 	}
 	return false, nil
-}
-
-// unmount mount identified by the target path
-func (m *mountUtils) unmount(target string) error {
-	isMount, err := m.isMountPoint(target)
-	if err != nil {
-		return err
-	}
-	if !isMount {
-		return nil
-	}
-	return m.mountLib.Unmount(target)
 }

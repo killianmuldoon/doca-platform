@@ -29,7 +29,6 @@ import (
 	"strings"
 
 	"github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/utils/common"
-	osWrapperPkg "github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/wrappers/os"
 
 	"k8s.io/klog/v2"
 	kexec "k8s.io/utils/exec"
@@ -60,11 +59,13 @@ var pciAddressRegexp = regexp.MustCompile(
 	`^((1?[0-9a-f]{0,4}):)?([0-9a-f]{2}):([0-9a-f]{2})\.([0-9a-f]{1})$`,
 )
 
+// used in tests to change fs root
+var fsRoot = ""
+
 // New initialize and return a new instance of pci utils
-func New(hostRootFS string, osWrapper osWrapperPkg.PkgWrapper, exec kexec.Interface) Utils {
+func New(hostRootFS string, exec kexec.Interface) Utils {
 	return &pciUtils{
 		hostRootFS: hostRootFS,
-		os:         osWrapper,
 		exec:       exec,
 	}
 }
@@ -75,7 +76,7 @@ func New(hostRootFS string, osWrapper osWrapperPkg.PkgWrapper, exec kexec.Interf
 func ParsePCIAddress(address string) (string, error) {
 	match := pciAddressRegexp.FindStringSubmatch(address)
 	if len(match) == 0 {
-		return "", fmt.Errorf("invaid PCI address format, expected format is BUS:DEVICE.FUNCTION or DOMAIN:BUS:DEVICE.FUNCTION ")
+		return "", fmt.Errorf("invalid PCI address format, expected format is BUS:DEVICE.FUNCTION or DOMAIN:BUS:DEVICE.FUNCTION ")
 	}
 	switch match[1] {
 	case ":":
@@ -116,7 +117,6 @@ type Utils interface {
 }
 
 type pciUtils struct {
-	os         osWrapperPkg.PkgWrapper
 	exec       kexec.Interface
 	hostRootFS string
 }
@@ -135,14 +135,14 @@ func (u *pciUtils) LoadDriver(pciAddress, driver string) error {
 		return nil
 	}
 	// /sys/bus/pci/devices/0000:b1:00.2/driver_override
-	if err := u.os.WriteFile(filepath.Join(common.SysfsPCIDevsPath, pciAddress, driverOverridePath),
+	if err := os.WriteFile(filepath.Join(fsRoot, common.SysfsPCIDevsPath, pciAddress, driverOverridePath),
 		[]byte(driver), os.ModeAppend); err != nil {
 		return fmt.Errorf("failed to configure driver override: %v", err)
 	}
 
 	klog.V(2).InfoS("try to bind device to the driver", "device", pciAddress, "driver", driver)
 	// /sys/bus/pci/drivers/nvme/bind
-	if err := u.os.WriteFile(filepath.Join(common.SysfsPCIDriverPath, driver, driverBindPath),
+	if err := os.WriteFile(filepath.Join(fsRoot, common.SysfsPCIDriverPath, driver, driverBindPath),
 		[]byte(pciAddress), os.ModeAppend); err != nil {
 		return fmt.Errorf("failed to bind device to the driver: %v", err)
 	}
@@ -153,7 +153,7 @@ func (u *pciUtils) LoadDriver(pciAddress, driver string) error {
 // GetPFs is an Utils interface implementation for pciUtils
 func (u *pciUtils) GetPFs(vendor string, deviceIDs []string) ([]DeviceInfo, error) {
 	var pfs []DeviceInfo
-	devFolders, err := u.os.ReadDir(sysFSDevPath())
+	devFolders, err := os.ReadDir(sysFSDevPath())
 	if err != nil {
 		return nil, fmt.Errorf("failed to read devices from sysfs: %v", err)
 	}
@@ -192,14 +192,14 @@ func (u *pciUtils) GetPFs(vendor string, deviceIDs []string) ([]DeviceInfo, erro
 func (u *pciUtils) DisableSriovVfsDriverAutoprobe(pciAddress string) error {
 	// disable driver autoprobe for VFs
 	// e.g /sys/bus/pci/devices/0000:b1:00.2/sriov_drivers_autoprobe
-	return u.os.WriteFile(filepath.Join(common.SysfsPCIDevsPath, pciAddress, sriovDriversAutoprobePath),
+	return os.WriteFile(filepath.Join(fsRoot, common.SysfsPCIDevsPath, pciAddress, sriovDriversAutoprobePath),
 		[]byte("0"), os.ModeAppend)
 }
 
 // SetSriovNumVfs configure require amount of VFs on the PF identified by the pciAddress
 func (u *pciUtils) SetSriovNumVfs(pciAddress string, count int) error {
 	// e.g /sys/bus/pci/devices/0000:b1:00.2/sriov_numvfs
-	return u.os.WriteFile(filepath.Join(common.SysfsPCIDevsPath, pciAddress, sriovNumVfsPath),
+	return os.WriteFile(filepath.Join(fsRoot, common.SysfsPCIDevsPath, pciAddress, sriovNumVfsPath),
 		[]byte(strconv.Itoa(count)), os.ModeAppend)
 }
 
@@ -214,7 +214,7 @@ func (u *pciUtils) GetSRIOVTotalVFs(pciAddress string) (int, error) {
 }
 
 func (u *pciUtils) readSriovVFsCount(pciAddress string, subpath string) (int, error) {
-	data, err := u.os.ReadFile(filepath.Join(common.SysfsPCIDevsPath, pciAddress, subpath))
+	data, err := os.ReadFile(filepath.Join(fsRoot, common.SysfsPCIDevsPath, pciAddress, subpath))
 	if err != nil {
 		return 0, fmt.Errorf("failed to read %s for device %s: %v", subpath, pciAddress, err)
 	}
@@ -227,7 +227,11 @@ func (u *pciUtils) readSriovVFsCount(pciAddress string, subpath string) (int, er
 
 // InsertKernelModule is an Utils interface implementation for pciUtils
 func (u *pciUtils) InsertKernelModule(ctx context.Context, module string) error {
-	cmd := u.exec.CommandContext(ctx, "chroot", u.hostRootFS, "modprobe", module)
+	args := []string{"modprobe", module}
+	if u.hostRootFS != "" {
+		args = append([]string{"chroot", u.hostRootFS}, args...)
+	}
+	cmd := u.exec.CommandContext(ctx, args[0], args[1:]...)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to load kernel module %s: %v", module, err)
 	}
@@ -237,7 +241,7 @@ func (u *pciUtils) InsertKernelModule(ctx context.Context, module string) error 
 // check if provided address is PCI virtual function,
 // device is virtual function if it has link to the physical function
 func (u *pciUtils) isVF(pciAddress string) (bool, error) {
-	_, err := u.os.Stat(sysFSDevPath(pciAddress, vfCheckPath))
+	_, err := os.Stat(sysFSDevPath(pciAddress, vfCheckPath))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, nil
@@ -248,14 +252,14 @@ func (u *pciUtils) isVF(pciAddress string) (bool, error) {
 }
 
 func (u *pciUtils) getDeviceInfo(pciAddress string) (DeviceInfo, error) {
-	_, err := u.os.Stat(sysFSDevPath(pciAddress))
+	_, err := os.Stat(sysFSDevPath(pciAddress))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return DeviceInfo{}, ErrNotFound
 		}
 		return DeviceInfo{}, fmt.Errorf("failed to check device path in sysfs: %v", err)
 	}
-	d, err := u.os.ReadFile(sysFSDevPath(pciAddress, modaliasPath))
+	d, err := os.ReadFile(sysFSDevPath(pciAddress, modaliasPath))
 	if err != nil {
 		return DeviceInfo{}, fmt.Errorf("failed to read modalias file for device")
 	}
@@ -284,14 +288,14 @@ func (u *pciUtils) getDeviceDriver(pciAddress string) (string, error) {
 }
 
 func (u *pciUtils) readSysFSLink(pciAddress, path string) (string, error) {
-	_, err := u.os.Stat(sysFSDevPath(pciAddress, path))
+	_, err := os.Stat(sysFSDevPath(pciAddress, path))
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return "", nil
 		}
 		return "", err
 	}
-	link, err := u.os.Readlink(sysFSDevPath(pciAddress, path))
+	link, err := os.Readlink(sysFSDevPath(pciAddress, path))
 	if err != nil {
 		return "", err
 	}
@@ -299,5 +303,5 @@ func (u *pciUtils) readSysFSLink(pciAddress, path string) (string, error) {
 }
 
 func sysFSDevPath(paths ...string) string {
-	return filepath.Join(common.SysfsPCIDevsPath, filepath.Join(paths...))
+	return filepath.Join(fsRoot, common.SysfsPCIDevsPath, filepath.Join(paths...))
 }

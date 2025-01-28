@@ -19,238 +19,126 @@ package mount
 import (
 	"fmt"
 	"os"
-
-	mountLibWrapper "github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/wrappers/mountlib"
-	mountLibMock "github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/wrappers/mountlib/mock"
-	osMock "github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/wrappers/os/mock"
+	"path/filepath"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/mock/gomock"
+	kmount "k8s.io/mount-utils"
 )
+
+var mountFileContentTmpl = `7631 30 0:5 /loop0 %[1]s/stage/test1-stage rw,nosuid,relatime shared:2 - devtmpfs udev rw,size=65671776k,nr_inodes=16417944,mode=755,inode64
+7633 30 0:5 /loop3//deleted %[1]s/stage/test3-stage rw,nosuid,relatime shared:2 - devtmpfs udev rw,size=65671776k,nr_inodes=16417944,mode=755,inode64
+7698 30 0:5 /loop1 %[1]s/stage/test2-stage rw,nosuid,relatime shared:2 - devtmpfs udev rw,size=65671776k,nr_inodes=16417944,mode=755,inode64
+7732 30 0:5 /loop0 %[1]s/block_publish/test1-publish rw,nosuid,relatime shared:2 - devtmpfs udev rw,size=65671776k,nr_inodes=16417944,mode=755,inode64
+7731 30 7:1 / %[1]s/mount_publish/test2-publish rw,relatime shared:4031 - ext4 %[1]s/stage/test2-stage rw
+`
+
+func createFile(path string) {
+	ExpectWithOffset(1, os.MkdirAll(filepath.Dir(path), 0744)).NotTo(HaveOccurred())
+	ExpectWithOffset(1, os.WriteFile(path, []byte{}, 0644)).NotTo(HaveOccurred())
+}
 
 var _ = Describe("Mount Utils", func() {
 	var (
 		mountUtils Utils
-		mountLib   *mountLibMock.MockPkgWrapper
-		osLib      *osMock.MockPkgWrapper
-		testCtrl   *gomock.Controller
+		mounter    *kmount.FakeMounter
+		tmpDir     string
+		err        error
 	)
 	BeforeEach(func() {
-		testCtrl = gomock.NewController(GinkgoT())
-		mountLib = mountLibMock.NewMockPkgWrapper(testCtrl)
-		osLib = osMock.NewMockPkgWrapper(testCtrl)
-		mountUtils = New(osLib, mountLib)
-	})
-	AfterEach(func() {
-		testCtrl.Finish()
-	})
-	Context("Mount", func() {
-		It("succeed", func() {
-			mountLib.EXPECT().Mount("/dev/loop1", "/tmp/mount1", "ext4", []string{"remount", "rw"}).Return(nil)
-			Expect(mountUtils.Mount("/dev/loop1", "/tmp/mount1", "ext4", []string{"remount", "rw"})).NotTo(HaveOccurred())
+		mounter = kmount.NewFakeMounter(nil)
+		mountUtils = New(mounter)
+		tmpDir, err = os.MkdirTemp("", "mount-utils-test*")
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(tmpDir)).NotTo(HaveOccurred())
 		})
-		It("failed", func() {
-			mountLib.EXPECT().Mount("/dev/loop1", "/tmp/mount1", "ext4", []string{"remount", "rw"}).Return(fmt.Errorf("test error"))
-			Expect(mountUtils.Mount("/dev/loop1", "/tmp/mount1", "ext4", []string{"remount", "rw"})).To(HaveOccurred())
-		})
-	})
-	Context("UnmountAndRemove", func() {
-		It("path not found", func() {
-			mountLib.EXPECT().PathExists("/tmp/mount1").Return(false, nil)
-			osLib.EXPECT().RemoveAll("/tmp/mount1").Return(nil)
-			Expect(mountUtils.UnmountAndRemove("/tmp/mount1")).NotTo(HaveOccurred())
-		})
-		It("mount path check failed", func() {
-			mountLib.EXPECT().PathExists("/tmp/mount1").Return(false, fmt.Errorf("test error"))
-			Expect(mountUtils.UnmountAndRemove("/tmp/mount1")).To(HaveOccurred())
-		})
-		It("failed to remove mount path", func() {
-			mountLib.EXPECT().PathExists("/tmp/mount1").Return(false, nil)
-			osLib.EXPECT().RemoveAll("/tmp/mount1").Return(fmt.Errorf("test error"))
-			Expect(mountUtils.UnmountAndRemove("/tmp/mount1")).To(HaveOccurred())
-		})
-		It("mount not found - mount path removed", func() {
-			mountLib.EXPECT().PathExists("/tmp/mount1").Return(false, nil)
-			osLib.EXPECT().RemoveAll("/tmp/mount1").Return(nil)
-			Expect(mountUtils.UnmountAndRemove("/tmp/mount1")).NotTo(HaveOccurred())
-		})
-		It("failed to parse mounts", func() {
-			mountLib.EXPECT().ParseMountInfo(
-				mountLibWrapper.DefaultProcMountInfoPath).Return(nil, fmt.Errorf("test error"))
-			mountLib.EXPECT().PathExists("/tmp/mount1").Return(true, nil)
-			Expect(mountUtils.UnmountAndRemove("/tmp/mount1")).To(HaveOccurred())
-		})
-		It("mount exist - failed to remove mount path", func() {
-			mountLib.EXPECT().ParseMountInfo(
-				mountLibWrapper.DefaultProcMountInfoPath).Return([]mountLibWrapper.MountInfo{{
-				Source:       "_not_match",
-				MountPoint:   "_not_match",
-				FsType:       "ext4",
-				MountOptions: []string{"remount", "rw"},
-			}}, nil)
-			mountLib.EXPECT().PathExists("/tmp/mount1").Return(true, nil)
-			osLib.EXPECT().RemoveAll("/tmp/mount1").Return(fmt.Errorf("test error"))
-			Expect(mountUtils.UnmountAndRemove("/tmp/mount1")).To(HaveOccurred())
-		})
-		It("failed to unmount", func() {
-			mountLib.EXPECT().PathExists("/tmp/mount1").Return(true, nil).Times(2)
-			mountLib.EXPECT().ParseMountInfo(
-				mountLibWrapper.DefaultProcMountInfoPath).Return([]mountLibWrapper.MountInfo{{
-				Source:       "/dev/loop1",
-				MountPoint:   "/tmp/mount1",
-				FsType:       "ext4",
-				MountOptions: []string{"remount", "rw"},
-			}}, nil).Times(2)
-			mountLib.EXPECT().Unmount("/tmp/mount1").Return(fmt.Errorf("test error"))
-			Expect(mountUtils.UnmountAndRemove("/tmp/mount1")).To(HaveOccurred())
-		})
-		It("mount exist - failed to remove mount point", func() {
-			mountLib.EXPECT().ParseMountInfo(
-				mountLibWrapper.DefaultProcMountInfoPath).Return([]mountLibWrapper.MountInfo{{
-				Source:       "/dev/loop1",
-				MountPoint:   "/tmp/mount1",
-				FsType:       "ext4",
-				MountOptions: []string{"remount", "rw"},
-			}}, nil).Times(2)
-			mountLib.EXPECT().PathExists("/tmp/mount1").Return(true, nil).Times(2)
-			mountLib.EXPECT().Unmount("/tmp/mount1").Return(nil)
-			osLib.EXPECT().RemoveAll("/tmp/mount1").Return(fmt.Errorf("test error"))
-			Expect(mountUtils.UnmountAndRemove("/tmp/mount1")).To(HaveOccurred())
-		})
-		It("should succeed", func() {
-			mountLib.EXPECT().PathExists("/tmp/mount1").Return(true, nil).Times(2)
-			mountLib.EXPECT().ParseMountInfo(
-				mountLibWrapper.DefaultProcMountInfoPath).Return([]mountLibWrapper.MountInfo{{
-				Source:       "/dev/loop1",
-				MountPoint:   "/tmp/mount1",
-				FsType:       "ext4",
-				MountOptions: []string{"remount", "rw"},
-			}}, nil).Times(2)
-			mountLib.EXPECT().Unmount("/tmp/mount1").Return(nil)
-			osLib.EXPECT().RemoveAll("/tmp/mount1").Return(nil)
-			Expect(mountUtils.UnmountAndRemove("/tmp/mount1")).NotTo(HaveOccurred())
-		})
-		It("no matching mounts", func() {
-			mountLib.EXPECT().PathExists("/tmp/mount1").Return(true, nil)
-			mountLib.EXPECT().ParseMountInfo(
-				mountLibWrapper.DefaultProcMountInfoPath).Return([]mountLibWrapper.MountInfo{{
-				Source:       "_not_match",
-				MountPoint:   "_not_match",
-				FsType:       "ext4",
-				MountOptions: []string{"remount", "rw"},
-			}}, nil)
-			osLib.EXPECT().RemoveAll("/tmp/mount1").Return(nil)
-			Expect(mountUtils.UnmountAndRemove("/tmp/mount1")).NotTo(HaveOccurred())
+		origProcMountInfoPath := procMountInfoPath
+		procMountInfoPath = filepath.Join(tmpDir, "mountinfo")
+		DeferCleanup(func() {
+			procMountInfoPath = origProcMountInfoPath
 		})
 	})
 
+	Context("Mount", func() {
+		It("Succeed", func() {
+			Expect(mountUtils.Mount("/dev/sda", "/tmp/mount1", "", []string{"bind"})).NotTo(HaveOccurred())
+			mounterLog := mounter.GetLog()
+			Expect(mounterLog).To(HaveLen(1))
+			Expect(mounterLog[0].Action).To(Equal("mount"))
+			Expect(mounterLog[0].Source).To(Equal("/dev/sda"))
+			Expect(mounterLog[0].Target).To(Equal("/tmp/mount1"))
+		})
+	})
+	Context("UnmountAndRemove", func() {
+		It("Succeed", func() {
+			createFile(filepath.Join(tmpDir, "/stage/test1-stage"))
+			Expect(os.WriteFile(procMountInfoPath, []byte(fmt.Sprintf(mountFileContentTmpl, tmpDir)), 0644)).NotTo(HaveOccurred())
+			Expect(mountUtils.UnmountAndRemove(filepath.Join(tmpDir, "/stage/test1-stage"))).NotTo(HaveOccurred())
+			mounterLog := mounter.GetLog()
+			Expect(mounterLog).To(HaveLen(1))
+			Expect(mounterLog[0].Action).To(Equal("unmount"))
+			Expect(mounterLog[0].Target).To(Equal(filepath.Join(tmpDir, "/stage/test1-stage")))
+			_, err := os.Stat(filepath.Join(tmpDir, "/stage/test1-stage"))
+			Expect(os.IsNotExist(err)).To(BeTrue())
+		})
+		It("not mounted", func() {
+			createFile(filepath.Join(tmpDir, "/stage/not-mounted"))
+			Expect(os.WriteFile(procMountInfoPath, []byte(fmt.Sprintf(mountFileContentTmpl, tmpDir)), 0644)).NotTo(HaveOccurred())
+			Expect(mountUtils.UnmountAndRemove(filepath.Join(tmpDir, "/stage/not-mounted"))).NotTo(HaveOccurred())
+			mounterLog := mounter.GetLog()
+			Expect(mounterLog).To(BeEmpty())
+			_, err := os.Stat(filepath.Join(tmpDir, "/stage/not-mounted"))
+			Expect(os.IsNotExist(err)).To(BeTrue())
+		})
+	})
 	Context("EnsureFileExist", func() {
-		It("path already exist", func() {
-			mountLib.EXPECT().PathExists("/tmp/mount1/test_file").Return(true, nil)
-			Expect(mountUtils.EnsureFileExist("/tmp/mount1/test_file", os.FileMode(0750))).NotTo(HaveOccurred())
+		It("Exist", func() {
+			createFile(filepath.Join(tmpDir, "/stage/test1-stage"))
+			Expect(mountUtils.EnsureFileExist(filepath.Join(tmpDir, "/stage/test1-stage"), 0644)).NotTo(HaveOccurred())
+			_, err := os.Stat(filepath.Join(tmpDir, "/stage/test1-stage"))
+			Expect(err).NotTo(HaveOccurred())
 		})
-		It("path exist check - failed", func() {
-			mountLib.EXPECT().PathExists("/tmp/mount1/test_file").Return(false, fmt.Errorf("test error"))
-			Expect(mountUtils.EnsureFileExist("/tmp/mount1/test_file", os.FileMode(0750))).To(HaveOccurred())
-		})
-		It("failed to create dir", func() {
-			mountLib.EXPECT().PathExists("/tmp/mount1/test_file").Return(false, nil)
-			osLib.EXPECT().MkdirAll("/tmp/mount1", gomock.Any()).Return(fmt.Errorf("test error"))
-			Expect(mountUtils.EnsureFileExist("/tmp/mount1/test_file", os.FileMode(0750))).To(HaveOccurred())
-		})
-		It("file create failed", func() {
-			mountLib.EXPECT().PathExists("/tmp/mount1/test_file").Return(false, nil)
-			osLib.EXPECT().MkdirAll("/tmp/mount1", gomock.Any()).Return(nil)
-			osLib.EXPECT().WriteFile("/tmp/mount1/test_file", []byte{}, os.FileMode(0750)).Return(fmt.Errorf("test error"))
-			Expect(mountUtils.EnsureFileExist("/tmp/mount1/test_file", os.FileMode(0750))).To(HaveOccurred())
-		})
-		It("file created", func() {
-			mountLib.EXPECT().PathExists("/tmp/mount1/test_file").Return(false, nil)
-			osLib.EXPECT().MkdirAll("/tmp/mount1", gomock.Any()).Return(nil)
-			osLib.EXPECT().WriteFile("/tmp/mount1/test_file", []byte{}, os.FileMode(0750)).Return(nil)
-			Expect(mountUtils.EnsureFileExist("/tmp/mount1/test_file", os.FileMode(0750))).NotTo(HaveOccurred())
+		It("Created", func() {
+			Expect(mountUtils.EnsureFileExist(filepath.Join(tmpDir, "/stage/test1-stage"), 0644)).NotTo(HaveOccurred())
+			_, err := os.Stat(filepath.Join(tmpDir, "/stage/test1-stage"))
+			Expect(err).NotTo(HaveOccurred())
 		})
 	})
 	Context("CheckMountExists", func() {
-		It("error", func() {
-			mountLib.EXPECT().ParseMountInfo(gomock.Any()).Return(nil, fmt.Errorf("test error"))
-			found, _, err := mountUtils.CheckMountExists("/dev/loop1", "/tmp/mount1")
-			Expect(found).To(BeFalse())
-			Expect(err).To(HaveOccurred())
-		})
-		It("different target path", func() {
-			mountLib.EXPECT().PathExists(gomock.Any()).Return(true, nil)
-			mountLib.EXPECT().IsCorruptedMnt(nil).Return(false)
-			mountLib.EXPECT().ParseMountInfo(gomock.Any()).Return([]mountLibWrapper.MountInfo{{
-				Source:       "/dev/loop1",
-				MountPoint:   "/tmp/mount2",
-				FsType:       "ext4",
-				MountOptions: []string{"remount", "rw"},
-			}}, nil)
-			found, _, err := mountUtils.CheckMountExists("/dev/loop1", "/tmp/mount1")
-			Expect(found).To(BeFalse())
+		It("Bind mount", func() {
+			createFile(filepath.Join(tmpDir, "/stage/test1-stage"))
+			createFile(filepath.Join(tmpDir, "/block_publish/test1-publish"))
+			Expect(os.WriteFile(procMountInfoPath, []byte(fmt.Sprintf(mountFileContentTmpl, tmpDir)), 0644)).NotTo(HaveOccurred())
+			exist, _, err := mountUtils.CheckMountExists("/dev/loop0", filepath.Join(tmpDir, "/stage/test1-stage"))
+			Expect(exist).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
-		It("no mounts for source", func() {
-			mountLib.EXPECT().ParseMountInfo(gomock.Any()).Return([]mountLibWrapper.MountInfo{{
-				Source:       "/dev/loop2",
-				MountPoint:   "/tmp/mount2",
-				FsType:       "ext4",
-				MountOptions: []string{"remount", "rw"},
-			}}, nil)
-			found, _, err := mountUtils.CheckMountExists("/dev/loop1", "/tmp/mount1")
-			Expect(found).To(BeFalse())
+		It("FS Mount", func() {
+			createFile(filepath.Join(tmpDir, "/stage/test2-stage"))
+			Expect(os.MkdirAll(filepath.Join(tmpDir, "/mount_publish/test2-publish"), 0744)).NotTo(HaveOccurred())
+			Expect(os.WriteFile(procMountInfoPath, []byte(fmt.Sprintf(mountFileContentTmpl, tmpDir)), 0644)).NotTo(HaveOccurred())
+			exist, _, err := mountUtils.CheckMountExists(
+				filepath.Join(tmpDir, "/stage/test2-stage"),
+				filepath.Join(tmpDir, "/mount_publish/test2-publish"))
+			Expect(exist).To(BeTrue())
 			Expect(err).NotTo(HaveOccurred())
 		})
-		It("found mount", func() {
-			mountLib.EXPECT().PathExists(gomock.Any()).Return(true, nil)
-			mountLib.EXPECT().IsCorruptedMnt(nil).Return(false)
-			mountLib.EXPECT().ParseMountInfo(gomock.Any()).Return([]mountLibWrapper.MountInfo{{
-				Source:       "/dev/loop1",
-				MountPoint:   "/tmp/mount1",
-				FsType:       "ext4",
-				MountOptions: []string{"remount", "rw"},
-			}}, nil)
-			found, info, err := mountUtils.CheckMountExists("/dev/loop1", "/tmp/mount1")
-			Expect(found).To(BeTrue())
-			Expect(info.MountPoint).To(BeEquivalentTo("/tmp/mount1"))
+		It("No target", func() {
+			createFile(filepath.Join(tmpDir, "/stage/test2-stage"))
+			Expect(os.WriteFile(procMountInfoPath, []byte(fmt.Sprintf(mountFileContentTmpl, tmpDir)), 0644)).NotTo(HaveOccurred())
+			exist, _, err := mountUtils.CheckMountExists(
+				filepath.Join(tmpDir, "/stage/test2-stage"),
+				filepath.Join(tmpDir, "/mount_publish/test2-publish"))
+			Expect(exist).To(BeFalse())
 			Expect(err).NotTo(HaveOccurred())
 		})
-		It("removed device", func() {
-			mountLib.EXPECT().ParseMountInfo(gomock.Any()).Return([]mountLibWrapper.MountInfo{{
-				Root:         "/loop1//deleted",
-				Source:       "udev",
-				MountPoint:   "/tmp/mount1",
-				FsType:       "ext4",
-				MountOptions: []string{"remount", "rw"},
-			}}, nil)
-			found, _, err := mountUtils.CheckMountExists("/dev/loop1", "/tmp/mount1")
-			Expect(found).To(BeFalse())
-			Expect(err).NotTo(HaveOccurred())
-		})
-		It("path exist check failed", func() {
-			mountLib.EXPECT().ParseMountInfo(gomock.Any()).Return([]mountLibWrapper.MountInfo{{
-				Source:     "udev",
-				Root:       "/loop1",
-				MountPoint: "/tmp/mount1",
-			}}, nil)
-			mountLib.EXPECT().PathExists(gomock.Any()).Return(false, fmt.Errorf("test error"))
-			mountLib.EXPECT().IsCorruptedMnt(gomock.Any()).Return(false)
-			found, _, err := mountUtils.CheckMountExists("/dev/loop1", "/tmp/mount1")
-			Expect(found).To(BeFalse())
-			Expect(err).To(HaveOccurred())
-		})
-		It("invalid mount", func() {
-			mountLib.EXPECT().ParseMountInfo(gomock.Any()).Return([]mountLibWrapper.MountInfo{{
-				Source:     "udev",
-				Root:       "/loop1",
-				MountPoint: "/tmp/mount1",
-			}}, nil)
-			mountLib.EXPECT().PathExists(gomock.Any()).Return(false, &os.PathError{})
-			mountLib.EXPECT().IsCorruptedMnt(gomock.Any()).Return(true)
-			found, _, err := mountUtils.CheckMountExists("/dev/loop1", "/tmp/mount1")
-			Expect(found).To(BeFalse())
+		It("Deleted source", func() {
+			Expect(os.WriteFile(procMountInfoPath, []byte(fmt.Sprintf(mountFileContentTmpl, tmpDir)), 0644)).NotTo(HaveOccurred())
+			exist, _, err := mountUtils.CheckMountExists(
+				"/dev/loop3",
+				filepath.Join(tmpDir, "/stage/test3-stage"))
+			Expect(exist).To(BeFalse())
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

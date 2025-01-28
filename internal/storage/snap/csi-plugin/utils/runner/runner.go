@@ -19,6 +19,7 @@ package runner
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"k8s.io/klog/v2"
 )
@@ -193,4 +194,77 @@ func (r *defaultRunner) addService(serviceName string, srv Runnable) {
 		case <-r.stopCtx.Done(): // global shutdown, we don't need to submit completeResult
 		}
 	}()
+}
+
+var _ Runnable = &FakeRunnable{}
+
+// FakeRunnableFunction represents a type definition for functions compatible with the FakeRunnable.
+// The readyFunc parameter is a callback function that should be invoked to mark the runnable as ready.
+type FakeRunnableFunction func(ctx context.Context, readyFunc func()) error
+
+// NewFakeRunnable returns a new instance of FakeRunnable
+func NewFakeRunnable() *FakeRunnable {
+	return &FakeRunnable{readyCH: make(chan struct{})}
+}
+
+// FakeRunnable is a fake implementation of the Runnable interface
+type FakeRunnable struct {
+	runFunction FakeRunnableFunction
+	readyCH     chan struct{}
+
+	startedCondition atomic.Bool
+	stoppedCondition atomic.Bool
+	readyCondition   atomic.Bool
+}
+
+// SetFunction configure FakeRunnableFunction for FakeRunnable.
+// The function can't be called after Runnable is started
+func (s *FakeRunnable) SetFunction(f FakeRunnableFunction) {
+	if s.startedCondition.Load() {
+		panic("can't set function when Runnable is started")
+	}
+	s.runFunction = f
+}
+
+// Started returns true if started condition is set
+func (s *FakeRunnable) Started() bool {
+	return s.startedCondition.Load()
+}
+
+// Stopped returns true if stopped condition is set
+func (s *FakeRunnable) Stopped() bool {
+	return s.stoppedCondition.Load()
+}
+
+// Ready returns true if the ready condition is set.
+// Note: This condition indicates that the runnable transitioned to a "ready" state at some point during execution.
+// It will continue to return true even after the runnable completes, as long as it was marked as ready beforehand.
+func (s *FakeRunnable) Ready() bool {
+	return s.readyCondition.Load()
+}
+
+// Run implements Runnable interface
+func (s *FakeRunnable) Run(ctx context.Context) error {
+	s.startedCondition.Store(true)
+	defer func() {
+		s.stoppedCondition.Store(true)
+	}()
+	if s.runFunction != nil {
+		return s.runFunction(ctx, func() { close(s.readyCH) })
+	}
+	// default behavior - marks runnable as ready and blocks until context is canceled
+	close(s.readyCH)
+	<-ctx.Done()
+	return nil
+}
+
+// Wait implements Runnable interface
+func (s *FakeRunnable) Wait(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return context.Canceled
+	case <-s.readyCH:
+		s.readyCondition.Store(true)
+		return nil
+	}
 }

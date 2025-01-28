@@ -19,11 +19,11 @@ package manager
 import (
 	"time"
 
+	"github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/controller/clusterhelper"
 	"github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/handlers/controller"
 	"github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/handlers/identity"
 	"github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/handlers/node"
-	"github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/utils/runner"
-	osWrapper "github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/wrappers/os"
+	"github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/node/preconfigure"
 
 	"google.golang.org/grpc"
 )
@@ -46,26 +46,16 @@ func (sf *setFunc) set(do *managerOptions) {
 
 // managerOptions contains options for manager.
 type managerOptions struct {
-	runner runner.Runner
-	// new funcs
-	newGRPCServerFunc NewGRPCServerFunc
-
-	// wrappers
-	osWrapper osWrapper.PkgWrapper
-
 	// grpc handlers
 	nodeHandler       node.Handler
 	controllerHandler controller.Handler
 	identityHandler   identity.Handler
 
-	dependenciesWaitTimeout *time.Duration
-}
+	// services
+	clusterhelper clusterhelper.Helper
+	preconfigure  preconfigure.Preconfigure
 
-// WithOSPkgWrapper set osPkgWrapper dependency for manager
-func WithOSPkgWrapper(w osWrapper.PkgWrapper) Option {
-	return &setFunc{f: func(o *managerOptions) {
-		o.osWrapper = w
-	}}
+	dependenciesWaitTimeout *time.Duration
 }
 
 // WithNodeHandler set grpc node handler for manager
@@ -89,23 +79,23 @@ func WithIdentityHandler(h identity.Handler) Option {
 	}}
 }
 
-// WithNewGRPCServerFunc set function for GRPC server creation
-func WithNewGRPCServerFunc(f NewGRPCServerFunc) Option {
-	return &setFunc{f: func(o *managerOptions) {
-		o.newGRPCServerFunc = f
-	}}
-}
-
-// WithRunner configure runner which will be used by manager to start dependencies
-func WithRunner(r runner.Runner) Option {
-	return &setFunc{f: func(o *managerOptions) {
-		o.runner = r
-	}}
-}
-
 // WithDependenciesWaitTimeout configure timeout for dependencies waiting
 func WithDependenciesWaitTimeout(t time.Duration) Option {
 	return &setFunc{f: func(o *managerOptions) {
 		o.dependenciesWaitTimeout = &t
+	}}
+}
+
+// WithClusterHelper set clusterhelper instance for manager
+func WithClusterHelper(h clusterhelper.Helper) Option {
+	return &setFunc{f: func(o *managerOptions) {
+		o.clusterhelper = h
+	}}
+}
+
+// WithPreconfigure set preconfigure service instance for manager
+func WithPreconfigure(p preconfigure.Preconfigure) Option {
+	return &setFunc{f: func(o *managerOptions) {
+		o.preconfigure = p
 	}}
 }

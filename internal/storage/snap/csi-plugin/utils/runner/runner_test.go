@@ -21,79 +21,32 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-type TestService struct {
-	started  atomic.Bool
-	stopped  atomic.Bool
-	Func     func(ctx context.Context, readyCH chan struct{}) error
-	ReadyCH  chan struct{}
-	WasReady bool
-}
-
-func (s *TestService) MarkStarted() {
-	s.started.Store(true)
-}
-
-func (s *TestService) MarkStopped() {
-	s.stopped.Store(true)
-}
-
-func (s *TestService) IsStarted() bool {
-	return s.started.Load()
-}
-
-func (s *TestService) IsStopped() bool {
-	return s.stopped.Load()
-}
-
-func (s *TestService) Run(ctx context.Context) error {
-	s.MarkStarted()
-	defer func() {
-		s.MarkStopped()
-	}()
-	if s.Func != nil {
-		return s.Func(ctx, s.ReadyCH)
-	}
-	<-ctx.Done()
-	return nil
-}
-
-func (s *TestService) Wait(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return context.Canceled
-	case <-s.ReadyCH:
-		s.WasReady = true
-		return nil
-	}
-}
-
 var _ = Describe("Runner", func() {
 	var (
 		runner       Runner
-		service1     *TestService
-		service2     *TestService
+		service1     *FakeRunnable
+		service2     *FakeRunnable
 		ctx          context.Context
 		service1Name = "service1"
 		service2Name = "service2"
 	)
 	BeforeEach(func() {
 		runner = New()
-		service1 = &TestService{ReadyCH: make(chan struct{}, 1)}
-		service2 = &TestService{ReadyCH: make(chan struct{}, 1)}
+		service1 = NewFakeRunnable()
+		service2 = NewFakeRunnable()
 		ctx = context.Background()
 	})
 	AfterEach(func() {
-		Expect(service1.IsStarted()).To(BeTrue())
-		Expect(service2.IsStarted()).To(BeTrue())
-		Expect(service1.IsStopped()).To(BeTrue())
-		Expect(service2.IsStopped()).To(BeTrue())
+		Expect(service1.Started()).To(BeTrue())
+		Expect(service2.Started()).To(BeTrue())
+		Expect(service1.Stopped()).To(BeTrue())
+		Expect(service2.Stopped()).To(BeTrue())
 	})
 	Context("Basic", func() {
 		BeforeEach(func() {
@@ -104,10 +57,10 @@ var _ = Describe("Runner", func() {
 			done := make(chan interface{})
 			go func() {
 				defer GinkgoRecover()
-				service1.Func = func(ctx context.Context, readyCH chan struct{}) error {
+				service1.SetFunction(func(ctx context.Context, _ func()) error {
 					time.Sleep(time.Millisecond * 100)
 					return fmt.Errorf("test error")
-				}
+				})
 				go func() {
 					defer GinkgoRecover()
 					Expect(runner.Run(ctx)).To(HaveOccurred())
@@ -121,10 +74,10 @@ var _ = Describe("Runner", func() {
 			done := make(chan interface{})
 			go func() {
 				defer GinkgoRecover()
-				service1.Func = func(ctx context.Context, readyCH chan struct{}) error {
+				service1.SetFunction(func(ctx context.Context, _ func()) error {
 					time.Sleep(time.Millisecond * 100)
 					return nil
-				}
+				})
 				Expect(runner.Run(ctx)).NotTo(HaveOccurred())
 				close(done)
 			}()
@@ -148,14 +101,16 @@ var _ = Describe("Runner", func() {
 			done := make(chan interface{})
 			go func() {
 				defer GinkgoRecover()
-				waitFunc := func(ctx context.Context, readyCH chan struct{}) error {
+				service1.SetFunction(func(ctx context.Context, readyFunc func()) error {
 					time.Sleep(time.Millisecond * 100)
-					close(readyCH)
+					readyFunc()
 					<-ctx.Done()
 					return nil
-				}
-				service1.Func = waitFunc
-
+				})
+				service2.SetFunction(func(ctx context.Context, readyFunc func()) error {
+					<-ctx.Done()
+					return nil
+				})
 				rCtx, rCFunc := context.WithCancel(ctx)
 				wg := sync.WaitGroup{}
 				wg.Add(1)
@@ -169,8 +124,8 @@ var _ = Describe("Runner", func() {
 				defer cFunc()
 				// wait should return error
 				Expect(runner.Wait(timeoutCtx)).To(HaveOccurred())
-				Expect(service1.WasReady).To(BeTrue())
-				Expect(service2.WasReady).To(BeFalse())
+				Expect(service1.Ready()).To(BeTrue())
+				Expect(service2.Ready()).To(BeFalse())
 				rCFunc()
 				wg.Wait()
 				close(done)
@@ -181,16 +136,16 @@ var _ = Describe("Runner", func() {
 			done := make(chan interface{})
 			go func() {
 				defer GinkgoRecover()
-				getWaitFunc := func() func(ctx context.Context, readyCH chan struct{}) error {
-					return func(ctx context.Context, readyCH chan struct{}) error {
+				getWaitFunc := func() func(ctx context.Context, readyFunc func()) error {
+					return func(ctx context.Context, readyFunc func()) error {
 						time.Sleep(time.Millisecond * 100)
-						close(readyCH)
+						readyFunc()
 						<-ctx.Done()
 						return nil
 					}
 				}
-				service1.Func = getWaitFunc()
-				service2.Func = getWaitFunc()
+				service1.SetFunction(getWaitFunc())
+				service2.SetFunction(getWaitFunc())
 
 				rCtx, rCFunc := context.WithCancel(ctx)
 				wg := sync.WaitGroup{}
@@ -201,8 +156,8 @@ var _ = Describe("Runner", func() {
 					wg.Done()
 				}()
 				Expect(runner.Wait(ctx)).NotTo(HaveOccurred())
-				Expect(service1.WasReady).To(BeTrue())
-				Expect(service2.WasReady).To(BeTrue())
+				Expect(service1.Ready()).To(BeTrue())
+				Expect(service2.Ready()).To(BeTrue())
 				rCFunc()
 				wg.Wait()
 				close(done)
