@@ -75,7 +75,7 @@ func Deleting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Contr
 		},
 		&corev1.Pod{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      cutil.GenerateHostnetworkPodName(dpu.Name),
+				Name:      cutil.GenerateHostnetworkPodName(dpu),
 				Namespace: dpu.Namespace,
 			},
 		},

@@ -43,7 +43,7 @@ func SetupNetwork(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.C
 		return *state, nil
 	}
 
-	hostNetworkPodName := cutil.GenerateHostnetworkPodName(dpu.Name)
+	hostNetworkPodName := cutil.GenerateHostnetworkPodName(dpu)
 
 	nn := types.NamespacedName{
 		Namespace: dpu.Namespace,

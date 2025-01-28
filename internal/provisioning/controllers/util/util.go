@@ -28,7 +28,7 @@ import (
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
+	"github.com/nvidia/doca-platform/internal/dpucluster"
 
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -79,13 +79,16 @@ const (
 	ProvisioningGroupName = "provisioning.dpu.nvidia.com"
 
 	// OverrideDMSPodNameAnnotationKey overrides the namespace and name of the pod used as DMS.
-	OverrideDMSPodNameAnnotationKey = "provisioning.dpu.nvidia.com/override-dms-pod-name"
-	OverrideDMSPortAnnotationKey    = "provisioning.dpu.nvidia.com/override-dms-port"
+	OverrideDMSPodNameAnnotationKey  = "provisioning.dpu.nvidia.com/override-dms-pod-name"
+	OverrideDMSPortAnnotationKey     = "provisioning.dpu.nvidia.com/override-dms-port"
+	OverrideHostNetworkAnnotationKey = "provisioning.dpu.nvidia.com/override-host-network-pod-name"
 )
 
 var (
 	// Location of BFB binary files
-	BFBBaseDir          = "bfb"
+	BFBBaseDir        = "bfb"
+	KubeconfigBaseDir = "kubeconfig"
+
 	BFBBaseDirPath      = string(os.PathSeparator) + BFBBaseDir
 	BFBDownloader       = "bfb-downloader"
 	BFBDownloaderScript = "bfbdownloader.sh"
@@ -144,8 +147,11 @@ func GenerateCASecretName(dpuNamespace string) string {
 	return fmt.Sprintf("%s-%s", dpuNamespace, "ca-secret")
 }
 
-func GenerateHostnetworkPodName(dpuName string) string {
-	return fmt.Sprintf("%s-%s", dpuName, "hostnetwork")
+func GenerateHostnetworkPodName(dpu *provisioningv1.DPU) string {
+	if name, ok := dpu.Annotations[OverrideHostNetworkAnnotationKey]; ok {
+		return name
+	}
+	return fmt.Sprintf("%s-%s", dpu.Name, "hostnetwork")
 }
 
 func GenerateDMSServerSecretName(dpuName string) string {
@@ -447,7 +453,7 @@ func NewCondition(condType string, err error, reason, message string) *metav1.Co
 }
 
 func AdminKubeConfigPath(dc provisioningv1.DPUCluster) string {
-	return filepath.Join("/kubeconfig", fmt.Sprintf("%s_%s_%s", dc.Name, dc.Namespace, dc.UID))
+	return filepath.Join(string(os.PathSeparator), KubeconfigBaseDir, fmt.Sprintf("%s_%s_%s", dc.Name, dc.Namespace, dc.UID))
 }
 
 // NeedUpdateLabels compares two labels.

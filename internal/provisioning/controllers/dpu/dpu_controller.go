@@ -28,6 +28,7 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/state/redfish"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/reboot"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -50,13 +51,15 @@ type DPUReconciler struct {
 	handlers map[provisioningv1.DPUPhase]PhaseHandlerFunc
 }
 
-func NewDPUReconciler(mgr manager.Manager, alloc allocator.Allocator, options util.DPUOptions) *DPUReconciler {
+func NewDPUReconciler(mgr manager.Manager, alloc allocator.Allocator, joinCommandGenerator util.NodeJoinCommandGenerator, hostUptimeChecker reboot.HostUptimeChecker, options util.DPUOptions) *DPUReconciler {
 	ctrlCtx := &util.ControllerContext{
-		Client:           mgr.GetClient(),
-		Scheme:           mgr.GetScheme(),
-		Recorder:         mgr.GetEventRecorderFor(DPUControllerName),
-		Options:          options,
-		ClusterAllocator: alloc,
+		Client:               mgr.GetClient(),
+		Scheme:               mgr.GetScheme(),
+		Recorder:             mgr.GetEventRecorderFor(DPUControllerName),
+		Options:              options,
+		ClusterAllocator:     alloc,
+		JoinCommandGenerator: joinCommandGenerator,
+		HostUptimeChecker:    hostUptimeChecker,
 	}
 	handlers := map[provisioningv1.DPUPhase]PhaseHandlerFunc{
 		"":                              state.Initializing,

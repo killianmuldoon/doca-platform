@@ -22,6 +22,7 @@ import (
 
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/future"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/reboot"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -50,8 +51,10 @@ type DPUOptions struct {
 
 type ControllerContext struct {
 	client.Client
-	Scheme           *runtime.Scheme
-	Options          DPUOptions
-	Recorder         record.EventRecorder
-	ClusterAllocator allocator.Allocator
+	Scheme               *runtime.Scheme
+	Options              DPUOptions
+	Recorder             record.EventRecorder
+	ClusterAllocator     allocator.Allocator
+	JoinCommandGenerator NodeJoinCommandGenerator
+	HostUptimeChecker    reboot.HostUptimeChecker
 }

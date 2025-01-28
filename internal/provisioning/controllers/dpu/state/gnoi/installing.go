@@ -23,10 +23,8 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
@@ -104,7 +102,7 @@ func Installing(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Con
 					msg := fmt.Sprintf("DMS task %v retried %d times, error: %v", dmsTaskName, retryCount, err)
 					logger.Info(msg)
 					// Retry the os install process
-					dmsHandler(ctx, ctrlCtx.Client, dpu, bfb, retryCount+1)
+					dmsHandler(ctx, ctrlCtx.Client, dpu, bfb, retryCount+1, ctrlCtx)
 					cond := cutil.DPUCondition(provisioningv1.DPUCondOSInstalled, "", msg)
 					cond.Status = metav1.ConditionFalse
 					cutil.SetDPUCondition(state, cond)
@@ -115,7 +113,7 @@ func Installing(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Con
 			logger.V(3).Info(fmt.Sprintf("DMS task %v is being processed", dmsTaskName))
 		}
 	} else {
-		dmsHandler(ctx, ctrlCtx.Client, dpu, bfb, 0)
+		dmsHandler(ctx, ctrlCtx.Client, dpu, bfb, 0, ctrlCtx)
 	}
 
 	return *state, nil
@@ -200,7 +198,7 @@ func createGRPCConnection(ctx context.Context, client client.Client, dpu *provis
 	return conn, nil
 }
 
-func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv1.DPU, bfb *provisioningv1.BFB, retry int) {
+func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv1.DPU, bfb *provisioningv1.BFB, retry int, ctrlContext *dutil.ControllerContext) {
 	dmsTaskName := generateDMSTaskName(dpu)
 	dmsTask := future.New(func() (any, error) {
 		logger := log.FromContext(ctx)
@@ -260,7 +258,13 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		}, node); err != nil {
 			return nil, err
 		}
-		data, err := generateBFConfig(ctx, dpu, node, flavor, dc)
+
+		// Generate the KubeadmJoin command.
+		joinCommand, err := ctrlContext.JoinCommandGenerator.GenerateJoinCommand(dc)
+		if err != nil {
+			return nil, err
+		}
+		data, err := generateBFConfig(ctx, dpu, node, flavor, joinCommand)
 		if err != nil || data == nil {
 			logger.Error(err, fmt.Sprintf("failed bf.cfg creation for %s/%s", dpu.Namespace, dpu.Name))
 			return nil, err
@@ -391,13 +395,8 @@ func generateDMSTaskName(dpu *provisioningv1.DPU) string {
 	return fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)
 }
 
-func generateBFConfig(ctx context.Context, dpu *provisioningv1.DPU, node *corev1.Node, flavor *provisioningv1.DPUFlavor, dc *provisioningv1.DPUCluster) ([]byte, error) {
+func generateBFConfig(ctx context.Context, dpu *provisioningv1.DPU, node *corev1.Node, flavor *provisioningv1.DPUFlavor, joinCommand string) ([]byte, error) {
 	logger := log.FromContext(ctx)
-
-	joinCommand, err := generateJoinCommand(dc)
-	if err != nil {
-		return nil, err
-	}
 
 	additionalReboot := false
 	cmd, _, err := reboot.GenerateCmd(node.Annotations, dpu.Annotations)
@@ -424,23 +423,6 @@ func generateBFConfig(ctx context.Context, dpu *provisioningv1.DPU, node *corev1
 
 	return buf, nil
 }
-
-func generateJoinCommand(dc *provisioningv1.DPUCluster) (string, error) {
-	fp := cutil.AdminKubeConfigPath(*dc)
-	if _, err := os.Stat(fp); err != nil {
-		return "", fmt.Errorf("failed to stat kubeconfig file, err: %v", err)
-	}
-	var stdout, stderr bytes.Buffer
-	cmd := exec.Command("kubeadm", "token", "create", "--print-join-command", fmt.Sprintf("--kubeconfig=%s", fp))
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("failed to run \"kubeadm token create\", err: %v, stderr: %s", err, stderr.String())
-	}
-	joinCommand := strings.TrimRight(stdout.String(), "\r\n") + " --v=5"
-	return joinCommand, nil
-}
-
 func computeBFBMD5InDms(ns, name, container, filepath string) (string, string, error) {
 	md5CMD := fmt.Sprintf("md5sum %s", filepath)
 	return cutil.RemoteExec(ns, name, container, md5CMD)

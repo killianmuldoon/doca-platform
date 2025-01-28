@@ -54,7 +54,7 @@ func getNumOfVFsFromFlavor(flavor *provisioningv1.DPUFlavor) (string, bool) {
 
 func CreateHostNetworkSetupPod(ctx context.Context, c client.Client, dpu *provisioningv1.DPU, option dutil.DPUOptions) error {
 	logger := log.FromContext(ctx)
-	hostnetworkPodName := cutil.GenerateHostnetworkPodName(dpu.Name)
+	hostnetworkPodName := cutil.GenerateHostnetworkPodName(dpu)
 
 	numVFs := NumofVFDefaultValue
 	flavor := &provisioningv1.DPUFlavor{}

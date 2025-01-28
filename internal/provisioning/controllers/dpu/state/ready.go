@@ -114,7 +114,7 @@ func healthyCheck(ctx context.Context, dpu *provisioningv1.DPU, client client.Cl
 
 	nn = types.NamespacedName{
 		Namespace: dpu.Namespace,
-		Name:      cutil.GenerateHostnetworkPodName(dpu.Name),
+		Name:      cutil.GenerateHostnetworkPodName(dpu),
 	}
 	hostnetworkPod := &corev1.Pod{}
 	if err := client.Get(ctx, nn, hostnetworkPod); err != nil {

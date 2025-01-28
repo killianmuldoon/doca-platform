@@ -32,6 +32,7 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpucluster"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpuset"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/bfbdownloader"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/reboot"
 	provisioningwebhooks "github.com/nvidia/doca-platform/internal/provisioning/webhooks"
 
 	maintenancev1alpha1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
@@ -200,7 +201,13 @@ func main() {
 	}
 	setupLog.Info("DPU", "options", dpuOptions)
 
-	if err = (dpu.NewDPUReconciler(mgr, alloc, dpuOptions)).SetupWithManager(mgr); err != nil {
+	if err = (dpu.NewDPUReconciler(
+		mgr,
+		alloc,
+		&dutil.KubeadmJoinCommandGenerator{},
+		&reboot.DMSPodExecUptimeChecker{},
+		dpuOptions,
+	)).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPU")
 		os.Exit(1)
 	}

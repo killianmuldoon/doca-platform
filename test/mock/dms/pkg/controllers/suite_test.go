@@ -27,7 +27,8 @@ import (
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu"
-	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
+	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/reboot"
 	dmsserver "github.com/nvidia/doca-platform/test/mock/dms/pkg/server"
 
 	nvidiaNodeMaintenancev1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
@@ -101,7 +102,11 @@ func TestMain(m *testing.M) {
 		panic(fmt.Sprintf("Failed to create test manager: %v", err))
 	}
 
-	dpuReconciler := dpu.NewDPUReconciler(testManager, allocator.NewAllocator(testClient), util.DPUOptions{DPUInstallInterface: string(provisioningv1.InstallViaHost)})
+	dpuReconciler := dpu.NewDPUReconciler(
+		testManager, allocator.NewAllocator(testClient),
+		&dutil.KubeadmJoinCommandGenerator{},
+		&reboot.DMSPodExecUptimeChecker{},
+		dutil.DPUOptions{DPUInstallInterface: string(provisioningv1.InstallViaHost)})
 
 	dmsServerReconciler := DMSServerReconciler{Client: testClient, Scheme: s, Server: dmsserver.DMSServerMux{}}
 	if err := dpuReconciler.SetupWithManager(testManager); err != nil {

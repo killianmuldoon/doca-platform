@@ -19,8 +19,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"strconv"
-	"strings"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
@@ -65,7 +63,7 @@ func Rebooting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 
 	duration := int(metav1.Now().Sub(cond.LastTransitionTime.Time).Seconds())
 	// If we can not get uptime, the host should be rebooting
-	uptime, err := HostUptime(dpu.Namespace, cutil.GenerateDMSPodName(dpu), "")
+	uptime, err := ctrlCtx.HostUptimeChecker.HostUptime(dpu.Namespace, cutil.GenerateDMSPodName(dpu), "")
 	if err != nil {
 		return *state, err
 	}
@@ -161,25 +159,6 @@ func rebootHandler(ctx context.Context, dpu *provisioningv1.DPU, pciAddress stri
 		return nil, nil
 	})
 	dutil.RebootTaskMap.Store(rebootTaskName, dmsTask)
-}
-
-func HostUptime(ns, name, container string) (int, error) {
-	uptimeStr, _, err := cutil.RemoteExec(ns, name, container, "cat /proc/uptime")
-	if err != nil {
-		return -1, err
-	}
-
-	ts := strings.Fields(uptimeStr)
-	if len(ts) != 2 {
-		return -1, fmt.Errorf("uptime incorrect: %#v", ts)
-	}
-
-	uptime, err := strconv.ParseFloat(strings.TrimSpace(ts[0]), 64)
-	if err != nil {
-		return -1, err
-	}
-
-	return int(uptime), nil
 }
 
 func generateRebootTaskName(dpu *provisioningv1.DPU) string {

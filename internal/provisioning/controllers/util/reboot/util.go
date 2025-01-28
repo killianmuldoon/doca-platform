@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 )
 
 const (
@@ -39,6 +41,31 @@ const (
 	PowerCycle RebootType = "power-cycle"
 	WarmReboot RebootType = "warm-reboot"
 )
+
+type HostUptimeChecker interface {
+	HostUptime(ns, name, container string) (int, error)
+}
+
+type DMSPodExecUptimeChecker struct{}
+
+func (d *DMSPodExecUptimeChecker) HostUptime(ns, name, container string) (int, error) {
+	uptimeStr, _, err := cutil.RemoteExec(ns, name, container, "cat /proc/uptime")
+	if err != nil {
+		return -1, err
+	}
+
+	ts := strings.Fields(uptimeStr)
+	if len(ts) != 2 {
+		return -1, fmt.Errorf("uptime incorrect: %#v", ts)
+	}
+
+	uptime, err := strconv.ParseFloat(strings.TrimSpace(ts[0]), 64)
+	if err != nil {
+		return -1, err
+	}
+
+	return int(uptime), nil
+}
 
 func getHostRebootCmd(annotations map[string]string, key string) (string, error) {
 	cmd, ok := annotations[key]

@@ -1292,7 +1292,7 @@ var _ = Describe("DMS Pod", func() {
 
 			Expect(k8sClient.Get(ctx, client.ObjectKey{
 				Namespace: objDPU.Namespace,
-				Name:      cutil.GenerateHostnetworkPodName(objDPU.Name)},
+				Name:      cutil.GenerateHostnetworkPodName(objDPU)},
 				objFetched)).To(Succeed())
 			Expect(objFetched.Spec.Containers[0].Env).Should(ConsistOf(
 				corev1.EnvVar{Name: "device_pci_address", Value: "0000:90:00"},
