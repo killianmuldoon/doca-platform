@@ -53,7 +53,11 @@ var (
 func PrintObjectTree(tree *ObjectTree) {
 	// Creates the output table
 	tbl := tablewriter.NewWriter(os.Stdout)
-	tbl.SetHeader([]string{"NAME", "READY", "REASON", "SINCE", "MESSAGE"})
+	header := []string{"NAME", "READY", "REASON", "SINCE", "MESSAGE"}
+	if tree.options.ShowNamespace {
+		header = []string{"NAME", "NAMESPACE", "READY", "REASON", "SINCE", "MESSAGE"}
+	}
+	tbl.SetHeader(header)
 
 	formatTableTree(tbl)
 	// Add row for the root object, the DPFOperatorConfig, and recursively for all the resources representing the DPF status.
@@ -131,15 +135,24 @@ func addObjectRow(prefix string, tbl *tablewriter.Table, objectTree *ObjectTree,
 	// NOTE: The object name gets manipulated in order to improve readability.
 	name := getRowName(obj)
 
-	// Add the row representing the object that includes
-	// - The row name with the tree view prefix.
-	// - The object's ready condition.
-	tbl.Append([]string{
+	appendSlice := []string{
 		fmt.Sprintf("%s%s", gray.Sprint(prefix), name),
+		obj.GetNamespace(),
 		readyDescriptor.readyColor.Sprint(readyDescriptor.status),
 		readyDescriptor.readyColor.Sprint(readyDescriptor.reason),
 		readyDescriptor.age,
-		readyDescriptor.message})
+		readyDescriptor.message,
+	}
+
+	// Remove the second column if the namespace should not be shown.
+	if !objectTree.options.ShowNamespace {
+		appendSlice = append(appendSlice[:1], appendSlice[2:]...)
+	}
+
+	// Add the row representing the object that includes
+	// - The row name with the tree view prefix.
+	// - The object's ready condition.
+	tbl.Append(appendSlice)
 
 	// If it is required to show all the conditions for the object, add a row for each object's conditions.
 	if IsShowConditionsObject(obj) {

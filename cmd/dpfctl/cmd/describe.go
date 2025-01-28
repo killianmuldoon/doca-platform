@@ -37,6 +37,7 @@ type describeOptions struct {
 	showOtherConditions string
 	showResources       string
 	expandResources     string
+	showNamespace       bool
 	grouping            bool // TODO: Currently not working as expected
 	color               bool
 	wrapLines           bool
@@ -99,6 +100,9 @@ func init() {
 	describeCmd.Flags().BoolVarP(&opts.color, "color", "c", false,
 		"Enable or disable color output; if not set color is enabled by default only if using tty. The flag is overridden by the NO_COLOR env variable if set.")
 
+	describeCmd.Flags().BoolVar(&opts.showNamespace, "show-namespace", true,
+		"Show the namespace of the resources.")
+
 	// TODO: decide if we want to use Kubernetes cli-runtime here instead of the controller-runtime flags.
 	// The cli-runtime has alot dependencies, but brings several generic flags that can be useful.
 	//
@@ -118,6 +122,7 @@ func runDescribe(cmd *cobra.Command) error {
 		ShowResources:       opts.showResources,
 		ShowOtherConditions: opts.showOtherConditions,
 		ExpandResources:     opts.expandResources,
+		ShowNamespace:       opts.showNamespace,
 		Grouping:            opts.grouping,
 		WrapLines:           opts.wrapLines,
 		Colors:              opts.color,

@@ -40,6 +40,9 @@ type ObjectTreeOptions struct {
 	// ExpandResources is a list of comma separated kind or kind/name that should be expanded in the output.
 	ExpandResources string
 
+	// ShowNamespace shows the namespace in the output
+	ShowNamespace bool
+
 	// Echo displays objects if the object's ready condition has the
 	// same Status, Severity and Reason of the parent's object ready condition (it is an echo)
 	Echo bool
@@ -89,7 +92,7 @@ func (od ObjectTree) AddMultipleWithHeader(parent client.Object, objs []client.O
 		return
 	}
 
-	virtualObj := VirtualObject(headerName, headerName, headerName)
+	virtualObj := VirtualObject("", headerName, headerName)
 	od.Add(parent, virtualObj)
 	for _, obj := range objs {
 		od.Add(virtualObj, obj, opts...)
