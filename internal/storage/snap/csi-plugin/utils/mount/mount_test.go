@@ -1,3 +1,5 @@
+//go:build linux
+
 /*
 Copyright 2024 NVIDIA
 
@@ -38,6 +40,7 @@ func createFile(path string) {
 	ExpectWithOffset(1, os.WriteFile(path, []byte{}, 0644)).NotTo(HaveOccurred())
 }
 
+// TODO: These tests don't currently work on MacOS due to an issue with how Mac mounts directories.
 var _ = Describe("Mount Utils", func() {
 	var (
 		mountUtils Utils
