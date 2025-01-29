@@ -28,6 +28,7 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/bfb/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
+	"github.com/Masterminds/semver/v3"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -201,21 +202,41 @@ func (r *RealBFBDownloader) GetBFBVersion(filePath string) (provisioningv1.BFBVe
 		} else if strings.Contains(line, "BSP version") {
 			bfbVer.BSP = strings.TrimSpace(strings.Split(line, ":")[1])
 
-			// Compute docaVersion by adjusting the major version of BSP
-			bspParts := strings.Split(bfbVer.BSP, ".")
-			if len(bspParts) > 0 {
-				majorVersion, err := strconv.Atoi(bspParts[0])
-				if err != nil {
-					return bfbVer, fmt.Errorf("failed to parse BSP major version: %v", err)
-				}
-				if majorVersion >= 2 {
-					bfbVer.DOCA = fmt.Sprintf("%d.%s", majorVersion-2, strings.Join(bspParts[1:], "."))
-				} else {
-					return bfbVer, fmt.Errorf("BSP major version is less than 2")
-				}
+			docaVersion, err := parseDOCAVersionFromBSP(bfbVer.BSP)
+			if err != nil {
+				return bfbVer, fmt.Errorf("error parsing DOCA version from BSP: %w", err)
 			}
+			bfbVer.DOCA = docaVersion
 		}
-
 	}
 	return bfbVer, nil
+}
+
+// parseDOCAVersionFromBSP parses the DOCA version from BSP version
+// This is temporary solution until the actual DOCA version is populated in the BFB.
+func parseDOCAVersionFromBSP(bspVersion string) (string, error) {
+	// Compute docaVersion by adjusting the major version of BSP
+	bspParts := strings.Split(bspVersion, ".")
+	if len(bspParts) == 0 {
+		return "", fmt.Errorf("invalid BSP version")
+	}
+	majorVersion, err := strconv.Atoi(bspParts[0])
+	if err != nil {
+		return "", fmt.Errorf("failed to parse BSP major version: %v", err)
+	}
+	if majorVersion < 2 {
+		return "", fmt.Errorf("BSP major version is less than 2")
+	}
+	// We keep only the first 3 parts of the version to create a valid semver. In the future, we won't
+	// need to do that as the DOCA team is going to push the actual DOCA version in bfver. DOCA version
+	// is compliant with semver
+	if len(bspParts) > 3 {
+		bspParts = bspParts[:3]
+	}
+	docaVersion := fmt.Sprintf("%d.%s", majorVersion-2, strings.Join(bspParts[1:], "."))
+	_, err = semver.NewVersion(docaVersion)
+	if err != nil {
+		return "", fmt.Errorf("DOCA version error: %w", err)
+	}
+	return docaVersion, nil
 }

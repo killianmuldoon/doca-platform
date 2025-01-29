@@ -80,7 +80,7 @@ func (m *MockBFBDownloader) ProcessJobConditions(_ *batchv1.Job, _ time.Duration
 }
 
 func (m *MockBFBDownloader) GetBFBVersion(_ string) (provisioningv1.BFBVersions, error) {
-	return provisioningv1.BFBVersions{DOCA: "2.8.0.13249", BSP: "4.8.0.13249", ATF: "v2.2(release)", UEFI: "4.8.0-36-gf01f42f"}, nil
+	return provisioningv1.BFBVersions{DOCA: "2.8.0", BSP: "4.8.0.13249", ATF: "v2.2(release)", UEFI: "4.8.0-36-gf01f42f"}, nil
 }
 
 func createFakeBFBFile(filePath string) error {

@@ -6,6 +6,7 @@ require (
 	antrea.io/libOpenflow v0.14.0
 	antrea.io/ofnet v0.12.0
 	dario.cat/mergo v1.0.1
+	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/Mellanox/maintenance-operator/api v0.1.1
 	github.com/cert-manager/cert-manager v1.16.2
@@ -53,7 +54,6 @@ require (
 require (
 	cel.dev/expr v0.19.1 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
-	github.com/Masterminds/semver/v3 v3.3.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
