@@ -4729,13 +4729,88 @@ var _ = Describe("DPUDeployment API Validations", func() {
 	})
 })
 
+var _ = Describe("Sort function", func() {
+	Context("When sorting DPUService", func() {
+		DescribeTable("Validates the DPUServices are sorted fron oldest to newest", func(dpuServices []dpuservicev1.DPUService) {
+			objects := make([]client.Object, len(dpuServices))
+			for i := range dpuServices {
+				objects[i] = &dpuServices[i]
+			}
+			sortDPUServicesByCreationTimestamp(objects)
+			for i := 0; i < len(objects)-1; i++ {
+				Expect(objects[i].GetCreationTimestamp().Time.Before(objects[i+1].GetCreationTimestamp().Time)).To(BeTrue())
+			}
+		},
+			Entry("from oldest to newest", []dpuservicev1.DPUService{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Hour)),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						CreationTimestamp: metav1.NewTime(time.Now()),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						CreationTimestamp: metav1.NewTime(time.Now().Add(time.Hour)),
+					},
+				},
+			}),
+			Entry("from newest to oldest", []dpuservicev1.DPUService{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						CreationTimestamp: metav1.NewTime(time.Now().Add(time.Hour)),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						CreationTimestamp: metav1.NewTime(time.Now()),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Hour)),
+					},
+				},
+			}),
+			Entry("random order", []dpuservicev1.DPUService{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						CreationTimestamp: metav1.NewTime(time.Now().Add(time.Hour)),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Hour)),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						CreationTimestamp: metav1.NewTime(time.Now()),
+					},
+				},
+			}),
+		)
+	})
+})
+
 var _ = Describe("getRevisionHistoryLimit", func() {
 	now := time.Now()
 	Context("When getting the revision history limit", func() {
 		DescribeTable("Validates the revision history limit is correct", func(dpuServices []dpuservicev1.DPUService, revisionHistoryLimit int32, expected []dpuservicev1.DPUService) {
-			res := getRevisionHistoryLimitList(dpuServices, revisionHistoryLimit)
-			Expect(res).To(HaveLen(len(expected)))
-			Expect(res).To(ConsistOf(expected))
+			objects := make([]client.Object, len(dpuServices))
+			for i := range dpuServices {
+				objects[i] = &dpuServices[i]
+			}
+			expectsObjects := make([]client.Object, len(expected))
+			for i := range expected {
+				expectsObjects[i] = &expected[i]
+			}
+			res := getRevisionHistoryLimitList(objects, revisionHistoryLimit)
+			Expect(res).To(HaveLen(len(expectsObjects)))
+			Expect(res).To(ConsistOf(expectsObjects))
 		},
 			Entry("less than the limit", []dpuservicev1.DPUService{
 				{
@@ -4868,69 +4943,6 @@ var _ = Describe("getRevisionHistoryLimit", func() {
 				{
 					ObjectMeta: metav1.ObjectMeta{
 						CreationTimestamp: metav1.NewTime(now),
-					},
-				},
-			}),
-		)
-	})
-})
-
-var _ = Describe("Sort function", func() {
-	Context("When sorting DPUService", func() {
-		DescribeTable("Validates the DPUServices are sorted fron oldest to newest", func(dpuServices []dpuservicev1.DPUService) {
-			sortDPUServicesByCreationTimestamp(dpuServices)
-			for i := 0; i < len(dpuServices)-1; i++ {
-				Expect(dpuServices[i].CreationTimestamp.Before(&dpuServices[i+1].CreationTimestamp)).To(BeTrue())
-			}
-		},
-			Entry("from oldest to newest", []dpuservicev1.DPUService{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Hour)),
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						CreationTimestamp: metav1.NewTime(time.Now()),
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						CreationTimestamp: metav1.NewTime(time.Now().Add(time.Hour)),
-					},
-				},
-			}),
-			Entry("from newest to oldest", []dpuservicev1.DPUService{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						CreationTimestamp: metav1.NewTime(time.Now().Add(time.Hour)),
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						CreationTimestamp: metav1.NewTime(time.Now()),
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Hour)),
-					},
-				},
-			}),
-			Entry("random order", []dpuservicev1.DPUService{
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						CreationTimestamp: metav1.NewTime(time.Now().Add(time.Hour)),
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						CreationTimestamp: metav1.NewTime(time.Now().Add(-time.Hour)),
-					},
-				},
-				{
-					ObjectMeta: metav1.ObjectMeta{
-						CreationTimestamp: metav1.NewTime(time.Now()),
 					},
 				},
 			}),
