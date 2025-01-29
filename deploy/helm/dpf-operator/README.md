@@ -25,6 +25,7 @@ DPF Operator manages the lifecycle of a DOCA Platform Framework system.
 | affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator | string | `"Exists"` |  |
 | affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].key | string | `"node-role.kubernetes.io/control-plane"` |  |
 | affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].operator | string | `"Exists"` |  |
+| argo-cd.applicationSet.replicas | int | `0` |  |
 | argo-cd.dex.enabled | bool | `false` |  |
 | argo-cd.enabled | bool | `true` |  |
 | argo-cd.global.affinity.nodeAffinity.matchExpressions | list | `[{"key":"node-role.kubernetes.io/master","operator":"Exists"},{"key":"node-role.kubernetes.io/control-plane","operator":"Exists"}]` | Default match expressions for node affinity |

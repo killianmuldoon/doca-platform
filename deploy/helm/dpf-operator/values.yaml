@@ -31,6 +31,9 @@ tolerations:
     effect: NoSchedule
 ## installed dependencies except for kamaji.
 argo-cd:
+  ## Disable the ApplicationSet controller.
+  applicationSet:
+    replicas: 0
   enabled: true
   dex:
     enabled: false
