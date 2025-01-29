@@ -350,6 +350,10 @@ func addDPUServiceCredentialRequests(ctx context.Context, o objectScope, root cl
 }
 
 func addResourceByGVK(ctx context.Context, o objectScope, root client.Object, gvk schema.GroupVersionKind, matchLabels client.MatchingLabels) error {
+	if !showResource(o.opts.ShowResources, gvk.Kind) {
+		return nil
+	}
+
 	resourceList := &unstructured.UnstructuredList{}
 	resourceList.SetGroupVersionKind(gvk)
 	if err := o.client.List(ctx, resourceList, matchLabels); err != nil {

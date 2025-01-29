@@ -102,12 +102,18 @@ func addOtherConditions(prefix string, tbl *tablewriter.Table, objectTree *Objec
 		otherCondition := otherConditions[i]
 		otherDescriptor := newConditionDescriptor(otherCondition, objectTree.options.WrapLines)
 		otherConditionPrefix := getChildPrefix(prefix+childrenPipe+filler, i, len(otherConditions))
-		tbl.Append([]string{
+		appendSlice := []string{
 			fmt.Sprintf("%s%s", gray.Sprint(otherConditionPrefix), cyan.Sprint(otherCondition.Type)),
+			"",
 			otherDescriptor.readyColor.Sprint(otherDescriptor.status),
 			otherDescriptor.readyColor.Sprint(otherDescriptor.reason),
 			otherDescriptor.age,
-			otherDescriptor.message})
+			otherDescriptor.message,
+		}
+		if !objectTree.options.ShowNamespace {
+			appendSlice = append(appendSlice[:1], appendSlice[2:]...)
+		}
+		tbl.Append(appendSlice)
 	}
 }
 
