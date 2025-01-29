@@ -74,7 +74,7 @@ func (r *RealBFBDownloader) CreateBFBDownloadJob(ctx context.Context, client cli
 					Namespace: bfb.Namespace,
 				},
 				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyOnFailure,
+					RestartPolicy: corev1.RestartPolicyNever,
 					Containers: []corev1.Container{
 						{
 							Name:            cutil.BFBDownloader,
@@ -195,7 +195,7 @@ func (r *RealBFBDownloader) GetBFBVersion(filePath string) (provisioningv1.BFBVe
 	lines := strings.Split(string(data), "\n")
 	for _, line := range lines {
 		if strings.Contains(line, "ATF version") {
-			bfbVer.ATF = strings.TrimSpace(strings.Split(line, ":")[1])
+			bfbVer.ATF = strings.TrimSpace(strings.Join(strings.Split(line, ":")[1:], ":"))
 		} else if strings.Contains(line, "UEFI version") {
 			bfbVer.UEFI = strings.TrimSpace(strings.Split(line, ":")[1])
 		} else if strings.Contains(line, "BSP version") {

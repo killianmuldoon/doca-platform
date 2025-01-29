@@ -111,7 +111,7 @@ func GenerateBFBFilePath(filename string) string {
 }
 
 func GenerateBFBVersionFilePath(filename string) string {
-	return string(os.PathSeparator) + BFBBaseDir + string(os.PathSeparator) + filename + "-version"
+	return string(os.PathSeparator) + BFBBaseDir + string(os.PathSeparator) + filename + ".version"
 }
 
 func GenerateBFBMD5FilePath(filename string) string {

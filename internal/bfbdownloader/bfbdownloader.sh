@@ -4,7 +4,7 @@
 # Description: Downloads and sets up BFB files from a specified URL
 
 # License
-# 2024 NVIDIA CORPORATION & AFFILIATES
+# 2025 NVIDIA CORPORATION & AFFILIATES
 
 # Licensed under the Apache License, Version 2.0 (the License);
 # you may not use this file except in compliance with the License.
@@ -20,118 +20,121 @@
 
 # Set exit status on any error, and print the error message
 set -euo pipefail
-set -o errexit
+
+# Log function
+log() {
+    # Add a timestamp to the log message
+    echo "[bfbdownloader] $1"
+}
+
+# Error function
+error() {
+    # Send error messages to stderr instead of stdout
+    echo "[bfbdownloader] Error: $1" >&2
+    cleanup
+    exit 1
+}
 
 # Define the function to handle cleanup
 cleanup() {
     # Remove temporary files on exit or error
-    local TEMP_FILE="$opt_base_dir/bfb-${opt_uid}"
-    local MD5_LOG_FILE="$opt_base_dir/${opt_file}.md5"
-    local OUTPUT_FILE="$opt_versions_output"
-    [[ -n "$TEMP_FILE" ]] && rm -f "$TEMP_FILE"
-    [[ -n "$OUTPUT_FILE" ]] && rm -f "$OUTPUT_FILE"
-    [[ -n "$MD5_LOG_FILE" ]] && rm -f "$MD5_LOG_FILE"
+    local temp_file="$opt_base_dir/bfb-${opt_uid}"
+    local md5_log_file="$opt_base_dir/${opt_file}.md5"
+    local output_file="$opt_versions_output"
+    if [ -n "$temp_file" ]; then
+        rm -f "$temp_file"
+    fi
+    if [ -n "$output_file" ]; then
+        rm -f "$output_file"
+    fi
+    if [ -n "$md5_log_file" ]; then
+        rm -f "$md5_log_file"
+    fi
 }
 
 # Define the function to handle downloading and setup of BFB files
 download_and_setup_bfb_files() {
     # Define the temporary and final file paths
-    local TEMP_FILE="$opt_base_dir/bfb-${opt_uid}"
-    local FINAL_FILE="$opt_base_dir/$opt_file"
-    local MD5_LOG_FILE="$opt_base_dir/${opt_file}.md5"
+    local temp_file="$opt_base_dir/bfb-${opt_uid}"
+    local final_file="$opt_base_dir/$opt_file"
+    local md5_log_file="$opt_base_dir/${opt_file}.md5"
 
     # Check if the final file already exists
-    if [[ ! -f "$FINAL_FILE" ]]; then
-        echo "Starting download from $opt_url to $ TEMP_FILE..."
-        curl -o "$TEMP_FILE" "$opt_url" || {
-            echo "Failed to download $opt_url to $TEMP_FILE"
-            exit 1
+    if [ ! -f "$final_file" ]; then
+        log "Starting download from $opt_url to $temp_file..."
+        # Validate the URL
+        if ! curl -s -f -I "$opt_url" > /dev/null; then
+            error "Invalid URL: $opt_url"
+        fi
+        # Download the file
+        curl -o "$temp_file" "$opt_url" || {
+            error "Failed to download $opt_url to $temp_file"
         }
-
-        echo "Renaming $TEMP_FILE to $FINAL_FILE..."
-        mv "$TEMP_FILE" "$FINAL_FILE" || {
-            echo "Failed to rename $TEMP_FILE to $FINAL_FILE"
-            exit 1
+        log "Renaming $temp_file to $final_file..."
+        mv "$temp_file" "$final_file" || {
+            error "Failed to rename $temp_file to $final_file"
         }
-
-        echo "Setting permissions for $FINAL_FILE..."
-        chmod 0644 "$FINAL_FILE" || {
-            echo "Failed to set permissions for $FINAL_FILE"
-            exit 1
+        log "Setting permissions for $final_file..."
+        chmod 0644 "$final_file" || {
+            error "Failed to set permissions for $final_file"
         }
-
-        echo "Download and setup of $FINAL_FILE completed successfully."
+        log "Download and setup of $final_file completed successfully."
     else
-        echo "File $FINAL_FILE already exists. Skipping download."
+        log "File $final_file already exists. Skipping download."
     fi
 }
 
 # Define the function to handle MD5 checksum computation
 compute_md5_checksum() {
     # Define the MD5 log file path
-    local MD5_LOG_FILE="$opt_base_dir/${opt_file}.md5"
-
+    local md5_log_file="$opt_base_dir/${opt_file}.md5"
     # Check if the MD5 log file already exists
-    if [[ ! -f "$MD5_LOG_FILE" ]]; then
-        echo "Computing MD5 checksum for $FINAL_FILE..."
-        md5sum "$FINAL_FILE" > "$MD5_LOG_FILE" || {
-            echo "Failed to compute MD5 checksum for $FINAL_FILE"
-            exit 1
+    if [ ! -f "$md5_log_file" ]; then
+        log "Computing MD5 checksum for $final_file..."
+        md5sum "$final_file" > "$md5_log_file" || {
+            error "Failed to compute MD5 checksum for $final_file"
         }
-
-        echo "MD5 checksum saved to $MD5_LOG_FILE."
+        log "MD5 checksum saved to $md5_log_file."
     else
-        echo "MD5 checksum file $MD5_LOG_FILE already exists. Skipping checksum computation."
+        log "MD5 checksum file $md5_log_file already exists. Skipping checksum computation."
     fi
 }
 
 # Define the function to handle bfver execution with retry logic
 run_bfver_with_retry() {
     # Define the maximum number of retries
-    local MAX_RETRIES=5
-    local RETRY_DELAY=1 # seconds
-
+    local max_retries=5
+    local retry_delay=1 # seconds
     # Define the output file path
-    local OUTPUT_FILE="$opt_versions_output"
-
-    echo "Running bfver on $FINAL_FILE and saving output to $OUTPUT_FILE..."
-
+    local output_file="$opt_versions_output"
+    log "Running bfver on $final_file and saving output to $output_file..."
     # Set up a loop for retries
-    for ((i=1; i<=MAX_RETRIES; i++)); do
-        echo "Attempt $i of $MAX_RETRIES..."
-        if timeout 30s bfver -f "$(realpath "$FINAL_FILE")" > "$OUTPUT_FILE" 2>&1; then
+    for ((i=1; i<=max_retries; i++)); do
+        log "Attempt $i of $max_retries..."
+        if timeout 30s bfver -f "$(realpath "$final_file")" > "$output_file" 2>&1; then
             # Check if the error message is file not found
-            if grep -q "bfver: warn: $(realpath "$FINAL_FILE") does not exist, skipping" "$OUTPUT_FILE"; then
-                echo "bfver failed with error: file not found, skipping"
-                exit 1
+            if grep -q "bfver: warn: $(realpath "$final_file") does not exist, skipping" "$output_file"; then
+                error "bfver failed with error: file not found, skipping"
             fi
-            echo "bfver completed successfully. Output saved to $OUTPUT_FILE."
+            log "bfver completed successfully. Output saved to $output_file."
             break # Exit loop on success
         else
             # Check if the error message is file not found
-            if grep -q "bfver: warn: $(realpath "$FINAL_FILE") does not exist, skipping" "$OUTPUT_FILE"; then
-                echo "bfver failed with error: file not found, skipping"
-                exit 1
+            if grep -q "bfver: warn: $(realpath "$final_file") does not exist, skipping" "$output_file"; then
+                error "bfver failed with error: file not found, skipping"
             fi
-            echo "bfver failed with an unknown error"
-            exit 1
+            error "bfver failed with an unknown error"
         fi
-
         # Check if the maximum number of retries is reached
-        if [[ $i -ge MAX_RETRIES ]]; then
-            echo "bfver failed after $MAX_RETRIES attempts. Exiting with error."
-            exit 1
+        if ((i >= max_retries)); then
+            error "bfver failed after $max_retries attempts. Exiting with error."
         fi
-
         # Handle retry logic
-        echo "bfver failed on attempt $i."
-        echo "Retrying in ${RETRY_DELAY} seconds..."
-        sleep "$RETRY_DELAY"
+        log "bfver failed on attempt $i."
+        log "Retrying in ${retry_delay} seconds..."
+        sleep "$retry_delay"
     done
 }
-
-# Set up the trap to handle cleanup
-trap cleanup INT TERM ILL KILL FPE SEGV ALRM ERR EXIT
 
 # Define the command-line arguments
 declare -A options
@@ -142,7 +145,7 @@ options[--base-dir]=""
 options[--versions-output]=""
 
 # Parse the command-line options
-while [[ "$#" -gt 0 ]]; do
+while [[ $# -gt 0 ]]; do
     case $1 in
         --url=*)
             options[--url]=${1#*=}
@@ -205,17 +208,8 @@ required_options[--versions-output]=1
 
 # Check if all required options are present
 for option in "${!required_options[@]}"; do
-    if [[ -z "${options[$option]}" ]]; then
-        echo "Error: Missing required arguments." >&2
-        cat <<EOF >&2
-Usage:
-  bfbdownloader.sh --url=<url> --file=<name> --uid=<id> --base-dir=<path> --versions-output=<path>
-  bfbdownloader.sh --url <url> --file <name> --uid <id> --base-dir <path> --versions-output <path>
-
-Example:
-  bfbdownloader.sh --url="http://example.com/file.bfb" --file="file.bfb" --uid="12345" --base-dir="/bfb" --versions-output="/bfb/versions.txt"
-EOF
-        exit 1
+    if [ -z "${options[$option]}" ]; then
+        error "Missing required arguments."
     fi
 done
 
@@ -227,20 +221,20 @@ declare -g opt_base_dir="${options[--base-dir]}"
 declare -g opt_versions_output="${options[--versions-output]}"
 
 # Ensure the base directory exists
-declare -g opt_base_dir
 mkdir -p "$opt_base_dir"
 
 # Define the file paths
-opt_base_dir="$opt_base_dir"
-FINAL_FILE="$opt_base_dir/$opt_file"
-MD5_LOG_FILE="$opt_base_dir/${opt_file}.md5"
+final_file="$opt_base_dir/$opt_file"
+md5_log_file="$opt_base_dir/${opt_file}.md5"
+
+# Setup trap for cleanup
+trap cleanup INT TERM ILL KILL FPE SEGV ALRM ERR EXIT
 
 # Call the functions
 download_and_setup_bfb_files
 compute_md5_checksum
 run_bfver_with_retry
-
-echo "Script completed successfully."
+log "Script completed successfully."
 
 # Remove the trap after successful execution
 trap - INT TERM ILL KILL FPE SEGV ALRM ERR EXIT
