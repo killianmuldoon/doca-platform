@@ -317,6 +317,8 @@ func isObjDebug(obj client.Object, debugFilter string) bool {
 	if debugFilter == "" {
 		return false
 	}
+
+	kind := obj.GetObjectKind().GroupVersionKind().Kind
 	for _, filter := range strings.Split(strings.ToLower(debugFilter), ",") {
 		filter = strings.TrimSpace(filter)
 		if filter == "" {
@@ -327,12 +329,12 @@ func isObjDebug(obj client.Object, debugFilter string) bool {
 		}
 		kn := strings.Split(filter, "/")
 		if len(kn) == 2 {
-			if strings.ToLower(obj.GetObjectKind().GroupVersionKind().Kind) == kn[0] && obj.GetName() == kn[1] {
+			if strings.EqualFold(ensurePlural(kind), ensurePlural(kn[0])) && obj.GetName() == kn[1] {
 				return true
 			}
 			continue
 		}
-		if strings.ToLower(obj.GetObjectKind().GroupVersionKind().Kind) == kn[0] {
+		if strings.EqualFold(ensurePlural(kind), ensurePlural(kn[0])) {
 			return true
 		}
 	}
