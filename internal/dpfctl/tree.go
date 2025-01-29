@@ -92,6 +92,7 @@ func (od ObjectTree) AddMultipleWithHeader(parent client.Object, objs []client.O
 		return
 	}
 
+	headerName = ensurePlural(headerName)
 	virtualObj := VirtualObject("", headerName, headerName)
 	od.Add(parent, virtualObj)
 	for _, obj := range objs {

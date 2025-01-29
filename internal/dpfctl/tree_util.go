@@ -158,3 +158,10 @@ func VirtualObject(namespace, kind, name string) *unstructured.Unstructured {
 		},
 	}
 }
+
+func ensurePlural(kind string) string {
+	if strings.HasSuffix(kind, "s") {
+		return kind
+	}
+	return kind + "s"
+}

@@ -215,9 +215,7 @@ func getRowName(obj client.Object) string {
 	if IsGroupObject(obj) {
 		items := strings.Split(GetGroupItems(obj), GroupItemsSeparator)
 		kind := strings.TrimSuffix(obj.GetObjectKind().GroupVersionKind().Kind, "Group")
-		if kind[len(kind)-1] != 's' {
-			kind = kind + "s"
-		}
+		kind = ensurePlural(kind)
 		return white.Add(color.Bold).Sprintf("%d %s...", len(items), kind)
 	}
 
@@ -301,7 +299,7 @@ func showResource(showResources string, objKind string) bool {
 	}
 	kinds := strings.Split(showResources, ",")
 	for _, kind := range kinds {
-		if strings.EqualFold(objKind, kind) || strings.EqualFold(objKind+"s", kind) {
+		if strings.EqualFold(ensurePlural(objKind), ensurePlural(kind)) {
 			return true
 		}
 	}

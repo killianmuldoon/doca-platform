@@ -59,7 +59,11 @@ func TreeDiscovery(ctx context.Context, c client.Client, opts ObjectTreeOptions)
 		return nil, err
 	}
 
-	if err = addDPUSets(ctx, scope, dpfOperatorConfig, nil); err != nil {
+	skipDPUDeploymentFunc := func(labels map[string]string) bool {
+		return labels[dpuservicev1.ParentDPUDeploymentNameLabel] != ""
+	}
+
+	if err = addDPUSets(ctx, scope, dpfOperatorConfig, nil, skipDPUDeploymentFunc); err != nil {
 		return nil, err
 	}
 
@@ -70,23 +74,27 @@ func TreeDiscovery(ctx context.Context, c client.Client, opts ObjectTreeOptions)
 		return nil, err
 	}
 
-	if err = addDPUServices(ctx, scope, dpfOperatorConfig, nil); err != nil {
+	if err = addDPUServices(ctx, scope, dpfOperatorConfig, nil, skipDPUDeploymentFunc); err != nil {
 		return nil, err
 	}
 
-	if err = addDPUServiceChains(ctx, scope, dpfOperatorConfig, nil); err != nil {
+	if err = addDPUServiceChains(ctx, scope, dpfOperatorConfig, nil, skipDPUDeploymentFunc); err != nil {
 		return nil, err
 	}
 
-	if err = addDPUServiceInterfaces(ctx, scope, dpfOperatorConfig, nil); err != nil {
+	if err = addDPUServiceInterfaces(ctx, scope, dpfOperatorConfig, nil, skipDPUDeploymentFunc); err != nil {
 		return nil, err
 	}
 
-	if err = addDPUServiceIPAMs(ctx, scope, dpfOperatorConfig, nil); err != nil {
+	if err = addDPUServiceIPAMs(ctx, scope, dpfOperatorConfig, nil, nil); err != nil {
 		return nil, err
 	}
 
-	if err = addDPUServiceCredentialRequests(ctx, scope, dpfOperatorConfig, nil); err != nil {
+	if err = addDPUServiceCredentialRequests(ctx, scope, dpfOperatorConfig, nil, nil); err != nil {
+		return nil, err
+	}
+
+	if err = addDPUDeployments(ctx, scope, dpfOperatorConfig); err != nil {
 		return nil, err
 	}
 
@@ -136,12 +144,14 @@ func addDPUClusters(ctx context.Context, o objectScope, root client.Object) erro
 	return nil
 }
 
-func addDPUSets(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels) error {
+func addDPUSets(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels, skipFunc func(map[string]string) bool) error {
 	if !showResource(o.opts.ShowResources, provisioningv1.DPUSetKind) {
 		return nil
 	}
 
 	// Override the ShowResources option to show all the resources recursively.
+	// If the ShowResources option is set to show DPUDeployment, then we should not skip resources owned by DPUDeployment.
+	showDPUDeployment := showResource(o.opts.ShowResources, dpuservicev1.DPUDeploymentKind)
 	o.opts.ShowResources = ""
 
 	dpuSetList := &provisioningv1.DPUSetList{}
@@ -151,6 +161,10 @@ func addDPUSets(ctx context.Context, o objectScope, root client.Object, matchLab
 
 	addToTree := []client.Object{}
 	for _, dpuSet := range dpuSetList.Items {
+		// Continue if the resource is a child of a DPUDeployment and the matchLabels are nil.
+		if showDPUDeployment && skipFunc != nil && skipFunc(dpuSet.GetLabels()) {
+			continue
+		}
 		dpuSet.TypeMeta = metav1.TypeMeta{
 			Kind:       provisioningv1.DPUSetKind,
 			APIVersion: provisioningv1.GroupVersion.String(),
@@ -237,12 +251,14 @@ func addDPUs(ctx context.Context, o objectScope, root client.Object, matchLabels
 	return nil
 }
 
-func addDPUServices(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels) error {
+func addDPUServices(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels, skipFunc func(map[string]string) bool) error {
 	if !showResource(o.opts.ShowResources, dpuservicev1.DPUServiceKind) {
 		return nil
 	}
 
 	// Override the ShowResources option to show all the resources recursively.
+	// If the ShowResources option is set to show DPUDeployment, then we should not skip resources owned by DPUDeployment.
+	showDPUDeployment := showResource(o.opts.ShowResources, dpuservicev1.DPUDeploymentKind)
 	o.opts.ShowResources = ""
 
 	dpuServiceList := &dpuservicev1.DPUServiceList{}
@@ -252,6 +268,11 @@ func addDPUServices(ctx context.Context, o objectScope, root client.Object, matc
 
 	addToTree := []client.Object{}
 	for _, dpuService := range dpuServiceList.Items {
+		// Continue if the resource is a child of a DPUDeployment and the matchLabels are nil.
+		if showDPUDeployment && skipFunc != nil && skipFunc(dpuService.GetLabels()) {
+			continue
+		}
+
 		dpuService.TypeMeta = metav1.TypeMeta{
 			Kind:       dpuservicev1.DPUServiceKind,
 			APIVersion: dpuservicev1.GroupVersion.String(),
@@ -333,23 +354,23 @@ func argoStatusResourcesToConditions(status argov1.ApplicationStatus) []metav1.C
 	return conditions
 }
 
-func addDPUServiceChains(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels) error {
-	return addResourceByGVK(ctx, o, root, dpuservicev1.DPUServiceChainGroupVersionKind, matchLabels)
+func addDPUServiceChains(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels, skipFunc func(map[string]string) bool) error {
+	return addResourceByGVK(ctx, o, root, dpuservicev1.DPUServiceChainGroupVersionKind, matchLabels, skipFunc)
 }
 
-func addDPUServiceInterfaces(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels) error {
-	return addResourceByGVK(ctx, o, root, dpuservicev1.DPUServiceInterfaceGroupVersionKind, matchLabels)
+func addDPUServiceInterfaces(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels, skipFunc func(map[string]string) bool) error {
+	return addResourceByGVK(ctx, o, root, dpuservicev1.DPUServiceInterfaceGroupVersionKind, matchLabels, skipFunc)
 }
 
-func addDPUServiceIPAMs(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels) error {
-	return addResourceByGVK(ctx, o, root, dpuservicev1.DPUServiceIPAMGroupVersionKind, matchLabels)
+func addDPUServiceIPAMs(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels, skipFunc func(map[string]string) bool) error {
+	return addResourceByGVK(ctx, o, root, dpuservicev1.DPUServiceIPAMGroupVersionKind, matchLabels, skipFunc)
 }
 
-func addDPUServiceCredentialRequests(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels) error {
-	return addResourceByGVK(ctx, o, root, dpuservicev1.DPUServiceCredentialRequestGroupVersionKind, matchLabels)
+func addDPUServiceCredentialRequests(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels, skipFunc func(map[string]string) bool) error {
+	return addResourceByGVK(ctx, o, root, dpuservicev1.DPUServiceCredentialRequestGroupVersionKind, matchLabels, skipFunc)
 }
 
-func addResourceByGVK(ctx context.Context, o objectScope, root client.Object, gvk schema.GroupVersionKind, matchLabels client.MatchingLabels) error {
+func addResourceByGVK(ctx context.Context, o objectScope, root client.Object, gvk schema.GroupVersionKind, matchLabels client.MatchingLabels, skipFunc func(map[string]string) bool) error {
 	if !showResource(o.opts.ShowResources, gvk.Kind) {
 		return nil
 	}
@@ -362,9 +383,73 @@ func addResourceByGVK(ctx context.Context, o objectScope, root client.Object, gv
 
 	addToTree := []client.Object{}
 	for _, resource := range resourceList.Items {
+		if skipFunc != nil && skipFunc(resource.GetLabels()) {
+			continue
+		}
 		addToTree = append(addToTree, &resource)
 	}
 
 	o.tree.AddMultipleWithHeader(root, addToTree, gvk.Kind)
+	return nil
+}
+
+func addDPUDeployments(ctx context.Context, o objectScope, root client.Object) error {
+	if !showResource(o.opts.ShowResources, dpuservicev1.DPUDeploymentKind) {
+		return nil
+	}
+
+	// Override the ShowResources option to show all the resources recursively.
+	o.opts.ShowResources = ""
+
+	dpuDeploymentsList := &dpuservicev1.DPUDeploymentList{}
+	if err := o.client.List(ctx, dpuDeploymentsList); err != nil {
+		return err
+	}
+	if len(dpuDeploymentsList.Items) == 0 {
+		return nil
+	}
+
+	addToTree := []client.Object{}
+	for _, dpuDeployment := range dpuDeploymentsList.Items {
+		dpuDeployment.TypeMeta = metav1.TypeMeta{
+			Kind:       dpuservicev1.DPUDeploymentKind,
+			APIVersion: dpuservicev1.GroupVersion.String(),
+		}
+
+		// If it is requested to show all the conditions for the root, add
+		// the ShowObjectConditionsAnnotation to signal this to the presentation layer.
+		if isObjDebug(root, o.opts.ShowOtherConditions) {
+			addAnnotation(root, ShowObjectConditionsAnnotation, "True")
+		}
+
+		addToTree = append(addToTree, &dpuDeployment)
+		parentDPUName := fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName())
+
+		if err := addDPUSets(ctx, o, &dpuDeployment, client.MatchingLabels{
+			dpuservicev1.ParentDPUDeploymentNameLabel: parentDPUName,
+		}, nil); err != nil {
+			return err
+		}
+
+		if err := addDPUServices(ctx, o, &dpuDeployment, client.MatchingLabels{
+			dpuservicev1.ParentDPUDeploymentNameLabel: parentDPUName,
+		}, nil); err != nil {
+			return err
+		}
+
+		if err := addDPUServiceChains(ctx, o, &dpuDeployment, client.MatchingLabels{
+			dpuservicev1.ParentDPUDeploymentNameLabel: parentDPUName,
+		}, nil); err != nil {
+			return err
+		}
+
+		if err := addDPUServiceInterfaces(ctx, o, &dpuDeployment, client.MatchingLabels{
+			dpuservicev1.ParentDPUDeploymentNameLabel: parentDPUName,
+		}, nil); err != nil {
+			return err
+		}
+	}
+
+	o.tree.AddMultipleWithHeader(root, addToTree, "DPUDeployments")
 	return nil
 }

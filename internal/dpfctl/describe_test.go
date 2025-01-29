@@ -137,6 +137,75 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 			},
 		},
 		{
+			name: "Add DPUDeployment with sub-resources",
+			objectsTree: []objectsWithConditions{
+				{object: defaultDPFOperatorConfig(), conditions: getTrueCondition()},
+				{object: defaultDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceChainFromDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceFromDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUSetFromDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUFromDPUSetsFromDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceInterfaceFromDPUDeployment(), conditions: getTrueCondition()},
+			},
+			expectedPrefix: []string{
+				"DPFOperatorConfig/test                               True  Success",
+				"└─DPUDeployments",
+				"  └─DPUDeployment/test                               True  Success",
+				"    ├─DPUServiceChains",
+				"    │ └─DPUServiceChain/test-from-dpudeployment      True  Success",
+				"    ├─DPUServiceInterfaces",
+				"    │ └─DPUServiceInterface/test-from-dpudeployment  True  Success",
+				"    ├─DPUServices",
+				"    │ └─DPUService/test-from-dpudeployment           True  Success",
+				"    └─DPUSets",
+				"      └─DPUSet/test-from-dpudeployment",
+				"        └─DPU/test-from-dpudeployment                True  Success",
+			},
+		},
+		{
+			name: "Add DPUDeployment with sub-resources and standalone resources",
+			objectsTree: []objectsWithConditions{
+				{object: defaultDPFOperatorConfig(), conditions: getTrueCondition()},
+				{object: defaultDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceChainFromDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceFromDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUSetFromDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUFromDPUSetsFromDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceInterfaceFromDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUService(), conditions: getTrueCondition()},
+				{object: defaultDPUSet(), conditions: getTrueCondition()},
+				{object: defaultDPU(), conditions: getTrueCondition()},
+				{object: defaultDPUFromDPUSet(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceChain(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceInterface(), conditions: getTrueCondition()},
+			},
+			expectedPrefix: []string{
+				"DPFOperatorConfig/test                               True  Success",
+				"├─DPUDeployments",
+				"│ └─DPUDeployment/test                               True  Success",
+				"│   ├─DPUServiceChain",
+				"│   │ └─DPUServiceChain/test-from-dpudeployment      True  Success",
+				"│   ├─DPUServiceInterfaces",
+				"│   │ └─DPUServiceInterface/test-from-dpudeployment  True  Success",
+				"│   ├─DPUServices",
+				"│   │ └─DPUService/test-from-dpudeployment           True  Success",
+				"│   └─DPUSets",
+				"│     └─DPUSet/test-from-dpudeployment",
+				"│       └─DPU/test-from-dpudeployment                True  Success",
+				"├─DPUServiceChains",
+				"│ └─DPUServiceChain/test                             True  Success",
+				"├─DPUServiceInterfaces",
+				"│ └─DPUServiceInterface/test                         True  Success",
+				"├─DPUServices",
+				"│ └─DPUService/test                                  True  Success",
+				"├─DPUSets",
+				"│ └─DPUSet/test",
+				"│   └─DPU/test                                       True  Success",
+				"└─DPUs",
+				"  └─DPU/orphaned-dpu                                 True  Success",
+			},
+		},
+		{
 			name: "Add only DPUService and DPUServiceIPAM with conditions and namespace",
 			objectsTree: []objectsWithConditions{
 				{object: defaultDPFOperatorConfig(), conditions: getRandomConditionsWithReadyTrueCondition()},
@@ -172,6 +241,7 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 			name: "Add all resources",
 			objectsTree: []objectsWithConditions{
 				{object: defaultDPFOperatorConfig(), conditions: getTrueCondition()},
+				{object: defaultDPUCluster(), conditions: getTrueCondition()},
 				{object: defaultDPUService(), conditions: getTrueCondition()},
 				{object: defaultDPUSet(), conditions: getTrueCondition()},
 				{object: defaultDPU(), conditions: getTrueCondition()},
@@ -180,30 +250,50 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 				{object: defaultDPUServiceInterface(), conditions: getTrueCondition()},
 				{object: defaultDPUServiceIPAM(), conditions: getTrueCondition()},
 				{object: defaultDPUServiceCredentialRequest(), conditions: getTrueCondition()},
+				{object: defaultDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceChainFromDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceFromDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUSetFromDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUFromDPUSetsFromDPUDeployment(), conditions: getTrueCondition()},
+				{object: defaultDPUServiceInterfaceFromDPUDeployment(), conditions: getTrueCondition()},
 			},
 			expectedPrefix: []string{
-				"DPFOperatorConfig/test                True  Success",
-				"├─DPUServiceChain",
-				"│ └─DPUServiceChain/test              True  Success",
-				"├─DPUServiceCredentialRequest",
-				"│ └─DPUServiceCredentialRequest/test  True  Success",
-				"├─DPUServiceIPAM",
-				"│ └─DPUServiceIPAM/test               True  Success",
-				"├─DPUServiceInterface",
-				"│ └─DPUServiceInterface/test          True  Success",
+				"DPFOperatorConfig/test                               True  Success",
+				"├─DPUClusters",
+				"│ └─DPUCluster/test                                  True  Success",
+				"├─DPUDeployments",
+				"│ └─DPUDeployment/test                               True  Success",
+				"│   ├─DPUServiceChain",
+				"│   │ └─DPUServiceChain/test-from-dpudeployment      True  Success",
+				"│   ├─DPUServiceInterfaces",
+				"│   │ └─DPUServiceInterface/test-from-dpudeployment  True  Success",
+				"│   ├─DPUServices",
+				"│   │ └─DPUService/test-from-dpudeployment           True  Success",
+				"│   └─DPUSets",
+				"│     └─DPUSet/test-from-dpudeployment",
+				"│       └─DPU/test-from-dpudeployment                True  Success",
+				"├─DPUServiceChains",
+				"│ └─DPUServiceChain/test                             True  Success",
+				"├─DPUServiceCredentialRequests",
+				"│ └─DPUServiceCredentialRequest/test                 True  Success",
+				"├─DPUServiceIPAMs",
+				"│ └─DPUServiceIPAM/test                              True  Success",
+				"├─DPUServiceInterfaces",
+				"│ └─DPUServiceInterface/test                         True  Success",
 				"├─DPUServices",
-				"│ └─DPUService/test                   True  Success",
+				"│ └─DPUService/test                                  True  Success",
 				"├─DPUSets",
 				"│ └─DPUSet/test",
-				"│   └─DPU/test                        True  Success",
+				"│   └─DPU/test                                       True  Success",
 				"└─DPUs",
-				"  └─DPU/orphaned-dpu                  True  Success",
+				"  └─DPU/orphaned-dpu                                 True  Success",
 			},
 		},
 		{
 			name: "Add all resources with conditions and namespace",
 			objectsTree: []objectsWithConditions{
 				{object: defaultDPFOperatorConfig(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUCluster(), conditions: getRandomConditionsWithReadyTrueCondition()},
 				{object: defaultDPUService(), conditions: getRandomConditionsWithReadyTrueCondition()},
 				{object: defaultDPUSet(), conditions: getRandomConditionsWithReadyTrueCondition()},
 				{object: defaultDPU(), conditions: getRandomConditionsWithReadyTrueCondition()},
@@ -212,44 +302,75 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 				{object: defaultDPUServiceInterface(), conditions: getRandomConditionsWithReadyTrueCondition()},
 				{object: defaultDPUServiceIPAM(), conditions: getRandomConditionsWithReadyTrueCondition()},
 				{object: defaultDPUServiceCredentialRequest(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUDeployment(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUServiceChainFromDPUDeployment(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUServiceFromDPUDeployment(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUSetFromDPUDeployment(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUFromDPUSetsFromDPUDeployment(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUServiceInterfaceFromDPUDeployment(), conditions: getRandomConditionsWithReadyTrueCondition()},
 			},
 			opts: ObjectTreeOptions{
 				ShowOtherConditions: "all",
 				ShowNamespace:       true,
 			},
 			expectedPrefix: []string{
-				"DPFOperatorConfig/test                default  True   Success",
-				"│           ├─RandomReady                      False  SomethingWentWrong",
-				"│           └─RandomReconciled                 True   Success",
-				"├─DPUServiceChain",
-				"│ └─DPUServiceChain/test              default  True   Success",
-				"│               ├─RandomReady                  False  SomethingWentWrong",
-				"│               └─RandomReconciled             True   Success",
-				"├─DPUServiceCredentialRequest",
-				"│ └─DPUServiceCredentialRequest/test  default  True   Success",
-				"│               ├─RandomReady                  False  SomethingWentWrong",
-				"│               └─RandomReconciled             True   Success",
-				"├─DPUServiceIPAM",
-				"│ └─DPUServiceIPAM/test               default  True   Success",
-				"│               ├─RandomReady                  False  SomethingWentWrong",
-				"│               └─RandomReconciled             True   Success",
-				"├─DPUServiceInterface",
-				"│ └─DPUServiceInterface/test          default  True   Success",
-				"│               ├─RandomReady                  False  SomethingWentWrong",
-				"│               └─RandomReconciled             True   Success",
+				"DPFOperatorConfig/test                               default  True   Success",
+				"│           ├─RandomReady                                     False  SomethingWentWrong",
+				"│           └─RandomReconciled                                True   Success",
+				"├─DPUClusters",
+				"│ └─DPUCluster/test                                  default  True   Success",
+				"│               ├─RandomReady                                 False  SomethingWentWrong",
+				"│               └─RandomReconciled                            True   Success",
+				"├─DPUDeployments",
+				"│ └─DPUDeployment/test                               default  True   Success",
+				"│   │           ├─RandomReady                                 False  SomethingWentWrong",
+				"│   │           └─RandomReconciled                            True   Success",
+				"│   ├─DPUServiceChains",
+				"│   │ └─DPUServiceChain/test-from-dpudeployment      default  True   Success",
+				"│   │               ├─RandomReady                             False  SomethingWentWrong",
+				"│   │               └─RandomReconciled                        True   Success",
+				"│   ├─DPUServiceInterfaces",
+				"│   │ └─DPUServiceInterface/test-from-dpudeployment  default  True   Success",
+				"│   │               ├─RandomReady                             False  SomethingWentWrong",
+				"│   │               └─RandomReconciled                        True   Success",
+				"│   ├─DPUServices",
+				"│   │ └─DPUService/test-from-dpudeployment           default  True   Success",
+				"│   │               ├─RandomReady                             False  SomethingWentWrong",
+				"│   │               └─RandomReconciled                        True   Success",
+				"│   └─DPUSets",
+				"│     └─DPUSet/test-from-dpudeployment               default",
+				"│       └─DPU/test-from-dpudeployment                default  True   Success",
+				"│                     ├─RandomReady                           False  SomethingWentWrong",
+				"│                     └─RandomReconciled                      True   Success",
+				"├─DPUServiceChains",
+				"│ └─DPUServiceChain/test                             default  True   Success",
+				"│               ├─RandomReady                                 False  SomethingWentWrong",
+				"│               └─RandomReconciled                            True   Success",
+				"├─DPUServiceCredentialRequests",
+				"│ └─DPUServiceCredentialRequest/test                 default  True   Success",
+				"│               ├─RandomReady                                 False  SomethingWentWrong",
+				"│               └─RandomReconciled                            True   Success",
+				"├─DPUServiceIPAMs",
+				"│ └─DPUServiceIPAM/test                              default  True   Success",
+				"│               ├─RandomReady                                 False  SomethingWentWrong",
+				"│               └─RandomReconciled                            True   Success",
+				"├─DPUServiceInterfaces",
+				"│ └─DPUServiceInterface/test                         default  True   Success",
+				"│               ├─RandomReady                                 False  SomethingWentWrong",
+				"│               └─RandomReconciled                            True   Success",
 				"├─DPUServices",
-				"│ └─DPUService/test                   default  True   Success",
-				"│               ├─RandomReady                  False  SomethingWentWrong",
-				"│               └─RandomReconciled             True   Success",
+				"│ └─DPUService/test                                  default  True   Success",
+				"│               ├─RandomReady                                 False  SomethingWentWrong",
+				"│               └─RandomReconciled                            True   Success",
 				"├─DPUSets",
-				"│ └─DPUSet/test                       default",
-				"│   └─DPU/test                        default  True   Success",
-				"│                 ├─RandomReady                False  SomethingWentWrong",
-				"│                 └─RandomReconciled           True   Success",
+				"│ └─DPUSet/test                                      default",
+				"│   └─DPU/test                                       default  True   Success",
+				"│                 ├─RandomReady                               False  SomethingWentWrong",
+				"│                 └─RandomReconciled                          True   Success",
 				"└─DPUs",
-				"  └─DPU/orphaned-dpu                  default  True   Success",
-				"                ├─RandomReady                  False  SomethingWentWrong",
-				"                └─RandomReconciled             True   Success",
+				"  └─DPU/orphaned-dpu                                 default  True   Success",
+				"                ├─RandomReady                                 False  SomethingWentWrong",
+				"                └─RandomReconciled                            True   Success",
 			},
 		},
 	}
@@ -395,6 +516,116 @@ func defaultDPUServiceCredentialRequest() *dpuservicev1.DPUServiceCredentialRequ
 		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
 		Spec: dpuservicev1.DPUServiceCredentialRequestSpec{
 			Type: "kubeconfig",
+		},
+	}
+}
+
+func defaultDPUDeployment() *dpuservicev1.DPUDeployment {
+	return &dpuservicev1.DPUDeployment{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+		Spec: dpuservicev1.DPUDeploymentSpec{
+			ServiceChains: []dpuservicev1.DPUDeploymentSwitch{
+				{
+					Ports: []dpuservicev1.DPUDeploymentPort{
+						{
+							Service: &dpuservicev1.DPUDeploymentService{},
+						},
+					},
+				},
+			},
+			Services: map[string]dpuservicev1.DPUDeploymentServiceConfiguration{
+				"test": {
+					ServiceTemplate: "test",
+				},
+			},
+		},
+	}
+}
+
+func defaultDPUServiceChainFromDPUDeployment() *dpuservicev1.DPUServiceChain {
+	sc := &dpuservicev1.DPUServiceChain{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-from-dpudeployment",
+			Namespace: "default",
+			Labels: map[string]string{
+				dpuservicev1.ParentDPUDeploymentNameLabel: "default_test",
+			},
+		},
+	}
+	sc.Spec.Template.Spec.Template.Spec.Switches = []dpuservicev1.Switch{
+		{
+			Ports: []dpuservicev1.Port{
+				{
+					ServiceInterface: dpuservicev1.ServiceIfc{
+						MatchLabels: map[string]string{"foo": "bar"},
+					},
+				},
+			},
+		},
+	}
+	return sc
+}
+
+func defaultDPUServiceInterfaceFromDPUDeployment() *dpuservicev1.DPUServiceInterface {
+	si := &dpuservicev1.DPUServiceInterface{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-from-dpudeployment",
+			Namespace: "default",
+			Labels: map[string]string{
+				dpuservicev1.ParentDPUDeploymentNameLabel: "default_test",
+			},
+		},
+	}
+	si.Spec.Template.Spec.Template.Spec.InterfaceType = "vf"
+	si.Spec.Template.Spec.Template.Spec.VF = &dpuservicev1.VF{
+		VFID:               1,
+		PFID:               1,
+		ParentInterfaceRef: "eth0",
+	}
+	return si
+}
+
+func defaultDPUServiceFromDPUDeployment() *dpuservicev1.DPUService {
+	return &dpuservicev1.DPUService{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-from-dpudeployment",
+			Namespace: "default",
+			Labels: map[string]string{
+				dpuservicev1.ParentDPUDeploymentNameLabel: "default_test",
+			},
+		},
+		Spec: dpuservicev1.DPUServiceSpec{
+			HelmChart: dpuservicev1.HelmChart{
+				Source: dpuservicev1.ApplicationSource{
+					RepoURL: "oci://foobar",
+					Version: "1.0.0",
+				},
+			},
+		},
+	}
+}
+
+func defaultDPUSetFromDPUDeployment() *provisioningv1.DPUSet {
+	return &provisioningv1.DPUSet{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-from-dpudeployment",
+			Namespace: "default",
+			Labels: map[string]string{
+				dpuservicev1.ParentDPUDeploymentNameLabel: "default_test",
+			},
+		},
+	}
+}
+
+func defaultDPUFromDPUSetsFromDPUDeployment() *provisioningv1.DPU {
+	return &provisioningv1.DPU{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-from-dpudeployment",
+			Namespace: "default",
+			Labels: map[string]string{
+				util.DPUSetNameLabel:      "test-from-dpudeployment",
+				util.DPUSetNamespaceLabel: "default",
+			},
 		},
 	}
 }
