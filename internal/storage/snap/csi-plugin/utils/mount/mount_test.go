@@ -1,5 +1,3 @@
-//go:build linux
-
 /*
 Copyright 2024 NVIDIA
 
@@ -40,7 +38,6 @@ func createFile(path string) {
 	ExpectWithOffset(1, os.WriteFile(path, []byte{}, 0644)).NotTo(HaveOccurred())
 }
 
-// TODO: These tests don't currently work on MacOS due to an issue with how Mac mounts directories.
 var _ = Describe("Mount Utils", func() {
 	var (
 		mountUtils Utils
@@ -52,6 +49,11 @@ var _ = Describe("Mount Utils", func() {
 		mounter = kmount.NewFakeMounter(nil)
 		mountUtils = New(mounter)
 		tmpDir, err = os.MkdirTemp("", "mount-utils-test*")
+		Expect(err).NotTo(HaveOccurred())
+		// resolve real path of the TMP dir, this is required to be compatible
+		// with implementation of Unmount function from kmount.FakeMounter on macOS.
+		// on mac the real path of the tmp dir is /private/tmp
+		tmpDir, err = filepath.EvalSymlinks(tmpDir)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			Expect(os.RemoveAll(tmpDir)).NotTo(HaveOccurred())
