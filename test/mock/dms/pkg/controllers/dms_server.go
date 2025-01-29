@@ -21,12 +21,11 @@ import (
 	"fmt"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
+	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	"github.com/nvidia/doca-platform/test/mock/dms/pkg/server"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -37,8 +36,9 @@ import (
 // DMSServerReconciler reconciles a DPU object
 type DMSServerReconciler struct {
 	Client client.Client
-	Scheme *runtime.Scheme
-	Server server.DMSServerMux
+	Server *server.DMSServerMux
+	// PodName is used to advertise this pod as the DMS server for DPUs.
+	PodName string
 }
 
 // +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpus,verbs=get;list;watch;create;update;patch;delete
@@ -79,24 +79,16 @@ func (r *DMSServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		return ctrl.Result{}, nil
 	}
 
-	// Add the annotation and patch the DPU.
-	err := r.AddDMSListenerForDPU(dpu)
-
-	// If we have an error we have to requeue the DPU and let controller-runtime handle the error.
-	return ctrl.Result{}, err
-}
-
-// AddDMSListenerForDPU adds a new listener.
-// Find free  port.
-// Create new listener in the mux.
-// Add the annotation.
-func (r *DMSServerReconciler) AddDMSListenerForDPU(dpu *provisioningv1.DPU) error {
 	if dpu.Annotations == nil {
 		dpu.Annotations = map[string]string{}
 	}
-	dpu.Annotations[util.OverrideDMSPodNameAnnotationKey] = "pod-1"
-	dpu.Annotations[util.OverrideDMSPortAnnotationKey] = "20000"
-	return nil
+	dpu.Annotations[cutil.OverrideDMSPodNameAnnotationKey] = r.PodName
+
+	// Add the annotation and patch the DPU.
+	err := r.Server.EnsureListenerForDPU(dpu)
+
+	// If we have an error we have to requeue the DPU and let controller-runtime handle the error.
+	return ctrl.Result{}, err
 }
 
 // SetupWithManager sets up the controller with the Manager.

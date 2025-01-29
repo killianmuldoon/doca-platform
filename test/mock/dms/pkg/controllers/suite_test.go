@@ -18,6 +18,9 @@ package controllers
 
 import (
 	"context"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
 	_ "embed"
 	"fmt"
 	"path/filepath"
@@ -40,11 +43,15 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
+const dmsServerPodName = "dms-server-pod-name"
+
 var (
 	cfg                        *rest.Config
 	testClient                 client.Client
 	testEnv                    *envtest.Environment
 	ctx, testManagerCancelFunc = context.WithCancel(ctrl.SetupSignalHandler())
+	key                        *rsa.PrivateKey
+	cert                       *x509.Certificate
 )
 
 func TestMain(m *testing.M) {
@@ -85,6 +92,15 @@ func TestMain(m *testing.M) {
 		panic(fmt.Sprintf("Failed to set up test environment: %v", err))
 	}
 
+	// create the certs required for communication between the DPU controller and the mock DMS server
+	key, err = rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to set up test certificate private key: %v", err))
+	}
+	cert, err = newCert(key)
+	if err != nil {
+		panic(fmt.Sprintf("Failed to set up test certificate: %v", err))
+	}
 	// testClient is defined globally in this package so it can be used by the resource.
 	testClient, err = client.New(cfg, client.Options{Scheme: s})
 	if err != nil {
@@ -108,7 +124,11 @@ func TestMain(m *testing.M) {
 		&reboot.DMSPodExecUptimeChecker{},
 		dutil.DPUOptions{DPUInstallInterface: string(provisioningv1.InstallViaHost)})
 
-	dmsServerReconciler := DMSServerReconciler{Client: testClient, Scheme: s, Server: dmsserver.DMSServerMux{}}
+	dmsServerReconciler := DMSServerReconciler{
+		Client:  testClient,
+		PodName: dmsServerPodName,
+		Server:  dmsserver.NewDMSServerMux(20000, 22000, "127.0.0.1", cert, key),
+	}
 	if err := dpuReconciler.SetupWithManager(testManager); err != nil {
 		panic(fmt.Sprintf("Failed to setup DPU reconciler: %v", err))
 	}

@@ -54,7 +54,7 @@ const (
 
 func Address(ip string, dpu *provisioningv1.DPU) string {
 	if portOverride, ok := dpu.Annotations[cutil.OverrideDMSPortAnnotationKey]; ok {
-		return portOverride
+		return fmt.Sprintf("%s:%s", ip, portOverride)
 	}
 	return fmt.Sprintf("%s:%d", ip, dmsServerPort)
 }

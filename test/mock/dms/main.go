@@ -18,11 +18,14 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
 	"os"
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/test/mock/dms/pkg/certs"
 	dpu "github.com/nvidia/doca-platform/test/mock/dms/pkg/controllers"
+	dmsserver "github.com/nvidia/doca-platform/test/mock/dms/pkg/server"
 
 	"github.com/spf13/pflag"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -38,6 +41,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
+
+const downwardAPIPodName = "K8S_POD_NAME"
 
 var (
 	setupLog   = ctrl.Log.WithName("setup")
@@ -65,6 +70,9 @@ func main() {
 	var insecureMetrics bool
 	var enableHTTP2 bool
 	var syncPeriod time.Duration
+	var hostIP string
+	var certificatePath string
+
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	fs.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -76,6 +84,10 @@ func main() {
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	fs.DurationVar(&syncPeriod, "sync-period", 10*time.Minute,
 		"The minimum interval at which watched resources are reconciled.")
+	fs.StringVar(&hostIP, "host-ip", "0.0.0.0", "The IP on which the server will listen.")
+
+	fs.StringVar(&certificatePath, "certificate-path", "/mock-dms-serving-certs/", "The directory containing the server 'tls.cert' cert and 'tls.key' private key.")
+
 	logsv1.AddFlags(logOptions, fs)
 
 	pflag.Parse()
@@ -84,6 +96,14 @@ func main() {
 		os.Exit(1)
 	}
 	ctrl.SetLogger(klog.Background())
+
+	// Get the pod name from the downward API.
+	podName, ok := os.LookupEnv(downwardAPIPodName)
+	if !ok {
+		setupLog.Error(fmt.Errorf("could not find required environment variable %s", downwardAPIPodName), "unable to start manager")
+		os.Exit(1)
+
+	}
 
 	// if the enable-http2 flag is false (the default), http/2 should be disabled
 	// due to its vulnerabilities. More specifically, disabling http/2 will
@@ -149,11 +169,18 @@ func main() {
 
 	ctx := ctrl.SetupSignalHandler()
 
+	cert, key, err := certs.ServerCertFromDirectory(certificatePath)
+	if err != nil {
+		setupLog.Error(err, "unable to get server certificate")
+		os.Exit(1)
+	}
 	if err = (&dpu.DMSServerReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:  mgr.GetClient(),
+		PodName: podName,
+		// TODO: Fix certificate handling here.
+		Server: dmsserver.NewDMSServerMux(30000, 32000, hostIP, cert, key),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "DPUService")
+		setupLog.Error(err, "unable to create controller")
 		os.Exit(1)
 	}
 
