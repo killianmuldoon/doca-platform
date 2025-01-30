@@ -42,37 +42,36 @@ type describeOptions struct {
 
 var opts describeOptions
 
-// describeCmd represents the describe command
-var describeCmd = &cobra.Command{
-	Use:   "describe",
-	Short: "Describe DPF resources",
-	Long:  "Describe different kind of subsets of the DPF resources in your cluster.",
-	Example: fmt.Sprintf(`# Show all conditions for DPUService resources
-%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --show-conditions=DPUService
+var exampleCmds = `# Show all conditions for DPUService resources
+%[1]s describe %[2]s --show-conditions=DPUService
 
 # Show all resources for a specific DPU
-%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --show-resources=DPU/dpf-test-0000-08-00
+%[1]s describe %[2]s --show-resources=DPU/dpf-test-0000-08-00
 
 # Show all conditions for DPUService and DPU resources
-%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --show-conditions=DPUService,DPU
+%[1]s describe %[2]s --show-conditions=DPUService,DPU
 
 # Show all conditions for all resources
-%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --show-conditions=all
+%[1]s describe %[2]s --show-conditions=all
 
 # Expand the resources for a DPUService
-%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --expand-resources=DPUService
+%[1]s describe %[2]s --expand-resources=DPUService
 
 # Display conditions for all resources
-%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --show-conditions=all
-
-# Wrap long lines for better readability
-%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --wrap-lines
+%[1]s describe %[2]s --show-conditions=all
 
 # Run %[1]s for a different cluster
-%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --kubeconfig /path/to/your/kubeconfig
+%[1]s describe %[2]s --kubeconfig /path/to/your/kubeconfig
 # or
 KUBECONFIG=/path/to/your/kubeconfig %[1]s describe
-`, rootCmd.Root().Name()),
+`
+
+// describeCmd represents the describe command
+var describeCmd = &cobra.Command{
+	Use:     "describe",
+	Short:   "Describe DPF resources",
+	Long:    "Describe different kind of subsets of the DPF resources in your cluster.",
+	Example: fmt.Sprintf(exampleCmds, rootCmd.Root().Name(), "<all,dpuclusters,dpudeployments,dpusets,dpuservices>"),
 }
 
 func init() {

@@ -24,9 +24,10 @@ import (
 
 // describeCmd represents the describe command
 var describeDPUSetsCmd = &cobra.Command{
-	Use:   "dpusets",
-	Short: "Describe DPF DPUSets and DPU related resources.",
-	Long:  "Describe the DPUSet status in your host and DPU cluster.",
+	Use:     "dpusets",
+	Short:   "Describe DPF DPUSets and DPU related resources.",
+	Long:    "Describe the DPUSet status in your host and DPU cluster.",
+	Example: fmt.Sprintf(exampleCmds, rootCmd.Root().Name(), "dpusets"),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("not implemented")
 	},
