@@ -30,6 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	MaxRetryCount = 10
+)
+
 var OsInstallTaskMap sync.Map
 var RebootTaskMap sync.Map
 

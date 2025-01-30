@@ -55,8 +55,7 @@ const (
 	TemplateFile            = "bf.cfg.template"
 	CloudInitDefaultTimeout = 90
 	// The maximum size of the bf.cfg file is expanded to 128k since DOCA 2.8
-	MaxBFSize     = 1024 * 128
-	MaxRetryCount = 10
+	MaxBFSize = 1024 * 128
 	// HostNameDPULabelKey is the label added to the DPU Kubernetes Node that indicates the hostname of the host that
 	// this DPU belongs to.
 	HostNameDPULabelKey = "provisioning.dpu.nvidia.com/host"
@@ -95,7 +94,7 @@ func Installing(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Con
 				logger.V(3).Info(fmt.Sprintf("DMS task %v is finished", dmsTaskName))
 				return updateState(state, provisioningv1.DPURebooting, "DPU is rebooting"), nil
 			} else {
-				if retryCount >= MaxRetryCount {
+				if retryCount >= dutil.MaxRetryCount {
 					logger.V(3).Info(fmt.Sprintf("DMS task %v is failed with err: %v", dmsTaskName, err))
 					return updateState(state, provisioningv1.DPUError, err.Error()), err
 				} else {

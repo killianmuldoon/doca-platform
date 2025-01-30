@@ -103,21 +103,37 @@ func Rebooting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 				logger.Error(err, "Failed to get pci address from node label", "dms", err)
 				return *state, err
 			} else {
-				if dmsTask, ok := dutil.RebootTaskMap.Load(rebootTaskName); ok {
-					result := dmsTask.(*future.Future)
-					if result.GetState() == future.Ready {
+				if task, ok := dutil.RebootTaskMap.Load(rebootTaskName); ok {
+					rebootTaskWithRetry := task.(dutil.TaskWithRetry)
+					retryCount := rebootTaskWithRetry.RetryCount
+					rebootTask := rebootTaskWithRetry.Task
+					if rebootTask.GetState() == future.Ready {
 						dutil.RebootTaskMap.Delete(rebootTaskName)
-						if _, err := result.GetResult(); err == nil {
+						if _, err := rebootTask.GetResult(); err == nil {
 							cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondRebooted, "", ""))
 							return *state, nil
 						} else {
-							state.Phase = provisioningv1.DPUError
-							cutil.SetDPUCondition(state, cutil.NewCondition(string(provisioningv1.DPUCondRebooted), err, "RebootFailed", ""))
-							return *state, err
+							if retryCount >= dutil.MaxRetryCount {
+								logger.V(3).Info(fmt.Sprintf("Reboot task %v failed with err: %v", rebootTaskName, err))
+								state.Phase = provisioningv1.DPUError
+								cutil.SetDPUCondition(state, cutil.NewCondition(string(provisioningv1.DPUCondRebooted), err, "RebootFailed", ""))
+								return *state, err
+							} else {
+								msg := fmt.Sprintf("DMS task %v retried %d times, error: %v", rebootTaskName, retryCount, err)
+								logger.Info(msg)
+								// Retry the reboot process
+								rebootHandler(ctx, dpu, pciAddress, cmd, retryCount+1)
+								cond := cutil.DPUCondition(provisioningv1.DPUCondOSInstalled, "", msg)
+								cond.Status = metav1.ConditionFalse
+								cutil.SetDPUCondition(state, cond)
+								return *state, nil
+							}
 						}
+					} else {
+						logger.V(3).Info(fmt.Sprintf("Reboot task %v is being processed", rebootTaskName))
 					}
 				} else {
-					rebootHandler(ctx, dpu, pciAddress, cmd)
+					rebootHandler(ctx, dpu, pciAddress, cmd, 0)
 				}
 			}
 		}
@@ -132,14 +148,14 @@ func Rebooting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 	return *state, nil
 }
 
-func rebootHandler(ctx context.Context, dpu *provisioningv1.DPU, pciAddress string, cmd string) {
+func rebootHandler(ctx context.Context, dpu *provisioningv1.DPU, pciAddress string, cmd string, retry int) {
 	logger := log.FromContext(ctx)
 	rebootTaskName := generateRebootTaskName(dpu)
 	logger.V(3).Info(fmt.Sprintf("BF-SLR for %s", rebootTaskName))
 	bfSLRShutdownARM := fmt.Sprintf("bf-slr.sh %s %s %s", pciAddress, cmd, "arm")
 	bfSLRSRebootHost := fmt.Sprintf("bf-slr.sh %s %s %s", pciAddress, cmd, "host")
 
-	dmsTask := future.New(func() (any, error) {
+	rebootTask := future.New(func() (any, error) {
 		// Shutdown ARM
 		logger.V(3).Info(fmt.Sprintf("Bluefield System-Level-Reset ARM shutdown command: %s for dpu: %s", bfSLRShutdownARM, dpu.Name))
 		if out, errMsg, err := cutil.RemoteExec(dpu.Namespace, cutil.GenerateDMSPodName(dpu), "", bfSLRShutdownARM); err != nil {
@@ -158,7 +174,11 @@ func rebootHandler(ctx context.Context, dpu *provisioningv1.DPU, pciAddress stri
 
 		return nil, nil
 	})
-	dutil.RebootTaskMap.Store(rebootTaskName, dmsTask)
+	rebootTaskWithRetry := dutil.TaskWithRetry{
+		Task:       rebootTask,
+		RetryCount: retry,
+	}
+	dutil.RebootTaskMap.Store(rebootTaskName, rebootTaskWithRetry)
 }
 
 func generateRebootTaskName(dpu *provisioningv1.DPU) string {
