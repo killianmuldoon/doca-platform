@@ -55,6 +55,7 @@ const (
 
 var DPUServiceGroupVersionKind = GroupVersion.WithKind(DPUServiceKind)
 
+// Condition types
 const (
 	// ConditionDPUServiceInterfaceReconciled is the condition type that indicates that the
 	// DPUServiceInterface is reconciled.

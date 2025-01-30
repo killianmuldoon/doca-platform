@@ -117,7 +117,7 @@ from code reviews and made them available. All code must adhere to the
 The [kubernetes api-conventions](https://github.com/kubernetes/community/blob/master/contributors/devel/sig-architecture/api-conventions.md)
 are a good practice to adopt.
 
-There is also the [conditions](https://docs.google.com/document/d/1xD-dILlCL6NIRwfx86bSlmt9OD-M6--cFxPCAiWCWZA/edit?tab=t.0#heading=h.6h9i92rt5dee)
+There is also the [conditions](docs/dev/conditions.md)
 doc that list our convention in regards to `status` conditions.
 
 ## Log Convention
