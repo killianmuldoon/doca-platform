@@ -393,7 +393,7 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 				g.Expect(testClient.Status().Update(ctx, &u)).To(Succeed())
 			}
 
-			td, err := TreeDiscovery(context.Background(), testClient, tt.opts)
+			td, err := DiscoverAll(context.Background(), testClient, tt.opts)
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(td).ToNot(BeNil())
 

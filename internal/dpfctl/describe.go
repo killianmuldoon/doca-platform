@@ -40,8 +40,8 @@ type objectScope struct {
 	opts   ObjectTreeOptions
 }
 
-// TreeDiscovery returns a tree of objects representing the DPF status.
-func TreeDiscovery(ctx context.Context, c client.Client, opts ObjectTreeOptions) (*ObjectTree, error) {
+// DiscoverAll returns a tree of objects representing the DPF status.
+func DiscoverAll(ctx context.Context, c client.Client, opts ObjectTreeOptions) (*ObjectTree, error) {
 	dpfOperatorConfig, err := getDPFOperatorConfig(ctx, c)
 	if err != nil {
 		return nil, err

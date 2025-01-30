@@ -17,7 +17,6 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
 	"flag"
 	"fmt"
 
@@ -25,9 +24,7 @@ import (
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
-	"github.com/nvidia/doca-platform/internal/dpfctl"
 
-	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -49,33 +46,33 @@ var opts describeOptions
 var describeCmd = &cobra.Command{
 	Use:   "describe",
 	Short: "Describe DPF resources",
-	Long:  "Describe the overall status of DPF resources in your cluster.",
+	Long:  "Describe different kind of subsets of the DPF resources in your cluster.",
 	Example: fmt.Sprintf(`# Show all conditions for DPUService resources
-%[1]s describe --show-conditions=DPUService
+%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --show-conditions=DPUService
 
 # Show all resources for a specific DPU
-%[1]s describe --show-resources=DPU/dpf-test-0000-08-00
+%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --show-resources=DPU/dpf-test-0000-08-00
 
 # Show all conditions for DPUService and DPU resources
-%[1]s describe --show-conditions=DPUService,DPU
+%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --show-conditions=DPUService,DPU
+
+# Show all conditions for all resources
+%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --show-conditions=all
 
 # Expand the resources for a DPUService
-%[1]s describe --expand-resources=DPUService
+%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --expand-resources=DPUService
 
 # Display conditions for all resources
-%[1]s describe --show-conditions=all
+%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --show-conditions=all
 
 # Wrap long lines for better readability
-%[1]s describe --wrap-lines
+%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --wrap-lines
 
 # Run %[1]s for a different cluster
-%[1]s describe --kubeconfig /path/to/your/kubeconfig
+%[1]s describe <all,dpuclusters,dpudeployments,dpusets,dpuservices> --kubeconfig /path/to/your/kubeconfig
 # or
 KUBECONFIG=/path/to/your/kubeconfig %[1]s describe
 `, rootCmd.Root().Name()),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return runDescribe(cmd)
-	},
 }
 
 func init() {
@@ -108,35 +105,6 @@ func init() {
 	//
 	// Load the go flagset (i.e. controller-runtimes kubeconfig).
 	describeCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-}
-
-func runDescribe(cmd *cobra.Command) error {
-	ctx := context.Background()
-
-	c, err := newClient()
-	if err != nil {
-		return err
-	}
-
-	t, err := dpfctl.TreeDiscovery(ctx, c, dpfctl.ObjectTreeOptions{
-		ShowResources:       opts.showResources,
-		ShowOtherConditions: opts.showOtherConditions,
-		ExpandResources:     opts.expandResources,
-		ShowNamespace:       opts.showNamespace,
-		Grouping:            opts.grouping,
-		WrapLines:           opts.wrapLines,
-		Colors:              opts.color,
-	})
-	if err != nil {
-		return err
-	}
-
-	if cmd.Flags().Changed("color") {
-		color.NoColor = !opts.color
-	}
-
-	dpfctl.PrintObjectTree(t)
-	return nil
 }
 
 func newClient() (client.Client, error) {
