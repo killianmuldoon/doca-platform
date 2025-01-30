@@ -662,16 +662,16 @@ func getRandomConditionsWithReadyTrueCondition() []metav1.Condition {
 			LastTransitionTime: metav1.Time{Time: time.Now()},
 		},
 		{
-			Type:               "RandomReconciled",
-			Status:             metav1.ConditionTrue,
-			Reason:             "Success",
-			LastTransitionTime: metav1.Time{Time: time.Now()},
-		},
-		{
 			Type:               "RandomReady",
 			Status:             metav1.ConditionFalse,
 			Reason:             "SomethingWentWrong",
 			Message:            "Failed",
+			LastTransitionTime: metav1.Time{Time: time.Now()},
+		},
+		{
+			Type:               "RandomReconciled",
+			Status:             metav1.ConditionTrue,
+			Reason:             "Success",
 			LastTransitionTime: metav1.Time{Time: time.Now()},
 		},
 	}

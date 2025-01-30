@@ -67,10 +67,14 @@ func TreeDiscovery(ctx context.Context, c client.Client, opts ObjectTreeOptions)
 		return nil, err
 	}
 
+	skipDPUSetFunc := func(labels map[string]string) bool {
+		return labels[util.DPUSetNameLabel] != ""
+	}
+
 	// TODO: add servicechainsets and servicechains from DPU cluster
 	// TODO: add serviceinterfacesets and serviceinterfaces from DPU cluster
 	// TODO: add cidrpools and ippools from DPU cluster
-	if err = addDPUs(ctx, scope, dpfOperatorConfig, nil); err != nil {
+	if err = addDPUs(ctx, scope, dpfOperatorConfig, nil, skipDPUSetFunc); err != nil {
 		return nil, err
 	}
 
@@ -174,7 +178,7 @@ func addDPUSets(ctx context.Context, o objectScope, root client.Object, matchLab
 		if err := addDPUs(ctx, o, dpuSet.DeepCopy(), client.MatchingLabels{
 			util.DPUSetNameLabel:      dpuSet.Name,
 			util.DPUSetNamespaceLabel: dpuSet.Namespace,
-		}); err != nil {
+		}, nil); err != nil {
 			return err
 		}
 	}
@@ -183,10 +187,13 @@ func addDPUSets(ctx context.Context, o objectScope, root client.Object, matchLab
 	return nil
 }
 
-func addDPUs(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels) error {
+func addDPUs(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels, skipFunc func(map[string]string) bool) error {
 	if !showResource(o.opts.ShowResources, provisioningv1.DPUKind) {
 		return nil
 	}
+
+	// If the ShowResources option is set to show DPUDeployment, then we should not skip resources owned by DPUDeployment.
+	showDPUSets := showResource(o.opts.ShowResources, provisioningv1.DPUSetKind)
 
 	dpuList := &provisioningv1.DPUList{}
 	if err := o.client.List(ctx, dpuList, matchLabels); err != nil {
@@ -195,7 +202,7 @@ func addDPUs(ctx context.Context, o objectScope, root client.Object, matchLabels
 
 	addToTree := []client.Object{}
 	for _, dpu := range dpuList.Items {
-		if matchLabels == nil && dpu.GetLabels()[util.DPUSetNameLabel] != "" {
+		if showDPUSets && skipFunc != nil && skipFunc(dpu.Labels) {
 			continue
 		}
 		dpu.TypeMeta = metav1.TypeMeta{
@@ -229,7 +236,7 @@ func addDPUs(ctx context.Context, o objectScope, root client.Object, matchLabels
 			newestLastTransitionTime = *dpu.DeletionTimestamp
 		}
 		conds = append(conds, metav1.Condition{
-			Type:               "Ready",
+			Type:               string(provisioningv1.DPUReady),
 			Status:             dpuStatus,
 			LastTransitionTime: newestLastTransitionTime,
 			Reason:             string(dpu.Status.Phase),

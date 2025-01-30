@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"sort"
 	"strings"
 	"time"
 
@@ -105,9 +104,6 @@ func GetOtherConditions(obj client.Object) []*metav1.Condition {
 			conds = append(conds, &c)
 		}
 	}
-	sort.Slice(conds, func(i, j int) bool {
-		return conds[i].Type < conds[j].Type
-	})
 	return conds
 }
 
