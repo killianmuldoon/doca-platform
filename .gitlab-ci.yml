@@ -216,7 +216,7 @@ release:
       when: always
   variables:
     PIPELINE_NAME: "release"
-    OPERATOR_CHART_TAGS: "$TAG v0.1.0-latest"
+    OPERATOR_CHART_TAGS: "$TAG"
   tags:
     - release
   script:
