@@ -101,6 +101,7 @@ type Variables struct {
 type DPFProvisioningVariables struct {
 	BFBPersistentVolumeClaimName string
 	DMSTimeout                   *int
+	BFCFGTemplateConfig          *string
 }
 
 type Networking struct {
@@ -151,6 +152,7 @@ func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operator
 	variables.DPFProvisioningController = DPFProvisioningVariables{
 		BFBPersistentVolumeClaimName: config.Spec.ProvisioningController.BFBPersistentVolumeClaimName,
 		DMSTimeout:                   config.Spec.ProvisioningController.DMSTimeout,
+		BFCFGTemplateConfig:          config.Spec.ProvisioningController.BFCFGTemplateConfigMap,
 	}
 	variables.ImagePullSecrets = config.Spec.ImagePullSecrets
 	variables.DisableSystemComponents = disableComponents

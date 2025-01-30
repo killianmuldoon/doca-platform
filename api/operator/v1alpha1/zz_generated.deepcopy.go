@@ -545,6 +545,11 @@ func (in *ProvisioningControllerConfiguration) DeepCopyInto(out *ProvisioningCon
 		*out = new(string)
 		**out = **in
 	}
+	if in.BFCFGTemplateConfigMap != nil {
+		in, out := &in.BFCFGTemplateConfigMap, &out.BFCFGTemplateConfigMap
+		*out = new(string)
+		**out = **in
+	}
 	if in.DMSTimeout != nil {
 		in, out := &in.DMSTimeout, &out.DMSTimeout
 		*out = new(int)

@@ -93,7 +93,7 @@ func main() {
 	var bfbdownloaderPodTimeout time.Duration
 	var syncPeriod time.Duration
 	var dpuInstallInterface string
-
+	var bfCFGTemplateFile string
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	fs.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -113,6 +113,7 @@ func main() {
 	fs.DurationVar(&bfbdownloaderPodTimeout, "bfbdownloader-pod-timeout", 5*time.Minute, "Timeout for BFBDownloader pods")
 	fs.DurationVar(&syncPeriod, "sync-period", 10*time.Minute, "The minimum interval at which watched resources are reconciled.")
 	fs.StringVar(&dpuInstallInterface, "dpu-install-interface", string(provisioningv1.InstallViaHost), "the interface used to provision DPUs")
+	fs.StringVar(&bfCFGTemplateFile, "bf-cfg-template-file", "", "A custom bf.cfg template used as part of DPU provisioning.")
 
 	logsv1.AddFlags(logOptions, fs)
 
@@ -198,7 +199,9 @@ func main() {
 		DMSPodTimeout:           dmsPodTimeout,
 		ImagePullSecrets:        imagePullSecretsReferences,
 		DPUInstallInterface:     dpuInstallInterface,
+		BFCFGTemplateFile:       bfCFGTemplateFile,
 	}
+
 	setupLog.Info("DPU", "options", dpuOptions)
 
 	if err = (dpu.NewDPUReconciler(

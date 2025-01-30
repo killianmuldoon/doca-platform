@@ -52,7 +52,6 @@ import (
 )
 
 const (
-	TemplateFile            = "bf.cfg.template"
 	CloudInitDefaultTimeout = 90
 	// The maximum size of the bf.cfg file is expanded to 128k since DOCA 2.8
 	MaxBFSize = 1024 * 128
@@ -263,7 +262,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		if err != nil {
 			return nil, err
 		}
-		data, err := generateBFConfig(ctx, dpu, node, flavor, joinCommand)
+		data, err := generateBFConfig(ctx, ctrlContext.Options.BFCFGTemplateFile, dpu, node, flavor, joinCommand)
 		if err != nil || data == nil {
 			logger.Error(err, fmt.Sprintf("failed bf.cfg creation for %s/%s", dpu.Namespace, dpu.Name))
 			return nil, err
@@ -394,7 +393,7 @@ func generateDMSTaskName(dpu *provisioningv1.DPU) string {
 	return fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)
 }
 
-func generateBFConfig(ctx context.Context, dpu *provisioningv1.DPU, node *corev1.Node, flavor *provisioningv1.DPUFlavor, joinCommand string) ([]byte, error) {
+func generateBFConfig(ctx context.Context, bfCFGTemplateFile string, dpu *provisioningv1.DPU, node *corev1.Node, flavor *provisioningv1.DPUFlavor, joinCommand string) ([]byte, error) {
 	logger := log.FromContext(ctx)
 
 	additionalReboot := false
@@ -408,7 +407,7 @@ func generateBFConfig(ctx context.Context, dpu *provisioningv1.DPU, node *corev1
 		additionalReboot = true
 	}
 
-	buf, err := bfcfg.Generate(flavor, cutil.GenerateNodeName(dpu), joinCommand, additionalReboot)
+	buf, err := bfcfg.Generate(flavor, cutil.GenerateNodeName(dpu), joinCommand, additionalReboot, bfCFGTemplateFile)
 	if err != nil {
 		return nil, err
 	}

@@ -51,6 +51,7 @@ type DPUOptions struct {
 	DMSTimeout               int
 	DMSPodTimeout            time.Duration
 	DPUInstallInterface      string
+	BFCFGTemplateFile        string
 }
 
 type ControllerContext struct {
