@@ -32,6 +32,10 @@ ifeq ($(TOOL_ARCH),arm64)
   PROTOC_ARCH = aarch_64
 endif
 
+LYCHEE_ARCH_LINUX = $(TOOL_ARCH)
+ifeq ($(TOOL_ARCH),arm64)
+  LYCHEE_ARCH_LINUX = aarch64
+endif
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.5.0
@@ -54,6 +58,7 @@ BUF_VERSION ?= 1.47.2
 PROTOC_VER ?= 28.3
 CONFORM_VERSION ?= v0.1.0-alpha.30
 YQ_VERSION ?= v4.45.1
+LYCHEE_VER ?= 0.18.0
 
 
 ## Tool Binaries
@@ -78,6 +83,7 @@ PROTOC_GEN_GO_GRPC ?= $(TOOLSDIR)/protoc-gen-go-grpc
 BUF ?= $(TOOLSDIR)/buf
 CONFORM ?= $(TOOLSDIR)/conform-$(CONFORM_VERSION)
 YQ ?= $(TOOLSDIR)/yq-$(YQ_VERSION)
+LYCHEE ?= $(TOOLSDIR)/lychee-$(LYCHEE_VER)
 
 ##@ Tools
 
@@ -198,6 +204,27 @@ $(MINIKUBE): | $(TOOLSDIR)
 	$Q echo "Installing minikube-$(MINIKUBE_VER) to $(TOOLSDIR)"
 	$Q curl -fsSL https://storage.googleapis.com/minikube/releases/$(MINIKUBE_VER)/minikube-$(OS)-$(ARCH) -o $(MINIKUBE)
 	$Q chmod +x $(MINIKUBE)
+
+.PHONY: lychee
+lychee: $(LYCHEE) ## Download lychee locally if necessary.
+$(LYCHEE): | $(TOOLSDIR)
+	$Q echo "Installing lychee-$(LYCHEE_VER) to $(TOOLSDIR)"
+ifeq ($(TOOL_OS),linux)
+	$Q curl -fsSL https://github.com/lycheeverse/lychee/releases/download/lychee-v$(LYCHEE_VER)/lychee-$(LYCHEE_ARCH_LINUX)-unknown-linux-gnu.tar.gz | tar  xvzf  - -C $(TOOLSDIR)
+	$Q mv $(TOOLSDIR)/lychee $(LYCHEE)
+	$Q chmod +x $(LYCHEE)
+else ifeq ($(TOOL_OS),darwin) ## Lychee is only published as a .dmg for MacOS.
+	$Q hdiutil detach $(TOOLSDIR)/lychee || true ## Always attempt to unmount in case the volume was previously mounted
+	$Q curl -fsSL https://github.com/lycheeverse/lychee/releases/download/lychee-v$(LYCHEE_VER)/lychee-arm64-macos.dmg -o $(TOOLSDIR)/lychee.dmg
+	$Q hdiutil mount -mountroot $(TOOLSDIR) $(TOOLSDIR)/lychee.dmg
+	$Q cp $(TOOLSDIR)/lychee/lychee $(LYCHEE)
+	$Q hdiutil detach $(TOOLSDIR)/lychee
+	$Q rm -rf $(TOOLSDIR)/lychee.dmg
+	$Q chmod +x $(LYCHEE)
+else
+	$Q echo "lychee is only available for linux and arm64 MacOS"
+	$Q exit 1
+endif
 
 # helm-docs is used to generate helm chart documentation
 helm-docs: $(HELM_DOCS)

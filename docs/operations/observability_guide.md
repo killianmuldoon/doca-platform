@@ -20,9 +20,6 @@ and
 for the operator. By default, these components are disabled in the Helm
 chart and need to be enabled explicitly.
 
-If you haven't installed the dpf-operator yet, please refer to
-[installation_guide.rst](installation_guide.rst) first.
-
 #### Purpose of kube-state-metrics
 
 `kube-state-metrics` is a service that listens to the

@@ -1,6 +1,6 @@
 # DPF System setup
 
-DPF makes a number of assumptions about the hardware, software and networking of the machines it runs on. Some of the specific [user guides](guides/usecases/) add their own requirements.
+DPF makes a number of assumptions about the hardware, software and networking of the machines it runs on. Some of the specific [user guides](.) add their own requirements.
 
 ## Hardware setup
 There is a high availability control plane machines serving many worker nodes in a cluster running DPF.

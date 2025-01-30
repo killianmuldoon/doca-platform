@@ -388,6 +388,10 @@ generate-docs-helm: helm-docs ## Generate helm chart documentation.
 generate-docs-embedmd: embedmd ## Embed additional files into markdown docs.
 	grep -rl --include \*.md -e '\[embedmd\]' docs | xargs $(EMBEDMD) -w
 
+.PHONY: verify-md-links
+verify-md-links: $(LYCHEE) ## Check links in markdown docs are working
+	$(LYCHEE) --accept 200,429 . *.md --exclude-path third_party --exclude-path ./deploy/helm # Exclude the external `third_party` docs and the generate `deploy/helm` docs.
+
 ##@ Testing
 
 .PHONY: test

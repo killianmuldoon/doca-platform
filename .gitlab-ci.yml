@@ -216,7 +216,6 @@ release:
       when: always
   variables:
     PIPELINE_NAME: "release"
-    OPERATOR_CHART_TAGS: "$TAG"
   tags:
     - release
   script:
@@ -368,3 +367,14 @@ colossus-gitlab-runner:
   image: registry.gitlab.com/gitlab-ci-utils/curl-jq:2.0.0
   script:
     - ./hack/scripts/colossus-gitlab-runner.sh
+
+check-markdown-links:
+  stage: verify
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $MD_LINK_CHECK == "true"
+      when: always
+  script:
+    - make verify-md-links
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+
