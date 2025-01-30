@@ -176,6 +176,24 @@ kamaji:
 ## prometheus configuration.
 prometheus:
   enabled: false
+  server:
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: "node-role.kubernetes.io/master"
+                  operator: Exists
+            - matchExpressions:
+                - key: "node-role.kubernetes.io/control-plane"
+                  operator: Exists
+    tolerations:
+      - key: node-role.kubernetes.io/master
+        operator: Exists
+        effect: NoSchedule
+      - key: node-role.kubernetes.io/control-plane
+        operator: Exists
+        effect: NoSchedule
   ## Unfortunately, there is no affinity and tolerations value in the prometheus helm chart.
   ## This is only necessary for dev purposes anyway. We should not run this stack on our control planes.
   alertmanager:
@@ -213,6 +231,23 @@ prometheus:
 ## grafana configuration
 grafana:
   enabled: false
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: "node-role.kubernetes.io/master"
+                operator: Exists
+          - matchExpressions:
+              - key: "node-role.kubernetes.io/control-plane"
+                operator: Exists
+  tolerations:
+    - key: node-role.kubernetes.io/master
+      operator: Exists
+      effect: NoSchedule
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
   persistence:
     enabled: true
   datasources:

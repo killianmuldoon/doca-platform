@@ -44,6 +44,10 @@ DPF Operator manages the lifecycle of a DOCA Platform Framework system.
 | controllerManager.image.tag | string | `"v0.1.0"` |  |
 | controllerManager.replicas | int | `1` |  |
 | controllerManager.serviceAccount.annotations | object | `{}` |  |
+| grafana.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key | string | `"node-role.kubernetes.io/master"` |  |
+| grafana.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator | string | `"Exists"` |  |
+| grafana.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].key | string | `"node-role.kubernetes.io/control-plane"` |  |
+| grafana.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].operator | string | `"Exists"` |  |
 | grafana.dashboardProviders."dashboardproviders.yaml".apiVersion | int | `1` |  |
 | grafana.dashboardProviders."dashboardproviders.yaml".providers[0].disableDeletion | bool | `false` |  |
 | grafana.dashboardProviders."dashboardproviders.yaml".providers[0].editable | bool | `true` |  |
@@ -69,6 +73,12 @@ DPF Operator manages the lifecycle of a DOCA Platform Framework system.
 | grafana.datasources."datasources.yaml".datasources[0].url | string | `"http://dpf-operator-prometheus-server"` |  |
 | grafana.enabled | bool | `false` |  |
 | grafana.persistence.enabled | bool | `true` |  |
+| grafana.tolerations[0].effect | string | `"NoSchedule"` |  |
+| grafana.tolerations[0].key | string | `"node-role.kubernetes.io/master"` |  |
+| grafana.tolerations[0].operator | string | `"Exists"` |  |
+| grafana.tolerations[1].effect | string | `"NoSchedule"` |  |
+| grafana.tolerations[1].key | string | `"node-role.kubernetes.io/control-plane"` |  |
+| grafana.tolerations[1].operator | string | `"Exists"` |  |
 | imagePullSecrets | list | `[]` |  |
 | kamaji-etcd-defrag.backoffLimit | int | `6` |  |
 | kamaji-etcd-defrag.defragRule | string | `"dbQuotaUsage > 0.8 || dbSize - dbSizeInUse > 200*1024*1024"` |  |
@@ -195,6 +205,16 @@ DPF Operator manages the lifecycle of a DOCA Platform Framework system.
 | prometheus.kube-state-metrics.enabled | bool | `false` |  |
 | prometheus.prometheus-node-exporter.enabled | bool | `false` |  |
 | prometheus.prometheus-pushgateway.enabled | bool | `false` |  |
+| prometheus.server.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key | string | `"node-role.kubernetes.io/master"` |  |
+| prometheus.server.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator | string | `"Exists"` |  |
+| prometheus.server.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].key | string | `"node-role.kubernetes.io/control-plane"` |  |
+| prometheus.server.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].operator | string | `"Exists"` |  |
+| prometheus.server.tolerations[0].effect | string | `"NoSchedule"` |  |
+| prometheus.server.tolerations[0].key | string | `"node-role.kubernetes.io/master"` |  |
+| prometheus.server.tolerations[0].operator | string | `"Exists"` |  |
+| prometheus.server.tolerations[1].effect | string | `"NoSchedule"` |  |
+| prometheus.server.tolerations[1].key | string | `"node-role.kubernetes.io/control-plane"` |  |
+| prometheus.server.tolerations[1].operator | string | `"Exists"` |  |
 | tolerations[0].effect | string | `"NoSchedule"` |  |
 | tolerations[0].key | string | `"node-role.kubernetes.io/master"` |  |
 | tolerations[0].operator | string | `"Exists"` |  |
