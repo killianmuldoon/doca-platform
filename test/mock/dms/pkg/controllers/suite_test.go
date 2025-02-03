@@ -23,6 +23,7 @@ import (
 	"crypto/x509"
 	_ "embed"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -31,7 +32,7 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/allocator"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu"
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
-	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/reboot"
+	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	dmsserver "github.com/nvidia/doca-platform/test/mock/dms/pkg/server"
 
 	nvidiaNodeMaintenancev1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
@@ -118,19 +119,31 @@ func TestMain(m *testing.M) {
 		panic(fmt.Sprintf("Failed to create test manager: %v", err))
 	}
 
+	// Set base directory for BFB and kubeconfig on the DPU controller.
+	// This overwrites hardcoded variables in order to enable testing.
+	cutil.BFBBaseDir = os.TempDir()
+	cutil.KubeconfigBaseDir = os.TempDir()
+
+	err = os.MkdirAll(cutil.BFBBaseDir, 0755)
+	if err != nil {
+		panic(err)
+	}
+
 	dpuReconciler := dpu.NewDPUReconciler(
-		testManager, allocator.NewAllocator(testClient),
-		&dutil.KubeadmJoinCommandGenerator{},
-		&reboot.DMSPodExecUptimeChecker{},
-		dutil.DPUOptions{DPUInstallInterface: string(provisioningv1.InstallViaHost)})
+		testManager,
+		allocator.NewAllocator(testClient),
+		&mockKubeadmJoinCommandGenerator{},
+		&mockHostUptimeReporter{},
+		dutil.DPUOptions{DPUInstallInterface: string(provisioningv1.InstallViaHost)},
+	)
+	if err := dpuReconciler.SetupWithManager(testManager); err != nil {
+		panic(fmt.Sprintf("Failed to setup DPU reconciler: %v", err))
+	}
 
 	dmsServerReconciler := DMSServerReconciler{
 		Client:  testClient,
 		PodName: dmsServerPodName,
 		Server:  dmsserver.NewDMSServerMux(20000, 22000, "127.0.0.1", cert, key),
-	}
-	if err := dpuReconciler.SetupWithManager(testManager); err != nil {
-		panic(fmt.Sprintf("Failed to setup DPU reconciler: %v", err))
 	}
 	if err := dmsServerReconciler.SetupWithManager(testManager); err != nil {
 		panic(fmt.Sprintf("Failed to setup DMSServer reconciler: %v", err))

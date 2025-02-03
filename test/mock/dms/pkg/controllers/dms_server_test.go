@@ -21,28 +21,37 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"net"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	"github.com/nvidia/doca-platform/test/mock/dms/pkg/certs"
+	"github.com/nvidia/doca-platform/test/utils"
 
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+var (
+	nodeName       string = "node-1"
+	bfbName        string = "bfb-1"
+	dpuClusterName string = "dpu-cluster-1"
+	dpuFlavorName  string = "dpu-flavor-1"
 )
 
 func TestDMSServerReconciler(t *testing.T) {
 	g := NewWithT(t)
 
-	bfbName := "bfb-name"
-	nodeName := "node-1"
+	// 1) Initializing phase requires a node with the DPUOOBBridgeConfiguredLabel exists.
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: nodeName,
@@ -52,7 +61,14 @@ func TestDMSServerReconciler(t *testing.T) {
 			},
 		},
 	}
+	g.Expect(testClient.Create(ctx, node)).To(Succeed())
 
+	// 2) NodeEffect phase is handled by setting `.spec.NodeEffect.NoEffect=true` in the DPU.
+
+	// 3) Pending phase requires that the BFB exist and is in Phase "BFBReady".
+	// The BFB file path must exist
+	_, err := os.Create(filepath.Join(cutil.BFBBaseDir, bfbName))
+	g.Expect(err).NotTo(HaveOccurred())
 	bfb := &provisioningv1.BFB{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      bfbName,
@@ -62,7 +78,12 @@ func TestDMSServerReconciler(t *testing.T) {
 			URL: "http://BlueField/BFBs/bf-bundle-dummy-8KB.bfb",
 		},
 	}
+	g.Expect(testClient.Create(ctx, bfb)).To(Succeed())
+	bfb.Status.Phase = provisioningv1.BFBReady
+	bfb.Status.FileName = bfbName
+	g.Expect(testClient.Status().Update(ctx, bfb)).To(Succeed())
 
+	// 4) DPUInitializeInterface phase DMS Deploy checks that the DMS pod is "Running" and has a PodIP.
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dmsServerPodName,
@@ -77,7 +98,13 @@ func TestDMSServerReconciler(t *testing.T) {
 			},
 		},
 	}
+	g.Expect(testClient.Create(ctx, pod)).To(Succeed())
+	pod.Status.Phase = corev1.PodRunning
+	// This IP will is used by the DPU controller to talk to DMS.
+	pod.Status.PodIP = "127.0.0.1"
 
+	// 4) DPUInitializeInterface OS Installing Phase requires the provisioning client Secret.
+	// This allows communication with the DPF server.
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			// This name is hard-coded in the provisioning controller
@@ -90,65 +117,108 @@ func TestDMSServerReconciler(t *testing.T) {
 			"ca.crt":  certs.EncodeCertPEM(cert),
 		},
 	}
-	tests := []struct {
-		name  string
-		input *provisioningv1.DPU
-	}{
-		{
-			name: "Can provision DPU past initializing",
-			input: &provisioningv1.DPU{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "dpu-1",
-					Namespace: "default",
-				},
-				Spec: provisioningv1.DPUSpec{
-					NodeName:   nodeName,
-					BFB:        bfbName,
-					PCIAddress: "08",
-					NodeEffect: &provisioningv1.NodeEffect{
-						// TODO: NoEffect should be changed here to test more of the code.
-						NoEffect: ptr.To(true),
-					},
-					Cluster: provisioningv1.K8sCluster{
-						Namespace: "default",
-						Name:      "cluster-1",
-					},
-					DPUFlavor:           "",
-					AutomaticNodeReboot: false,
-				},
-			},
+	g.Expect(testClient.Create(ctx, secret)).To(Succeed())
+
+	// The OS Installing phase requires the dpuFlavor.
+	dpuFlavor := &provisioningv1.DPUFlavor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dpuFlavorName,
+			Namespace: "default",
 		},
 	}
+	g.Expect(testClient.Create(ctx, dpuFlavor)).To(Succeed())
+
+	// The OS Installing phase requires the dpuCluster.
+	dpuCluster := &provisioningv1.DPUCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dpuClusterName,
+			Namespace: "default",
+		},
+		Spec: provisioningv1.DPUClusterSpec{
+			Type:       "static",
+			Kubeconfig: fmt.Sprintf("%v-admin-kubeconfig", dpuClusterName),
+		},
+	}
+	g.Expect(testClient.Create(ctx, dpuCluster)).To(Succeed())
+	// For this test the DPUCluster points to the envtest kubeconfig.
+	kubeconfigSecret, err := utils.GetFakeKamajiClusterSecretFromEnvtest(*dpuCluster, cfg)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(testClient.Create(ctx, kubeconfigSecret)).To(Succeed())
+	// Also write the kubeconfig to a local file where it can be read by the DPU Controller.
+	data, err := json.Marshal(kubeconfigSecret)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(os.MkdirAll(filepath.Dir(cutil.AdminKubeConfigPath(*dpuCluster)), 0755)).To(Succeed())
+	g.Expect(os.WriteFile(cutil.AdminKubeConfigPath(*dpuCluster), data, os.ModePerm)).To(Succeed())
+
+	// CLOUD_INIT_TIMEOUT is used in the dmsHandler in installing.go. It's set here to reduce waiting time during the
+	// test.
+	g.Expect(os.Setenv("CLOUD_INIT_TIMEOUT", "1")).To(Succeed())
+
+	// 5) Rebooting phase is handled by using a stub HostUptimeChecker which simulates a reboot.
+
+	// 6) The DPUInitializeInterface HostNetworkingConfig phase checks that the first container in the pod has a Ready ContainerStatus.
+	pod.Status.ContainerStatuses = []corev1.ContainerStatus{{Name: "Ready", Ready: true}}
+	g.Expect(testClient.Status().Update(ctx, pod)).To(Succeed())
+
+	// 7) The DPUClusterConfig phase requires the DPU node object be created and ready.
+	// This is handled in the controller code.
+	tests := []struct {
+		name  string
+		input []*provisioningv1.DPU
+	}{
+		{
+			name:  "Provision many DPUs until ready",
+			input: createDPUs(30),
+		},
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
-			// Set up the prerequisite objects for the DPU.
-			g.Expect(testClient.Create(ctx, node)).To(Succeed())
-			g.Expect(testClient.Create(ctx, bfb)).To(Succeed())
-			g.Expect(testClient.Create(ctx, pod)).To(Succeed())
-			bfb.Status.Phase = provisioningv1.BFBReady
-
-			// The DMS Pod must be running and have an IP to progress to the OS Installing Phase.
-			g.Expect(testClient.Status().Update(ctx, bfb)).To(Succeed())
-			pod.Status.Phase = corev1.PodRunning
-			pod.Status.PodIP = "127.0.0.1"
-			g.Expect(testClient.Status().Update(ctx, pod)).To(Succeed())
-
-			// The DPF provisioning client secret must exist to progress past the OS Installing Phase.
-			g.Expect(testClient.Create(ctx, secret)).To(Succeed())
-
 			// Create the DPU and check its provisioning process.
-			g.Expect(testClient.Create(ctx, tt.input)).To(Succeed())
-			dpu := &provisioningv1.DPU{}
-			g.Eventually(func(g Gomega) {
-				g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(tt.input), dpu)).To(Succeed())
-				g.Expect(dpu.Annotations).To(HaveKey(cutil.OverrideDMSPodNameAnnotationKey))
-				g.Expect(dpu.Annotations).To(HaveKey(cutil.OverrideDMSPortAnnotationKey))
+			for _, dpu := range tt.input {
+				g.Expect(testClient.Create(ctx, dpu)).To(Succeed())
+			}
 
-				g.Expect(dpu.Status.Phase).To(Equal(provisioningv1.DPUOSInstalling))
+			g.Eventually(func(g Gomega) {
+				got := &provisioningv1.DPUList{}
+				g.Expect(testClient.List(ctx, got)).To(Succeed())
+				for _, dpu := range got.Items {
+					g.Expect(dpu.Annotations).To(HaveKey(cutil.OverrideDMSPodNameAnnotationKey))
+					g.Expect(dpu.Annotations).To(HaveKey(cutil.OverrideHostNetworkAnnotationKey))
+					g.Expect(dpu.Annotations).To(HaveKey(cutil.OverrideDMSPortAnnotationKey))
+					g.Expect(dpu.Status.Phase).To(Equal(provisioningv1.DPUReady))
+				}
 			}).WithTimeout(100 * time.Second).Should(Succeed())
 		})
 	}
+}
+
+func createDPUs(n int) []*provisioningv1.DPU {
+	dpus := []*provisioningv1.DPU{}
+	for i := range n {
+		dpus = append(dpus, &provisioningv1.DPU{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      fmt.Sprintf("dpu-%d", i),
+				Namespace: "default",
+			},
+			Spec: provisioningv1.DPUSpec{
+				NodeName:   nodeName,
+				BFB:        bfbName,
+				PCIAddress: "08",
+				NodeEffect: &provisioningv1.NodeEffect{
+					// TODO: NoEffect should be changed here to test more of the code.
+					NoEffect: ptr.To(true),
+				},
+				Cluster: provisioningv1.K8sCluster{
+					Namespace: "default",
+					Name:      dpuClusterName,
+				},
+				DPUFlavor:           dpuFlavorName,
+				AutomaticNodeReboot: false,
+			},
+		})
+	}
+	return dpus
 }
 
 // newCert creates a CA certificate.
@@ -178,4 +248,20 @@ func newCert(key *rsa.PrivateKey) (*x509.Certificate, error) {
 
 	c, err := x509.ParseCertificate(b)
 	return c, err
+}
+
+// mockKubeadmJoinCommandGenerator implements the interface for generating a node join command for the DPUNode.
+// The implementation is purely a stub as this command it outputs is never run.
+type mockKubeadmJoinCommandGenerator struct{}
+
+func (m *mockKubeadmJoinCommandGenerator) GenerateJoinCommand(*provisioningv1.DPUCluster) (string, error) {
+	return "soup", nil
+}
+
+// mockHostUptimeReporter implements the interface for checking if a node reboot has occurred..
+// The implementation returns 0 to speed up testing.
+type mockHostUptimeReporter struct{}
+
+func (m mockHostUptimeReporter) HostUptime(ns, name, container string) (int, error) {
+	return 0, nil
 }

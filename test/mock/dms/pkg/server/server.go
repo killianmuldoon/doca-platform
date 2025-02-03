@@ -17,6 +17,7 @@ limitations under the License.
 package server
 
 import (
+	"context"
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
@@ -29,6 +30,9 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	"github.com/nvidia/doca-platform/test/mock/dms/pkg/certs"
 
+	"github.com/openconfig/gnmi/proto/gnmi"
+	"github.com/openconfig/gnoi/os"
+	"github.com/openconfig/gnoi/system"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -49,7 +53,7 @@ func NewDMSServerMux(minPort, maxPort int, ip string, cert *x509.Certificate, ke
 		MinVersion:   tls.VersionTLS12,
 	}
 
-	return &DMSServerMux{
+	d := &DMSServerMux{
 		Server: grpc.NewServer(
 			grpc.Creds(credentials.NewTLS(tlsConfig))),
 		minPort:                 minPort,
@@ -60,6 +64,10 @@ func NewDMSServerMux(minPort, maxPort int, ip string, cert *x509.Certificate, ke
 		dpuForPort:              map[string]string{},
 		lock:                    sync.RWMutex{},
 	}
+	gnmi.RegisterGNMIServer(d.Server, &GNMIServer{})
+	os.RegisterOSServer(d.Server, &GNOIServer{})
+	system.RegisterSystemServer(d.Server, &GNOIServer{})
+	return d
 }
 
 type DMSServerMux struct {
@@ -101,6 +109,7 @@ func (d *DMSServerMux) EnsureListenerForDPU(dpu *provisioningv1.DPU) error {
 	if err != nil {
 		return err
 	}
+
 	go func() {
 		if err := d.Serve(listener); err != nil {
 			// TODO: Not sure this should be log.Fatal in the long term - but useful for now to uplevel error in serving.
@@ -110,7 +119,6 @@ func (d *DMSServerMux) EnsureListenerForDPU(dpu *provisioningv1.DPU) error {
 	d.listenerForDPU[fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)] = listener
 
 	return nil
-
 }
 
 func (d *DMSServerMux) allocatePort(dpu *provisioningv1.DPU) (string, error) {
@@ -120,11 +128,7 @@ func (d *DMSServerMux) allocatePort(dpu *provisioningv1.DPU) (string, error) {
 	}
 
 	allocatedPort := 0
-	for port := d.mostRecentAllocatedPort; true; port++ {
-		// If the max port return an error.
-		if port == d.maxPort {
-			return "", fmt.Errorf("all ports are already allocated")
-		}
+	for port := d.mostRecentAllocatedPort + 1; port <= d.maxPort; port++ {
 		// If the port is already allocated continue.
 		if _, ok := d.dpuForPort[fmt.Sprintf("%d", port)]; ok {
 			continue
@@ -133,7 +137,7 @@ func (d *DMSServerMux) allocatePort(dpu *provisioningv1.DPU) (string, error) {
 		break
 	}
 	if allocatedPort == 0 {
-		return "", fmt.Errorf("no port allocated")
+		return "", fmt.Errorf("no port allocated. most recent allocated port %d. max port %d", d.mostRecentAllocatedPort, d.maxPort)
 	}
 
 	d.mostRecentAllocatedPort = allocatedPort
@@ -153,4 +157,36 @@ func (d *DMSServerMux) newListenerForDPU(dpu *provisioningv1.DPU, address string
 		return nil, err
 	}
 	return listener, nil
+}
+
+type GNOIServer struct {
+	os.UnimplementedOSServer
+	system.UnimplementedSystemServer
+}
+
+func (s *GNOIServer) RebootStatus(context.Context, *system.RebootStatusRequest) (*system.RebootStatusResponse, error) {
+	log.Printf("Reboot status called")
+	return &system.RebootStatusResponse{Active: false, Status: &system.RebootStatus{Status: system.RebootStatus_STATUS_SUCCESS}}, nil
+}
+func (s *GNOIServer) Install(req os.OS_InstallServer) error {
+	log.Printf("Install called")
+	return req.Send(&os.InstallResponse{Response: &os.InstallResponse_Validated{
+		Validated: &os.Validated{
+			Version: "one",
+		},
+	}})
+}
+
+func (s *GNOIServer) Activate(context.Context, *os.ActivateRequest) (*os.ActivateResponse, error) {
+	log.Printf("Activate called")
+	return nil, nil
+}
+
+type GNMIServer struct {
+	gnmi.UnimplementedGNMIServer
+}
+
+func (s *GNMIServer) Set(context.Context, *gnmi.SetRequest) (*gnmi.SetResponse, error) {
+	log.Printf("Set called")
+	return &gnmi.SetResponse{}, nil
 }

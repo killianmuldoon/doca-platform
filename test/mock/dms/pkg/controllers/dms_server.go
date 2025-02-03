@@ -18,18 +18,20 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/dpucluster"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	"github.com/nvidia/doca-platform/test/mock/dms/pkg/server"
 
 	"github.com/fluxcd/pkg/runtime/patch"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -70,25 +72,69 @@ func (r *DMSServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		}
 	}()
 
-	// Add finalizer if not set and DPU is not currently deleting.
-	if !controllerutil.ContainsFinalizer(dpu, provisioningv1.DPUFinalizer) && dpu.DeletionTimestamp.IsZero() {
-		controllerutil.AddFinalizer(dpu, provisioningv1.DPUFinalizer)
-		if err := r.Client.Update(ctx, dpu); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to add DPU finalizer %w", err)
-		}
-		return ctrl.Result{}, nil
-	}
-
 	if dpu.Annotations == nil {
 		dpu.Annotations = map[string]string{}
 	}
+
+	// Set the mock dms pod as both the DMS and hostnetwork pod using override annotations on the DPU.
+	// This enables the DPU To pass checks related to deploying the DMS pod and waiting for the hostnetwork pod to become ready.
 	dpu.Annotations[cutil.OverrideDMSPodNameAnnotationKey] = r.PodName
+	dpu.Annotations[cutil.OverrideHostNetworkAnnotationKey] = r.PodName
 
 	// Add the annotation and patch the DPU.
-	err := r.Server.EnsureListenerForDPU(dpu)
+	if err := r.Server.EnsureListenerForDPU(dpu); err != nil {
+		return ctrl.Result{}, err
+	}
 
+	// Create a node for the DPU in the DPUCluster. This enables the DPU to pass checks in the DPU Cluster Config phase.
+	if err := r.createNodeForDPU(ctx, dpu); err != nil {
+		return ctrl.Result{}, err
+	}
 	// If we have an error we have to requeue the DPU and let controller-runtime handle the error.
-	return ctrl.Result{}, err
+	return ctrl.Result{}, nil
+}
+
+// createNodeForDPU creates a Kubernetes node with a Ready conditions for the DPU.
+func (r *DMSServerReconciler) createNodeForDPU(ctx context.Context, dpu *provisioningv1.DPU) error {
+	dpuCluster := &provisioningv1.DPUCluster{}
+	err := r.Client.Get(ctx, types.NamespacedName{Namespace: dpu.Spec.Cluster.Namespace, Name: dpu.Spec.Cluster.Name}, dpuCluster)
+	if err != nil {
+		return err
+	}
+
+	dpuClient, err := dpucluster.NewConfig(r.Client, dpuCluster).Client(ctx)
+	if err != nil {
+		return err
+	}
+
+	node := &corev1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			// The Node should have the same name as the DPU.
+			Name:      dpu.Name,
+			Namespace: dpu.Namespace,
+		},
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Node",
+			APIVersion: "v1",
+		},
+	}
+	node.ManagedFields = nil
+	if err := dpuClient.Patch(ctx, node, client.Apply, client.ForceOwnership, client.FieldOwner("mock-dms")); err != nil {
+		return err
+	}
+
+	node.ManagedFields = nil
+	node.Status = corev1.NodeStatus{
+		// Node conditions are checked in the DPU Cluster Config phase.
+		Conditions: []corev1.NodeCondition{
+			{
+				Type:   corev1.NodeReady,
+				Status: corev1.ConditionTrue,
+			},
+		},
+	}
+
+	return dpuClient.Status().Patch(ctx, node, client.Apply, client.ForceOwnership, client.FieldOwner("mock-dms"))
 }
 
 // SetupWithManager sets up the controller with the Manager.
