@@ -764,8 +764,9 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 		By("pause dpuservice reconciliation")
 		svc := &dpuservicev1.DPUService{}
 		Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpuServiceNamespace, Name: hostDPUServiceName}, svc)).To(Succeed())
+		origSvc := svc.DeepCopy()
 		svc.Spec.Paused = ptr.To(true)
-		Eventually(testClient.Update).WithArguments(ctx, svc).Should(Succeed())
+		Eventually(testClient.Patch).WithArguments(ctx, svc, client.MergeFrom(origSvc)).Should(Succeed())
 
 		By("delete the DPUServices")
 		svc = &dpuservicev1.DPUService{}
@@ -791,8 +792,9 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 		}).WithTimeout(600 * time.Second).Should(Succeed())
 
 		By("resume dpuservice reconciliation")
+		origSvc = svc.DeepCopy()
 		svc.Spec.Paused = ptr.To(false)
-		Eventually(testClient.Update).WithArguments(ctx, svc).Should(Succeed())
+		Eventually(testClient.Patch).WithArguments(ctx, svc, client.MergeFrom(origSvc)).Should(Succeed())
 
 		// Verify that the DPUServices are deleted
 		By("verify DPUServices is deleted in the host cluster")
