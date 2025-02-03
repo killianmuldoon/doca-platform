@@ -8,6 +8,7 @@ resources:
 - bases/provisioning.dpu.nvidia.com_dpuflavors.yaml
 - bases/provisioning.dpu.nvidia.com_dpuclusters.yaml
 - bases/provisioning.dpu.nvidia.com_dpudevices.yaml
+- bases/provisioning.dpu.nvidia.com_dpunodes.yaml
 #+kubebuilder:scaffold:crdkustomizeresource
 
 patches:

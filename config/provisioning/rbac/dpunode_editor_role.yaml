@@ -1,0 +1,26 @@
+# permissions for end users to edit dpunodes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+  name: dpunode-editor-role
+rules:
+- apiGroups:
+  - provisioning.dpu.nvidia.com
+  resources:
+  - dpunodes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - provisioning.dpu.nvidia.com
+  resources:
+  - dpunodes/status
+  verbs:
+  - get

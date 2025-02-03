@@ -1,0 +1,22 @@
+# permissions for end users to view dpunodes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/component: rbac
+  name: dpunode-viewer-role
+rules:
+- apiGroups:
+  - provisioning.dpu.nvidia.com
+  resources:
+  - dpunodes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - provisioning.dpu.nvidia.com
+  resources:
+  - dpunodes/status
+  verbs:
+  - get

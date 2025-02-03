@@ -131,6 +131,7 @@ rules:
   resources:
   - dpudevices
   - dpuflavors
+  - dpunodes
   verbs:
   - get
   - list

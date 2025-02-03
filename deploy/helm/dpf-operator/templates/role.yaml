@@ -175,6 +175,7 @@ rules:
   - dpuclusters
   - dpudevices
   - dpuflavors
+  - dpunodes
   - dpus
   - dpusets
   verbs:
@@ -193,6 +194,7 @@ rules:
   - dpuclusters/finalizers
   - dpudevices/finalizers
   - dpuflavors/finalizers
+  - dpunodes/finalizers
   - dpus/finalizers
   - dpusets/finalizers
   verbs:
@@ -202,6 +204,7 @@ rules:
   resources:
   - bfbs/status
   - dpuclusters/status
+  - dpunodes/status
   - dpus/status
   - dpusets/status
   verbs:
