@@ -583,7 +583,7 @@ GO_LDFLAGS ?= "-extldflags '-static'"
 STORAGE_SNAP_CSI_DRIVER_GO_LDFLAGS ?= "$(shell echo $(GO_LDFLAGS)) -X github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/common.VendorVersion=$(TAG)"
 
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
-DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller ovs-helper snap-controller dpfctl
+DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller ovs-helper snap-controller dpfctl dpfctl-darwin
 DPU_ARCH_BUILD_TARGETS ?= storage-snap-node-driver storage-vendor-dpu-plugin
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
@@ -673,6 +673,12 @@ binary-dpfctl: ## Build the dpfctl binary.
 		-ldflags="$(shell echo $(GO_LDFLAGS)) -X main.version=$(TAG)" \
 		-gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/dpfctl github.com/nvidia/doca-platform/cmd/dpfctl
 
+.PHONY: binary-dpfctl-darwin
+binary-dpfctl-darwin: ## Build the dpfctl binary.
+	CGO_ENABLED=0 GOOS=darwin GOARCH=$(ARCH) go build \
+		-ldflags="$(shell echo $(GO_LDFLAGS)) -X main.version=$(TAG)" \
+		-gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/dpfctl-darwin github.com/nvidia/doca-platform/cmd/dpfctl
+
 .PHONY: install-dpfctl
 install-dpfctl: binary-dpfctl ## Install the dpfctl binary.
 	install -m 755 $(LOCALBIN)/dpfctl $(GOPATH)/bin/dpfctl
@@ -759,6 +765,7 @@ docker-build-dpf-system-for-%:
 		--build-arg base_image=$(BASE_IMAGE) \
 		--build-arg ldflags=$(GO_LDFLAGS) \
 		--build-arg gcflags=$(GO_GCFLAGS) \
+		--build-arg TAG=$(TAG) \
 		-f Dockerfile.dpf-system \
 		. \
 		-t $(DPF_SYSTEM_IMAGE):$(TAG)-$*

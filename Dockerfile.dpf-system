@@ -36,10 +36,13 @@ RUN make clean
 ARG gcflags
 ARG ldflags
 ARG TARGETARCH
+ARG TAG
 
 ENV GO_LDFLAGS=\"${ldflags}\"
 ENV GO_GCFLAGS=\"${gcflags}\"
 ENV ARCH=${TARGETARCH}
+# The TAG variable is necessary for the dpfctl versioning.
+ENV TAG=${TAG}
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
@@ -66,3 +69,5 @@ COPY --chown=${uid} --from=builder /workspace/bin/sfc-controller .
 COPY --chown=${uid} --from=builder /workspace/bin/kamaji-cluster-manager .
 COPY --chown=${uid} --from=builder /workspace/bin/static-cluster-manager .
 COPY --chown=${uid} --from=builder /workspace/bin/ovshelper .
+COPY --chown=${uid} --from=builder /workspace/bin/dpfctl .
+COPY --chown=${uid} --from=builder /workspace/bin/dpfctl-darwin .
