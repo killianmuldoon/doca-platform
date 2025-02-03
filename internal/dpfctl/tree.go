@@ -94,7 +94,7 @@ func (od ObjectTree) AddMultipleWithHeader(parent client.Object, objs []client.O
 
 	headerName = ensurePlural(headerName)
 	virtualObj := VirtualObject("", headerName, headerName)
-	od.Add(parent, virtualObj)
+	od.Add(parent, virtualObj, opts...)
 	for _, obj := range objs {
 		od.Add(virtualObj, obj, opts...)
 	}
@@ -135,8 +135,9 @@ func (od ObjectTree) Add(parent, obj client.Object, opts ...AddObjectOption) (ad
 	addAnnotation(obj, ObjectZOrderAnnotation, strconv.Itoa(addOpts.ZOrder))
 
 	// If it is requested that this object and its sibling should be grouped in case the ready condition
-	// has the same Status, Severity and Reason, process all the sibling nodes.
-	if IsGroupingObject(parent) {
+	// has the same Status and Reason, process all the sibling nodes that are Ready and group them. All
+	// other siblings that are not Ready will be printed ungrouped.
+	if IsGroupingObject(parent) && objReady != nil && objReady.Status == metav1.ConditionTrue {
 		siblings := od.GetObjectsByParent(parent.GetUID())
 
 		// The loop below will process the next node and decide if it belongs in a group. Since objects in the same group

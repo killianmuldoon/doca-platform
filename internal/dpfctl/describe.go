@@ -251,7 +251,7 @@ func addDPUs(ctx context.Context, o objectScope, root client.Object, matchLabels
 
 	// If matchLabels is nil, it means that the DPUs are not part of a DPUSet.
 	if matchLabels == nil {
-		o.tree.AddMultipleWithHeader(root, addToTree, "DPUs")
+		o.tree.AddMultipleWithHeader(root, addToTree, "DPUs", GroupingObject(true))
 		return nil
 	}
 
@@ -299,7 +299,7 @@ func addDPUServices(ctx context.Context, o objectScope, root client.Object, matc
 		}
 	}
 
-	o.tree.AddMultipleWithHeader(root, addToTree, "DPUServices")
+	o.tree.AddMultipleWithHeader(root, addToTree, "DPUServices", GroupingObject(true))
 	return nil
 }
 
@@ -465,6 +465,6 @@ func addDPUDeployments(ctx context.Context, o objectScope, root client.Object) e
 		}
 	}
 
-	o.tree.AddMultipleWithHeader(root, addToTree, "DPUDeployments")
+	o.tree.AddMultipleWithHeader(root, addToTree, "DPUDeployments", GroupingObject(true))
 	return nil
 }

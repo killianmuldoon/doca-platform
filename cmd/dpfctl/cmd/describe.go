@@ -35,7 +35,7 @@ type describeOptions struct {
 	showResources       string
 	expandResources     string
 	showNamespace       bool
-	grouping            bool // TODO: Currently not working as expected
+	grouping            bool
 	color               bool
 	wrapLines           bool
 }

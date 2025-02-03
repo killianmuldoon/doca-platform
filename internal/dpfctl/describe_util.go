@@ -130,11 +130,7 @@ func addObjectRow(prefix string, tbl *tablewriter.Table, objectTree *ObjectTree,
 	// If the object is a group object, override the condition message with the list of objects in the group. e.g dpu-1, dpu-2, ...
 	if IsGroupObject(obj) {
 		items := strings.Split(GetGroupItems(obj), GroupItemsSeparator)
-		if len(items) <= 2 {
-			readyDescriptor.message = gray.Sprintf("See %s", strings.Join(items, GroupItemsSeparator))
-		} else {
-			readyDescriptor.message = gray.Sprintf("See %s, ...", strings.Join(items[:2], GroupItemsSeparator))
-		}
+		readyDescriptor.message = fmt.Sprintf("See %s", strings.Join(items, GroupItemsSeparator))
 	}
 
 	// Gets the row name for the object.
