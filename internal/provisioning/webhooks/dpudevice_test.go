@@ -56,7 +56,6 @@ var _ = Describe("DPUDevice", func() {
 
 	Context("obj test context", func() {
 		ctx := context.Background()
-
 		It("create and get object", func() {
 			obj := createObj("obj-1")
 			err := k8sClient.Create(ctx, obj)
@@ -67,7 +66,6 @@ var _ = Describe("DPUDevice", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
 		})
-
 		It("delete object", func() {
 			obj := createObj("obj-2")
 			err := k8sClient.Create(ctx, obj)
@@ -80,7 +78,6 @@ var _ = Describe("DPUDevice", func() {
 			Expect(err).To(HaveOccurred())
 			Expect(apierrors.IsNotFound(err)).To(BeTrue())
 		})
-
 		It("update object", func() {
 			obj := createObj("obj-3")
 			obj.Spec.BMCIP = "2.2.2.2"
@@ -95,7 +92,6 @@ var _ = Describe("DPUDevice", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
 		})
-
 		It("check default settings", func() {
 			obj := createObj("obj-4")
 			err := k8sClient.Create(ctx, obj)
@@ -110,7 +106,6 @@ var _ = Describe("DPUDevice", func() {
 			Expect(objFetched.Spec.PSID).To(BeEmpty())
 			Expect(objFetched.Spec.OPN).To(BeEmpty())
 		})
-
 		It("create from yaml", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
@@ -130,7 +125,6 @@ spec:
 			err = k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 		})
-
 		It("create from yaml minimal", func() {
 			yml := []byte(`
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
@@ -201,7 +195,6 @@ metadata:
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
-
 		It("create object with invalid PSID", func() {
 			obj := &provisioningv1.DPUDevice{
 				ObjectMeta: metav1.ObjectMeta{
@@ -215,7 +208,6 @@ metadata:
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
-
 		It("create object with invalid OPN", func() {
 			obj := &provisioningv1.DPUDevice{
 				ObjectMeta: metav1.ObjectMeta{
@@ -229,7 +221,6 @@ metadata:
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
-
 		It("create object with invalid BMCIP", func() {
 			obj := &provisioningv1.DPUDevice{
 				ObjectMeta: metav1.ObjectMeta{
@@ -259,7 +250,6 @@ metadata:
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
-
 		It("create object with valid specs should succeed", func() {
 			obj := &provisioningv1.DPUDevice{
 				ObjectMeta: metav1.ObjectMeta{
@@ -280,6 +270,110 @@ metadata:
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(objFetched).To(Equal(obj))
+		})
+		It("create object with valid PCIAddress", func() {
+			obj := &provisioningv1.DPUDevice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "obj-17",
+					Namespace: "default",
+				},
+				Spec: provisioningv1.DPUDeviceSpec{
+					PCIAddress: "0000:03:00",
+				},
+			}
+			err := k8sClient.Create(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+		It("create object with valid PCIAddress in lowercase", func() {
+			obj := &provisioningv1.DPUDevice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "obj-18",
+					Namespace: "default",
+				},
+				Spec: provisioningv1.DPUDeviceSpec{
+					PCIAddress: "ab:00",
+				},
+			}
+			err := k8sClient.Create(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+		It("create object with valid PCIAddress in mixed case", func() {
+			obj := &provisioningv1.DPUDevice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "obj-19",
+					Namespace: "default",
+				},
+				Spec: provisioningv1.DPUDeviceSpec{
+					PCIAddress: "Ab:00",
+				},
+			}
+			err := k8sClient.Create(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+		It("create object with valid PCIAddress with hyphen", func() {
+			obj := &provisioningv1.DPUDevice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "obj-20",
+					Namespace: "default",
+				},
+				Spec: provisioningv1.DPUDeviceSpec{
+					PCIAddress: "0000-3b-00",
+				},
+			}
+			err := k8sClient.Create(ctx, obj)
+			Expect(err).NotTo(HaveOccurred())
+		})
+		It("create object with invalid PCIAddress too short", func() {
+			obj := &provisioningv1.DPUDevice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "obj-21",
+					Namespace: "default",
+				},
+				Spec: provisioningv1.DPUDeviceSpec{
+					PCIAddress: "ab",
+				},
+			}
+			err := k8sClient.Create(ctx, obj)
+			Expect(err).To(HaveOccurred())
+		})
+		It("create object with invalid PCIAddress too long", func() {
+			obj := &provisioningv1.DPUDevice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "obj-22",
+					Namespace: "default",
+				},
+				Spec: provisioningv1.DPUDeviceSpec{
+					PCIAddress: "0000:03:00.0",
+				},
+			}
+			err := k8sClient.Create(ctx, obj)
+			Expect(err).To(HaveOccurred())
+		})
+		It("create object with invalid PCIAddress invalid characters", func() {
+			obj := &provisioningv1.DPUDevice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "obj-23",
+					Namespace: "default",
+				},
+				Spec: provisioningv1.DPUDeviceSpec{
+					PCIAddress: "0000:03:zx",
+				},
+			}
+			err := k8sClient.Create(ctx, obj)
+			Expect(err).To(HaveOccurred())
+		})
+		It("create object with invalid PCIAddress missing separator", func() {
+			obj := &provisioningv1.DPUDevice{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "obj-24",
+					Namespace: "default",
+				},
+				Spec: provisioningv1.DPUDeviceSpec{
+					PCIAddress: "00000300",
+				},
+			}
+			err := k8sClient.Create(ctx, obj)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 })

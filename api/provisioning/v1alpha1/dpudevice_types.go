@@ -33,8 +33,8 @@ type DPUDeviceSpec struct {
 	// PCIAddress is the PCI address of the device in the host system.
 	// It's used to identify the device and should be unique.
 	// This value is immutable and should not be changed once set.
-	// Example: "0000:03:00"
-	// +kubebuilder:validation:Pattern=`^(\d{4}[-:]|\d{2}[-:])\d{2}[-:]\d{2}$`
+	// Example: "0000:03:00", "ab:00", "0000-3b-00", "ff-00"
+	// +kubebuilder:validation:Pattern=`^([0-9a-fA-F]{4}[-:])?[0-9a-fA-F]{2}[-:][0-9a-fA-F]{2}$`
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="PCI Address is immutable"
 	// +optional
 	PCIAddress string `json:"pciAddress,omitempty"`

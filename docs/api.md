@@ -877,7 +877,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `pciAddress` _string_ | PCIAddress is the PCI address of the device in the host system.<br />It's used to identify the device and should be unique.<br />This value is immutable and should not be changed once set.<br />Example: "0000:03:00" |  | Pattern: `^(\d\{4\}[-:]\|\d\{2\}[-:])\d\{2\}[-:]\d\{2\}$` <br /> |
+| `pciAddress` _string_ | PCIAddress is the PCI address of the device in the host system.<br />It's used to identify the device and should be unique.<br />This value is immutable and should not be changed once set.<br />Example: "0000:03:00", "ab:00", "0000-3b-00", "ff-00" |  | Pattern: `^([0-9a-fA-F]\{4\}[-:])?[0-9a-fA-F]\{2\}[-:][0-9a-fA-F]\{2\}$` <br /> |
 | `psid` _string_ | PSID is the Product Serial ID of the device.<br />It's used to track the device's lifecycle and for inventory management.<br />This value is immutable and should not be changed once set.<br />Example: "MT_0001234567" |  | Pattern: `^MT_\d\{10\}$` <br /> |
 | `opn` _string_ | OPN is the Ordering Part Number of the device.<br />It's used to track the device's compatibility with different software versions.<br />This value is immutable and should not be changed once set.<br />Example: "900-9D3B4-00SV-EA0" |  | Pattern: `^\d\{3\}-[A-Z0-9]\{5\}-[A-Z0-9]\{4\}-[A-Z0-9]\{3\}$` <br /> |
 | `bmcIp` _string_ | BMCIP is the IP address of the BMC (Base Management Controller) on the device.<br />This is used for remote management and monitoring of the device.<br />This value is immutable and should not be changed once set.<br />Example: "10.1.2.3" |  | Format: ipv4 <br /> |
