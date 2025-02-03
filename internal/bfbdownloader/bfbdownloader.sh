@@ -123,11 +123,11 @@ run_bfver_with_retry() {
             if grep -q "bfver: warn: $(realpath "$final_file") does not exist, skipping" "$output_file"; then
                 error "bfver failed with error: file not found, skipping"
             fi
-            error "bfver failed with an unknown error"
+            log "bfver failed with error: $(cat "$output_file")"
         fi
         # Check if the maximum number of retries is reached
         if ((i >= max_retries)); then
-            error "bfver failed after $max_retries attempts. Exiting with error."
+            error "bfver failed after $max_retries attempts. Exiting with error: $(cat "$output_file")"
         fi
         # Handle retry logic
         log "bfver failed on attempt $i."
