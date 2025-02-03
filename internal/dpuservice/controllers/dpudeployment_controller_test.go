@@ -108,74 +108,6 @@ var _ = Describe("DPUDeployment Controller", func() {
 				g.Expect(gotDPUServiceInterfaceList.Items).To(BeEmpty())
 			}).WithTimeout(5 * time.Second).Should(Succeed())
 		})
-
-		It("should not create the DPUDeployment if system annotations are present", func() {
-			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
-			dpuDeployment.Spec.DPUs.DPUSets = []dpuservicev1.DPUSet{
-				{
-					NameSuffix: "dpuset1",
-					DPUSelector: map[string]string{
-						"dpukey1": "dpuvalue1",
-					},
-					DPUAnnotations: map[string]string{
-						"dpu.nvidia.com": "not allowed",
-					},
-				},
-			}
-			Expect(testClient.Create(ctx, dpuDeployment)).ToNot(Succeed())
-			dpuDeployment.Spec.DPUs.DPUSets[0].DPUAnnotations = map[string]string{
-				"annKey": "annVal",
-			}
-			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
-			dpuDeployment.Spec.DPUs.DPUSets[0].DPUAnnotations = map[string]string{
-				"anything.dpu.nvidia.com": "not allowed",
-			}
-			Expect(testClient.Create(ctx, dpuDeployment)).ToNot(Succeed())
-			dpuDeployment.Spec.DPUs.DPUSets[0].DPUAnnotations = map[string]string{
-				"anything.dpu.nvidia.com/anything": "not allowed",
-			}
-			Expect(testClient.Create(ctx, dpuDeployment)).ToNot(Succeed())
-		})
-
-		It("should fail to create the DPUServiceConfiguration with restricted label/annotation in servicedaemonset", func() {
-			By("creating the DPUServiceConfiguration with servicedaemonset which has a label/annotation which ends with dpu.nvidia.com")
-			dpuServiceConfigurarion := getMinimalDPUServiceConfiguration(testNS.Name)
-			dpuServiceConfigurarion.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = map[string]string{
-				"dpu.nvidia.com": "not allowed",
-			}
-			Expect(testClient.Create(ctx, dpuServiceConfigurarion)).ToNot(Succeed())
-
-			dpuServiceConfigurarion = getMinimalDPUServiceConfiguration(testNS.Name)
-			dpuServiceConfigurarion.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations = map[string]string{
-				"dpu.nvidia.com": "not allowed",
-			}
-			Expect(testClient.Create(ctx, dpuServiceConfigurarion)).ToNot(Succeed())
-
-			dpuServiceConfigurarion = getMinimalDPUServiceConfiguration(testNS.Name)
-			dpuServiceConfigurarion.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = map[string]string{
-				"anything.dpu.nvidia.com": "not allowed",
-			}
-			Expect(testClient.Create(ctx, dpuServiceConfigurarion)).ToNot(Succeed())
-			dpuServiceConfigurarion.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations = map[string]string{
-				"anything.dpu.nvidia.com": "not allowed",
-			}
-			Expect(testClient.Create(ctx, dpuServiceConfigurarion)).ToNot(Succeed())
-		})
-
-		It("should fail to create the DPUServiceConfiguration with restricted label/annotation in servicedaemonset", func() {
-			By("creating the DPUServiceConfiguration with servicedaemonset which has a label/annotation which contains dpu.nvidia.com/")
-			dpuServiceConfigurarion := getMinimalDPUServiceConfiguration(testNS.Name)
-			dpuServiceConfigurarion.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = map[string]string{
-				"anything.dpu.nvidia.com/anything": "not allowed",
-			}
-			Expect(testClient.Create(ctx, dpuServiceConfigurarion)).ToNot(Succeed())
-			dpuServiceConfigurarion = getMinimalDPUServiceConfiguration(testNS.Name)
-			dpuServiceConfigurarion.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations = map[string]string{
-				"anything.dpu.nvidia.com/anything": "not allowed",
-			}
-			Expect(testClient.Create(ctx, dpuServiceConfigurarion)).ToNot(Succeed())
-		})
-
 		It("should cleanup child objects on delete", func() {
 			By("Creating the dependencies")
 			bfb := getMinimalBFB("somebfb", testNS.Name)
@@ -5505,7 +5437,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 	})
 })
 
-var _ = Describe("DPUDeployment API Validations", func() {
+var _ = Describe("API Validations for DPUDeployment related objects", func() {
 	var testNS *corev1.Namespace
 	BeforeEach(func() {
 		By("Creating the namespaces")
@@ -5534,6 +5466,74 @@ var _ = Describe("DPUDeployment API Validations", func() {
 			Entry("valid config - with deployInCluster=true and without interfaces", ptr.To[bool](true), false, false),
 			Entry("invalid config - with deployInCluster=true and with interfaces", ptr.To[bool](true), true, true),
 		)
+	})
+	Context("When checking the DPUDeployment API validations", func() {
+		It("should not create the DPUDeployment if system annotations are present", func() {
+			dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+			dpuDeployment.Spec.DPUs.DPUSets = []dpuservicev1.DPUSet{
+				{
+					NameSuffix: "dpuset1",
+					DPUSelector: map[string]string{
+						"dpukey1": "dpuvalue1",
+					},
+					DPUAnnotations: map[string]string{
+						"dpu.nvidia.com": "not allowed",
+					},
+				},
+			}
+			Expect(testClient.Create(ctx, dpuDeployment)).ToNot(Succeed())
+			dpuDeployment.Spec.DPUs.DPUSets[0].DPUAnnotations = map[string]string{
+				"annKey": "annVal",
+			}
+			Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+			dpuDeployment.Spec.DPUs.DPUSets[0].DPUAnnotations = map[string]string{
+				"anything.dpu.nvidia.com": "not allowed",
+			}
+			Expect(testClient.Create(ctx, dpuDeployment)).ToNot(Succeed())
+			dpuDeployment.Spec.DPUs.DPUSets[0].DPUAnnotations = map[string]string{
+				"anything.dpu.nvidia.com/anything": "not allowed",
+			}
+			Expect(testClient.Create(ctx, dpuDeployment)).ToNot(Succeed())
+		})
+
+		It("should fail to create the DPUServiceConfiguration with restricted label/annotation in servicedaemonset", func() {
+			By("creating the DPUServiceConfiguration with servicedaemonset which has a label/annotation which ends with dpu.nvidia.com")
+			dpuServiceConfigurarion := getMinimalDPUServiceConfiguration(testNS.Name)
+			dpuServiceConfigurarion.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = map[string]string{
+				"dpu.nvidia.com": "not allowed",
+			}
+			Expect(testClient.Create(ctx, dpuServiceConfigurarion)).ToNot(Succeed())
+
+			dpuServiceConfigurarion = getMinimalDPUServiceConfiguration(testNS.Name)
+			dpuServiceConfigurarion.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations = map[string]string{
+				"dpu.nvidia.com": "not allowed",
+			}
+			Expect(testClient.Create(ctx, dpuServiceConfigurarion)).ToNot(Succeed())
+
+			dpuServiceConfigurarion = getMinimalDPUServiceConfiguration(testNS.Name)
+			dpuServiceConfigurarion.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = map[string]string{
+				"anything.dpu.nvidia.com": "not allowed",
+			}
+			Expect(testClient.Create(ctx, dpuServiceConfigurarion)).ToNot(Succeed())
+			dpuServiceConfigurarion.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations = map[string]string{
+				"anything.dpu.nvidia.com": "not allowed",
+			}
+			Expect(testClient.Create(ctx, dpuServiceConfigurarion)).ToNot(Succeed())
+		})
+
+		It("should fail to create the DPUServiceConfiguration with restricted label/annotation in servicedaemonset", func() {
+			By("creating the DPUServiceConfiguration with servicedaemonset which has a label/annotation which contains dpu.nvidia.com/")
+			dpuServiceConfigurarion := getMinimalDPUServiceConfiguration(testNS.Name)
+			dpuServiceConfigurarion.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = map[string]string{
+				"anything.dpu.nvidia.com/anything": "not allowed",
+			}
+			Expect(testClient.Create(ctx, dpuServiceConfigurarion)).ToNot(Succeed())
+			dpuServiceConfigurarion = getMinimalDPUServiceConfiguration(testNS.Name)
+			dpuServiceConfigurarion.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations = map[string]string{
+				"anything.dpu.nvidia.com/anything": "not allowed",
+			}
+			Expect(testClient.Create(ctx, dpuServiceConfigurarion)).ToNot(Succeed())
+		})
 	})
 })
 
