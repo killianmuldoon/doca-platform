@@ -319,6 +319,11 @@ func isObjDebug(obj client.Object, debugFilter string) bool {
 		return false
 	}
 
+	otherConditions := getReadyCondition(obj)
+	if debugFilter == "failed" && otherConditions != nil && otherConditions.Status == metav1.ConditionFalse {
+		return true
+	}
+
 	kind := obj.GetObjectKind().GroupVersionKind().Kind
 	for _, filter := range strings.Split(strings.ToLower(debugFilter), ",") {
 		filter = strings.TrimSpace(filter)

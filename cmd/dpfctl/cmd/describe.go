@@ -78,14 +78,14 @@ func init() {
 	rootCmd.AddCommand(describeCmd)
 
 	describeCmd.Flags().StringVar(&opts.showOtherConditions, "show-conditions", "",
-		"list of comma separated kind or kind/name for which the command should show all the object's conditions (use 'all' to show conditions for everything).")
+		"list of comma separated kind or kind/name for which the command should show all the object's conditions (use 'all' to show conditions for everything, 'failed' to show only failed conditions).")
 
 	// TODO: add also support for kind/name. Currently this is not implemented as we return early without knowing the kind name.
 	describeCmd.Flags().StringVar(&opts.showResources, "show-resources", "",
 		"list of comma separated kind for which the command should show all the object's resources (default value is 'all').")
 
 	describeCmd.Flags().StringVar(&opts.expandResources, "expand-resources", "",
-		"list of comma separated kind or kind/name for which the command should show all the object's child resources (default value is '').")
+		"list of comma separated kind or kind/name for which the command should show all the object's child resources (default value is '', 'failed' to expand only failed DPUServices).")
 
 	describeCmd.Flags().BoolVar(&opts.grouping, "grouping", false,
 		"enable grouping of objects by kind.")
