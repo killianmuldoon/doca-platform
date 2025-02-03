@@ -59,6 +59,7 @@ func (r *RealBFBDownloader) CreateBFBDownloadJob(ctx context.Context, client cli
 		cutil.BFBBaseDirPath,
 		cutil.GenerateBFBVersionFilePath(bfb.Status.FileName),
 	)
+	backOffLimit := int32(6) // Specifies the number of retries before marking this job failed.
 
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -69,6 +70,7 @@ func (r *RealBFBDownloader) CreateBFBDownloadJob(ctx context.Context, client cli
 			},
 		},
 		Spec: batchv1.JobSpec{
+			BackoffLimit: &backOffLimit,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      jobName,
