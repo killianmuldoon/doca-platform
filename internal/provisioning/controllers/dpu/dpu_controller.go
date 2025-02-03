@@ -144,7 +144,7 @@ func (r *DPUReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 
 	nextState, err := h(ctx, dpu, r.ctrlCtx)
 	if err != nil {
-		logger.Error(err, "Statue handle error")
+		logger.Error(err, "State handle error")
 	}
 	if !reflect.DeepEqual(dpu.Status, nextState) {
 		logger.Info("Update DPU status", "current phase", dpu.Status.Phase, "next phase", nextState.Phase)

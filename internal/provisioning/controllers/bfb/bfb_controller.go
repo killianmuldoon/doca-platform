@@ -80,7 +80,7 @@ func (r *BFBReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	currentState := state.GetBFBState(bfb, r.Recorder)
 	nextState, err := currentState.Handle(ctx, r.Client, r.BFBOptions, r.BFBDownloader)
 	if err != nil {
-		logger.Error(err, "BFB statue handle error", "phase", bfb.Status.Phase)
+		logger.Error(err, "BFB state handle error", "phase", bfb.Status.Phase)
 	}
 
 	if !reflect.DeepEqual(bfb.Status, nextState) {

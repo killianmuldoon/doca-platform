@@ -62,7 +62,7 @@ func Initializing(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.C
 			cutil.SetDPUCondition(state, cond)
 			return *state, nil
 		}
-		logger.V(2).Info("allocate cluster %s for DPU %s", rst, cutil.GetNamespacedName(dpu))
+		logger.V(2).Info(fmt.Sprintf("allocate cluster %s for DPU %s", rst, cutil.GetNamespacedName(dpu)))
 		return *state, nil
 	}
 

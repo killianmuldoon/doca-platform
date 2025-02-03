@@ -61,6 +61,21 @@ func Rebooting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 		return *state, err
 	}
 
+	rebootCommand, rebootType, err := reboot.GenerateCmd(node.Annotations, dpu.Annotations)
+	if err != nil {
+		logger.Error(err, "failed to generate ipmitool command")
+		return *state, err
+	}
+
+	// Return early and set node to ready if we should skip the powercycle/reboot command.
+	// Note: skipping the powercycle/reboot may cause issues with the firmware installation and configuration.
+	if rebootCommand == reboot.Skip {
+		logger.Info("Warning not rebooting: this may cause issues with DPU firmware installation and configuration")
+		state.Phase = provisioningv1.DPUHostNetworkConfiguration
+		cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondRebooted, "", ""))
+		return *state, nil
+	}
+
 	duration := int(metav1.Now().Sub(cond.LastTransitionTime.Time).Seconds())
 	// If we can not get uptime, the host should be rebooting
 	uptime, err := ctrlCtx.HostUptimeChecker.HostUptime(dpu.Namespace, cutil.GenerateDMSPodName(dpu), "")
@@ -79,22 +94,9 @@ func Rebooting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 
 	if (dpu.Spec.NodeEffect != nil && dpu.Spec.NodeEffect.IsDrain()) ||
 		dpu.Spec.AutomaticNodeReboot {
-		cmd, rebootType, err := reboot.GenerateCmd(node.Annotations, dpu.Annotations)
-		if err != nil {
-			logger.Error(err, "failed to generate ipmitool command")
-			return *state, err
-		}
-
-		// Return early and set node to ready if we should skip the powercycle/reboot command.
-		// Note: skipping the powercycle/reboot may cause issues with the firmware installation and configuration.
-		if cmd == reboot.Skip {
-			logger.Info("Warning not rebooting: this may cause issues with DPU firmware installation and configuration")
-			state.Phase = provisioningv1.DPUHostNetworkConfiguration
-			cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondRebooted, "", ""))
-			return *state, nil
-		} else if rebootType == reboot.PowerCycle {
-			logger.Info(fmt.Sprintf("powercycle with command %q", cmd))
-			if _, _, err := cutil.RemoteExec(dpu.Namespace, cutil.GenerateDMSPodName(dpu), "", cmd); err != nil {
+		if rebootType == reboot.PowerCycle {
+			logger.Info(fmt.Sprintf("powercycle with command %q", rebootCommand))
+			if _, _, err := cutil.RemoteExec(dpu.Namespace, cutil.GenerateDMSPodName(dpu), "", rebootCommand); err != nil {
 				// TODO: broadcast an event
 				return *state, err
 			}
@@ -122,7 +124,7 @@ func Rebooting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 								msg := fmt.Sprintf("DMS task %v retried %d times, error: %v", rebootTaskName, retryCount, err)
 								logger.Info(msg)
 								// Retry the reboot process
-								rebootHandler(ctx, dpu, pciAddress, cmd, retryCount+1)
+								rebootHandler(ctx, dpu, pciAddress, rebootCommand, retryCount+1)
 								cond := cutil.DPUCondition(provisioningv1.DPUCondOSInstalled, "", msg)
 								cond.Status = metav1.ConditionFalse
 								cutil.SetDPUCondition(state, cond)
@@ -133,7 +135,7 @@ func Rebooting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 						logger.V(3).Info(fmt.Sprintf("Reboot task %v is being processed", rebootTaskName))
 					}
 				} else {
-					rebootHandler(ctx, dpu, pciAddress, cmd, 0)
+					rebootHandler(ctx, dpu, pciAddress, rebootCommand, 0)
 				}
 			}
 		}
