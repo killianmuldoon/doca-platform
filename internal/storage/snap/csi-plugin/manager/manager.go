@@ -94,16 +94,17 @@ func New(pluginConfig config.PluginConfig, options ...Option) (*ServiceManager, 
 		csi.RegisterControllerServer(mgr.grpcServer, opts.controllerHandler)
 	case config.PluginModeNode:
 		pciUtils := utilsPci.New(pluginConfig.Node.HostRootFS, kexec.New())
+		nodeRuntimeConfig := config.NewNodeRuntime()
 
 		klog.V(2).Info("register preconfigure")
 		if opts.preconfigure == nil {
-			opts.preconfigure = preconfigure.New(pluginConfig.Node, pciUtils)
+			opts.preconfigure = preconfigure.New(pluginConfig.Node, nodeRuntimeConfig, pciUtils)
 		}
 		mgr.runner.AddService("preconfigure", opts.preconfigure)
 
 		klog.V(2).Info("register node service")
 		if opts.nodeHandler == nil {
-			opts.nodeHandler = node.New(pluginConfig.Node,
+			opts.nodeHandler = node.New(pluginConfig.Node, nodeRuntimeConfig,
 				utilsMount.New(kmount.New(utilsMount.DefaultMounter)),
 				utilsNvme.New(),
 				pciUtils,

@@ -16,6 +16,8 @@ limitations under the License.
 
 package config
 
+import "sync/atomic"
+
 // PluginMode contains plugin pluginMode
 type PluginMode string
 
@@ -94,4 +96,25 @@ type Controller struct {
 	DPUClusterTokenFile string
 	// path to the file that contains CA certificate for the DPU cluster API server
 	DPUClusterCAFile string
+}
+
+// NewNodeRuntime returns a new instance of NodeRuntime struct
+func NewNodeRuntime() *NodeRuntime {
+	return &NodeRuntime{}
+}
+
+// NodeRuntime contains runtime configuration specific for the "node" mode
+type NodeRuntime struct {
+	// maximum number of volumes that controller can publish to the node
+	maxVolumesPerNode atomic.Int64
+}
+
+// SetMaxVolumesPerNode set MaxVolumesPerNode runtime option
+func (nr *NodeRuntime) SetMaxVolumesPerNode(val int64) {
+	nr.maxVolumesPerNode.Store(val)
+}
+
+// GetMaxVolumesPerNode returns value of MaxVolumesPerNode runtime option
+func (nr *NodeRuntime) GetMaxVolumesPerNode() int64 {
+	return nr.maxVolumesPerNode.Load()
 }

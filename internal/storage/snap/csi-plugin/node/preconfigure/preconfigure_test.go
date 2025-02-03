@@ -34,19 +34,21 @@ var errTest = fmt.Errorf("test error")
 
 var _ = Describe("Preconfigure", func() {
 	var (
-		pciUtils *pciUtilsMockPkg.MockUtils
-		testCtrl *gomock.Controller
-		ctx      context.Context
-		cancel   context.CancelFunc
-		stop     chan struct{}
-		p        Preconfigure
+		pciUtils      *pciUtilsMockPkg.MockUtils
+		testCtrl      *gomock.Controller
+		ctx           context.Context
+		cancel        context.CancelFunc
+		stop          chan struct{}
+		p             Preconfigure
+		runtimeConfig *config.NodeRuntime
 	)
 	BeforeEach(func() {
 		stop = make(chan struct{})
 		testCtrl = gomock.NewController(GinkgoT())
 		pciUtils = pciUtilsMockPkg.NewMockUtils(testCtrl)
 		ctx, cancel = context.WithCancel(context.Background())
-		p = New(config.Node{SnapControllerDeviceID: "6001"}, pciUtils)
+		runtimeConfig = config.NewNodeRuntime()
+		p = New(config.Node{SnapControllerDeviceID: "6001"}, runtimeConfig, pciUtils)
 		go func() {
 			defer GinkgoRecover()
 			defer cancel()
@@ -69,6 +71,7 @@ var _ = Describe("Preconfigure", func() {
 		pciUtils.EXPECT().DisableSriovVfsDriverAutoprobe("0000:b1:00.3").Return(nil)
 		pciUtils.EXPECT().SetSriovNumVfs("0000:b1:00.3", 125).Return(nil)
 		Expect(p.Run(ctx)).NotTo(HaveOccurred())
+		Expect(runtimeConfig.GetMaxVolumesPerNode()).To(Equal(int64(125)))
 	})
 	It("Already configured", func() {
 		pciUtils.EXPECT().InsertKernelModule(ctx, "nvme").Return(nil)
@@ -77,6 +80,7 @@ var _ = Describe("Preconfigure", func() {
 		pciUtils.EXPECT().GetSRIOVTotalVFs("0000:b1:00.3").Return(125, nil)
 		pciUtils.EXPECT().GetSRIOVNumVFs("0000:b1:00.3").Return(125, nil)
 		Expect(p.Run(ctx)).NotTo(HaveOccurred())
+		Expect(runtimeConfig.GetMaxVolumesPerNode()).To(Equal(int64(125)))
 	})
 	It("Already configured - less VFs", func() {
 		pciUtils.EXPECT().InsertKernelModule(ctx, "nvme").Return(nil)
@@ -85,6 +89,7 @@ var _ = Describe("Preconfigure", func() {
 		pciUtils.EXPECT().GetSRIOVTotalVFs("0000:b1:00.3").Return(125, nil)
 		pciUtils.EXPECT().GetSRIOVNumVFs("0000:b1:00.3").Return(25, nil)
 		Expect(p.Run(ctx)).NotTo(HaveOccurred())
+		Expect(runtimeConfig.GetMaxVolumesPerNode()).To(Equal(int64(25)))
 	})
 	It("SRIOV disabled", func() {
 		pciUtils.EXPECT().InsertKernelModule(ctx, "nvme").Return(nil)

@@ -33,15 +33,23 @@ var _ = Describe("NodeGetInfo", func() {
 
 	BeforeEach(func() {
 		nodeHandler = &node{
-			cfg: config.Node{NodeID: "test-node-id"},
+			cfg:        config.Node{NodeID: "test-node-id"},
+			runtimeCfg: config.NewNodeRuntime(),
 		}
 	})
 
 	It("should return NodeID from configuration", func() {
 		resp, err := nodeHandler.NodeGetInfo(context.Background(), &csi.NodeGetInfoRequest{})
-
 		Expect(err).NotTo(HaveOccurred())
 		Expect(resp).NotTo(BeNil())
 		Expect(resp.NodeId).To(Equal("test-node-id"))
+	})
+
+	It("should return MaxVolumesPerNode from runtime configuration", func() {
+		nodeHandler.runtimeCfg.SetMaxVolumesPerNode(int64(100))
+		resp, err := nodeHandler.NodeGetInfo(context.Background(), &csi.NodeGetInfoRequest{})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(resp).NotTo(BeNil())
+		Expect(resp.MaxVolumesPerNode).To(Equal(int64(100)))
 	})
 })

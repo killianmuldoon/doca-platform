@@ -32,18 +32,20 @@ type Preconfigure interface {
 	runner.Runnable
 }
 
-func New(config config.Node, pci utilsPci.Utils) Preconfigure {
+func New(config config.Node, runtimeConfig *config.NodeRuntime, pci utilsPci.Utils) Preconfigure {
 	return &preconfigure{
-		config:  config,
-		pci:     pci,
-		started: make(chan struct{}),
+		config:        config,
+		runtimeConfig: runtimeConfig,
+		pci:           pci,
+		started:       make(chan struct{}),
 	}
 }
 
 type preconfigure struct {
-	config  config.Node
-	pci     utilsPci.Utils
-	started chan struct{}
+	config        config.Node
+	runtimeConfig *config.NodeRuntime
+	pci           utilsPci.Utils
+	started       chan struct{}
 }
 
 // Run blocks until context is canceled or an error occurred
@@ -109,6 +111,7 @@ func (p *preconfigure) run(ctx context.Context) error {
 			klog.ErrorS(nil, "current number of the storage VFs doesn't match expected with value, "+
 				"some volumes may fail to attach. reboot the node to fix the issue.", "device", pfAddress, "current", curVfs, "expected", maxVfs)
 		}
+		p.runtimeConfig.SetMaxVolumesPerNode(int64(curVfs))
 		return nil
 	}
 	klog.V(2).InfoS("create VFs on the device", "device", pfAddress)
@@ -122,6 +125,7 @@ func (p *preconfigure) run(ctx context.Context) error {
 		klog.ErrorS(err, "failed to create VFs", "device", pfAddress)
 		return err
 	}
+	p.runtimeConfig.SetMaxVolumesPerNode(int64(maxVfs))
 	klog.InfoS("device configured", "device", pfAddress, "vfCount", maxVfs)
 	return nil
 }

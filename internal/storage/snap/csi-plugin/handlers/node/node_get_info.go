@@ -29,6 +29,7 @@ func (h *node) NodeGetInfo(
 	req *csi.NodeGetInfoRequest) (
 	*csi.NodeGetInfoResponse, error) {
 	return &csi.NodeGetInfoResponse{
-		NodeId: h.cfg.NodeID,
+		NodeId:            h.cfg.NodeID,
+		MaxVolumesPerNode: h.runtimeCfg.GetMaxVolumesPerNode(),
 	}, nil
 }

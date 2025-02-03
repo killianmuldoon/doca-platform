@@ -32,21 +32,23 @@ type Handler interface {
 }
 
 // New returns new instance of default implementation of the node handler
-func New(cfg config.Node, mount utilsMount.Utils, nvme utilsNvme.Utils, pci utilsPci.Utils) Handler {
+func New(cfg config.Node, runtimeCfg *config.NodeRuntime, mount utilsMount.Utils, nvme utilsNvme.Utils, pci utilsPci.Utils) Handler {
 	return &node{
-		cfg:   cfg,
-		mount: mount,
-		nvme:  nvme,
-		pci:   pci,
+		cfg:        cfg,
+		runtimeCfg: runtimeCfg,
+		mount:      mount,
+		nvme:       nvme,
+		pci:        pci,
 	}
 }
 
 type node struct {
 	csi.UnimplementedNodeServer
-	cfg   config.Node
-	mount utilsMount.Utils
-	nvme  utilsNvme.Utils
-	pci   utilsPci.Utils
+	cfg        config.Node
+	runtimeCfg *config.NodeRuntime
+	mount      utilsMount.Utils
+	nvme       utilsNvme.Utils
+	pci        utilsPci.Utils
 }
 
 func (h *node) getStagingPath(stagingPath, volumeID string) string {
