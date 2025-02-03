@@ -55,6 +55,10 @@ func DiscoverAll(ctx context.Context, c client.Client, opts ObjectTreeOptions) (
 		opts:   opts,
 	}
 
+	if err = addBFBs(ctx, scope, dpfOperatorConfig, nil); err != nil {
+		return nil, err
+	}
+
 	if err = addDPUClusters(ctx, scope, dpfOperatorConfig); err != nil {
 		return nil, err
 	}
@@ -375,6 +379,10 @@ func addDPUServiceIPAMs(ctx context.Context, o objectScope, root client.Object, 
 
 func addDPUServiceCredentialRequests(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels, skipFunc func(map[string]string) bool) error {
 	return addResourceByGVK(ctx, o, root, dpuservicev1.DPUServiceCredentialRequestGroupVersionKind, matchLabels, skipFunc)
+}
+
+func addBFBs(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels) error {
+	return addResourceByGVK(ctx, o, root, provisioningv1.BFBGroupVersionKind, matchLabels, nil)
 }
 
 func addResourceByGVK(ctx context.Context, o objectScope, root client.Object, gvk schema.GroupVersionKind, matchLabels client.MatchingLabels, skipFunc func(map[string]string) bool) error {
