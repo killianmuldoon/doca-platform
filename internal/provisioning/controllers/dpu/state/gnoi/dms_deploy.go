@@ -81,6 +81,19 @@ func DeployDMS(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 			pod.Status.InitContainerStatuses[0].LastTerminationState.Terminated == nil {
 			return *state, nil
 		}
+		// Verify NFS server connection using the DMS container startup probe.
+		if pod.Status.ContainerStatuses[0].State.Waiting != nil {
+			for _, condition := range pod.Status.Conditions {
+				if condition.Type != corev1.PodReadyToStartContainers || condition.Status != corev1.ConditionFalse {
+					continue
+				}
+				message := fmt.Sprintf("the DMS server %s is not ready yet, wait for the NFS server to become available", dmsPodName)
+				cond := cutil.DPUCondition(provisioningv1.DPUCondDMSRunning, "NFSServerNotAvailable", message)
+				cond.Status = metav1.ConditionFalse
+				cutil.SetDPUCondition(state, cond)
+				return *state, fmt.Errorf("%s", message)
+			}
+		}
 		message := fmt.Sprintf("the DMS server %s is not ready yet, wait for %q", dmsPodName, pod.Status.InitContainerStatuses[0].LastTerminationState.Terminated.Message)
 		cond := cutil.DPUCondition(provisioningv1.DPUCondDMSRunning, "ExistingRshimInstallDetected", message)
 		cond.Status = metav1.ConditionFalse

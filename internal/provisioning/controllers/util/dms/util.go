@@ -234,6 +234,16 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 					Args: []string{
 						dmsCommand,
 					},
+					StartupProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							Exec: &corev1.ExecAction{
+								Command: []string{"/bin/bash", "-c", "df -h | grep /bfb"}, // Verify NFS server is available
+							},
+						},
+						TimeoutSeconds:   1,
+						FailureThreshold: 30,
+						PeriodSeconds:    10,
+					},
 				},
 			},
 			ImagePullSecrets: option.ImagePullSecrets,
