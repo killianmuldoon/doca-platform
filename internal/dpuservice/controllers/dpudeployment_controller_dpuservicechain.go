@@ -21,40 +21,204 @@ import (
 	"fmt"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/conditions"
+	"github.com/nvidia/doca-platform/internal/digest"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	utilrand "k8s.io/apimachinery/pkg/util/rand"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// reconcileDPUServiceChain reconciles the DPUServiceChain object created by the DPUDeployment
-func reconcileDPUServiceChain(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, dpuNodeLabels map[string]string) error {
+func reconcileDPUServiceChain(ctx context.Context,
+	c client.Client,
+	dpuDeployment *dpuservicev1.DPUDeployment,
+	dpuNodeLabels map[string]string) (ctrl.Result, error) {
 	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
-
-	dpuServiceChain := generateDPUServiceChain(client.ObjectKeyFromObject(dpuDeployment), owner, dpuDeployment.Spec.ServiceChains)
-
-	// we save the version in the annotations, as this will permit us to retrieve
-	// a dpuServiceChain by its version
-	dpuServiceChain.Annotations = map[string]string{
-		"svc.dpu.nvidia.com/dpuservicechain-version": dpuServiceObjectVersionPlaceholder,
+	requeue := ctrl.Result{}
+	// Grab existing DPUServiceChains
+	existingDPUServiceChains := &dpuservicev1.DPUServiceChainList{}
+	if err := c.List(ctx,
+		existingDPUServiceChains,
+		client.MatchingLabels{
+			dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
+		},
+		client.InNamespace(dpuDeployment.Namespace)); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to list existing DPUServiceChains: %w", err)
 	}
 
-	// Add the node selector to the DPUService only if it is deployed on a dpu cluster
-	nodeLabelKey := dpuServiceChainVersionLabelKey
-	nodeLabelValue := dpuServiceObjectVersionPlaceholder
-	dpuServiceNodeSelector := newDPUServiceObjectLabelSelectorWithOwner(nodeLabelKey, nodeLabelValue, client.ObjectKeyFromObject(dpuDeployment))
-	dpuServiceChain.Spec.Template.Spec.NodeSelector = dpuServiceNodeSelector
-	dpuNodeLabels[nodeLabelKey] = nodeLabelValue
-
-	if err := c.Patch(ctx, dpuServiceChain, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
-		return fmt.Errorf("error while patching %s %s: %w", dpuServiceChain.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuServiceChain), err)
+	existingDPUServiceChainsMap := make(map[string]dpuservicev1.DPUServiceChain)
+	for _, dpuServiceChain := range existingDPUServiceChains.Items {
+		existingDPUServiceChainsMap[dpuServiceChain.Name] = dpuServiceChain
 	}
 
-	return nil
+	versionDigest := calculateDPUServiceChainVersionDigest(dpuDeployment.Spec.ServiceChains.Switches)
+	newSvcChain := generateDPUServiceChain(client.ObjectKeyFromObject(dpuDeployment),
+		owner,
+		versionDigest,
+		dpuDeployment.Spec.ServiceChains.Switches,
+	)
+
+	currSvcChain, oldSvcChains := getCurrentAndStaleDPUServiceChains(versionDigest, existingDPUServiceChains)
+	switch {
+	case currSvcChain != nil:
+		// we found the current revision based on the digest, there might be old revisions to handle
+		return reconcileCurrentRevision(ctx, c, currSvcChain, oldSvcChains, dpuNodeLabels, existingDPUServiceChainsMap)
+	case len(oldSvcChains) > 0:
+		// we have only previous revisions
+		req := reconcileDPUServiceChainWithOldRevisions(newSvcChain, oldSvcChains, versionDigest, dpuDeployment, dpuNodeLabels, existingDPUServiceChainsMap)
+		if !req.IsZero() {
+			requeue = req
+		}
+	default:
+		// no previous revision, we are creating a new one
+		reconcileNewDPUServiceChainRevision(newSvcChain, versionDigest, dpuDeployment, dpuNodeLabels)
+	}
+
+	if err := c.Patch(ctx, newSvcChain, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
+		return requeue, fmt.Errorf("failed to patch DPUServiceChain %s: %w", client.ObjectKeyFromObject(newSvcChain), err)
+	}
+
+	// Cleanup the remaining stale DPUServiceChains
+	for _, dpuServiceChain := range existingDPUServiceChainsMap {
+		if err := c.Delete(ctx, &dpuServiceChain); err != nil {
+			return requeue, fmt.Errorf("failed to delete DPUServiceChain %s: %w", client.ObjectKeyFromObject(&dpuServiceChain), err)
+		}
+	}
+
+	return requeue, nil
+}
+
+// reconcileNewDPUServiceChainRevision reconciles a new revision of the DPUServiceChain
+// It accepts a new DPUServiceChain object and the versionDigest of the DPUServiceChain
+// It sets the nodeSelector for the DPUServiceChain and updates the DPUNodeLabels
+func reconcileNewDPUServiceChainRevision(newDPUServiceChain client.Object,
+	versionDigest string,
+	dpuDeployment *dpuservicev1.DPUDeployment,
+	dpuNodeLabels map[string]string) {
+	newSvcChain := newDPUServiceChain.(*dpuservicev1.DPUServiceChain)
+	newSvcChain.SetServiceChainSetLabelSelector(newObjectLabelSelectorWithOwner(dpuServiceChainVersionLabelAnnotationKey, versionDigest, client.ObjectKeyFromObject(dpuDeployment)))
+
+	// This is needed in all cases, because we don't know if a dpuSet will be updated or created
+	setDPUServiceChainNodeLabelValue(versionDigest, dpuNodeLabels)
+
+	// TODO: By default when creating a new non-disruptive DPUServiceChain
+	// we should not cause node effect because of labels
+}
+
+// reconcileDPUServiceChainWithOldRevisions reconciles a new revision of the DPUServiceChain and the old revisions
+// It accepts a new DPUServiceChain object, the old revisions and the versionDigest of the DPUServiceChain
+// It sets the nodeSelector for the DPUServiceChain and updates the DPUNodeLabels.
+func reconcileDPUServiceChainWithOldRevisions(newDPUServiceChain client.Object,
+	oldRevisions []client.Object,
+	versionDigest string,
+	dpuDeployment *dpuservicev1.DPUDeployment,
+	dpuNodeLabels map[string]string,
+	existingDPUServiceChainsMap map[string]dpuservicev1.DPUServiceChain) ctrl.Result {
+	newSvcChain := newDPUServiceChain.(*dpuservicev1.DPUServiceChain)
+	dpuServiceChainNodeSelector := newObjectLabelSelectorWithOwner(dpuServiceChainVersionLabelAnnotationKey, versionDigest, client.ObjectKeyFromObject(dpuDeployment))
+	nodeLabelValue := versionDigest
+	var toRetain []client.Object
+	if dpuDeployment.Spec.ServiceChains.NodeEffect != nil && *dpuDeployment.Spec.ServiceChains.NodeEffect {
+		toRetain = getRevisionHistoryLimitList(oldRevisions, *dpuDeployment.Spec.RevisionHistoryLimit-1)
+		newSvcChain.SetServiceChainSetLabelSelector(dpuServiceChainNodeSelector)
+	} else {
+		// just patch the youngest existing service
+		toRetain = getRevisionHistoryLimitList(oldRevisions, *dpuDeployment.Spec.RevisionHistoryLimit)
+		oldSvc := toRetain[0].(*dpuservicev1.DPUServiceChain)
+		newSvcChain.Name = oldSvc.Name
+		// we are not creating a new serviceChain, we are updating the existing one
+		// so we need to keep the same `version` and `owned-by-dpudeployment` selector to avoid downtime
+		newSvcChain.SetServiceChainSetLabelSelector(&metav1.LabelSelector{
+			MatchExpressions: oldSvc.Spec.Template.Spec.NodeSelector.MatchExpressions,
+		})
+		nodeLabelValue = getLabelSelectorDPUServiceChainVersionValue(oldSvc.Spec.Template.Spec.NodeSelector)
+	}
+
+	for _, svcChain := range toRetain {
+		delete(existingDPUServiceChainsMap, svcChain.GetName())
+	}
+
+	// This is needed in all cases, because we don't know if a dpuSet will be updated or created
+	setDPUServiceChainNodeLabelValue(nodeLabelValue, dpuNodeLabels)
+
+	return ctrl.Result{RequeueAfter: reconcileRequeueDuration}
+}
+
+// ReconcileCurrentRevision reconciles the current revision of the DPUServiceChain and the old revisions
+// It accepts the current DPUServiceChain object, the old revisions and the versionDigest of the DPUServiceChain
+// It cleans the old revisions and updates the DPUNodeLabels
+func reconcileCurrentRevision(ctx context.Context, c client.Client,
+	current client.Object,
+	oldRevisions []client.Object,
+	dpuNodeLabels map[string]string,
+	existingDPUServiceChainsMap map[string]dpuservicev1.DPUServiceChain) (ctrl.Result, error) {
+	log := ctrllog.FromContext(ctx)
+	requeue := ctrl.Result{RequeueAfter: reconcileRequeueDuration}
+	currSvcChain, oldSvcChains := current.(*dpuservicev1.DPUServiceChain), clientObjectToDPUServiceChainList(oldRevisions)
+
+	delete(existingDPUServiceChainsMap, currSvcChain.GetName())
+
+	// if the current revision is still not ready, keep the eventual old revisions and requeue
+	// otherwise, clean old revisions
+	if conditions.IsTrue(currSvcChain, conditions.TypeReady) {
+		err := cleanStaleDPUServiceChains(ctx, c, oldSvcChains)
+		if err != nil {
+			log.Error(err, "failed to resume stale DPUService")
+		}
+		// don't requeue if the current revision is ready
+		requeue = ctrl.Result{}
+	}
+
+	for _, svcChain := range oldSvcChains {
+		delete(existingDPUServiceChainsMap, svcChain.Name)
+	}
+
+	// This is needed because we don't know if a dpuSet will be updated or created
+	setDPUServiceChainNodeLabelValue(getLabelSelectorDPUServiceChainVersionValue(currSvcChain.Spec.Template.Spec.NodeSelector), dpuNodeLabels)
+
+	// Never patch the current revision, it could have stale nodeSelector terms that we don't want to remove
+	// The user should not change the dpuservice chain manually, because the controller will overwrite the changes
+	// at some point as part of the upgrade process.
+	return requeue, nil
+}
+
+// setDPUServiceChainNodeLabelValue sets the value of the DPUServiceChain version label
+func setDPUServiceChainNodeLabelValue(value string, nodeLabels map[string]string) {
+	nodeLabels[dpuServiceChainVersionLabelAnnotationKey] = value
+}
+
+// getCurrentAndStaleDPUServiceChains returns the current and stale DPUServiceChain objects
+func getCurrentAndStaleDPUServiceChains(currentVersionDigest string, existingDPUServiceChains *dpuservicev1.DPUServiceChainList) (client.Object, []client.Object) {
+	match := []client.Object{}
+	var current client.Object
+	for _, dpuServiceChain := range existingDPUServiceChains.Items {
+		if dpuServiceChain.Annotations[dpuServiceChainVersionLabelAnnotationKey] == currentVersionDigest {
+			current = &dpuServiceChain
+		} else {
+			match = append(match, &dpuServiceChain)
+		}
+	}
+	return current, match
+}
+
+// getLabelSelectorDPUServiceChainVersionValue returns the NodeSelectorTerm for the given DPUService version label key
+func getLabelSelectorDPUServiceChainVersionValue(labelSelector *metav1.LabelSelector) string {
+	var version string
+	for _, req := range labelSelector.MatchExpressions {
+		if req.Key == dpuServiceChainVersionLabelAnnotationKey {
+			version = req.Values[0]
+			break
+		}
+	}
+	return version
 }
 
 // generateDPUServiceChain generates a DPUServiceChain according to the DPUDeployment
-func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, owner *metav1.OwnerReference, switches []dpuservicev1.DPUDeploymentSwitch) *dpuservicev1.DPUServiceChain {
+func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, owner *metav1.OwnerReference, versionDigest string, switches []dpuservicev1.DPUDeploymentSwitch) *dpuservicev1.DPUServiceChain {
 	sw := make([]dpuservicev1.Switch, 0, len(switches))
 
 	for _, s := range switches {
@@ -63,8 +227,13 @@ func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, o
 
 	dpuServiceChain := &dpuservicev1.DPUServiceChain{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dpuDeploymentNamespacedName.Name,
+			Name:      fmt.Sprintf("%s-%s", dpuDeploymentNamespacedName.Name, utilrand.String(randomLength)),
 			Namespace: dpuDeploymentNamespacedName.Namespace,
+			// we save the version in the annotations, as this will permit us to retrieve
+			// a dpuServiceChain by its version
+			Annotations: map[string]string{
+				dpuServiceChainVersionLabelAnnotationKey: versionDigest,
+			},
 			Labels: map[string]string{
 				dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName),
 			},
@@ -73,7 +242,6 @@ func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, o
 			// TODO: Derive and add cluster selector
 			Template: dpuservicev1.ServiceChainSetSpecTemplate{
 				Spec: dpuservicev1.ServiceChainSetSpec{
-					// TODO: Figure out what to do with NodeSelector
 					Template: dpuservicev1.ServiceChainSpecTemplate{
 						Spec: dpuservicev1.ServiceChainSpec{
 							Switches: sw,
@@ -88,6 +256,17 @@ func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, o
 	dpuServiceChain.SetGroupVersionKind(dpuservicev1.DPUServiceChainGroupVersionKind)
 
 	return dpuServiceChain
+}
+
+func cleanStaleDPUServiceChains(ctx context.Context, c client.Client, oldObjects []dpuservicev1.DPUServiceChain) error {
+	for _, obj := range oldObjects {
+		if err := c.Delete(ctx, &obj); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("error while deleting %s %s: %w", obj.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&obj), err)
+			}
+		}
+	}
+	return nil
 }
 
 // convertToSFCSwitch converts a dpuservicev1.DPUDeploymentSwitch to a dpuservicev1.DPUDeploymentSwitch
@@ -118,4 +297,16 @@ func convertToSFCSwitch(dpuDeploymentNamespacedName types.NamespacedName, sw dpu
 
 	}
 	return o
+}
+
+func clientObjectToDPUServiceChainList(oldRevisions []client.Object) []dpuservicev1.DPUServiceChain {
+	oldSvcChains := make([]dpuservicev1.DPUServiceChain, 0, len(oldRevisions))
+	for _, svc := range oldRevisions {
+		oldSvcChains = append(oldSvcChains, *svc.(*dpuservicev1.DPUServiceChain))
+	}
+	return oldSvcChains
+}
+
+func calculateDPUServiceChainVersionDigest(switches []dpuservicev1.DPUDeploymentSwitch) string {
+	return digest.Short(digest.FromObjects(switches), 10)
 }

@@ -22,10 +22,11 @@ spec:
       serviceTemplate: "dpudeployment-example-servicetemplate"
       serviceConfiguration: "dpudeployment-example-serviceconfiguration"
   serviceChains:
-  - ports:
-    - serviceInterface:
-        matchLabels:
-          uplink: p0
-    - service:
-        name: example
-        interface: app-iface
+    switches:
+      - ports:
+        - serviceInterface:
+            matchLabels:
+              uplink: p0
+        - service:
+            name: example
+            interface: app-iface

@@ -55,6 +55,11 @@ func (c *DPUServiceChain) SetConditions(conditions []metav1.Condition) {
 	c.Status.Conditions = conditions
 }
 
+// SetServiceChainSetLabelSelector sets the label selector for the ServiceChainSet
+func (c *DPUServiceChain) SetServiceChainSetLabelSelector(selector *metav1.LabelSelector) {
+	c.Spec.Template.Spec.NodeSelector = selector
+}
+
 // DPUServiceChainSpec defines the desired state of DPUServiceChainSpec
 type DPUServiceChainSpec struct {
 	// Select the Clusters with specific labels, ServiceChainSet CRs will be created only for these Clusters

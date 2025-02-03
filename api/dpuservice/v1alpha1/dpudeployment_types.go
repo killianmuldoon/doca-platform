@@ -102,15 +102,25 @@ type DPUDeploymentSpec struct {
 
 	// ServiceChains contains the configuration related to the DPUServiceChains that the DPUDeployment creates.
 	// +required
-	// +kubebuilder:validation:MinItems=1
-	// +kubebuilder:validation:MaxItems=50
-	ServiceChains []DPUDeploymentSwitch `json:"serviceChains"`
+	ServiceChains ServiceChains `json:"serviceChains"`
 
 	// The maximum number of revisions that can be retained during upgrades.
 	// Defaults to 10.
 	// +optional
 	// +kubebuilder:default=10
 	RevisionHistoryLimit *int32 `json:"revisionHistoryLimit,omitempty"`
+}
+
+type ServiceChains struct {
+	// NodeEffect specifies the effect of the ServiceChains on the node
+	// +optional
+	NodeEffect *bool `json:"nodeEffect,omitempty"`
+
+	// Switches is the list of switches that form the service chain
+	// +required
+	// +kubebuilder:validation:MinItems=1
+	// +kubebuilder:validation:MaxItems=50
+	Switches []DPUDeploymentSwitch `json:"switches"`
 }
 
 // DPUs contains the DPU related configuration

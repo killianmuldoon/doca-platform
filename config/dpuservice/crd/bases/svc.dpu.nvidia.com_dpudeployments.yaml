@@ -163,105 +163,119 @@ spec:
               serviceChains:
                 description: ServiceChains contains the configuration related to the
                   DPUServiceChains that the DPUDeployment creates.
-                items:
-                  description: DPUDeploymentSwitch holds the ports that are connected
-                    in switch topology
-                  properties:
-                    ports:
-                      description: Ports contains the ports of the switch
-                      items:
-                        description: DPUDeploymentPort defines how a port can be configured
-                        properties:
-                          service:
-                            description: |-
-                              Service holds configuration that helps configure the Service Function Chain and identify a port associated with
-                              a DPUService
+                properties:
+                  nodeEffect:
+                    description: NodeEffect specifies the effect of the ServiceChains
+                      on the node
+                    type: boolean
+                  switches:
+                    description: Switches is the list of switches that form the service
+                      chain
+                    items:
+                      description: DPUDeploymentSwitch holds the ports that are connected
+                        in switch topology
+                      properties:
+                        ports:
+                          description: Ports contains the ports of the switch
+                          items:
+                            description: DPUDeploymentPort defines how a port can
+                              be configured
                             properties:
-                              interface:
-                                description: Interface name is the name of the interface
-                                  as defined in the DPUServiceTemplate
-                                type: string
-                              ipam:
-                                description: IPAM defines the IPAM configuration that
-                                  is configured in the Service Function Chain
+                              service:
+                                description: |-
+                                  Service holds configuration that helps configure the Service Function Chain and identify a port associated with
+                                  a DPUService
                                 properties:
-                                  defaultGateway:
-                                    description: DefaultGateway adds gateway as default
-                                      gateway in the routes list if true.
-                                    type: boolean
+                                  interface:
+                                    description: Interface name is the name of the
+                                      interface as defined in the DPUServiceTemplate
+                                    type: string
+                                  ipam:
+                                    description: IPAM defines the IPAM configuration
+                                      that is configured in the Service Function Chain
+                                    properties:
+                                      defaultGateway:
+                                        description: DefaultGateway adds gateway as
+                                          default gateway in the routes list if true.
+                                        type: boolean
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: Labels matching service IPAM
+                                        maxProperties: 50
+                                        minProperties: 1
+                                        type: object
+                                      setDefaultRoute:
+                                        description: SetDefaultRoute adds a default
+                                          route to the routing table if true.
+                                        type: boolean
+                                    required:
+                                    - matchLabels
+                                    type: object
+                                  name:
+                                    description: Name is the name of the service as
+                                      defined in the DPUDeployment Spec
+                                    type: string
+                                required:
+                                - interface
+                                - name
+                                type: object
+                              serviceInterface:
+                                description: |-
+                                  ServiceInterface holds configuration that helps configure the Service Function Chain and identify a user defined
+                                  port
+                                properties:
+                                  ipam:
+                                    description: IPAM defines the IPAM configuration
+                                      when referencing a serviceInterface of type
+                                      'service'
+                                    properties:
+                                      defaultGateway:
+                                        description: DefaultGateway adds gateway as
+                                          default gateway in the routes list if true.
+                                        type: boolean
+                                      matchLabels:
+                                        additionalProperties:
+                                          type: string
+                                        description: Labels matching service IPAM
+                                        maxProperties: 50
+                                        minProperties: 1
+                                        type: object
+                                      setDefaultRoute:
+                                        description: SetDefaultRoute adds a default
+                                          route to the routing table if true.
+                                        type: boolean
+                                    required:
+                                    - matchLabels
+                                    type: object
                                   matchLabels:
                                     additionalProperties:
                                       type: string
-                                    description: Labels matching service IPAM
+                                    description: Labels matching service interface
                                     maxProperties: 50
                                     minProperties: 1
                                     type: object
-                                  setDefaultRoute:
-                                    description: SetDefaultRoute adds a default route
-                                      to the routing table if true.
-                                    type: boolean
                                 required:
                                 - matchLabels
                                 type: object
-                              name:
-                                description: Name is the name of the service as defined
-                                  in the DPUDeployment Spec
-                                type: string
-                            required:
-                            - interface
-                            - name
                             type: object
-                          serviceInterface:
-                            description: |-
-                              ServiceInterface holds configuration that helps configure the Service Function Chain and identify a user defined
-                              port
-                            properties:
-                              ipam:
-                                description: IPAM defines the IPAM configuration when
-                                  referencing a serviceInterface of type 'service'
-                                properties:
-                                  defaultGateway:
-                                    description: DefaultGateway adds gateway as default
-                                      gateway in the routes list if true.
-                                    type: boolean
-                                  matchLabels:
-                                    additionalProperties:
-                                      type: string
-                                    description: Labels matching service IPAM
-                                    maxProperties: 50
-                                    minProperties: 1
-                                    type: object
-                                  setDefaultRoute:
-                                    description: SetDefaultRoute adds a default route
-                                      to the routing table if true.
-                                    type: boolean
-                                required:
-                                - matchLabels
-                                type: object
-                              matchLabels:
-                                additionalProperties:
-                                  type: string
-                                description: Labels matching service interface
-                                maxProperties: 50
-                                minProperties: 1
-                                type: object
-                            required:
-                            - matchLabels
-                            type: object
-                        type: object
-                        x-kubernetes-validations:
-                        - message: either service or serviceInterface must be specified
-                          rule: (has(self.service) && !has(self.serviceInterface))
-                            || (!has(self.service) && has(self.serviceInterface))
-                      maxItems: 50
-                      minItems: 1
-                      type: array
-                  required:
-                  - ports
-                  type: object
-                maxItems: 50
-                minItems: 1
-                type: array
+                            x-kubernetes-validations:
+                            - message: either service or serviceInterface must be
+                                specified
+                              rule: (has(self.service) && !has(self.serviceInterface))
+                                || (!has(self.service) && has(self.serviceInterface))
+                          maxItems: 50
+                          minItems: 1
+                          type: array
+                      required:
+                      - ports
+                      type: object
+                    maxItems: 50
+                    minItems: 1
+                    type: array
+                required:
+                - switches
+                type: object
               services:
                 additionalProperties:
                   description: DPUDeploymentServiceConfiguration describes the configuration

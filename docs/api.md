@@ -2184,7 +2184,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `dpus` _[DPUs](#dpus)_ | DPUs contains the DPU related configuration |  |  |
 | `services` _object (keys:string, values:[DPUDeploymentServiceConfiguration](#dpudeploymentserviceconfiguration))_ | Services contains the DPUDeploymentService related configuration. The key is the deploymentServiceName and the value is its<br />configuration. All underlying objects must specify the same deploymentServiceName in order to be able to be consumed by the<br />DPUDeployment. |  |  |
-| `serviceChains` _[DPUDeploymentSwitch](#dpudeploymentswitch) array_ | ServiceChains contains the configuration related to the DPUServiceChains that the DPUDeployment creates. |  | MaxItems: 50 <br />MinItems: 1 <br /> |
+| `serviceChains` _[ServiceChains](#servicechains)_ | ServiceChains contains the configuration related to the DPUServiceChains that the DPUDeployment creates. |  |  |
 | `revisionHistoryLimit` _integer_ | The maximum number of revisions that can be retained during upgrades.<br />Defaults to 10. | 10 |  |
 
 
@@ -2214,7 +2214,7 @@ DPUDeploymentSwitch holds the ports that are connected in switch topology
 
 
 _Appears in:_
-- [DPUDeploymentSpec](#dpudeploymentspec)
+- [ServiceChains](#servicechains)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -2820,7 +2820,7 @@ _Appears in:_
 
 #### IPAM
 
-
+_Underlying type:_ _[struct{MatchLabels map[string]string "json:\"matchLabels\""; DefaultGateway *bool "json:\"defaultGateway,omitempty\""; SetDefaultRoute *bool "json:\"setDefaultRoute,omitempty\""}](#struct{matchlabels-map[string]string-"json:\"matchlabels\"";-defaultgateway-*bool-"json:\"defaultgateway,omitempty\"";-setdefaultroute-*bool-"json:\"setdefaultroute,omitempty\""})_
 
 IPAM defines the IPAM configuration
 
@@ -2830,11 +2830,6 @@ _Appears in:_
 - [DPUDeploymentService](#dpudeploymentservice)
 - [ServiceIfc](#serviceifc)
 
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `matchLabels` _object (keys:string, values:string)_ | Labels matching service IPAM |  | MaxProperties: 50 <br />MinProperties: 1 <br /> |
-| `defaultGateway` _boolean_ | DefaultGateway adds gateway as default gateway in the routes list if true. |  |  |
-| `setDefaultRoute` _boolean_ | SetDefaultRoute adds a default route to the routing table if true. |  |  |
 
 
 #### IPV4Network
@@ -3179,6 +3174,23 @@ ServiceChainStatus defines the observed state of ServiceChain
 _Appears in:_
 - [ServiceChain](#servicechain)
 
+
+
+#### ServiceChains
+
+
+
+
+
+
+
+_Appears in:_
+- [DPUDeploymentSpec](#dpudeploymentspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `nodeEffect` _boolean_ | NodeEffect specifies the effect of the ServiceChains on the node |  |  |
+| `switches` _[DPUDeploymentSwitch](#dpudeploymentswitch) array_ | Switches is the list of switches that form the service chain |  | MaxItems: 50 <br />MinItems: 1 <br /> |
 
 
 #### ServiceConfiguration

@@ -49,8 +49,9 @@ import (
 
 const (
 	dpuDeploymentControllerName = "dpudeploymentcontroller"
-	// DPUServiceChainVersionLabelKey is the key for the DPUServiceChain version that is used as labels on DPUSets and NodeSelector in DPUServiceChains>
-	dpuServiceChainVersionLabelKey = "svc.dpu.nvidia.com/dpuservicechain-version"
+	// dpuServiceChainVersionLabelKey is the key for the DPUServiceChain version that is used as labels on DPUSets and NodeSelector in DPUServiceChains.
+	// It is also used to discover the most current DPUServiceChain as annotations on DPUServiceChain objects.
+	dpuServiceChainVersionLabelAnnotationKey = "svc.dpu.nvidia.com/dpuservicechain-version"
 	// dependentDPUDeploymentLabelKeyPrefix is the prefix of the label key that is applied to dependent objects of
 	// a DPUDeployment
 	dependentDPUDeploymentLabelKeyPrefix = "svc.dpu.nvidia.com/consumed-by-dpudeployment"
@@ -59,8 +60,6 @@ const (
 
 	// ServiceInterfaceInterfaceNameLabel label identifies a specific interface of a DPUService.
 	ServiceInterfaceInterfaceNameLabel = "svc.dpu.nvidia.com/interface"
-	// dpuServiceObjectVersionPlaceholder is the placeholder value for the version of the DPUService object.
-	dpuServiceObjectVersionPlaceholder = "placeholder-for-version"
 	// dpuServiceVersionAnnotationKey is the key for the version of the DPUService object used to discover the most current DPUService.
 	dpuServiceVersionAnnotationKey = "svc.dpu.nvidia.com/dpuservice-version"
 
@@ -296,7 +295,8 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 	}
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServiceInterfacesReconciled)
 
-	if err := reconcileDPUServiceChain(ctx, r.Client, dpuDeployment, dpuNodeLabels); err != nil {
+	req, err := reconcileDPUServiceChain(ctx, r.Client, dpuDeployment, dpuNodeLabels)
+	if err != nil {
 		conditions.AddFalse(
 			dpuDeployment,
 			dpuservicev1.ConditionDPUServiceChainsReconciled,
@@ -306,6 +306,10 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 		return ctrl.Result{}, fmt.Errorf("error while reconciling the DPUServiceChain: %w", err)
 	}
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServiceChainsReconciled)
+
+	if !req.IsZero() {
+		requeue = req
+	}
 
 	if err := reconcileDPUSets(ctx, r.Client, dpuDeployment, dpuNodeLabels); err != nil {
 		conditions.AddFalse(
@@ -643,54 +647,6 @@ func matchDPUSetIndex(expected *provisioningv1.DPUSet, existing []provisioningv1
 	return -1
 }
 
-// reconcileDPUServiceInterfaces reconciles the DPUServiceInterfaces created by the DPUDeployment
-func reconcileDPUServiceInterfaces(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, dependencies *dpuDeploymentDependencies, dpuNodeLabels map[string]string) error {
-	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
-
-	// Grab existing DPUServiceInterface
-	existingDPUServiceInterfaces := &dpuservicev1.DPUServiceInterfaceList{}
-	if err := c.List(ctx,
-		existingDPUServiceInterfaces,
-		client.MatchingLabels{
-			dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
-		},
-		client.InNamespace(dpuDeployment.Namespace)); err != nil {
-		return fmt.Errorf("error while listing DPUServiceInterfaces: %w", err)
-	}
-
-	existingDPUServiceInterfacesMap := make(map[string]dpuservicev1.DPUServiceInterface)
-	for _, dpuServiceInterface := range existingDPUServiceInterfaces.Items {
-		existingDPUServiceInterfacesMap[dpuServiceInterface.Name] = dpuServiceInterface
-	}
-
-	// Create or update DPUServiceInterfaces to match what is defined in the DPUDeployment
-	for dpuServiceName := range dpuDeployment.Spec.Services {
-		for _, serviceInterface := range dependencies.DPUServiceConfigurations[dpuServiceName].Spec.Interfaces {
-			dpuServiceInterface := generateDPUServiceInterface(client.ObjectKeyFromObject(dpuDeployment),
-				owner,
-				dpuServiceName,
-				serviceInterface,
-				dpuNodeLabels,
-			)
-
-			if err := c.Patch(ctx, dpuServiceInterface, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
-				return fmt.Errorf("error while patching %s %s: %w", dpuServiceInterface.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuServiceInterface), err)
-			}
-
-			delete(existingDPUServiceInterfacesMap, dpuServiceInterface.Name)
-		}
-	}
-
-	// Cleanup the remaining stale DPUServiceInterfaces
-	for _, dpuServiceInterface := range existingDPUServiceInterfacesMap {
-		if err := c.Delete(ctx, &dpuServiceInterface); err != nil {
-			return fmt.Errorf("error while deleting %s %s: %w", dpuServiceInterface.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuServiceInterface), err)
-		}
-	}
-
-	return nil
-}
-
 // generateDPUSet generates a DPUSet according to the DPUDeployment
 func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 	owner *metav1.OwnerReference,
@@ -743,6 +699,54 @@ func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 	dpuSet.SetGroupVersionKind(provisioningv1.DPUSetGroupVersionKind)
 
 	return dpuSet
+}
+
+// reconcileDPUServiceInterfaces reconciles the DPUServiceInterfaces created by the DPUDeployment
+func reconcileDPUServiceInterfaces(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, dependencies *dpuDeploymentDependencies, dpuNodeLabels map[string]string) error {
+	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
+
+	// Grab existing DPUServiceInterface
+	existingDPUServiceInterfaces := &dpuservicev1.DPUServiceInterfaceList{}
+	if err := c.List(ctx,
+		existingDPUServiceInterfaces,
+		client.MatchingLabels{
+			dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
+		},
+		client.InNamespace(dpuDeployment.Namespace)); err != nil {
+		return fmt.Errorf("error while listing DPUServiceInterfaces: %w", err)
+	}
+
+	existingDPUServiceInterfacesMap := make(map[string]dpuservicev1.DPUServiceInterface)
+	for _, dpuServiceInterface := range existingDPUServiceInterfaces.Items {
+		existingDPUServiceInterfacesMap[dpuServiceInterface.Name] = dpuServiceInterface
+	}
+
+	// Create or update DPUServiceInterfaces to match what is defined in the DPUDeployment
+	for dpuServiceName := range dpuDeployment.Spec.Services {
+		for _, serviceInterface := range dependencies.DPUServiceConfigurations[dpuServiceName].Spec.Interfaces {
+			dpuServiceInterface := generateDPUServiceInterface(client.ObjectKeyFromObject(dpuDeployment),
+				owner,
+				dpuServiceName,
+				serviceInterface,
+				dpuNodeLabels,
+			)
+
+			if err := c.Patch(ctx, dpuServiceInterface, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
+				return fmt.Errorf("error while patching %s %s: %w", dpuServiceInterface.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuServiceInterface), err)
+			}
+
+			delete(existingDPUServiceInterfacesMap, dpuServiceInterface.Name)
+		}
+	}
+
+	// Cleanup the remaining stale DPUServiceInterfaces
+	for _, dpuServiceInterface := range existingDPUServiceInterfacesMap {
+		if err := c.Delete(ctx, &dpuServiceInterface); err != nil {
+			return fmt.Errorf("error while deleting %s %s: %w", dpuServiceInterface.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuServiceInterface), err)
+		}
+	}
+
+	return nil
 }
 
 // generateDPUServiceInterface generates a DPUServiceInterface according to the DPUDeployment

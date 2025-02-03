@@ -524,11 +524,13 @@ func defaultDPUDeployment() *dpuservicev1.DPUDeployment {
 	return &dpuservicev1.DPUDeployment{
 		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
 		Spec: dpuservicev1.DPUDeploymentSpec{
-			ServiceChains: []dpuservicev1.DPUDeploymentSwitch{
-				{
-					Ports: []dpuservicev1.DPUDeploymentPort{
-						{
-							Service: &dpuservicev1.DPUDeploymentService{},
+			ServiceChains: dpuservicev1.ServiceChains{
+				Switches: []dpuservicev1.DPUDeploymentSwitch{
+					{
+						Ports: []dpuservicev1.DPUDeploymentPort{
+							{
+								Service: &dpuservicev1.DPUDeploymentService{},
+							},
 						},
 					},
 				},

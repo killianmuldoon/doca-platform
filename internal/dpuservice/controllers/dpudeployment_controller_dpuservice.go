@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"slices"
 	"strings"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
@@ -145,7 +144,7 @@ func reconcileNewDPUServiceRevision(newDPUService client.Object, name, versionDi
 	}
 
 	// This is needed in all cases, because we don't know if a dpuSet will be updated or created
-	setNodeLabelValue(serviceConfig, name, versionDigest, dpuNodeLabels)
+	setDPUServiceNodeLabelValue(serviceConfig, name, versionDigest, dpuNodeLabels)
 
 	// TODO: By default when creating a new non-disruptive DPUService
 	// we should not cause drain because of labels
@@ -201,7 +200,7 @@ func reconcileDPUServiceWithOldRevisions(ctx context.Context, c client.Client, n
 	}
 
 	// This is needed in all cases, because we don't know if a dpuSet will be updated or created
-	setNodeLabelValue(serviceConfig, name, nodeLabelValue, dpuNodeLabels)
+	setDPUServiceNodeLabelValue(serviceConfig, name, nodeLabelValue, dpuNodeLabels)
 
 	return ctrl.Result{RequeueAfter: reconcileRequeueDuration}, nil
 }
@@ -236,7 +235,7 @@ func reconcileCurrentDPUServiceRevision(ctx context.Context, c client.Client, cu
 	}
 
 	// This is needed because we don't know if a dpuSet will be updated or created
-	setNodeLabelValue(serviceConfig, name, getNodeSelectorDPUServiceVersionValue(currSvc.Spec.ServiceDaemonSet.NodeSelector, name), dpuNodeLabels)
+	setDPUServiceNodeLabelValue(serviceConfig, name, getNodeSelectorDPUServiceVersionValue(currSvc.Spec.ServiceDaemonSet.NodeSelector, name), dpuNodeLabels)
 
 	// Never patch the current service, it could have stale nodeSelector terms that we don't want to remove
 	// The user should not change the dpuservice manually, because the controller will overwrite the changes
@@ -244,8 +243,8 @@ func reconcileCurrentDPUServiceRevision(ctx context.Context, c client.Client, cu
 	return requeue
 }
 
-// SetNodeLabelValue sets the value of the node label for the DPUService
-func setNodeLabelValue(serviceConfig *dpuservicev1.DPUServiceConfiguration, name, value string, nodeLabels map[string]string) {
+// setDPUServiceNodeLabelValue sets the value of the node label for the DPUService
+func setDPUServiceNodeLabelValue(serviceConfig *dpuservicev1.DPUServiceConfiguration, name, value string, nodeLabels map[string]string) {
 	if !serviceConfig.Spec.ServiceConfiguration.ShouldDeployInCluster() {
 		nodeLabels[getDPUServiceVersionLabelKey(name)] = value
 	}
@@ -356,9 +355,10 @@ func cleanStaleDPUServices(ctx context.Context, c client.Client, oldSvcs []dpuse
 	// deletion happens before resume here because we want deletion to take effect immediately.
 	// This is the case if the object are marked while the controller is ignoring them
 	for _, dpuService := range oldSvcs {
-		err := c.Delete(ctx, &dpuService)
-		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("error while deleting %s %s: %w", dpuService.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuService), err)
+		if err := c.Delete(ctx, &dpuService); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("error while deleting %s %s: %w", dpuService.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuService), err)
+			}
 		}
 	}
 	for _, dpuService := range oldSvcs {
@@ -431,28 +431,6 @@ func pauseStaleDPUServices(ctx context.Context, c client.Client, dpuServices []d
 	return nil
 }
 
-// newObjectNodeSelectorWithOwner creates a NodeSelector for an Object with the given version and owner
-func newObjectNodeSelectorWithOwner(versionKey, version string, owner types.NamespacedName) *corev1.NodeSelector {
-	return &corev1.NodeSelector{
-		NodeSelectorTerms: []corev1.NodeSelectorTerm{
-			{
-				MatchExpressions: []corev1.NodeSelectorRequirement{
-					{
-						Key:      versionKey,
-						Operator: corev1.NodeSelectorOpIn,
-						Values:   []string{version},
-					},
-					{
-						Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
-						Operator: corev1.NodeSelectorOpIn,
-						Values:   []string{getParentDPUDeploymentLabelValue(owner)},
-					},
-				},
-			},
-		},
-	}
-}
-
 // getNodeSelectorTermForDPUServiceVersion returns the NodeSelectorTerm for the given DPUService version label key
 func getNodeSelectorTermForDPUServiceVersion(nodeSelector *corev1.NodeSelector, dpuserviceName string) corev1.NodeSelectorTerm {
 	var target corev1.NodeSelectorTerm
@@ -491,24 +469,4 @@ func retrieveInterfacesFromDPUServiceConfiguration(dpuServiceConfiguration *dpus
 	}
 
 	return interfaces
-}
-
-func getRevisionHistoryLimitList(oldRevisions []client.Object, revisionHistoryLimit int32) []client.Object {
-	sortDPUServicesByCreationTimestamp(oldRevisions)
-	toRetain := make([]client.Object, 0, revisionHistoryLimit)
-	for i := len(oldRevisions) - 1; i >= 0; i-- {
-		if int32(len(toRetain)) >= revisionHistoryLimit {
-			break
-		}
-		toRetain = append(toRetain, oldRevisions[i])
-	}
-
-	return toRetain
-}
-
-// sortDPUServicesByCreationTimestamp sort by creation time and only disable the newest one. The other ones can be deleted
-func sortDPUServicesByCreationTimestamp(objects []client.Object) {
-	slices.SortFunc(objects, func(t, u client.Object) int {
-		return t.GetCreationTimestamp().Compare(u.GetCreationTimestamp().Time)
-	})
 }
