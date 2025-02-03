@@ -40,9 +40,6 @@ type ObjectTreeOptions struct {
 	// ExpandResources is a list of comma separated kind or kind/name that should be expanded in the output.
 	ExpandResources string
 
-	// ShowNamespace shows the namespace in the output
-	ShowNamespace bool
-
 	// Echo displays objects if the object's ready condition has the
 	// same Status, Severity and Reason of the parent's object ready condition (it is an echo)
 	Echo bool
@@ -50,10 +47,6 @@ type ObjectTreeOptions struct {
 	// Grouping groups sibling object in case the ready conditions
 	// have the same Status, Severity and Reason
 	Grouping bool
-
-	// WrapLines wraps long lines in the output
-	// Default is false
-	WrapLines bool
 
 	// Colors enables color output
 	// Default is true

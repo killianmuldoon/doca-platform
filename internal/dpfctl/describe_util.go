@@ -53,11 +53,7 @@ var (
 func PrintObjectTree(tree *ObjectTree) {
 	// Creates the output table
 	tbl := tablewriter.NewWriter(os.Stdout)
-	header := []string{"NAME", "READY", "REASON", "SINCE", "MESSAGE"}
-	if tree.options.ShowNamespace {
-		header = []string{"NAME", "NAMESPACE", "READY", "REASON", "SINCE", "MESSAGE"}
-	}
-	tbl.SetHeader(header)
+	tbl.SetHeader([]string{"NAME", "NAMESPACE", "READY", "REASON", "SINCE", "MESSAGE"})
 
 	formatTableTree(tbl)
 	// Add row for the root object, the DPFOperatorConfig, and recursively for all the resources representing the DPF status.
@@ -100,21 +96,48 @@ func addOtherConditions(prefix string, tbl *tablewriter.Table, objectTree *Objec
 	otherConditions := GetOtherConditions(obj)
 	for i := range otherConditions {
 		otherCondition := otherConditions[i]
-		otherDescriptor := newConditionDescriptor(otherCondition, objectTree.options.WrapLines)
-		otherConditionPrefix := getChildPrefix(prefix+childrenPipe+filler, i, len(otherConditions))
-		appendSlice := []string{
-			fmt.Sprintf("%s%s", gray.Sprint(otherConditionPrefix), cyan.Sprint(otherCondition.Type)),
+		otherDescriptor := newConditionDescriptor(otherCondition)
+		childPrefix := getChildPrefix(prefix+childrenPipe+filler, i, len(otherConditions))
+		msg, _ := tablewriter.WrapString(otherDescriptor.message, 100)
+
+		msg0 := ""
+		if len(msg) >= 1 {
+			msg0 = msg[0]
+		}
+
+		tbl.Append([]string{
+			fmt.Sprintf("%s%s", gray.Sprint(childPrefix), cyan.Sprint(otherCondition.Type)),
 			"",
 			otherDescriptor.readyColor.Sprint(otherDescriptor.status),
 			otherDescriptor.readyColor.Sprint(otherDescriptor.reason),
 			otherDescriptor.age,
-			otherDescriptor.message,
+			msg0,
+		})
+		for _, m := range msg[1:] {
+			tbl.Append([]string{
+				gray.Sprint(getMultilinePrefix(childPrefix)),
+				"",
+				"",
+				"",
+				"",
+				m,
+			})
 		}
-		if !objectTree.options.ShowNamespace {
-			appendSlice = append(appendSlice[:1], appendSlice[2:]...)
-		}
-		tbl.Append(appendSlice)
 	}
+}
+
+// getMultilinePrefix return the tree view prefix for a multiline condition.
+// Copy from: https://github.com/kubernetes-sigs/cluster-api/blob/release-1.9/cmd/clusterctl/cmd/describe_cluster.go#L513-L525
+func getMultilinePrefix(currentPrefix string) string {
+	// All ├─ should be replaced by |, so all the existing hierarchic dependencies are carried on
+	if strings.HasSuffix(currentPrefix, firstElemPrefix) {
+		return strings.TrimSuffix(currentPrefix, firstElemPrefix) + pipe
+	}
+	// All └─ should be replaced by " " because we are under the last element of the tree (nothing to carry on)
+	if strings.HasSuffix(currentPrefix, lastElemPrefix) {
+		return strings.TrimSuffix(currentPrefix, lastElemPrefix)
+	}
+	return "?"
 }
 
 // addObjectRow add a row for a given object, and recursively for all the object's children.
@@ -124,7 +147,7 @@ func addObjectRow(prefix string, tbl *tablewriter.Table, objectTree *ObjectTree,
 	// Gets the descriptor for the object's ready condition, if any.
 	readyDescriptor := conditionDescriptor{readyColor: gray}
 	if ready := getReadyCondition(obj); ready != nil {
-		readyDescriptor = newConditionDescriptor(ready, objectTree.options.WrapLines)
+		readyDescriptor = newConditionDescriptor(ready)
 	}
 
 	// If the object is a group object, override the condition message with the list of objects in the group. e.g dpu-1, dpu-2, ...
@@ -133,28 +156,66 @@ func addObjectRow(prefix string, tbl *tablewriter.Table, objectTree *ObjectTree,
 		readyDescriptor.message = fmt.Sprintf("See %s", strings.Join(items, GroupItemsSeparator))
 	}
 
-	// Gets the row name for the object.
-	// NOTE: The object name gets manipulated in order to improve readability.
-	name := getRowName(obj)
+	multilinePrefix := getMultilinePrefix(prefix)
+	// If it is the top-level root object, set the multiline prefix to a pipe.
+	if prefix == "" {
+		multilinePrefix = pipe
+	}
+	// If the multiline prefix is empty, we have to ensure that even multiline conditions on this root object are indented.
+	if strings.TrimSpace(multilinePrefix) == "" {
+		filler := strings.Repeat(" ", 10)
+		childrenPipe := indent
+		if objectTree.IsObjectWithChild(obj.GetUID()) {
+			childrenPipe = pipe
+		}
+		// We have to set the childCount to 3 as we want to fake the childPrefix for the root object.
+		// We just want to indent the multiline message for the Ready condition.
+		childPrefix := getChildPrefix(prefix+childrenPipe+filler, 0, 3)
+		multilinePrefix = getMultilinePrefix(childPrefix)
+	}
 
-	appendSlice := []string{
+	// If it is the last object and last condition we can remove the prefix completely.
+	objectsByParentLen := len(objectTree.GetObjectsByParent(obj.GetUID()))
+	otherConditionsLen := len(GetOtherConditions(obj))
+	if (!IsShowConditionsObject(obj) && objectsByParentLen == 0) || objectsByParentLen+otherConditionsLen == 0 {
+		multilinePrefix = ""
+	}
+
+	// If it is the last object and last condition we can remove the prefix completely.
+	if len(GetOtherConditions(obj))+len(objectTree.GetObjectsByParent(obj.GetUID())) == 0 {
+		multilinePrefix = ""
+	}
+
+	// Add the row representing the object that includes
+	// - The row name with the tree view prefix.
+	// - Replica counters
+	// - The object's Available, Ready, UpToDate conditions
+	// - The condition picked in the rowDescriptor.
+	// Note: if the condition has a multiline message, also add additional rows for each line.
+	name := getRowName(obj)
+	msg, _ := tablewriter.WrapString(readyDescriptor.message, 100)
+	msg0 := ""
+	if len(msg) >= 1 {
+		msg0 = msg[0]
+	}
+	tbl.Append([]string{
 		fmt.Sprintf("%s%s", gray.Sprint(prefix), name),
 		obj.GetNamespace(),
 		readyDescriptor.readyColor.Sprint(readyDescriptor.status),
 		readyDescriptor.readyColor.Sprint(readyDescriptor.reason),
 		readyDescriptor.age,
-		readyDescriptor.message,
+		msg0,
+	})
+	for _, m := range msg[1:] {
+		tbl.Append([]string{
+			gray.Sprint(multilinePrefix),
+			"",
+			"",
+			"",
+			"",
+			m,
+		})
 	}
-
-	// Remove the second column if the namespace should not be shown.
-	if !objectTree.options.ShowNamespace {
-		appendSlice = append(appendSlice[:1], appendSlice[2:]...)
-	}
-
-	// Add the row representing the object that includes
-	// - The row name with the tree view prefix.
-	// - The object's ready condition.
-	tbl.Append(appendSlice)
 
 	// If it is required to show all the conditions for the object, add a row for each object's conditions.
 	if IsShowConditionsObject(obj) {
@@ -250,22 +311,12 @@ type conditionDescriptor struct {
 
 // newConditionDescriptor returns a conditionDescriptor for the given condition.
 // Adopted from:https://github.com/kubernetes-sigs/cluster-api/blob/release-1.9/cmd/clusterctl/cmd/describe_cluster.go#L813
-func newConditionDescriptor(c *metav1.Condition, wrapLines bool) conditionDescriptor {
+func newConditionDescriptor(c *metav1.Condition) conditionDescriptor {
 	v := conditionDescriptor{}
 
 	v.status = string(c.Status)
 	v.reason = c.Reason
 	v.message = c.Message
-
-	// If it's longer than 100 characters wrap the words.
-	if len(v.message) > 100 {
-		if wrapLines {
-			tmp, _ := tablewriter.WrapString(v.message, 100)
-			v.message = strings.Join(tmp, "\n")
-		} else {
-			v.message = fmt.Sprintf("%s...", v.message[:100])
-		}
-	}
 
 	// Compute the condition age.
 	v.age = duration.HumanDuration(time.Since(c.LastTransitionTime.Time))

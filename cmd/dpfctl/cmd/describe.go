@@ -34,10 +34,8 @@ type describeOptions struct {
 	showOtherConditions string
 	showResources       string
 	expandResources     string
-	showNamespace       bool
 	grouping            bool
 	color               bool
-	wrapLines           bool
 }
 
 var opts describeOptions
@@ -90,14 +88,8 @@ func init() {
 	describeCmd.Flags().BoolVar(&opts.grouping, "grouping", false,
 		"enable grouping of objects by kind.")
 
-	describeCmd.Flags().BoolVar(&opts.wrapLines, "wrap-lines", false,
-		"wrap long lines in the output.")
-
 	describeCmd.Flags().BoolVarP(&opts.color, "color", "c", false,
 		"Enable or disable color output; if not set color is enabled by default only if using tty. The flag is overridden by the NO_COLOR env variable if set.")
-
-	describeCmd.Flags().BoolVar(&opts.showNamespace, "show-namespace", true,
-		"Show the namespace of the resources.")
 
 	// TODO: decide if we want to use Kubernetes cli-runtime here instead of the controller-runtime flags.
 	// The cli-runtime has alot dependencies, but brings several generic flags that can be useful.

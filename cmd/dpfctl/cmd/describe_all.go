@@ -54,9 +54,7 @@ func runDescribe(cmd *cobra.Command) error {
 		ShowResources:       opts.showResources,
 		ShowOtherConditions: opts.showOtherConditions,
 		ExpandResources:     opts.expandResources,
-		ShowNamespace:       opts.showNamespace,
 		Grouping:            opts.grouping,
-		WrapLines:           opts.wrapLines,
 		Colors:              opts.color,
 	})
 	if err != nil {

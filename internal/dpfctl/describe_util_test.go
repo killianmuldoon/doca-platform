@@ -104,43 +104,8 @@ func Test_newConditionDescriptor_readyColor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			got := newConditionDescriptor(tt.condition, false)
+			got := newConditionDescriptor(tt.condition)
 			g.Expect(got.readyColor).To(Equal(tt.expectReadyColor))
-		})
-	}
-}
-
-func Test_newConditionDescriptor_truncateMessages(t *testing.T) {
-	// 25 times "foo " and then trim the space at the end.
-	// This is needed to test the wrapping of the message.
-	s := strings.TrimSpace(strings.Repeat("foo ", 25))
-	tests := []struct {
-		name                    string
-		condition               *metav1.Condition
-		expectMessage           string
-		expectedWrappedMessaage string
-	}{
-		{
-			name:          "Short messages are not changed",
-			condition:     &metav1.Condition{Type: "C", Message: "short message"},
-			expectMessage: "short message",
-		},
-		{
-			name:                    "Long message are truncated",
-			condition:               &metav1.Condition{Type: "C", Message: strings.Repeat("foo ", 50)},
-			expectMessage:           fmt.Sprintf("%s ...", s),
-			expectedWrappedMessaage: fmt.Sprintf("%s\n%s ", s, s),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := NewWithT(t)
-			got := newConditionDescriptor(tt.condition, false)
-			g.Expect(got.message).To(Equal(tt.expectMessage))
-			if tt.expectedWrappedMessaage != "" {
-				got = newConditionDescriptor(tt.condition, true)
-				g.Expect(got.message).To(Equal(tt.expectedWrappedMessaage))
-			}
 		})
 	}
 }
