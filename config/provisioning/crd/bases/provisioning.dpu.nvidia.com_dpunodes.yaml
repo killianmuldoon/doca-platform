@@ -46,14 +46,6 @@ spec:
                 description: A map containing names of each DPUDevice attached to
                   the node.
                 type: object
-              kubeNodeRef:
-                description: |-
-                  The name of the Kubernetes Node object that this DPUNode represents.
-                  This field is optional and only relevant if the x86 host is part of the DPF Kubernetes cluster.
-                type: string
-                x-kubernetes-validations:
-                - message: KubeNodeRef is immutable
-                  rule: self == oldSelf
               nodeDMSAddress:
                 description: The IP address and port where the DMS is exposed. Only
                   applicable if dpuInstallInterface is set to gNOI.
@@ -155,6 +147,14 @@ spec:
                 - gNOI
                 - redfish
                 type: string
+              kubeNodeRef:
+                description: |-
+                  The name of the Kubernetes Node object that this DPUNode represents.
+                  This field is optional and only relevant if the x86 host is part of the DPF Kubernetes cluster.
+                type: string
+                x-kubernetes-validations:
+                - message: KubeNodeRef is immutable
+                  rule: self == oldSelf
               phase:
                 allOf:
                 - enum:

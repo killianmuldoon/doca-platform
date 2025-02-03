@@ -124,7 +124,6 @@ metadata:
   name: obj-4
   namespace: default
 spec:
-  kubeNodeRef: node-1
   nodeRebootMethod: external
   nodeDMSAddress: 
     ip: 4.4.4.4
@@ -164,7 +163,6 @@ metadata:
   name: obj-6
   namespace: default
 spec:
-  kubeNodeRef: node-1
   nodeRebootMethod: invalid
   nodeDMSAddress:
     ip: 4.4.4.4
@@ -189,7 +187,6 @@ metadata:
   name: obj-7
   namespace: default
 spec:
-  kubeNodeRef: node-1
   nodeRebootMethod: external
   nodeDMSAddress:
     ip: invalid-ip
@@ -208,13 +205,13 @@ spec:
 		It("update object - check immutability of kubeNodeRef", func() {
 			obj := createObj("obj-8")
 			node2Ref := "node-2"
-			obj.Spec.KubeNodeRef = &node2Ref
+			obj.Status.KubeNodeRef = &node2Ref
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
 			node3Ref := "node-3"
-			obj.Spec.KubeNodeRef = &node3Ref
-			err = k8sClient.Update(ctx, obj)
+			obj.Status.KubeNodeRef = &node3Ref
+			err = k8sClient.Status().Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})
 		It("create from yaml without NodeRebootMethod - should fail", func() {
@@ -257,7 +254,6 @@ metadata:
   name: obj-10
   namespace: default
 spec:
-  kubeNodeRef: node-1
   nodeRebootMethod: external
   nodeDMSAddress:
     ip: 4.4.4.4

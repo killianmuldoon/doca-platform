@@ -92,12 +92,6 @@ type DPUNode struct {
 
 // DPUNodeSpec defines the desired state of DPUNode
 type DPUNodeSpec struct {
-	// The name of the Kubernetes Node object that this DPUNode represents.
-	// This field is optional and only relevant if the x86 host is part of the DPF Kubernetes cluster.
-	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="KubeNodeRef is immutable"
-	// +optional
-	KubeNodeRef *string `json:"kubeNodeRef,omitempty"`
-
 	// Defines the method for rebooting the host.
 	// One of the following options can be chosen for this field:
 	//    - "external": Reboot the host via an external means, not controlled by the
@@ -150,6 +144,11 @@ type DPUNodeStatus struct {
 	// +kubebuilder:validation:Enum=gNOI;redfish
 	// +required
 	DPUInstallInterface string `json:"dpuInstallInterface,omitempty"`
+	// The name of the Kubernetes Node object that this DPUNode represents.
+	// This field is optional and only relevant if the x86 host is part of the DPF Kubernetes cluster.
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="KubeNodeRef is immutable"
+	// +optional
+	KubeNodeRef *string `json:"kubeNodeRef,omitempty"`
 }
 
 // +kubebuilder:object:root=true

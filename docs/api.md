@@ -1127,7 +1127,6 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `kubeNodeRef` _string_ | The name of the Kubernetes Node object that this DPUNode represents.<br />This field is optional and only relevant if the x86 host is part of the DPF Kubernetes cluster. |  |  |
 | `nodeRebootMethod` _string_ | Defines the method for rebooting the host.<br />One of the following options can be chosen for this field:<br />   - "external": Reboot the host via an external means, not controlled by the<br />     DPU controller.<br />   - "custom_script": Reboot the host by executing a custom script.<br />   - "DMS": Use the DPU's DMS interface to reboot the host. | external | Enum: [external custom_script DMS] <br /> |
 | `nodeDMSAddress` _[DMSAddress](#dmsaddress)_ | The IP address and port where the DMS is exposed. Only applicable if dpuInstallInterface is set to gNOI. |  |  |
 | `dpus` _object (keys:string, values:boolean)_ | A map containing names of each DPUDevice attached to the node. |  |  |
@@ -1149,6 +1148,7 @@ _Appears in:_
 | `phase` _[DPUNodePhaseType](#dpunodephasetype)_ | The current state of DPUNode.<br />Can be one of the following:<br />   - DPUNodeNotReady: Not Ready<br />   - DPUNodeReady: Ready<br />   - DPUNodeInvalidDPUDetails: Invalid DPU Details<br />   - DPUNodeRebootInProgress: DPUNode Reboot In Progress<br />   - DPUNodeDPUUpdateInProgress: DPU Update In Progress | Not Ready | Enum: [Not Ready Ready Invalid DPU Details DPUNode Reboot In Progress DPU Update In Progress] <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | Conditions represent the latest available observations of an object's state. |  | Type: array <br /> |
 | `dpuInstallInterface` _string_ | The name of the interface which will be used to install the bfb image, can be one of gNOI,redfish |  | Enum: [gNOI redfish] <br /> |
+| `kubeNodeRef` _string_ | The name of the Kubernetes Node object that this DPUNode represents.<br />This field is optional and only relevant if the x86 host is part of the DPF Kubernetes cluster. |  |  |
 
 
 #### DPUPhase
