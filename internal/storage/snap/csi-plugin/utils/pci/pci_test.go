@@ -152,6 +152,54 @@ var _ = Describe("Pci Utils package test", func() {
 					MatchError(ContainSubstring("device is already binded to a different driver")))
 			})
 		})
+		Context("UnloadDriver", func() {
+			It("loaded", func() {
+				f := fakefs.GinkgoConfigureFakeFS(&fsRoot, fakefs.Config{
+					Dirs: []fakefs.DirEntry{
+						{Path: "/sys/devices/pci0000:b0/0000:b0:04.0/0000:b1:00.2"},
+						{Path: "/sys/bus/pci/devices"},
+						{Path: "/sys/bus/pci/drivers/nvme"},
+					},
+					Files: []fakefs.FileEntry{
+						{Path: "/sys/bus/pci/drivers/nvme/unbind"},
+					},
+					Symlinks: []fakefs.SymlinkEntry{
+						{OldPath: "../../../devices/pci0000:b0/0000:b0:04.0/0000:b1:00.2", NewPath: "/sys/bus/pci/devices/0000:b1:00.2"},
+						{OldPath: "../../../../bus/pci/drivers/nvme", NewPath: "/sys/devices/pci0000:b0/0000:b0:04.0/0000:b1:00.2/driver"},
+					},
+				})
+				Expect(pciUtils.UnloadDriver("0000:b1:00.2")).NotTo(HaveOccurred())
+				fakefs.GinkgoFakeFsFileContent(f, "/sys/bus/pci/drivers/nvme/unbind").To(Equal("0000:b1:00.2"))
+			})
+			It("no driver", func() {
+				fakefs.GinkgoConfigureFakeFS(&fsRoot, fakefs.Config{
+					Dirs: []fakefs.DirEntry{
+						{Path: "/sys/devices/pci0000:b0/0000:b0:04.0/0000:b1:00.2"},
+						{Path: "/sys/bus/pci/devices"},
+					},
+					Symlinks: []fakefs.SymlinkEntry{
+						{OldPath: "../../../devices/pci0000:b0/0000:b0:04.0/0000:b1:00.2", NewPath: "/sys/bus/pci/devices/0000:b1:00.2"},
+					},
+				})
+				Expect(pciUtils.UnloadDriver("0000:b1:00.2")).NotTo(HaveOccurred())
+			})
+			It("failed to unbind driver", func() {
+				fakefs.GinkgoConfigureFakeFS(&fsRoot, fakefs.Config{
+					Dirs: []fakefs.DirEntry{
+						{Path: "/sys/devices/pci0000:b0/0000:b0:04.0/0000:b1:00.2"},
+						{Path: "/sys/bus/pci/devices"},
+						{Path: "/sys/bus/pci/drivers/nvme"},
+						// use dir instead of the file, this will cause EISDIR error on file read/write
+						{Path: "/sys/bus/pci/drivers/nvme/unbind"},
+					},
+					Symlinks: []fakefs.SymlinkEntry{
+						{OldPath: "../../../devices/pci0000:b0/0000:b0:04.0/0000:b1:00.2", NewPath: "/sys/bus/pci/devices/0000:b1:00.2"},
+						{OldPath: "../../../../bus/pci/drivers/nvme", NewPath: "/sys/devices/pci0000:b0/0000:b0:04.0/0000:b1:00.2/driver"},
+					},
+				})
+				Expect(pciUtils.UnloadDriver("0000:b1:00.2")).To(MatchError(ContainSubstring("failed to unbind device from the driver")))
+			})
+		})
 		Context("GetPFs", func() {
 			It("return PF", func() {
 				fakefs.GinkgoConfigureFakeFS(&fsRoot, fakefs.Config{

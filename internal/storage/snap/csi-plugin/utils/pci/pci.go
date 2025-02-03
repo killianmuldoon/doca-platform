@@ -43,6 +43,8 @@ const (
 	driverPath = "driver"
 	// file path to trigger bind to the driver
 	driverBindPath = "bind"
+	// file path to trigger unbind from the driver
+	driverUnbindPath = "unbind"
 	// file path to override the device driver
 	driverOverridePath = "driver_override"
 	// file path to check current number of SRIOV VFs
@@ -102,6 +104,8 @@ var ErrNotFound = errors.New("device not found")
 type Utils interface {
 	// LoadDriver tries to load driver for provided device, do nothing if device is already has required driver
 	LoadDriver(pciAddress, driver string) error
+	// UnloadDriver unload driver for the device if it has one
+	UnloadDriver(pciAddress string) error
 	// GetPFs return PCI physical functions filtered by vendor and device IDs
 	GetPFs(vendor string, deviceIDs []string) ([]DeviceInfo, error)
 	// GetSRIOVNumVFs returns current number of SRIOV VFs for PF
@@ -147,6 +151,26 @@ func (u *pciUtils) LoadDriver(pciAddress, driver string) error {
 		return fmt.Errorf("failed to bind device to the driver: %v", err)
 	}
 	klog.V(2).InfoS("device bind succeed", "device", pciAddress, "driver", driver)
+	return nil
+}
+
+// UnloadDriver unload driver for the device if it has one
+func (u *pciUtils) UnloadDriver(pciAddress string) error {
+	curDriver, err := u.getDeviceDriver(pciAddress)
+	if err != nil {
+		return fmt.Errorf("failed to read driver for device: %v", err)
+	}
+	if curDriver == "" {
+		klog.V(2).InfoS("device has no driver", "device", pciAddress)
+		return nil
+	}
+	klog.V(2).InfoS("device has driver", "device", pciAddress, "driver", curDriver)
+	// /sys/bus/pci/drivers/nvme/unbind
+	if err := os.WriteFile(filepath.Join(fsRoot, common.SysfsPCIDriverPath, curDriver, driverUnbindPath),
+		[]byte(pciAddress), os.ModeAppend); err != nil {
+		return fmt.Errorf("failed to unbind device from the driver: %v", err)
+	}
+	klog.V(2).InfoS("device unbind succeed", "device", pciAddress, "driver", curDriver)
 	return nil
 }
 

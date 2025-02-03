@@ -132,6 +132,7 @@ var _ = Describe("NodeStageVolume", func() {
 	Context("Stage", func() {
 		It("should stage the volume successfully", func() {
 			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Return("", utilsNvme.ErrBlockDeviceNotFound).Times(2)
+			pciUtils.EXPECT().UnloadDriver("0000:00:1f.2").Return(nil)
 			pciUtils.EXPECT().LoadDriver("0000:00:1f.2", "nvme").Return(nil)
 			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Return("nvme0n1", nil).Times(1)
 			mountUtils.EXPECT().EnsureFileExist("/staging/path/volume-id", os.FileMode(0644)).Return(nil)
@@ -158,8 +159,17 @@ var _ = Describe("NodeStageVolume", func() {
 			common.CheckGRPCErr(err, codes.Internal, "error occurred while trying to find block device for the volume")
 			Expect(resp).To(BeNil())
 		})
+		It("should return error if UnloadDriver fails", func() {
+			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Return("", utilsNvme.ErrBlockDeviceNotFound).Times(1)
+			pciUtils.EXPECT().UnloadDriver("0000:00:1f.2").Return(errTest)
+
+			resp, err := nodeHandler.NodeStageVolume(ctx, req)
+			common.CheckGRPCErr(err, codes.Internal, "error occurred while trying to unload NVME driver for the volume device")
+			Expect(resp).To(BeNil())
+		})
 		It("should return error if LoadDriver fails", func() {
 			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Return("", utilsNvme.ErrBlockDeviceNotFound).Times(1)
+			pciUtils.EXPECT().UnloadDriver("0000:00:1f.2").Return(nil)
 			pciUtils.EXPECT().LoadDriver("0000:00:1f.2", "nvme").Return(errTest)
 
 			resp, err := nodeHandler.NodeStageVolume(ctx, req)
@@ -168,6 +178,7 @@ var _ = Describe("NodeStageVolume", func() {
 		})
 		It("should return error if GetBlockDeviceNameForNS fails in polling loop", func() {
 			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Return("", utilsNvme.ErrBlockDeviceNotFound).Times(1)
+			pciUtils.EXPECT().UnloadDriver("0000:00:1f.2").Return(nil)
 			pciUtils.EXPECT().LoadDriver("0000:00:1f.2", "nvme").Return(nil)
 			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Return("", errTest).Times(1)
 
@@ -177,6 +188,7 @@ var _ = Describe("NodeStageVolume", func() {
 		})
 		It("should return error if GetBlockDeviceNameForNS fails by timeout", func() {
 			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Return("", utilsNvme.ErrBlockDeviceNotFound).Times(1)
+			pciUtils.EXPECT().UnloadDriver("0000:00:1f.2").Return(nil)
 			pciUtils.EXPECT().LoadDriver("0000:00:1f.2", "nvme").Return(nil)
 			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Do(func(_ string, _ int32) {
 				cancel()
@@ -188,6 +200,7 @@ var _ = Describe("NodeStageVolume", func() {
 		})
 		It("should return error if EnsureFileExist fails", func() {
 			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Return("", utilsNvme.ErrBlockDeviceNotFound).Times(1)
+			pciUtils.EXPECT().UnloadDriver("0000:00:1f.2").Return(nil)
 			pciUtils.EXPECT().LoadDriver("0000:00:1f.2", "nvme").Return(nil)
 			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Return("nvme0n1", nil).Times(1)
 			mountUtils.EXPECT().EnsureFileExist("/staging/path/volume-id", os.FileMode(0644)).Return(errTest)
@@ -198,6 +211,7 @@ var _ = Describe("NodeStageVolume", func() {
 		})
 		It("should return error if CheckMountExists fails", func() {
 			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Return("", utilsNvme.ErrBlockDeviceNotFound).Times(2)
+			pciUtils.EXPECT().UnloadDriver("0000:00:1f.2").Return(nil)
 			pciUtils.EXPECT().LoadDriver("0000:00:1f.2", "nvme").Return(nil)
 			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Return("nvme0n1", nil).Times(1)
 			mountUtils.EXPECT().EnsureFileExist("/staging/path/volume-id", os.FileMode(0644)).Return(nil)
@@ -209,6 +223,7 @@ var _ = Describe("NodeStageVolume", func() {
 		})
 		It("should return error if Mount fails", func() {
 			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Return("", utilsNvme.ErrBlockDeviceNotFound).Times(2)
+			pciUtils.EXPECT().UnloadDriver("0000:00:1f.2").Return(nil)
 			pciUtils.EXPECT().LoadDriver("0000:00:1f.2", "nvme").Return(nil)
 			nvmeUtils.EXPECT().GetBlockDeviceNameForNS("0000:00:1f.2", int32(1)).Return("nvme0n1", nil).Times(1)
 			mountUtils.EXPECT().EnsureFileExist("/staging/path/volume-id", os.FileMode(0644)).Return(nil)

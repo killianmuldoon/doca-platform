@@ -157,3 +157,17 @@ func (mr *MockUtilsMockRecorder) SetSriovNumVfs(pciAddress, count any) *gomock.C
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSriovNumVfs", reflect.TypeOf((*MockUtils)(nil).SetSriovNumVfs), pciAddress, count)
 }
+
+// UnloadDriver mocks base method.
+func (m *MockUtils) UnloadDriver(pciAddress string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnloadDriver", pciAddress)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// UnloadDriver indicates an expected call of UnloadDriver.
+func (mr *MockUtilsMockRecorder) UnloadDriver(pciAddress any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnloadDriver", reflect.TypeOf((*MockUtils)(nil).UnloadDriver), pciAddress)
+}

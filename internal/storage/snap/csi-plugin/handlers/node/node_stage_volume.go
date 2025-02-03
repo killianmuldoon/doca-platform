@@ -100,7 +100,11 @@ func (h *node) getBlockDevice(ctx context.Context, pciAddress string, nvmeNsID i
 			return "", status.Error(codes.Internal, "error occurred while trying to find block device for the volume")
 		}
 	}
-	reqLog.Info("block device for the volume not found try to load the driver")
+	reqLog.Info("block device for the volume not found try to reload the driver for VF")
+	if err := h.pci.UnloadDriver(pciAddress); err != nil {
+		reqLog.Error(err, "error occurred while trying to unload NVME driver for the volume device")
+		return "", status.Error(codes.Internal, "error occurred while trying to unload NVME driver for the volume device")
+	}
 	if err := h.pci.LoadDriver(pciAddress, utilsCommon.NVMEDriver); err != nil {
 		reqLog.Error(err, "error occurred while trying to load NVME driver for the volume device")
 		return "", status.Error(codes.Internal, "error occurred while trying to load NVME driver for the volume device")
