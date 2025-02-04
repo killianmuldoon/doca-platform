@@ -17,6 +17,7 @@ policies:
       conventional:
         types:
           - chore
+          - ci
           - docs
           - feat
           - fix

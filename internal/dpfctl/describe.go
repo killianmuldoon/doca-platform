@@ -26,8 +26,10 @@ import (
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/argocd/api/application"
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
+	operatorcontroller "github.com/nvidia/doca-platform/internal/operator/controllers"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -114,11 +116,11 @@ func getDPFOperatorConfig(ctx context.Context, c client.Client) (*operatorv1.DPF
 	if err := c.List(ctx, dpfOperatorConfigList); err != nil {
 		return nil, err
 	}
-	if len(dpfOperatorConfigList.Items) == 0 {
-		return nil, fmt.Errorf("DPFOperatorConfig not found")
-	}
-	if len(dpfOperatorConfigList.Items) > 1 {
-		return nil, fmt.Errorf("more than one DPFOperatorConfigs found")
+	if len(dpfOperatorConfigList.Items) == 0 || len(dpfOperatorConfigList.Items) > 1 {
+		return nil, apierrors.NewNotFound(schema.GroupResource{
+			Group:    operatorv1.DPFOperatorConfigGroupVersionKind.Group,
+			Resource: operatorv1.DPFOperatorConfigGroupVersionKind.Kind,
+		}, operatorcontroller.DefaultDPFOperatorConfigSingletonName)
 	}
 	dpfOperatorConfig := dpfOperatorConfigList.Items[0].DeepCopy()
 	dpfOperatorConfig.TypeMeta = metav1.TypeMeta{
@@ -332,6 +334,9 @@ func addArgoApplication(ctx context.Context, o objectScope, dpuService dpuservic
 func argoStatusResourcesToConditions(status argov1.ApplicationStatus) []metav1.Condition {
 	conditions := []metav1.Condition{}
 	lastTransitionTime := status.ReconciledAt
+	if lastTransitionTime == nil {
+		lastTransitionTime = &metav1.Time{Time: time.Now()}
+	}
 	for _, c := range status.Resources {
 		if !isWorkloadKind(c.Kind) {
 			continue

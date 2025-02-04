@@ -27,7 +27,8 @@ import (
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
+	"github.com/nvidia/doca-platform/internal/dpfctl"
+	"github.com/nvidia/doca-platform/internal/dpucluster"
 	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
 	"github.com/nvidia/doca-platform/test/utils"
@@ -1318,6 +1319,17 @@ func unstructuredFromFile(path string) *unstructured.Unstructured {
 }
 
 func collectResourcesAndLogs(ctx context.Context) error {
+	// Run dpfctl describe to get information about the resources on a failed state.
+	t, err := dpfctl.DiscoverAll(ctx, testClient, dpfctl.ObjectTreeOptions{
+		ShowOtherConditions: "failed",
+		ExpandResources:     "failed",
+		Colors:              true,
+	})
+	// Only print if at least a DPFOperatorConfig is found.
+	if !apierrors.IsNotFound(err) {
+		dpfctl.PrintObjectTree(t)
+	}
+
 	// Get the path to place artifacts in
 	_, basePath, _, _ := runtime.Caller(0)
 	artifactsPath := filepath.Join(filepath.Dir(basePath), "../../artifacts")

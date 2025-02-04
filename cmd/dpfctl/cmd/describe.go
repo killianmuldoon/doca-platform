@@ -88,7 +88,7 @@ func init() {
 	describeCmd.Flags().BoolVar(&opts.grouping, "grouping", false,
 		"enable grouping of objects by kind.")
 
-	describeCmd.Flags().BoolVarP(&opts.color, "color", "c", false,
+	describeCmd.Flags().BoolVarP(&opts.color, "color", "c", true,
 		"Enable or disable color output; if not set color is enabled by default only if using tty. The flag is overridden by the NO_COLOR env variable if set.")
 
 	// TODO: decide if we want to use Kubernetes cli-runtime here instead of the controller-runtime flags.

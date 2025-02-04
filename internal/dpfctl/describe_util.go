@@ -96,7 +96,7 @@ func addOtherConditions(prefix string, tbl *tablewriter.Table, objectTree *Objec
 	otherConditions := GetOtherConditions(obj)
 	for i := range otherConditions {
 		otherCondition := otherConditions[i]
-		otherDescriptor := newConditionDescriptor(otherCondition)
+		otherDescriptor := newConditionDescriptor(otherCondition, false)
 		childPrefix := getChildPrefix(prefix+childrenPipe+filler, i, len(otherConditions))
 		msg, _ := tablewriter.WrapString(otherDescriptor.message, 100)
 
@@ -147,7 +147,7 @@ func addObjectRow(prefix string, tbl *tablewriter.Table, objectTree *ObjectTree,
 	// Gets the descriptor for the object's ready condition, if any.
 	readyDescriptor := conditionDescriptor{readyColor: gray}
 	if ready := getReadyCondition(obj); ready != nil {
-		readyDescriptor = newConditionDescriptor(ready)
+		readyDescriptor = newConditionDescriptor(ready, objectTree.options.Colors)
 	}
 
 	// If the object is a group object, override the condition message with the list of objects in the group. e.g dpu-1, dpu-2, ...
@@ -311,7 +311,7 @@ type conditionDescriptor struct {
 
 // newConditionDescriptor returns a conditionDescriptor for the given condition.
 // Adopted from:https://github.com/kubernetes-sigs/cluster-api/blob/release-1.9/cmd/clusterctl/cmd/describe_cluster.go#L813
-func newConditionDescriptor(c *metav1.Condition) conditionDescriptor {
+func newConditionDescriptor(c *metav1.Condition, colors bool) conditionDescriptor {
 	v := conditionDescriptor{}
 
 	v.status = string(c.Status)
@@ -335,6 +335,11 @@ func newConditionDescriptor(c *metav1.Condition) conditionDescriptor {
 		}
 	default:
 		v.readyColor = gray
+	}
+
+	// We have to enable the color explicitly to make it work in the shell.
+	if colors {
+		v.readyColor.EnableColor()
 	}
 
 	return v

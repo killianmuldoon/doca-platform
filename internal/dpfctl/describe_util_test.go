@@ -104,7 +104,7 @@ func Test_newConditionDescriptor_readyColor(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			g := NewWithT(t)
-			got := newConditionDescriptor(tt.condition)
+			got := newConditionDescriptor(tt.condition, false)
 			g.Expect(got.readyColor).To(Equal(tt.expectReadyColor))
 		})
 	}

@@ -19,6 +19,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
 
 	"github.com/nvidia/doca-platform/internal/dpfctl"
 
@@ -32,8 +33,11 @@ var describeAllCmd = &cobra.Command{
 	Short:   "Describe all DPF resources",
 	Long:    "Describe the overall status of DPF resources in your cluster.",
 	Example: fmt.Sprintf(exampleCmds, rootCmd.Root().Name(), "all"),
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return runDescribe(cmd)
+	Run: func(cmd *cobra.Command, args []string) {
+		if err := runDescribe(cmd); err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
 	},
 }
 
