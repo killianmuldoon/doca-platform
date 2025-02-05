@@ -60,6 +60,7 @@ func runDescribe(cmd *cobra.Command) error {
 		ExpandResources:     opts.expandResources,
 		Grouping:            opts.grouping,
 		Colors:              opts.color,
+		Output:              opts.output,
 	})
 	if err != nil {
 		return err
@@ -69,6 +70,5 @@ func runDescribe(cmd *cobra.Command) error {
 		color.NoColor = !opts.color
 	}
 
-	dpfctl.PrintObjectTree(t)
-	return nil
+	return dpfctl.PrintObjectTree(t)
 }

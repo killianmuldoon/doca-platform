@@ -1323,11 +1323,14 @@ func collectResourcesAndLogs(ctx context.Context) error {
 	t, err := dpfctl.DiscoverAll(ctx, testClient, dpfctl.ObjectTreeOptions{
 		ShowOtherConditions: "failed",
 		ExpandResources:     "failed",
+		Output:              "table",
 		Colors:              true,
 	})
 	// Only print if at least a DPFOperatorConfig is found.
 	if !apierrors.IsNotFound(err) {
-		dpfctl.PrintObjectTree(t)
+		if err := dpfctl.PrintObjectTree(t); err != nil {
+			return err
+		}
 	}
 
 	// Get the path to place artifacts in

@@ -51,6 +51,10 @@ type ObjectTreeOptions struct {
 	// Colors enables color output
 	// Default is true
 	Colors bool
+
+	// Output is the output format
+	// Default is "table"
+	Output string
 }
 
 // ObjectTree defines an object tree representing the status of DPF resources.

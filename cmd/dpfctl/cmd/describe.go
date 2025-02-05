@@ -34,6 +34,7 @@ type describeOptions struct {
 	showOtherConditions string
 	showResources       string
 	expandResources     string
+	output              string
 	grouping            bool
 	color               bool
 }
@@ -90,6 +91,9 @@ func init() {
 
 	describeCmd.Flags().BoolVarP(&opts.color, "color", "c", true,
 		"Enable or disable color output; if not set color is enabled by default only if using tty. The flag is overridden by the NO_COLOR env variable if set.")
+
+	describeCmd.Flags().StringVarP(&opts.output, "output", "o", "table",
+		"Output format. One of: table, json, yaml.")
 
 	// TODO: decide if we want to use Kubernetes cli-runtime here instead of the controller-runtime flags.
 	// The cli-runtime has alot dependencies, but brings several generic flags that can be useful.

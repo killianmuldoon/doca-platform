@@ -17,6 +17,7 @@ limitations under the License.
 package dpfctl
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"sort"
@@ -28,6 +29,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/duration"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 )
 
 // Copied from: https://github.com/kubernetes-sigs/cluster-api/blob/release-1.9/cmd/clusterctl/cmd/describe_cluster.go#L48
@@ -50,7 +52,20 @@ var (
 
 // PrintObjectTree prints the DPF status to stdout.
 // Adopted from: https://github.com/kubernetes-sigs/cluster-api/blob/release-1.9/cmd/clusterctl/cmd/describe_cluster.go#L213
-func PrintObjectTree(tree *ObjectTree) {
+func PrintObjectTree(tree *ObjectTree) error {
+	switch tree.options.Output {
+	case "json", "yaml":
+		return printObjectTreeFormatted(tree, tree.options.Output)
+	case "table", "":
+		printObjectTreeTable(tree)
+	default:
+		return fmt.Errorf("unsupported output format %s", tree.options.Output)
+	}
+	return nil
+}
+
+// printObjectTreeTable prints the ObjectTree in a table format.
+func printObjectTreeTable(tree *ObjectTree) {
 	// Creates the output table
 	tbl := tablewriter.NewWriter(os.Stdout)
 	tbl.SetHeader([]string{"NAME", "NAMESPACE", "READY", "REASON", "SINCE", "MESSAGE"})
@@ -61,6 +76,83 @@ func PrintObjectTree(tree *ObjectTree) {
 
 	// Prints the output table
 	tbl.Render()
+}
+
+type jsonOutput struct {
+	ObjectMeta metav1.ObjectMeta  `json:"metadata"`
+	TypeMeta   metav1.TypeMeta    `json:"typeMeta"`
+	Conditions []metav1.Condition `json:"conditions"`
+}
+
+// printObjectTreeFormatted prints the ObjectTree in JSON format. The Spec is removed, only NamespacedName and Conditions are printed.
+func printObjectTreeFormatted(tree *ObjectTree, format string) error {
+	j := make(map[string][]jsonOutput)
+
+	rootKind := ensurePlural(tree.GetRoot().GetObjectKind().GroupVersionKind().Kind)
+	j[rootKind] = []jsonOutput{jsonOutputObject(tree.GetRoot())}
+
+	for _, item := range tree.items {
+		if IsVirtualObject(item) {
+			continue
+		}
+		kindName := ensurePlural(strings.ToLower(item.GetObjectKind().GroupVersionKind().Kind))
+		j[kindName] = append(j[kindName], jsonOutputObject(item))
+	}
+
+	var output []byte
+	var err error
+
+	switch format {
+	case "json":
+		output, err = json.MarshalIndent(j, "", "  ")
+		if err != nil {
+			return err
+		}
+	case "yaml":
+		output, err = yaml.Marshal(j)
+		if err != nil {
+			return err
+		}
+	default:
+		return fmt.Errorf("unsupported format %s", format)
+	}
+	fmt.Println(string(output))
+
+	return nil
+}
+
+func jsonOutputObject(item client.Object) jsonOutput {
+	getter := objToGetSet(item)
+	conds := []metav1.Condition{}
+	if getter != nil {
+		conds = getter.GetConditions()
+	}
+
+	// Delete the zOrder annotation from the output.
+	// This annotation is only used for ordering the objects in the tree view.
+	annotations := item.GetAnnotations()
+	delete(annotations, ObjectZOrderAnnotation)
+
+	return jsonOutput{
+		ObjectMeta: metav1.ObjectMeta{
+			Annotations:       annotations,
+			CreationTimestamp: item.GetCreationTimestamp(),
+			DeletionTimestamp: item.GetDeletionTimestamp(),
+			Finalizers:        item.GetFinalizers(),
+			Generation:        item.GetGeneration(),
+			Labels:            item.GetLabels(),
+			Name:              item.GetName(),
+			Namespace:         item.GetNamespace(),
+			OwnerReferences:   item.GetOwnerReferences(),
+			ResourceVersion:   item.GetResourceVersion(),
+			UID:               item.GetUID(),
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: item.GetObjectKind().GroupVersionKind().GroupVersion().String(),
+			Kind:       item.GetObjectKind().GroupVersionKind().Kind,
+		},
+		Conditions: conds,
+	}
 }
 
 // formats the table with required attributes.
