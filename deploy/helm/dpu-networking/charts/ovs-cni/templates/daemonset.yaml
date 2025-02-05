@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: {{ include "ovs-cni.fullname" . }}-arm64
+  namespace: {{ .Release.Namespace }}
   labels:
     app: ovs-cni
     tier: node

@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: {{ include "ovs-helper.fullname" . }}-ovs-helper
+  namespace: {{ .Release.Namespace }}
   labels:
   {{- include "ovs-helper.labels" . | nindent 4 }}
 spec:

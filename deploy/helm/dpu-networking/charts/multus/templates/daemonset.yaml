@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: kube-multus-ds
+  namespace: {{ .Release.Namespace }}
   labels:
     app: multus
     name: multus
