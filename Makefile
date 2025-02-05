@@ -104,23 +104,6 @@ clean-images-for-registry: ## Clean release deletes local images with the $REGIS
 
 ##@ Dependencies
 
-# kamaji is the underlying control plane provider
-KAMAJI_REPO_URL=https://clastix.github.io/charts
-KAMAJI_REPO_NAME=clastix
-KAMAJI_CHART_VERSION=0.15.2
-KAMAJI_CHART_NAME=kamaji
-KAMAJI := $(abspath $(CHARTSDIR)/$(KAMAJI_CHART_NAME)-$(KAMAJI_CHART_VERSION).tgz)
-$(KAMAJI): | $(CHARTSDIR) helm
-	$Q $(HELM) repo add $(KAMAJI_REPO_NAME) $(KAMAJI_REPO_URL)
-	$Q $(HELM) repo update
-	$Q $(HELM) pull $(KAMAJI_REPO_NAME)/$(KAMAJI_CHART_NAME) --version $(KAMAJI_CHART_VERSION) -d $(CHARTSDIR)
-
-# argoCD is the underlying application service provider
-ARGOCD_YAML=$(CHARTSDIR)/argocd.yaml
-ARGOCD_VER=v2.10.1
-$(ARGOCD_YAML): | $(CHARTSDIR)
-	curl -fSsL "https://raw.githubusercontent.com/argoproj/argo-cd/$(ARGOCD_VER)/manifests/install.yaml" -o $(ARGOCD_YAML)
-
 # OVS CNI
 # A third party import to the repo. In future this will be further integrated.
 OVS_CNI_DIR=$(THIRDPARTYDIR)/ovs-cni
@@ -413,7 +396,7 @@ test-release-e2e-quick: # Build images required for the quick DPF e2e test.
 
 TEST_CLUSTER_NAME := dpf-test
 ADD_CONTROL_PLANE_TAINTS ?= true
-test-env-e2e: $(KAMAJI) $(CERT_MANAGER_YAML) $(ARGOCD_YAML) minikube helm ## Setup a Kubernetes environment to run tests.
+test-env-e2e: minikube helm ## Setup a Kubernetes environment to run tests.
 
 	# Create a minikube cluster to host the test.
 	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) ADD_CONTROL_PLANE_TAINTS=$(ADD_CONTROL_PLANE_TAINTS) $(CURDIR)/hack/scripts/minikube-install.sh
@@ -446,7 +429,7 @@ test-deploy-operator-helm: helm helm-package-operator ## Deploy the DPF Operator
 		dpf-operator $(OPERATOR_HELM_CHART)
 
 .PHONY: test-deploy-mock-dms
-test-deploy-mock-dms: kustomize
+test-deploy-mock-dms: helm
 	$(HELM) upgrade --install --create-namespace --namespace $(OPERATOR_NAMESPACE) \
 		--set controllerManager.manager.image.repository=$(MOCK_DMS_IMAGE)\
 		--set controllerManager.manager.image.tag=$(TAG) \

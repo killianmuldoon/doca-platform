@@ -12,6 +12,7 @@ A Helm chart for mock-dms
 | affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator | string | `"Exists"` |  |
 | affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].key | string | `"node-role.kubernetes.io/control-plane"` |  |
 | affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[1].matchExpressions[0].operator | string | `"Exists"` |  |
+| certIPAddresses | list | `[]` |  |
 | controllerManager.manager.containerSecurityContext.allowPrivilegeEscalation | bool | `false` |  |
 | controllerManager.manager.containerSecurityContext.capabilities.drop[0] | string | `"ALL"` |  |
 | controllerManager.manager.image.repository | string | `"example.com/dpf-system"` |  |

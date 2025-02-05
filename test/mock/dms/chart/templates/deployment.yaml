@@ -17,6 +17,12 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
     spec:
+      hostNetwork: true
+      volumes:
+        - name: certs
+          secret:
+            defaultMode: 420
+            secretName: mock-dms-serving-cert
       affinity:
         {{- toYaml .Values.affinity | nindent 8 }}
       tolerations:
@@ -28,23 +34,32 @@ spec:
         env:
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.name
         image: {{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag
           | default .Chart.AppVersion }}
         livenessProbe:
           httpGet:
             path: /healthz
-            port: 8081
+            port: 35001
           initialDelaySeconds: 15
           periodSeconds: 20
         name: manager
+        volumeMounts:
+          - mountPath: /mock-dms-serving-certs
+            name: certs
+            readOnly: true
         ports:
-        - containerPort: 8080
+        - containerPort: 35000
           name: metrics
           protocol: TCP
         readinessProbe:
           httpGet:
             path: /readyz
-            port: 8081
+            port: 35001
           initialDelaySeconds: 5
           periodSeconds: 10
         resources: {}
