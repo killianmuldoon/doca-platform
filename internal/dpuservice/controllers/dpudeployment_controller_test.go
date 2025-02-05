@@ -1202,9 +1202,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(testClient.Get(ctx, types.NamespacedName{Namespace: testNS.Name, Name: "someconfiguration"}, dpuServiceConfiguration)).To(Succeed())
 				dpuServiceConfiguration.Spec.Interfaces[0].Name = "newname"
 				// make it disruptive
-				dpuServiceConfiguration.Spec.NodeEffect = &dpuservicev1.NodeEffect{
-					Drain: true,
-				}
+				dpuServiceConfiguration.Spec.NodeEffect = ptr.To(true)
 				dpuServiceConfiguration.SetManagedFields(nil)
 				dpuServiceConfiguration.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
 				Expect(testClient.Patch(ctx, dpuServiceConfiguration, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
@@ -2121,9 +2119,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				By("Creating the dependencies")
 				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
 				// Make the dpuService disruptive
-				dpuServiceConfiguration.Spec.NodeEffect = &dpuservicev1.NodeEffect{
-					Drain: true,
-				}
+				dpuServiceConfiguration.Spec.NodeEffect = ptr.To(true)
 				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
 					{
 						Name:    "someinterface",
@@ -2580,7 +2576,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations["annkey1"] = "annval1"
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = make(map[string]string)
 				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels["labelkey1"] = "labelval1"
-				dpuServiceConfiguration.Spec.ServiceConfiguration.DeployInCluster = ptr.To[bool](true)
+				dpuServiceConfiguration.Spec.ServiceConfiguration.DeployInCluster = ptr.To(true)
 				dpuServiceConfiguration.Spec.ServiceConfiguration.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key1":"value1"}`)}
 				dpuServiceConfiguration.Spec.Interfaces = nil
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
@@ -2688,12 +2684,12 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 								Values: &runtime.RawExtension{Raw: []byte(`{"key1":"value1"}`)},
 							},
-							ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-1"),
+							ServiceID: ptr.To("dpudeployment_dpudeployment_service-1"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels:      map[string]string{"labelkey1": "labelval1"},
 								Annotations: map[string]string{"annkey1": "annval1"},
 							},
-							DeployInCluster: ptr.To[bool](true),
+							DeployInCluster: ptr.To(true),
 						},
 						{
 							HelmChart: dpuservicev1.HelmChart{
@@ -2705,7 +2701,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 								Values: &runtime.RawExtension{Raw: []byte(`{"key2":"value2","key3":"value3"}`)},
 							},
-							ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-2"),
+							ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels:      map[string]string{"labelkey2": "labelval2"},
 								Annotations: map[string]string{"annkey2": "annval2"},
@@ -2739,7 +2735,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-3"),
+							ServiceID: ptr.To("dpudeployment_dpudeployment_service-3"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels:      map[string]string{"labelkey3": "labelval3"},
 								Annotations: map[string]string{"annkey3": "annval3"},
@@ -2859,7 +2855,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID:  ptr.To[string]("dpudeployment_dpudeployment_service-1"),
+							ServiceID:  ptr.To("dpudeployment_dpudeployment_service-1"),
 							Interfaces: []string{"dpudeployment-service-1-if1"},
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								NodeSelector: &corev1.NodeSelector{
@@ -2891,7 +2887,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID:       ptr.To[string]("dpudeployment_dpudeployment_service-2"),
+							ServiceID:       ptr.To("dpudeployment_dpudeployment_service-2"),
 							DeployInCluster: ptr.To(true),
 						},
 					}))
@@ -2959,7 +2955,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-1"),
+							ServiceID: ptr.To("dpudeployment_dpudeployment_service-1"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -2991,7 +2987,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-2"),
+							ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -3080,7 +3076,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-1"),
+							ServiceID: ptr.To("dpudeployment_dpudeployment_service-1"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -3112,7 +3108,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-2"),
+							ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -3215,7 +3211,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-1"),
+							ServiceID: ptr.To("dpudeployment_dpudeployment_service-1"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -3247,7 +3243,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-2"),
+							ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -3281,7 +3277,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-2"),
+							ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								Labels: map[string]string{"labelkey2": "labelval2"},
 								NodeSelector: &corev1.NodeSelector{
@@ -3359,7 +3355,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								Chart:   "somechart",
 							},
 						},
-						ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-1"),
+						ServiceID: ptr.To("dpudeployment_dpudeployment_service-1"),
 						ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 							NodeSelector: &corev1.NodeSelector{
 								NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -3391,7 +3387,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								Chart:   "somechart",
 							},
 						},
-						ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-2"),
+						ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
 						ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 							NodeSelector: &corev1.NodeSelector{
 								NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -3441,7 +3437,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								Chart:   "somechart",
 							},
 						},
-						ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-2"),
+						ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
 						ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 							NodeSelector: &corev1.NodeSelector{
 								NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -3556,7 +3552,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-1"),
+							ServiceID: ptr.To("dpudeployment_dpudeployment_service-1"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -3588,7 +3584,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID: ptr.To[string]("dpudeployment_dpudeployment_service-2"),
+							ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -3660,7 +3656,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								Chart:   "somechart",
 							},
 						},
-						ServiceID:  ptr.To[string]("dpudeployment_dpudeployment_service-2"),
+						ServiceID:  ptr.To("dpudeployment_dpudeployment_service-2"),
 						Interfaces: []string{"dpudeployment-service-2-someinterface"},
 						ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 							NodeSelector: &corev1.NodeSelector{
@@ -3736,7 +3732,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID:  ptr.To[string]("dpudeployment_dpudeployment_service-1"),
+							ServiceID:  ptr.To("dpudeployment_dpudeployment_service-1"),
 							Interfaces: []string{"dpudeployment-service-1-someinterface"},
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								NodeSelector: &corev1.NodeSelector{
@@ -3768,7 +3764,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID:  ptr.To[string]("dpudeployment_dpudeployment_service-2"),
+							ServiceID:  ptr.To("dpudeployment_dpudeployment_service-2"),
 							Interfaces: []string{"dpudeployment-service-2-someinterface"},
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								NodeSelector: &corev1.NodeSelector{
@@ -5461,10 +5457,10 @@ var _ = Describe("API Validations for DPUDeployment related objects", func() {
 		},
 			Entry("valid config - without specifying deployInCluster and with interfaces", nil, true, false),
 			Entry("valid config - without specifying deployInCluster and without interfaces", nil, false, false),
-			Entry("valid config - with deployInCluster=false and with interfaces", ptr.To[bool](false), true, false),
-			Entry("valid config - with deployInCluster=false and without interfaces", ptr.To[bool](false), false, false),
-			Entry("valid config - with deployInCluster=true and without interfaces", ptr.To[bool](true), false, false),
-			Entry("invalid config - with deployInCluster=true and with interfaces", ptr.To[bool](true), true, true),
+			Entry("valid config - with deployInCluster=false and with interfaces", ptr.To(false), true, false),
+			Entry("valid config - with deployInCluster=false and without interfaces", ptr.To(false), false, false),
+			Entry("valid config - with deployInCluster=true and without interfaces", ptr.To(true), false, false),
+			Entry("invalid config - with deployInCluster=true and with interfaces", ptr.To(true), true, true),
 		)
 	})
 	Context("When checking the DPUDeployment API validations", func() {
@@ -5642,9 +5638,7 @@ func getMinimalDPUServiceConfiguration(namespace string) *dpuservicev1.DPUServic
 
 func getDisruptiveDPUServiceConfiguration(namespace string) *dpuservicev1.DPUServiceConfiguration {
 	config := getMinimalDPUServiceConfiguration(namespace)
-	config.Spec.NodeEffect = &dpuservicev1.NodeEffect{
-		Drain: true,
-	}
+	config.Spec.NodeEffect = ptr.To(true)
 	return config
 }
 

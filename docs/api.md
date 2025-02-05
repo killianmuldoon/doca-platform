@@ -2392,7 +2392,7 @@ _Appears in:_
 | `deploymentServiceName` _string_ | DeploymentServiceName is the name of the DPU service this configuration refers to. It must match<br />.spec.deploymentServiceName of a DPUServiceTemplate object and one of the keys in .spec.services of a<br />DPUDeployment object. |  |  |
 | `serviceConfiguration` _[ServiceConfiguration](#serviceconfiguration)_ | ServiceConfiguration contains fields that are configured on the generated DPUService. |  |  |
 | `interfaces` _[ServiceInterfaceTemplate](#serviceinterfacetemplate) array_ | Interfaces specifies the DPUServiceInterface to be generated for the generated DPUService. |  | MaxItems: 50 <br />MinItems: 1 <br /> |
-| `nodeEffect` _[NodeEffect](#nodeeffect)_ | NodeEffect specifies the effect of the DPUService on the node |  |  |
+| `nodeEffect` _boolean_ | NodeEffect specifies whether the DPUService should trigger the nodeEffect specified in the DPUDeployment when<br />updating. |  |  |
 
 
 #### DPUServiceConfigurationStatus
@@ -2898,22 +2898,6 @@ _Appears in:_
 | `namespace` _string_ | Namespace of the object, if not provided the object will be looked up in<br />the same namespace as the referring object |  |  |
 
 
-#### NodeEffect
-
-
-
-NodeEffect is the effect of the DPUService on the node
-
-
-
-_Appears in:_
-- [DPUServiceConfigurationSpec](#dpuserviceconfigurationspec)
-
-| Field | Description | Default | Validation |
-| --- | --- | --- | --- |
-| `drain` _boolean_ | Drain specifies if the node should be drained before the DPUService is deployed. Default to false. |  |  |
-
-
 #### ObjectMeta
 
 
@@ -3212,7 +3196,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `helmChart` _[ServiceConfigurationHelmChart](#serviceconfigurationhelmchart)_ | HelmChart reflects the Helm related configuration. The user is supposed to configure values specific to that<br />DPUServiceConfiguration used in a DPUDeployment and should not specify values that could be shared across multiple<br />DPUDeployments using different DPUServiceConfigurations. These values are merged with values specified in the<br />DPUServiceTemplate. In case of conflict, the DPUServiceConfiguration values take precedence. |  |  |
 | `serviceDaemonSet` _[DPUServiceConfigurationServiceDaemonSetValues](#dpuserviceconfigurationservicedaemonsetvalues)_ | ServiceDaemonSet contains settings related to the underlying DaemonSet that is part of the Helm chart |  |  |
-| `deployInCluster` _boolean_ | TODO: Add nodeEffect<br />DeployInCluster indicates if the DPUService Helm Chart will be deployed on the Host cluster. Default to false. |  |  |
+| `deployInCluster` _boolean_ | DeployInCluster indicates if the DPUService Helm Chart will be deployed on the Host cluster. Default to false. |  |  |
 
 
 #### ServiceConfigurationHelmChart

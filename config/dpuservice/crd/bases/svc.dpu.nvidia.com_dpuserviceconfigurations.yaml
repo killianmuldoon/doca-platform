@@ -75,14 +75,10 @@ spec:
                 minItems: 1
                 type: array
               nodeEffect:
-                description: NodeEffect specifies the effect of the DPUService on
-                  the node
-                properties:
-                  drain:
-                    description: Drain specifies if the node should be drained before
-                      the DPUService is deployed. Default to false.
-                    type: boolean
-                type: object
+                description: |-
+                  NodeEffect specifies whether the DPUService should trigger the nodeEffect specified in the DPUDeployment when
+                  updating.
+                type: boolean
               serviceConfiguration:
                 description: ServiceConfiguration contains fields that are configured
                   on the generated DPUService.

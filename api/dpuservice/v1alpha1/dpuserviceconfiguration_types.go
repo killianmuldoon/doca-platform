@@ -65,16 +65,10 @@ type DPUServiceConfigurationSpec struct {
 	// +optional
 	Interfaces []ServiceInterfaceTemplate `json:"interfaces,omitempty"`
 
-	// NodeEffect specifies the effect of the DPUService on the node
+	// NodeEffect specifies whether the DPUService should trigger the nodeEffect specified in the DPUDeployment when
+	// updating.
 	// +optional
-	NodeEffect *NodeEffect `json:"nodeEffect,omitempty"`
-}
-
-// NodeEffect is the effect of the DPUService on the node
-type NodeEffect struct {
-	// Drain specifies if the node should be drained before the DPUService is deployed. Default to false.
-	// +optional
-	Drain bool `json:"drain,omitempty"`
+	NodeEffect *bool `json:"nodeEffect,omitempty"`
 }
 
 // ServiceInterfaceTemplate contains the information related to an interface of the DPUService
@@ -99,7 +93,6 @@ type ServiceConfiguration struct {
 	// ServiceDaemonSet contains settings related to the underlying DaemonSet that is part of the Helm chart
 	// +optional
 	ServiceDaemonSet DPUServiceConfigurationServiceDaemonSetValues `json:"serviceDaemonSet,omitempty"`
-	// TODO: Add nodeEffect
 	// DeployInCluster indicates if the DPUService Helm Chart will be deployed on the Host cluster. Default to false.
 	// +optional
 	DeployInCluster *bool `json:"deployInCluster,omitempty"`

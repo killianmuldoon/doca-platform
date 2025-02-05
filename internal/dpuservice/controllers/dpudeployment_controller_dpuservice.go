@@ -147,7 +147,7 @@ func reconcileNewDPUServiceRevision(newDPUService client.Object, name, versionDi
 	setDPUServiceNodeLabelValue(serviceConfig, name, versionDigest, dpuNodeLabels)
 
 	// TODO: By default when creating a new non-disruptive DPUService
-	// we should not cause drain because of labels
+	// we should not cause nodeEffect because of labels
 }
 
 // reconcileDPUServiceWithOldRevisions reconciles a new revision of the DPUService and the old revisions
@@ -163,7 +163,7 @@ func reconcileDPUServiceWithOldRevisions(ctx context.Context, c client.Client, n
 	dpuServiceNodeSelector := newObjectNodeSelectorWithOwner(getDPUServiceVersionLabelKey(name), versionDigest, client.ObjectKeyFromObject(dpuDeployment))
 	nodeLabelValue := versionDigest
 	var toRetain []client.Object
-	if serviceConfig.Spec.NodeEffect != nil && serviceConfig.Spec.NodeEffect.Drain {
+	if serviceConfig.Spec.NodeEffect != nil && *serviceConfig.Spec.NodeEffect {
 		// the logic regarding the previous revisions is as follows:
 		// - pause all previous revisions before creating the new one
 		//   - The number of previous are controlled by the revisionHistoryLimit. This limit can be hit when several updates are done in a short period of time
