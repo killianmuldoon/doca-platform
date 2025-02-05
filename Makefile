@@ -724,10 +724,10 @@ export SRIOVDP_IMAGE=ghcr.io/k8snetworkplumbingwg/sriov-network-device-plugin
 export SRIOVDP_TAG=v3.6.2
 export NVIPAM_IMAGE=ghcr.io/mellanox/nvidia-k8s-ipam
 export NVIPAM_TAG=v0.3.5
-export KUBE_FLANNEL_IMAGE=docker.io/flannel/flannel
-export KUBE_FLANNEL_TAG=v0.26.2
-export FLANNEL_CNI_IMAGE=docker.io/flannel/flannel-cni-plugin
-export FLANNEL_CNI_TAG=v1.6.0-flannel1
+export KUBE_FLANNEL_IMAGE=ghcr.io/flannel-io/flannel
+export KUBE_FLANNEL_TAG=v0.26.4
+export FLANNEL_CNI_IMAGE=ghcr.io/flannel-io/flannel-cni-plugin
+export FLANNEL_CNI_TAG=v1.6.2-flannel1
 
 DPF_SYSTEM_ARCH ?= $(HOST_ARCH) $(DPU_ARCH)
 .PHONY: docker-build-dpf-system # Build a multi-arch image for DPF System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
