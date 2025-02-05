@@ -196,65 +196,7 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 		ValidateDPUServiceChain(ctx)
 		ValidateDPUServiceCredentialRequest(ctx)
 
-		It("delete DPUs, DPUSets and BFBs and ensure they are deleted", func() {
-			if skipCleanup {
-				Skip("Skip cleanup resources")
-			}
-
-			Eventually(func(g Gomega) {
-				dpuSetList := &provisioningv1.DPUSetList{}
-				dpuList := &provisioningv1.DPUList{}
-				g.Expect(client.IgnoreNotFound(testClient.DeleteAllOf(ctx, &provisioningv1.DPUSet{}, client.InNamespace(dpfOperatorSystemNamespace)))).To(Succeed())
-				g.Expect(testClient.List(ctx, dpuSetList)).To(Succeed())
-				g.Expect(dpuSetList.Items).To(BeEmpty())
-
-				// Expect all DPUs to have been deleted.
-				g.Expect(testClient.List(ctx, dpuList)).To(Succeed())
-				g.Expect(dpuList.Items).To(BeEmpty())
-
-				dpuClusters, err := dpucluster.GetConfigs(ctx, testClient)
-				Expect(err).ToNot(HaveOccurred())
-				for _, conf := range dpuClusters {
-					nodes := &corev1.NodeList{}
-					dpuClient, err := conf.Client(ctx)
-					g.Expect(err).ToNot(HaveOccurred())
-					g.Expect(dpuClient.List(ctx, nodes)).To(Succeed())
-					By(fmt.Sprintf("Expected number of nodes %d to equal %d", len(nodes.Items), 0))
-					g.Expect(nodes.Items).To(BeEmpty())
-				}
-			}).WithTimeout(10 * time.Minute).Should(Succeed())
-
-			Eventually(func(g Gomega) {
-				bfb := unstructuredFromFile("infrastructure/bfb.yaml")
-
-				g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, bfb))).To(Succeed())
-				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(bfb), bfb))).To(BeTrue())
-			}).WithTimeout(60 * time.Second).Should(Succeed())
-		})
-
-		It("delete the DPUClusters and ensure they are deleted", func() {
-			if skipCleanup {
-				Skip("Skip cleanup resources")
-			}
-			Eventually(func(g Gomega) {
-				dpuClusters, err := dpucluster.GetConfigs(ctx, testClient)
-				Expect(err).ToNot(HaveOccurred())
-				for _, dpuCluster := range dpuClusters {
-					g.Expect(testClient.Delete(ctx, dpuCluster.Cluster)).To(Succeed())
-				}
-			}).WithTimeout(10 * time.Minute).Should(Succeed())
-		})
-
-		It("delete the DPFOperatorConfig and ensure it is deleted", func() {
-			if skipCleanup {
-				Skip("Skip cleanup resources")
-			}
-			// Check that all deployments and DPUServices are deleted.
-			Eventually(func(g Gomega) {
-				g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, config))).To(Succeed())
-				g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(config), config))).To(BeTrue())
-			}).WithTimeout(600 * time.Second).Should(Succeed())
-		})
+		ValidateOperatorCleanup(ctx, config)
 	})
 })
 
@@ -1306,6 +1248,164 @@ func ValidateDPUServiceChain(ctx context.Context) {
 				g.Expect(serviceInterfaceSetList.Items).To(BeEmpty())
 			}
 		}).WithTimeout(300 * time.Second).Should(Succeed())
+	})
+}
+
+func ValidateOperatorCleanup(ctx context.Context, config *operatorv1.DPFOperatorConfig) {
+	It("delete DPUs and DPUSets and ensure they are deleted", func() {
+		if skipCleanup {
+			Skip("Skip cleanup resources")
+		}
+
+		Eventually(func(g Gomega) {
+			dpuSetList := &provisioningv1.DPUSetList{}
+			dpuList := &provisioningv1.DPUList{}
+			g.Expect(client.IgnoreNotFound(testClient.DeleteAllOf(ctx, &provisioningv1.DPUSet{}, client.InNamespace(dpfOperatorSystemNamespace)))).To(Succeed())
+			g.Expect(testClient.List(ctx, dpuSetList)).To(Succeed())
+			g.Expect(dpuSetList.Items).To(BeEmpty())
+
+			// Expect all DPUs to have been deleted.
+			g.Expect(testClient.List(ctx, dpuList)).To(Succeed())
+			g.Expect(dpuList.Items).To(BeEmpty())
+
+			dpuClusters, err := dpucluster.GetConfigs(ctx, testClient)
+			Expect(err).ToNot(HaveOccurred())
+			for _, conf := range dpuClusters {
+				nodes := &corev1.NodeList{}
+				dpuClient, err := conf.Client(ctx)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(dpuClient.List(ctx, nodes)).To(Succeed())
+				By(fmt.Sprintf("Expected number of nodes %d to equal %d", len(nodes.Items), 0))
+				g.Expect(nodes.Items).To(BeEmpty())
+			}
+		}).WithTimeout(10 * time.Minute).Should(Succeed())
+	})
+
+	It("create a DPUDeployment with its dependencies and ensure that the underlying objects are created", func() {
+		By("creating the dpudeployment")
+		dpuDeployment := &dpuservicev1.DPUDeployment{}
+		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(unstructuredFromFile("application/dpudeployment.yaml").UnstructuredContent(), dpuDeployment)).ToNot(HaveOccurred())
+		dpuDeployment.Spec.DPUs.DPUSets[0].NodeSelector = &metav1.LabelSelector{
+			MatchLabels: map[string]string{"feature.node.kubernetes.io/dpu-enabled": "true"},
+		}
+		dpuDeployment.SetLabels(cleanupLabels)
+		Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+
+		By("checking that the underlying objects are created")
+		Eventually(func(g Gomega) {
+			gotDPUSetList := &provisioningv1.DPUSetList{}
+			g.Expect(testClient.List(ctx,
+				gotDPUSetList,
+				client.InNamespace(dpuDeployment.GetNamespace()),
+				client.MatchingLabels{
+					"svc.dpu.nvidia.com/owned-by-dpudeployment": fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName()),
+				})).To(Succeed())
+			g.Expect(gotDPUSetList.Items).To(HaveLen(1))
+
+			gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+			g.Expect(testClient.List(ctx,
+				gotDPUServiceList,
+				client.InNamespace(dpuDeployment.GetNamespace()),
+				client.MatchingLabels{
+					"svc.dpu.nvidia.com/owned-by-dpudeployment": fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName()),
+				})).To(Succeed())
+			g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
+
+			gotDPUServiceChainList := &dpuservicev1.DPUServiceChainList{}
+			g.Expect(testClient.List(ctx,
+				gotDPUServiceChainList,
+				client.InNamespace(dpuDeployment.GetNamespace()),
+				client.MatchingLabels{
+					"svc.dpu.nvidia.com/owned-by-dpudeployment": fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName()),
+				})).To(Succeed())
+			g.Expect(gotDPUServiceChainList.Items).To(HaveLen(1))
+
+			gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+			g.Expect(testClient.List(ctx,
+				gotDPUServiceInterfaceList,
+				client.InNamespace(dpuDeployment.GetNamespace()),
+				client.MatchingLabels{
+					"svc.dpu.nvidia.com/owned-by-dpudeployment": fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName()),
+				})).To(Succeed())
+			g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
+		}).WithTimeout(180 * time.Second).Should(Succeed())
+
+		By(fmt.Sprintf("checking that the number of nodes is equal to %d", numNodes))
+		Eventually(func(g Gomega) {
+			// If we're not expecting any nodes in the cluster return with success.
+			if numNodes == 0 {
+				return
+			}
+			dpuClusters, err := dpucluster.GetConfigs(ctx, testClient)
+			Expect(err).ToNot(HaveOccurred())
+
+			for i := range dpuClusters {
+				nodes := &corev1.NodeList{}
+				dpuClient, err := dpuClusters[i].Client(ctx)
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(dpuClient.List(ctx, nodes)).To(Succeed())
+				By(fmt.Sprintf("Expected number of nodes %d to equal %d", len(nodes.Items), numNodes))
+				g.Expect(nodes.Items).To(HaveLen(numNodes))
+			}
+		}).WithTimeout(30 * time.Minute).WithPolling(120 * time.Second).Should(Succeed())
+	})
+
+	It("create DPUServiceInterface and check that it is mirrored to each cluster", func() {
+		dpuServiceInterfaceName := "pf0-vf2"
+		dpuServiceInterfaceNamespace := "test-dpudeployment"
+		By("create test namespace")
+		testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceInterfaceNamespace}}
+		testNS.SetLabels(cleanupLabels)
+		Expect(testClient.Create(ctx, testNS)).To(Succeed())
+		By("create DPUServiceInterface")
+		dpuServiceInterface := unstructuredFromFile("application/dpuserviceinterface.yaml")
+		dpuServiceInterface.SetName(dpuServiceInterfaceName)
+		dpuServiceInterface.SetNamespace(dpuServiceInterfaceNamespace)
+		dpuServiceInterface.SetLabels(cleanupLabels)
+		Expect(testClient.Create(ctx, dpuServiceInterface)).To(Succeed())
+
+		By("verify ServiceInterfaceSet is created in DPF clusters")
+		Eventually(func(g Gomega) {
+			dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
+			g.Expect(err).ToNot(HaveOccurred())
+			for _, dpuClusterConfig := range dpuClusterConfigs {
+				dpuClient, err := dpuClusterConfig.Client(ctx)
+				g.Expect(err).ToNot(HaveOccurred())
+				serviceInterfaceSetList := &dpuservicev1.ServiceInterfaceSetList{}
+				g.Expect(dpuClient.List(ctx, serviceInterfaceSetList)).To(Succeed())
+				g.Expect(serviceInterfaceSetList.Items).To(HaveLen(2))
+			}
+		}, time.Second*300, time.Millisecond*250).Should(Succeed())
+
+		// If we're not expecting any nodes in the cluster return with success.
+		if numNodes == 0 {
+			return
+		}
+
+		By(fmt.Sprintf("verify ServiceInterface is created in %d nodes", numNodes))
+		Eventually(func(g Gomega) {
+			dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, testClient)
+			g.Expect(err).ToNot(HaveOccurred())
+			for _, dpuClusterConfig := range dpuClusterConfigs {
+				dpuClient, err := dpuClusterConfig.Client(ctx)
+				g.Expect(err).ToNot(HaveOccurred())
+				serviceInterfaceList := &dpuservicev1.ServiceInterfaceList{}
+				g.Expect(dpuClient.List(ctx, serviceInterfaceList)).To(Succeed())
+				g.Expect(serviceInterfaceList.Items).To(Not(BeEmpty()))
+			}
+		}).WithTimeout(30 * time.Minute).WithPolling(120 * time.Second).Should(Succeed())
+	})
+
+	// we expect all resources, the DPUCluster included to be deleted as part of the DPFOperatorConfig cleanup
+	It("delete the DPFOperatorConfig and ensure it is deleted", func() {
+		if skipCleanup {
+			Skip("Skip cleanup resources")
+		}
+		// Check that all deployments and DPUServices are deleted.
+		Eventually(func(g Gomega) {
+			g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, config))).To(Succeed())
+			g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(config), config))).To(BeTrue())
+		}).WithTimeout(600 * time.Second).Should(Succeed())
 	})
 }
 

@@ -600,8 +600,7 @@ func reconcileDPUSets(ctx context.Context, c client.Client, dpuDeployment *dpuse
 		newDPUSet := generateDPUSet(client.ObjectKeyFromObject(dpuDeployment),
 			owner,
 			&dpuSetOption,
-			dpuDeployment.Spec.DPUs.BFB,
-			dpuDeployment.Spec.DPUs.Flavor,
+			dpuDeployment,
 			dpuNodeLabels)
 
 		if i := matchDPUSetIndex(newDPUSet, existingDPUSets.Items); i >= 0 {
@@ -651,8 +650,7 @@ func matchDPUSetIndex(expected *provisioningv1.DPUSet, existing []provisioningv1
 func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 	owner *metav1.OwnerReference,
 	dpuSetSettings *dpuservicev1.DPUSet,
-	bfb string,
-	dpuFlavor string,
+	dpuDeployment *dpuservicev1.DPUDeployment,
 	dpuNodeLabels map[string]string,
 ) *provisioningv1.DPUSet {
 	dpuSet := &provisioningv1.DPUSet{
@@ -674,12 +672,16 @@ func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 				Annotations: dpuSetSettings.DPUAnnotations,
 				Spec: provisioningv1.DPUTemplateSpec{
 					BFB: provisioningv1.BFBReference{
-						Name: bfb,
+						Name: dpuDeployment.Spec.DPUs.BFB,
 					},
-					DPUFlavor: dpuFlavor,
+					DPUFlavor: dpuDeployment.Spec.DPUs.Flavor,
 				},
 			},
 		},
+	}
+
+	if dpuDeployment.Spec.DPUs.NodeEffect != nil {
+		dpuSet.Spec.DPUTemplate.Spec.NodeEffect = dpuDeployment.Spec.DPUs.NodeEffect
 	}
 
 	nodeLabels := map[string]string{

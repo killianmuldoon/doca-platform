@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -140,6 +141,9 @@ type DPUs struct {
 	// +kubebuilder:validation:MinItems=1
 	// +kubebuilder:validation:MaxItems=50
 	DPUSets []DPUSet `json:"dpuSets,omitempty"`
+
+	// NodeEffect is the effect the DPU has on Nodes during provisioning.
+	NodeEffect *provisioningv1.NodeEffect `json:"nodeEffect,omitempty"`
 }
 
 // +kubebuilder:validation:XValidation:rule="!(has(self.dpuAnnotations) && (self.dpuAnnotations.exists(key, key.contains('dpu.nvidia.com/') || key.endsWith('dpu.nvidia.com')))) ", message="should not contain dpu.nvidia.com/ and should not end with dpu.nvidia.com"

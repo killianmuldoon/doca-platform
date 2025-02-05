@@ -151,6 +151,58 @@ spec:
                       Flavor is the name of the DPUFlavor object to be used in this DPUDeployment. It must be in the same namespace as
                       the DPUDeployment.
                     type: string
+                  nodeEffect:
+                    description: NodeEffect is the effect the DPU has on Nodes during
+                      provisioning.
+                    properties:
+                      customLabel:
+                        additionalProperties:
+                          type: string
+                        description: Add specify labels on the DPU node
+                        type: object
+                      drain:
+                        description: Drain the K8s host node by NodeMaintenance operator
+                        type: boolean
+                      noEffect:
+                        description: Do not do any action on the DPU node
+                        type: boolean
+                      taint:
+                        description: Add specify taint on the DPU node
+                        properties:
+                          effect:
+                            description: |-
+                              Required. The effect of the taint on pods
+                              that do not tolerate the taint.
+                              Valid effects are NoSchedule, PreferNoSchedule and NoExecute.
+                            type: string
+                          key:
+                            description: Required. The taint key to be applied to
+                              a node.
+                            type: string
+                          timeAdded:
+                            description: |-
+                              TimeAdded represents the time at which the taint was added.
+                              It is only written for NoExecute taints.
+                            format: date-time
+                            type: string
+                          value:
+                            description: The taint value corresponding to the taint
+                              key.
+                            type: string
+                        required:
+                        - effect
+                        - key
+                        type: object
+                    type: object
+                    x-kubernetes-validations:
+                    - message: only one of taint, noEffect, drain or customLabel can
+                        be set
+                      rule: (has(self.taint) && !has(self.noEffect) && !has(self.customLabel)
+                        && !has(self.drain) || has(self.noEffect) && !has(self.taint)
+                        && !has(self.customLabel) && !has(self.drain) || has(self.customLabel)
+                        && !has(self.taint) && !has(self.noEffect) && !has(self.drain)
+                        || has(self.drain) && !has(self.taint) && !has(self.noEffect)
+                        && !has(self.customLabel))
                 required:
                 - bfb
                 - flavor

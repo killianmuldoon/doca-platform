@@ -1424,6 +1424,7 @@ Only one of Taint, NoEffect, CustomLabel and Drain can be set.
 _Appears in:_
 - [DPUSpec](#dpuspec)
 - [DPUTemplateSpec](#dputemplatespec)
+- [DPUs](#dpus)
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
@@ -2802,6 +2803,7 @@ _Appears in:_
 | `bfb` _string_ | BFB is the name of the BFB object to be used in this DPUDeployment. It must be in the same namespace as the<br />DPUDeployment. |  |  |
 | `flavor` _string_ | Flavor is the name of the DPUFlavor object to be used in this DPUDeployment. It must be in the same namespace as<br />the DPUDeployment. |  |  |
 | `dpuSets` _[DPUSet](#dpuset) array_ | DPUSets contains configuration for each DPUSet that is going to be created by the DPUDeployment |  | MaxItems: 50 <br />MinItems: 1 <br /> |
+| `nodeEffect` _[NodeEffect](#nodeeffect)_ | NodeEffect is the effect the DPU has on Nodes during provisioning. |  |  |
 
 
 #### HelmChart

@@ -13,10 +13,13 @@ spec:
       nodeSelector:
         matchLabels:
           nodeKey: "nodeValue"
-      dpuSelector:
-        pciAddr: "0000:0e:00.0"
       dpuAnnotations:
         doMagic: "true"
+    nodeEffect:
+        taint:
+          key: "dpu"
+          value: "provisioning"
+          effect: NoSchedule
   services:
     example:
       serviceTemplate: "dpudeployment-example-servicetemplate"
