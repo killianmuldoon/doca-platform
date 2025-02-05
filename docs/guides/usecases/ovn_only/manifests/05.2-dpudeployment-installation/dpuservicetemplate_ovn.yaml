@@ -10,7 +10,7 @@ spec:
     source:
       repoURL: $OVN_KUBERNETES_REPO_URL
       chart: ovn-kubernetes-chart
-      version: $DPF_VERSION
+      version: $TAG
     values:
       tags:
         ovn-kubernetes-resource-injector: false

@@ -105,8 +105,12 @@ export HBN_NGC_IMAGE_URL=nvcr.io/nvidia/doca/doca_hbn
 ## Note: This isn't technically required when using public images but is included here to demonstrate the secret flow in DPF when using images from a private registry.
 export NGC_API_KEY=
 
-## DPF_VERSION is the version of the DPF components which will be deployed in this guide.
-export DPF_VERSION=v24.10.0
+## The DPF REGISTRY is the Helm repository URL for the DPF Operator.
+## Usually this is the GHCR registry. For development purposes, this can be set to a different repository.
+export REGISTRY=oci://ghcr.io/nvidia/dpf-operator
+
+## The DPF TAG is the version of the DPF components which will be deployed in this guide.
+export TAG=v24.10.0
 
 ## URL to the BFB used in the `bfb.yaml` and linked by the DPUSet.
 export BLUEFIELD_BITSTREAM="https://content.mellanox.com/BlueField/BFBs/Ubuntu22.04/bf-bundle-2.9.1-30_24.11_ubuntu-22.04_prod.bfb"
@@ -301,7 +305,7 @@ spec:
 
 A number of [environment variables](#0-required-variables) must be set before running this command.
 ```shell
-envsubst < ./manifests/01-dpf-operator-installation/helm-values/dpf-operator.yml | helm upgrade --install -n dpf-operator-system dpf-operator oci://ghcr.io/nvidia/dpf-operator --version=$DPF_VERSION --values -
+envsubst < ./manifests/01-dpf-operator-installation/helm-values/dpf-operator.yml | helm upgrade --install -n dpf-operator-system dpf-operator $REGISTRY --version=$TAG --values -
 ```
 
 <details><summary>Expand for detailed helm values</summary>

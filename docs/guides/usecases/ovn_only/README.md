@@ -166,8 +166,12 @@ export POD_CIDR=10.233.64.0/18
 ## This is a CIDR in the form e.g. 10.10.10.0/24
 export SERVICE_CIDR=10.233.0.0/18 
 
-## DPF_VERSION is the version of the DPF components which will be deployed in this guide.
-export DPF_VERSION=v24.10.0
+## The DPF REGISTRY is the Helm repository URL for the DPF Operator.
+## Usually this is the GHCR registry. For development purposes, this can be set to a different repository.
+export REGISTRY=oci://ghcr.io/nvidia/dpf-operator
+
+## The DPF TAG is the version of the DPF components which will be deployed in this guide.
+export TAG=v24.10.0
 
 ## URL to the BFB used in the `bfb.yaml` and linked by the DPUSet.
 export BLUEFIELD_BITSTREAM="https://content.mellanox.com/BlueField/BFBs/Ubuntu22.04/bf-bundle-2.9.1-30_24.11_ubuntu-22.04_prod.bfb"
@@ -196,7 +200,7 @@ kubectl -n ovn-kubernetes create secret docker-registry dpf-pull-secret --docker
 
 Install the OVN Kubernetes CNI components from the helm chart. A number of [environment variables](#0-required-variables) must be set before running this command.
 ```shell
-envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes ${OVN_KUBERNETES_REPO_URL}/ovn-kubernetes-chart --version $DPF_VERSION --values -
+envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes ${OVN_KUBERNETES_REPO_URL}/ovn-kubernetes-chart --version $TAG --values -
 ```
 
 <details><summary>Expand for detailed helm values</summary>
@@ -420,7 +424,7 @@ spec:
 
 A number of [environment variables](#0-required-variables) must be set before running this command.
 ```shell
-envsubst < ./manifests/02-dpf-operator-installation/helm-values/dpf-operator.yml | helm upgrade --install -n dpf-operator-system dpf-operator oci://ghcr.io/nvidia/dpf-operator --version=$DPF_VERSION --values -
+envsubst < ./manifests/02-dpf-operator-installation/helm-values/dpf-operator.yml | helm upgrade --install -n dpf-operator-system dpf-operator $REGISTRY --version=$TAG --values -
 ```
 
 <details><summary>Expand for detailed helm values</summary>
@@ -585,7 +589,7 @@ operator:
 The OVN Kubernetes resource injection webhook injected each pod scheduled to a worker node with a request for a VF and a Network Attachment Definition. This webhook is part of the same helm chart as the other components of the OVN Kubernetes CNI. Here it is installed by adjusting the existing helm installation to add the webhook component to the installation. 
 
 ```shell
-envsubst < manifests/04-enable-accelerated-cni/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes ${OVN_KUBERNETES_REPO_URL}/ovn-kubernetes-chart --version $DPF_VERSION --values -
+envsubst < manifests/04-enable-accelerated-cni/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes ${OVN_KUBERNETES_REPO_URL}/ovn-kubernetes-chart --version $TAG --values -
 ```
 
 <details><summary>Expand for detailed helm values</summary>
@@ -769,7 +773,7 @@ spec:
     source:
       repoURL: $OVN_KUBERNETES_REPO_URL
       chart: ovn-kubernetes-chart
-      version: $DPF_VERSION
+      version: $TAG
     values:
       tags:
         ovn-kubernetes-resource-injector: false
@@ -1041,7 +1045,7 @@ spec:
     source:
       repoURL: $OVN_KUBERNETES_REPO_URL
       chart: ovn-kubernetes-chart
-      version: $DPF_VERSION
+      version: $TAG
     values:
       tags:
         ovn-kubernetes-resource-injector: false
@@ -1247,7 +1251,7 @@ helm uninstall -n nvidia-network-operator network-operator --wait
 
 ## Run `helm install` with the original values to delete the OVN Kubernetes webhook.
 ## Note: Uninstalling OVN Kubernetes as primary CNI is not supported but this command must be run to remove the webhook and restore a functioning cluster.
-envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes ${OVN_KUBERNETES_REPO_URL}/ovn-kubernetes-chart --version $DPF_VERSION --values -
+envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm upgrade --install -n ovn-kubernetes ovn-kubernetes ${OVN_KUBERNETES_REPO_URL}/ovn-kubernetes-chart --version $TAG --values -
 ```
 
 #### Delete the DPF Operator system and DPF Operator
