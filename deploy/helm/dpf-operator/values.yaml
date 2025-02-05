@@ -329,6 +329,8 @@ kube-state-metrics:
           - dpuservicecredentialrequests/status
           - dpuservices
           - dpuservices/status
+          - dpuservicetemplates
+          - dpuservicetemplates/status
           - dpfoperatorconfigs
           - dpfoperatorconfigs/status
           - dpuservicechains

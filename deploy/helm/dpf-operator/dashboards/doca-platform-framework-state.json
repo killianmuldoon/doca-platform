@@ -444,6 +444,122 @@
         "x": 6,
         "y": 1
       },
+      "id": 151,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "center",
+        "orientation": "vertical",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.1.4",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "expr": "sum(max(dpuservicetemplate_status_conditions{type=\"Ready\",status=\"True\"}) by (uid)) * 100 / sum(max(dpuservicetemplate_status_conditions{type=\"Ready\"}) by (uid))",
+          "instant": false,
+          "legendFormat": "Ready",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum(max(dpuservicetemplate_status_conditions{type=\"Ready\"}) by (uid))",
+          "hide": false,
+          "instant": true,
+          "legendFormat": "Total",
+          "range": false,
+          "refId": "B"
+        }
+      ],
+      "title": "DPUServiceTemplates",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "color"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "text",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 2,
+        "x": 8,
+        "y": 1
+      },
       "id": 22,
       "options": {
         "colorMode": "value",
@@ -554,7 +670,7 @@
       "gridPos": {
         "h": 4,
         "w": 2,
-        "x": 8,
+        "x": 10,
         "y": 1
       },
       "id": 26,
@@ -667,7 +783,7 @@
       "gridPos": {
         "h": 4,
         "w": 2,
-        "x": 10,
+        "x": 12,
         "y": 1
       },
       "id": 28,
@@ -780,7 +896,7 @@
       "gridPos": {
         "h": 4,
         "w": 2,
-        "x": 12,
+        "x": 14,
         "y": 1
       },
       "id": 146,
@@ -893,7 +1009,7 @@
       "gridPos": {
         "h": 4,
         "w": 2,
-        "x": 14,
+        "x": 16,
         "y": 1
       },
       "id": 27,
@@ -1006,7 +1122,7 @@
       "gridPos": {
         "h": 4,
         "w": 2,
-        "x": 16,
+        "x": 18,
         "y": 1
       },
       "id": 25,
@@ -1119,7 +1235,7 @@
       "gridPos": {
         "h": 4,
         "w": 2,
-        "x": 18,
+        "x": 20,
         "y": 1
       },
       "id": 24,
