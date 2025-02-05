@@ -1160,7 +1160,7 @@ Only one of the following state may be specified.
 Default is Initializing.
 
 _Validation:_
-- Enum: [Initializing Node Effect Pending OS Installing DPU Cluster Config Host Network Configuration Ready Error Deleting Rebooting Initialize Interface]
+- Enum: [Initializing Node Effect Pending Config FW Parameters Prepare BFB OS Installing DPU Cluster Config Host Network Configuration Ready Error Deleting Rebooting Initialize Interface]
 
 _Appears in:_
 - [DPUSetStatus](#dpusetstatus)
@@ -1171,7 +1171,8 @@ _Appears in:_
 | `Initializing` | DPUInitializing is the first phase after the DPU is created.<br /> |
 | `Node Effect` | DPUNodeEffect means the controller will handle the node effect provided by the user.<br /> |
 | `Pending` | DPUPending means the controller is waiting for the BFB to be ready.<br /> |
-| `ConfigFWParameters` | DPUConfigFWParameters means the controller will manipulate DPU firmware, e.g., set DPU mode, check firmware version<br /> |
+| `Prepare BFB` | DPUPrepareBFB means the controller is preparing the BFB and bf.cfg to be installed to DPU<br /> |
+| `Config FW Parameters` | DPUConfigFWParameters means the controller will manipulate DPU firmware, e.g., set DPU mode, check firmware version<br /> |
 | `Initialize Interface` | DPUInitializeInterface means the controller will intitialize the interface used to provision the DPUs, e.g., create the DMS pod, set up RedFish account.<br /> |
 | `OS Installing` | DPUOSInstalling means the controller will provision the DPU through the DMS gNOI interface.<br /> |
 | `DPU Cluster Config` | DPUClusterConfig  means the node configuration and Kubernetes Node join procedure are in progress .<br /> |
@@ -1292,6 +1293,7 @@ _Appears in:_
 | `cluster` _[K8sCluster](#k8scluster)_ | Specifies details on the K8S cluster to join |  |  |
 | `dpuFlavor` _string_ | DPUFlavor is the name of the DPUFlavor that will be used to deploy the DPU. |  |  |
 | `automaticNodeReboot` _boolean_ | Specifies if the DPU controller should automatically reboot the node on upgrades,<br />this field is intended for advanced cases that don’t use draining but want to reboot the host based with custom logic | true |  |
+| `bmcIP` _string_ | BMCIP is the ip address of the DPU BMC |  |  |
 
 
 #### DPUStatus
@@ -1307,8 +1309,10 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `phase` _[DPUPhase](#dpuphase)_ | The current state of DPU. | Initializing | Enum: [Initializing Node Effect Pending OS Installing DPU Cluster Config Host Network Configuration Ready Error Deleting Rebooting Initialize Interface] <br /> |
+| `phase` _[DPUPhase](#dpuphase)_ | The current state of DPU. | Initializing | Enum: [Initializing Node Effect Pending Config FW Parameters Prepare BFB OS Installing DPU Cluster Config Host Network Configuration Ready Error Deleting Rebooting Initialize Interface] <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ |  |  |  |
+| `bfbFile` _string_ | BFBFile is the path to the BFB file |  |  |
+| `bfCFGFile` _string_ | BFCFGFile is the path to the bf.cfg |  |  |
 | `bfbVersion` _string_ | bfb version of this DPU |  |  |
 | `pciDevice` _string_ | pci device information of this DPU |  |  |
 | `requiredReset` _boolean_ | whether require reset of DPU |  |  |

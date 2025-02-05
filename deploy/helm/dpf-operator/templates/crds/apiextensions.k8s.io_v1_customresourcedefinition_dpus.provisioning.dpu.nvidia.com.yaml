@@ -72,6 +72,12 @@ spec:
               bfb:
                 description: Specifies name of the bfb CR to use for this DPU
                 type: string
+              bmcIP:
+                description: BMCIP is the ip address of the DPU BMC
+                type: string
+                x-kubernetes-validations:
+                - message: Value is immutable
+                  rule: self == oldSelf
               cluster:
                 description: Specifies details on the K8S cluster to join
                 properties:
@@ -188,6 +194,12 @@ spec:
                   - type
                   type: object
                 type: array
+              bfCFGFile:
+                description: BFCFGFile is the path to the bf.cfg
+                type: string
+              bfbFile:
+                description: BFBFile is the path to the BFB file
+                type: string
               bfbVersion:
                 description: bfb version of this DPU
                 type: string
@@ -270,6 +282,8 @@ spec:
                 - Initializing
                 - Node Effect
                 - Pending
+                - Config FW Parameters
+                - Prepare BFB
                 - OS Installing
                 - DPU Cluster Config
                 - Host Network Configuration

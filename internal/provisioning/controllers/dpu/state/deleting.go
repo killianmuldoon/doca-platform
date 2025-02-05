@@ -79,6 +79,12 @@ func Deleting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Contr
 				Namespace: dpu.Namespace,
 			},
 		},
+		&certmanagerv1.CertificateRequest{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      dpu.Name,
+				Namespace: dpu.Namespace,
+			},
+		},
 	}
 
 	objects, err := cutil.GetObjects(ctrlCtx.Client, deleteObjects)

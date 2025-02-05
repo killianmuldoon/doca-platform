@@ -34,7 +34,7 @@ var DPUGroupVersionKind = GroupVersion.WithKind(DPUKind)
 // DPUPhase describes current state of DPU.
 // Only one of the following state may be specified.
 // Default is Initializing.
-// +kubebuilder:validation:Enum="Initializing";"Node Effect";"Pending";"OS Installing";"DPU Cluster Config";"Host Network Configuration";"Ready";"Error";"Deleting";"Rebooting";"Initialize Interface"
+// +kubebuilder:validation:Enum="Initializing";"Node Effect";"Pending";"Config FW Parameters";"Prepare BFB";"OS Installing";"DPU Cluster Config";"Host Network Configuration";"Ready";"Error";"Deleting";"Rebooting";"Initialize Interface"
 type DPUPhase string
 
 // These are the valid statuses of DPU.
@@ -47,8 +47,10 @@ const (
 	DPUNodeEffect DPUPhase = "Node Effect"
 	// DPUPending means the controller is waiting for the BFB to be ready.
 	DPUPending DPUPhase = "Pending"
+	// DPUPrepareBFB means the controller is preparing the BFB and bf.cfg to be installed to DPU
+	DPUPrepareBFB DPUPhase = "Prepare BFB"
 	// DPUConfigFWParameters means the controller will manipulate DPU firmware, e.g., set DPU mode, check firmware version
-	DPUConfigFWParameters DPUPhase = "ConfigFWParameters"
+	DPUConfigFWParameters DPUPhase = "Config FW Parameters"
 	// DPUInitializeInterface means the controller will intitialize the interface used to provision the DPUs, e.g., create the DMS pod, set up RedFish account.
 	DPUInitializeInterface DPUPhase = "Initialize Interface"
 	// DPUOSInstalling means the controller will provision the DPU through the DMS gNOI interface.
@@ -70,14 +72,17 @@ const (
 type DPUConditionType string
 
 const (
-	DPUCondInitialized      DPUConditionType = "Initialized"
-	DPUCondBFBReady         DPUConditionType = "BFBReady"
-	DPUCondNodeEffectReady  DPUConditionType = "NodeEffectReady"
-	DPUCondDMSRunning       DPUConditionType = "DMSRunning"
-	DPUCondOSInstalled      DPUConditionType = "OSInstalled"
-	DPUCondRebooted         DPUConditionType = "Rebooted"
-	DPUCondHostNetworkReady DPUConditionType = "HostNetworkReady"
-	DPUCondReady            DPUConditionType = "Ready"
+	DPUCondInitialized          DPUConditionType = "Initialized"
+	DPUCondBFBReady             DPUConditionType = "BFBReady"
+	DPUCondNodeEffectReady      DPUConditionType = "NodeEffectReady"
+	DPUCondBFBPrepared          DPUConditionType = "BFBPrepared"
+	DPUCondInterfaceInitialized DPUConditionType = "InterfaceInitialized"
+	DPUCondConfigFW             DPUConditionType = "Configure FW Parameters"
+	DPUCondDMSRunning           DPUConditionType = "DMSRunning"
+	DPUCondOSInstalled          DPUConditionType = "OSInstalled"
+	DPUCondRebooted             DPUConditionType = "Rebooted"
+	DPUCondHostNetworkReady     DPUConditionType = "HostNetworkReady"
+	DPUCondReady                DPUConditionType = "Ready"
 )
 
 type DPUInstallInterfaceType string
@@ -151,6 +156,11 @@ type DPUSpec struct {
 	// +kubebuilder:default=true
 	// +optional
 	AutomaticNodeReboot bool `json:"automaticNodeReboot,omitempty"`
+
+	// BMCIP is the ip address of the DPU BMC
+	// +optional
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	BMCIP string `json:"bmcIP,omitempty"`
 }
 
 // DPUStatus defines the observed state of DPU
@@ -162,6 +172,14 @@ type DPUStatus struct {
 
 	// +optional
 	Conditions []metav1.Condition `json:"conditions"`
+
+	// BFBFile is the path to the BFB file
+	// +optional
+	BFBFile string `json:"bfbFile,omitempty"`
+
+	// BFCFGFile is the path to the bf.cfg
+	// +optional
+	BFCFGFile string `json:"bfCFGFile,omitempty"`
 
 	// bfb version of this DPU
 	// +optional

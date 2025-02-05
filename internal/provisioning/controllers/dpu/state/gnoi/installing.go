@@ -33,7 +33,6 @@ import (
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/dms"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/future"
-	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/reboot"
 
 	"github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/gnoi/system"
@@ -53,8 +52,6 @@ import (
 
 const (
 	CloudInitDefaultTimeout = 90
-	// The maximum size of the bf.cfg file is expanded to 128k since DOCA 2.8
-	MaxBFSize = 1024 * 128
 	// HostNameDPULabelKey is the label added to the DPU Kubernetes Node that indicates the hostname of the host that
 	// this DPU belongs to.
 	HostNameDPULabelKey = "provisioning.dpu.nvidia.com/host"
@@ -224,8 +221,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		osInstall := gos.NewInstallOperation()
 		osInstall.Version(bfb.Status.FileName)
 		// Open the file at the specified path
-		fullFileName := cutil.GenerateBFBFilePath(bfb.Status.FileName)
-		bfbfile, err := os.Open(fullFileName)
+		bfbfile, err := os.Open(dpu.Status.BFBFile)
 		if err != nil {
 			logger.Error(err, "failed to open file", "name", bfb.Status.FileName)
 			return nil, err
@@ -262,7 +258,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		if err != nil {
 			return nil, err
 		}
-		data, err := generateBFConfig(ctx, ctrlContext.Options.BFCFGTemplateFile, dpu, node, flavor, joinCommand)
+		data, err := bfcfg.GenerateBFConfig(ctx, ctrlContext.Options.BFCFGTemplateFile, dpu, node, flavor, joinCommand)
 		if err != nil || data == nil {
 			logger.Error(err, fmt.Sprintf("failed bf.cfg creation for %s/%s", dpu.Namespace, dpu.Name))
 			return nil, err
@@ -393,34 +389,6 @@ func generateDMSTaskName(dpu *provisioningv1.DPU) string {
 	return fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)
 }
 
-func generateBFConfig(ctx context.Context, bfCFGTemplateFile string, dpu *provisioningv1.DPU, node *corev1.Node, flavor *provisioningv1.DPUFlavor, joinCommand string) ([]byte, error) {
-	logger := log.FromContext(ctx)
-
-	additionalReboot := false
-	cmd, _, err := reboot.GenerateCmd(node.Annotations, dpu.Annotations)
-	if err != nil {
-		logger.Error(err, "failed to generate ipmitool command")
-		return nil, err
-	}
-
-	if cmd == reboot.Skip {
-		additionalReboot = true
-	}
-
-	buf, err := bfcfg.Generate(flavor, cutil.GenerateNodeName(dpu), joinCommand, additionalReboot, bfCFGTemplateFile)
-	if err != nil {
-		return nil, err
-	}
-	if buf == nil {
-		return nil, fmt.Errorf("failed bf.cfg creation due to buffer issue")
-	}
-	if len(buf) > MaxBFSize {
-		return nil, fmt.Errorf("bf.cfg for %s size (%d) exceeds the maximum limit (%d)", dpu.Name, len(buf), MaxBFSize)
-	}
-	logger.V(3).Info(fmt.Sprintf("bf.cfg for %s has len: %d data: %s", dpu.Name, len(buf), string(buf)))
-
-	return buf, nil
-}
 func computeBFBMD5InDms(ns, name, container, filepath string) (string, string, error) {
 	md5CMD := fmt.Sprintf("md5sum %s", filepath)
 	return cutil.RemoteExec(ns, name, container, md5CMD)

@@ -18,6 +18,7 @@ package bfcfg
 
 import (
 	"bytes"
+	"context"
 	_ "embed"
 	"fmt"
 	"os"
@@ -27,8 +28,17 @@ import (
 	"text/template"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
+	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/reboot"
 
 	"github.com/Masterminds/sprig/v3"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	// The maximum size of the bf.cfg file is expanded to 128k since DOCA 2.8
+	MaxBFSize = 1024 * 128
 )
 
 var (
@@ -71,6 +81,35 @@ type BFCFGWriteFile struct {
 	IsAppend    bool
 	Content     string
 	Permissions string
+}
+
+func GenerateBFConfig(ctx context.Context, bfCFGTemplateFile string, dpu *provisioningv1.DPU, node *corev1.Node, flavor *provisioningv1.DPUFlavor, joinCommand string) ([]byte, error) {
+	logger := log.FromContext(ctx)
+
+	additionalReboot := false
+	cmd, _, err := reboot.GenerateCmd(node.Annotations, dpu.Annotations)
+	if err != nil {
+		logger.Error(err, "failed to generate ipmitool command")
+		return nil, err
+	}
+
+	if cmd == reboot.Skip {
+		additionalReboot = true
+	}
+
+	buf, err := Generate(flavor, cutil.GenerateNodeName(dpu), joinCommand, additionalReboot, bfCFGTemplateFile)
+	if err != nil {
+		return nil, err
+	}
+	if buf == nil {
+		return nil, fmt.Errorf("failed bf.cfg creation due to buffer issue")
+	}
+	if len(buf) > MaxBFSize {
+		return nil, fmt.Errorf("bf.cfg for %s size (%d) exceeds the maximum limit (%d)", dpu.Name, len(buf), MaxBFSize)
+	}
+	logger.V(3).Info(fmt.Sprintf("bf.cfg for %s has len: %d data: %s", dpu.Name, len(buf), string(buf)))
+
+	return buf, nil
 }
 
 func Generate(flavor *provisioningv1.DPUFlavor, dpuName, joinCmd string, additionalReboot bool, bfbCFGFilepath string) ([]byte, error) {

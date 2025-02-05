@@ -94,6 +94,8 @@ func main() {
 	var syncPeriod time.Duration
 	var dpuInstallInterface string
 	var bfCFGTemplateFile string
+	var bfbRegistry string
+
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	fs.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -114,6 +116,7 @@ func main() {
 	fs.DurationVar(&syncPeriod, "sync-period", 10*time.Minute, "The minimum interval at which watched resources are reconciled.")
 	fs.StringVar(&dpuInstallInterface, "dpu-install-interface", string(provisioningv1.InstallViaHost), "the interface used to provision DPUs")
 	fs.StringVar(&bfCFGTemplateFile, "bf-cfg-template-file", "", "A custom bf.cfg template used as part of DPU provisioning.")
+	fs.StringVar(&bfbRegistry, "bfb-registry", "", "hostname of the BFB registry from which BFBs are downloaded")
 
 	logsv1.AddFlags(logOptions, fs)
 
@@ -200,6 +203,7 @@ func main() {
 		ImagePullSecrets:        imagePullSecretsReferences,
 		DPUInstallInterface:     dpuInstallInterface,
 		BFCFGTemplateFile:       bfCFGTemplateFile,
+		BFBRegistry:             bfbRegistry,
 	}
 
 	setupLog.Info("DPU", "options", dpuOptions)

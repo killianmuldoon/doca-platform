@@ -59,7 +59,7 @@ func Pending(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Contro
 		// we return an error here so that the DPU can be reconciled
 		return *state, fmt.Errorf("BFB is not ready")
 	}
-
+	state.BFBFile = cutil.GenerateBFBFilePath(bfb.Status.FileName)
 	state.Phase = provisioningv1.DPUNodeEffect
 	cutil.SetDPUCondition(state, cutil.DPUCondition(provisioningv1.DPUCondBFBReady, "", ""))
 

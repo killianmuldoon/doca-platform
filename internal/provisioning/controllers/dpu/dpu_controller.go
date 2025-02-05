@@ -64,8 +64,8 @@ func NewDPUReconciler(mgr manager.Manager, alloc allocator.Allocator, joinComman
 	handlers := map[provisioningv1.DPUPhase]PhaseHandlerFunc{
 		"":                              state.Initializing,
 		provisioningv1.DPUInitializing:  state.Initializing,
-		provisioningv1.DPUNodeEffect:    state.NodeEffect,
 		provisioningv1.DPUPending:       state.Pending,
+		provisioningv1.DPUNodeEffect:    state.NodeEffect,
 		provisioningv1.DPURebooting:     state.Rebooting,
 		provisioningv1.DPUClusterConfig: state.ClusterConfig,
 		provisioningv1.DPUReady:         state.Ready,
@@ -80,6 +80,7 @@ func NewDPUReconciler(mgr manager.Manager, alloc allocator.Allocator, joinComman
 	case string(provisioningv1.InstallViaRedFish):
 		handlers[provisioningv1.DPUInitializeInterface] = redfish.InitializeInterface
 		handlers[provisioningv1.DPUConfigFWParameters] = redfish.ConfigFWParameters
+		handlers[provisioningv1.DPUPrepareBFB] = redfish.PrepareBFB
 		handlers[provisioningv1.DPUOSInstalling] = redfish.Installing
 	default:
 		panic(fmt.Errorf("unsupported interface %q. Supported: %s,%s",
