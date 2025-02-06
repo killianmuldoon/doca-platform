@@ -378,3 +378,14 @@ check-markdown-links:
   after_script:
     - ./hack/scripts/slack-notification.sh
 
+blackduck:
+  stage: test
+  tags:
+    - type/shell
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $BLACKDUCK == "true"
+      when: always
+  script:
+    - ./hack/scripts/run-blackduck.sh
+  after_script:
+    - ./hack/scripts/slack-notification.sh

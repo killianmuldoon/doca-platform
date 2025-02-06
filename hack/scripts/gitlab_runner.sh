@@ -37,6 +37,7 @@ fi
 
 GITLAB_RUNNER_USER="${GITLAB_RUNNER_USER:-"gitlab-runner"}"
 INSTALL_DOCKER="${INSTALL_DOCKER:-"true"}"
+INSTALL_OPENJDK_JRE="${INSTALL_OPENJDK_JRE:-"true"}"
 REGISTER_DOCKER_RUNNER="${REGISTER_DOCKER_RUNNER:-"true"}"
 
 
@@ -79,6 +80,12 @@ if [[ "$INSTALL_DOCKER" == "true" ]]; then
   echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null || log_and_exit "Failed to add Docker repository"
   sudo apt-get update > /dev/null || log_and_exit "Failed to update package list after adding Docker repository"
   sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin > /dev/null || log_and_exit "Failed to install Docker packages"
+fi
+
+## Install OpenJDK JRE - Required by Black Duck scanner
+if [[ "$INSTALL_OPENJDK_JRE" == "true" ]]; then
+  sudo apt-get update > /dev/null || log_and_exit "Failed to update package list"
+  sudo apt-get install -y default-jre > /dev/null || log_and_exit "Failed to install OpenJDK JRE"
 fi
 
 ## Install helm

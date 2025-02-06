@@ -24,6 +24,7 @@ set -eou pipefail
 : ${LEASES_PER_JOB:=2}
 : ${REGISTER_DOCKER_RUNNER:="true"}
 : ${INSTALL_DOCKER:="true"}
+: ${INSTALL_OPENJDK_JRE:="true"}
 : ${SHELL_TAG_LIST:="type/shell,e2e,release,colossus"}
 : ${DOCKER_TAG_LIST:="type/docker,colossus"}
 

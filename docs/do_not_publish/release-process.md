@@ -32,7 +32,7 @@ In the window add the following:
 - `Users` - add the limited set approvers who have the ability to merge changes into the release branch
 - Press `Save changes`
 
-#### 2 Setting up CI jobs for the new branch
+#### 3 Setting up CI jobs for the new branch
 
 The presubmit jobs that run on each and every Merge Request (MR) in the DPF repository should start to work on new MRs to the release branch without issue. Periodic jobs, however, need to be set up so that they run on the new branch.
 
@@ -45,7 +45,7 @@ For each job prefixed with `main:`:
 - Update variables which contain a version number to `v24.10.0`
 
 
-#### 3 Cleaning up old jobs
+#### 4 Cleaning up old jobs
 
 TODO: Define cleanup process for cleaning up old jobs once a GA release has been done and the support window is closed.
 

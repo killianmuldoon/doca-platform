@@ -177,6 +177,7 @@ echo -e "---- Machine is active and ready to use ----"
 echo "export GITLAB_RUNNER_USER=root" > gitlab_env.sh
 echo "export REGISTER_DOCKER_RUNNER=false" >> gitlab_env.sh
 echo "export INSTALL_DOCKER=false" >> gitlab_env.sh
+echo "export INSTALL_OPENJDK_JRE=false" >> gitlab_env.sh
 echo "export SHELL_TAG_LIST=$TAG" >> gitlab_env.sh
 echo "export GITLAB_RUNNER_API_TOKEN=$GITLAB_RUNNER_TOKEN" >> gitlab_env.sh
 echo "export GITLAB_REGISTRY_TOKEN=$GITLAB_REGISTRY_TOKEN" >> gitlab_env.sh

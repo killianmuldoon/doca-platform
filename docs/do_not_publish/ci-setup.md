@@ -58,6 +58,7 @@ shutdown_timeout = 0
   - Dependencies:
     - Docker
     - Kubectl
+    - OpenJDK JRE
     - Gitlab shell runner as a systemd service with a non-root user that is a member of the docker group
     - A go version matching the version in the go.mod
     - Secrets for any registry the release runner is required to push artifacts to e.g. harbour, nvstaging

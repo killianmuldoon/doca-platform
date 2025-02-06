@@ -36,6 +36,7 @@ files=(.gitlab
   hack/scripts/periodic_test_triage.sh
   hack/scripts/release-clean-source-github.sh
   hack/scripts/slack-notification.sh
+  hack/scripts/run-blackduck.sh
 )
 
 git fetch --unshallow
