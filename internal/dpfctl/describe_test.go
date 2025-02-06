@@ -232,7 +232,7 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 			name: "Add DPUService with very long ready condition message",
 			objectsTree: []objectsWithConditions{
 				{object: defaultDPFOperatorConfig(), conditions: getRandomConditionsWithReadyTrueCondition()},
-				{object: defaultDPUService(), conditions: getReadyConditionWithVeryLongMessages()},
+				{object: defaultDPUService(), conditions: getReadyConditionWithVeryLongMessage()},
 			},
 			opts: ObjectTreeOptions{
 				ShowOtherConditions: "all",
@@ -243,6 +243,29 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 				"│           └─RandomReconciled           True   Success",
 				"└─DPUServices",
 				"  └─DPUService/test             default  True   Success",
+				"                                                                        feature of the table.",
+				"                                                                        test the wrapping feature of the table.",
+			},
+		},
+		{
+			name: "Add multiple DPUServices with very long ready condition message",
+			objectsTree: []objectsWithConditions{
+				{object: defaultDPFOperatorConfig(), conditions: getRandomConditionsWithReadyTrueCondition()},
+				{object: defaultDPUService(), conditions: getReadyConditionWithVeryLongMessage()},
+				{object: customDPUService("test-2"), conditions: getReadyConditionWithVeryLongMessage()},
+			},
+			opts: ObjectTreeOptions{
+				ShowOtherConditions: "all",
+			},
+			expectedPrefix: []string{
+				"DPFOperatorConfig/test          default  True   Success",
+				"│           ├─RandomReady                False  SomethingWentWrong",
+				"│           └─RandomReconciled           True   Success",
+				"└─DPUServices",
+				"  ├─DPUService/test             default  True   Success",
+				"  │                                                                     feature of the table.",
+				"  │                                                                     test the wrapping feature of the table.",
+				"  └─DPUService/test-2           default  True   Success",
 				"                                                                        feature of the table.",
 				"                                                                        test the wrapping feature of the table.",
 			},
@@ -563,6 +586,20 @@ func defaultDPUService() *dpuservicev1.DPUService {
 	}
 }
 
+func customDPUService(name string) *dpuservicev1.DPUService {
+	return &dpuservicev1.DPUService{
+		ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: "default"},
+		Spec: dpuservicev1.DPUServiceSpec{
+			HelmChart: dpuservicev1.HelmChart{
+				Source: dpuservicev1.ApplicationSource{
+					RepoURL: "oci://foobar",
+					Version: "1.0.0",
+				},
+			},
+		},
+	}
+}
+
 func defaultDPUServiceChain() *dpuservicev1.DPUServiceChain {
 	sc := &dpuservicev1.DPUServiceChain{
 		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
@@ -812,7 +849,7 @@ func getRandomConditionsWithVeryLongMessages() []metav1.Condition {
 	}
 }
 
-func getReadyConditionWithVeryLongMessages() []metav1.Condition {
+func getReadyConditionWithVeryLongMessage() []metav1.Condition {
 	return []metav1.Condition{
 		{
 			Type:               string(conditions.TypeReady),

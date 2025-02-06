@@ -207,7 +207,7 @@ func addOtherConditions(prefix string, tbl *tablewriter.Table, objectTree *Objec
 		})
 		for _, m := range msg[1:] {
 			tbl.Append([]string{
-				gray.Sprint(getMultilinePrefix(childPrefix)),
+				gray.Sprint(getMultilineConditionPrefix(childPrefix)),
 				"",
 				"",
 				"",
@@ -218,9 +218,9 @@ func addOtherConditions(prefix string, tbl *tablewriter.Table, objectTree *Objec
 	}
 }
 
-// getMultilinePrefix return the tree view prefix for a multiline condition.
+// getMultilineConditionPrefix return the tree view prefix for a multiline condition.
 // Copy from: https://github.com/kubernetes-sigs/cluster-api/blob/release-1.9/cmd/clusterctl/cmd/describe_cluster.go#L513-L525
-func getMultilinePrefix(currentPrefix string) string {
+func getMultilineConditionPrefix(currentPrefix string) string {
 	// All ├─ should be replaced by |, so all the existing hierarchic dependencies are carried on
 	if strings.HasSuffix(currentPrefix, firstElemPrefix) {
 		return strings.TrimSuffix(currentPrefix, firstElemPrefix) + pipe
@@ -230,6 +230,61 @@ func getMultilinePrefix(currentPrefix string) string {
 		return strings.TrimSuffix(currentPrefix, lastElemPrefix)
 	}
 	return "?"
+}
+
+// getRootMultiLinePrefix return the tree view prefix for a multiline condition on the object.
+func getMultilinePrefix(obj client.Object, objectTree *ObjectTree, prefix string) string {
+	// If it is the last object we can return early with an empty string.
+	orderedObjects := getOrderedTreeObjects(objectTree)
+	if !IsShowConditionsObject(obj) && orderedObjects[len(orderedObjects)-1].GetUID() == obj.GetUID() {
+		return ""
+	}
+
+	// Get the multiline prefix for the objects condition.
+	multilinePrefix := getMultilineConditionPrefix(prefix)
+
+	// If it is the top-level root object, set the multiline prefix to a pipe.
+	if prefix == "" {
+		multilinePrefix = pipe
+	}
+
+	// If the object is not the root object and has children, we need to add a pipe to the multiline prefix.
+	childrenObj := objectTree.GetObjectsByParent(obj.GetUID())
+	if obj.GetUID() != objectTree.GetRoot().GetUID() && len(childrenObj) > 0 {
+		multilinePrefix += indent + pipe
+	}
+
+	// If the object has other conditions, we need to add a filler to the multiline prefix.
+	// To achieve this we use the same logic as in addOtherConditions().
+	if IsShowConditionsObject(obj) && len(GetOtherConditions(obj)) > 0 {
+		filler := strings.Repeat(" ", 10)
+		childrenPipe := indent
+		if objectTree.IsObjectWithChild(obj.GetUID()) {
+			childrenPipe = pipe
+		}
+		multilinePrefix = getChildPrefix(prefix+childrenPipe+filler, 0, len(GetOtherConditions(obj)))
+	}
+
+	// All ├─ should be replaced by |, so all the existing hierarchic dependencies are carried on
+	multilinePrefix = strings.ReplaceAll(multilinePrefix, firstElemPrefix, pipe)
+	// All └─ should be replaced by " " because we are under the last element of the tree (nothing to carry on)
+	multilinePrefix = strings.ReplaceAll(multilinePrefix, lastElemPrefix, strings.Repeat(" ", len([]rune(lastElemPrefix))))
+
+	return multilinePrefix
+}
+
+// getOrderedTreeObjects returns the objects in the tree in the order they should be printed.
+func getOrderedTreeObjects(objectTree *ObjectTree) []client.Object {
+	rootObjs := objectTree.GetObjectsByParent(objectTree.GetRoot().GetUID())
+	rootObjs = orderChildrenObjects(rootObjs)
+	objs := []client.Object{objectTree.GetRoot()}
+	for _, obj := range rootObjs {
+		childrenObjs := objectTree.GetObjectsByParent(obj.GetUID())
+		childrenObjs = orderChildrenObjects(childrenObjs)
+		objs = append(objs, obj)
+		objs = append(objs, childrenObjs...)
+	}
+	return objs
 }
 
 // addObjectRow add a row for a given object, and recursively for all the object's children.
@@ -246,36 +301,6 @@ func addObjectRow(prefix string, tbl *tablewriter.Table, objectTree *ObjectTree,
 	if IsGroupObject(obj) {
 		items := strings.Split(GetGroupItems(obj), GroupItemsSeparator)
 		readyDescriptor.message = fmt.Sprintf("See %s", strings.Join(items, GroupItemsSeparator))
-	}
-
-	multilinePrefix := getMultilinePrefix(prefix)
-	// If it is the top-level root object, set the multiline prefix to a pipe.
-	if prefix == "" {
-		multilinePrefix = pipe
-	}
-	// If the multiline prefix is empty, we have to ensure that even multiline conditions on this root object are indented.
-	if strings.TrimSpace(multilinePrefix) == "" {
-		filler := strings.Repeat(" ", 10)
-		childrenPipe := indent
-		if objectTree.IsObjectWithChild(obj.GetUID()) {
-			childrenPipe = pipe
-		}
-		// We have to set the childCount to 3 as we want to fake the childPrefix for the root object.
-		// We just want to indent the multiline message for the Ready condition.
-		childPrefix := getChildPrefix(prefix+childrenPipe+filler, 0, 3)
-		multilinePrefix = getMultilinePrefix(childPrefix)
-	}
-
-	// If it is the last object and last condition we can remove the prefix completely.
-	objectsByParentLen := len(objectTree.GetObjectsByParent(obj.GetUID()))
-	otherConditionsLen := len(GetOtherConditions(obj))
-	if (!IsShowConditionsObject(obj) && objectsByParentLen == 0) || objectsByParentLen+otherConditionsLen == 0 {
-		multilinePrefix = ""
-	}
-
-	// If it is the last object and last condition we can remove the prefix completely.
-	if len(GetOtherConditions(obj))+len(objectTree.GetObjectsByParent(obj.GetUID())) == 0 {
-		multilinePrefix = ""
 	}
 
 	// Add the row representing the object that includes
@@ -298,6 +323,8 @@ func addObjectRow(prefix string, tbl *tablewriter.Table, objectTree *ObjectTree,
 		readyDescriptor.age,
 		msg0,
 	})
+
+	multilinePrefix := getMultilinePrefix(obj, objectTree, prefix)
 	for _, m := range msg[1:] {
 		tbl.Append([]string{
 			gray.Sprint(multilinePrefix),
@@ -316,7 +343,14 @@ func addObjectRow(prefix string, tbl *tablewriter.Table, objectTree *ObjectTree,
 
 	// Add a row for each object's children, taking care of updating the tree view prefix.
 	childrenObj := objectTree.GetObjectsByParent(obj.GetUID())
+	childrenObj = orderChildrenObjects(childrenObj)
 
+	for i, child := range childrenObj {
+		addObjectRow(getChildPrefix(prefix, i, len(childrenObj)), tbl, objectTree, child)
+	}
+}
+
+func orderChildrenObjects(childrenObj []client.Object) []client.Object {
 	// printBefore returns true if children[i] should be printed before children[j]. Objects are sorted by z-order and
 	// row name such that objects with higher z-order are printed first, and objects with the same z-order are
 	// printed in alphabetical order.
@@ -328,10 +362,7 @@ func addObjectRow(prefix string, tbl *tablewriter.Table, objectTree *ObjectTree,
 		return GetZOrder(childrenObj[i]) > GetZOrder(childrenObj[j])
 	}
 	sort.Slice(childrenObj, printBefore)
-
-	for i, child := range childrenObj {
-		addObjectRow(getChildPrefix(prefix, i, len(childrenObj)), tbl, objectTree, child)
-	}
+	return childrenObj
 }
 
 // getChildPrefix return the tree view prefix for a row representing a child object.
