@@ -35,13 +35,7 @@ type Defaults struct {
 	DPFToolsImage          string `yaml:"dpfToolsImage"`
 	DPUNetworkingHelmChart string `yaml:"dpuNetworkingHelmChart"`
 
-	MultusImage  string `yaml:"multusImage"`
-	SRIOVDPImage string `yaml:"sriovDPImage"`
-	NVIPAMImage  string `yaml:"nvipamImage"`
-	OVSCNIImage  string `yaml:"ovsCniImage"`
-
-	KubeFlannelImage string `yaml:"kubeFlannelImage"`
-	FlannelCNIImage  string `yaml:"flannelCNIImage"`
+	OVSCNIImage string `yaml:"ovsCniImage"`
 }
 
 // Parse parses the defaults from the embedded generated YAML file
@@ -69,23 +63,8 @@ func (d *Defaults) Parse() error {
 	if len(d.DPUNetworkingHelmChart) == 0 {
 		return errors.New("DPUNetworkingHelmChart can't be empty")
 	}
-	if len(d.MultusImage) == 0 {
-		return errors.New("multusImage can't be empty")
-	}
-	if len(d.SRIOVDPImage) == 0 {
-		return errors.New("sriovDPImage can't be empty")
-	}
-	if len(d.NVIPAMImage) == 0 {
-		return errors.New("nvipamImage can't be empty")
-	}
 	if len(d.OVSCNIImage) == 0 {
 		return errors.New("ovsCniImage can't be empty")
-	}
-	if len(d.KubeFlannelImage) == 0 {
-		return errors.New("kubeFlannelImage can't be empty")
-	}
-	if len(d.FlannelCNIImage) == 0 {
-		return errors.New("flannelCNIImage can't be empty")
 	}
 
 	return nil

@@ -27,13 +27,13 @@ func TestDefaults_Parse(t *testing.T) {
 	g := NewGomegaWithT(t)
 
 	defaultValues := map[string]string{
-		"customOVNKubernetesDPUImage":    "example.com/cloud-orchestration-dev/dpf/killian/test/ovn-kubernetes-dpu:v0.0.0",
-		"customOVNKubernetesNonDPUImage": "example.com/cloud-orchestration-dev/dpf/killian/test/ovn-kubernetes-non-dpu:v0.0.0",
-		"dmsImage":                       "example.com/cloud-orchestration-dev/dpf/killian/test/hostdriver:v0.0.0",
-		"hostnetworksetupImage":          "example.com/cloud-orchestration-dev/dpf/killian/test/hostdriver:v0.0.0",
-		"bfbdownloaderImage":             "example.com/cloud-orchestration-dev/dpf/killian/test/hostdriver:v0.0.0",
-		"dpfSystemImage":                 "example.com/cloud-orchestration-dev/dpf/killian/test/dpfSystem:v0.0.0",
-		"dpuNetworkingHelmChart":         "example.com/cloud-orchestration-dev/dpf/killian/test/hostnetworksetup:v0.0.0",
+		"dmsImage":               "example.com/dmsImage:v0.0.0",
+		"hostNetworkSetupImage":  "example.com/hostNetworkSetupImage:v0.0.0",
+		"bfbdownloaderImage":     "example.com/bfbdownloaderImage:v0.0.0",
+		"dpfSystemImage":         "example.com/dpfSystemImage:v0.0.0",
+		"dpfToolsImage":          "example.com/dpfToolsImage:v0.0.0",
+		"dpuNetworkingHelmChart": "example.com/dpuNetworkingHelmChart:v0.0.0",
+		"ovsCniImage":            "example.com/ovsCniImage:v0.0.0",
 	}
 	tests := []struct {
 		name    string
@@ -46,23 +46,13 @@ func TestDefaults_Parse(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "fail when customOVNKubernetesDPUImage empty/missing",
-			content: withoutValue(g, defaultValues, "customOVNKubernetesDPUImage"),
-			wantErr: true,
-		},
-		{
-			name:    "fail when customOVNKubernetesNonDPUImage empty/missing",
-			content: withoutValue(g, defaultValues, "customOVNKubernetesNonDPUImage"),
-			wantErr: true,
-		},
-		{
 			name:    "fail when dmsImage empty/missing",
 			content: withoutValue(g, defaultValues, "dmsImage"),
 			wantErr: true,
 		},
 		{
-			name:    "fail when hostnetworksetupImage empty/missing",
-			content: withoutValue(g, defaultValues, "hostnetworksetupImage"),
+			name:    "fail when hostNetworkSetupImage empty/missing",
+			content: withoutValue(g, defaultValues, "hostNetworkSetupImage"),
 			wantErr: true,
 		},
 		{
@@ -71,13 +61,18 @@ func TestDefaults_Parse(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "fail when dpfToolsImage empty/missing",
+			content: withoutValue(g, defaultValues, "dpfToolsImage"),
+			wantErr: true,
+		},
+		{
 			name:    "fail when dpuNetworkingHelmChart empty/missing",
 			content: withoutValue(g, defaultValues, "dpuNetworkingHelmChart"),
 			wantErr: true,
 		},
 		{
-			name:    "fail when dpfSystemImage is empty/missing",
-			content: withoutValue(g, defaultValues, "dpfSystemImage"),
+			name:    "fail when ovsCniImage empty/missing",
+			content: withoutValue(g, defaultValues, "ovsCniImage"),
 			wantErr: true,
 		},
 	}

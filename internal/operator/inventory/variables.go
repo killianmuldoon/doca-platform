@@ -17,8 +17,6 @@ limitations under the License.
 package inventory
 
 import (
-	"strings"
-
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/release"
 )
@@ -53,12 +51,6 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.SFCControllerName:          defaults.DPFSystemImage,
 			operatorv1.DPUDetectorName:            defaults.DMSImage,
 			operatorv1.OVSHelperName:              defaults.DPFSystemImage,
-
-			// External images of components which are deployed by the DPF Operator.
-			operatorv1.MultusName:            defaults.MultusImage,
-			operatorv1.SRIOVDevicePluginName: defaults.SRIOVDPImage,
-			operatorv1.NVIPAMName:            defaults.NVIPAMImage,
-			operatorv1.FlannelName:           strings.Join([]string{defaults.KubeFlannelImage, defaults.FlannelCNIImage}, ","),
 		},
 		HelmCharts: map[string]string{
 			operatorv1.FlannelName:              defaults.DPUNetworkingHelmChart,

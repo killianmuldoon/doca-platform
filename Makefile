@@ -717,18 +717,6 @@ export STORAGE_VENDOR_DPU_PLUGIN_IMAGE ?= $(REGISTRY)/$(STORAGE_VENDOR_DPU_PLUGI
 STORAGE_SNAP_CSI_DRIVER_IMAGE_NAME = snap-csi-plugin
 export STORAGE_SNAP_CSI_DRIVER_IMAGE ?= $(REGISTRY)/$(STORAGE_SNAP_CSI_DRIVER_IMAGE_NAME)
 
-## External images that are set by the DPF Operator
-export MULTUS_IMAGE=ghcr.io/k8snetworkplumbingwg/multus-cni
-export MULTUS_TAG=v3.9.3
-export SRIOVDP_IMAGE=ghcr.io/k8snetworkplumbingwg/sriov-network-device-plugin
-export SRIOVDP_TAG=v3.6.2
-export NVIPAM_IMAGE=ghcr.io/mellanox/nvidia-k8s-ipam
-export NVIPAM_TAG=v0.3.5
-export KUBE_FLANNEL_IMAGE=ghcr.io/flannel-io/flannel
-export KUBE_FLANNEL_TAG=v0.26.4
-export FLANNEL_CNI_IMAGE=ghcr.io/flannel-io/flannel-cni-plugin
-export FLANNEL_CNI_TAG=v1.6.2-flannel1
-
 DPF_SYSTEM_ARCH ?= $(HOST_ARCH) $(DPU_ARCH)
 .PHONY: docker-build-dpf-system # Build a multi-arch image for DPF System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
 docker-build-dpf-system: $(addprefix docker-build-dpf-system-for-,$(DPF_SYSTEM_ARCH))
