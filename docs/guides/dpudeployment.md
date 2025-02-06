@@ -9,10 +9,14 @@
   - [DPUFlavor](#dpuflavor)
   - [BFB](#bfb)
 - [DPUDeployment Example](#dpudeployment-example)
+- [DPUDeployment Updates](#dpudeployment-updates)
+  - [Non-disruptive DPUService Update](#non-disruptive-dpuservice-update)
+  - [Disruptive DPUService Update](#disruptive-dpuservice-update)
 <!-- /toc -->
 
-This document describes how a user can work with the `DPUDeployment` Custom Resource. A `DPUDeployment` describes a set
-of `DPUServices` and a `DPUServiceChain` that run on a set of DPUs with a given `BFB` and `DPUFlavor`.
+This document describes how a user can work with the `DPUDeployment` Custom Resource.
+A `DPUDeployment` describes a set of `DPUServices` and a `DPUServiceChain` that run
+on a set of DPUs with a given `BFB` and `DPUFlavor`.
 
 ```mermaid
 graph TD
@@ -27,35 +31,38 @@ graph TD
   DPUDeployment -->|N| DPUService
 ```
 
-Throughout this document, there are examples for the required Custom Resources that end up building a valid
-`DPUDeployment` Custom Resource. These examples contain comments related to fields that are set for more context. The
-theoretical example is about 2 services, one of them producing work and the other one executing work
-(producer-consumer problem).
+Throughout this document, there are examples for the required Custom Resources that
+end up building a valid `DPUDeployment` Custom Resource. These examples contain comments
+related to fields that are set for more context. The theoretical example is about
+2 services, one of them producing work and the other one executing work (producer-consumer problem).
 
 ## Capabilities
 
-- Validates dependencies to ensure that they are configured correctly and reports errors in the `DPUDeployment` status
-  conditions accordingly.
-- Validates that requested `DPUService` resources fit the DPUs they are targeting and report errors in the
-  `DPUDeployment` status conditions accordingly.
+- Validates dependencies to ensure that they are configured correctly and reports 
+  errors in the `DPUDeployment` status conditions accordingly.
+- Validates that requested `DPUService` resources fit the DPUs they are targeting
+  and report errors in the `DPUDeployment` status conditions accordingly.
+- Gracefully handles synchronized disruptive and non-disruptive updates of the underlying objects.
 
 ## Created Child Custom Resources
 
-When applying a valid `DPUDeployment` that has all of its dependencies set correctly and available, there will be a
-couple of objects that are going to be created automatically:
+When applying a valid `DPUDeployment` that has all of its dependencies set correctly
+and available, there will be a couple of objects that are going to be created automatically:
 
-- `DPUSet`: Deploys a given `BFB` with configuration provided by the given `DPUFlavor` to the target `DPUs`. A
-  `DPUDeployment` may create multiple such objects, depending on what is specified in its `spec`.
-- `DPUServiceInterface`: Used to construct a Service Chain on the DPU. A `DPUDeployment` may create multiple such
-  objects, depending on what is specified in the [DPUServiceConfiguration](#dpuserviceconfiguration).
-- `DPUServiceChain`: Used to define a Service Chain on the DPU that references the interfaces created above. A
-  `DPUDeployment` creates a single `DPUServiceChain`.
-- `DPUService`: Deploys a service as Pod in each DPU. A `DPUDeployment` may create multiple such objects, depending on
-  what is specified in its `spec`.
+- `DPUSet`: Deploys a given `BFB` with configuration provided by the given `DPUFlavor`
+  to the target `DPUs`. A `DPUDeployment` may create multiple such objects, depending
+  on what is specified in its `spec`.
+- `DPUServiceInterface`: Used to construct a Service Chain on the DPU. A `DPUDeployment`
+  may create multiple such objects, depending on what is specified in the [DPUServiceConfiguration](#dpuserviceconfiguration).
+- `DPUServiceChain`: Used to define a Service Chain on the DPU that references the
+  interfaces created above. A `DPUDeployment` creates a single `DPUServiceChain`.
+- `DPUService`: Deploys a service as Pod in each DPU. A `DPUDeployment` may create
+  multiple such objects, depending on what is specified in its `spec`.
 
 ## Prerequisite Custom Resources With Examples
 
-There are several Custom Resources that are required in order to make use of the `DPUDeployment`. These are:
+There are several Custom Resources that are required in order to make use of the
+`DPUDeployment`. These are:
 
 - [DPUServiceTemplate](#dpuservicetemplate)
 - [DPUServiceConfiguration](#dpuserviceconfiguration)
@@ -64,14 +71,16 @@ There are several Custom Resources that are required in order to make use of the
 
 ### DPUServiceTemplate
 
-A `DPUServiceTemplate` contains configuration options related to resources required by the `DPUService` to be deployed.
-This Custom Resource is usually provided by NVIDIA for the supported `DPUServices` that are published. It helps generate
-the underlying `DPUService`. It is the base configuration for the `DPUService` that is getting merged with configuration
-provided by the `DPUServiceConfiguration`. If there is a conflict, settings in `DPUServiceConfiguration` take
-precedence.
+A `DPUServiceTemplate` contains configuration options related to resources required
+by the `DPUService` to be deployed. This Custom Resource is usually provided by NVIDIA
+for the supported `DPUServices` that are published. It helps generate the underlying
+`DPUService`. It is the base configuration for the `DPUService` that is getting merged
+with configuration provided by the `DPUServiceConfiguration`. If there is a conflict,
+settings in `DPUServiceConfiguration` take precedence.
 
-A user must create as many `DPUServiceTemplate` Custom Resources as the number of services they aim to deploy using a
-`DPUDeployment`. In this example, we will need to create 2 of those since we have 2 `DPUServices`.
+A user must create as many `DPUServiceTemplate` Custom Resources as the number of
+services they aim to deploy using a `DPUDeployment`. In this example, we will need
+to create 2 of those since we have 2 `DPUServices`.
 
 ```yaml
 ---
@@ -146,14 +155,17 @@ spec:
 
 ### DPUServiceConfiguration
 
-A `DPUServiceConfiguration` contains all configuration options from the user to be provided to the `DPUService` via the
-Helm values. This Custom Resource is usually crafted by the user according to their environment and intended use of the
-`DPUService`. It helps generate the underlying `DPUService`. It is a layer on top of the configuration defined in the
-`DPUServiceTemplate`. This configuration is getting merged with configuration provided by the `DPUServiceTemplate`.
-If there is a conflict, settings in `DPUServiceConfiguration` take precedence.
+A `DPUServiceConfiguration` contains all configuration options from the user to be
+provided to the `DPUService` via the Helm values. This Custom Resource is usually
+crafted by the user according to their environment and intended use of the `DPUService`.
+It helps generate the underlying `DPUService`. It is a layer on top of the configuration
+defined in the `DPUServiceTemplate`. This configuration is getting merged with
+configuration provided by the `DPUServiceTemplate`. If there is a conflict, settings
+in `DPUServiceConfiguration` take precedence.
 
-A user must create as many `DPUServiceConfiguration` Custom Resources as the number of services they aim to deploy using
-a `DPUDeployment`. In this example, we will need to create 2 of those since we have 2 `DPUServices`.
+A user must create as many `DPUServiceConfiguration` Custom Resources as the number
+of services they aim to deploy using a `DPUDeployment`. In this example, we will
+need to create 2 of those since we have 2 `DPUServices`.
 
 ```yaml
 ---
@@ -203,9 +215,10 @@ spec:
 
 ### DPUFlavor
 
-A `DPUFlavor` describes the configuration to be applied on the DPU during the provisioning. This is a very minimal
-`DPUFlavor` as the purpose of this document is to demonstrate the capabilities of the `DPUDeployment`. Given that, there
-are 2 fields set that are related to the `DPUDeployment`.
+A `DPUFlavor` describes the configuration to be applied on the DPU during the provisioning.
+This is a very minimal `DPUFlavor` as the purpose of this document is to demonstrate
+the capabilities of the `DPUDeployment`. Given that, there are 2 fields set that are
+related to the `DPUDeployment`.
 
 ```yaml
 apiVersion: provisioning.dpu.nvidia.com/v1alpha1
@@ -231,8 +244,8 @@ spec:
     nvidia.com/sf: 4
 ```
 
-The above configuration translates to the following resources being available for the `DPUServices` deployed by the
-`DPUDeployment`.
+The above configuration translates to the following resources being available for
+the `DPUServices` deployed by the `DPUDeployment`.
 
 ```yaml
 allocatableResources:
@@ -258,8 +271,9 @@ spec:
 
 ## DPUDeployment Example
 
-The following `DPUDeployment` example is based on the Custom Resources found above. It describes a `DPUDeployment` which
-targets 2 sets of DPUs, provisioned with a specific `DPUFlavor` and `BFB`, and all of them running 2 `DPUServices`.
+The following `DPUDeployment` example is based on the Custom Resources found above.
+It describes a `DPUDeployment` which targets 2 sets of DPUs, provisioned with a specific
+`DPUFlavor` and `BFB`, and all of them running 2 `DPUServices`.
 
 ```yaml
 apiVersion: svc.dpu.nvidia.com/v1alpha1
@@ -314,8 +328,8 @@ spec:
    #       svc.dpu.nvidia.com/interface: p0
 ```
 
-As mentioned in the [Created Child Custom Resources](#created-child-custom-resources) section, after applying this
-manifest, the following objects are created:
+As mentioned in the [Created Child Custom Resources](#created-child-custom-resources)
+section, after applying this manifest, the following objects are created:
 
 ```bash
 $ kubectl get dpuset -A
@@ -341,4 +355,163 @@ $ kubectl get dpuservice -n customer-namespace
 NAME                         AGE
 producer-consumer-consumer   36m
 producer-consumer-producer   36m
+```
+
+
+## DPUDeployment Updates
+
+A `DPUDeployment` can be updated by modifying `.spec` of the custom resource or by
+changing a referenced object like `DPUServiceTemplate` and `DPUServiceConfiguration`.
+The update of the underlying objects is specific to each kind:
+
+- `DPUSet` can be updated by modifying `.spec.dpus`. The underlying `dpus` can be
+  reprovisioned if the referenced `bfb` or `DPUFlavor` change.
+- `DPUServices` can be updated by modifying `spec.Services`. Changing the referenced
+  `DPUServiceTemplate` or `DPUServiceConfiguration` will update the selected `DPUService`.
+  A differentiation is made for "disruptive DPUServices" which have an impact on
+  the cluster nodes and "non disruptive" ones that do not.
+- `DPUServiceInterface` can be updated by modifying the referenced `DPUServiceConfiguration`
+  `spec.Interfaces`.
+- `DPUServiceChain` can be updated by modifying `spec.ServiceChains`.
+
+**Note**: Users should avoid manually modifying an object owned by a `DPUDeployment`,
+as doing so can lead to unforeseen consequences that may disrupt the entire setup.
+The controller does not recognize these manual changes and may or may not overwrite
+them to reach the desired state.
+
+### Non-disruptive DPUService Update
+
+1. Retrieve the reference `DPUServiceConfiguration` or `DPUServiceTemplate`:
+
+```bash
+$ kubectl get dpuserviceconfiguration -n customer-namespace
+NAME       AGE
+producer   36m
+```
+
+2. We should get a valid `DPUServiceConfiguration`:
+
+```bash
+$ kubectl get dpuserviceconfiguration producer -n customer-namespace -o yaml
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceConfiguration
+metadata:
+  name: producer
+  namespace: customer-namespace
+spec:
+  deploymentServiceName: "producer" # Must match the key in the `dpudeployment.spec.services`
+  serviceConfiguration:
+    serviceDaemonSet:
+      labels:
+        sre.nvidia.com/service-tier: "t1"
+      annotations:
+        sre.nvidia.com/page: "false"
+  interfaces:
+  - name: app-iface
+    network: mynad
+```
+
+3. As an example let's update the requested `interface` name:
+
+```bash
+$ kubectl patch dpuserviceconfiguration producer \
+  -n customer-namespace \
+  --type='json' \
+  -p='[{"op": "replace", "path": "/spec/interfaces/0/name", "value":"app-iface2"}]'
+```
+
+4. The `DPUService` should be updated by the `DPUDeployment` controller:
+
+```bash
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUService
+metadata:
+  annotations:
+    svc.dpu.nvidia.com/dpuservice-version: f4295be911
+  finalizers:
+  - dpu.nvidia.com/dpuservice
+  labels:
+    svc.dpu.nvidia.com/owned-by-dpudeployment: producer-consumer-dpudeployment
+  name: producer-consumer-producer-2444q
+  namespace: customer-namespace
+spec:
+...
+  serviceID: dpudeployment_producer-consumer-dpudeployment_producer-consumer-producer 
+  interfaces:
+  - app-iface2
+```
+
+### Disruptive DPUService Update
+
+Updating "disruptive DPUServices" involves creating a new instance for every new
+version. Up to `revisionHistoryLimit` instances can exist at a given time, e.g. 
+when changes are made to the `DPUServiceConfiguration` or `DPUServiceTemplate`
+while no instance has reached a `ready` state yet.
+
+1. Retrieve the reference `DPUServiceConfiguration` or `DPUServiceTemplate`:
+
+```bash
+$ kubectl get dpuserviceconfiguration -n customer-namespace
+NAME       AGE
+producer   36m
+```
+
+2. We should get a valid `DPUServiceConfiguration`:
+
+```bash
+$ kubectl get dpuserviceconfiguration producer -n customer-namespace -o yaml
+apiVersion: svc.dpu.nvidia.com/v1alpha1
+kind: DPUServiceConfiguration
+metadata:
+  name: producer
+  namespace: customer-namespace
+spec:
+  deploymentServiceName: "producer" # Must match the key in the `dpudeployment.spec.services`
+  serviceConfiguration:
+    serviceDaemonSet:
+      labels:
+        sre.nvidia.com/service-tier: "t1"
+      annotations:
+        sre.nvidia.com/page: "false"
+  interfaces:
+  - name: app-iface
+    network: mynad
+```
+
+3. Make the `DPUService` disruptive by changing the `NodeEffect`:
+
+```bash
+$ kubectl patch dpuserviceconfiguration producer \
+  -n customer-namespace \
+  --type='json' \
+  -p='[{"op": "add", "path": "/spec/nodeEffect", "value": true }]'
+```
+
+
+4. As an example let's update the requested `interface` name:
+
+```bash
+$ kubectl patch dpuserviceconfiguration producer  \
+  -n customer-namespace \
+  --type='json' \
+  -p='[{"op": "replace", "path": "/spec/interfaces/0/name", "value":"app-iface2"}]'
+```
+
+5. The `DPUService` should be updated by the `DPUDeployment` controller by adding
+   a new version:
+
+```bash
+$ kubectl get dpuservices -n customer-namespace
+NAME                    READY   PHASE     AGE
+producer-consumer-2444q True    Success   27m
+producer-consumer-rr45f False   Pending   1m
+```
+
+Once the new version is `ready`, the `DPUDeployment` controller garbage collect the
+previous versions.
+
+```bash
+$ kubectl get dpuservices -n customer-namespace
+NAME                    READY   PHASE     AGE
+producer-consumer-rr45f False   Success   5m
 ```
