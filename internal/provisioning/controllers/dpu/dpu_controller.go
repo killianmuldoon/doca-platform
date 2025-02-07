@@ -75,6 +75,7 @@ func NewDPUReconciler(mgr manager.Manager, alloc allocator.Allocator, joinComman
 	switch options.DPUInstallInterface {
 	case string(provisioningv1.InstallViaHost):
 		handlers[provisioningv1.DPUInitializeInterface] = gnoi.DeployDMS
+		handlers[provisioningv1.DPUConfigFWParameters] = gnoi.ConfigFWParameters
 		handlers[provisioningv1.DPUHostNetworkConfiguration] = gnoi.SetupNetwork
 		handlers[provisioningv1.DPUOSInstalling] = gnoi.Installing
 	case string(provisioningv1.InstallViaRedFish):

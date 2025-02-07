@@ -130,11 +130,3 @@ func DeployDMS(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 func isTimeout(pod *corev1.Pod, timeoutDuration time.Duration) bool {
 	return time.Since(pod.CreationTimestamp.Time) > timeoutDuration
 }
-
-func handleDMSPodFailure(state *provisioningv1.DPUStatus, reason string, message string) (provisioningv1.DPUStatus, error) {
-	cond := cutil.DPUCondition(provisioningv1.DPUCondDMSRunning, reason, message)
-	cond.Status = metav1.ConditionFalse
-	cutil.SetDPUCondition(state, cond)
-	state.Phase = provisioningv1.DPUError
-	return *state, fmt.Errorf("%s", message)
-}

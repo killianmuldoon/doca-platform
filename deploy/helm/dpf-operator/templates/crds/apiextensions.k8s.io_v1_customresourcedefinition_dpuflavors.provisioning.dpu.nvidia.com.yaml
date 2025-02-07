@@ -79,6 +79,13 @@ spec:
                       registry.
                     type: string
                 type: object
+              dpuMode:
+                description: 'Specifies the DPU Mode type: one of dpu,zero-trust,nic'
+                enum:
+                - dpu
+                - zero-trust
+                - nic
+                type: string
               dpuResources:
                 additionalProperties:
                   anyOf:

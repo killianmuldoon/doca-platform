@@ -64,6 +64,10 @@ type DPUFlavorSpec struct {
 	// SystemReservedResources. This field must not be specified if dpuResources are not specified.
 	// +optional
 	SystemReservedResources corev1.ResourceList `json:"systemReservedResources,omitempty"`
+
+	// Specifies the DPU Mode type: one of dpu,zero-trust,nic
+	// +optional
+	DpuMode DpuModeType `json:"dpuMode,omitempty"`
 }
 
 type DPUFlavorGrub struct {
@@ -95,6 +99,16 @@ type DPUFlavorOVS struct {
 	// +optional
 	RawConfigScript string `json:"rawConfigScript,omitempty"`
 }
+
+// DpuModeType defines the mode of the DPU
+// +kubebuilder:validation:Enum=dpu;zero-trust;nic
+type DpuModeType string
+
+const (
+	DpuMode       DpuModeType = "dpu"
+	ZeroTrustMode DpuModeType = "zero-trust"
+	NicMode       DpuModeType = "nic"
+)
 
 // DPUFlavorFileOp defines the operation to be performed on the file
 // +kubebuilder:validation:Enum=override;append

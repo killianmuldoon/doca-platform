@@ -19,8 +19,6 @@ package gnoi
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -34,14 +32,11 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/dms"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/future"
 
-	"github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/gnoi/system"
 	tpb "github.com/openconfig/gnoi/types"
 	"github.com/openconfig/gnoigo"
 	gos "github.com/openconfig/gnoigo/os"
 	gsystem "github.com/openconfig/gnoigo/system"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -125,74 +120,6 @@ func updateState(state *provisioningv1.DPUStatus, phase provisioningv1.DPUPhase,
 	return *state
 }
 
-func createGRPCConnection(ctx context.Context, client client.Client, dpu *provisioningv1.DPU) (*grpc.ClientConn, error) {
-	nn := types.NamespacedName{
-		Namespace: dpu.Namespace,
-		Name:      cutil.GenerateDMSPodName(dpu),
-	}
-	pod := &corev1.Pod{}
-	if err := client.Get(ctx, nn, pod); err != nil {
-		return nil, fmt.Errorf("failed to get pod: %v", err)
-	}
-
-	nn = types.NamespacedName{
-		Namespace: dpu.Namespace,
-		Name:      dms.DMSClientSecret,
-	}
-	dmsClientSecret := &corev1.Secret{}
-	if err := client.Get(ctx, nn, dmsClientSecret); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("client secret not found: %v", err)
-		} else {
-			return nil, fmt.Errorf("failed to get client secret: %v", err)
-		}
-	}
-
-	// Extract the certificate and key from the secret
-	dmsClientCert, certOk := dmsClientSecret.Data["tls.crt"]
-	if !certOk {
-		return nil, fmt.Errorf("tls.crt not found in client secret")
-	}
-	dmsClientKey, keyOk := dmsClientSecret.Data["tls.key"]
-	if !keyOk {
-		return nil, fmt.Errorf("tls.key not found in client secret")
-	}
-
-	// Load the DMS client's certificate and private key
-	clientCert, err := tls.X509KeyPair(dmsClientCert, dmsClientKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load client cert and key: %v", err)
-	}
-
-	// Extract the CA certificate
-	caCert, caCertOk := dmsClientSecret.Data["ca.crt"]
-	if !caCertOk {
-		return nil, fmt.Errorf("ca.crt not found in Server secret")
-	}
-
-	// Create a certificate pool and add the CA certificate
-	certPool := x509.NewCertPool()
-	if !certPool.AppendCertsFromPEM(caCert) {
-		return nil, fmt.Errorf("failed to append Server certificate")
-	}
-
-	// Create a mTLS config with the client certificate and CA certificate
-	tlsConfig := &tls.Config{
-		Certificates: []tls.Certificate{clientCert},
-		RootCAs:      certPool,
-	}
-
-	serverAddress := dms.Address(pod.Status.PodIP, dpu)
-
-	// Create a gRPC connection using grpc.NewClient
-	conn, err := grpc.NewClient(serverAddress, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create gRPC connection: %v", err)
-	}
-
-	return conn, nil
-}
-
 func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv1.DPU, bfb *provisioningv1.BFB, retry int, ctrlContext *dutil.ControllerContext) {
 	dmsTaskName := generateDMSTaskName(dpu)
 	dmsTask := future.New(func() (any, error) {
@@ -206,15 +133,6 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		}
 		defer conn.Close() //nolint: errcheck
 		gnoiClient := gnoigo.NewClients(conn)
-		gnmiClient := gnmi.NewGNMIClient(conn)
-
-		modeRequest := setModeRequest()
-		if resp, err := gnmiClient.Set(ctx, modeRequest); err == nil {
-			logger.V(3).Info(fmt.Sprintf("Set DPU mode to DPU %s successfully, %v", dpu.Name, resp.String()))
-		} else {
-			logger.Error(err, "failed set DPU mode", "DPU", dpu.Name)
-			return nil, err
-		}
 
 		logger.V(3).Info(fmt.Sprintf("TLS Connection established between DPU controller to DMS %s", dmsTaskName))
 
@@ -385,31 +303,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 	dutil.OsInstallTaskMap.Store(dmsTaskName, taskWithRetryCount)
 }
 
-func generateDMSTaskName(dpu *provisioningv1.DPU) string {
-	return fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)
-}
-
 func computeBFBMD5InDms(ns, name, container, filepath string) (string, string, error) {
 	md5CMD := fmt.Sprintf("md5sum %s", filepath)
 	return cutil.RemoteExec(ns, name, container, md5CMD)
-}
-
-func setModeRequest() *gnmi.SetRequest {
-	return &gnmi.SetRequest{
-		Update: []*gnmi.Update{
-			{
-				Path: &gnmi.Path{
-					Elem: []*gnmi.PathElem{
-						{Name: "nvidia"},
-						{Name: "mode"},
-						{Name: "config"},
-						{Name: "mode"},
-					},
-				},
-				Val: &gnmi.TypedValue{
-					Value: &gnmi.TypedValue_StringVal{StringVal: "DPU"},
-				},
-			},
-		},
-	}
 }
