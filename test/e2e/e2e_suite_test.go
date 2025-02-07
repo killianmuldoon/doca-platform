@@ -61,6 +61,9 @@ var (
 	// skipCleanup indicates whether to skip the cleanup of resources created during the e2e test run.
 	// When set to true, resources will not be removed after the test completes.
 	skipCleanup = false
+	// collectResources indicates whether to collect logs an objects after an e2e test run.
+	collectResources = true
+
 	// bfbImageURL can be used to override the default BFB image URL used in the tests.
 	bfbImageURL = ""
 )
@@ -87,13 +90,21 @@ func getEnvVariables() {
 			panic(err)
 		}
 	}
+	if v, found := os.LookupEnv("DPF_E2E_COLLECT_RESOURCES"); found {
+		var err error
+		collectResources, err = strconv.ParseBool(v)
+		if err != nil {
+			panic(fmt.Errorf("string must be a bool: %v", err))
+		}
+	}
 }
 
 var (
-	testClient client.Client
-	restConfig *rest.Config
-	clientset  *kubernetes.Clientset
-	ctx        = ctrl.SetupSignalHandler()
+	testClient       client.Client
+	restConfig       *rest.Config
+	clientset        *kubernetes.Clientset
+	ctx              = ctrl.SetupSignalHandler()
+	dpuClusterClient client.Client
 )
 
 // Run e2e tests using the Ginkgo runner.

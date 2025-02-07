@@ -462,11 +462,12 @@ test-cache-images: minikube ## Add images to the minikube cache based on the art
 	# Run a script which will cache images which were pulled in the test run to the minikube cache.
 	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) ARTIFACTS_DIR=${ARTIFACTS_DIR} $(CURDIR)/hack/scripts/add-images-to-minikube-cache.sh
 
+E2E_TEST_ARGS ?= -v -ginkgo.v
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e ## Run the e2e tests against a Kind k8s instance that is spun up.
 test-e2e: stern ## Run e2e tests
 	STERN=$(STERN) ARTIFACTS=$(ARTIFACTS_DIR) $(CURDIR)/hack/scripts/stern-log-collector.sh \
-	  go test -timeout 0 ./test/e2e/ -v -ginkgo.v
+	  go test -timeout 0 ./test/e2e/ $(E2E_TEST_ARGS)
 
 .PHONY: clean-test-env
 clean-test-env: minikube ## Clean test environment (teardown minikube cluster)

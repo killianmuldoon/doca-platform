@@ -24,10 +24,9 @@ fi
 
 CLUSTER_NAME="${CLUSTER_NAME:-"dpf-dev"}"
 MINIKUBE_BIN="${MINIKUBE_BIN:-"unknown"}"
-# Docker is used as the minikube driver to enable using hollow nodes.
-MINIKUBE_DRIVER="${MINIKUBE_DRIVER:-"unknown"}"
+MINIKUBE_DRIVER="${MINIKUBE_DRIVER:-"docker"}"
 USE_MINIKUBE_DOCKER="${USE_MINIKUBE_DOCKER:-"true"}"
-MINIKUBE_CACHE_ADD_IMAGES="${MINIKUBE_CACHE_ADD_IMAGES:-"true"}"
+MINIKUBE_CACHE_ADD_IMAGES="${MINIKUBE_CACHE_ADD_IMAGES:-"false"}"
 NUM_NODES="${NUM_NODES:-"1"}"
 NODE_MEMORY="${NODE_MEMORY:-"8g"}"
 NODE_CPUS="${NODE_CPUS:-"4"}"
@@ -37,30 +36,7 @@ MINIKUBE_KUBERNETES_VERSION="${MINIKUBE_KUBERNETES_VERSION:-"v1.30.2"}"
 MINIKUBE_DOCKER_MIRROR="${MINIKUBE_DOCKER_MIRROR:-"https://dockerhub.nvidia.com"}"
 CERT_MANAGER_VERSION="v1.16.2"
 ADD_CONTROL_PLANE_TAINTS="${ADD_CONTROL_PLANE_TAINTS:-"false"}"
-
-## Detect the OS.
-OS="unknown"
-if [[ "${OSTYPE}" == "linux"* ]]; then
-  OS="linux"
-elif [[ "${OSTYPE}" == "darwin"* ]]; then
-  OS="darwin"
-fi
-
-# Exit if the OS is not supported.
-if [[ "$OS" == "unknown" ]]; then
-  echo "os '$OSTYPE' not supported. Aborting." >&2
-  exit 1
-fi
-
-## Set the driver used for minikube machines. By default this script will select the preferred VM driver for each OS.
-## Users can override this using the MINIKUBE_DRIVER env variable.
-if [[ "$MINIKUBE_DRIVER" == "unknown" ]]; then
-  if [[ "${OSTYPE}" == "linux"* ]]; then
-    MINIKUBE_DRIVER="kvm2"
-  elif [[ "${OSTYPE}" == "darwin"* ]]; then
-    MINIKUBE_DRIVER="qemu"
-  fi
-fi
+DPUCLUSTER_NODE_PORT="32443"
 
 MINIKUBE_ARGS="${MINIKUBE_ARGS:-"\
   --driver $MINIKUBE_DRIVER \
@@ -73,6 +49,7 @@ MINIKUBE_ARGS="${MINIKUBE_ARGS:-"\
   --registry-mirror="$MINIKUBE_DOCKER_MIRROR" \
   --extra-config=apiserver.enable-admission-plugins=OwnerReferencesPermissionEnforcement \ # This admission plugin is enabled by default in OpenShift and is enabled in our testing environment to ensure compatibility.
   --preload=true \
+  --ports=$DPUCLUSTER_NODE_PORT:$DPUCLUSTER_NODE_PORT \
   --addons metallb"}"
 
 MINIKUBE_EXTRA_ARGS="${MINIKUBE_EXTRA_ARGS:-""}"

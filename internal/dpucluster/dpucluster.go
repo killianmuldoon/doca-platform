@@ -100,8 +100,27 @@ func (cc *Config) getClientConfig(ctx context.Context) error {
 	return nil
 }
 
+type ClientOptions struct {
+	updateHost string
+}
+
+type ClientOption interface {
+	Apply(options *ClientOptions)
+}
+type OverrideClientConfigHost struct {
+	Server string
+}
+
+func (f OverrideClientConfigHost) Apply(options *ClientOptions) {
+	options.updateHost = f.Server
+}
+
 // Client returns a new client for the cluster.
-func (cc *Config) Client(ctx context.Context) (client.Client, error) {
+func (cc *Config) Client(ctx context.Context, opts ...ClientOption) (client.Client, error) {
+	options := &ClientOptions{}
+	for _, o := range opts {
+		o.Apply(options)
+	}
 	_, err := cc.Kubeconfig(ctx)
 	if err != nil {
 		return nil, err
@@ -112,6 +131,9 @@ func (cc *Config) Client(ctx context.Context) (client.Client, error) {
 		return nil, err
 	}
 
+	if options.updateHost != "" {
+		restConfig.Host = options.updateHost
+	}
 	newClient, err := client.New(restConfig, client.Options{})
 	if err != nil {
 		return nil, err
