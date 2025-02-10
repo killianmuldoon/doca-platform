@@ -176,7 +176,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv
 		if err != nil {
 			return nil, err
 		}
-		data, err := bfcfg.GenerateBFConfig(ctx, ctrlContext.Options.BFCFGTemplateFile, dpu, node, flavor, joinCommand)
+		data, err := bfcfg.GenerateBFConfig(ctx, ctrlContext.Options.BFCFGTemplateFile, dpu, node, flavor, joinCommand, ctrlContext.Options.DPUInstallInterface)
 		if err != nil || data == nil {
 			logger.Error(err, fmt.Sprintf("failed bf.cfg creation for %s/%s", dpu.Namespace, dpu.Name))
 			return nil, err

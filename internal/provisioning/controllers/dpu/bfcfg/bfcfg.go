@@ -74,6 +74,8 @@ type BFCFGData struct {
 	SFNum                      int
 	// AdditionalReboot adds an extra reboot during the DPU provisioning. This is required in some environments.
 	AdditionalReboot bool
+	// OOBNetwork is a flag to indicate if the DPU accesses DPU cluster via the OOB interface.
+	OOBNetwork bool
 }
 
 type BFCFGWriteFile struct {
@@ -83,7 +85,7 @@ type BFCFGWriteFile struct {
 	Permissions string
 }
 
-func GenerateBFConfig(ctx context.Context, bfCFGTemplateFile string, dpu *provisioningv1.DPU, node *corev1.Node, flavor *provisioningv1.DPUFlavor, joinCommand string) ([]byte, error) {
+func GenerateBFConfig(ctx context.Context, bfCFGTemplateFile string, dpu *provisioningv1.DPU, node *corev1.Node, flavor *provisioningv1.DPUFlavor, joinCommand, installInterface string) ([]byte, error) {
 	logger := log.FromContext(ctx)
 
 	additionalReboot := false
@@ -97,7 +99,7 @@ func GenerateBFConfig(ctx context.Context, bfCFGTemplateFile string, dpu *provis
 		additionalReboot = true
 	}
 
-	buf, err := Generate(flavor, cutil.GenerateNodeName(dpu), joinCommand, additionalReboot, bfCFGTemplateFile)
+	buf, err := Generate(flavor, cutil.GenerateNodeName(dpu), joinCommand, additionalReboot, bfCFGTemplateFile, installInterface)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +114,7 @@ func GenerateBFConfig(ctx context.Context, bfCFGTemplateFile string, dpu *provis
 	return buf, nil
 }
 
-func Generate(flavor *provisioningv1.DPUFlavor, dpuName, joinCmd string, additionalReboot bool, bfbCFGFilepath string) ([]byte, error) {
+func Generate(flavor *provisioningv1.DPUFlavor, dpuName, joinCmd string, additionalReboot bool, bfbCFGFilepath string, installInterface string) ([]byte, error) {
 	config := &BFCFGData{
 		KubeadmJoinCMD:   joinCmd,
 		DPUHostName:      dpuName,
@@ -137,6 +139,9 @@ func Generate(flavor *provisioningv1.DPUFlavor, dpuName, joinCmd string, additio
 		})
 	}
 	config.OVSRawScript = flavor.Spec.OVS.RawConfigScript
+	if installInterface == string(provisioningv1.InstallViaRedFish) {
+		config.OOBNetwork = true
+	}
 
 	if num, ok := getPFTotalSFFromFlavor(flavor); ok {
 		config.SFNum = num

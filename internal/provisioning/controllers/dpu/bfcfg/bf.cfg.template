@@ -35,6 +35,21 @@ write_files:
     permissions: '0600'
     content: ""
 
+{{if .OOBNetwork}}
+  - path: /etc/netplan/98-oob-tmfifo.yaml
+    permissions: '0600'
+    content: |
+        network:
+          renderer: networkd
+          version: 2
+          ethernets:
+            oob_net0:
+              dhcp4: true
+            tmfifo_net0:
+              addresses:
+              - 192.168.100.2/30
+              dhcp4: false
+{{else}}
   - path: /etc/netplan/99-dpf-comm-ch.yaml
     permissions: '0600'
     content: |
@@ -62,6 +77,7 @@ write_files:
               addresses:
               - 192.168.100.2/30
               dhcp4: false
+{{end}}
 
   - path: /etc/modules-load.d/br_netfilter.conf
     permissions: '0644'
@@ -113,7 +129,7 @@ write_files:
     content: |
         #!/bin/bash
 
-        COMM_CH_BR_NAME=br-comm-ch
+        COMM_CH_BR_NAME={{if .OOBNetwork}}oob_net0{{else}}br-comm-ch{{end}}
         # update dynamic IP to kubelet configuration
         while true; do
             if [ -d "/sys/class/net/${COMM_CH_BR_NAME}" ]; then

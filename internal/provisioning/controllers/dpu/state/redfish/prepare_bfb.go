@@ -67,7 +67,7 @@ func PrepareBFB(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Con
 	if err != nil {
 		return *state, fmt.Errorf("failed to generate join command, err: %v", err)
 	}
-	cfg, err := bfcfg.GenerateBFConfig(ctx, ctrlCtx.Options.BFCFGTemplateFile, dpu, node, flavor, joinCommand)
+	cfg, err := bfcfg.GenerateBFConfig(ctx, ctrlCtx.Options.BFCFGTemplateFile, dpu, node, flavor, joinCommand, ctrlCtx.Options.DPUInstallInterface)
 	if err != nil {
 		return *state, fmt.Errorf("failed to generate bf.cfg, err: %v", err)
 	}
