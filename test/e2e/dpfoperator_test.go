@@ -415,7 +415,7 @@ func ProvisionDPUClusters(ctx context.Context, input ProvisionDPUClustersInput) 
 			g.Expect(dpuClusterClient.List(ctx, nodes)).ToNot(HaveOccurred())
 			By(fmt.Sprintf("Expected number of nodes %d to equal %d", len(nodes.Items), input.numberOfNodesPerCluster))
 			g.Expect(nodes.Items).To(HaveLen(input.numberOfNodesPerCluster))
-		}).WithTimeout(30 * time.Minute).WithPolling(1 * time.Second).Should(Succeed())
+		}).WithTimeout(30 * time.Minute).WithPolling(120 * time.Second).Should(Succeed())
 	})
 
 	It("ensure the system DPUServices are created in the DPUClusters", func() {
