@@ -24,8 +24,8 @@ import (
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
-	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -213,12 +213,9 @@ func (r *DPUServiceInterfaceReconciler) getUnreadyObjects(objects []unstructured
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DPUServiceInterfaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	tenantControlPlane := &metav1.PartialObjectMetadata{}
-	tenantControlPlane.SetGroupVersionKind(kamajiv1.GroupVersion.WithKind(kamajiv1.TenantControlPlaneKind))
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dpuservicev1.DPUServiceInterface{}).
-		// TODO: This doesn't currently work for status updates - need to find a way to increase reconciliation frequency.
-		WatchesMetadata(tenantControlPlane, handler.EnqueueRequestsFromMapFunc(r.DPUClusterToDPUServiceInterface)).
+		Watches(&provisioningv1.DPUCluster{}, handler.EnqueueRequestsFromMapFunc(r.DPUClusterToDPUServiceInterface)).
 		Complete(r)
 }
 

@@ -32,7 +32,6 @@ import (
 	"github.com/nvidia/doca-platform/internal/dpucluster"
 	"github.com/nvidia/doca-platform/internal/dpuservice/predicates"
 	dpuserviceutils "github.com/nvidia/doca-platform/internal/dpuservice/utils"
-	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/operator/utils"
 
 	"github.com/fluxcd/pkg/runtime/patch"
@@ -109,8 +108,6 @@ func (r *DPUServiceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Ma
 		return err
 	}
 
-	tenantControlPlane := &metav1.PartialObjectMetadata{}
-	tenantControlPlane.SetGroupVersionKind(kamajiv1.GroupVersion.WithKind(kamajiv1.TenantControlPlaneKind))
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dpuservicev1.DPUService{}).
 		Watches(&argov1.Application{}, handler.EnqueueRequestsFromMapFunc(r.ArgoApplicationToDPUService)).
@@ -119,8 +116,7 @@ func (r *DPUServiceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Ma
 			handler.EnqueueRequestsFromMapFunc(r.requestsForDPUServiceInterfaceChange),
 			builder.WithPredicates(predicates.DPUServiceInterfaceChangePredicate{}),
 		).
-		// TODO: This doesn't currently work for status updates - need to find a way to increase reconciliation frequency.
-		WatchesMetadata(tenantControlPlane, handler.EnqueueRequestsFromMapFunc(r.DPUClusterToDPUService)).
+		Watches(&provisioningv1.DPUCluster{}, handler.EnqueueRequestsFromMapFunc(r.DPUClusterToDPUService)).
 		Complete(r)
 }
 
