@@ -20,7 +20,14 @@ spec:
             - name: etcd-defrag
               image: {{ index .Values "kamaji-etcd-defrag" "image" }}
               args:
-                - --endpoints="https://{{ .Release.Name }}-kamaji-etcd-0:{{ index .Values "kamaji-etcd" "clientPort" }},{{ .Release.Name }}-kamaji-etcd-1:{{ index .Values "kamaji-etcd" "clientPort" }},{{ .Release.Name }}-kamaji-etcd-2:{{ index .Values "kamaji-etcd" "clientPort" }}"
+                - --endpoints={{- $replicas := index .Values "kamaji-etcd" "replicas" | int -}}
+                {{- $port := index .Values "kamaji-etcd" "clientPort" | int -}}
+                {{- $name := .Release.Name -}}
+                {{- $namespace := .Release.Namespace -}}
+                {{- range $i, $_ := until $replicas -}}
+                  {{- printf "https://%s-kamaji-etcd-%d.%s-kamaji-etcd.%s.svc.cluster.local:%d" $name $i $name $namespace $port -}}
+                  {{- if lt (add1 $i) $replicas }},{{ end -}}
+                {{- end }}
                 - --cacert=/opt/certs/ca/ca.crt
                 - --cert=/opt/certs/root-client-certs/tls.crt
                 - --key=/opt/certs/root-client-certs/tls.key
