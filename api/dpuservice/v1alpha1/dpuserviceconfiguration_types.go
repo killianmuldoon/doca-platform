@@ -80,6 +80,9 @@ type ServiceInterfaceTemplate struct {
 	// or just "name" if the namespace is the same as the namespace the pod is running.
 	// +required
 	Network string `json:"network"`
+	// VirtualNetwork is the VirtualNetwork name in the same namespace
+	// +optional
+	VirtualNetwork *string `json:"virtualNetwork,omitempty"`
 }
 
 // ServiceConfiguration contains fields that are configured on the generated DPUService.

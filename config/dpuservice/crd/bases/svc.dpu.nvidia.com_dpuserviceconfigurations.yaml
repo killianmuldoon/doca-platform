@@ -67,6 +67,10 @@ spec:
                         Network is the Network Attachment Definition in the form of "namespace/name"
                         or just "name" if the namespace is the same as the namespace the pod is running.
                       type: string
+                    virtualNetwork:
+                      description: VirtualNetwork is the VirtualNetwork name in the
+                        same namespace
+                      type: string
                   required:
                   - name
                   - network

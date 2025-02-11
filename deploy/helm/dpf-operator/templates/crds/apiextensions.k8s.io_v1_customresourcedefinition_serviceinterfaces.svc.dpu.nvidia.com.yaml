@@ -72,9 +72,18 @@ spec:
                   pfID:
                     description: The PF ID
                     type: integer
+                  virtualNetwork:
+                    description: VirtualNetwork is the VirtualNetwork name in the
+                      same namespace
+                    type: string
                 required:
                 - pfID
                 type: object
+                x-kubernetes-validations:
+                - message: virtualNetwork is immutable
+                  rule: (!has(oldSelf.virtualNetwork) && !has(self.virtualNetwork))
+                    || ((has(oldSelf.virtualNetwork) && has(self.virtualNetwork))
+                    && self.virtualNetwork==oldSelf.virtualNetwork)
               physical:
                 description: The physical interface definition
                 properties:
@@ -98,11 +107,20 @@ spec:
                   serviceID:
                     description: ServiceID is the DPU Service Identifier
                     type: string
+                  virtualNetwork:
+                    description: VirtualNetwork is the VirtualNetwork name in the
+                      same namespace
+                    type: string
                 required:
                 - interfaceName
                 - network
                 - serviceID
                 type: object
+                x-kubernetes-validations:
+                - message: virtualNetwork is immutable
+                  rule: (!has(oldSelf.virtualNetwork) && !has(self.virtualNetwork))
+                    || ((has(oldSelf.virtualNetwork) && has(self.virtualNetwork))
+                    && self.virtualNetwork==oldSelf.virtualNetwork)
               vf:
                 description: The VF definition
                 properties:
@@ -115,11 +133,20 @@ spec:
                   vfID:
                     description: The VF ID
                     type: integer
+                  virtualNetwork:
+                    description: VirtualNetwork is the VirtualNetwork name in the
+                      same namespace
+                    type: string
                 required:
                 - parentInterfaceRef
                 - pfID
                 - vfID
                 type: object
+                x-kubernetes-validations:
+                - message: virtualNetwork is immutable
+                  rule: (!has(oldSelf.virtualNetwork) && !has(self.virtualNetwork))
+                    || ((has(oldSelf.virtualNetwork) && has(self.virtualNetwork))
+                    && self.virtualNetwork==oldSelf.virtualNetwork)
               vlan:
                 description: The VLAN definition
                 properties:

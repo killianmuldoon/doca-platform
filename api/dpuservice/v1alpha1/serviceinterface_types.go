@@ -77,6 +77,7 @@ type Physical struct {
 }
 
 // ServiceDef Identifes the service and network for the ServiceInterface
+// +kubebuilder:validation:XValidation:rule="(!has(oldSelf.virtualNetwork) && !has(self.virtualNetwork)) || ((has(oldSelf.virtualNetwork) && has(self.virtualNetwork)) && self.virtualNetwork==oldSelf.virtualNetwork)", message="virtualNetwork is immutable"
 type ServiceDef struct {
 	// ServiceID is the DPU Service Identifier
 	// +required
@@ -88,6 +89,9 @@ type ServiceDef struct {
 	// The interface name
 	// +required
 	InterfaceName string `json:"interfaceName"`
+	// VirtualNetwork is the VirtualNetwork name in the same namespace
+	// +optional
+	VirtualNetwork *string `json:"virtualNetwork,omitempty"`
 }
 
 // GetNetwork returns the namespace and name of the network
@@ -119,6 +123,7 @@ type VLAN struct {
 }
 
 // VF defines the VF configuration
+// +kubebuilder:validation:XValidation:rule="(!has(oldSelf.virtualNetwork) && !has(self.virtualNetwork)) || ((has(oldSelf.virtualNetwork) && has(self.virtualNetwork)) && self.virtualNetwork==oldSelf.virtualNetwork)", message="virtualNetwork is immutable"
 type VF struct {
 	// The VF ID
 	// +required
@@ -130,13 +135,20 @@ type VF struct {
 	// TODO: Figure out what this field is supposed to be
 	// +required
 	ParentInterfaceRef string `json:"parentInterfaceRef"`
+	// VirtualNetwork is the VirtualNetwork name in the same namespace
+	// +optional
+	VirtualNetwork *string `json:"virtualNetwork,omitempty"`
 }
 
 // PF defines the PF configuration
+// +kubebuilder:validation:XValidation:rule="(!has(oldSelf.virtualNetwork) && !has(self.virtualNetwork)) || ((has(oldSelf.virtualNetwork) && has(self.virtualNetwork)) && self.virtualNetwork==oldSelf.virtualNetwork)", message="virtualNetwork is immutable"
 type PF struct {
 	// The PF ID
 	// +required
 	ID int `json:"pfID"`
+	// VirtualNetwork is the VirtualNetwork name in the same namespace
+	// +optional
+	VirtualNetwork *string `json:"virtualNetwork,omitempty"`
 }
 
 // ServiceInterfaceStatus defines the observed state of ServiceInterface

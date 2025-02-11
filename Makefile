@@ -377,9 +377,11 @@ verify-md-links: $(LYCHEE) ## Check links in markdown docs are working
 
 ##@ Testing
 
+TESTPKGS ?= $$(go list ./... | grep -v /e2e)
+
 .PHONY: test
 test: envtest ## Run tests.
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLSDIR) -p path)" go test $$(go list ./... | grep -v /e2e) $(GO_TEST_ARGS)
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLSDIR) -p path)" go test $(TESTPKGS) $(GO_TEST_ARGS)
 
 .PHONY: test-report
 test-report: envtest gotestsum ## Run tests and generate a junit style report

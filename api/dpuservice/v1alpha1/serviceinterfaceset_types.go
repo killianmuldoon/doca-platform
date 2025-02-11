@@ -67,7 +67,7 @@ type ServiceInterfaceSetSpec struct {
 	// +optional
 	NodeSelector *metav1.LabelSelector `json:"nodeSelector,omitempty"`
 
-	// Template holds the template for the erviceInterfaceSpec
+	// Template holds the template for the serviceInterfaceSpec
 	// +required
 	Template ServiceInterfaceSpecTemplate `json:"template"`
 }

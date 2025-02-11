@@ -2053,6 +2053,9 @@ Package v1alpha1 contains API Schema definitions for the svc.dpf v1alpha1 API gr
 
 
 
+
+
+
 Package v1alpha1 contains API Schema definitions for the sfc v1alpha1 API group
 
 ### Resource Types
@@ -2072,6 +2075,12 @@ Package v1alpha1 contains API Schema definitions for the sfc v1alpha1 API group
 - [DPUServiceList](#dpuservicelist)
 - [DPUServiceTemplate](#dpuservicetemplate)
 - [DPUServiceTemplateList](#dpuservicetemplatelist)
+- [DPUVPC](#dpuvpc)
+- [DPUVPCList](#dpuvpclist)
+- [DPUVirtualNetwork](#dpuvirtualnetwork)
+- [DPUVirtualNetworkList](#dpuvirtualnetworklist)
+- [IsolationClass](#isolationclass)
+- [IsolationClassList](#isolationclasslist)
 - [ServiceChain](#servicechain)
 - [ServiceChainList](#servicechainlist)
 - [ServiceChainSet](#servicechainset)
@@ -2101,6 +2110,55 @@ _Appears in:_
 | `version` _string_ | Version is a semver tag for the Chart's version. |  | MinLength: 1 <br /> |
 | `chart` _string_ | Chart is the name of the helm chart. |  |  |
 | `releaseName` _string_ | ReleaseName is the name to give to the release generate from the DPUService. |  |  |
+
+
+#### BridgedNetworkIPAMIPv4Spec
+
+
+
+BridgedNetworkIPAMIPv4Spec contains IPv4 IPAM configuration for bridged network
+
+
+
+_Appears in:_
+- [BridgedNetworkIPAMSpec](#bridgednetworkipamspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `dhcp` _boolean_ | DHCP if set, enables DHCP for the network |  |  |
+| `subnet` _string_ | Subnet is the network subnet in CIDR format to use for DHCP. the first IP in the subnet is the gateway. |  |  |
+
+
+#### BridgedNetworkIPAMSpec
+
+
+
+BridgedNetworkIPAMSpec contains IPAM configuration for bridged network
+
+
+
+_Appears in:_
+- [BridgedNetworkSpec](#bridgednetworkspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ipv4` _[BridgedNetworkIPAMIPv4Spec](#bridgednetworkipamipv4spec)_ | IPv4 contains the IPv4 IPAM configuration |  |  |
+
+
+#### BridgedNetworkSpec
+
+
+
+BridgedNetworkSpec contains configuration for bridged network
+
+
+
+_Appears in:_
+- [DPUVirtualNetworkSpec](#dpuvirtualnetworkspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ipam` _[BridgedNetworkIPAMSpec](#bridgednetworkipamspec)_ | IPAM contains the IPAM configuration for the bridged network |  |  |
 
 
 #### DPUDeployment
@@ -2807,6 +2865,157 @@ _Appears in:_
 | `dpuAnnotations` _object (keys:string, values:string)_ | DPUAnnotations is the annotations to be added to the DPU object created by the DPUSet. |  | MaxProperties: 50 <br /> |
 
 
+#### DPUVPC
+
+
+
+DPUVPC is the Schema for the dpuvpc API
+
+
+
+_Appears in:_
+- [DPUVPCList](#dpuvpclist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `svc.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `DPUVPC` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[DPUVPCSpec](#dpuvpcspec)_ |  |  |  |
+| `status` _[DPUVPCStatus](#dpuvpcstatus)_ |  |  |  |
+
+
+#### DPUVPCList
+
+
+
+DPUVPCList contains a list of DPUVPC
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `svc.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `DPUVPCList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[DPUVPC](#dpuvpc) array_ |  |  |  |
+
+
+#### DPUVPCSpec
+
+
+
+DPUVPCSpec defines the desired state of DPUVPCSpec
+
+
+
+_Appears in:_
+- [DPUVPC](#dpuvpc)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `tenant` _string_ | Tenant which owns the VPC. |  |  |
+| `nodeSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#labelselector-v1-meta)_ | NodeSelector Selects the DPU Nodes with specific labels which belong to this VPC. |  |  |
+| `isolationClassName` _string_ | IsolationClassName is the name of the isolation class to use for the VPC |  |  |
+| `interNetworkAccess` _boolean_ | InterNetworkAccess defines if virtual networks within the VPC are routed or not.<br />if set to false, communication between virtual networks is not allowed. |  |  |
+
+
+#### DPUVPCStatus
+
+
+
+DPUVPCStatus defines the observed state of DPUVPC
+
+
+
+_Appears in:_
+- [DPUVPC](#dpuvpc)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `virtualNetworks` _[VirtualNetworkStatus](#virtualnetworkstatus) array_ | VirtualNetworks contains the virtual networks that belong to this VPC |  |  |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | Conditions reflect the status of the object |  |  |
+| `observedGeneration` _integer_ | ObservedGeneration records the Generation observed on the object the last time it was patched. |  |  |
+
+
+#### DPUVirtualNetwork
+
+
+
+DPUVirtualNetwork is the Schema for the dpuvirtualnetwork API
+
+
+
+_Appears in:_
+- [DPUVirtualNetworkList](#dpuvirtualnetworklist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `svc.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `DPUVirtualNetwork` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[DPUVirtualNetworkSpec](#dpuvirtualnetworkspec)_ |  |  |  |
+| `status` _[DPUVirtualNetworkStatus](#dpuvirtualnetworkstatus)_ |  |  |  |
+
+
+#### DPUVirtualNetworkList
+
+
+
+DPUVirtualNetworkList contains a list of DPUVirtualNetwork
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `svc.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `DPUVirtualNetworkList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[DPUVirtualNetwork](#dpuvirtualnetwork) array_ |  |  |  |
+
+
+#### DPUVirtualNetworkSpec
+
+
+
+DPUVirtualNetworkSpec defines the desired state of DPUVirtualNetworkSpec
+
+
+
+_Appears in:_
+- [DPUVirtualNetwork](#dpuvirtualnetwork)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `nodeSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#labelselector-v1-meta)_ | NodeSelector Selects the DPU Nodes with specific labels which can belong to the virtual network. |  |  |
+| `vpcName` _string_ | vpcName is the name of the DPUVPC the virtual network belongs within the same namespace. |  |  |
+| `type` _[NetworkType](#networktype)_ | Type of the virtual network |  | Enum: [Bridged] <br /> |
+| `externallyRouted` _boolean_ | ExternallyRouted defines if the virtual network can be routed externally |  |  |
+| `masquerade` _boolean_ | Masquerade defines if the virtual network should masquerade the traffic before egressing to external networks.<br />valid only if ExternallyRouted is true | true |  |
+| `bridgedNetwork` _[BridgedNetworkSpec](#bridgednetworkspec)_ | BridgedNetwork contains the bridged network configuration |  |  |
+
+
+#### DPUVirtualNetworkStatus
+
+
+
+DPUVirtualNetworkStatus defines the observed state of DPUVirtualNetwork
+
+
+
+_Appears in:_
+- [DPUVirtualNetwork](#dpuvirtualnetwork)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | Conditions reflect the status of the object |  |  |
+| `observedGeneration` _integer_ | ObservedGeneration records the Generation observed on the object the last time it was patched. |  |  |
+
+
 #### DPUs
 
 
@@ -2902,6 +3111,74 @@ _Appears in:_
 | `routes` _[Route](#route) array_ | Routes is the static routes list using the gateway specified in the spec. |  |  |
 
 
+#### IsolationClass
+
+
+
+IsolationClass is the Schema for the isolationclass API
+
+
+
+_Appears in:_
+- [IsolationClassList](#isolationclasslist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `svc.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `IsolationClass` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[IsolationClassSpec](#isolationclassspec)_ |  |  |  |
+| `status` _[IsolationClassStatus](#isolationclassstatus)_ |  |  |  |
+
+
+#### IsolationClassList
+
+
+
+IsolationClassList contains a list of IsolationClass
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `svc.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `IsolationClassList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[IsolationClass](#isolationclass) array_ |  |  |  |
+
+
+#### IsolationClassSpec
+
+
+
+IsolationClassSpec defines the configuration of IsolationClass
+
+
+
+_Appears in:_
+- [IsolationClass](#isolationclass)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `provisioner` _string_ | Provisioner indicates the type of the provisioner. |  |  |
+| `parameters` _object (keys:string, values:string)_ | Parameters holds the parameters for the provisioner |  |  |
+
+
+#### IsolationClassStatus
+
+
+
+IsolationClassStatus defines the status of IsolationClass
+
+
+
+_Appears in:_
+- [IsolationClass](#isolationclass)
+
+
+
 #### NamespacedName
 
 
@@ -2918,6 +3195,23 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `name` _string_ | Name of the object. |  |  |
 | `namespace` _string_ | Namespace of the object, if not provided the object will be looked up in<br />the same namespace as the referring object |  |  |
+
+
+#### NetworkType
+
+_Underlying type:_ _string_
+
+NetworkType represents the type of the virtual network
+
+_Validation:_
+- Enum: [Bridged]
+
+_Appears in:_
+- [DPUVirtualNetworkSpec](#dpuvirtualnetworkspec)
+
+| Field | Description |
+| --- | --- |
+| `Bridged` | BridgedVirtualNetworkType represents a bridged virtual network<br /> |
 
 
 #### ObjectMeta
@@ -2956,6 +3250,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `pfID` _integer_ | The PF ID |  |  |
+| `virtualNetwork` _string_ | VirtualNetwork is the VirtualNetwork name in the same namespace |  |  |
 
 
 #### Physical
@@ -3272,6 +3567,7 @@ _Appears in:_
 | `serviceID` _string_ | ServiceID is the DPU Service Identifier |  |  |
 | `network` _string_ | Network is the Network Attachment Definition in the form of "namespace/name"<br />or just "name" if the namespace is the same as the ServiceInterface. |  |  |
 | `interfaceName` _string_ | The interface name |  |  |
+| `virtualNetwork` _string_ | VirtualNetwork is the VirtualNetwork name in the same namespace |  |  |
 
 
 #### ServiceIfc
@@ -3383,7 +3679,7 @@ _Appears in:_
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
 | `nodeSelector` _[LabelSelector](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#labelselector-v1-meta)_ | Select the Nodes with specific labels, ServiceInterface CRs will be<br />created only for these Nodes |  |  |
-| `template` _[ServiceInterfaceSpecTemplate](#serviceinterfacespectemplate)_ | Template holds the template for the erviceInterfaceSpec |  |  |
+| `template` _[ServiceInterfaceSpecTemplate](#serviceinterfacespectemplate)_ | Template holds the template for the serviceInterfaceSpec |  |  |
 
 
 #### ServiceInterfaceSetSpecTemplate
@@ -3491,6 +3787,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `name` _string_ | Name is the name of the interface |  |  |
 | `network` _string_ | Network is the Network Attachment Definition in the form of "namespace/name"<br />or just "name" if the namespace is the same as the namespace the pod is running. |  |  |
+| `virtualNetwork` _string_ | VirtualNetwork is the VirtualNetwork name in the same namespace |  |  |
 
 
 #### Switch
@@ -3525,6 +3822,7 @@ _Appears in:_
 | `vfID` _integer_ | The VF ID |  |  |
 | `pfID` _integer_ | The PF ID |  |  |
 | `parentInterfaceRef` _string_ | The parent interface reference<br />TODO: Figure out what this field is supposed to be |  |  |
+| `virtualNetwork` _string_ | VirtualNetwork is the VirtualNetwork name in the same namespace |  |  |
 
 
 #### VLAN
@@ -3542,5 +3840,21 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `vlanID` _integer_ | The VLAN ID |  |  |
 | `parentInterfaceRef` _string_ | The parent interface reference<br />TODO: Figure out what this field is supposed to be |  |  |
+
+
+#### VirtualNetworkStatus
+
+
+
+VirtualNetworkStatus is the status of a virtual network
+
+
+
+_Appears in:_
+- [DPUVPCStatus](#dpuvpcstatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | the name of the virtual network |  |  |
 
 
