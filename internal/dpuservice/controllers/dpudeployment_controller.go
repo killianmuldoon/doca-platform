@@ -767,7 +767,7 @@ func generateDPUServiceInterface(dpuDeploymentNamespacedName types.NamespacedNam
 			// TODO: Derive and add cluster selector
 			Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
 				Spec: dpuservicev1.ServiceInterfaceSetSpec{
-					NodeSelector: newDPUServiceObjectLabelSelectorWithOwner(dpuServiceLabelKey, dpuNodeLabels[dpuServiceLabelKey], dpuDeploymentNamespacedName),
+					NodeSelector: newObjectLabelSelectorWithOwner(dpuServiceLabelKey, dpuNodeLabels[dpuServiceLabelKey], dpuDeploymentNamespacedName),
 					Template: dpuservicev1.ServiceInterfaceSpecTemplate{
 						ObjectMeta: dpuservicev1.ObjectMeta{
 							Labels: map[string]string{
@@ -1132,24 +1132,6 @@ func deleteElementOrNil[S ~[]E, E any](s S, i, j int) S {
 		s = slices.Delete[S](s, i, j)
 	}
 	return s
-}
-
-// newDPUServiceObjectLabelSelectorWithOwner creates a LabelSelector for a DPUService Object with the given version and owner
-func newDPUServiceObjectLabelSelectorWithOwner(versionKey, version string, owner types.NamespacedName) *metav1.LabelSelector {
-	return &metav1.LabelSelector{
-		MatchExpressions: []metav1.LabelSelectorRequirement{
-			{
-				Key:      versionKey,
-				Operator: metav1.LabelSelectorOpIn,
-				Values:   []string{version},
-			},
-			{
-				Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
-				Operator: metav1.LabelSelectorOpIn,
-				Values:   []string{getParentDPUDeploymentLabelValue(owner)},
-			},
-		},
-	}
 }
 
 func generateDPUServiceInterfaceName(dpuDeploymentName, dpuServiceName, serviceInterfaceName string) string {

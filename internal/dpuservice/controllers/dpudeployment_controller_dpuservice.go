@@ -40,7 +40,7 @@ import (
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// reconcileDPUServices reconciles the DPUServices created by the DPUDeployment
+// reconcileDPUServices reconciles the DPUServices created by the DPUDeployment.
 func reconcileDPUServices(
 	ctx context.Context,
 	c client.Client,
@@ -67,14 +67,14 @@ func reconcileDPUServices(
 	}
 
 	var errs []error
-	// Create or update DPUServices to match what is defined in the DPUDeployment
+	// Create or update DPUServices to match what is defined in the DPUDeployment.
 	for dpuServiceName := range dpuDeployment.Spec.Services {
 		serviceConfig := dependencies.DPUServiceConfigurations[dpuServiceName]
 		serviceTemplate := dependencies.DPUServiceTemplates[dpuServiceName]
 		interfaces := retrieveInterfacesFromDPUServiceConfiguration(dependencies.DPUServiceConfigurations[dpuServiceName], dpuServiceName, dpuDeployment.Name)
 		versionDigest := calculateDPUServiceVersionDigest(serviceConfig, serviceTemplate, interfaces)
 
-		newSvc, err := generateDPUService(client.ObjectKeyFromObject(dpuDeployment),
+		newRevision, err := generateDPUService(client.ObjectKeyFromObject(dpuDeployment),
 			owner,
 			dpuServiceName,
 			serviceConfig,
@@ -88,19 +88,19 @@ func reconcileDPUServices(
 		}
 
 		// filter existing services by name
-		currSvc, oldSvcs := getCurrentAndStaleDPUServices(dpuServiceName, versionDigest, existingDPUServices)
+		currentRevision, oldRevisions := getCurrentAndStaleDPUServices(dpuServiceName, versionDigest, existingDPUServices)
 		switch {
-		case currSvc != nil:
+		case currentRevision != nil:
 			// we found the current revision based on the digest, there might be old revisions to handle
-			req := reconcileCurrentDPUServiceRevision(ctx, c, currSvc, oldSvcs, dpuServiceName, existingDPUServicesMap, dpuNodeLabels, serviceConfig)
+			req := reconcileCurrentDPUServiceRevision(ctx, c, currentRevision, oldRevisions, dpuServiceName, serviceConfig, dpuNodeLabels, existingDPUServicesMap)
 
 			if !req.IsZero() {
 				requeue = req
 			}
 			continue
-		case len(oldSvcs) > 0:
+		case len(oldRevisions) > 0:
 			// we have only previous revisions
-			req, err := reconcileDPUServiceWithOldRevisions(ctx, c, newSvc, oldSvcs, dpuServiceName, versionDigest, dpuDeployment, serviceConfig, existingDPUServicesMap, dpuNodeLabels)
+			req, err := reconcileDPUServiceWithOldRevisions(ctx, c, newRevision, oldRevisions, dpuServiceName, dpuDeployment, serviceConfig, dpuNodeLabels, existingDPUServicesMap)
 			if err != nil {
 				errs = append(errs, err)
 				continue
@@ -111,11 +111,11 @@ func reconcileDPUServices(
 			}
 		default:
 			// no previous version, we are creating a new one
-			reconcileNewDPUServiceRevision(newSvc, dpuServiceName, versionDigest, serviceConfig, dpuDeployment, dpuNodeLabels)
+			reconcileNewDPUServiceRevision(newRevision, dpuServiceName, dpuDeployment, serviceConfig, dpuNodeLabels)
 		}
 
-		if err := c.Patch(ctx, newSvc, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
-			errs = append(errs, fmt.Errorf("failed to patch DPUService %s: %w", client.ObjectKeyFromObject(newSvc), err))
+		if err := c.Patch(ctx, newRevision, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
+			errs = append(errs, fmt.Errorf("failed to patch DPUService %s: %w", client.ObjectKeyFromObject(newRevision), err))
 		}
 	}
 
@@ -129,39 +129,38 @@ func reconcileDPUServices(
 	return requeue, kerrors.NewAggregate(errs)
 }
 
-// reconcileNewDPUServiceRevision reconciles a new revision of the DPUService
-// It accepts a new DPUService object and the versionDigest of the DPUService
-// It sets the nodeSelector for the DPUService and updates the DPUNodeLabels
-func reconcileNewDPUServiceRevision(newDPUService client.Object, name, versionDigest string,
-	serviceConfig *dpuservicev1.DPUServiceConfiguration,
+// reconcileNewDPUServiceRevision reconciles a new revision of the DPUService.
+// It accepts a new DPUService object and the DPUService name as defined in the DPUDeployment.
+// It sets the nodeSelector for the DPUService and updates the DPUNodeLabels.
+func reconcileNewDPUServiceRevision(newRevision *dpuservicev1.DPUService, dpuServiceName string,
 	dpuDeployment *dpuservicev1.DPUDeployment,
+	serviceConfig *dpuservicev1.DPUServiceConfiguration,
 	dpuNodeLabels map[string]string,
 ) {
-	newSvc := newDPUService.(*dpuservicev1.DPUService)
-	dpuServiceNodeSelector := newObjectNodeSelectorWithOwner(getDPUServiceVersionLabelKey(name), versionDigest, client.ObjectKeyFromObject(dpuDeployment))
+	dpuServiceNodeSelector := newObjectNodeSelectorWithOwner(getDPUServiceVersionLabelKey(dpuServiceName), newRevision.Name, client.ObjectKeyFromObject(dpuDeployment))
 	if !serviceConfig.Spec.ServiceConfiguration.ShouldDeployInCluster() {
-		newSvc.SetServiceDeamonSetNodeSelector(dpuServiceNodeSelector)
+		newRevision.SetServiceDeamonSetNodeSelector(dpuServiceNodeSelector)
 	}
 
 	// This is needed in all cases, because we don't know if a dpuSet will be updated or created
-	setDPUServiceNodeLabelValue(serviceConfig, name, versionDigest, dpuNodeLabels)
+	// This node label will be used to patch the dpuSets in the same reconcile loop
+	setDPUServiceNodeLabelValue(dpuServiceName, newRevision.Name, serviceConfig, dpuNodeLabels)
 
 	// TODO: By default when creating a new non-disruptive DPUService
 	// we should not cause nodeEffect because of labels
 }
 
-// reconcileDPUServiceWithOldRevisions reconciles a new revision of the DPUService and the old revisions
-// It accepts a new DPUService object, the old revisions and the versionDigest of the DPUService
-// It sets the nodeSelector for the DPUService and updates the DPUNodeLabels. It also pauses the old revisions
-func reconcileDPUServiceWithOldRevisions(ctx context.Context, c client.Client, newDPUService client.Object, oldRevisions []client.Object,
-	name, versionDigest string,
+// reconcileDPUServiceWithOldRevisions reconciles a new revision of the DPUService and the old revisions.
+// It accepts a new DPUService object,the DPUService name as defined in the DPUDeployment and the old revisions.
+// It sets the nodeSelector for the DPUService and updates the DPUNodeLabels. It also pauses the old revisions.
+func reconcileDPUServiceWithOldRevisions(ctx context.Context, c client.Client, newRevision *dpuservicev1.DPUService, oldRevisions []client.Object,
+	dpuServiceName string,
 	dpuDeployment *dpuservicev1.DPUDeployment,
 	serviceConfig *dpuservicev1.DPUServiceConfiguration,
-	existingDPUServicesMap map[string]dpuservicev1.DPUService,
-	dpuNodeLabels map[string]string) (ctrl.Result, error) {
-	newSvc := newDPUService.(*dpuservicev1.DPUService)
-	dpuServiceNodeSelector := newObjectNodeSelectorWithOwner(getDPUServiceVersionLabelKey(name), versionDigest, client.ObjectKeyFromObject(dpuDeployment))
-	nodeLabelValue := versionDigest
+	dpuNodeLabels map[string]string,
+	existingDPUServicesMap map[string]dpuservicev1.DPUService) (ctrl.Result, error) {
+	dpuServiceNodeSelector := newObjectNodeSelectorWithOwner(getDPUServiceVersionLabelKey(dpuServiceName), newRevision.Name, client.ObjectKeyFromObject(dpuDeployment))
+	nodeLabelValue := newRevision.Name
 	var toRetain []client.Object
 	if serviceConfig.Spec.NodeEffect != nil && *serviceConfig.Spec.NodeEffect {
 		// the logic regarding the previous revisions is as follows:
@@ -174,24 +173,24 @@ func reconcileDPUServiceWithOldRevisions(ctx context.Context, c client.Client, n
 		// Hence we never delete old revisions while the current one is not ready, this is to avoid downtime
 		toRetain = getRevisionHistoryLimitList(oldRevisions, *dpuDeployment.Spec.RevisionHistoryLimit-1)
 		if err := pauseStaleDPUServices(ctx, c, clientObjectToDPUServiceList(toRetain)); err != nil {
-			return ctrl.Result{}, fmt.Errorf("failed to pause stale %s %s: %w", newSvc.GetObjectKind().GroupVersionKind().String(), newSvc.GetName(), err)
+			return ctrl.Result{}, fmt.Errorf("failed to pause stale %s %s: %w", newRevision.GetObjectKind().GroupVersionKind().String(), newRevision.GetName(), err)
 		}
 
 		if !serviceConfig.Spec.ServiceConfiguration.ShouldDeployInCluster() {
-			newSvc.SetServiceDeamonSetNodeSelector(dpuServiceNodeSelector)
+			newRevision.SetServiceDeamonSetNodeSelector(dpuServiceNodeSelector)
 		}
 	} else {
 		// just patch the youngest existing service
 		toRetain = getRevisionHistoryLimitList(oldRevisions, *dpuDeployment.Spec.RevisionHistoryLimit)
 		oldSvc := toRetain[0].(*dpuservicev1.DPUService)
-		newSvc.Name = oldSvc.Name
+		newRevision.Name = oldSvc.Name
 		if !serviceConfig.Spec.ServiceConfiguration.ShouldDeployInCluster() {
 			// we are not creating a new service, we are updating the existing one
 			// so we need to keep the same `version` and `owned-by-dpudeployment` selector to avoid downtime
-			newSvc.SetServiceDeamonSetNodeSelector(&corev1.NodeSelector{
-				NodeSelectorTerms: []corev1.NodeSelectorTerm{getNodeSelectorTermForDPUServiceVersion(oldSvc.Spec.ServiceDaemonSet.NodeSelector, name)},
+			newRevision.SetServiceDeamonSetNodeSelector(&corev1.NodeSelector{
+				NodeSelectorTerms: []corev1.NodeSelectorTerm{getNodeSelectorTermForDPUServiceVersion(oldSvc.Spec.ServiceDaemonSet.NodeSelector, dpuServiceName)},
 			})
-			nodeLabelValue = getNodeSelectorDPUServiceVersionValue(oldSvc.Spec.ServiceDaemonSet.NodeSelector, name)
+			nodeLabelValue = getNodeSelectorDPUServiceVersionValue(oldSvc.Spec.ServiceDaemonSet.NodeSelector, dpuServiceName)
 		}
 	}
 
@@ -200,29 +199,31 @@ func reconcileDPUServiceWithOldRevisions(ctx context.Context, c client.Client, n
 	}
 
 	// This is needed in all cases, because we don't know if a dpuSet will be updated or created
-	setDPUServiceNodeLabelValue(serviceConfig, name, nodeLabelValue, dpuNodeLabels)
+	// This node label will be used to patch the dpuSets in the same reconcile loop
+	setDPUServiceNodeLabelValue(dpuServiceName, nodeLabelValue, serviceConfig, dpuNodeLabels)
 
 	return ctrl.Result{RequeueAfter: reconcileRequeueDuration}, nil
 }
 
-// reconcileCurrentDPUServiceRevision reconciles the current revision of the DPUService and the old revisions
-// It accepts the current DPUService object, the old revisions and the versionDigest of the DPUService
-// It cleans the old revisions and updates the Node Label value
-func reconcileCurrentDPUServiceRevision(ctx context.Context, c client.Client, current client.Object, oldRevisions []client.Object,
-	name string, existingDPUServicesMap map[string]dpuservicev1.DPUService,
-	dpuNodeLabels map[string]string,
+// reconcileCurrentDPUServiceRevision reconciles the current revision of the DPUService and the old revisions.
+// It accepts the current DPUService object and the old revisions of the DPUService.
+// It cleans the old revisions and updates the Node Label value.
+func reconcileCurrentDPUServiceRevision(ctx context.Context, c client.Client, currentRevision client.Object, oldRevisions []client.Object,
+	dpuServiceName string,
 	serviceConfig *dpuservicev1.DPUServiceConfiguration,
+	dpuNodeLabels map[string]string,
+	existingDPUServicesMap map[string]dpuservicev1.DPUService,
 ) ctrl.Result {
 	log := ctrllog.FromContext(ctx)
 	requeue := ctrl.Result{RequeueAfter: reconcileRequeueDuration}
-	currSvc, oldSvcs := current.(*dpuservicev1.DPUService), clientObjectToDPUServiceList(oldRevisions)
+	currentRev, oldRevs := currentRevision.(*dpuservicev1.DPUService), clientObjectToDPUServiceList(oldRevisions)
 
-	delete(existingDPUServicesMap, currSvc.GetName())
+	delete(existingDPUServicesMap, currentRevision.GetName())
 
 	// if the current revision is still not ready, keep the eventual old revisions and requeue
 	// otherwise, clean old revisions
-	if conditions.IsTrue(currSvc, conditions.TypeReady) {
-		err := cleanStaleDPUServices(ctx, c, oldSvcs)
+	if conditions.IsTrue(currentRev, conditions.TypeReady) {
+		err := cleanStaleDPUServices(ctx, c, oldRevs)
 		if err != nil {
 			log.Error(err, "failed to resume stale DPUService")
 		}
@@ -230,12 +231,12 @@ func reconcileCurrentDPUServiceRevision(ctx context.Context, c client.Client, cu
 		requeue = ctrl.Result{}
 	}
 
-	for _, svc := range oldSvcs {
+	for _, svc := range oldRevs {
 		delete(existingDPUServicesMap, svc.Name)
 	}
 
 	// This is needed because we don't know if a dpuSet will be updated or created
-	setDPUServiceNodeLabelValue(serviceConfig, name, getNodeSelectorDPUServiceVersionValue(currSvc.Spec.ServiceDaemonSet.NodeSelector, name), dpuNodeLabels)
+	setDPUServiceNodeLabelValue(dpuServiceName, getNodeSelectorDPUServiceVersionValue(currentRev.Spec.ServiceDaemonSet.NodeSelector, dpuServiceName), serviceConfig, dpuNodeLabels)
 
 	// Never patch the current service, it could have stale nodeSelector terms that we don't want to remove
 	// The user should not change the dpuservice manually, because the controller will overwrite the changes
@@ -243,19 +244,19 @@ func reconcileCurrentDPUServiceRevision(ctx context.Context, c client.Client, cu
 	return requeue
 }
 
-// setDPUServiceNodeLabelValue sets the value of the node label for the DPUService
-func setDPUServiceNodeLabelValue(serviceConfig *dpuservicev1.DPUServiceConfiguration, name, value string, nodeLabels map[string]string) {
+// setDPUServiceNodeLabelValue sets the value of the node label for the DPUService.
+func setDPUServiceNodeLabelValue(dpuServiceName, value string, serviceConfig *dpuservicev1.DPUServiceConfiguration, nodeLabels map[string]string) {
 	if !serviceConfig.Spec.ServiceConfiguration.ShouldDeployInCluster() {
-		nodeLabels[getDPUServiceVersionLabelKey(name)] = value
+		nodeLabels[getDPUServiceVersionLabelKey(dpuServiceName)] = value
 	}
 }
 
-// getCurrentAndStaleDPUServices returns the current and stale DPUService objects
-func getCurrentAndStaleDPUServices(name, currentVersionDigest string, existingDPUServices *dpuservicev1.DPUServiceList) (client.Object, []client.Object) {
+// getCurrentAndStaleDPUServices returns the current and stale DPUService objects.
+func getCurrentAndStaleDPUServices(dpuServiceName, currentVersionDigest string, existingDPUServices *dpuservicev1.DPUServiceList) (client.Object, []client.Object) {
 	match := []client.Object{}
 	var current client.Object
 	for _, dpuService := range existingDPUServices.Items {
-		if strings.HasPrefix(dpuService.Name, name) || strings.HasSuffix(dpuService.Name, name) {
+		if strings.HasPrefix(dpuService.Name, dpuServiceName) || strings.HasSuffix(dpuService.Name, dpuServiceName) {
 			if dpuService.Annotations[dpuServiceVersionAnnotationKey] == currentVersionDigest {
 				current = &dpuService
 			} else {
@@ -266,7 +267,7 @@ func getCurrentAndStaleDPUServices(name, currentVersionDigest string, existingDP
 	return current, match
 }
 
-// CalculateDPUServiceVersionDigest calculates the digest of the DPUService
+// CalculateDPUServiceVersionDigest calculates the digest of the DPUService.
 func calculateDPUServiceVersionDigest(configuration *dpuservicev1.DPUServiceConfiguration, template *dpuservicev1.DPUServiceTemplate, Interfaces []string) string {
 	// The nodeEffect change should not affect the digest
 	config := configuration.DeepCopy()
@@ -278,7 +279,7 @@ func getDPUServiceVersionLabelKey(name string) string {
 	return fmt.Sprintf("svc.dpu.nvidia.com/dpuservice-%s-version", name)
 }
 
-// generateDPUService generates a DPUService according to the DPUDeployment
+// generateDPUService generates a DPUService according to the DPUDeployment.
 func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 	owner *metav1.OwnerReference,
 	name string,
@@ -349,19 +350,19 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 	return dpuService, nil
 }
 
-// cleanStaleDPUServices deletes all the stale DPUService objects that are not needed anymore
-// it resumes the reconciliation as well in order for the deletion to take effect
-func cleanStaleDPUServices(ctx context.Context, c client.Client, oldSvcs []dpuservicev1.DPUService) error {
+// cleanStaleDPUServices deletes all the stale DPUService objects that are not needed anymore.
+// It resumes the reconciliation as well in order for the deletion to take effect.
+func cleanStaleDPUServices(ctx context.Context, c client.Client, oldRevisions []dpuservicev1.DPUService) error {
 	// deletion happens before resume here because we want deletion to take effect immediately.
 	// This is the case if the object are marked while the controller is ignoring them
-	for _, dpuService := range oldSvcs {
+	for _, dpuService := range oldRevisions {
 		if err := c.Delete(ctx, &dpuService); err != nil {
 			if !apierrors.IsNotFound(err) {
 				return fmt.Errorf("error while deleting %s %s: %w", dpuService.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuService), err)
 			}
 		}
 	}
-	for _, dpuService := range oldSvcs {
+	for _, dpuService := range oldRevisions {
 		dpuService.Spec.Paused = ptr.To(false)
 		if err := c.Patch(ctx, &dpuService, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
 			if !apierrors.IsNotFound(err) {
@@ -372,7 +373,7 @@ func cleanStaleDPUServices(ctx context.Context, c client.Client, oldSvcs []dpuse
 	return nil
 }
 
-// getNodeSelectorDPUServiceVersionValue returns the NodeSelectorTerm for the given DPUService version label key
+// getNodeSelectorDPUServiceVersionValue returns the NodeSelectorTerm for the given DPUService version label key.
 func getNodeSelectorDPUServiceVersionValue(nodeSelector *corev1.NodeSelector, dpuserviceName string) string {
 	var version string
 	for _, term := range nodeSelector.NodeSelectorTerms {
@@ -386,8 +387,8 @@ func getNodeSelectorDPUServiceVersionValue(nodeSelector *corev1.NodeSelector, dp
 	return version
 }
 
-// pauseStaleDPUServices disable reconciliation on previous versions of a DPUService up to the revisionHistoryLimit
-// all older versions will be deleted.
+// pauseStaleDPUServices disable reconciliation on previous versions of a DPUService up to the revisionHistoryLimit.
+// All older versions will be deleted.
 // Any used Interfaces will also be released so that they can be used by new revisions.
 func pauseStaleDPUServices(ctx context.Context, c client.Client, dpuServices []dpuservicev1.DPUService) error {
 	Interfaces := map[types.NamespacedName]struct{}{}
@@ -431,7 +432,7 @@ func pauseStaleDPUServices(ctx context.Context, c client.Client, dpuServices []d
 	return nil
 }
 
-// getNodeSelectorTermForDPUServiceVersion returns the NodeSelectorTerm for the given DPUService version label key
+// getNodeSelectorTermForDPUServiceVersion returns the NodeSelectorTerm for the given DPUService version label key.
 func getNodeSelectorTermForDPUServiceVersion(nodeSelector *corev1.NodeSelector, dpuserviceName string) corev1.NodeSelectorTerm {
 	var target corev1.NodeSelectorTerm
 	for _, term := range nodeSelector.NodeSelectorTerms {
@@ -445,17 +446,17 @@ func getNodeSelectorTermForDPUServiceVersion(nodeSelector *corev1.NodeSelector, 
 	return target
 }
 
-// generateServiceID generates the serviceID for the child resources of a DPUDeployment
+// generateServiceID generates the serviceID for the child resources of a DPUDeployment.
 func getServiceID(dpuDeploymentNamespacedName types.NamespacedName, serviceName string) string {
 	return fmt.Sprintf("dpudeployment_%s_%s", dpuDeploymentNamespacedName.Name, serviceName)
 }
 
 func clientObjectToDPUServiceList(oldRevisions []client.Object) []dpuservicev1.DPUService {
-	oldSvcs := make([]dpuservicev1.DPUService, 0, len(oldRevisions))
+	oldRevs := make([]dpuservicev1.DPUService, 0, len(oldRevisions))
 	for _, svc := range oldRevisions {
-		oldSvcs = append(oldSvcs, *svc.(*dpuservicev1.DPUService))
+		oldRevs = append(oldRevs, *svc.(*dpuservicev1.DPUService))
 	}
-	return oldSvcs
+	return oldRevs
 }
 
 func retrieveInterfacesFromDPUServiceConfiguration(dpuServiceConfiguration *dpuservicev1.DPUServiceConfiguration, dpuServiceName, dpuDeploymentName string) []string {

@@ -47,14 +47,14 @@ func sortObjectsByCreationTimestamp(objects []client.Object) {
 	})
 }
 
-// newObjectLabelSelectorWithOwner creates a LabelSelector for an Object with the given version and owner
-func newObjectLabelSelectorWithOwner(versionKey, version string, owner types.NamespacedName) *metav1.LabelSelector {
+// newObjectLabelSelectorWithOwner creates a LabelSelector for an Object with the given k/v and owner
+func newObjectLabelSelectorWithOwner(key, value string, owner types.NamespacedName) *metav1.LabelSelector {
 	return &metav1.LabelSelector{
 		MatchExpressions: []metav1.LabelSelectorRequirement{
 			{
-				Key:      versionKey,
+				Key:      key,
 				Operator: metav1.LabelSelectorOpIn,
-				Values:   []string{version},
+				Values:   []string{value},
 			},
 			{
 				Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
@@ -65,16 +65,16 @@ func newObjectLabelSelectorWithOwner(versionKey, version string, owner types.Nam
 	}
 }
 
-// newObjectNodeSelectorWithOwner creates a NodeSelector for an Object with the given version and owner
-func newObjectNodeSelectorWithOwner(versionKey, version string, owner types.NamespacedName) *corev1.NodeSelector {
+// newObjectNodeSelectorWithOwner creates a NodeSelector for an Object with the given k/v and owner
+func newObjectNodeSelectorWithOwner(key, value string, owner types.NamespacedName) *corev1.NodeSelector {
 	return &corev1.NodeSelector{
 		NodeSelectorTerms: []corev1.NodeSelectorTerm{
 			{
 				MatchExpressions: []corev1.NodeSelectorRequirement{
 					{
-						Key:      versionKey,
+						Key:      key,
 						Operator: corev1.NodeSelectorOpIn,
-						Values:   []string{version},
+						Values:   []string{value},
 					},
 					{
 						Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
