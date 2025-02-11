@@ -17,36 +17,48 @@ limitations under the License.
 package dpucluster
 
 import (
-	"context"
+	"fmt"
+	"path/filepath"
+	"runtime"
 	"testing"
 
+	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 
-	. "github.com/onsi/ginkgo/v2"
-	. "github.com/onsi/gomega"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
+	apiruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
-type testEnv struct {
-	scheme *runtime.Scheme
+type fakeEnv struct {
+	scheme *apiruntime.Scheme
 	obj    []client.Object
 }
 
+// Environment encapsulates a Kubernetes local test environment.
+type Environment struct {
+	ctrl.Manager
+	client.Client
+	Config *rest.Config
+
+	env *envtest.Environment
+}
+
 // FakeKubeClientOption defines options to construct a fake kube client.
-type FakeKubeClientOption func(testEnv *testEnv)
+type FakeKubeClientOption func(testEnv *fakeEnv)
 
 func withObjects(obj ...client.Object) FakeKubeClientOption {
-	return func(testEnv *testEnv) {
+	return func(testEnv *fakeEnv) {
 		testEnv.obj = obj
 	}
 }
 
-func (t *testEnv) fakeKubeClient(opts ...FakeKubeClientOption) client.Client {
+func (t *fakeEnv) fakeKubeClient(opts ...FakeKubeClientOption) client.Client {
 	for _, o := range opts {
 		o(t)
 	}
@@ -58,24 +70,86 @@ func (t *testEnv) fakeKubeClient(opts ...FakeKubeClientOption) client.Client {
 }
 
 var (
-	ctx = context.Background()
-	env *testEnv
+	cfg         *rest.Config
+	testClient  client.Client
+	testEnv     Environment
+	ctx         = ctrl.SetupSignalHandler()
+	fakeTestEnv *fakeEnv
 )
 
-func TestControlPlane(t *testing.T) {
-	RegisterFailHandler(Fail)
+func TestMain(m *testing.M) {
+	setupLogger := ctrl.Log.WithName("dpf-cluster-cache-controller-test-setup")
+	envTest := &envtest.Environment{
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "config", "dpuservice", "crd", "bases"),
+			filepath.Join("..", "..", "config", "provisioning", "crd", "bases"),
+		},
+		ErrorIfCRDPathMissing: true,
 
-	RunSpecs(t, "Control Plane Suite")
-}
-
-var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
-
-	scheme := runtime.NewScheme()
-	_ = provisioningv1.AddToScheme(scheme)
-	_ = corev1.AddToScheme(scheme)
-
-	env = &testEnv{
-		scheme: scheme,
+		// The BinaryAssetsDirectory is only required if you want to run the tests directly
+		// without call the makefile target test. If not informed it will look for the
+		// default path defined in controller-runtime which is /usr/local/kubebuilder/.
+		// Note that you must have the required binaries setup under the bin directory to perform
+		// the tests directly. When we run make test it will be setup and used automatically.
+		BinaryAssetsDirectory: filepath.Join("..", "..", "hack", "tools", "bin", "k8s",
+			fmt.Sprintf("1.29.0-%s-%s", runtime.GOOS, runtime.GOARCH)),
 	}
-})
+
+	if err := dpuservicev1.AddToScheme(scheme.Scheme); err != nil {
+		panic(fmt.Sprintf("Failed to add dpuservice scheme: %v", err))
+	}
+
+	if err := provisioningv1.AddToScheme(scheme.Scheme); err != nil {
+		panic(fmt.Sprintf("Failed to add provisioning scheme: %v", err))
+	}
+
+	s := scheme.Scheme
+
+	var err error
+	cfg, err = envTest.Start()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to set up test environment: %v", err))
+	}
+
+	testClient, err = client.New(cfg, client.Options{Scheme: s})
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create client: %v", err))
+	}
+
+	testManager, err := ctrl.NewManager(cfg,
+		ctrl.Options{
+			Scheme: scheme.Scheme,
+			// Set metrics server bind address to 0 to disable it.
+			Metrics: server.Options{
+				BindAddress: "0",
+			}})
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create manager: %v", err))
+	}
+
+	testEnv = Environment{
+		Manager: testManager,
+		Client:  testClient,
+		Config:  cfg,
+		env:     envTest,
+	}
+
+	fakeTestEnv = &fakeEnv{
+		scheme: s,
+	}
+
+	go func() {
+		if err := testEnv.Manager.Start(ctx); err != nil {
+			panic(fmt.Sprintf("Failed to start manager: %v", err))
+		}
+	}()
+
+	// run the test suite in this package.
+	if code := m.Run(); code != 0 {
+		setupLogger.Info("error running tests: ", code)
+	}
+
+	if err := testEnv.env.Stop(); err != nil {
+		panic(fmt.Sprintf("Failed to stop test environment: %v", err))
+	}
+}

@@ -18,10 +18,10 @@ package dpucluster
 
 import (
 	"fmt"
+	"testing"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 
-	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,68 +30,69 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ = Describe("Control Plane Helper Functions", func() {
-	Context("GetDPFClusters() tests", func() {
-		It("should list the clusters referenced by admin-kubeconfig secrets", func() {
-			clusters := []provisioningv1.DPUCluster{
-				testDPUCluster("one", "cluster-one"),
-				testDPUCluster("two", "cluster-two"),
-				testDPUCluster("three", "cluster-three"),
-			}
-			secrets := []*corev1.Secret{
-				testKamajiClusterSecret(clusters[0]),
-				testKamajiClusterSecret(clusters[1]),
-				testKamajiClusterSecret(clusters[2]),
-			}
+func Test_GetDPFClusters(t *testing.T) {
+	t.Run("list clusters", func(t *testing.T) {
+		g := NewWithT(t)
+		clusters := []provisioningv1.DPUCluster{
+			testDPUCluster("one", "cluster-one"),
+			testDPUCluster("two", "cluster-two"),
+			testDPUCluster("three", "cluster-three"),
+		}
+		secrets := []*corev1.Secret{
+			testKamajiClusterSecret(clusters[0], t),
+			testKamajiClusterSecret(clusters[1], t),
+			testKamajiClusterSecret(clusters[2], t),
+		}
 
-			objects := []client.Object{}
-			for _, s := range secrets {
-				objects = append(objects, s)
-			}
-			for _, cl := range clusters {
-				objects = append(objects, &cl)
-			}
-			c := env.fakeKubeClient(withObjects(objects...))
+		objects := []client.Object{}
+		for _, s := range secrets {
+			objects = append(objects, s)
+		}
+		for _, cl := range clusters {
+			objects = append(objects, &cl)
+		}
+		c := fakeTestEnv.fakeKubeClient(withObjects(objects...))
 
-			gotConfigs, err := GetConfigs(ctx, c)
-			Expect(err).NotTo(HaveOccurred())
+		gotConfigs, err := GetConfigs(ctx, c)
+		g.Expect(err).NotTo(HaveOccurred())
 
-			// validate secrets
-			for _, config := range gotConfigs {
-				config, err := config.Kubeconfig(ctx)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(config).NotTo(BeNil())
-			}
-		})
-		It("should return all clusters even when one cluster is not ready", func() {
-			clusters := []provisioningv1.DPUCluster{
-				testDPUCluster("one", "cluster-one"),
-				testDPUCluster("two", "cluster-two"),
-				testDPUCluster("three", "cluster-three"),
-			}
-			secrets := []*corev1.Secret{
-				testKamajiClusterSecret(clusters[0]),
-				testKamajiClusterSecret(clusters[1]),
-				testKamajiClusterSecret(clusters[2]),
-			}
-			clusters[2].Status.Phase = provisioningv1.PhaseNotReady
-			objects := []client.Object{}
-			for _, s := range secrets {
-				objects = append(objects, s)
-			}
-			for _, cl := range clusters {
-				objects = append(objects, &cl)
-			}
-			c := env.fakeKubeClient(withObjects(objects...))
-
-			gotClusters, err := GetConfigs(ctx, c)
-			Expect(err).To(Not(HaveOccurred()))
-
-			// Expect all clusters to be returned
-			Expect(gotClusters).To(HaveLen(len(clusters)))
-		})
+		// validate secrets
+		for _, config := range gotConfigs {
+			config, err := config.Kubeconfig(ctx)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(config).NotTo(BeNil())
+		}
 	})
-})
+
+	t.Run("list clusters with one cluster not ready", func(t *testing.T) {
+		g := NewWithT(t)
+		clusters := []provisioningv1.DPUCluster{
+			testDPUCluster("one", "cluster-one"),
+			testDPUCluster("two", "cluster-two"),
+			testDPUCluster("three", "cluster-three"),
+		}
+		secrets := []*corev1.Secret{
+			testKamajiClusterSecret(clusters[0], t),
+			testKamajiClusterSecret(clusters[1], t),
+			testKamajiClusterSecret(clusters[2], t),
+		}
+		clusters[2].Status.Phase = provisioningv1.PhaseNotReady
+		objects := []client.Object{}
+		for _, s := range secrets {
+			objects = append(objects, s)
+		}
+		for _, cl := range clusters {
+			objects = append(objects, &cl)
+		}
+		c := fakeTestEnv.fakeKubeClient(withObjects(objects...))
+
+		gotClusters, err := GetConfigs(ctx, c)
+		g.Expect(err).To(Not(HaveOccurred()))
+
+		// Expect all clusters to be returned
+		g.Expect(gotClusters).To(HaveLen(len(clusters)))
+	})
+}
 
 func testDPUCluster(ns, name string) provisioningv1.DPUCluster {
 	return provisioningv1.DPUCluster{
@@ -108,7 +109,8 @@ func testDPUCluster(ns, name string) provisioningv1.DPUCluster {
 	}
 }
 
-func testKamajiClusterSecret(cluster provisioningv1.DPUCluster) *corev1.Secret {
+func testKamajiClusterSecret(cluster provisioningv1.DPUCluster, t *testing.T) *corev1.Secret {
+	g := NewWithT(t)
 	config := &api.Config{
 		Clusters: map[string]*api.Cluster{
 			cluster.Name: {
@@ -125,7 +127,7 @@ func testKamajiClusterSecret(cluster provisioningv1.DPUCluster) *corev1.Secret {
 	}
 
 	confData, err := clientcmd.Write(*config)
-	Expect(err).To(Not(HaveOccurred()))
+	g.Expect(err).To(Not(HaveOccurred()))
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%v-admin-kubeconfig", cluster.Name),
