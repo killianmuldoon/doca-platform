@@ -17,13 +17,9 @@ limitations under the License.
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"os"
 
-	"github.com/nvidia/doca-platform/internal/dpfctl"
-
-	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 )
 
@@ -34,7 +30,7 @@ var describeAllCmd = &cobra.Command{
 	Long:    "Describe the overall status of DPF resources in your cluster.",
 	Example: fmt.Sprintf(exampleCmds, rootCmd.Root().Name(), "all"),
 	Run: func(cmd *cobra.Command, args []string) {
-		if err := runDescribe(cmd); err != nil {
+		if err := runDescribe(cmd, "all"); err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
@@ -44,31 +40,4 @@ var describeAllCmd = &cobra.Command{
 func init() {
 	describeCmd.AddCommand(describeAllCmd)
 	describeAllCmd.Flags().AddFlagSet(describeCmd.Flags())
-}
-
-func runDescribe(cmd *cobra.Command) error {
-	ctx := context.Background()
-
-	c, err := newClient()
-	if err != nil {
-		return err
-	}
-
-	t, err := dpfctl.DiscoverAll(ctx, c, dpfctl.ObjectTreeOptions{
-		ShowResources:       opts.showResources,
-		ShowOtherConditions: opts.showOtherConditions,
-		ExpandResources:     opts.expandResources,
-		Grouping:            opts.grouping,
-		Colors:              opts.color,
-		Output:              opts.output,
-	})
-	if err != nil {
-		return err
-	}
-
-	if cmd.Flags().Changed("color") {
-		color.NoColor = !opts.color
-	}
-
-	return dpfctl.PrintObjectTree(t)
 }

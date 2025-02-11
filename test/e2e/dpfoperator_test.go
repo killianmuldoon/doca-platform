@@ -1300,12 +1300,13 @@ func collectResourcesAndLogs(ctx context.Context) error {
 		return nil
 	}
 	// Run dpfctl describe to get information about the resources on a failed state.
-	t, err := dpfctl.DiscoverAll(ctx, testClient, dpfctl.ObjectTreeOptions{
+	opts := dpfctl.ObjectTreeOptions{
 		ShowOtherConditions: "failed",
 		ExpandResources:     "failed",
 		Output:              "table",
 		Colors:              true,
-	})
+	}
+	t, err := dpfctl.Discover(ctx, testClient, opts, "all")
 	// Only print if at least a DPFOperatorConfig is found.
 	if !apierrors.IsNotFound(err) {
 		if err := dpfctl.PrintObjectTree(t); err != nil {

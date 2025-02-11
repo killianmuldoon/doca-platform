@@ -42,34 +42,76 @@ type objectScope struct {
 	opts   ObjectTreeOptions
 }
 
-// DiscoverAll returns a tree of objects representing the DPF status.
-func DiscoverAll(ctx context.Context, c client.Client, opts ObjectTreeOptions) (*ObjectTree, error) {
+func Discover(ctx context.Context, c client.Client, opts ObjectTreeOptions, subCmd string) (*ObjectTree, error) {
 	dpfOperatorConfig, err := getDPFOperatorConfig(ctx, c)
 	if err != nil {
 		return nil, err
 	}
 
-	t := NewObjectTree(dpfOperatorConfig, opts)
+	tree := NewObjectTree(dpfOperatorConfig, opts)
 
 	scope := objectScope{
 		client: c,
-		tree:   *t,
+		tree:   *tree,
 		opts:   opts,
-	}
-
-	if err = addBFBs(ctx, scope, dpfOperatorConfig, nil); err != nil {
-		return nil, err
-	}
-
-	if err = addDPUClusters(ctx, scope, dpfOperatorConfig); err != nil {
-		return nil, err
 	}
 
 	skipDPUDeploymentFunc := func(labels map[string]string) bool {
 		return labels[dpuservicev1.ParentDPUDeploymentNameLabel] != ""
 	}
 
-	if err = addDPUSets(ctx, scope, dpfOperatorConfig, nil, skipDPUDeploymentFunc); err != nil {
+	switch subCmd {
+	case "all":
+		tree, err = DiscoverDPUServices(ctx, tree, scope, dpfOperatorConfig, skipDPUDeploymentFunc)
+		if err != nil {
+			return nil, err
+		}
+		tree, err = DiscoverDPUDeployments(ctx, tree, scope, dpfOperatorConfig)
+		if err != nil {
+			return nil, err
+		}
+		tree, err = DiscoverDPUSets(ctx, tree, scope, dpfOperatorConfig, skipDPUDeploymentFunc)
+		if err != nil {
+			return nil, err
+		}
+		return DiscoverDPUClusters(ctx, tree, scope, dpfOperatorConfig)
+	case "dpuservices":
+		return DiscoverDPUServices(ctx, tree, scope, dpfOperatorConfig, nil)
+	case "dpudeployments":
+		return DiscoverDPUDeployments(ctx, tree, scope, dpfOperatorConfig)
+	case "dpusets":
+		return DiscoverDPUSets(ctx, tree, scope, dpfOperatorConfig, skipDPUDeploymentFunc)
+	case "dpuclusters":
+		return DiscoverDPUClusters(ctx, tree, scope, dpfOperatorConfig)
+	}
+	return nil, fmt.Errorf("unknown object type %q", subCmd)
+}
+
+// DiscoverDPUServices returns a tree of objects representing the DPF status.
+func DiscoverDPUServices(ctx context.Context, tree *ObjectTree, scope objectScope, dpfOperatorConfig *operatorv1.DPFOperatorConfig, skipFunc func(map[string]string) bool) (*ObjectTree, error) {
+	if err := addDPUServices(ctx, scope, dpfOperatorConfig, nil, skipFunc); err != nil {
+		return nil, err
+	}
+
+	if err := addDPUServiceCredentialRequests(ctx, scope, dpfOperatorConfig, nil, nil); err != nil {
+		return nil, err
+	}
+
+	return tree, nil
+}
+
+// DiscoverDPUDeployments returns a tree of objects representing the DPF status.
+func DiscoverDPUDeployments(ctx context.Context, tree *ObjectTree, scope objectScope, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (*ObjectTree, error) {
+	if err := addDPUDeployments(ctx, scope, dpfOperatorConfig); err != nil {
+		return nil, err
+	}
+
+	return tree, nil
+}
+
+// DiscoverDPUSets returns a tree of objects representing the DPF status.
+func DiscoverDPUSets(ctx context.Context, tree *ObjectTree, scope objectScope, dpfOperatorConfig *operatorv1.DPFOperatorConfig, skipFunc func(map[string]string) bool) (*ObjectTree, error) {
+	if err := addDPUSets(ctx, scope, dpfOperatorConfig, nil, skipFunc); err != nil {
 		return nil, err
 	}
 
@@ -77,38 +119,32 @@ func DiscoverAll(ctx context.Context, c client.Client, opts ObjectTreeOptions) (
 		return labels[util.DPUSetNameLabel] != ""
 	}
 
-	// TODO: add servicechainsets and servicechains from DPU cluster
-	// TODO: add serviceinterfacesets and serviceinterfaces from DPU cluster
-	// TODO: add cidrpools and ippools from DPU cluster
-	if err = addDPUs(ctx, scope, dpfOperatorConfig, nil, skipDPUSetFunc); err != nil {
+	if err := addDPUs(ctx, scope, dpfOperatorConfig, nil, skipDPUSetFunc); err != nil {
 		return nil, err
 	}
 
-	if err = addDPUServices(ctx, scope, dpfOperatorConfig, nil, skipDPUDeploymentFunc); err != nil {
+	if err := addDPUServiceChains(ctx, scope, dpfOperatorConfig, nil, skipFunc); err != nil {
 		return nil, err
 	}
 
-	if err = addDPUServiceChains(ctx, scope, dpfOperatorConfig, nil, skipDPUDeploymentFunc); err != nil {
+	if err := addDPUServiceInterfaces(ctx, scope, dpfOperatorConfig, nil, skipFunc); err != nil {
 		return nil, err
 	}
 
-	if err = addDPUServiceInterfaces(ctx, scope, dpfOperatorConfig, nil, skipDPUDeploymentFunc); err != nil {
+	if err := addDPUServiceIPAMs(ctx, scope, dpfOperatorConfig, nil, nil); err != nil {
 		return nil, err
 	}
 
-	if err = addDPUServiceIPAMs(ctx, scope, dpfOperatorConfig, nil, nil); err != nil {
+	return tree, nil
+}
+
+// DiscoverDPUClusters returns a tree of objects representing the DPF status.
+func DiscoverDPUClusters(ctx context.Context, tree *ObjectTree, scope objectScope, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (*ObjectTree, error) {
+	if err := addDPUClusters(ctx, scope, dpfOperatorConfig); err != nil {
 		return nil, err
 	}
 
-	if err = addDPUServiceCredentialRequests(ctx, scope, dpfOperatorConfig, nil, nil); err != nil {
-		return nil, err
-	}
-
-	if err = addDPUDeployments(ctx, scope, dpfOperatorConfig); err != nil {
-		return nil, err
-	}
-
-	return t, nil
+	return tree, nil
 }
 
 func getDPFOperatorConfig(ctx context.Context, c client.Client) (*operatorv1.DPFOperatorConfig, error) {
@@ -181,6 +217,26 @@ func addDPUSets(ctx context.Context, o objectScope, root client.Object, matchLab
 		}
 		addToTree = append(addToTree, &dpuSet)
 
+		if dpuSet.Spec.DPUTemplate.Spec.BFB.Name != "" {
+			// Add BFB to the tree.
+			bfb := &provisioningv1.BFB{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      dpuSet.Spec.DPUTemplate.Spec.BFB.Name,
+					Namespace: dpuSet.Namespace,
+				},
+			}
+			if err := o.client.Get(ctx, client.ObjectKeyFromObject(bfb), bfb); err != nil {
+				if !apierrors.IsNotFound(err) {
+					return err
+				}
+			}
+			bfb.TypeMeta = metav1.TypeMeta{
+				Kind:       provisioningv1.BFBKind,
+				APIVersion: provisioningv1.GroupVersion.String(),
+			}
+			o.tree.Add(dpuSet.DeepCopy(), bfb)
+		}
+
 		if err := addDPUs(ctx, o, dpuSet.DeepCopy(), client.MatchingLabels{
 			util.DPUSetNameLabel:      dpuSet.Name,
 			util.DPUSetNamespaceLabel: dpuSet.Namespace,
@@ -193,6 +249,9 @@ func addDPUSets(ctx context.Context, o objectScope, root client.Object, matchLab
 	return nil
 }
 
+// TODO: add servicechainsets and servicechains from DPU cluster
+// TODO: add serviceinterfacesets and serviceinterfaces from DPU cluster
+// TODO: add cidrpools and ippools from DPU cluster
 func addDPUs(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels, skipFunc func(map[string]string) bool) error {
 	if !showResource(o.opts.ShowResources, provisioningv1.DPUKind) {
 		return nil
@@ -384,10 +443,6 @@ func addDPUServiceIPAMs(ctx context.Context, o objectScope, root client.Object, 
 
 func addDPUServiceCredentialRequests(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels, skipFunc func(map[string]string) bool) error {
 	return addResourceByGVK(ctx, o, root, dpuservicev1.DPUServiceCredentialRequestGroupVersionKind, matchLabels, skipFunc)
-}
-
-func addBFBs(ctx context.Context, o objectScope, root client.Object, matchLabels client.MatchingLabels) error {
-	return addResourceByGVK(ctx, o, root, provisioningv1.BFBGroupVersionKind, matchLabels, nil)
 }
 
 func addResourceByGVK(ctx context.Context, o objectScope, root client.Object, gvk schema.GroupVersionKind, matchLabels client.MatchingLabels, skipFunc func(map[string]string) bool) error {

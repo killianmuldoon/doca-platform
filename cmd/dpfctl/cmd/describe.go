@@ -17,6 +17,7 @@ limitations under the License.
 package cmd
 
 import (
+	"context"
 	"flag"
 	"fmt"
 
@@ -24,7 +25,9 @@ import (
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/dpfctl"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -41,23 +44,20 @@ type describeOptions struct {
 
 var opts describeOptions
 
-var exampleCmds = `# Show all conditions for DPUService resources
-%[1]s describe %[2]s --show-conditions=DPUService
-
-# Show all resources for a specific DPU
-%[1]s describe %[2]s --show-resources=DPU/dpf-test-0000-08-00
+var exampleCmds = `# Show only DPUService resources
+%[1]s describe %[2]s --show-resources=dpuservice
 
 # Show all conditions for DPUService and DPU resources
-%[1]s describe %[2]s --show-conditions=DPUService,DPU
+%[1]s describe %[2]s --show-conditions=dpuservices,dpu
+
+# Show conditions for a specific DPU
+%[1]s describe %[2]s --show-conditions=dpu/dpf-test-0000-08-00
 
 # Show all conditions for all resources
 %[1]s describe %[2]s --show-conditions=all
 
 # Expand the resources for a DPUService
 %[1]s describe %[2]s --expand-resources=DPUService
-
-# Display conditions for all resources
-%[1]s describe %[2]s --show-conditions=all
 
 # Run %[1]s for a different cluster
 %[1]s describe %[2]s --kubeconfig /path/to/your/kubeconfig
@@ -86,7 +86,7 @@ func init() {
 	describeCmd.Flags().StringVar(&opts.expandResources, "expand-resources", "",
 		"list of comma separated kind or kind/name for which the command should show all the object's child resources (default value is '', 'failed' to expand only failed DPUServices).")
 
-	describeCmd.Flags().BoolVar(&opts.grouping, "grouping", false,
+	describeCmd.Flags().BoolVar(&opts.grouping, "grouping", true,
 		"enable grouping of objects by kind.")
 
 	describeCmd.Flags().BoolVarP(&opts.color, "color", "c", true,
@@ -100,6 +100,35 @@ func init() {
 	//
 	// Load the go flagset (i.e. controller-runtimes kubeconfig).
 	describeCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+}
+
+func runDescribe(cmd *cobra.Command, subCmd string) error {
+	ctx := context.Background()
+
+	c, err := newClient()
+	if err != nil {
+		return err
+	}
+
+	options := dpfctl.ObjectTreeOptions{
+		ShowResources:       opts.showResources,
+		ShowOtherConditions: opts.showOtherConditions,
+		ExpandResources:     opts.expandResources,
+		Grouping:            opts.grouping,
+		Colors:              opts.color,
+		Output:              opts.output,
+	}
+
+	tree, err := dpfctl.Discover(ctx, c, options, subCmd)
+	if err != nil {
+		return err
+	}
+
+	if cmd.Flags().Changed("color") {
+		color.NoColor = !opts.color
+	}
+
+	return dpfctl.PrintObjectTree(tree)
 }
 
 func newClient() (client.Client, error) {

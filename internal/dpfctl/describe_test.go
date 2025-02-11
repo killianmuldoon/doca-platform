@@ -505,7 +505,7 @@ func Test_dpfctlTreeDiscovery(t *testing.T) {
 				}
 			}
 
-			td, err := DiscoverAll(context.Background(), testClient, tt.opts)
+			td, err := Discover(context.Background(), testClient, tt.opts, "all")
 			g.Expect(err).ToNot(HaveOccurred())
 			g.Expect(td).ToNot(BeNil())
 

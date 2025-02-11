@@ -29,10 +29,11 @@ var describeDPUServicesCmd = &cobra.Command{
 	Long:    "Describe the DPUService status in your cluster.",
 	Example: fmt.Sprintf(exampleCmds, rootCmd.Root().Name(), "dpuservices"),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return fmt.Errorf("not implemented")
+		return runDescribe(cmd, "dpuservices")
 	},
 }
 
 func init() {
 	describeCmd.AddCommand(describeDPUServicesCmd)
+	describeDPUServicesCmd.Flags().AddFlagSet(describeCmd.Flags())
 }
