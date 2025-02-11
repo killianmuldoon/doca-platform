@@ -22,9 +22,9 @@ import (
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
-	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
 	ipamcontroller "github.com/nvidia/doca-platform/internal/pod-ipam-injector/controllers"
 	sfcsetcontroller "github.com/nvidia/doca-platform/internal/servicechainset/controllers"
+	nvipamv1 "github.com/nvidia/doca-platform/third_party/api/nvipam/api/v1alpha1"
 
 	"github.com/spf13/pflag"
 	"k8s.io/apimachinery/pkg/runtime"

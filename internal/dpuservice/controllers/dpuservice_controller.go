@@ -27,12 +27,12 @@ import (
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/argocd"
-	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
 	"github.com/nvidia/doca-platform/internal/dpucluster"
 	"github.com/nvidia/doca-platform/internal/dpuservice/predicates"
 	dpuserviceutils "github.com/nvidia/doca-platform/internal/dpuservice/utils"
 	"github.com/nvidia/doca-platform/internal/operator/utils"
+	argov1 "github.com/nvidia/doca-platform/third_party/api/argocd/api/application/v1alpha1"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	multusTypes "gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/types"

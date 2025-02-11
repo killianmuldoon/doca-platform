@@ -23,11 +23,11 @@ import (
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
-	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
+	"github.com/nvidia/doca-platform/internal/dpucluster"
 	operatorcontroller "github.com/nvidia/doca-platform/internal/operator/controllers"
 	testutils "github.com/nvidia/doca-platform/test/utils"
+	argov1 "github.com/nvidia/doca-platform/third_party/api/argocd/api/application/v1alpha1"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	. "github.com/onsi/ginkgo/v2"

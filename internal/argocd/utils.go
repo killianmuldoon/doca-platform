@@ -23,8 +23,8 @@ import (
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	argoapplication "github.com/nvidia/doca-platform/internal/argocd/api/application"
-	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
+	argoapplication "github.com/nvidia/doca-platform/third_party/api/argocd/api/application"
+	argov1 "github.com/nvidia/doca-platform/third_party/api/argocd/api/application/v1alpha1"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

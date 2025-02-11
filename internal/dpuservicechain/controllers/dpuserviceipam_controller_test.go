@@ -22,10 +22,10 @@ import (
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
-	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
-	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/dpucluster"
 	testutils "github.com/nvidia/doca-platform/test/utils"
 	"github.com/nvidia/doca-platform/test/utils/informer"
+	nvipamv1 "github.com/nvidia/doca-platform/third_party/api/nvipam/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

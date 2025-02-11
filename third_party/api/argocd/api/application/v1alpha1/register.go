@@ -1,7 +1,7 @@
 package v1alpha1
 
 import (
-	"github.com/nvidia/doca-platform/internal/argocd/api/application"
+	"github.com/nvidia/doca-platform/third_party/api/argocd/api/application"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

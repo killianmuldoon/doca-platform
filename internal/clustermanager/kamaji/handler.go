@@ -26,10 +26,10 @@ import (
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/clustermanager/controller"
-	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/operator/inventory"
 	"github.com/nvidia/doca-platform/internal/operator/utils"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
+	kamajiv1 "github.com/nvidia/doca-platform/third_party/api/kamaji/api/v1alpha1"
 
 	"github.com/Masterminds/sprig/v3"
 	appsv1 "k8s.io/api/apps/v1"

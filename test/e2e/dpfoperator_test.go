@@ -29,10 +29,10 @@ import (
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/dpfctl"
 	"github.com/nvidia/doca-platform/internal/dpucluster"
-	kamajiv1 "github.com/nvidia/doca-platform/internal/kamaji/api/v1alpha1"
-	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
 	"github.com/nvidia/doca-platform/test/utils"
 	"github.com/nvidia/doca-platform/test/utils/collector"
+	kamajiv1 "github.com/nvidia/doca-platform/third_party/api/kamaji/api/v1alpha1"
+	nvipamv1 "github.com/nvidia/doca-platform/third_party/api/nvipam/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"

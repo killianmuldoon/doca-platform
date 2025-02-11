@@ -24,11 +24,11 @@ import (
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	argov1 "github.com/nvidia/doca-platform/internal/argocd/api/application/v1alpha1"
 	dpuservicecontroller "github.com/nvidia/doca-platform/internal/dpuservice/controllers"
 	dpuservicechaincontroller "github.com/nvidia/doca-platform/internal/dpuservicechain/controllers"
 	dpuservicechainwebhooks "github.com/nvidia/doca-platform/internal/dpuservicechain/webhooks"
-	nvipamv1 "github.com/nvidia/doca-platform/internal/nvipam/api/v1alpha1"
+	argov1 "github.com/nvidia/doca-platform/third_party/api/argocd/api/application/v1alpha1"
+	nvipamv1 "github.com/nvidia/doca-platform/third_party/api/nvipam/api/v1alpha1"
 
 	"github.com/spf13/pflag"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
