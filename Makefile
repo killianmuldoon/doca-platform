@@ -438,26 +438,6 @@ test-deploy-mock-dms: helm
 		--set imagePullSecrets[0].name=dpf-pull-secret \
 		mock-dms $(MOCK_DMS_HELM_CHART)
 
-OLM_VERSION ?= v0.28.0
-OPERATOR_REGISTRY_VERSION ?= v1.43.1
-OLM_DIR = $(REPOSDIR)/olm
-OLM_DOWNLOAD_URL = https://github.com/operator-framework/operator-lifecycle-manager/releases/download
-.PHONY: test-install-operator-lifecycle-manager
-test-install-operator-lifecycle-manager:
-	mkdir -p $(OLM_DIR)
-	curl -L $(OLM_DOWNLOAD_URL)/$(OLM_VERSION)/crds.yaml -o $(OLM_DIR)/crds.yaml
-	curl -L $(OLM_DOWNLOAD_URL)/$(OLM_VERSION)/olm.yaml -o $(OLM_DIR)/olm.yaml
-
-
-	# Operator SDK always installs the `latest` image for the configmap-operator. We need to replace that for this installation.
-	$Q sed -i 's/configmap-operator-registry:latest/configmap-operator-registry:$(OLM_VERSION)/g' $(OLM_DIR)/olm.yaml
-
-	$(KUBECTL) create -f "$(OLM_DIR)/crds.yaml"
-	$(KUBECTL) wait --for=condition=Established -f "$(OLM_DIR)/crds.yaml"
-	$(KUBECTL) create -f "$(OLM_DIR)/olm.yaml"
-	$(KUBECTL) rollout status -w deployment/olm-operator --namespace=olm
-	$(KUBECTL) rollout status -w deployment/catalog-operator --namespace=olm
-
 ARTIFACTS_DIR ?= $(CURDIR)/artifacts
 .PHONY: test-cache-images
 test-cache-images: minikube ## Add images to the minikube cache based on the artifacts directory created in e2e.
