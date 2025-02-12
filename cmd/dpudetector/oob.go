@@ -27,8 +27,7 @@ import (
 )
 
 const (
-	bridgeName   = "br-dpu"
-	lowestMetric = 2
+	bridgeName = "br-dpu"
 )
 
 func isOOBBridgeConfigured() bool {
@@ -67,10 +66,6 @@ func verifyDefaultRoute() error {
 	for _, route := range routes {
 		if !route.Dst.Contains(defaultRoute.IP) || route.LinkIndex != linkIndex(bridgeName) {
 			continue
-		}
-
-		if route.Priority <= lowestMetric {
-			return fmt.Errorf("metric for default route for bridge %s is not higher than 2", bridgeName)
 		}
 
 		foundRoute = true
