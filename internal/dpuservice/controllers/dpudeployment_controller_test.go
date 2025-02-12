@@ -1971,6 +1971,11 @@ var _ = Describe("DPUDeployment Controller", func() {
 						Name:    "someotherinterface",
 						Network: "nad2",
 					},
+					{
+						Name:           "virtualinterface",
+						Network:        "nad3",
+						VirtualNetwork: ptr.To("vnet1"),
+					},
 				}
 				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
@@ -1988,7 +1993,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Eventually(func(g Gomega) {
 					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
-					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(3))
 
 					By("checking the object metadata")
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
@@ -2011,79 +2016,50 @@ var _ = Describe("DPUDeployment Controller", func() {
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						specs = append(specs, dpuServiceInterface.Spec)
 					}
+
+					genExpectedDPUServiceInterfaceSpecs := func(dpuserviceName, networkName, ifName string, virtualNetworkName *string) dpuservicev1.DPUServiceInterfaceSpec {
+						return dpuservicev1.DPUServiceInterfaceSpec{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{dpuserviceName},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_someservice",
+												ServiceInterfaceInterfaceNameLabel: ifName,
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:      "dpudeployment_dpudeployment_someservice",
+												Network:        networkName,
+												InterfaceName:  ifName,
+												VirtualNetwork: virtualNetworkName,
+											},
+										},
+									},
+								},
+							},
+						}
+					}
 					g.Expect(specs).To(ConsistOf([]dpuservicev1.DPUServiceInterfaceSpec{
-						{
-							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
-								Spec: dpuservicev1.ServiceInterfaceSetSpec{
-									NodeSelector: &metav1.LabelSelector{
-										MatchExpressions: []metav1.LabelSelectorRequirement{
-											{
-												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
-												Operator: metav1.LabelSelectorOpIn,
-												Values:   []string{gotDPUService.Name},
-											},
-											{
-												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
-												Operator: metav1.LabelSelectorOpIn,
-												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
-											},
-										},
-									},
-									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
-										ObjectMeta: dpuservicev1.ObjectMeta{
-											Labels: map[string]string{
-												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_someservice",
-												ServiceInterfaceInterfaceNameLabel: "someinterface",
-											},
-										},
-										Spec: dpuservicev1.ServiceInterfaceSpec{
-											InterfaceType: dpuservicev1.InterfaceTypeService,
-											Service: &dpuservicev1.ServiceDef{
-												ServiceID:     "dpudeployment_dpudeployment_someservice",
-												Network:       "nad1",
-												InterfaceName: "someinterface",
-											},
-										},
-									},
-								},
-							},
-						},
-						{
-							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
-								Spec: dpuservicev1.ServiceInterfaceSetSpec{
-									NodeSelector: &metav1.LabelSelector{
-										MatchExpressions: []metav1.LabelSelectorRequirement{
-											{
-												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
-												Operator: metav1.LabelSelectorOpIn,
-												Values:   []string{gotDPUService.Name},
-											},
-											{
-												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
-												Operator: metav1.LabelSelectorOpIn,
-												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
-											},
-										},
-									},
-									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
-										ObjectMeta: dpuservicev1.ObjectMeta{
-											Labels: map[string]string{
-												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_someservice",
-												ServiceInterfaceInterfaceNameLabel: "someotherinterface",
-											},
-										},
-										Spec: dpuservicev1.ServiceInterfaceSpec{
-											InterfaceType: dpuservicev1.InterfaceTypeService,
-											Service: &dpuservicev1.ServiceDef{
-												ServiceID:     "dpudeployment_dpudeployment_someservice",
-												Network:       "nad2",
-												InterfaceName: "someotherinterface",
-											},
-										},
-									},
-								},
-							},
-						},
+						genExpectedDPUServiceInterfaceSpecs(gotDPUService.Name, "nad1", "someinterface", nil),
+						genExpectedDPUServiceInterfaceSpecs(gotDPUService.Name, "nad2", "someotherinterface", nil),
+						genExpectedDPUServiceInterfaceSpecs(gotDPUService.Name, "nad3", "virtualinterface", ptr.To("vnet1")),
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})

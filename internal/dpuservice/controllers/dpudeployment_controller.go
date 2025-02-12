@@ -778,9 +778,10 @@ func generateDPUServiceInterface(dpuDeploymentNamespacedName types.NamespacedNam
 						Spec: dpuservicev1.ServiceInterfaceSpec{
 							InterfaceType: dpuservicev1.InterfaceTypeService,
 							Service: &dpuservicev1.ServiceDef{
-								ServiceID:     getServiceID(dpuDeploymentNamespacedName, dpuServiceName),
-								Network:       serviceInterface.Network,
-								InterfaceName: serviceInterface.Name,
+								ServiceID:      getServiceID(dpuDeploymentNamespacedName, dpuServiceName),
+								Network:        serviceInterface.Network,
+								InterfaceName:  serviceInterface.Name,
+								VirtualNetwork: serviceInterface.VirtualNetwork,
 							},
 						},
 					},
