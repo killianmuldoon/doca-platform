@@ -19,6 +19,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -31,6 +32,7 @@ import (
 	"github.com/nvidia/doca-platform/internal/dpucluster"
 	"github.com/nvidia/doca-platform/test/utils"
 	"github.com/nvidia/doca-platform/test/utils/collector"
+	"github.com/nvidia/doca-platform/test/utils/metrics"
 	kamajiv1 "github.com/nvidia/doca-platform/third_party/api/kamaji/api/v1alpha1"
 	nvipamv1 "github.com/nvidia/doca-platform/third_party/api/nvipam/api/v1alpha1"
 
@@ -191,11 +193,13 @@ var _ = Describe("DOCA Platform Framework", Ordered, func() {
 		})
 
 		VerifyDPFOperatorConfiguration(ctx, config)
-		ValidateDPUService(ctx, config)
-		ValidateDPUDeployment(ctx)
-		ValidateDPUServiceIPAM(ctx)
-		ValidateDPUServiceChain(ctx)
-		ValidateDPUServiceCredentialRequest(ctx)
+		VerifyKSMMetricsCollection(ctx, metricsURI)
+		ValidateDPUService(ctx, config, metricsURI)
+		ValidateDPUDeployment(ctx, metricsURI)
+		ValidateDPUServiceIPAM(ctx, metricsURI)
+		ValidateDPUServiceChain(ctx, metricsURI)
+		ValidateDPUServiceCredentialRequest(ctx, metricsURI)
+		ValidateGeneralDPFMetrics(ctx)
 
 		ValidateOperatorCleanup(ctx, config)
 	})
@@ -590,7 +594,7 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 	})
 }
 
-func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfig) {
+func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfig, metricsURI string) {
 	dpuServiceName := "dpu-01"
 	hostDPUServiceName := "host-dpu-service"
 	dpuServiceNamespace := "dpu-test-ns"
@@ -657,6 +661,22 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 			g.Expect(deploymentList.Items).To(HaveLen(1))
 			g.Expect(deploymentList.Items[0].Name).To(ContainSubstring("helm-guestbook"))
 		}).WithTimeout(600 * time.Second).Should(Succeed())
+	})
+
+	It("verify DPUService and DPUServiceInterface metrics", func() {
+		if !deployKSM {
+			Skip("Skip KSM metrics test due to KSM is not deployed")
+		}
+
+		By("verify DPUService metrics in KSM")
+		expectedMetricsNames := map[string][]string{
+			"dpuservice": {"created", "info", "status_conditions", "status_condition_last_transition_time"},
+		}
+		Eventually(func(g Gomega) {
+			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, metricsURI)
+			g.Expect(actualMetricsNames).NotTo(BeEmpty(), "Actual metrics are empty")
+			g.Expect(metrics.VerifyMetrics(expectedMetricsNames, actualMetricsNames)).To(BeEmpty())
+		}).WithTimeout(5 * time.Second).Should(Succeed())
 	})
 
 	It("delete the DPUServices and check that the applications are cleaned up", func() {
@@ -782,7 +802,7 @@ func verifyImagePullSecretsCount(namespace string, count int) {
 	}).WithTimeout(60 * time.Second).Should(Succeed())
 }
 
-func ValidateDPUDeployment(ctx context.Context) {
+func ValidateDPUDeployment(ctx context.Context, ksmMetricsURI string) {
 	It("create a DPUDeployment with its dependencies and ensure that the underlying objects are created", func() {
 		By("creating the dependencies")
 		dpuServiceTemplate := unstructuredFromFile("application/dpuservicetemplate.yaml")
@@ -836,6 +856,25 @@ func ValidateDPUDeployment(ctx context.Context) {
 				})).To(Succeed())
 			g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
 		}).WithTimeout(180 * time.Second).Should(Succeed())
+	})
+
+	It("verify DPUDeployment and DPUServiceInterface metrics", func() {
+		if !deployKSM {
+			Skip("Skip KSM metrics test due to KSM is not deployed")
+		}
+
+		By("verify DPUDeployment and DPUServiceInterface metrics are in KSM")
+		expectedMetricsNames := map[string][]string{
+			"dpudeployment": {"created", "info", "status_conditions", "status_condition_last_transition_time"},
+			//TODO implement separate test for a DPUServiceInterface and move this metrics check there
+			"dpuserviceinterface": {"created", "info", "status_conditions", "status_condition_last_transition_time"},
+		}
+		Eventually(func(g Gomega) {
+			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, ksmMetricsURI)
+			g.Expect(actualMetricsNames).NotTo(BeEmpty(), "Actual metrics are empty")
+			g.Expect(metrics.VerifyMetrics(expectedMetricsNames, actualMetricsNames)).To(BeEmpty())
+		}).WithTimeout(5 * time.Second).Should(Succeed())
+
 	})
 
 	It("delete the DPUDeployment and ensure the underlying objects are gone", func() {
@@ -892,7 +931,7 @@ func ValidateDPUDeployment(ctx context.Context) {
 	})
 }
 
-func ValidateDPUServiceIPAM(ctx context.Context) {
+func ValidateDPUServiceIPAM(ctx context.Context, ksmMetricsURI string) {
 	dpuServiceIPAMWithIPPoolName := "switched-application"
 	dpuServiceIPAMWithCIDRPoolName := "routed-application"
 	dpuServiceIPAMNamespace := dpfOperatorSystemNamespace
@@ -931,8 +970,23 @@ func ValidateDPUServiceIPAM(ctx context.Context) {
 			g.Expect(ipPools.Items).To(HaveLen(1))
 
 			// TODO: Check that NVIPAM has reconciled the resources and status reflects that.
-
 		}).WithTimeout(180 * time.Second).Should(Succeed())
+	})
+
+	It("verify DPUServiceIPAM metrics", func() {
+		if !deployKSM {
+			Skip("Skip KSM metrics test due to KSM is not deployed")
+		}
+
+		By("verify DPUServiceIPAM metrics in KSM")
+		expectedMetricsNames := map[string][]string{
+			"dpuserviceipam": {"created", "info", "status_conditions", "status_condition_last_transition_time"}, //  "network_info", "subnet_info" missed
+		}
+		Eventually(func(g Gomega) {
+			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, ksmMetricsURI)
+			g.Expect(actualMetricsNames).NotTo(BeEmpty(), "Actual metrics are empty")
+			g.Expect(metrics.VerifyMetrics(expectedMetricsNames, actualMetricsNames)).To(BeEmpty())
+		}).WithTimeout(5 * time.Second).Should(Succeed())
 	})
 
 	It("delete the DPUServiceIPAM with subnet split per node configuration and check NVIPAM IPPool is deleted in each cluster", func() {
@@ -998,7 +1052,7 @@ func ValidateDPUServiceIPAM(ctx context.Context) {
 
 }
 
-func ValidateDPUServiceCredentialRequest(ctx context.Context) {
+func ValidateDPUServiceCredentialRequest(ctx context.Context, ksmMetricsURI string) {
 	hostDPUServiceCredentialRequestName := "host-dpu-credential-request"
 	dpuServiceCredentialRequestName := "dpu-01-credential-request"
 	dpuServiceCredentialRequestNamespace := "dpucr-test-ns"
@@ -1029,6 +1083,23 @@ func ValidateDPUServiceCredentialRequest(ctx context.Context) {
 		Eventually(func(g Gomega) {
 			assertDPUServiceCredentialRequest(g, testClient, hostDsr, true)
 		}).WithTimeout(600 * time.Second).Should(Succeed())
+
+	})
+	It("verify DPUServiceCredentialRequest metrics", func() {
+		if !deployKSM {
+			Skip("Skip KSM metrics accessibility test due to KSM is not deployed")
+		}
+
+		By("verify DPUServiceCredentialRequest metrics in KSM")
+		expectedMetricsNames := map[string][]string{
+			"dpuservicecredentialrequest": {"created", "info", "expiration", "issued_at", "status_conditions", "status_condition_last_transition_time"},
+		}
+		Eventually(func(g Gomega) {
+			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, ksmMetricsURI)
+			g.Expect(actualMetricsNames).NotTo(BeEmpty(), "Actual metrics are empty")
+			g.Expect(metrics.VerifyMetrics(expectedMetricsNames, actualMetricsNames)).To(BeEmpty())
+		}).WithTimeout(5 * time.Second).Should(Succeed())
+
 	})
 
 	It("delete the DPUServiceCredentialRequest and check that the credentials are deleted", func() {
@@ -1053,6 +1124,7 @@ func ValidateDPUServiceCredentialRequest(ctx context.Context) {
 	})
 
 }
+
 func getDPUServiceCredentialRequest(namespace, name string, targetCluster *dpuservicev1.NamespacedName) *dpuservicev1.DPUServiceCredentialRequest {
 	data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuservicecredentialrequest.yaml"))
 	Expect(err).ToNot(HaveOccurred())
@@ -1087,7 +1159,7 @@ func assertDPUServiceCredentialRequest(g Gomega, testClient client.Client, dcr *
 	}
 }
 
-func ValidateDPUServiceChain(ctx context.Context) {
+func ValidateDPUServiceChain(ctx context.Context, ksmMetricsURI string) {
 	dpuServiceInterfaceName := "pf0-vf2"
 	dpuServiceInterfaceNamespace := "test"
 	dpuServiceChainName := "svc-chain-test"
@@ -1127,6 +1199,22 @@ func ValidateDPUServiceChain(ctx context.Context) {
 			scs := &dpuservicev1.ServiceChainSet{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceChainName, Namespace: dpuServiceChainNamespace}}
 			g.Expect(dpuClusterClient.Get(ctx, client.ObjectKeyFromObject(scs), scs)).NotTo(HaveOccurred())
 		}, time.Second*300, time.Millisecond*250).Should(Succeed())
+
+	})
+	It("verify DPUServiceChain metrics", func() {
+		if !deployKSM {
+			Skip("Skip KSM metrics accessibility test due to KSM is not deployed")
+		}
+
+		By("verify DPUServiceChain metrics in KSM")
+		expectedMetricsNames := map[string][]string{
+			"dpuservicechain": {"created", "info", "status_conditions", "status_condition_last_transition_time"},
+		}
+		Eventually(func(g Gomega) {
+			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, ksmMetricsURI)
+			g.Expect(actualMetricsNames).NotTo(BeEmpty(), "Actual metrics are empty")
+			g.Expect(metrics.VerifyMetrics(expectedMetricsNames, actualMetricsNames)).To(BeEmpty())
+		}).WithTimeout(5 * time.Second).Should(Succeed())
 	})
 
 	It("delete the DPUServiceChain & DPUServiceInterface and check that the Sets are cleaned up", func() {
@@ -1323,4 +1411,74 @@ func collectResourcesAndLogs(ctx context.Context) error {
 	clusters, err := collector.GetClusterCollectors(ctx, testClient, artifactsPath, inventoryManifestsPath, clientset)
 	Expect(err).NotTo(HaveOccurred())
 	return collector.New(clusters).Run(ctx)
+}
+
+func VerifyKSMMetricsCollection(ctx context.Context, metricsURI string) {
+	It("validate DPF metrics services are accessible", func() {
+		if !deployKSM {
+			Skip("Skip KSM metrics accessibility test due to KSM is not deployed")
+		}
+
+		By("verify KMS metrics endpoint is accessible")
+		Eventually(func(g Gomega) {
+			request := testRESTClient.Get().AbsPath(metricsURI)
+			response, err := request.DoRaw(ctx)
+			g.Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("Request %s failed with err: %v", metricsURI, err))
+			g.Expect(response).NotTo(BeNil(), fmt.Sprintf("Metrics api is not accessible by url %s ", metricsURI))
+		}).WithTimeout(30 * time.Second).Should(Succeed())
+	})
+}
+
+func ValidateGeneralDPFMetrics(ctx context.Context) {
+	hostPrometheusName := "prometheus"
+	It("validate DPF metrics services are accessible", func() {
+		if !deployPrometheus {
+			Skip("Skip prometheus metrics tests")
+		}
+		By("verify prometheus is running")
+		Eventually(func(g Gomega) {
+			prometheusPods := &corev1.PodList{}
+			g.Expect(testClient.List(ctx, prometheusPods, client.MatchingLabels{"app.kubernetes.io/name": hostPrometheusName})).To(Succeed())
+			g.Expect(prometheusPods.Items).NotTo(BeEmpty(), fmt.Sprintf("Expected number of Prometheus pods %d >= %d", len(prometheusPods.Items), 0))
+			for _, pod := range prometheusPods.Items {
+				g.Expect(string(pod.Status.Phase)).To(Equal("Running"), "Pod %s status is %s", pod.Name, pod.Status.Phase)
+			}
+		}).WithTimeout(10 * time.Second).Should(Succeed())
+	})
+
+	It("validate DPF metric on Prometheus", func() {
+		if !deployPrometheus {
+			Skip("Skip prometheus metrics tests due to Prometheus is not deployed")
+		}
+		By("verify metrics are being collected")
+		expectedMetricsNames := map[string][]string{
+			"bfb":               {"created", "info", "status_phase"},
+			"dpfoperatorconfig": {"created", "info", "status_conditions", "status_condition_last_transition_time"}, // "paused" missed
+			"dpucluster":        {"created", "info", "status_phase", "status_conditions", "status_condition_last_transition_time"},
+			//"dpu":               {"created", "info", "status_phase", "status_conditions", "status_condition_last_transition_time"}, // all missed
+		}
+
+		By("verify Prometheus proxy is accessible")
+		Eventually(func(g Gomega) {
+			// Prepare metrics request URL and query
+			query := "/api/v1/query"
+			metricsURL := metrics.GetMetricsURI("dpf-operator-prometheus-server", dpfOperatorSystemNamespace, 80, query)
+			request := testRESTClient.Get().AbsPath(metricsURL).Param("query", `{__name__=~"dpf.*"}`)
+			// Request metrics from prometheus
+			response, err := request.DoRaw(ctx)
+			g.Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("Request %v failed with err: %v", request, err))
+			g.Expect(response).NotTo(BeNil(), fmt.Sprintf("Metrics api is not accessible by url %v ", request))
+		}).WithTimeout(20 * time.Second).Should(Succeed())
+
+		By("verify metrics keys Prometheus")
+		Eventually(func(g Gomega) {
+			// No checks for bfb metrics if numNodes is 0
+			if numNodes == 0 {
+				delete(expectedMetricsNames, "bfb")
+			}
+			actualMetricsNames := metrics.GetPrometheusMetrics(ctx, testRESTClient, g, maps.Keys(expectedMetricsNames), dpfOperatorSystemNamespace)
+			g.Expect(actualMetricsNames).NotTo(BeEmpty(), "Actual metrics are empty")
+			g.Expect(metrics.VerifyMetrics(expectedMetricsNames, actualMetricsNames)).To(BeEmpty())
+		}).WithTimeout(20 * time.Second).Should(Succeed())
+	})
 }

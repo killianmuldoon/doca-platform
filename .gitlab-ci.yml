@@ -136,6 +136,8 @@ e2e:
     # Flannel chosen here as it is not hosted on docker hub helping avoid rate limits.
     MINIKUBE_CNI: flannel
     MINIKUBE_DRIVER: docker
+    DEPLOY_PROMETHEUS: true
+    DEPLOY_KSM: true
   tags:
     - e2e
   cache:
@@ -174,6 +176,8 @@ e2e-provisioning:
   variables:
     DPF_E2E_NUM_DPU_NODES: 1
     PIPELINE_NAME: "Provisioning end-to-end tests"
+    DEPLOY_PROMETHEUS: true
+    DEPLOY_KSM: true
   tags:
     - dpf/dpu
   cache:

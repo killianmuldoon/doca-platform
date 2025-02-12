@@ -28,12 +28,15 @@ import (
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/test/utils"
+	"github.com/nvidia/doca-platform/test/utils/metrics"
 	argov1 "github.com/nvidia/doca-platform/third_party/api/argocd/api/application/v1alpha1"
 	kamajiv1 "github.com/nvidia/doca-platform/third_party/api/kamaji/api/v1alpha1"
 	nvipamv1 "github.com/nvidia/doca-platform/third_party/api/nvipam/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
@@ -66,6 +69,13 @@ var (
 
 	// bfbImageURL can be used to override the default BFB image URL used in the tests.
 	bfbImageURL = ""
+
+	// deployPrometheus indicates whether metrics are collected by Prometheus.
+	// When set to true, Prometheus metrics will be verified.
+	deployPrometheus = false
+	// deployKSM indicates whether metrics are collected by KSM.
+	// When set to true, KMS metrics will be verified for the resources.
+	deployKSM = false
 )
 
 func getEnvVariables() {
@@ -97,6 +107,21 @@ func getEnvVariables() {
 			panic(fmt.Errorf("string must be a bool: %v", err))
 		}
 	}
+
+	if v, found := os.LookupEnv("DEPLOY_PROMETHEUS"); found {
+		var err error
+		deployPrometheus, err = strconv.ParseBool(v)
+		if err != nil {
+			panic(fmt.Errorf("string must be a bool: %v", err))
+		}
+	}
+	if v, found := os.LookupEnv("DEPLOY_KSM"); found {
+		var err error
+		deployKSM, err = strconv.ParseBool(v)
+		if err != nil {
+			panic(fmt.Errorf("string must be a bool: %v", err))
+		}
+	}
 }
 
 var (
@@ -105,6 +130,8 @@ var (
 	clientset        *kubernetes.Clientset
 	ctx              = ctrl.SetupSignalHandler()
 	dpuClusterClient client.Client
+	testRESTClient   *rest.RESTClient
+	metricsURI       string
 )
 
 // Run e2e tests using the Ginkgo runner.
@@ -125,6 +152,9 @@ func TestE2E(t *testing.T) {
 	Expect(kamajiv1.AddToScheme(scheme.Scheme)).To(Succeed())
 	s := scheme.Scheme
 
+	// SchemeGroupVersion is group version used to register these objects
+	var SchemeGroupVersion = schema.GroupVersion{Group: "", Version: "v1"}
+
 	// If testKubeconfig is not set default it to $HOME/.kube/config
 	home, exists := os.LookupEnv("HOME")
 	g.Expect(exists).To(BeTrue())
@@ -139,6 +169,16 @@ func TestE2E(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	testClient, err = client.New(restConfig, client.Options{Scheme: s})
 	g.Expect(err).NotTo(HaveOccurred())
+
+	// Extend configs to restConfig for testRESTClient
+	restConfig.GroupVersion = &SchemeGroupVersion
+	restConfig.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
+	testRESTClient, err = rest.RESTClientFor(restConfig)
+	g.Expect(err).NotTo(HaveOccurred())
+	if deployKSM {
+		metricsURI = metrics.GetMetricsURI("dpf-operator-kube-state-metrics", dpfOperatorSystemNamespace, 8080, "/metrics")
+		g.Expect(metricsURI).NotTo(BeEmpty())
+	}
 
 	RunSpecs(t, "e2e suite")
 }
