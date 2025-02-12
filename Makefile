@@ -1180,7 +1180,7 @@ helm-package-operator: $(CHARTSDIR) helm yq ## Package helm chart for DPF Operat
 	$(HELM) repo add prometheus https://prometheus-community.github.io/helm-charts
 	$(HELM) repo add grafana https://grafana.github.io/helm-charts
 	$(HELM) repo add clastix https://clastix.github.io/charts
-	$(HELM) dependency build $(OPERATOR_HELM_CHART)
+	$(HELM) dependency update $(OPERATOR_HELM_CHART)
 	for tag in $(OPERATOR_CHART_TAGS); do \
 		$(HELM) package $(OPERATOR_HELM_CHART) --version $$tag --destination $(CHARTSDIR); \
 	done
