@@ -44,6 +44,9 @@ const (
 	APIDisableHostRshim = "redfish/v1/Systems/Bluefield/Oem/Nvidia/Actions/HostRshim.Set"
 	APIInstallCert      = "redfish/v1/Managers/Bluefield_BMC/Truststore/Certificates"
 	APIReplaceCert      = "redfish/v1/CertificateService/Actions/CertificateService.ReplaceCertificate"
+	APIGetBios          = "redfish/v1/Systems/Bluefield/Bios"
+	APISetBiosSettings  = "redfish/v1/Systems/Bluefield/Bios/Settings"
+	APISetMode          = "/redfish/v1/Systems/Bluefield/Oem/Nvidia/Actions/Mode.Set"
 	APIGenerateCSR      = "redfish/v1/CertificateService/Actions/CertificateService.GenerateCSR"
 	APIEnableMTLS       = "redfish/v1/AccountService"
 	APIProductSpec      = "redfish/v1/Systems/Bluefield/Oem/Nvidia"
@@ -74,6 +77,30 @@ type TaskProgress struct {
 	TaskState       string
 	TaskStatus      string
 }
+
+// Bios information from Redfish API
+type Bios struct {
+	Attributes BiosAttributes
+}
+
+type BiosAttributes struct {
+	HostPrivilegeLevel HostPrivilegeLevelType
+	NicMode            NicModeType
+}
+
+type HostPrivilegeLevelType string
+
+const (
+	Privileged HostPrivilegeLevelType = "Privileged"
+	Restricted HostPrivilegeLevelType = "Restricted"
+)
+
+type NicModeType string
+
+const (
+	DpuMode NicModeType = "DpuMode"
+	NicMode NicModeType = "NicMode"
+)
 
 // ExtendedInfo contains the information responded by RedFish API
 type ExtendedInfo struct {
@@ -282,6 +309,38 @@ func (c *Client) GetProductSpec() (*resty.Response, *ProductSpecInfo, error) {
 	return do[ProductSpecInfo](func() (*resty.Response, error) {
 		return c.Client.R().Get(APIProductSpec)
 	})
+}
+
+// GetBios returns a Bios information for current DPU
+func (c *Client) GetBios() (*resty.Response, *Bios, error) {
+	return do[Bios](func() (*resty.Response, error) {
+		return c.Client.R().Get(APIGetBios)
+	})
+}
+
+// SetDpuMode returns a Bios information for current DPU
+func (c *Client) SetDpuMode(desiredMode provisioningv1.DpuModeType) (*resty.Response, error) {
+	var body []byte
+	switch desiredMode {
+	case provisioningv1.DpuMode:
+		body = []byte(`{ "Attributes": {"InternalCPUModel": "Privileged" } }`)
+		resp, err := c.Client.R().SetBody(body).Patch(APISetBiosSettings)
+		if err != nil {
+			return resp, err
+		}
+		body = []byte(`{"Mode": "DpuMode"}`)
+	case provisioningv1.ZeroTrustMode:
+		body = []byte(`{ "Attributes": {"InternalCPUModel": "Restricted" } }`)
+		resp, err := c.Client.R().SetBody(body).Patch(APISetBiosSettings)
+		if err != nil {
+			return resp, err
+		}
+		body = []byte(`{"Mode": "DpuMode"}`)
+	case provisioningv1.NicMode:
+		body = []byte(`{"Mode": "NicMode"}`)
+	}
+
+	return c.Client.R().SetBody(body).Post(APISetMode)
 }
 
 // reqFunc is a function that sends a request

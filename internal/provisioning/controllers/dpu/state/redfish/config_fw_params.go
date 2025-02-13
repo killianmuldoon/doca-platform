@@ -26,6 +26,7 @@ import (
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
@@ -60,6 +61,30 @@ func ConfigFWParameters(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *d
 		cutil.SetDPUCondition(state, cutil.NewCondition(string(provisioningv1.DPUConfigFWParameters), err, "OldDPUNIC", ""))
 		return *state, nil
 	}
+
+	flavor := &provisioningv1.DPUFlavor{}
+	if err := ctrlCtx.Get(ctx, types.NamespacedName{
+		Namespace: dpu.Namespace,
+		Name:      dpu.Spec.DPUFlavor,
+	}, flavor); err != nil {
+		cutil.SetDPUCondition(state, cutil.NewCondition(string(provisioningv1.DPUConfigFWParameters), err, "FailedToGetDpuFlavor", ""))
+		return *state, err
+	}
+
+	_, bios, err := client.GetBios()
+	if err != nil {
+		return *state, err
+	}
+
+	if CheckDpuModeChangeNeeded(bios, flavor.Spec.DpuMode) {
+		_, err := client.SetDpuMode(flavor.Spec.DpuMode)
+		if err != nil {
+			cutil.SetDPUCondition(state, cutil.NewCondition(string(provisioningv1.DPUConfigFWParameters), err, "FailedToSetDpuMode", ""))
+			return *state, err
+		}
+	}
+
+	log.FromContext(ctx).Info(fmt.Sprintf("Set DPU mode %s to DPU %s successfully. Host power cycle required to take affect.", flavor.Spec.DpuMode, dpu.Name))
 
 	_, data, err = client.CheckDPUOS()
 	if err != nil {
@@ -109,4 +134,17 @@ func validateDPUNIC(cur, expect string) bool {
 
 func validateDPUOS(cur, expect string) bool {
 	return true
+}
+
+func CheckDpuModeChangeNeeded(currentMode *rc.Bios, desiredMode provisioningv1.DpuModeType) bool {
+	switch desiredMode {
+	case provisioningv1.DpuMode:
+		return currentMode.Attributes.HostPrivilegeLevel != rc.Privileged && currentMode.Attributes.NicMode != rc.DpuMode
+	case provisioningv1.ZeroTrustMode:
+		return currentMode.Attributes.HostPrivilegeLevel != rc.Restricted && currentMode.Attributes.NicMode != rc.DpuMode
+	case provisioningv1.NicMode:
+		return currentMode.Attributes.NicMode != rc.NicMode
+	default:
+		return false
+	}
 }
