@@ -18,11 +18,13 @@ package inventory
 
 import (
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/dpucluster"
 	"github.com/nvidia/doca-platform/internal/release"
 )
 
 func newDefaultVariables(defaults *release.Defaults) Variables {
 	return Variables{
+		DPUClusters: []*dpucluster.Config{},
 		DisableSystemComponents: map[string]bool{
 			operatorv1.ProvisioningControllerName: false,
 			operatorv1.DPUServiceControllerName:   false,
@@ -69,8 +71,8 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 			operatorv1.NVIPAMName:               false,
 			operatorv1.OVSCNIName:               false,
 			operatorv1.SFCControllerName:        false,
-			operatorv1.ServiceSetControllerName: false,
 			operatorv1.OVSHelperName:            false,
+			operatorv1.ServiceSetControllerName: true,
 		},
 
 		DPUDetectorCollectors: map[string]bool{},
@@ -80,6 +82,7 @@ func newDefaultVariables(defaults *release.Defaults) Variables {
 // Variables contains information required to generate manifests from the inventory.
 type Variables struct {
 	Namespace                 string
+	DPUClusters               []*dpucluster.Config
 	DPFProvisioningController DPFProvisioningVariables
 	Networking                Networking
 	DisableSystemComponents   map[string]bool
@@ -101,7 +104,7 @@ type Networking struct {
 	HighSpeedMTU    int
 }
 
-func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operatorv1.DPFOperatorConfig) Variables {
+func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operatorv1.DPFOperatorConfig, dpuClusters []*dpucluster.Config) Variables {
 	variables := newDefaultVariables(defaults)
 	disableComponents := variables.DisableSystemComponents
 	images := variables.Images
@@ -162,5 +165,7 @@ func VariablesFromDPFOperatorConfig(defaults *release.Defaults, config *operator
 			variables.Networking.HighSpeedMTU = *config.Spec.Networking.HighSpeedMTU
 		}
 	}
+	variables.DPUClusters = append(variables.DPUClusters, dpuClusters...)
+
 	return variables
 }

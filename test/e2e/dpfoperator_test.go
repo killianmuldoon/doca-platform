@@ -291,7 +291,7 @@ func DeployDPFSystemComponents(ctx context.Context, input DeployDPFSystemCompone
 		Eventually(func(g Gomega) {
 			dpuServices := &dpuservicev1.DPUServiceList{}
 			g.Expect(testClient.List(ctx, dpuServices)).To(Succeed())
-			g.Expect(dpuServices.Items).To(HaveLen(8))
+			g.Expect(dpuServices.Items).To(HaveLen(9))
 			found := map[string]bool{}
 			for i := range dpuServices.Items {
 				found[dpuServices.Items[i].Name] = true
@@ -422,7 +422,17 @@ func ProvisionDPUClusters(ctx context.Context, input ProvisionDPUClustersInput) 
 		}).WithTimeout(30 * time.Minute).WithPolling(120 * time.Second).Should(Succeed())
 	})
 
-	It("ensure the system DPUServices are created in the DPUClusters", func() {
+	It("ensure the system DPUServices are created correctly", func() {
+		By("Checking the DPUServices have been mirrored to the target cluster")
+		Eventually(func(g Gomega) {
+			serviceSetDeployment := &appsv1.Deployment{}
+			g.Expect(testClient.Get(ctx, client.ObjectKey{
+				Namespace: dpfOperatorSystemNamespace,
+				Name:      "servicechainset-controller-manager"},
+				serviceSetDeployment)).To(Succeed())
+			g.Expect(serviceSetDeployment.Status.ReadyReplicas).To(Equal(*serviceSetDeployment.Spec.Replicas))
+		}).WithTimeout(600 * time.Second).Should(Succeed())
+
 		By("Checking that DPUService objects have been mirrored to the DPUClusters")
 		Eventually(func(g Gomega) {
 			deployments := &appsv1.DeploymentList{}
@@ -443,11 +453,10 @@ func ProvisionDPUClusters(ctx context.Context, input ProvisionDPUClustersInput) 
 
 			// Expect each of the following to have been created by the operator.
 			// These are labels on the appv1 type - e.g. DaemonSet or Deployment on the DPU cluster.
-			g.Expect(found).To(HaveLen(8))
+			g.Expect(found).To(HaveLen(7))
 			g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.MultusName)))
 			g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.FlannelName)))
 			g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.SRIOVDevicePluginName)))
-			g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.ServiceSetControllerName)))
 			// Note: The NVIPAM DPUService contains both a Daemonset and a Deployment - but this is overwritten in the map.
 			g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.NVIPAMName)))
 			g.Expect(found).To(HaveKey(ContainSubstring(operatorv1.OVSCNIName)))
@@ -498,9 +507,11 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 
 		// Assert the images are set for the system components.
 		Eventually(func(g Gomega) {
-			deploymentDPUservices := map[string]bool{
-				operatorv1.NVIPAMName:               true,
+			inClusterDeploymentDPUServices := map[string]bool{
 				operatorv1.ServiceSetControllerName: true,
+			}
+			deploymentDPUservices := map[string]bool{
+				operatorv1.NVIPAMName: true,
 			}
 			daemonSetDPUServices := map[string]bool{
 				operatorv1.SRIOVDevicePluginName: true,
@@ -509,9 +520,19 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 				operatorv1.NVIPAMName:            true,
 				operatorv1.MultusName:            true,
 				operatorv1.OVSHelperName:         true,
-				// Ignoring flannel as the image is never set.
 			}
 
+			// Verify images for inCluster DPUServices
+			for name := range inClusterDeploymentDPUServices {
+				deployments := appsv1.DeploymentList{}
+				nameForCluster := fmt.Sprintf("%s-%s", "in-cluster", name)
+				g.Expect(testClient.List(ctx, &deployments,
+					client.MatchingLabels{argoCDInstanceLabel: nameForCluster})).To(Succeed())
+				g.Expect(deployments.Items).To(HaveLen(1))
+				deployment := deployments.Items[0]
+				g.Expect(deployment.Spec.Template.Spec.Containers).To(HaveLen(1))
+				g.Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(ContainSubstring(dummyRegistryName))
+			}
 			// Verify images in the DPUClusters
 			for name := range deploymentDPUservices {
 				deployments := appsv1.DeploymentList{}
@@ -1266,9 +1287,13 @@ func ValidateOperatorCleanup(ctx context.Context, config *operatorv1.DPFOperator
 	})
 
 	It("create a DPUDeployment with its dependencies and ensure that the underlying objects are created", func() {
+		if skipCleanup {
+			Skip("Skip cleanup resources")
+		}
 		By("creating the dpudeployment")
 		dpuDeployment := &dpuservicev1.DPUDeployment{}
 		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(unstructuredFromFile("application/dpudeployment.yaml").UnstructuredContent(), dpuDeployment)).ToNot(HaveOccurred())
+		dpuDeployment.Name = "example-two"
 		dpuDeployment.Spec.DPUs.DPUSets[0].NodeSelector = &metav1.LabelSelector{
 			MatchLabels: map[string]string{"feature.node.kubernetes.io/dpu-enabled": "true"},
 		}
@@ -1328,6 +1353,9 @@ func ValidateOperatorCleanup(ctx context.Context, config *operatorv1.DPFOperator
 	})
 
 	It("create DPUServiceInterface and check that it is mirrored to each cluster", func() {
+		if skipCleanup {
+			Skip("Skip cleanup resources")
+		}
 		dpuServiceInterfaceName := "pf0-vf2"
 		dpuServiceInterfaceNamespace := "test-dpudeployment"
 		By("create test namespace")

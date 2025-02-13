@@ -24,6 +24,8 @@ import (
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/dpucluster"
 	"github.com/nvidia/doca-platform/internal/release"
 
 	. "github.com/onsi/gomega"
@@ -95,6 +97,61 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 		},
 	}
 	valuesDataWithFlannelVariables, err := json.Marshal(valuesWithFlannelVariables)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	noClusterServiceSetVariables := initialValuesObject.DeepCopy()
+	noClusterServiceSetVariables.Object[operatorv1.ServiceSetControllerName] = map[string]interface{}{
+		"chart": map[string]interface{}{
+			"repoURL": "oci://example.com",
+			"chart":   "dpu-networking",
+			"version": "v0.1.0",
+		},
+		"controllerManager": map[string]interface{}{
+			"manager": map[string]interface{}{
+				"image": map[string]interface{}{
+					"repository": "example.com/dpf-system",
+					"tag":        "v0.1.0",
+				},
+			},
+		},
+		"enabled": true,
+	}
+	noClusterServiceSetValuesData, err := json.Marshal(noClusterServiceSetVariables)
+	g.Expect(err).NotTo(HaveOccurred())
+
+	withClusterServiceSetVariables := newDefaultVariables(defaults)
+	withClusterServiceSetVariables.DPUClusters = []*dpucluster.Config{
+		{
+			Cluster: &provisioningv1.DPUCluster{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "dpu-cluster",
+					Namespace: "dpf-namespace",
+				},
+			},
+		},
+	}
+	withClusterServiceSetValues := initialValuesObject.DeepCopy()
+	withClusterServiceSetValues.Object[operatorv1.ServiceSetControllerName] = map[string]interface{}{
+		"chart": map[string]interface{}{
+			"repoURL": "oci://example.com",
+			"chart":   "dpu-networking",
+			"version": "v0.1.0",
+		},
+		"controllerManager": map[string]interface{}{
+			"manager": map[string]interface{}{
+				"image": map[string]interface{}{
+					"repository": "example.com/dpf-system",
+					"tag":        "v0.1.0",
+				},
+			},
+		},
+		"enabled": true,
+		"dpucluster": map[string]interface{}{
+			"name":      "dpu-cluster",
+			"namespace": "dpf-namespace",
+		},
+	}
+	withClusterServiceSetValuesData, err := json.Marshal(withClusterServiceSetValues)
 	g.Expect(err).NotTo(HaveOccurred())
 
 	tests := []struct {
@@ -304,6 +361,88 @@ func Test_fromDPUService_GenerateManifests(t *testing.T) {
 						},
 						Values: &runtime.RawExtension{
 							Raw: valuesDataWithFlannelVariables,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "serviceset controller sets helm values for chart with no DPUCluster",
+			in: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: operatorv1.ServiceSetControllerName,
+				},
+				Spec: dpuservicev1.DPUServiceSpec{
+					HelmChart: dpuservicev1.HelmChart{
+						Values: &runtime.RawExtension{
+							Raw: initialValuesData,
+						},
+					},
+				},
+			},
+			vars: disabledTestServiceVars,
+			want: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: operatorv1.ServiceSetControllerName,
+					Labels: map[string]string{
+						operatorv1.DPFComponentLabelKey: operatorv1.ServiceSetControllerName,
+					},
+				},
+				Spec: dpuservicev1.DPUServiceSpec{
+					DeployInCluster: ptr.To(true),
+					HelmChart: dpuservicev1.HelmChart{
+						Source: dpuservicev1.ApplicationSource{
+							RepoURL: "oci://example.com",
+							Path:    "",
+							Version: "v0.1.0",
+							Chart:   "dpu-networking",
+						},
+						Values: &runtime.RawExtension{
+							Raw: noClusterServiceSetValuesData,
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "serviceset controller sets helm values for chart with DPUCluster",
+			in: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: operatorv1.ServiceSetControllerName,
+				},
+				Spec: dpuservicev1.DPUServiceSpec{
+					HelmChart: dpuservicev1.HelmChart{
+						Values: &runtime.RawExtension{
+							Raw: initialValuesData,
+						},
+					},
+				},
+			},
+			vars: withClusterServiceSetVariables,
+			want: &dpuservicev1.DPUService{
+				TypeMeta: metav1.TypeMeta{Kind: "DPUService"},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: operatorv1.ServiceSetControllerName,
+					Labels: map[string]string{
+						operatorv1.DPFComponentLabelKey: operatorv1.ServiceSetControllerName,
+					},
+				},
+				Spec: dpuservicev1.DPUServiceSpec{
+					DeployInCluster: ptr.To(true),
+					HelmChart: dpuservicev1.HelmChart{
+						Source: dpuservicev1.ApplicationSource{
+							RepoURL: "oci://example.com",
+							Path:    "",
+							Version: "v0.1.0",
+							Chart:   "dpu-networking",
+						},
+						Values: &runtime.RawExtension{
+							Raw: withClusterServiceSetValuesData,
 						},
 					},
 				},

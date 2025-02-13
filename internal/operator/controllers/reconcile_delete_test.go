@@ -25,6 +25,7 @@ import (
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/dpucluster"
 	"github.com/nvidia/doca-platform/internal/operator/inventory"
 	"github.com/nvidia/doca-platform/internal/release"
 
@@ -149,7 +150,7 @@ func TestDPFOperatorConfigReconciler_reconcileDelete(t *testing.T) {
 			// Wait for the existing objects to eventually get into the correct state.
 			g.Eventually(func(g Gomega) {
 
-				_, _ = r.reconcileDelete(ctx, dpfOperatorConfig)
+				_, _ = r.reconcileDelete(ctx, dpfOperatorConfig, []*dpucluster.Config{})
 				// 1) Expect the DPUDeployment objects to match the expected state.
 				g.Expect(objectsInListStillExist(r.Client, dpuDeploymentResources)).To(Equal(tt.dpuDeploymentObjsExpected))
 				// 2) Expect the ServiceChain objects to match the expected state.
@@ -162,7 +163,7 @@ func TestDPFOperatorConfigReconciler_reconcileDelete(t *testing.T) {
 
 			// Ensure the state does not change.
 			g.Consistently(func(g Gomega) {
-				_, _ = r.reconcileDelete(ctx, dpfOperatorConfig)
+				_, _ = r.reconcileDelete(ctx, dpfOperatorConfig, []*dpucluster.Config{})
 				// 1) Expect the DPUDeployment list to have the right number of members.
 				g.Expect(objectsInListStillExist(r.Client, dpuDeploymentResources)).To(Equal(tt.dpuDeploymentObjsExpected))
 				// 2) Expect the ServiceChain list to have the right number of members.
@@ -181,7 +182,7 @@ func TestDPFOperatorConfigReconciler_reconcileDelete(t *testing.T) {
 					g.Expect(client.IgnoreNotFound(err)).NotTo(HaveOccurred())
 				}
 				// Expect the reconcileDelete method to finish with no errors.
-				_, err := r.reconcileDelete(ctx, dpfOperatorConfig)
+				_, err := r.reconcileDelete(ctx, dpfOperatorConfig, []*dpucluster.Config{})
 				g.Expect(err).NotTo(HaveOccurred())
 				// Expect the DPFOperatorConfig to have no finalizer.
 				g.Expect(dpfOperatorConfig.GetFinalizers()).To(BeEmpty())

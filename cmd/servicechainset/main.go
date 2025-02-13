@@ -69,12 +69,14 @@ func main() {
 	var enableHTTP2 bool
 	var syncPeriod time.Duration
 	var concurrency int
-
+	var leaderElectionNamespace string
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	fs.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	fs.StringVar(&leaderElectionNamespace, "leader-election-namespace", "", "The namespace used for creating the leader election lock")
+
 	fs.BoolVar(&insecureMetrics, "insecure-metrics", false,
 		"If set the metrics endpoint is served insecure without AuthN/AuthZ.")
 	fs.BoolVar(&enableHTTP2, "enable-http2", false,
@@ -133,8 +135,9 @@ func main() {
 		Controller: config.Controller{
 			MaxConcurrentReconciles: concurrency,
 		},
-		LeaderElection:   enableLeaderElection,
-		LeaderElectionID: "8a3114c5.dpu.nvidia.com",
+		LeaderElection:          enableLeaderElection,
+		LeaderElectionID:        "8a3114c5.dpu.nvidia.com",
+		LeaderElectionNamespace: leaderElectionNamespace,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly

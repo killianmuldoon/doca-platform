@@ -90,10 +90,10 @@ type DPUServiceCredentialRequestSpec struct {
 	// The supported types are `kubeconfig` and `tokenFile`.
 	// If `kubeconfig` is selected, the secret will contain a kubeconfig file,
 	// that can be used to access the cluster.
-	// If `tokenFile` is selected, the secret will contain a token file and serveral
+	// If `tokenFile` is selected, the secret will contain a token file and several
 	// environment variables that can be used to access the cluster. It can be used
 	// with https://github.com/kubernetes/client-go/blob/v11.0.0/rest/config.go#L52
-	// to create a client that will hanle file rotation.
+	// to create a client that will handle file rotation.
 	// +kubebuilder:validation:Enum=kubeconfig;tokenFile
 	// +required
 	Type string `json:"type"`

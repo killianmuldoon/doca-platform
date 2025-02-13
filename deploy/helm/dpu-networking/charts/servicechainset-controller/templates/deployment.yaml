@@ -1,7 +1,9 @@
+{{ if not .Values.forDPUCluster }}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dpf-servicechain-controller-manager
+  name: servicechainset-controller-manager
   namespace: {{ .Release.Namespace }}
   labels:
     app.kubernetes.io/component: manager
@@ -23,13 +25,16 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
     spec:
+      volumes:
+        {{- toYaml .Values.volumes | nindent 8 }}
       containers:
       - args: {{- toYaml .Values.controllerManager.manager.args | nindent 8 }}
         command:
         - /servicechainset
+        volumeMounts:
+          {{- toYaml .Values.volumeMounts | nindent 10 }}
         env:
-        - name: KUBERNETES_CLUSTER_DOMAIN
-          value: {{ quote .Values.kubernetesClusterDomain }}
+          {{ toYaml .Values.env | nindent 10 }}
         image: {{ .Values.controllerManager.manager.image.repository }}:{{ .Values.controllerManager.manager.image.tag
           | default .Chart.AppVersion }}
         livenessProbe:
@@ -52,5 +57,13 @@ spec:
       imagePullSecrets: {{ .Values.imagePullSecrets | default list | toJson }}
       securityContext:
         runAsNonRoot: true
-      serviceAccountName: dpf-servicechain-controller-manager
+      serviceAccountName: servicechainset-controller-manager
       terminationGracePeriodSeconds: 10
+      tolerations:
+        - operator: Exists
+          effect: NoSchedule
+          key: node-role.kubernetes.io/control-plane
+        - operator: Exists
+          effect: NoSchedule
+          key: node-role.kubernetes.io/master
+{{ end }}

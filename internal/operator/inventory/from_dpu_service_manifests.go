@@ -147,6 +147,16 @@ func (f *fromDPUService) GenerateManifests(vars Variables, options ...GenerateMa
 		edits.AddForKindS(DPUServiceKind, edit)
 	}
 
+	// Add any additional values that might be required by the DPUService
+	additionalValuesEdits, err := additionalValuesForComponent(f.Name(), vars)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, edit := range additionalValuesEdits {
+		edits.AddForKindS(DPUServiceKind, edit)
+	}
+
 	// Apply the edits.
 	if err := edits.Apply([]*unstructured.Unstructured{dpuServiceCopy}); err != nil {
 		return nil, err
@@ -165,6 +175,38 @@ func pullSecretValueFromStrings(names ...string) []interface{} {
 		pullSecrets = append(pullSecrets, map[string]interface{}{"name": name})
 	}
 	return pullSecrets
+}
+
+func additionalValuesForComponent(name string, vars Variables) ([]StructuredEdit, error) {
+	switch name {
+	// The ServiceSet controller is deployed in the target cluster but operates against the DPUCluster.
+	// It deploys an additional DPUService which requires the helm chart details to be set.
+	case operatorv1.ServiceSetControllerName:
+		edits := []StructuredEdit{}
+		if len(vars.DPUClusters) > 1 {
+			return nil, fmt.Errorf("servicechainset controller does not handle multiple DPUClusters")
+		}
+		// Set the Name and Namespace of the DPUCluster for the DPUServiceCredentialRequest.
+		for _, cluster := range vars.DPUClusters {
+			edits = append(edits,
+				dpuServiceAddValueEdit(cluster.Cluster.Name, operatorv1.ServiceSetControllerName, "dpucluster", "name"),
+				dpuServiceAddValueEdit(cluster.Cluster.Namespace, operatorv1.ServiceSetControllerName, "dpucluster", "namespace"),
+			)
+		}
+		chart, err := ParseHelmChartString(vars.HelmCharts[operatorv1.ServiceSetControllerName])
+		if err != nil {
+			return nil, err
+		}
+		edits = append(edits,
+			dpuServiceAddValueEdit(chart.Repo, operatorv1.ServiceSetControllerName, "chart", "repoURL"),
+			dpuServiceAddValueEdit(chart.Chart, operatorv1.ServiceSetControllerName, "chart", "chart"),
+			dpuServiceAddValueEdit(chart.Version, operatorv1.ServiceSetControllerName, "chart", "version"),
+		)
+		return edits, nil
+	// Other DPUServices do not need additional values.
+	default:
+		return nil, nil
+	}
 }
 
 func dpuServiceSetHelmChartEdit(helmChart string) StructuredEdit {

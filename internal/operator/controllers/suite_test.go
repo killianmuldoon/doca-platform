@@ -26,6 +26,7 @@ import (
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/operator/inventory"
 	"github.com/nvidia/doca-platform/internal/release"
 	argov1 "github.com/nvidia/doca-platform/third_party/api/argocd/api/application/v1alpha1"
@@ -76,6 +77,10 @@ func TestMain(m *testing.M) {
 	if err := dpuservicev1.AddToScheme(scheme.Scheme); err != nil {
 		panic(fmt.Sprintf("Failed to add DPUservice v1 scheme: %v", err))
 	}
+	if err := provisioningv1.AddToScheme(scheme.Scheme); err != nil {
+		panic(fmt.Sprintf("Failed to add DPUservice v1 scheme: %v", err))
+	}
+
 	if err := argov1.AddToScheme(scheme.Scheme); err != nil {
 		panic(fmt.Sprintf("Failed to add Argo scheme: %v", err))
 	}

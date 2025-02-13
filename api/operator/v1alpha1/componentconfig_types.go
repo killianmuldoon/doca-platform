@@ -310,7 +310,7 @@ func (c *ServiceSetControllerConfiguration) GetImage() *string {
 
 func (c *ServiceSetControllerConfiguration) InClusterDeployment() bool {
 	if c.DeployInCluster == nil {
-		return false
+		return true
 	}
 	return *c.DeployInCluster
 }

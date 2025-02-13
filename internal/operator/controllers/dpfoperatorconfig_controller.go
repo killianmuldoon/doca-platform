@@ -24,7 +24,9 @@ import (
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
+	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
+	"github.com/nvidia/doca-platform/internal/dpucluster"
 	"github.com/nvidia/doca-platform/internal/operator/inventory"
 	"github.com/nvidia/doca-platform/internal/release"
 
@@ -116,6 +118,7 @@ type DPFOperatorConfigReconcilerSettings struct {
 func (r *DPFOperatorConfigReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&operatorv1.DPFOperatorConfig{}).
+		Watches(&provisioningv1.DPUCluster{}, handler.EnqueueRequestsFromMapFunc(r.DPUClusterToDPFOperatorConfig)).
 		Watches(&dpuservicev1.DPUService{}, handler.EnqueueRequestsFromMapFunc(r.DPUServiceToDPFOperatorConfig)).
 		Watches(&appsv1.Deployment{}, handler.EnqueueRequestsFromMapFunc(r.DeploymentToDPFOperatorConfig)).
 		Complete(r)
@@ -149,12 +152,16 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		return ctrl.Result{}, nil
 	}
 
-	patcher := patch.NewSerialPatcher(dpfOperatorConfig, r.Client)
+	dpuClusters, err := dpucluster.GetConfigs(ctx, r.Client)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
+	patcher := patch.NewSerialPatcher(dpfOperatorConfig, r.Client)
 	// Defer a patch call to always patch the object when Reconcile exits.
 	defer func() {
 		// Update the ready condition for the system components.
-		r.updateSystemComponentStatus(ctx, dpfOperatorConfig)
+		r.updateSystemComponentStatus(ctx, dpfOperatorConfig, dpuClusters)
 		// Set the summary condition for the DPFOperatorConfig.
 		conditions.SetSummary(dpfOperatorConfig)
 
@@ -170,7 +177,7 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 
 	// Handle deletion reconciliation loop.
 	if !dpfOperatorConfig.ObjectMeta.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, dpfOperatorConfig)
+		return r.reconcileDelete(ctx, dpfOperatorConfig, dpuClusters)
 	}
 
 	// Add finalizer if not set.
@@ -179,7 +186,7 @@ func (r *DPFOperatorConfigReconciler) Reconcile(ctx context.Context, req ctrl.Re
 		controllerutil.AddFinalizer(dpfOperatorConfig, operatorv1.DPFOperatorConfigFinalizer)
 		return ctrl.Result{}, nil
 	}
-	return r.reconcile(ctx, dpfOperatorConfig)
+	return r.reconcile(ctx, dpfOperatorConfig, dpuClusters)
 }
 
 func isPaused(config *operatorv1.DPFOperatorConfig) bool {
@@ -194,7 +201,7 @@ func isPaused(config *operatorv1.DPFOperatorConfig) bool {
 }
 
 //nolint:unparam
-func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (ctrl.Result, error) {
+func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig, dpuClusters []*dpucluster.Config) (ctrl.Result, error) {
 	if err := r.reconcileImagePullSecrets(ctx, dpfOperatorConfig); err != nil {
 		conditions.AddFalse(
 			dpfOperatorConfig,
@@ -205,7 +212,7 @@ func (r *DPFOperatorConfigReconciler) reconcile(ctx context.Context, dpfOperator
 	}
 	conditions.AddTrue(dpfOperatorConfig, operatorv1.ImagePullSecretsReconciledCondition)
 
-	if err := r.reconcileSystemComponents(ctx, dpfOperatorConfig); err != nil {
+	if err := r.reconcileSystemComponents(ctx, dpfOperatorConfig, dpuClusters); err != nil {
 		conditions.AddFalse(
 			dpfOperatorConfig,
 			operatorv1.SystemComponentsReconciledCondition,
@@ -280,9 +287,9 @@ func (r *DPFOperatorConfigReconciler) reconcileImagePullSecrets(ctx context.Cont
 // 8. OVS CNI
 // 9. SFC Controller
 // 10. OVS Helper
-func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig) error {
+func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Context, config *operatorv1.DPFOperatorConfig, dpuClusters []*dpucluster.Config) error {
 	var errs []error
-	vars := inventory.VariablesFromDPFOperatorConfig(r.Defaults, config)
+	vars := inventory.VariablesFromDPFOperatorConfig(r.Defaults, config, dpuClusters)
 	// Create objects for system components.
 	for _, component := range r.Inventory.AllComponents() {
 		if err := r.generateAndPatchObjects(ctx, component, vars); err != nil {
@@ -292,11 +299,11 @@ func (r *DPFOperatorConfigReconciler) reconcileSystemComponents(ctx context.Cont
 	return kerrors.NewAggregate(errs)
 }
 
-func (r *DPFOperatorConfigReconciler) updateSystemComponentStatus(ctx context.Context, config *operatorv1.DPFOperatorConfig) {
+func (r *DPFOperatorConfigReconciler) updateSystemComponentStatus(ctx context.Context, config *operatorv1.DPFOperatorConfig, dpuClusters []*dpucluster.Config) {
 	unreadyMessages := []string{}
 	log := ctrllog.FromContext(ctx)
 	log.Info("Updating status of DPF OperatorConfig")
-	for _, component := range r.Inventory.EnabledComponents(inventory.VariablesFromDPFOperatorConfig(r.Defaults, config)) {
+	for _, component := range r.Inventory.EnabledComponents(inventory.VariablesFromDPFOperatorConfig(r.Defaults, config, dpuClusters)) {
 		err := component.IsReady(ctx, r.Client, config.Namespace)
 		if err != nil {
 			log.Error(err, "Component not ready", "component", component)
@@ -479,6 +486,17 @@ func (r *DPFOperatorConfigReconciler) deleteByGKNN(ctx context.Context, gknn inv
 		return err
 	}
 	return nil
+}
+
+// DPUClusterToDPFOperatorConfig enqueues a reconcile when an event occurs for system DPUServices.
+func (r *DPFOperatorConfigReconciler) DPUClusterToDPFOperatorConfig(_ context.Context, o client.Object) []ctrl.Request {
+	result := []ctrl.Request{}
+	// Ignore this enqueue function if the singletonNamespaceName is not set. This is done to enable easier testing.
+	if r.Settings.ConfigSingletonNamespaceName == nil {
+		return result
+	}
+	result = append(result, ctrl.Request{NamespacedName: *r.Settings.ConfigSingletonNamespaceName})
+	return result
 }
 
 // DPUServiceToDPFOperatorConfig enqueues a reconcile when an event occurs for system DPUServices.

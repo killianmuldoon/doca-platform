@@ -25,6 +25,7 @@ import (
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
+	"github.com/nvidia/doca-platform/internal/dpucluster"
 	"github.com/nvidia/doca-platform/internal/operator/inventory"
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,7 +43,7 @@ var reconcileDeleteRequeueDuration = 30 * time.Second
 
 // The DPFOperatorConfig reconciler is responsible for ensuring that the entire DPF system is uninstalled on deletion.
 // This deletion follows a specified order - DPUServices must be fully deleted before the dpuservice-controller is deleted.
-func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig) (ctrl.Result, error) {
+func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOperatorConfig *operatorv1.DPFOperatorConfig, dpuclusters []*dpucluster.Config) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling delete")
 
@@ -59,7 +60,7 @@ func (r *DPFOperatorConfigReconciler) reconcileDelete(ctx context.Context, dpfOp
 	var errs []error
 	// Delete objects for components deployed to the management cluster.
 	for _, component := range r.Inventory.AllComponents() {
-		err := r.deleteSystemComponent(ctx, component, inventory.VariablesFromDPFOperatorConfig(r.Defaults, dpfOperatorConfig))
+		err := r.deleteSystemComponent(ctx, component, inventory.VariablesFromDPFOperatorConfig(r.Defaults, dpfOperatorConfig, dpuclusters))
 		if err != nil {
 			errs = append(errs, err)
 		}

@@ -254,7 +254,7 @@ generate-manifests-servicechainset: controller-gen kustomize envsubst ## Generat
 	paths="./cmd/servicechainset/..." \
 	paths="./internal/servicechainset/..." \
 	paths="./internal/pod-ipam-injector/..." \
-	rbac:roleName=dpf-servicechain-controller-manager \
+	rbac:roleName=servicechainset-controller-manager \
 	output:rbac:dir=deploy/helm/dpu-networking/charts/servicechainset-controller/templates;
 	find config/dpuservice/crd/bases/ -type f -not -name '*_dpu*' -exec cp {} deploy/helm/dpu-networking/charts/servicechainset-controller/templates/crds/ \;
 
