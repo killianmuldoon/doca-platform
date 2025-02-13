@@ -46,6 +46,7 @@ const (
 	APIReplaceCert      = "redfish/v1/CertificateService/Actions/CertificateService.ReplaceCertificate"
 	APIGenerateCSR      = "redfish/v1/CertificateService/Actions/CertificateService.GenerateCSR"
 	APIEnableMTLS       = "redfish/v1/AccountService"
+	APIProductSpec      = "redfish/v1/Systems/Bluefield/Oem/Nvidia"
 
 	// CASecret is created by the cert-manager Certificate deployed by DPF,
 	CASecret = "dpf-provisioning-ca-secret"
@@ -87,6 +88,11 @@ type MessageExtendedInfo struct {
 	MessageID       string `json:"MessageId,omitempty"`
 	MessageSeverity string
 	Resolution      string
+}
+
+// ProductSpecInfo contains the product specification information responded by RedFish API
+type ProductSpecInfo struct {
+	Description string
 }
 
 // Client is a Redfish client
@@ -268,6 +274,13 @@ func (c *Client) EnableBMCRShim() (*resty.Response, *ExtendedInfo, error) {
 		return c.Client.R().
 			SetBody(reqBody).
 			Patch(APIEnableBMCRshim)
+	})
+}
+
+// GetProductSpec fetches product spec of DPU
+func (c *Client) GetProductSpec() (*resty.Response, *ProductSpecInfo, error) {
+	return do[ProductSpecInfo](func() (*resty.Response, error) {
+		return c.Client.R().Get(APIProductSpec)
 	})
 }
 

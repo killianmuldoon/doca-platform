@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"regexp"
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
@@ -32,6 +33,7 @@ import (
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -42,6 +44,13 @@ const (
 	BMCPasswordSecret    = "bmc-shared-password"
 	BMCSharedPasswordKey = "password"
 	BMCDefaultPassword   = "0penBmc"
+)
+
+var (
+	// re captures the number of cores and memory size in the product description. The regex is based on the following example:
+	// "Arm Cortex-A72 16 cores, 32GB on-board DDR"
+	// The regex will capture "16", "4" and "GB"
+	re = regexp.MustCompile(`(\d+) Arm cores.*?(\d+)(GB) on-board DDR`)
 )
 
 func InitializeInterface(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext) (provisioningv1.DPUStatus, error) {
@@ -58,22 +67,15 @@ func InitializeInterface(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *
 		return *state, err
 	}
 
-	// verify mTLS by checking BMC FW
-	tlsClient, err := rfclient.NewTLSClient(ctx, dpu, ctrlCtx.Client)
+	fit, err := checkCapacity(ctx, dpu, ctrlCtx)
 	if err != nil {
-		cutil.SetDPUCondition(state, cutil.NewCondition(string(provisioningv1.DPUCondInterfaceInitialized), err, "FailedToCreateTLSClient", ""))
+		cutil.SetDPUCondition(state, cutil.NewCondition(string(provisioningv1.DPUCondInterfaceInitialized), err, "FailedToCheckResources", ""))
 		return *state, err
+	} else if !fit {
+		state.Phase = provisioningv1.DPUError
+		cutil.SetDPUCondition(state, cutil.NewCondition(string(provisioningv1.DPUCondInterfaceInitialized), fmt.Errorf("not enough resources for the given DPUFlavor"), "FailedToCheckResources", ""))
+		return *state, nil
 	}
-	resp, fwRsp, err := tlsClient.CheckBMCFirmware()
-	if err != nil {
-		cutil.SetDPUCondition(state, cutil.NewCondition(string(provisioningv1.DPUCondInterfaceInitialized), err, "FailedToCheckFW", ""))
-		return *state, err
-	} else if resp.StatusCode() != http.StatusOK {
-		cutil.SetDPUCondition(state, cutil.NewCondition(string(provisioningv1.DPUCondInterfaceInitialized), fmt.Errorf("status code: %d", resp.StatusCode()), "FailedToCheckFW", ""))
-		return *state, err
-	}
-	log.FromContext(ctx).Info(fmt.Sprintf("BMC firmware version %q", fwRsp.Version))
-
 	state.Phase = provisioningv1.DPUConfigFWParameters
 	cutil.SetDPUCondition(state, cutil.NewCondition(string(provisioningv1.DPUCondInterfaceInitialized), nil, "", ""))
 	return *state, nil
@@ -246,4 +248,71 @@ func createCR(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Contr
 		},
 	}
 	return ctrlCtx.Client.Create(ctx, cr)
+}
+
+// checkCapacity checks if the DPU has sufficient resources for the flavor
+func checkCapacity(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext) (bool, error) {
+	tlsClient, err := rfclient.NewTLSClient(ctx, dpu, ctrlCtx.Client)
+	if err != nil {
+		return false, err
+	}
+	resp, spec, err := tlsClient.GetProductSpec()
+	if err != nil {
+		return false, err
+	} else if resp.StatusCode() != http.StatusOK {
+		return false, err
+	}
+	flavor := &provisioningv1.DPUFlavor{}
+	if err := ctrlCtx.Client.Get(ctx, types.NamespacedName{Name: dpu.Spec.DPUFlavor, Namespace: dpu.Namespace}, flavor); err != nil {
+		return false, err
+	}
+	return compare(flavor.Spec.DPUResources, spec.Description)
+}
+
+// parseSpec extract and parse the CPU and memory amount from the product spec into a ResourceList.
+func parseSpec(spec string, format resource.Format) (corev1.ResourceList, error) {
+	matches := re.FindStringSubmatch(spec)
+	if len(matches) != 4 {
+		return nil, fmt.Errorf("invalid product spec format")
+	}
+	cpu, err := resource.ParseQuantity(matches[1])
+	if err != nil {
+		return nil, fmt.Errorf("invalid CPU amount, get: %q, err: %v", matches[1], err)
+	}
+
+	// We assume the suffix is always "GB" in the RedFish reply. Since "GB" is not a valid resource.Quantity, we need to convert it to either "Gi" (binarySI) or "G" (decimalSI).
+	// During the conversion, we use the same suffix as the flavor. For example:
+	// If the flavor is requesting a "33G" memory, we will parse the "32GB" in the RedFish reply as "32G" to correctly compare them afterward.
+	// The consistency of the suffixes is important. In the example above, if we we parse "32GB" as "32Gi", we will get a wrong result that a flavor with "33G" requirement can be installed on a DPU with "32GB" capacity
+	// because 32Gi (34359738368) is greater than 33G (33000000000).
+	memValue := matches[2]
+	var memSuffix string
+	switch format {
+	case resource.BinarySI, resource.DecimalExponent:
+		memSuffix = "Gi"
+	case resource.DecimalSI:
+		memSuffix = "G"
+	default:
+		return nil, fmt.Errorf("unsupported quantity suffix %q", format)
+	}
+
+	mem, err := resource.ParseQuantity(memValue + memSuffix)
+	if err != nil {
+		return nil, fmt.Errorf("invalid Mem amount, get: %s%s, err: %v", memValue, memSuffix, err)
+	}
+	return corev1.ResourceList{
+		corev1.ResourceCPU:    cpu,
+		corev1.ResourceMemory: mem,
+	}, nil
+}
+
+func compare(expect corev1.ResourceList, spec string) (bool, error) {
+	get, err := parseSpec(spec, expect.Memory().Format)
+	if err != nil {
+		return false, err
+	}
+	if (get.Cpu().Cmp(*expect.Cpu()) < 0) || (get.Memory().Cmp(*expect.Memory()) < 0) {
+		return false, nil
+	}
+	return true, nil
 }
