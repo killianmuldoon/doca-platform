@@ -156,7 +156,7 @@ func (r *DPUSetReconciler) Handle(ctx context.Context, dpuSet *provisioningv1.DP
 	}
 
 	switch dpuSet.Spec.Strategy.Type {
-	case provisioningv1.RecreateStrategyType:
+	case provisioningv1.OnDeleteStrategyType:
 		// do nothing, waiting for user delete DPU object manually.
 	case provisioningv1.RollingUpdateStrategyType:
 		if err := r.rolloutRolling(ctx, dpuSet, dpuMap, len(nodeMap)); err != nil {

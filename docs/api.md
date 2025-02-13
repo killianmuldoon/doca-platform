@@ -1270,7 +1270,7 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `type` _[StrategyType](#strategytype)_ | Can be "Recreate" or "RollingUpdate". | Recreate | Enum: [Recreate RollingUpdate] <br /> |
+| `type` _[StrategyType](#strategytype)_ | Can be "OnDelete" or "RollingUpdate". | OnDelete | Enum: [OnDelete RollingUpdate] <br /> |
 | `rollingUpdate` _[RollingUpdateDPU](#rollingupdatedpu)_ | Rolling update config params. Present only if StrategyType = RollingUpdate. |  |  |
 
 
@@ -1475,17 +1475,17 @@ _Appears in:_
 _Underlying type:_ _string_
 
 StrategyType describes strategy to use to reprovision existing DPUs.
-Default is "Recreate".
+Default is "OnDelete".
 
 _Validation:_
-- Enum: [Recreate RollingUpdate]
+- Enum: [OnDelete RollingUpdate]
 
 _Appears in:_
 - [DPUSetStrategy](#dpusetstrategy)
 
 | Field | Description |
 | --- | --- |
-| `Recreate` | Delete all the existing DPUs before creating new ones.<br /> |
+| `OnDelete` | New DPU CR will only be created when you manually delete old DPU CR.<br /> |
 | `RollingUpdate` | Gradually scale down the old DPUs and scale up the new one.<br /> |
 
 

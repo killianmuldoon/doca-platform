@@ -66,7 +66,7 @@ func (r *DPUSet) Default(ctx context.Context, obj runtime.Object) error {
 
 	if dpuSet.Spec.Strategy == nil {
 		dpuSet.Spec.Strategy = &provisioningv1.DPUSetStrategy{
-			Type: provisioningv1.RecreateStrategyType,
+			Type: provisioningv1.OnDeleteStrategyType,
 		}
 	} else if dpuSet.Spec.Strategy.Type == provisioningv1.RollingUpdateStrategyType {
 		if dpuSet.Spec.Strategy.RollingUpdate == nil {

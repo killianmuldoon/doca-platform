@@ -31,23 +31,23 @@ const (
 var DPUSetGroupVersionKind = GroupVersion.WithKind(DPUSetKind)
 
 // StrategyType describes strategy to use to reprovision existing DPUs.
-// Default is "Recreate".
-// +kubebuilder:validation:Enum=Recreate;RollingUpdate
+// Default is "OnDelete".
+// +kubebuilder:validation:Enum=OnDelete;RollingUpdate
 type StrategyType string
 
 const (
 	DPUSetFinalizer = "provisioning.dpu.nvidia.com/dpuset-protection"
 
-	// Delete all the existing DPUs before creating new ones.
-	RecreateStrategyType StrategyType = "Recreate"
+	// New DPU CR will only be created when you manually delete old DPU CR.
+	OnDeleteStrategyType StrategyType = "OnDelete"
 
 	// Gradually scale down the old DPUs and scale up the new one.
 	RollingUpdateStrategyType StrategyType = "RollingUpdate"
 )
 
 type DPUSetStrategy struct {
-	// Can be "Recreate" or "RollingUpdate".
-	// +kubebuilder:default=Recreate
+	// Can be "OnDelete" or "RollingUpdate".
+	// +kubebuilder:default=OnDelete
 	// +optional
 	Type StrategyType `json:"type,omitempty"`
 

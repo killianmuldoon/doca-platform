@@ -208,10 +208,10 @@ spec:
                         x-kubernetes-int-or-string: true
                     type: object
                   type:
-                    default: Recreate
-                    description: Can be "Recreate" or "RollingUpdate".
+                    default: OnDelete
+                    description: Can be "OnDelete" or "RollingUpdate".
                     enum:
-                    - Recreate
+                    - OnDelete
                     - RollingUpdate
                     type: string
                 type: object
