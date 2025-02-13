@@ -17,7 +17,6 @@ limitations under the License.
 package main
 
 import (
-	"crypto/tls"
 	"os"
 	"time"
 
@@ -39,10 +38,10 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
-	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
 
 var (
@@ -67,11 +66,11 @@ var (
 	enableLeaderElection     bool
 	probeAddr                string
 	insecureMetrics          bool
-	enableHTTP2              bool
 	configSingletonNamespace string
 	configSingletonName      string
 	syncPeriod               time.Duration
 	logOptions               = logs.NewOptions()
+	concurrency              int
 )
 
 func initFlags(fs *pflag.FlagSet) {
@@ -82,14 +81,14 @@ func initFlags(fs *pflag.FlagSet) {
 			"Enabling this will ensure there is only one active controller manager.")
 	fs.BoolVar(&insecureMetrics, "insecure-metrics", false,
 		"If set the metrics endpoint is served insecure without AuthN/AuthZ.")
-	fs.BoolVar(&enableHTTP2, "enable-http2", false,
-		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
 	fs.StringVar(&configSingletonNamespace, "config-namespace",
 		operatorcontroller.DefaultDPFOperatorConfigSingletonNamespace, "The namespace of the DPFOperatorConfig the operator will reconcile")
 	fs.StringVar(&configSingletonName, "config-name",
 		operatorcontroller.DefaultDPFOperatorConfigSingletonName, "The name of the DPFOperatorConfig the operator will reconcile")
 	fs.DurationVar(&syncPeriod, "sync-period", 10*time.Minute,
 		"The minimum interval at which watched resources are reconciled.")
+	fs.IntVar(&concurrency, "concurrency", 1,
+		"Number of objects to process simultaneously by each controller.")
 	logsv1.AddFlags(logOptions, fs)
 
 }
@@ -107,25 +106,7 @@ func main() {
 		os.Exit(1)
 	}
 	ctrl.SetLogger(klog.Background())
-	// if the enable-http2 flag is false (the default), http/2 should be disabled
-	// due to its vulnerabilities. More specifically, disabling http/2 will
-	// prevent from being vulnerable to the HTTP/2 Stream Cancelation and
-	// Rapid Reset CVEs. For more information see:
-	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
-	// - https://github.com/advisories/GHSA-4374-p667-p6c8
-	disableHTTP2 := func(c *tls.Config) {
-		setupLog.Info("disabling http/2")
-		c.NextProtos = []string{"http/1.1"}
-	}
 
-	tlsOpts := []func(*tls.Config){}
-	if !enableHTTP2 {
-		tlsOpts = append(tlsOpts, disableHTTP2)
-	}
-
-	webhookServer := webhook.NewServer(webhook.Options{
-		TLSOpts: tlsOpts,
-	})
 	metricsOpts := metricsserver.Options{
 		BindAddress:    metricsAddr,
 		SecureServing:  true,
@@ -139,10 +120,12 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsOpts,
-		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		Cache: cache.Options{
 			SyncPeriod: &syncPeriod,
+		},
+		Controller: config.Controller{
+			MaxConcurrentReconciles: concurrency,
 		},
 		LeaderElection:   enableLeaderElection,
 		LeaderElectionID: "8a3114c5.dpu.nvidia.com",

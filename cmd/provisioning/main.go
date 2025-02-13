@@ -48,6 +48,7 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"sigs.k8s.io/controller-runtime/pkg/config"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
@@ -95,7 +96,7 @@ func main() {
 	var dpuInstallInterface string
 	var bfCFGTemplateFile string
 	var bfbRegistry string
-
+	var concurrency int
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
 	fs.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -114,6 +115,7 @@ func main() {
 	fs.DurationVar(&dmsPodTimeout, "dms-pod-timeout", 5*time.Minute, "Timeout for DMS pods")
 	fs.DurationVar(&bfbdownloaderPodTimeout, "bfbdownloader-pod-timeout", 5*time.Minute, "Timeout for BFBDownloader pods")
 	fs.DurationVar(&syncPeriod, "sync-period", 10*time.Minute, "The minimum interval at which watched resources are reconciled.")
+	fs.IntVar(&concurrency, "concurrency", 1, "Number of objects to process simultaneously by each controller.")
 	fs.StringVar(&dpuInstallInterface, "dpu-install-interface", string(provisioningv1.InstallViaHost), "the interface used to provision DPUs")
 	fs.StringVar(&bfCFGTemplateFile, "bf-cfg-template-file", "", "A custom bf.cfg template used as part of DPU provisioning.")
 	fs.StringVar(&bfbRegistry, "bfb-registry", "", "hostname of the BFB registry from which BFBs are downloaded")
@@ -164,6 +166,9 @@ func main() {
 		HealthProbeBindAddress: probeAddr,
 		Cache: cache.Options{
 			SyncPeriod: &syncPeriod,
+		},
+		Controller: config.Controller{
+			MaxConcurrentReconciles: concurrency,
 		},
 		LeaderElection:   enableLeaderElection,
 		LeaderElectionID: "19f9f38b.nvidia.com",
