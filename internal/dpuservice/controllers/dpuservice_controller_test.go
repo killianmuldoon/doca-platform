@@ -389,6 +389,11 @@ func assertDPUServiceCondition(g Gomega, testClient client.Client, dpuServices [
 				HaveField("Status", metav1.ConditionTrue),
 				HaveField("Reason", string(conditions.ReasonSuccess)),
 			),
+			And(
+				HaveField("Type", string(dpuservicev1.ConditionConfigPortsReconciled)),
+				HaveField("Status", metav1.ConditionTrue),
+				HaveField("Reason", string(conditions.ReasonSuccess)),
+			),
 		))
 	}
 }

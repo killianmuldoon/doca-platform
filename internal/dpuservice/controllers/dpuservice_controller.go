@@ -424,6 +424,27 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	}
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationsReconciled)
 
+	if dpuService.Spec.ConfigPorts != nil {
+		if err := r.reconcileConfigPorts(ctx, dpuService, dpuClusterConfigs); err != nil {
+			message := fmt.Sprintf("Unable to reconcile Config Ports: %v", err)
+			conditions.AddFalse(
+				dpuService,
+				dpuservicev1.ConditionConfigPortsReconciled,
+				conditions.ReasonError,
+				conditions.ConditionMessage(message),
+			)
+			return err
+		}
+	}
+	conditions.AddTrue(dpuService, dpuservicev1.ConditionConfigPortsReconciled)
+
+	return nil
+}
+
+func (r *DPUServiceReconciler) reconcileConfigPorts(_ context.Context, dpuService *dpuservicev1.DPUService, _ []*dpucluster.Config) error {
+	// Not implemented.
+	conditions.AddTrue(dpuService, dpuservicev1.ConditionConfigPortsReconciled)
+
 	return nil
 }
 

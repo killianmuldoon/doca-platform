@@ -2161,6 +2161,50 @@ _Appears in:_
 | `ipam` _[BridgedNetworkIPAMSpec](#bridgednetworkipamspec)_ | IPAM contains the IPAM configuration for the bridged network |  |  |
 
 
+#### ConfigPort
+
+
+
+ConfigPort defines the configuration of a single port within a DPUService.
+Each port must have a unique name within the service.
+
+
+
+_Appears in:_
+- [ConfigPorts](#configports)
+- [DPUServiceStatus](#dpuservicestatus)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `name` _string_ | Name is a unique identifier for the port within the DPUService.<br />This name is used for reference inside the service. |  | MinLength: 1 <br />Pattern: `^[a-z0-9-]+$` <br /> |
+| `port` _integer_ | Port is the port number that will be exposed by the service.<br />Must be within the valid range of TCP/UDP ports (1-65535). |  |  |
+| `protocol` _[Protocol](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#protocol-v1-core)_ | Protocol specifies the transport protocol used by the port.<br />Supported values: TCP, UDP |  | Enum: [TCP UDP] <br /> |
+| `nodePort` _integer_ | NodePort is the external port assigned on each node in the cluster.<br />If not set, Kubernetes will automatically allocate a NodePort.<br /><br />Constraints:<br />- Can only be set when ServiceType is "NodePort".<br />- Must be within the clusters valid NodePort range (Kubernetes default is 30000-32767). |  |  |
+
+
+#### ConfigPorts
+
+
+
+ConfigPorts defines the desired state of port configurations for a DPUService.
+This struct determines how ports are exposed from the DPU to the host cluster.
+A DPUService can only have a single ServiceType across all ports.
+
+
+Validation:
+- If any port has a NodePort assigned, ServiceType **must** be "NodePort".
+
+
+
+_Appears in:_
+- [DPUServiceSpec](#dpuservicespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `serviceType` _[ServiceType](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#servicetype-v1-core)_ | ServiceType specifies the type of Kubernetes Service to create.<br />All ports within this ConfigPorts will have the same ServiceType.<br />The value is immutable and cannot be changed after creation.<br />Supported values:<br />- "NodePort": Exposes ports externally on a node.<br />- "None": Internal-only service with no cluster IP.<br />Default: "NodePort" | NodePort | Enum: [NodePort None] <br /> |
+| `ports` _[ConfigPort](#configport) array_ | Ports defines the list of port configurations that will be exposed by the DPUService.<br />Each port must specify a name, port number, and protocol.<br /><br />Constraints:<br />- If ServiceType is "NodePort", ports may optionally specify a NodePort.<br />- If ServiceType is "None", ports **cannot** specify a NodePort. |  |  |
+
+
 #### DPUDeployment
 
 
@@ -2751,6 +2795,7 @@ _Appears in:_
 | `deployInCluster` _boolean_ | DeployInCluster indicates if the DPUService Helm Chart will be deployed on<br />the Host cluster. Default to false. |  |  |
 | `interfaces` _string array_ | Interfaces specifies the DPUServiceInterface names that the DPUService<br />uses in the same namespace. |  | MaxItems: 50 <br />MinItems: 1 <br /> |
 | `paused` _boolean_ | Paused indicates that the DPUService is paused.<br />Underlying resources are also paused when this is set to true.<br />No deletion of resources will occur when this is set to true. |  |  |
+| `configPorts` _[ConfigPorts](#configports)_ | ConfigPorts defines the desired state of port configurations for a DPUService.<br />This struct determines how ports are exposed from the DPU to the host cluster.<br />A DPUService can only have a single ServiceType across all ports. |  |  |
 
 
 #### DPUServiceStatus
@@ -2768,6 +2813,7 @@ _Appears in:_
 | --- | --- | --- | --- |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | Conditions defines current service state. |  |  |
 | `observedGeneration` _integer_ | ObservedGeneration records the Generation observed on the object the last time it was patched. |  |  |
+| `configPorts` _object (keys:string, values:[ConfigPort](#configport))_ | ConfigPorts defines the observed state of the config ports.<br />It contains the actual port numbers that are exposed on the DPUService per cluster. |  |  |
 
 
 #### DPUServiceTemplate

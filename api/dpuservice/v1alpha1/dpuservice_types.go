@@ -66,20 +66,23 @@ const (
 	// ConditionApplicationsReconciled is the condition type that indicates that the
 	// applications are reconciled.
 	ConditionApplicationsReconciled conditions.ConditionType = "ApplicationsReconciled"
+	// ConditionConfigPortsReconciled is the condition type that indicates that the
+	// applications config ports are reconciled.
+	ConditionConfigPortsReconciled conditions.ConditionType = "ConfigPortsReconciled"
 	// ConditionApplicationsReady is the condition type that indicates that the
 	// applications are ready.
 	ConditionApplicationsReady conditions.ConditionType = "ApplicationsReady"
 )
 
 var (
-	// DPUServiceConditions is the list of conditions that the DPUService
-	// can have.
+	// Conditions is the list of conditions that the DPUService can have.
 	Conditions = []conditions.ConditionType{
 		conditions.TypeReady,
 		ConditionApplicationPrereqsReconciled,
 		ConditionApplicationsReconciled,
 		ConditionApplicationsReady,
 		ConditionDPUServiceInterfaceReconciled,
+		ConditionConfigPortsReconciled,
 	}
 )
 
@@ -143,6 +146,81 @@ type DPUServiceSpec struct {
 	// No deletion of resources will occur when this is set to true.
 	// +optional
 	Paused *bool `json:"paused,omitempty"`
+
+	// ConfigPorts defines the desired state of port configurations for a DPUService.
+	// This struct determines how ports are exposed from the DPU to the host cluster.
+	// A DPUService can only have a single ServiceType across all ports.
+	// +optional
+	ConfigPorts *ConfigPorts `json:"configPorts,omitempty"`
+}
+
+// ConfigPorts defines the desired state of port configurations for a DPUService.
+// This struct determines how ports are exposed from the DPU to the host cluster.
+// A DPUService can only have a single ServiceType across all ports.
+//
+// Validation:
+// - If any port has a NodePort assigned, ServiceType **must** be "NodePort".
+//
+// +kubebuilder:validation:XValidation:rule="!(self.serviceType != 'NodePort' && self.ports.exists(p, has(p.nodePort)))",message="nodePort can only be set when serviceType is NodePort"
+type ConfigPorts struct {
+	// ServiceType specifies the type of Kubernetes Service to create.
+	// All ports within this ConfigPorts will have the same ServiceType.
+	// The value is immutable and cannot be changed after creation.
+	// Supported values:
+	// - "NodePort": Exposes ports externally on a node.
+	// - "None": Internal-only service with no cluster IP.
+	// Default: "NodePort"
+	//
+	// +required
+	// +kubebuilder:validation:Enum=NodePort;None
+	// +kubebuilder:default:=NodePort
+	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
+	ServiceType corev1.ServiceType `json:"serviceType"`
+
+	// Ports defines the list of port configurations that will be exposed by the DPUService.
+	// Each port must specify a name, port number, and protocol.
+	//
+	// Constraints:
+	// - If ServiceType is "NodePort", ports may optionally specify a NodePort.
+	// - If ServiceType is "None", ports **cannot** specify a NodePort.
+	//
+	// +required
+	Ports []ConfigPort `json:"ports"`
+}
+
+// ConfigPort defines the configuration of a single port within a DPUService.
+// Each port must have a unique name within the service.
+type ConfigPort struct {
+	// Name is a unique identifier for the port within the DPUService.
+	// This name is used for reference inside the service.
+	//
+	// +required
+	// +kubebuilder:validation:MinLength=1
+	// +kubebuilder:validation:Pattern=`^[a-z0-9-]+$`
+	Name string `json:"name"`
+
+	// Port is the port number that will be exposed by the service.
+	// Must be within the valid range of TCP/UDP ports (1-65535).
+	//
+	// +required
+	Port uint16 `json:"port"`
+
+	// Protocol specifies the transport protocol used by the port.
+	// Supported values: TCP, UDP
+	//
+	// +required
+	// +kubebuilder:validation:Enum=TCP;UDP
+	Protocol corev1.Protocol `json:"protocol"`
+
+	// NodePort is the external port assigned on each node in the cluster.
+	// If not set, Kubernetes will automatically allocate a NodePort.
+	//
+	// Constraints:
+	// - Can only be set when ServiceType is "NodePort".
+	// - Must be within the clusters valid NodePort range (Kubernetes default is 30000-32767).
+	//
+	// +optional
+	NodePort *uint16 `json:"nodePort,omitempty"`
 }
 
 // SetServiceDeamonSetNodeSelector sets the nodeSelector for the ServiceDaemonSet.
@@ -226,6 +304,11 @@ type DPUServiceStatus struct {
 	// ObservedGeneration records the Generation observed on the object the last time it was patched.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// ConfigPorts defines the observed state of the config ports.
+	// It contains the actual port numbers that are exposed on the DPUService per cluster.
+	// +optional
+	ConfigPorts map[string][]ConfigPort `json:"configPorts,omitempty"`
 }
 
 // +kubebuilder:object:root=true
