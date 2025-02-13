@@ -188,7 +188,7 @@ grpc-format: buf  ## Format GRPC files
 ##@ Development
 GENERATE_TARGETS ?= dpuservice provisioning servicechainset sfc-controller operator \
 	operator-embedded release-defaults kamaji-cluster-manager static-cluster-manager \
-	ovn-kubernetes storage-snap mock-dms
+	ovn-kubernetes storage-snap mock-dms ovn-vpc
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
@@ -327,6 +327,14 @@ generate-manifests-static-cluster-manager: controller-gen kustomize ## Generate 
 	paths="./internal/clustermanager/static/..." \
 	rbac:roleName=manager-role \
 	output:rbac:dir=./config/static-cluster-manager/rbac
+
+.PHONY: generate-manifests-ovn-vpc
+generate-manifests-ovn-vpc: controller-gen kustomize ## Generate manifests e.g. CRD, RBAC for OVN VPC controller
+	$(CONTROLLER_GEN) \
+	paths="./cmd/vpc/ovn/..." \
+	paths="./internal/vpc/ovn/controllers/..." \
+	rbac:roleName=manager-role \
+	output:rbac:dir=./config/vpc/ovn/rbac
 
 .PHONY: generate-manifests-ovn-kubernetes
 generate-manifests-ovn-kubernetes: $(OVNKUBERNETES_DIR) envsubst ## Generate manifests for ovn-kubernetes
@@ -549,8 +557,10 @@ GO_LDFLAGS ?= "-extldflags '-static'"
 STORAGE_SNAP_CSI_DRIVER_GO_LDFLAGS ?= "$(shell echo $(GO_LDFLAGS)) -X github.com/nvidia/doca-platform/internal/storage/snap/csi-plugin/common.VendorVersion=$(TAG)"
 
 BUILD_TARGETS ?= $(DPU_ARCH_BUILD_TARGETS)
-DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager sfc-controller ovs-helper snap-controller dpfctl dpfctl-darwin
+DPF_SYSTEM_BUILD_TARGETS ?= operator provisioning dpuservice servicechainset kamaji-cluster-manager static-cluster-manager \
+	sfc-controller ovs-helper snap-controller dpfctl dpfctl-darwin
 DPU_ARCH_BUILD_TARGETS ?= storage-snap-node-driver storage-vendor-dpu-plugin
+VPC_SYSTEM_BUILD_TARGETS ?= ovn-vpc-controller
 BUILD_IMAGE ?= docker.io/library/golang:$(GO_VERSION)
 
 HOST_ARCH = amd64
@@ -566,6 +576,9 @@ binaries: $(addprefix binary-,$(BUILD_TARGETS)) ## Build all binaries
 
 .PHONY: binaries-dpf-system
 binaries-dpf-system: $(addprefix binary-,$(DPF_SYSTEM_BUILD_TARGETS)) ## Build binaries for the dpf-system image.
+
+.PHONY: binaries-vpc-system
+binaries-vpc-system: $(addprefix binary-,$(VPC_SYSTEM_BUILD_TARGETS)) ## Build binaries for the vpc-system image.
 
 .PHONY: binary-operator
 binary-operator: ## Build the operator controller binary.
@@ -633,6 +646,11 @@ binary-snap-csi-plugin: ## Build the snap-csi-plugin binary.
 		-ldflags=$(STORAGE_SNAP_CSI_DRIVER_GO_LDFLAGS) \
 		-gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/snap-csi-plugin github.com/nvidia/doca-platform/cmd/storage/snap-csi-plugin
 
+.PHONY: binary-ovn-vpc-controller
+binary-ovn-vpc-controller: ## Build ovn vpc-controller binary.
+	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build \
+	-ldflags=$(GO_LDFLAGS) -gcflags=$(GO_GCFLAGS) -trimpath -o $(LOCALBIN)/ovn-vpc-controller github.com/nvidia/doca-platform/cmd/vpc/ovn/vpc-controller
+
 .PHONY: binary-dpfctl
 binary-dpfctl: ## Build the dpfctl binary.
 	CGO_ENABLED=0 GOOS=$(OS) GOARCH=$(ARCH) go build \
@@ -652,7 +670,7 @@ install-dpfctl: binary-dpfctl ## Install the dpfctl binary.
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=hostdriver
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
-MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools snap-csi-plugin snap-controller mock-dms
+MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools snap-csi-plugin snap-controller mock-dms vpc-system
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
@@ -700,7 +718,11 @@ export STORAGE_VENDOR_DPU_PLUGIN_IMAGE ?= $(REGISTRY)/$(STORAGE_VENDOR_DPU_PLUGI
 STORAGE_SNAP_CSI_DRIVER_IMAGE_NAME = snap-csi-plugin
 export STORAGE_SNAP_CSI_DRIVER_IMAGE ?= $(REGISTRY)/$(STORAGE_SNAP_CSI_DRIVER_IMAGE_NAME)
 
+VPC_SYSTEM_IMAGE_NAME = vpc-system
+export VPC_SYSTEM_IMAGE ?= $(REGISTRY)/$(VPC_SYSTEM_IMAGE_NAME)
+
 DPF_SYSTEM_ARCH ?= $(HOST_ARCH) $(DPU_ARCH)
+
 .PHONY: docker-build-dpf-system # Build a multi-arch image for DPF System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
 docker-build-dpf-system: $(addprefix docker-build-dpf-system-for-,$(DPF_SYSTEM_ARCH))
 
@@ -1043,6 +1065,44 @@ docker-push-snap-csi-plugin-for-%:
 docker-create-manifest-for-snap-csi-plugin:
 	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
 	docker manifest create --amend $(STORAGE_SNAP_CSI_DRIVER_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(STORAGE_SNAP_CSI_DRIVER_IMAGE):$(TAG))
+
+.PHONY: docker-build-vpc-system # Build a multi-arch image for vpc System. The variable DPF_SYSTEM_ARCH defines which architectures this target builds for.
+docker-build-vpc-system: $(addprefix docker-build-vpc-system-for-,$(DPF_SYSTEM_ARCH))
+
+docker-build-vpc-system-for-%:
+	# Provenance false ensures this target builds an image rather than a manifest when using buildx.
+	docker buildx build \
+		--load \
+		--label=org.opencontainers.image.created=$(DATE) \
+		--label=org.opencontainers.image.name=$(PROJECT_NAME) \
+		--label=org.opencontainers.image.revision=$(FULL_COMMIT) \
+		--label=org.opencontainers.image.version=$(TAG) \
+		--label=org.opencontainers.image.source=$(PROJECT_REPO) \
+		--provenance=false \
+		--platform=linux/$* \
+		--build-arg builder_image=$(BUILD_IMAGE) \
+		--build-arg base_image=$(BASE_IMAGE) \
+		--build-arg ldflags=$(GO_LDFLAGS) \
+		--build-arg gcflags=$(GO_GCFLAGS) \
+		--build-arg TAG=$(TAG) \
+		-f Dockerfile.vpc-system \
+		. \
+		-t $(VPC_SYSTEM_IMAGE):$(TAG)-$*
+
+.PHONY: docker-push-vpc-system # Push a multi-arch image for VPC System using `docker manifest`. The variable DPF_SYSTEM_ARCH defines which architectures this target pushes for.
+docker-push-vpc-system: $(addprefix docker-push-vpc-system-for-,$(DPF_SYSTEM_ARCH))
+	docker manifest push --purge $(VPC_SYSTEM_IMAGE):$(TAG)
+
+docker-push-vpc-system-for-%:
+	# Tag and push the arch-specific image with the single arch-agnostic tag.
+	docker tag $(VPC_SYSTEM_IMAGE):$(TAG)-$* $(VPC_SYSTEM_IMAGE):$(TAG)
+	docker push $(VPC_SYSTEM_IMAGE):$(TAG)
+	# This must be called in a separate target to ensure the shell command is called in the correct order.
+	$(MAKE) docker-create-manifest-for-vpc-system
+
+docker-create-manifest-for-vpc-system:
+	# Note: If you tag an image with multiple registries this push might fail. This can be fixed by pruning existing docker images.
+	docker manifest create --amend $(VPC_SYSTEM_IMAGE):$(TAG) $(shell docker inspect --format='{{index .RepoDigests 0}}' $(VPC_SYSTEM_IMAGE):$(TAG))
 
 .PHONY: docker-push-all
 docker-push-all: $(addprefix docker-push-,$(DOCKER_BUILD_TARGETS))  ## Push the docker images for all DOCKER_BUILD_TARGETS.
