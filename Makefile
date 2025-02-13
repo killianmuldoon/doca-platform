@@ -567,8 +567,7 @@ HOST_ARCH = amd64
 DPU_ARCH = arm64
 
 # Use distroless as minimal base image to package the manager binary
-# Refer to https://github.com/GoogleContainerTools/distroless for more details
-BASE_IMAGE = gcr.io/distroless/base:nonroot
+BASE_IMAGE = nvcr.io/nvidia/doca/dpf_containers:1.0.2-ubuntu22.04-distroless
 ALPINE_IMAGE = alpine:3.19
 
 .PHONY: binaries
