@@ -33,11 +33,12 @@ import (
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu"
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
+	"github.com/nvidia/doca-platform/test/mock/dms/pkg/config"
 	dmsserver "github.com/nvidia/doca-platform/test/mock/dms/pkg/server"
 
-	nvidiaNodeMaintenancev1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
@@ -74,7 +75,7 @@ func TestMain(m *testing.M) {
 		BinaryAssetsDirectory: filepath.Join("..", "..", "..", "hack", "tools", "bin", "k8s",
 			fmt.Sprintf("1.29.0-%s-%s", runtime.GOOS, runtime.GOARCH)),
 	}
-
+	ctrl.SetLogger(klog.Background())
 	var err error
 
 	s := scheme.Scheme
@@ -83,9 +84,6 @@ func TestMain(m *testing.M) {
 		panic(fmt.Sprintf("Failed to add provisioningv1 scheme: %v", err))
 	}
 
-	if err := nvidiaNodeMaintenancev1.AddToScheme(s); err != nil {
-		panic(fmt.Sprintf("Failed to add nvidiaNodeMaintenancev1 scheme: %v", err))
-	}
 	// cfg is defined in this file globally in this package. This allows the resource collector to use this
 	// config when it runs.
 	cfg, err = testEnv.Start()
@@ -143,7 +141,7 @@ func TestMain(m *testing.M) {
 	dmsServerReconciler := DMSServerReconciler{
 		Client:  testClient,
 		PodName: dmsServerPodName,
-		Server:  dmsserver.NewDMSServerMux(20000, 22000, "127.0.0.1", cert, key),
+		Server:  dmsserver.NewDMSServerMux(20000, 22000, "127.0.0.1", cert, key, config.Config{}),
 	}
 	if err := dmsServerReconciler.SetupWithManager(testManager); err != nil {
 		panic(fmt.Sprintf("Failed to setup DMSServer reconciler: %v", err))

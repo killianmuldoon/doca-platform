@@ -6,8 +6,7 @@ metadata:
     app.kubernetes.io/part-of: mock-dms
   name: mock-dms-serving-cert
 spec:
-  ipAddresses:
-  {{ .Values.certIPAddresses }}
+  ipAddresses: {{ .Values.certIPAddresses }}
   issuerRef:
     kind: Issuer
     name: dpf-provisioning-issuer

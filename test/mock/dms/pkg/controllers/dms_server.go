@@ -50,7 +50,8 @@ type DMSServerReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=patch;update;delete;create
 
 func (r *DMSServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
-	log := ctrllog.FromContext(ctx)
+	log := ctrllog.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
+	ctrllog.IntoContext(ctx, log)
 	log.Info("Reconciling")
 	dpu := &provisioningv1.DPU{}
 	if err := r.Client.Get(ctx, req.NamespacedName, dpu); err != nil {

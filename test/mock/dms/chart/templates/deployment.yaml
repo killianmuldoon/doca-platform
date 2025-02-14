@@ -19,6 +19,9 @@ spec:
     spec:
       hostNetwork: true
       volumes:
+        - name: config
+          configMap:
+            name: mock-dms
         - name: certs
           secret:
             defaultMode: 420
@@ -31,6 +34,7 @@ spec:
       - command:
         - /manager
         - --leader-elect
+        - --config=/etc/config/config.yaml
         env:
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
@@ -49,6 +53,8 @@ spec:
           periodSeconds: 20
         name: manager
         volumeMounts:
+          - name: config
+            mountPath: /etc/config
           - mountPath: /mock-dms-serving-certs
             name: certs
             readOnly: true

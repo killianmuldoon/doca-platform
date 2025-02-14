@@ -24,6 +24,7 @@ import (
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/test/mock/dms/pkg/certs"
+	"github.com/nvidia/doca-platform/test/mock/dms/pkg/config"
 	dpu "github.com/nvidia/doca-platform/test/mock/dms/pkg/controllers"
 	dmsserver "github.com/nvidia/doca-platform/test/mock/dms/pkg/server"
 
@@ -40,6 +41,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/metrics/filters"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"sigs.k8s.io/yaml"
 )
 
 const downwardAPIPodName = "POD_NAME"
@@ -52,7 +54,6 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(clientgoscheme.Scheme))
-
 	utilruntime.Must(provisioningv1.AddToScheme(clientgoscheme.Scheme))
 	// +kubebuilder:scaffold:scheme
 }
@@ -72,6 +73,7 @@ func main() {
 	var syncPeriod time.Duration
 	var hostIP string
 	var certificatePath string
+	var configPath string
 
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":35000", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":35001", "The address the probe endpoint binds to.")
@@ -87,6 +89,7 @@ func main() {
 	fs.StringVar(&hostIP, "host-ip", "0.0.0.0", "The IP on which the server will listen.")
 
 	fs.StringVar(&certificatePath, "certificate-path", "/mock-dms-serving-certs/", "The directory containing the server 'tls.cert' cert and 'tls.key' private key.")
+	fs.StringVar(&configPath, "config", "/etc/config/config.yaml", "The directory containing the configmap with the configuration for the server")
 
 	logsv1.AddFlags(logOptions, fs)
 
@@ -174,11 +177,16 @@ func main() {
 		setupLog.Error(err, "unable to get server certificate")
 		os.Exit(1)
 	}
+	conf, err := getConfig(configPath)
+	if err != nil {
+		setupLog.Error(err, "unable to get config")
+		os.Exit(1)
+	}
 	if err = (&dpu.DMSServerReconciler{
 		Client:  mgr.GetClient(),
 		PodName: podName,
 		// TODO: Fix certificate handling here.
-		Server: dmsserver.NewDMSServerMux(30000, 32000, hostIP, cert, key),
+		Server: dmsserver.NewDMSServerMux(30000, 32000, hostIP, cert, key, *conf),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller")
 		os.Exit(1)
@@ -200,4 +208,16 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func getConfig(configPath string) (*config.Config, error) {
+	conf := &config.Config{}
+	file, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, err
+	}
+	if err := yaml.Unmarshal(file, conf); err != nil {
+		return nil, err
+	}
+	return conf, nil
 }

@@ -23,21 +23,33 @@ import (
 	"crypto/x509"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"sync"
+	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	"github.com/nvidia/doca-platform/test/mock/dms/pkg/certs"
+	"github.com/nvidia/doca-platform/test/mock/dms/pkg/config"
 
 	"github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/gnoi/os"
 	"github.com/openconfig/gnoi/system"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/peer"
+	"k8s.io/klog/v2"
 )
 
-func NewDMSServerMux(minPort, maxPort int, ip string, cert *x509.Certificate, key *rsa.PrivateKey) *DMSServerMux {
+const (
+	setCallName      = "set"
+	activateCallName = "activate"
+	installCallName  = "install"
+	rebootCallName   = "reboot"
+)
+
+func NewDMSServerMux(minPort, maxPort int, ip string, cert *x509.Certificate, key *rsa.PrivateKey, config config.Config) *DMSServerMux {
 	tlsCert, err := tls.X509KeyPair(certs.EncodeCertPEM(cert), certs.EncodePrivateKeyPEM(key))
 	if err != nil {
 		panic("Failed to create key pair")
@@ -61,17 +73,31 @@ func NewDMSServerMux(minPort, maxPort int, ip string, cert *x509.Certificate, ke
 		mostRecentAllocatedPort: minPort,
 		ipAddress:               ip,
 		listenerForDPU:          map[string]net.Listener{},
-		dpuForPort:              map[string]string{},
+		configForPort:           map[string]dpuResponseConfig{},
 		lock:                    sync.RWMutex{},
+		config:                  config,
 	}
-	gnmi.RegisterGNMIServer(d.Server, &GNMIServer{})
-	os.RegisterOSServer(d.Server, &GNOIServer{})
-	system.RegisterSystemServer(d.Server, &GNOIServer{})
+	gnmi.RegisterGNMIServer(d.Server, d)
+	os.RegisterOSServer(d.Server, d)
+	system.RegisterSystemServer(d.Server, d)
 	return d
 }
 
+type dpuResponseConfig struct {
+	responseConfigs  map[string]responseConfig
+	dpuNamespaceName string
+}
+type responseConfig struct {
+	delay     time.Duration
+	errorRate float64
+}
+
 type DMSServerMux struct {
+	os.UnimplementedOSServer
+	system.UnimplementedSystemServer
+	gnmi.UnimplementedGNMIServer
 	*grpc.Server
+	config config.Config
 	// minPort is the highest port number the DMSServerMux can use when creating listeners.
 	minPort int // Minimum port number for use when creating listener instances.
 	// maxPort is the highest port number the DMSServerMux can use when creating listeners.
@@ -82,8 +108,8 @@ type DMSServerMux struct {
 	ipAddress string // IP address to bind listener instances too.
 	// listenerForDPU maps the DPU namespace name to its Listener.
 	listenerForDPU map[string]net.Listener
-	// dpuForPort maps port numbers to the DPUs they act as DMS servers for.
-	dpuForPort map[string]string
+	// configForPort maps port numbers to the DPUs they act as DMS servers for.
+	configForPort map[string]dpuResponseConfig
 
 	lock sync.RWMutex
 }
@@ -96,7 +122,7 @@ func (d *DMSServerMux) EnsureListenerForDPU(dpu *provisioningv1.DPU) error {
 	defer d.lock.Unlock()
 
 	// If we already have a lister for this DPU return early.
-	// TODO: Should we check if this listener is working?
+	// TODO: Should we check if this listener is working for re-entrancy?
 	if _, ok := d.listenerForDPU[fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)]; ok {
 		return nil
 	}
@@ -104,8 +130,7 @@ func (d *DMSServerMux) EnsureListenerForDPU(dpu *provisioningv1.DPU) error {
 	if err != nil {
 		return err
 	}
-	address := fmt.Sprintf("%s:%s", d.ipAddress, port)
-	listener, err := d.newListenerForDPU(dpu, address)
+	listener, err := d.newListenerForDPU(dpu, d.ipAddress, port)
 	if err != nil {
 		return err
 	}
@@ -130,7 +155,7 @@ func (d *DMSServerMux) allocatePort(dpu *provisioningv1.DPU) (string, error) {
 	allocatedPort := 0
 	for port := d.mostRecentAllocatedPort + 1; port <= d.maxPort; port++ {
 		// If the port is already allocated continue.
-		if _, ok := d.dpuForPort[fmt.Sprintf("%d", port)]; ok {
+		if _, ok := d.configForPort[fmt.Sprintf("%d", port)]; ok {
 			continue
 		}
 		allocatedPort = port
@@ -147,46 +172,156 @@ func (d *DMSServerMux) allocatePort(dpu *provisioningv1.DPU) (string, error) {
 }
 
 // newListenerForDPU adds a new fake DMS listener to the DMSServerMux.
-func (d *DMSServerMux) newListenerForDPU(dpu *provisioningv1.DPU, address string) (net.Listener, error) {
+func (d *DMSServerMux) newListenerForDPU(dpu *provisioningv1.DPU, address, port string) (net.Listener, error) {
 	// If there is already a healthy listener return it.
 	if l, ok := d.listenerForDPU[fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name)]; ok {
 		return l, nil
 	}
-	listener, err := net.Listen("tcp", address)
+	conf := dpuResponseConfig{
+		responseConfigs: map[string]responseConfig{
+			setCallName: {
+				delay:     delayWithJitter(d.config.Set.MeanDelaySeconds, d.config.Set.DelayJitter),
+				errorRate: d.config.Set.ErrorRate,
+			},
+			activateCallName: {
+				delay:     delayWithJitter(d.config.Activate.MeanDelaySeconds, d.config.Activate.DelayJitter),
+				errorRate: d.config.Activate.ErrorRate,
+			},
+			installCallName: {
+				delay:     delayWithJitter(d.config.Install.MeanDelaySeconds, d.config.Install.DelayJitter),
+				errorRate: d.config.Install.ErrorRate,
+			},
+			rebootCallName: {
+				delay:     delayWithJitter(d.config.Reboot.MeanDelaySeconds, d.config.Reboot.DelayJitter),
+				errorRate: d.config.Reboot.ErrorRate,
+			},
+		},
+		dpuNamespaceName: fmt.Sprintf("%s/%s", dpu.Namespace, dpu.Name),
+	}
+	d.configForPort[port] = conf
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%s", address, port))
 	if err != nil {
 		return nil, err
 	}
 	return listener, nil
 }
 
-type GNOIServer struct {
-	os.UnimplementedOSServer
-	system.UnimplementedSystemServer
-}
+func (d *DMSServerMux) RebootStatus(ctx context.Context, req *system.RebootStatusRequest) (*system.RebootStatusResponse, error) {
+	dpu, conf, err := d.configForRequest(ctx, rebootCallName)
+	if err != nil {
+		return nil, err
+	}
+	logger := klog.LoggerWithValues(klog.Background(), "api", rebootCallName, "dpu", dpu)
+	logger.Info("Calling")
+	if rand.Float64() < conf.errorRate {
+		logger.Info("returning error")
+		return &system.RebootStatusResponse{
+			Status: &system.RebootStatus{
+				Status: system.RebootStatus_STATUS_FAILURE,
+			},
+		}, fmt.Errorf("error during activation")
+	}
+	logger.Info(fmt.Sprintf("waiting %f seconds ", conf.delay.Seconds()))
+	time.Sleep(conf.delay)
 
-func (s *GNOIServer) RebootStatus(context.Context, *system.RebootStatusRequest) (*system.RebootStatusResponse, error) {
-	log.Printf("Reboot status called")
 	return &system.RebootStatusResponse{Active: false, Status: &system.RebootStatus{Status: system.RebootStatus_STATUS_SUCCESS}}, nil
 }
-func (s *GNOIServer) Install(req os.OS_InstallServer) error {
-	log.Printf("Install called")
+func (d *DMSServerMux) Install(req os.OS_InstallServer) error {
+	dpu, conf, err := d.configForRequest(req.Context(), installCallName)
+	if err != nil {
+		return err
+	}
+	logger := klog.LoggerWithValues(klog.Background(), "api", installCallName, "dpu", dpu)
+	logger.Info("Calling")
+	if rand.Float64() < conf.errorRate {
+		logger.Info("returning error")
+		return req.Send(&os.InstallResponse{Response: &os.InstallResponse_InstallError{
+			InstallError: &os.InstallError{
+				Type:   os.InstallError_INCOMPATIBLE,
+				Detail: "install failed due to failure rate",
+			},
+		}})
+	}
+	logger.Info(fmt.Sprintf("waiting %f seconds ", conf.delay.Seconds()))
+	time.Sleep(conf.delay)
+
 	return req.Send(&os.InstallResponse{Response: &os.InstallResponse_Validated{
 		Validated: &os.Validated{
 			Version: "one",
-		},
-	}})
+		}}})
 }
 
-func (s *GNOIServer) Activate(context.Context, *os.ActivateRequest) (*os.ActivateResponse, error) {
-	log.Printf("Activate called")
+func (d *DMSServerMux) Activate(ctx context.Context, req *os.ActivateRequest) (*os.ActivateResponse, error) {
+	dpu, conf, err := d.configForRequest(ctx, activateCallName)
+	if err != nil {
+		return nil, err
+	}
+	logger := klog.LoggerWithValues(klog.Background(), "api", activateCallName, "dpu", dpu)
+	logger.Info("Calling")
+	if rand.Float64() < conf.errorRate {
+		logger.Info("returning error")
+		return &os.ActivateResponse{
+			Response: &os.ActivateResponse_ActivateError{
+				ActivateError: &os.ActivateError{
+					Type:   os.ActivateError_UNSPECIFIED,
+					Detail: "it's an error",
+				},
+			},
+		}, fmt.Errorf("error during activation")
+	}
+	logger.Info(fmt.Sprintf("waiting %f seconds ", conf.delay.Seconds()))
+	time.Sleep(conf.delay)
 	return nil, nil
 }
 
-type GNMIServer struct {
-	gnmi.UnimplementedGNMIServer
+func (d *DMSServerMux) Set(ctx context.Context, req *gnmi.SetRequest) (*gnmi.SetResponse, error) {
+	dpu, conf, err := d.configForRequest(ctx, setCallName)
+	if err != nil {
+		return nil, err
+	}
+	logger := klog.LoggerWithValues(klog.Background(), "api", setCallName, "dpu", dpu)
+	logger.Info("Calling")
+	if rand.Float64() < conf.errorRate {
+		return &gnmi.SetResponse{
+			Response: []*gnmi.UpdateResult{
+				{
+					Op: gnmi.UpdateResult_INVALID,
+				},
+			},
+		}, fmt.Errorf("error during activation")
+	}
+	logger.Info(fmt.Sprintf("waiting %f seconds ", conf.delay.Seconds()))
+	time.Sleep(conf.delay)
+
+	return &gnmi.SetResponse{}, nil
 }
 
-func (s *GNMIServer) Set(context.Context, *gnmi.SetRequest) (*gnmi.SetResponse, error) {
-	log.Printf("Set called")
-	return &gnmi.SetResponse{}, nil
+func delayWithJitter(mean int64, maxJitter float64) time.Duration {
+	meanDuration := time.Duration(mean * time.Second.Nanoseconds())
+	jitterDuration := float64(meanDuration.Nanoseconds()) * maxJitter
+	if jitterDuration <= 0 {
+		return time.Duration(0)
+	}
+	jitter := time.Duration(rand.Int63n(int64(jitterDuration)*2)) - time.Duration(jitterDuration)
+	return meanDuration + jitter
+}
+
+func (d *DMSServerMux) configForRequest(ctx context.Context, requestType string) (string, *responseConfig, error) {
+	p, ok := peer.FromContext(ctx)
+	if !ok {
+		return "", nil, fmt.Errorf("could not get peer from context")
+	}
+	a, ok := p.LocalAddr.(*net.TCPAddr)
+	if !ok {
+		return "", nil, fmt.Errorf("could not get port from local address")
+	}
+	dpuConf, ok := d.configForPort[fmt.Sprintf("%d", a.Port)]
+	if !ok {
+		return "", nil, fmt.Errorf("could not get config for port %d", a.Port)
+	}
+	conf, ok := dpuConf.responseConfigs[requestType]
+	if !ok {
+		return "", nil, fmt.Errorf("could not get config for requestType %s", requestType)
+	}
+	return dpuConf.dpuNamespaceName, &conf, nil
 }
