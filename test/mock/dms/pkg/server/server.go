@@ -74,7 +74,7 @@ func NewDMSServerMux(minPort, maxPort int, ip string, cert *x509.Certificate, ke
 		ipAddress:               ip,
 		listenerForDPU:          map[string]net.Listener{},
 		configForPort:           map[string]dpuResponseConfig{},
-		lock:                    sync.RWMutex{},
+		RWMutex:                 sync.RWMutex{},
 		config:                  config,
 	}
 	gnmi.RegisterGNMIServer(d.Server, d)
@@ -111,15 +111,12 @@ type DMSServerMux struct {
 	// configForPort maps port numbers to the DPUs they act as DMS servers for.
 	configForPort map[string]dpuResponseConfig
 
-	lock sync.RWMutex
+	sync.RWMutex
 }
 
-func (d *DMSServerMux) IPAddress() string {
-	return d.ipAddress
-}
 func (d *DMSServerMux) EnsureListenerForDPU(dpu *provisioningv1.DPU) error {
-	d.lock.Lock()
-	defer d.lock.Unlock()
+	d.Lock()
+	defer d.Unlock()
 
 	// If we already have a lister for this DPU return early.
 	// TODO: Should we check if this listener is working for re-entrancy?
@@ -307,6 +304,8 @@ func delayWithJitter(mean int64, maxJitter float64) time.Duration {
 }
 
 func (d *DMSServerMux) configForRequest(ctx context.Context, requestType string) (string, *responseConfig, error) {
+	d.Lock()
+	defer d.Unlock()
 	p, ok := peer.FromContext(ctx)
 	if !ok {
 		return "", nil, fmt.Errorf("could not get peer from context")

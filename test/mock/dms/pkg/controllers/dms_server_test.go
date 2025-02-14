@@ -49,7 +49,6 @@ var (
 )
 
 func TestDMSServerReconciler(t *testing.T) {
-	t.Skip("not running due to race condition in the DPU controller")
 	g := NewWithT(t)
 
 	// 1) Initializing phase requires a node with the DPUOOBBridgeConfiguredLabel exists.

@@ -120,8 +120,13 @@ func updateState(state *provisioningv1.DPUStatus, phase provisioningv1.DPUPhase,
 	return *state
 }
 
-func dmsHandler(ctx context.Context, k8sClient client.Client, dpu *provisioningv1.DPU, bfb *provisioningv1.BFB, retry int, ctrlContext *dutil.ControllerContext) {
+func dmsHandler(ctx context.Context, k8sClient client.Client, inDPU *provisioningv1.DPU, inBFB *provisioningv1.BFB, retry int, ctrlContext *dutil.ControllerContext) {
+	// DeepCopy the DPU and BFB. This is required to fix a race condition. The `future.New` function creates a new
+	// go routine which acts on these object. This go routine can race with the main controller runtime goroutine.
+	dpu := inDPU.DeepCopy()
+	bfb := inBFB.DeepCopy()
 	dmsTaskName := generateDMSTaskName(dpu)
+
 	dmsTask := future.New(func() (any, error) {
 		logger := log.FromContext(ctx)
 		logger.V(3).Info(fmt.Sprintf("DMS %s start os installation", dmsTaskName))
