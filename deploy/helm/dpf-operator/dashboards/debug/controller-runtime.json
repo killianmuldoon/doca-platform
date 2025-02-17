@@ -376,7 +376,7 @@
                 "uid": "prometheus"
               },
               "editorMode": "code",
-              "expr": "avg(rate(container_cpu_usage_seconds_total{pod=~\"$Pod\",container=~\"$Container\",container!=\"\"}[5m])) by (pod,container)\n",
+              "expr": "avg(rate(container_cpu_usage_seconds_total{pod=~\"$Pod\",}[5m])) by (pod)\n",
               "format": "time_series",
               "legendFormat": "{{pod}}: {{container}}",
               "range": true,
@@ -483,7 +483,7 @@
                 "uid": "prometheus"
               },
               "editorMode": "code",
-              "expr": "avg(container_memory_working_set_bytes{pod=~\"$Pod\",container=~\"$Container\",container!=\"\"}) by (pod,container)",
+              "expr": "avg(container_memory_working_set_bytes{pod=~\"$Pod\"}) by (pod)",
               "format": "time_series",
               "legendFormat": "{{pod}}: {{container}}",
               "range": true,
@@ -576,7 +576,7 @@
                 "uid": "prometheus"
               },
               "editorMode": "code",
-              "expr": "avg(container_memory_cache{pod=~\"$Pod\",container=~\"$Container\",container!=\"\"}) by (pod,container)",
+              "expr": "avg(container_memory_cache{pod=~\"$Pod\"}) by (pod)",
               "format": "time_series",
               "legendFormat": "{{pod}}: {{container}}",
               "range": true,
