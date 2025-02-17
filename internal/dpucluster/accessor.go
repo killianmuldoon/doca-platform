@@ -18,84 +18,104 @@ package dpucluster
 
 import (
 	"context"
-	"time"
+	"fmt"
+	"sync"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/cache"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// This package is based on https://github.com/kubernetes-sigs/cluster-api/blob/v1.9.4/controllers/clustercache/
+// It is a re-implementation of the clusterCache for the specific usage in DPF for dpu clusters.
+
 // accessor is the object used to create and manage connections to a specific dpu cluster.
 type accessor struct {
-	dpuCluster client.ObjectKey
+	cluster client.ObjectKey
 
-	// config is the config of the accessor.
-	config *accessorConfig
+	// The methods lock, or rLock should always be used to access this field.
+	state accessorState
+
+	sync.RWMutex
 }
 
-// accessorConfig is the config of the accessor.
-type accessorConfig struct {
-	// scheme is the scheme used for the client and the cache.
-	scheme *runtime.Scheme
-
-	// connectionCreationRetryInterval is the interval after which to retry to create a
-	// connection after creating a connection failed.
-	connectionCreationRetryInterval time.Duration
-
-	// cache is the config used for the cache that the accessor creates.
-	cache *accessorCacheConfig
-
-	// client is the config used for the client that the accessor creates.
-	client *accessorClientConfig
+// accessorState is the state of the accessor.
+type accessorState struct {
+	// connection holds the connection state (e.g. client, cache) of the accessor.
+	connection *accessorConnectionState
 }
 
-// accessorCacheConfig is the config used for the cache that the accessor creates.
-type accessorCacheConfig struct {
-	// initialSyncTimeout is the timeout used when waiting for the cache to sync after cache start.
-	initialSyncTimeout time.Duration
+// accessorConnectionState holds the connection state (e.g. client, cache) of the accessor.
+type accessorConnectionState struct {
+	// cachedClient to communicate with the dpu cluster.
+	// It uses cache for Get & List calls for all Unstructured objects and
+	// all typed objects.
+	cachedClient client.Client
 
-	// syncPeriod is the sync period of the cache.
-	syncPeriod *time.Duration
+	// cache is the cache used by the client.
+	// It manages informers that have been created e.g. by adding indexes to the cache,
+	// Get & List calls from the client or via the Watch method of the accessor.
+	cache *cacheWithCancel
 
-	// byObject restricts the cache's ListWatch to the desired fields per GVK at the specified object.
-	byObject map[client.Object]cache.ByObject
-
-	// indexes are the indexes added to the cache.
-	indexes []CacheOptionsIndex
-}
-
-// accessorClientConfig is the config used for the client that the accessor creates.
-type accessorClientConfig struct {
-	// timeout is the timeout used for the rest.Config.
-	// The rest.Config is also used to create the client and the cache.
-	timeout time.Duration
-
-	// qps is the qps used for the rest.Config.
-	// The rest.Config is also used to create the client and the cache.
-	qps float32
-
-	// burst is the burst used for the rest.Config.
-	// The rest.Config is also used to create the client and the cache.
-	burst int
-
-	// userAgent is the user agent used for the rest.Config.
-	// The rest.Config is also used to create the client and the cache.
-	userAgent string
+	// watches is used to track the watches that have been added through the Watch method
+	// of the accessor. This is important to avoid adding duplicate watches.
+	watches sets.Set[string]
 }
 
 // newAccessor creates a new accessor.
-func newAccessor(dpuCluster client.ObjectKey, clusterAccessorConfig *accessorConfig) *accessor {
+func newAccessor(dpuCluster client.ObjectKey) *accessor {
 	return &accessor{
-		dpuCluster: dpuCluster,
-		config:     clusterAccessorConfig,
+		cluster: dpuCluster,
 	}
 }
 
+// connect creates a connection to the dpu cluster, i.e. it creates a client, cache, etc.
+func (a *accessor) connect(ctx context.Context, opts *Options) (retErr error) {
+	if a.isConnected() {
+		return nil
+	}
+
+	// Creating clients, cache etc. is intentionally done without a lock to avoid blocking other reconcilers.
+	// Controller-runtime guarantees that the DPUClusterCache reconciler will never reconcile the same DPUCluster concurrently.
+	// Thus, we can rely on this method not being called concurrently for the same DPUCluster / accessor.
+	// This means we don't have to hold the lock when we create the client, cache, etc.
+	cachedClient, cache, err := a.createConnection(ctx, opts)
+	if err != nil {
+		return err
+	}
+
+	a.Lock()
+	defer a.Unlock()
+
+	a.state.connection = &accessorConnectionState{
+		cachedClient: cachedClient,
+		cache:        cache,
+		watches:      sets.Set[string]{},
+	}
+
+	return nil
+
+}
+
+func (a *accessor) isConnected() bool {
+	a.RLock()
+	defer a.RUnlock()
+
+	return a.state.connection != nil
+}
+
+func (a *accessor) getClient() (client.Client, error) {
+	a.RLock()
+	defer a.RUnlock()
+
+	if a.state.connection == nil {
+		return nil, fmt.Errorf("no connection available")
+	}
+
+	return a.state.connection.cachedClient, nil
+}
+
 // Watch watches a dpu cluster for events.
-// Each unique watch (by watcher.Name()) is only added once after a Connect (otherwise we return early).
-// During a disconnect existing watches (i.e. informers) are shutdown when stopping the cache.
-// After a re-connect watches will be re-added (assuming the Watch method is called again).
-func (a *accessor) Watch(ctx context.Context, watcher Watcher) error {
+func (a *accessor) watch(ctx context.Context, watcher Watcher) error {
 	// not implemented
 	return nil
 }

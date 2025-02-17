@@ -17,6 +17,7 @@ limitations under the License.
 package dpucluster
 
 import (
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -28,10 +29,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func TestRemoteCache_Reconcile(t *testing.T) {
+func TestConnect(t *testing.T) {
 	g := NewWithT(t)
 
 	testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
@@ -44,43 +44,45 @@ func TestRemoteCache_Reconcile(t *testing.T) {
 	g.Expect(err).NotTo(HaveOccurred())
 	g.Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
 
+	clusterKey := client.ObjectKeyFromObject(&dpuCluster)
+
 	// Create a DPUCluster.
 	g.Expect(testClient.Create(ctx, &dpuCluster)).To(Succeed())
 	g.Eventually(func(g Gomega) {
 		gotdpuCluster := &provisioningv1.DPUCluster{}
 		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(&dpuCluster), gotdpuCluster)).To(Succeed())
 	}).WithTimeout(10 * time.Second).Should(Succeed())
+	objs := []client.Object{kamajiSecret, &dpuCluster}
+	defer func() {
+		g.Expect(testutils.CleanupAndWait(ctx, testClient, objs...)).To(Succeed())
+		g.Expect(testClient.Delete(ctx, testNS)).To(Succeed())
+	}()
 
-	dpuClusterKey := client.ObjectKeyFromObject(&dpuCluster)
+	accessor := newAccessor(clusterKey)
 	opts := makeRemoteCacheOptions(OptionScheme{Scheme: testEnv.GetScheme()},
 		OptionHostClient{Client: testEnv.Manager.GetClient()},
 		OptionUserAgent(fmt.Sprintf("test-controller-%s", t.Name())),
 		OptionTimeout(10*time.Second))
-	rc := &RemoteCache{
-		// Use APIReader to avoid cache issues when reading the Cluster object.
-		client:    testEnv.Manager.GetAPIReader(),
-		options:   opts,
-		accessors: make(map[client.ObjectKey]*accessor),
-	}
 
-	res, err := rc.Reconcile(ctx, reconcile.Request{NamespacedName: dpuClusterKey})
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(res.IsZero()).To(BeFalse())
+	g.Expect(accessor.connect(ctx, opts)).To(Succeed())
+	g.Expect(accessor.isConnected()).To(BeTrue())
+	g.Expect(accessor.state.connection.cachedClient).ToNot(BeNil())
+	g.Expect(accessor.state.connection.cache).ToNot(BeNil())
+	g.Expect(accessor.state.connection.watches).ToNot(BeNil())
 
-	// mark the cluster as ready
-	dpuCluster.Status.Phase = provisioningv1.PhaseReady
-	g.Expect(testClient.Status().Update(ctx, &dpuCluster)).To(Succeed())
-
-	// Reconcile again, we expect no requeue.
-	res, err = rc.Reconcile(ctx, reconcile.Request{NamespacedName: dpuClusterKey})
-	g.Expect(err).ToNot(HaveOccurred())
-	g.Expect(res.IsZero()).To(BeTrue())
+	// Check if cache was started / synced
+	cacheSyncCtx, cacheSyncCtxCancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cacheSyncCtxCancel()
+	g.Expect(accessor.state.connection.cache.WaitForCacheSync(cacheSyncCtx)).To(BeTrue())
 
 	// Get client and test Get & List
-	c, err := rc.GetClient(dpuClusterKey)
+	c, err := accessor.getClient()
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(c.Get(ctx, client.ObjectKey{Name: testNS.Name}, &corev1.Namespace{})).To(Succeed())
 	nodeList := &provisioningv1.DPUNodeList{}
 	g.Expect(c.List(ctx, nodeList)).To(Succeed())
 	g.Expect(nodeList.Items).To(BeEmpty())
+
+	// Connect again (no-op)
+	g.Expect(accessor.connect(ctx, opts)).To(Succeed())
 }

@@ -17,12 +17,12 @@ limitations under the License.
 package dpucluster
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"runtime"
 	"testing"
 
-	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 
 	apiruntime "k8s.io/apimachinery/pkg/runtime"
@@ -70,18 +70,17 @@ func (t *fakeEnv) fakeKubeClient(opts ...FakeKubeClientOption) client.Client {
 }
 
 var (
-	cfg         *rest.Config
-	testClient  client.Client
-	testEnv     Environment
-	ctx         = ctrl.SetupSignalHandler()
-	fakeTestEnv *fakeEnv
+	cfg                        *rest.Config
+	testClient                 client.Client
+	testEnv                    Environment
+	ctx, testManagerCancelFunc = context.WithCancel(ctrl.SetupSignalHandler())
+	fakeTestEnv                *fakeEnv
 )
 
 func TestMain(m *testing.M) {
 	setupLogger := ctrl.Log.WithName("dpf-cluster-cache-controller-test-setup")
 	envTest := &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "config", "dpuservice", "crd", "bases"),
 			filepath.Join("..", "..", "config", "provisioning", "crd", "bases"),
 		},
 		ErrorIfCRDPathMissing: true,
@@ -93,10 +92,6 @@ func TestMain(m *testing.M) {
 		// the tests directly. When we run make test it will be setup and used automatically.
 		BinaryAssetsDirectory: filepath.Join("..", "..", "hack", "tools", "bin", "k8s",
 			fmt.Sprintf("1.29.0-%s-%s", runtime.GOOS, runtime.GOARCH)),
-	}
-
-	if err := dpuservicev1.AddToScheme(scheme.Scheme); err != nil {
-		panic(fmt.Sprintf("Failed to add dpuservice scheme: %v", err))
 	}
 
 	if err := provisioningv1.AddToScheme(scheme.Scheme); err != nil {
@@ -147,6 +142,10 @@ func TestMain(m *testing.M) {
 	// run the test suite in this package.
 	if code := m.Run(); code != 0 {
 		setupLogger.Info("error running tests: ", code)
+	}
+
+	if testManagerCancelFunc != nil {
+		testManagerCancelFunc()
 	}
 
 	if err := testEnv.env.Stop(); err != nil {

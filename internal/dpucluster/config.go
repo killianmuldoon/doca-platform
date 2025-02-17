@@ -19,15 +19,49 @@ package dpucluster
 import (
 	"context"
 	"fmt"
+	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdv1 "k8s.io/client-go/tools/clientcmd/api"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+// ClientOptions holds the options for the client.
+type ClientOptions struct {
+	timeout    time.Duration
+	userAgent  string
+	updateHost string
+}
+
+type ClientOption interface {
+	Apply(options *ClientOptions)
+}
+type OverrideClientConfigHost struct {
+	Server string
+}
+
+func (o OverrideClientConfigHost) Apply(options *ClientOptions) {
+	options.updateHost = o.Server
+}
+
+// ClientOptionTimeout is the timeout used for the REST config, client and cache.
+type ClientOptionTimeout time.Duration
+
+func (o ClientOptionTimeout) Apply(options *ClientOptions) {
+	options.timeout = time.Duration(o)
+}
+
+// ClientOptionUserAgent is the user agent used for the REST config, client and cache.
+type ClientOptionUserAgent string
+
+func (o ClientOptionUserAgent) Apply(options *ClientOptions) {
+	options.userAgent = string(o)
+}
 
 // Config hold the cluster configuration.
 // It provides methods to get the client, clientset, and rest config for the cluster.
@@ -35,14 +69,14 @@ type Config struct {
 	// Cluster is the DPU cluster for which the config is being fetched.
 	Cluster *provisioningv1.DPUCluster
 	// hostClient is the client for the host cluster. It is used to fetch the kubeconfig secret.
-	hostClient      client.Client
+	hostClient      client.Reader
 	kubeconfig      *clientcmdv1.Config
 	kubeconfigBytes []byte
 	clientConfig    clientcmd.OverridingClientConfig
 }
 
 // NewConfig returns a new Config.
-func NewConfig(c client.Client, cluster *provisioningv1.DPUCluster) *Config {
+func NewConfig(c client.Reader, cluster *provisioningv1.DPUCluster) *Config {
 	return &Config{
 		Cluster:    cluster,
 		hostClient: c,
@@ -51,6 +85,37 @@ func NewConfig(c client.Client, cluster *provisioningv1.DPUCluster) *Config {
 
 func (cc *Config) ClusterNamespaceName() string {
 	return fmt.Sprintf("%s-%s", cc.Cluster.Namespace, cc.Cluster.Name)
+}
+
+// restConfig returns the rest config for the cluster.
+func (cc *Config) restConfig(ctx context.Context, opts ...ClientOption) (*rest.Config, error) {
+	options := &ClientOptions{}
+	for _, o := range opts {
+		o.Apply(options)
+	}
+
+	_, err := cc.Kubeconfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	restConfig, err := cc.clientConfig.ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	makeOptions(restConfig, options)
+
+	return restConfig, nil
+}
+
+func makeOptions(config *rest.Config, opts *ClientOptions) {
+	config.UserAgent = opts.userAgent
+	config.Timeout = opts.timeout
+
+	if opts.updateHost != "" {
+		config.Host = opts.updateHost
+	}
 }
 
 // Kubeconfig returns the kubeconfig for the cluster.
@@ -100,40 +165,13 @@ func (cc *Config) getClientConfig(ctx context.Context) error {
 	return nil
 }
 
-type ClientOptions struct {
-	updateHost string
-}
-
-type ClientOption interface {
-	Apply(options *ClientOptions)
-}
-type OverrideClientConfigHost struct {
-	Server string
-}
-
-func (f OverrideClientConfigHost) Apply(options *ClientOptions) {
-	options.updateHost = f.Server
-}
-
 // Client returns a new client for the cluster.
 func (cc *Config) Client(ctx context.Context, opts ...ClientOption) (client.Client, error) {
-	options := &ClientOptions{}
-	for _, o := range opts {
-		o.Apply(options)
-	}
-	_, err := cc.Kubeconfig(ctx)
+	restConfig, err := cc.restConfig(ctx, opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	restConfig, err := cc.clientConfig.ClientConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	if options.updateHost != "" {
-		restConfig.Host = options.updateHost
-	}
 	newClient, err := client.New(restConfig, client.Options{})
 	if err != nil {
 		return nil, err
@@ -142,13 +180,8 @@ func (cc *Config) Client(ctx context.Context, opts ...ClientOption) (client.Clie
 }
 
 // Clientset returns a new clientset for the cluster.
-func (cc *Config) Clientset(ctx context.Context) (*kubernetes.Clientset, []byte, error) {
-	_, err := cc.Kubeconfig(ctx)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	restConfig, err := cc.clientConfig.ClientConfig()
+func (cc *Config) Clientset(ctx context.Context, opts ...ClientOption) (*kubernetes.Clientset, []byte, error) {
+	restConfig, err := cc.restConfig(ctx, opts...)
 	if err != nil {
 		return nil, nil, err
 	}

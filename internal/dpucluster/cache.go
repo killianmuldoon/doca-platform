@@ -18,7 +18,6 @@ package dpucluster
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -27,11 +26,10 @@ import (
 
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -39,7 +37,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
-// This package is based on https://github.com/kubernetes-sigs/cluster-api/blob/v1.9.4/controllers/clustercache/cluster_cache.go
+// This package is based on https://github.com/kubernetes-sigs/cluster-api/blob/v1.9.4/controllers/clustercache/
 // It is a re-implementation of the clusterCache for the specific usage in DPF for dpu clusters.
 
 const (
@@ -47,21 +45,74 @@ const (
 	defaultRequeueAfter = 10 * time.Second
 )
 
-// ErrDPUClusterNotConnected is returned by the dpuClusterCacheReconciler when e.g. a Client cannot be returned
-// because there is no connection to the dpu cluster.
-var ErrDPUClusterNotConnected = errors.New("connection to the dpu cluster is down")
+// ErrDPUClusterNotConnected is returned when a dpu cluster that is not connected.
+var ErrDPUClusterNotConnected = fmt.Errorf("dpu cluster is not connected")
 
-// CacheOptionsIndex is a index that is added to the cache.
-type CacheOptionsIndex struct {
-	// Object is the object for which the index is created.
-	Object client.Object
+type Options struct {
+	// scheme is the scheme used for the client and the cache.
+	scheme *runtime.Scheme
 
-	// Field is the field of the index that can later be used when selecting
-	// objects with a field selector.
-	Field string
+	// hostClient is the client for the host cluster. It is used to fetch the
+	// kubeconfig secret.
+	hostClient client.Reader
 
-	// ExtractValue is a func that extracts the index value from an object.
-	ExtractValue client.IndexerFunc
+	// initialSyncTimeout is the timeout used when waiting for the cache to sync after cache start.
+	initialSyncTimeout time.Duration
+
+	// syncPeriod is the sync period of the cache.
+	syncPeriod *time.Duration
+
+	ClientOptions
+}
+
+type Option interface {
+	Apply(options *Options)
+}
+
+// OptionScheme is the scheme used for the client and the cache.
+type OptionScheme struct {
+	Scheme *runtime.Scheme
+}
+
+func (o OptionScheme) Apply(options *Options) {
+	options.scheme = o.Scheme
+}
+
+// OptionHostClient is the client for the host cluster. It is used to fetch the kubeconfig secret.
+type OptionHostClient struct {
+	Client client.Reader
+}
+
+func (o OptionHostClient) Apply(options *Options) {
+	options.hostClient = o.Client
+}
+
+// OptionTimeout is the timeout used for the REST config, client and cache.
+type OptionTimeout time.Duration
+
+func (o OptionTimeout) Apply(options *Options) {
+	options.timeout = time.Duration(o)
+}
+
+// OptionUserAgent is the user agent used for the REST config, client and cache.
+type OptionUserAgent string
+
+func (o OptionUserAgent) Apply(options *Options) {
+	options.userAgent = string(o)
+}
+
+// OptionInitialSyncTimeout is the timeout used when waiting for the cache to sync after cache start.
+type OptionInitialSyncTimeout time.Duration
+
+func (o OptionInitialSyncTimeout) Apply(options *Options) {
+	options.initialSyncTimeout = time.Duration(o)
+}
+
+// OptionSyncPeriod is the sync period of the cache.
+type OptionSyncPeriod time.Duration
+
+func (o OptionSyncPeriod) Apply(options *Options) {
+	options.syncPeriod = ptr.To(time.Duration(o))
 }
 
 // Watcher is an interface that can start a Watch.
@@ -76,21 +127,18 @@ type SourceWatcher[request comparable] interface {
 	Watch(src source.TypedSource[request]) error
 }
 
-// WatcherOptions specifies the parameters used to establish a new watch for a workload cluster.
+// WatcherOptions specifies the parameters used to establish a new watch for a dpu cluster.
 // A source.TypedKind source (configured with Kind, TypedEventHandler and Predicates) will be added to the Watcher.
 // To watch for events, the source.TypedKind will create an informer on the Cache that we have created and cached
 // for the given Cluster.
 type WatcherOptions = TypedWatcherOptions[client.Object, ctrl.Request]
 
-// TypedWatcherOptions specifies the parameters used to establish a new watch for a workload cluster.
+// TypedWatcherOptions specifies the parameters used to establish a new watch for a dpu cluster.
 // A source.TypedKind source (configured with Kind, TypedEventHandler and Predicates) will be added to the Watcher.
 // To watch for events, the source.TypedKind will create an informer on the Cache that we have created and cached
 // for the given Cluster.
 type TypedWatcherOptions[object client.Object, request comparable] struct {
 	// Name represents a unique Watch request for the specified Cluster.
-	// The name is used to track that a specific watch is only added once to a cache.
-	// After a connection (and thus also the cache) has been re-created, watches have to be added
-	// again by calling the Watch method again.
 	Name string
 
 	// Watcher is the watcher (controller) whose Reconcile() function will be called for events.
@@ -106,7 +154,7 @@ type TypedWatcherOptions[object client.Object, request comparable] struct {
 	Predicates []predicate.TypedPredicate[object]
 }
 
-// NewWatcher creates a Watcher for the workload cluster.
+// NewWatcher creates a Watcher for the dpu cluster.
 // A source.TypedKind source (configured with Kind, TypedEventHandler and Predicates) will be added to the SourceWatcher.
 // To watch for events, the source.TypedKind will create an informer on the Cache that we have created and cached
 // for the given Cluster.
@@ -137,22 +185,21 @@ func (tw *watcher[object, request]) Watch(cache cache.Cache) error {
 // SetupWithManager sets up a clusterCacheReconciler with the given Manager and Options.
 // This will add a reconciler to the Manager and returns a clusterCacheReconciler which can be used
 // to retrieve e.g. Clients for a given Cluster.
-func SetupWithManager(ctx context.Context, mgr ctrl.Manager, controllerOptions controller.Options) (*RemoteCache, error) {
-	cc := &RemoteCache{
-		client:         mgr.GetAPIReader(),
-		accessorConfig: buildClusterAccessorConfig(mgr.GetScheme()),
-		accessors:      make(map[client.ObjectKey]*accessor),
+func SetupWithManager(ctx context.Context, mgr ctrl.Manager, opts ...Option) (*RemoteCache, error) {
+	rc := &RemoteCache{
+		client:    mgr.GetClient(),
+		options:   makeRemoteCacheOptions(opts...),
+		accessors: make(map[client.ObjectKey]*accessor),
 	}
 
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&provisioningv1.DPUCluster{}).
-		WithOptions(controllerOptions).
-		Complete(cc)
+		Complete(rc)
 	if err != nil {
 		return nil, fmt.Errorf("failed setting up clusterCacheReconciler with a controller manager: %w", err)
 	}
 
-	return cc, nil
+	return rc, nil
 }
 
 // RemoteCache reconcile dpuClusters CRs and manges caches for those dpuClusters.
@@ -161,102 +208,82 @@ func SetupWithManager(ctx context.Context, mgr ctrl.Manager, controllerOptions c
 type RemoteCache struct {
 	client client.Reader
 
-	// accessorConfig is the config for accessors.
-	accessorConfig *accessorConfig
-
-	// accessorsLock is used to synchronize access to accessors.
-	accessorsLock sync.RWMutex
-
 	// accessors is the map of accessors by dpu cluster.
 	accessors map[client.ObjectKey]*accessor
 
-	// dpuClusterSourcesLock is used to synchronize access to dpuClusterSources.
-	dpuClusterSourcesLock sync.RWMutex
+	options *Options
 
-	// dpuClusterSources is used to store information about cluster sources.
-	// This information is necessary so we can enqueue reconcile.Requests for reconcilers that
-	// got a cluster source via GetDPUClusterSource.
-	dpuClusterSources []clusterSource
-}
-
-// clusterSource stores the necessary information so we can enqueue reconcile.Requests for reconcilers that
-// got a cluster source via GetClusterSource.
-type clusterSource struct {
-	// controllerName is the name of the controller that will watch this source.
-	controllerName string
-
-	// ch is the channel on which to send events.
-	ch chan event.TypedGenericEvent[provisioningv1.DPUCluster]
+	// accessorsLock is used to synchronize arcess to accessors.
+	sync.RWMutex
 }
 
 // Reconcile reconciles Clusters and manages corresponding accessors.
-func (cc *RemoteCache) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
+func (rc *RemoteCache) Reconcile(ctx context.Context, req reconcile.Request) (reconcile.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling")
 
 	cluster := &provisioningv1.DPUCluster{}
-	if err := cc.client.Get(ctx, req.NamespacedName, cluster); err != nil {
+	if err := rc.client.Get(ctx, req.NamespacedName, cluster); err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Info("dpuCluster has been deleted, disconnecting")
 			return ctrl.Result{}, nil
 		}
 
-		// Requeue, error getting the object.
-		log.Error(err, fmt.Sprintf("Requeuing after %s (error getting dpuCluster object)", defaultRequeueAfter))
-		return ctrl.Result{RequeueAfter: defaultRequeueAfter}, nil
+		return ctrl.Result{}, err
 	}
 
-	return cc.reconcile(ctx, cluster)
+	return rc.reconcile(ctx, cluster)
 }
 
 // reconcile handles the main reconciliation loop
 //
 //nolint:unparam
-func (cc *RemoteCache) reconcile(ctx context.Context, dpuCluster *provisioningv1.DPUCluster) (ctrl.Result, error) {
+func (rc *RemoteCache) reconcile(ctx context.Context, cluster *provisioningv1.DPUCluster) (ctrl.Result, error) {
+	log := ctrllog.FromContext(ctx)
+
+	// wait until the cluster is ready
+	if cluster.Status.Phase != provisioningv1.PhaseReady {
+		return ctrl.Result{RequeueAfter: defaultRequeueAfter}, nil
+	}
+
+	clusterKey := client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name}
+	accessor := rc.getAccessor(clusterKey)
+	if accessor == nil {
+		accessor = rc.createAccessor(clusterKey)
+	}
+
+	// Try to connect, if not connected.
+	connected := accessor.isConnected()
+	if !connected {
+		if err := accessor.connect(ctx, rc.options); err != nil {
+			log.Info("Requeuing after %s (error connecting to dpuCluster)", defaultRequeueAfter)
+			return ctrl.Result{RequeueAfter: defaultRequeueAfter}, fmt.Errorf("error connecting to dpuCluster: %w", err)
+		}
+	}
 	return ctrl.Result{}, nil
 }
 
-func buildClusterAccessorConfig(scheme *runtime.Scheme) *accessorConfig {
-	return &accessorConfig{
-		scheme:                          scheme,
-		connectionCreationRetryInterval: 30 * time.Second,
-		cache: &accessorCacheConfig{
-			initialSyncTimeout: 5 * time.Minute,
-			syncPeriod:         &[]time.Duration{5 * time.Minute}[0],
-			byObject:           make(map[client.Object]cache.ByObject),
-			indexes:            []CacheOptionsIndex{},
-		},
-		client: &accessorClientConfig{
-			timeout:   10 * time.Second,
-			qps:       100,
-			burst:     100,
-			userAgent: fmt.Sprintf("doca-platform/%s", "0.0.1"),
-		},
-	}
+// createAccessor creates a new accessor for the given dpu cluster.
+// It overwrites an existing accessor.  Use getAccessor to check if an accessor exists.
+func (rc *RemoteCache) createAccessor(cluster client.ObjectKey) *accessor {
+	rc.Lock()
+	defer rc.Unlock()
+
+	accessor := newAccessor(cluster)
+	rc.accessors[cluster] = accessor
+	return accessor
 }
 
-// GetNewDPUClusterSource returns a Source of dpu cluster events.
-// The mapFunc will be used to map from dpu cluster to reconcile.Request.
-// reconcile.Requests will always be enqueued on connect and disconnect.
-// Reconciler can use the Source to watch for dpu cluster events.
-// e.g.:
-//
-//	ctrl.NewControllerManagedBy(mgr).
-//	  Named("dpuServiceChain-controller").
-//	  For(&dpuServicev1.DPUServiceChain{}).
-//	  WatchesRawSources(dpuClusterCache.GetNewDPUClusterSource("dpuServiceChain", dpuClusterToDPUServiceChains).
-//	  Complete(&DPUServiceChainReconciler{Client: mgr.GetClient()})
-func (cc *RemoteCache) GetNewDPUClusterSource(controllerName string, mapFunc func(ctx context.Context, dpuCluster provisioningv1.DPUCluster) []ctrl.Request) source.Source {
-	cc.dpuClusterSourcesLock.Lock()
-	defer cc.dpuClusterSourcesLock.Unlock()
+// getaccessor returns a accessor if it exists, otherwise nil.
+func (rc *RemoteCache) getAccessor(cluster client.ObjectKey) *accessor {
+	rc.RLock()
+	defer rc.RUnlock()
 
-	cs := clusterSource{
-		controllerName: controllerName,
-		ch:             make(chan event.TypedGenericEvent[provisioningv1.DPUCluster]),
+	if accessor, ok := rc.accessors[cluster]; ok {
+		return accessor
 	}
-	cc.dpuClusterSources = append(cc.dpuClusterSources, cs)
 
-	return source.Channel(cs.ch, handler.TypedEnqueueRequestsFromMapFunc(mapFunc))
+	return nil
 }
 
 // Watch can be used to watch specific resources in the dpu cluster.
@@ -268,36 +295,32 @@ func (cc *RemoteCache) GetNewDPUClusterSource(controllerName string, mapFunc fun
 //		Kind:         &provisionningv1aplha1.DPUNode{},
 //		EventHandler: handler.EnqueueRequestsFromMapFunc(r.dpuNodeToVPC),
 //	})
-func (cc *RemoteCache) Watch(ctx context.Context, cluster client.ObjectKey, watcher Watcher) error {
-	accessor := cc.getaccessor(cluster)
+func (rc *RemoteCache) Watch(ctx context.Context, cluster client.ObjectKey, watcher Watcher) error {
+	accessor := rc.getAccessor(cluster)
 	if accessor == nil {
 		return fmt.Errorf("could not create watch %s for %T: %w", watcher.Name(), watcher.Object(), ErrDPUClusterNotConnected)
 	}
-	return accessor.Watch(ctx, watcher)
-}
-
-// getaccessor returns a accessor if it exists, otherwise nil.
-func (cc *RemoteCache) getaccessor(cluster client.ObjectKey) *accessor {
-	cc.accessorsLock.RLock()
-	defer cc.accessorsLock.RUnlock()
-
-	if accessor, ok := cc.accessors[cluster]; ok {
-		return accessor
-	}
-
-	accessor := newAccessor(cluster, cc.accessorConfig)
-	cc.accessorsLock.Lock()
-	defer cc.accessorsLock.Unlock()
-	cc.accessors[cluster] = accessor
-	return accessor
+	return accessor.watch(ctx, watcher)
 }
 
 // GetClient returns a client for the given dpu cluster.
 // It is a cached client that read from the given dpu cluster cache.
-func (cc *RemoteCache) GetClient(ctx context.Context, cluster client.ObjectKey) (client.Client, error) {
-	accessor := cc.getaccessor(cluster)
+func (rc *RemoteCache) GetClient(cluster client.ObjectKey) (client.Client, error) {
+	accessor := rc.getAccessor(cluster)
 	if accessor == nil {
 		return nil, fmt.Errorf("could not get client for %T: %w", cluster, ErrDPUClusterNotConnected)
 	}
-	return nil, nil
+	return accessor.getClient()
+}
+
+func makeRemoteCacheOptions(opts ...Option) *Options {
+	options := &Options{}
+	for _, o := range opts {
+		o.Apply(options)
+	}
+
+	if options.initialSyncTimeout == 0 {
+		options.initialSyncTimeout = 5 * time.Minute
+	}
+	return options
 }
