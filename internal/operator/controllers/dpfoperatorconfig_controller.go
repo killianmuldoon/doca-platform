@@ -90,9 +90,9 @@ type DPFOperatorConfigReconcilerSettings struct {
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuservices;dpudeployments;dpuservicecredentialrequests;dpuserviceconfigurations;dpuservicetemplates,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuservices/status;dpudeployments/status;dpuservicecredentialrequests/status;dpuservicetemplates/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuservices/finalizers;dpudeployments/finalizers;dpuservicecredentialrequests/finalizers;dpuservicetemplates/finalizers,verbs=update
-// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechains;serviceinterfaces;dpuserviceinterfaces;dpuservicechains;dpuserviceipams,verbs=get;list;watch;create;update;patch;delete;deletecollection
-// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces/status;servicechains/status;dpuservicechains/status;dpuserviceinterfaces/status;dpuserviceipams/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces/finalizers;servicechains/finalizers;dpuservicechains/finalizers;dpuserviceinterfaces/finalizers;dpuserviceipams/finalizers,verbs=update
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=servicechains;serviceinterfaces;dpuserviceinterfaces;dpuservicechains;dpuserviceipams;dpuservicenads,verbs=get;list;watch;create;update;patch;delete;deletecollection
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces/status;servicechains/status;dpuservicechains/status;dpuserviceinterfaces/status;dpuserviceipams/status;dpuservicenads/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=serviceinterfaces/finalizers;servicechains/finalizers;dpuservicechains/finalizers;dpuserviceinterfaces/finalizers;dpuserviceipams/finalizers;dpuservicenads/finalizers,verbs=update
 
 // Provisioning objects
 // +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpusets;dpuflavors;bfbs;dpus;dpuclusters;dpudevices;dpunodes,verbs=create;delete;get;list;watch;patch;update;deletecollection

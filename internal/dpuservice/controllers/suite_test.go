@@ -62,6 +62,7 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "..", "..", "deploy", "helm", "dpf-operator", "templates", "crds"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "argocd"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "kamaji"),
+			filepath.Join("..", "..", "..", "test", "objects", "crd", "multus"),
 		},
 		ErrorIfCRDPathMissing: true,
 

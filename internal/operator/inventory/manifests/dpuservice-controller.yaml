@@ -183,6 +183,7 @@ rules:
   - dpuservicecredentialrequests/finalizers
   - dpuserviceinterfaces/finalizers
   - dpuserviceipams/finalizers
+  - dpuservicenads/finalizers
   - dpuservices/finalizers
   - dpuservicetemplates/finalizers
   verbs:
@@ -195,6 +196,7 @@ rules:
   - dpuservicecredentialrequests/status
   - dpuserviceinterfaces/status
   - dpuserviceipams/status
+  - dpuservicenads/status
   - dpuservices/status
   - dpuservicetemplates/status
   verbs:
@@ -221,6 +223,7 @@ rules:
   resources:
   - dpuservicecredentialrequests
   - dpuserviceipams
+  - dpuservicenads
   verbs:
   - create
   - delete

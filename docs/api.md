@@ -2073,6 +2073,8 @@ Package v1alpha1 contains API Schema definitions for the sfc v1alpha1 API group
 - [DPUServiceInterface](#dpuserviceinterface)
 - [DPUServiceInterfaceList](#dpuserviceinterfacelist)
 - [DPUServiceList](#dpuservicelist)
+- [DPUServiceNAD](#dpuservicenad)
+- [DPUServiceNADList](#dpuservicenadlist)
 - [DPUServiceTemplate](#dpuservicetemplate)
 - [DPUServiceTemplateList](#dpuservicetemplatelist)
 - [DPUVPC](#dpuvpc)
@@ -2776,6 +2778,80 @@ DPUServiceList contains a list of DPUService
 | `items` _[DPUService](#dpuservice) array_ |  |  |  |
 
 
+#### DPUServiceNAD
+
+
+
+DPUServiceNAD is the Schema for the dpuservicenads API.
+
+
+
+_Appears in:_
+- [DPUServiceNADList](#dpuservicenadlist)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `svc.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `DPUServiceNAD` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[DPUServiceNADSpec](#dpuservicenadspec)_ |  |  |  |
+| `status` _[DPUServiceNADStatus](#dpuservicenadstatus)_ |  |  |  |
+
+
+#### DPUServiceNADList
+
+
+
+DPUServiceNADList contains a list of DPUServiceNAD.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `svc.dpu.nvidia.com/v1alpha1` | | |
+| `kind` _string_ | `DPUServiceNADList` | | |
+| `metadata` _[ListMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#listmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `items` _[DPUServiceNAD](#dpuservicenad) array_ |  |  |  |
+
+
+#### DPUServiceNADSpec
+
+
+
+DPUServiceNADSpec defines the desired state of DPUServiceNAD.
+
+
+
+_Appears in:_
+- [DPUServiceNAD](#dpuservicenad)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `metadata` _[ObjectMeta](#objectmeta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `resourceType` _string_ |  |  | Enum: [vf sf veth] <br /> |
+| `bridge` _string_ |  |  |  |
+| `mtu` _integer_ |  |  |  |
+| `ipam` _boolean_ |  |  |  |
+
+
+#### DPUServiceNADStatus
+
+
+
+DPUServiceNADStatus defines the observed state of DPUServiceNAD.
+
+
+
+_Appears in:_
+- [DPUServiceNAD](#dpuservicenad)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | Conditions reflect the status of the object |  |  |
+
+
 #### DPUServiceSpec
 
 
@@ -3271,6 +3347,7 @@ ObjectMeta holds metadata like labels and annotations.
 _Appears in:_
 - [DPUServiceCredentialRequestSpec](#dpuservicecredentialrequestspec)
 - [DPUServiceIPAMSpec](#dpuserviceipamspec)
+- [DPUServiceNADSpec](#dpuservicenadspec)
 - [ServiceChainSetSpecTemplate](#servicechainsetspectemplate)
 - [ServiceChainSpecTemplate](#servicechainspectemplate)
 - [ServiceInterfaceSetSpecTemplate](#serviceinterfacesetspectemplate)

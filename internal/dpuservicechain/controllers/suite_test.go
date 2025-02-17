@@ -67,7 +67,8 @@ var _ = BeforeSuite(func() {
 			filepath.Join("..", "..", "..", "config", "dpuservice", "crd", "bases"),
 			filepath.Join("..", "..", "..", "config", "provisioning", "crd", "bases"),
 			filepath.Join("..", "..", "..", "test", "objects", "crd", "kamaji"),
-			filepath.Join("..", "..", "..", "test", "objects", "crd", "nvipam")},
+			filepath.Join("..", "..", "..", "test", "objects", "crd", "nvipam"),
+			filepath.Join("..", "..", "..", "test", "objects", "crd", "multus")},
 		ErrorIfCRDPathMissing: true,
 
 		// The BinaryAssetsDirectory is only required if you want to run the tests directly
@@ -128,6 +129,13 @@ var _ = BeforeSuite(func() {
 		Scheme: testManager.GetScheme(),
 	}
 	err = dpuServiceIPAMReconciler.SetupWithManager(testManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	dpuServiceNADReconciler := &DPUServiceNADReconciler{
+		Client: testClient,
+		Scheme: testManager.GetScheme(),
+	}
+	err = dpuServiceNADReconciler.SetupWithManager(testManager)
 	Expect(err).ToNot(HaveOccurred())
 
 	go func() {

@@ -366,6 +366,114 @@ func (r *DPUServiceReconciler) reconcileDeleteImagePullSecrets(ctx context.Conte
 	return kerrors.NewAggregate(errs)
 }
 
+func interfaceTypeToResourceName(interfaceType string) string {
+	switch interfaceType {
+	case "sf":
+		return "nvidia.com/bf_sf"
+	case "vf":
+		return "nvidia.com/bf_vf"
+	case "veth":
+		return ""
+	default:
+		return "nvidia.com/bf_sf"
+	}
+}
+
+func (r *DPUServiceReconciler) fetchResourceNameFromNAD(ctx context.Context,
+	dpuService *dpuservicev1.DPUService, resourceInjectionMap map[string]int) error {
+
+	predefinedNADs := map[string]struct{}{
+		"mybrhbn":   {},
+		"mybrsfc":   {},
+		"iprequest": {},
+	}
+
+	for _, interfaceName := range dpuService.Spec.Interfaces {
+		dpuServiceInterface := &dpuservicev1.DPUServiceInterface{}
+		if err := r.Client.Get(ctx, types.NamespacedName{Name: interfaceName, Namespace: dpuService.Namespace}, dpuServiceInterface); err != nil {
+			// If dpuserviceInterface is not present, continue to the next one
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+			continue
+		}
+
+		nadNamespace, nadName := dpuServiceInterface.Spec.GetTemplateSpec().GetTemplateSpec().Service.GetNetwork()
+		if nadNamespace == "" {
+			nadNamespace = dpuServiceInterface.Namespace
+		}
+		if nadName == "" {
+			continue
+		}
+		if _, exists := predefinedNADs[nadName]; exists {
+			// do not do anything for predefined NADs
+			continue
+		}
+		dpuserviceNAD := &dpuservicev1.DPUServiceNAD{}
+		if err := r.Client.Get(ctx, types.NamespacedName{Name: nadName, Namespace: nadNamespace}, dpuserviceNAD); err != nil {
+			// NAD could have been deleted, continue to the next one
+			if !apierrors.IsNotFound(err) {
+				return err
+			}
+			continue
+		}
+		resourceName := interfaceTypeToResourceName(dpuserviceNAD.Spec.ResourceType)
+
+		if resourceName == "" {
+			// do not do anything for veth
+			continue
+		}
+		resourceInjectionMap[resourceName]++
+	}
+	return nil
+}
+
+func (r *DPUServiceReconciler) updateDPUServiceHelmChart(dpuService *dpuservicev1.DPUService, resourceInjectionMap map[string]int) error {
+
+	// Combine values
+	var existingValues map[string]interface{}
+	if dpuService.Spec.HelmChart.Values == nil {
+		dpuService.Spec.HelmChart.Values = &runtime.RawExtension{
+			Raw: []byte("{}"),
+		}
+	}
+
+	if err := json.Unmarshal(dpuService.Spec.HelmChart.Values.Raw, &existingValues); err != nil {
+		return fmt.Errorf("unable to unmarshal from helmchart.values.raw")
+	}
+
+	if existingValues == nil {
+		existingValues = make(map[string]interface{})
+	}
+
+	if _, ok := existingValues["resources"]; !ok {
+		existingValues["resources"] = make(map[string]interface{})
+	}
+
+	resources, ok := existingValues["resources"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("resources not found in helm chart values")
+	}
+
+	for resourceKey, resourceValue := range resourceInjectionMap {
+		resources[resourceKey] = resourceValue
+	}
+
+	if len(resources) == 0 {
+		delete(existingValues, "resources")
+	} else {
+		existingValues["resources"] = resources
+	}
+
+	data, err := json.Marshal(existingValues)
+	if err != nil {
+		return fmt.Errorf("unable to marshal values in DPUService helmchart")
+	}
+
+	dpuService.Spec.HelmChart.Values.Raw = data
+	return nil
+}
+
 func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuservicev1.DPUService) error {
 	log := ctrllog.FromContext(ctx)
 
@@ -406,6 +514,21 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 		return err
 	}
 
+	// Dynamic Resource Injection, It is not implemented in this manner but the idea is same https://github.com/k8snetworkplumbingwg/network-resources-injector?tab=readme-ov-file#network-resources-injection-example
+	// Reason on why this approach was taken? = https://docs.google.com/document/d/1mr1TjXGemgeBnbeLHU2hA1Ve46spWOCvYb8Xyc2nvcw/edit?tab=t.0#heading=h.o2d5j5205ugw
+	resourceInjectionMap := make(map[string]int)
+	err = r.fetchResourceNameFromNAD(ctx, dpuService, resourceInjectionMap)
+	if err != nil {
+		log.Error(err, "unable to fetch resourceName from DPUServiceNAD")
+		return err
+	}
+
+	if len(resourceInjectionMap) > 0 {
+		if err := r.updateDPUServiceHelmChart(dpuService, resourceInjectionMap); err != nil {
+			log.Error(err, "unable to dynamicInjectResource in DPUServiceHelmchart")
+			return err
+		}
+	}
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionDPUServiceInterfaceReconciled)
 
 	if err := r.reconcileApplicationPrereqs(ctx, dpuService, dpuClusterConfigs, dpfOperatorConfig); err != nil {

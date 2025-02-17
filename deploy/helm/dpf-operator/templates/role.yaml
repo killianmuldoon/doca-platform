@@ -260,6 +260,7 @@ rules:
   - dpuservicecredentialrequests
   - dpuserviceinterfaces
   - dpuserviceipams
+  - dpuservicenads
   - dpuservices
   - dpuservicetemplates
   - servicechains
@@ -281,6 +282,7 @@ rules:
   - dpuservicecredentialrequests/finalizers
   - dpuserviceinterfaces/finalizers
   - dpuserviceipams/finalizers
+  - dpuservicenads/finalizers
   - dpuservices/finalizers
   - dpuservicetemplates/finalizers
   - servicechains/finalizers
@@ -295,6 +297,7 @@ rules:
   - dpuservicecredentialrequests/status
   - dpuserviceinterfaces/status
   - dpuserviceipams/status
+  - dpuservicenads/status
   - dpuservices/status
   - dpuservicetemplates/status
   - servicechains/status

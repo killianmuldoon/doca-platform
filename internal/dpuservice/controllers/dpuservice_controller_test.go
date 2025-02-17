@@ -100,6 +100,7 @@ var _ = Describe("DPUService Controller", func() {
 			Expect(testClient.Delete(ctx, testDPU2NS)).To(Succeed())
 			Expect(testClient.Delete(ctx, testDPU3NS)).To(Succeed())
 		})
+
 		It("should successfully reconcile the DPUService", func() {
 			clusters := []provisioningv1.DPUCluster{
 				testutils.GetTestDPUCluster(testDPU1NS.Name, "cluster-one"),
@@ -237,6 +238,7 @@ var _ = Describe("DPUService Controller", func() {
 			g := NewWithT(GinkgoT())
 			assertDPUServiceAnnotationsClean(g, testClient, dpuServices)
 		})
+
 		It("should successfully create the DPUService with serviceID and interfaces", func() {
 			By("creating the DPUService with serviceID and interfaces")
 			dpuService := getMinimalDPUServices(testNS.Name)
@@ -250,12 +252,108 @@ var _ = Describe("DPUService Controller", func() {
 			Expect(testClient.Create(ctx, dpuService[0])).To(Succeed())
 			cleanupObjs = append(cleanupObjs, dpuService[0])
 		})
+
 		It("should fail to create the DPUService without serviceID but with interfaces", func() {
 			By("creating the DPUService with serviceID and interfaces")
 			dpuService := getMinimalDPUServices(testNS.Name)
 			dpuService[0].Spec.ServiceID = nil
 			Expect(testClient.Create(ctx, dpuService[0])).ToNot(Succeed())
 		})
+
+		// dynamic resource injection
+		// we only support ADD operation in CRUD, update/delete are ignored for now
+		// so when NAD gets changed(sf->vf or vf->sf or sf->veth) or NAD gets deleted, we don't do anything.
+		// discussion -- https://nvidia.slack.com/archives/C06VCRWC8D6/p1739197308293359
+		It("should successfully inject the resources in DPUService based on resourceType from customNAD in DPUServiceInterface", func() {
+			By("creating the DPUService with serviceID and interfaces")
+			dpuService := getDPUServiceWithoutHelmchartValues(testNS.Name)
+			dpuService[0].Spec.Interfaces[0] = "dpu-service-interface-with-custom-nad"
+			dpuServiceInterface := getMinimalDPUServiceInterfacewithCustomNAD(testNS.Name)
+			dpuServiceNAD := getDPUServiceNADWithSpec(testNS.Name)
+			Expect(testClient.Create(ctx, dpuServiceNAD)).To(Succeed())
+			cleanupObjs = append(cleanupObjs, dpuServiceNAD)
+			Expect(testClient.Create(ctx, dpuServiceInterface)).To(Succeed())
+			cleanupObjs = append(cleanupObjs, dpuServiceInterface)
+			Expect(testClient.Create(ctx, dpuService[0])).To(Succeed())
+			cleanupObjs = append(cleanupObjs, dpuService[0])
+			// verify DPUService has resource in helmchart values
+			Eventually(func(g Gomega) {
+				var serviceValuesMap map[string]interface{}
+				gotDPUService := &dpuservicev1.DPUService{}
+				err := testClient.Get(ctx, client.ObjectKeyFromObject(dpuService[0]), gotDPUService)
+				g.Expect(err).ToNot(HaveOccurred(), "Expected to successfully get DPUService")
+				g.Expect(gotDPUService.Spec.HelmChart.Values).ToNot(BeNil())
+				err = json.Unmarshal(gotDPUService.Spec.HelmChart.Values.Raw, &serviceValuesMap)
+				g.Expect(err).ToNot(HaveOccurred(), "Expected to successfully unmarshal HelmChart values")
+				resources, ok := serviceValuesMap["resources"].(map[string]interface{})
+				g.Expect(ok).To(BeTrue(), "Expected 'resources' to be a map[string]interface{}")
+				g.Expect(resources).ToNot(BeNil(), "Expected 'resources' to not be nil")
+				g.Expect(resources).To(HaveKeyWithValue("nvidia.com/bf_sf", int64(1)), "Expected 'resources' to have key 'nvidia.com/bf_sf' with value 1")
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			// Update/Delete DPUServiceNAD object, DPUService spec should not get impacted
+			origNAD := dpuServiceNAD.DeepCopy()
+			dpuServiceNAD.Spec.ResourceType = "vf"
+			Expect(testClient.Patch(ctx, dpuServiceNAD, client.MergeFrom(origNAD))).To(Succeed())
+			// verify DPUService still has the same resource in helmchart values
+			Eventually(func(g Gomega) {
+				var serviceValuesMap map[string]interface{}
+				gotDPUService := &dpuservicev1.DPUService{}
+				err := testClient.Get(ctx, client.ObjectKeyFromObject(dpuService[0]), gotDPUService)
+				g.Expect(err).ToNot(HaveOccurred(), "Expected to successfully get DPUService")
+
+				err = json.Unmarshal(gotDPUService.Spec.HelmChart.Values.Raw, &serviceValuesMap)
+				g.Expect(err).ToNot(HaveOccurred(), "Expected to successfully unmarshal HelmChart values")
+
+				resources, ok := serviceValuesMap["resources"].(map[string]interface{})
+				g.Expect(ok).To(BeTrue(), "Expected 'resources' to be a map[string]interface{}")
+				g.Expect(resources).ToNot(BeNil(), "Expected 'resources' to not be nil")
+				g.Expect(resources).To(HaveKeyWithValue("nvidia.com/bf_sf", int64(1)), "Expected 'resources' to have key 'nvidia.com/bf_sf' with value 1")
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+
+			Expect(testClient.Delete(ctx, dpuServiceNAD)).To(Succeed())
+			// verify DPUService still has resource in helmchart values
+			Eventually(func(g Gomega) {
+				var serviceValuesMap map[string]interface{}
+				gotDPUService := &dpuservicev1.DPUService{}
+				err := testClient.Get(ctx, client.ObjectKeyFromObject(dpuService[0]), gotDPUService)
+				g.Expect(err).ToNot(HaveOccurred(), "Expected to successfully get DPUService")
+
+				err = json.Unmarshal(gotDPUService.Spec.HelmChart.Values.Raw, &serviceValuesMap)
+				g.Expect(err).ToNot(HaveOccurred(), "Expected to successfully unmarshal HelmChart values")
+
+				resources, ok := serviceValuesMap["resources"].(map[string]interface{})
+				g.Expect(ok).To(BeTrue(), "Expected 'resources' to be a map[string]interface{}")
+				g.Expect(resources).ToNot(BeNil(), "Expected 'resources' to not be nil")
+				g.Expect(resources).To(HaveKeyWithValue("nvidia.com/bf_sf", int64(1)), "Expected 'resources' to have key 'nvidia.com/bf_sf' with value 1")
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+		})
+
+		It("should only inject the resources in DPUService for sf/vf resourcetype in customNAD", func() {
+			By("creating the DPUService with serviceID and interfaces")
+			dpuService := getMinimalDPUServices(testNS.Name)
+			dpuService[0].Spec.Interfaces[0] = "dpu-service-interface-with-custom-nad"
+			dpuServiceInterface := getMinimalDPUServiceInterfacewithCustomNAD(testNS.Name)
+			dpuServiceNAD := getDPUServiceNADWithSpec(testNS.Name)
+			dpuServiceNAD.Spec.ResourceType = "veth"
+			Expect(testClient.Create(ctx, dpuServiceNAD)).To(Succeed())
+			cleanupObjs = append(cleanupObjs, dpuServiceNAD)
+			Expect(testClient.Create(ctx, dpuServiceInterface)).To(Succeed())
+			cleanupObjs = append(cleanupObjs, dpuServiceInterface)
+			Expect(testClient.Create(ctx, dpuService[0])).To(Succeed())
+			cleanupObjs = append(cleanupObjs, dpuService[0])
+			// verify there is no resources at all now
+			Eventually(func(g Gomega) {
+				var serviceValuesMap map[string]interface{}
+				gotDPUService := &dpuservicev1.DPUService{}
+				err := testClient.Get(ctx, client.ObjectKeyFromObject(dpuService[0]), gotDPUService)
+				g.Expect(err).ToNot(HaveOccurred(), "Expected to successfully get DPUService")
+				err = json.Unmarshal(gotDPUService.Spec.HelmChart.Values.Raw, &serviceValuesMap)
+				g.Expect(err).ToNot(HaveOccurred(), "Expected to successfully unmarshal HelmChart values")
+				g.Expect(serviceValuesMap).ToNot(HaveKey("resources"), "Expected 'serviceValuesMap' to not have key 'resources'")
+			}).WithTimeout(30 * time.Second).Should(Succeed())
+		})
+
 	})
 })
 
@@ -547,6 +645,59 @@ func assertApplication(g Gomega, testClient client.Client, dpuServices []*dpuser
 	}
 }
 
+func getDPUServiceWithoutHelmchartValues(testNamespace string) []*dpuservicev1.DPUService {
+	return []*dpuservicev1.DPUService{
+		{ObjectMeta: metav1.ObjectMeta{GenerateName: "dpu-one-", Namespace: testNamespace},
+			Spec: dpuservicev1.DPUServiceSpec{
+				HelmChart: dpuservicev1.HelmChart{
+					Source: dpuservicev1.ApplicationSource{
+						RepoURL:     "oci://repository.com",
+						Version:     "v1.1",
+						Chart:       "first-chart",
+						ReleaseName: "release-one",
+					},
+				},
+				ServiceID: ptr.To("service-one"),
+				ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+					NodeSelector: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{
+							{
+								MatchExpressions: []corev1.NodeSelectorRequirement{
+									{
+										Key:      "key",
+										Operator: "Exists",
+									},
+								},
+							},
+						},
+					},
+					UpdateStrategy: &appsv1.DaemonSetUpdateStrategy{
+						Type: appsv1.RollingUpdateDaemonSetStrategyType,
+						RollingUpdate: &appsv1.RollingUpdateDaemonSet{
+							MaxUnavailable: &intstr.IntOrString{
+								Type:   0,
+								IntVal: 0,
+								StrVal: "",
+							},
+							MaxSurge: &intstr.IntOrString{
+								Type:   0,
+								IntVal: 0,
+								StrVal: "",
+							},
+						},
+					},
+					Labels: map[string]string{
+						"label-one": "label-value",
+					},
+					Annotations: map[string]string{
+						"annotation-one": "annotation",
+					},
+				},
+				Interfaces: []string{"dpu-service-interface"},
+			},
+		},
+	}
+}
 func getMinimalDPUServices(testNamespace string) []*dpuservicev1.DPUService {
 	return []*dpuservicev1.DPUService{
 		{ObjectMeta: metav1.ObjectMeta{GenerateName: "dpu-one-", Namespace: testNamespace},
@@ -874,6 +1025,48 @@ func getMinimalDPFOperatorConfig() *operatorv1.DPFOperatorConfig {
 		Spec: operatorv1.DPFOperatorConfigSpec{
 			ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
 				BFBPersistentVolumeClaimName: "name",
+			},
+		},
+	}
+}
+
+func getDPUServiceNADWithSpec(namespace string) *dpuservicev1.DPUServiceNAD {
+	return &dpuservicev1.DPUServiceNAD{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "mynad",
+			Namespace:   namespace,
+			Labels:      map[string]string{"labelTest": "labelTestValue"},
+			Annotations: map[string]string{"annotTest": "annotTestValue"},
+		},
+		Spec: dpuservicev1.DPUServiceNADSpec{
+			ResourceType: "sf",
+			Bridge:       "test-ovsbridge",
+			MTU:          1500,
+			IPAM:         true,
+		},
+	}
+}
+
+func getMinimalDPUServiceInterfacewithCustomNAD(namespace string) *dpuservicev1.DPUServiceInterface {
+	return &dpuservicev1.DPUServiceInterface{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dpu-service-interface-with-custom-nad",
+			Namespace: namespace,
+		},
+		Spec: dpuservicev1.DPUServiceInterfaceSpec{
+			Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+				Spec: dpuservicev1.ServiceInterfaceSetSpec{
+					Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+						Spec: dpuservicev1.ServiceInterfaceSpec{
+							InterfaceType: dpuservicev1.InterfaceTypeService,
+							Service: &dpuservicev1.ServiceDef{
+								ServiceID:     "service-one",
+								Network:       "mynad",
+								InterfaceName: "net1",
+							},
+						},
+					},
+				},
 			},
 		},
 	}
