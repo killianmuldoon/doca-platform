@@ -1,6 +1,6 @@
 # Host Based Networking
 
-In this configuration [NVIDIA Host Based Networking (HBN)](https://docs.nvidia.com/doca/sdk/nvidia+doca+hbn+service+guide/index.html) is installed as a DPUService.
+In this configuration [NVIDIA Host Based Networking (HBN)](https://docs.nvidia.com/doca/sdk/doca+hbn+service+guide/index.html) is installed as a DPUService.
 
 <!-- toc -->
 - [Prerequisites](#prerequisites)
