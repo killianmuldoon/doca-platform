@@ -46,4 +46,5 @@ if [ -n "$GITHUB_RELEASE_TOKEN" ]; then
 fi
 
 # Run the binfmt container to enable multi-architecture builds
-docker run --privileged --rm tonistiigi/binfmt --install all
+docker run --privileged --rm tonistiigi/binfmt@sha256:66e11bea77a5ea9d6f0fe79b57cd2b189b5d15b93a2bdb925be22949232e4e55 --uninstall qemu-*
+docker run --privileged --rm tonistiigi/binfmt@sha256:66e11bea77a5ea9d6f0fe79b57cd2b189b5d15b93a2bdb925be22949232e4e55 --install all

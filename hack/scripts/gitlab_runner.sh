@@ -114,7 +114,7 @@ grep -q "hard nofile 2048" || echo "* hard nofile 2048" >> /etc/security/limits.
 
 
 ## Enable Docker building with qemu for multi-arch
-sudo docker run --privileged --rm tonistiigi/binfmt --install all > /dev/null || log_and_exit "Failed to enable Docker building with qemu"
+sudo docker run --privileged --rm tonistiigi/binfmt@sha256:66e11bea77a5ea9d6f0fe79b57cd2b189b5d15b93a2bdb925be22949232e4e55 --install all > /dev/null || log_and_exit "Failed to enable Docker building with qemu"
 
 ## Delete .bash_logout
 sudo rm -rf /"${GITLAB_RUNNER_USER}"/.bash_logout > /dev/null || log_and_exit "Failed to delete gitlab-runner $HOME/.bash_logout"
