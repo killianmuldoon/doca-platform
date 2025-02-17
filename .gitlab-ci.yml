@@ -174,7 +174,7 @@ e2e-provisioning:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST_FULL == "true"
       when: on_success
   variables:
-    DPF_E2E_NUM_DPU_NODES: 1
+    E2E_TEST_ARGS: "-v -ginkgo.v -e2e.config=./config-provisioning.yaml"
     PIPELINE_NAME: "Provisioning end-to-end tests"
     DEPLOY_PROMETHEUS: true
     DEPLOY_KSM: true

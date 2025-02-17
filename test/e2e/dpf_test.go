@@ -33,7 +33,6 @@ import (
 	"github.com/nvidia/doca-platform/test/utils"
 	"github.com/nvidia/doca-platform/test/utils/collector"
 	"github.com/nvidia/doca-platform/test/utils/metrics"
-	kamajiv1 "github.com/nvidia/doca-platform/third_party/api/kamaji/api/v1alpha1"
 	nvipamv1 "github.com/nvidia/doca-platform/third_party/api/nvipam/api/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -41,10 +40,8 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/labels"
 	machineryruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -52,180 +49,154 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	// pullSecretName must match the name given to the secret in `create-artefact-secrets.sh`
-	pullSecretName = "dpf-pull-secret"
-	dpuClusterName = "dpu-cluster-1"
-)
-
-var (
-	testObjectsPath            = "../objects/"
-	dpfOperatorSystemNamespace = "dpf-operator-system"
-	argoCDInstanceLabel        = "argocd.argoproj.io/instance"
-
-	// Labels and resources targeted for cleanup before running our e2e tests.
-	// This cleanup is typically handled by cleanupObjs, but if an e2e test fails, the standard cleanup may not be executed.
-	cleanupLabels     = map[string]string{"dpf-operator-e2e-test-cleanup": "true"}
-	labelSelector     = labels.SelectorFromSet(cleanupLabels)
-	resourcesToDelete = []client.ObjectList{
-		&dpuservicev1.DPUDeploymentList{},
-		&dpuservicev1.DPUServiceCredentialRequestList{},
-		&dpuservicev1.DPUServiceList{},
-		&dpuservicev1.DPUServiceConfigurationList{},
-		&dpuservicev1.DPUServiceTemplateList{},
-		&provisioningv1.DPUSetList{},
-		&provisioningv1.DPUList{},
-		&provisioningv1.BFBList{},
-		&provisioningv1.DPUClusterList{},
-		&dpuservicev1.DPUServiceIPAMList{},
-		&dpuservicev1.DPUServiceChainList{},
-		&dpuservicev1.DPUServiceInterfaceList{},
-		&kamajiv1.TenantControlPlaneList{},
-		&operatorv1.DPFOperatorConfigList{},
-		&appsv1.DeploymentList{},
-		&appsv1.DaemonSetList{},
-		&corev1.PersistentVolumeClaimList{},
-		&corev1.NamespaceList{},
-		&corev1.NodeList{},
-		&corev1.ServiceList{},
-	}
-)
-
-//nolint:dupl
-var _ = Describe("DOCA Platform Framework", Ordered, func() {
-	// TODO: Consolidate all the DPUService* objects in one namespace to illustrate user behavior
-	dpfProvisioningControllerPVCName := "bfb-pvc"
-	extraPullSecretName := fmt.Sprintf("%s-extra", pullSecretName)
-
-	// The DPFOperatorConfig for the test.
-	config := &operatorv1.DPFOperatorConfig{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "dpfoperatorconfig",
-			Namespace: dpfOperatorSystemNamespace,
-			Labels:    cleanupLabels,
-		},
-		Spec: operatorv1.DPFOperatorConfigSpec{
-			ProvisioningController: operatorv1.ProvisioningControllerConfiguration{
-				BFBPersistentVolumeClaimName: dpfProvisioningControllerPVCName,
-			},
-			StaticClusterManager: &operatorv1.StaticClusterManagerConfiguration{
-				Disable: ptr.To(false),
-			},
-			// Disable the Kamaji cluster manager so only one cluster manager is running.
-			// TODO: Enable Kamaji by default in the e2e tests.
-			KamajiClusterManager: &operatorv1.KamajiClusterManagerConfiguration{
-				Disable: ptr.To(true),
-			},
-			ImagePullSecrets: []string{
-				pullSecretName,
-				extraPullSecretName,
-			},
-		},
-	}
-
-	Context("DPF Operator initialization", func() {
-		BeforeAll(func() {
-			By("cleaning up objects created during recent tests", func() {
-				Expect(utils.CleanupWithLabelAndWait(ctx, testClient, labelSelector, resourcesToDelete...)).To(Succeed())
-			})
-		})
-
-		AfterAll(func() {
-			By("collecting resources and logs for the clusters")
-			err := collectResourcesAndLogs(ctx)
-			if err != nil {
-				// Don't fail the test if the log collector fails - just print the errors.
-				GinkgoLogr.Error(err, "failed to collect resources and logs for the clusters")
-			}
-			if skipCleanup {
-				return
-			}
-			By("cleaning up objects created during the test", func() {
-				Expect(utils.CleanupWithLabelAndWait(ctx, testClient, labelSelector, resourcesToDelete...)).To(Succeed())
-			})
-		})
-
-		pvcSize := "10Mi"
-		pvcStorageClass := ""
-		if numNodes > 0 {
-			pvcSize = "10Gi"
-			pvcStorageClass = "local-path"
-		}
-
-		DeployDPFSystemComponents(ctx, DeployDPFSystemComponentsInput{
-			DPFSystemNamespace:                    dpfOperatorSystemNamespace,
-			DPFOperatorConfig:                     config,
-			ImagePullSecrets:                      []string{pullSecretName, extraPullSecretName},
-			ProvisioningControllerPVCSize:         pvcSize,
-			ProvisioningControllerPVCStorageClass: pvcStorageClass,
-		})
-
-		dpuClusterPrerequisiteObjects := []client.Object{}
-		// Read the TenantControlPlane from file and create it.
-		// Note: This process doesn't cover all the places in the file the name should be set.
-		tenantControlPlane := unstructuredFromFile("infrastructure/kamaji.yaml")
-		tenantControlPlane.SetLabels(cleanupLabels)
-
-		// If we have real nodes use the ClusterIP service type.
-		if numNodes > 0 {
-			Expect(unstructured.SetNestedField(tenantControlPlane.UnstructuredContent(), "ClusterIP", "spec", "controlPlane", "service", "serviceType")).To(Succeed())
-		}
-		dpuClusterPrerequisiteObjects = append(dpuClusterPrerequisiteObjects, tenantControlPlane)
-
-		dpuClusterPrerequisiteObjects = append(dpuClusterPrerequisiteObjects,
-			// Add a nodeport to enable using the DPUCluster on Docker Desktop in MacOS.
-			unstructuredFromFile("infrastructure/nodeport-dpucluster.yaml"),
-		)
-
-		ProvisionDPUClusters(ctx, ProvisionDPUClustersInput{
-			numberOfNodesPerCluster: numNodes,
-			dpuClusterPrerequisites: dpuClusterPrerequisiteObjects,
-			nodeAnnotations: map[string]string{
-				// This annotation prevents nodes from being restarted during the e2e provisioning test flow which speeds up the test.
-				"provisioning.dpu.nvidia.com/reboot-command": "skip",
-			},
-			dpuClusterFile: "infrastructure/dpucluster.yaml",
-			dpuSetFile:     "infrastructure/dpuset.yaml",
-			bfbFile:        "infrastructure/bfb.yaml",
-			// This server override enables running the e2e tests using Docker Desktop on Mac OS. The port must match the port contained
-			// in the nodeport defined in the nodePortService in the dpuClusterPrerequisites.
-			dpuClusterClientOptions: []dpucluster.ClientOption{dpucluster.OverrideClientConfigHost{Server: "https://127.0.0.1:32443"}},
-		})
-
-		VerifyDPFOperatorConfiguration(ctx, config)
-		VerifyKSMMetricsCollection(ctx, metricsURI)
-		ValidateDPUService(ctx, config, metricsURI)
-		ValidateDPUDeployment(ctx, metricsURI)
-		ValidateDPUServiceIPAM(ctx, metricsURI)
-		ValidateDPUServiceChain(ctx, metricsURI)
-		ValidateDPUServiceCredentialRequest(ctx, metricsURI)
-		ValidateGeneralDPFMetrics(ctx)
-
-		ValidateOperatorCleanup(ctx, config)
+// DPFSystemTest provisions a cluster with a DPF system and runs the inputted tests on it.
+// This function is designed to be run inside a ginkgo `Describe` test spec.
+func DPFSystemTest(input systemTestInput, tests []dpfTest) {
+	DeployDPFSystemComponents(ctx, DeployDPFSystemComponentsInput{
+		systemNamespace:           input.namespace,
+		operatorConfig:            input.config,
+		ImagePullSecrets:          input.pullSecretNames,
+		ProvisioningControllerPVC: input.pvc,
 	})
-})
 
-type DeployDPFSystemComponentsInput struct {
-	DPFOperatorConfig                     *operatorv1.DPFOperatorConfig
-	DPFSystemNamespace                    string
-	ProvisioningControllerPVCSize         string
-	ProvisioningControllerPVCStorageClass string
-	ImagePullSecrets                      []string
+	ProvisionDPUClusters(ctx, ProvisionDPUClustersInput{
+		numberOfNodesPerCluster: input.numberOfDPUNodes,
+		dpuClusterPrerequisites: input.additionalProvisioningObjects,
+		// This annotation prevents nodes from being restarted during the e2e provisioning test flow which speeds up the test.
+		nodeAnnotations: map[string]string{"provisioning.dpu.nvidia.com/reboot-command": "skip"},
+		dpuCluster:      input.dpuCluster,
+		dpuSet:          input.dpuSet,
+		bfb:             input.bfb,
+		// This server override enables running the e2e tests using Docker Desktop on MacOS. The port must match the port contained
+		// in the nodeport defined in the nodePortService in the dpuClusterPrerequisites.
+		dpuClusterClientOptions: []dpucluster.ClientOption{dpucluster.OverrideClientConfigHost{Server: "https://127.0.0.1:32443"}},
+	})
+
+	// Run each additional test passed to the spec
+	// TODO: Consider using a map here to ensure the tests are independent.
+	for _, test := range tests {
+		test(ctx, input)
+	}
 }
 
-// DeployDPFSystemComponents creates the DPFOperatorConfig and some dependencies and checks that the system components
+type dpfTest func(context.Context, systemTestInput)
+
+type systemTestInput struct {
+	namespace                     string
+	config                        *operatorv1.DPFOperatorConfig
+	pvc                           *corev1.PersistentVolumeClaim
+	additionalProvisioningObjects []client.Object
+	dpuCluster                    *provisioningv1.DPUCluster
+	dpuService                    *dpuservicev1.DPUService
+	dpuServiceInterface           *dpuservicev1.DPUServiceInterface
+	dpuServiceChain               *dpuservicev1.DPUServiceChain
+	bfb                           *provisioningv1.BFB
+	dpuSet                        *provisioningv1.DPUSet
+	dpuDeployment                 *dpuservicev1.DPUDeployment
+	dpuServiceConfiguration       *dpuservicev1.DPUServiceConfiguration
+	dpuServiceTemplate            *dpuservicev1.DPUServiceTemplate
+	cidrDPUServiceIPAM            *dpuservicev1.DPUServiceIPAM
+	ipPoolDPUServiceIPAM          *dpuservicev1.DPUServiceIPAM
+	dpuServiceCredentialRequest   *dpuservicev1.DPUServiceCredentialRequest
+	numberOfDPUNodes              int
+	pullSecretNames               []string
+}
+
+func (t *systemTestInput) applyConfig(conf config) {
+	bfb := &provisioningv1.BFB{}
+	bfbUnstructured := unstructuredFromFile(conf.BFBPath)
+	Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(bfbUnstructured.Object, bfb)).To(Succeed())
+	t.bfb = bfb
+
+	dpuSet := &provisioningv1.DPUSet{}
+	dpuSetUnstructured := unstructuredFromFile(conf.DPUSetPath)
+	Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpuSetUnstructured.Object, dpuSet)).To(Succeed())
+	t.dpuSet = dpuSet
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	pvcUnstructured := unstructuredFromFile(conf.ProvisioningControllerPVCPath)
+	Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(pvcUnstructured.Object, pvc)).To(Succeed())
+	t.pvc = pvc
+
+	dpuCluster := &provisioningv1.DPUCluster{}
+	dpuClusterUnstructured := unstructuredFromFile(conf.DPUClusterPath)
+	Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpuClusterUnstructured.Object, dpuCluster)).To(Succeed())
+	t.dpuCluster = dpuCluster
+
+	dpuServiceInterface := &dpuservicev1.DPUServiceInterface{}
+	dsi := unstructuredFromFile(conf.DPUServiceInterfacePath)
+	Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dsi.Object, dpuServiceInterface)).To(Succeed())
+	t.dpuServiceInterface = dpuServiceInterface
+
+	dpuService := &dpuservicev1.DPUService{}
+	svc := unstructuredFromFile(conf.DPUServicePath)
+	Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(svc.Object, dpuService)).To(Succeed())
+	t.dpuService = dpuService
+
+	dpuClusterPrerequisiteObjects := []client.Object{}
+	for _, path := range conf.DPUClusterPrerequisiteObjectPaths {
+		dpuClusterPrerequisiteObjects = append(dpuClusterPrerequisiteObjects, unstructuredFromFile(path))
+	}
+	t.additionalProvisioningObjects = dpuClusterPrerequisiteObjects
+
+	dpuServiceTemplate := &dpuservicev1.DPUServiceTemplate{}
+	tmp := unstructuredFromFile(conf.DPUServiceTemplatePath)
+	Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(tmp.Object, dpuServiceTemplate)).To(Succeed())
+	t.dpuServiceTemplate = dpuServiceTemplate
+
+	dpuServiceConfiguration := &dpuservicev1.DPUServiceConfiguration{}
+	svcConfig := unstructuredFromFile(conf.DPUServiceConfiguration)
+	Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(svcConfig.Object, dpuServiceConfiguration)).To(Succeed())
+	t.dpuServiceConfiguration = dpuServiceConfiguration
+
+	dpuDeployment := &dpuservicev1.DPUDeployment{}
+	deployment := unstructuredFromFile(conf.DPUDeploymentPath)
+	Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(deployment.Object, dpuDeployment)).To(Succeed())
+	t.dpuDeployment = dpuDeployment
+
+	ipPoolDPUServiceIPAM := &dpuservicev1.DPUServiceIPAM{}
+	subnetIPAM := unstructuredFromFile(conf.IPPoolDPUServiceIPAMPath)
+	Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(subnetIPAM.Object, ipPoolDPUServiceIPAM)).To(Succeed())
+	t.ipPoolDPUServiceIPAM = ipPoolDPUServiceIPAM
+
+	cidrDPUServiceIPAM := &dpuservicev1.DPUServiceIPAM{}
+	cidrIPAM := unstructuredFromFile(conf.CIDRPoolDPUServiceIPAMPath)
+	Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(cidrIPAM.Object, cidrDPUServiceIPAM)).To(Succeed())
+	t.cidrDPUServiceIPAM = cidrDPUServiceIPAM
+
+	dpuServiceChain := &dpuservicev1.DPUServiceChain{}
+	chain := unstructuredFromFile(conf.DPUServiceChainPath)
+	Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(chain.Object, dpuServiceChain)).To(Succeed())
+	t.dpuServiceChain = dpuServiceChain
+
+	dpuServiceCredentialRequest := &dpuservicev1.DPUServiceCredentialRequest{}
+	request := unstructuredFromFile(conf.DPUServiceCredentialRequestPath)
+	Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(request.Object, dpuServiceCredentialRequest)).To(Succeed())
+	t.dpuServiceCredentialRequest = dpuServiceCredentialRequest
+
+	t.numberOfDPUNodes = conf.NumberOfDPUNodes
+}
+
+type DeployDPFSystemComponentsInput struct {
+	operatorConfig            *operatorv1.DPFOperatorConfig
+	systemNamespace           string
+	ProvisioningControllerPVC *corev1.PersistentVolumeClaim
+	ImagePullSecrets          []string
+}
+
+// DeployDPFSystemComponents creates the operatorConfig and some dependencies and checks that the system components
 // are deployed from the operator.
 // 1) Ensures the DPF Operator is running and ready
 // 2) Creates a PersistentVolumeClaim for the Provisioning controller
 // 3) Creates ImagePullSecrets which are tested as part of the e2e flow (note these are fake and could possibly be replaced by real ones)
-// 4) Creates the DPFOperatorConfig for the test
+// 4) Creates the operatorConfig for the test
 // 5) Ensures the DPF System components - including DPUServices - have been deployed.
 func DeployDPFSystemComponents(ctx context.Context, input DeployDPFSystemComponentsInput) {
 	It("ensure the DPF Operator is running and ready", func() {
 		Eventually(func(g Gomega) {
 			deployment := &appsv1.Deployment{}
 			g.Expect(testClient.Get(ctx, client.ObjectKey{
-				Namespace: input.DPFSystemNamespace,
+				Namespace: input.systemNamespace,
 				Name:      "dpf-operator-controller-manager"},
 				deployment)).To(Succeed())
 			g.Expect(deployment.Status.ReadyReplicas).To(Equal(*deployment.Spec.Replicas))
@@ -233,29 +204,19 @@ func DeployDPFSystemComponents(ctx context.Context, input DeployDPFSystemCompone
 	})
 
 	It("create the PersistentVolumeClaim for the DPF Provisioning controller", func() {
-		pvcUnstructured := unstructuredFromFile("infrastructure/dpf-provisioning-pvc.yaml")
-		pvc := &corev1.PersistentVolumeClaim{}
-		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(pvcUnstructured.Object, pvc)).To(Succeed())
-		pvc.SetName(input.DPFOperatorConfig.Spec.ProvisioningController.BFBPersistentVolumeClaimName)
-		pvc.SetNamespace(input.DPFSystemNamespace)
+		pvc := input.ProvisioningControllerPVC.DeepCopy()
+		pvc.SetName(input.operatorConfig.Spec.ProvisioningController.BFBPersistentVolumeClaimName)
+		pvc.SetNamespace(input.systemNamespace)
 		pvc.SetLabels(cleanupLabels)
-		// If there are real nodes we need to allocate storage for the volume.
-		pvc.Spec.VolumeMode = ptr.To(corev1.PersistentVolumeFilesystem)
-		pvc.Spec.Resources.Requests = corev1.ResourceList{
-			corev1.ResourceStorage: resource.MustParse(input.ProvisioningControllerPVCSize),
-		}
-		if input.ProvisioningControllerPVCStorageClass != "" {
-			pvc.Spec.StorageClassName = ptr.To(input.ProvisioningControllerPVCStorageClass)
-		}
 		Expect(testClient.Create(ctx, pvc)).To(Succeed())
 	})
 
-	It("creates the imagePullSecrets for the DPF OperatorConfig", func() {
+	It("creates the imagePullSecrets for the DPFOperatorConfig", func() {
 		for _, secretName := range input.ImagePullSecrets {
 			secret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      secretName,
-					Namespace: input.DPFSystemNamespace,
+					Namespace: input.systemNamespace,
 					Labels:    cleanupLabels,
 				},
 			}
@@ -264,7 +225,7 @@ func DeployDPFSystemComponents(ctx context.Context, input DeployDPFSystemCompone
 	})
 
 	It("create the DPFOperatorConfig for the system", func() {
-		Expect(testClient.Create(ctx, input.DPFOperatorConfig)).To(Succeed())
+		Expect(testClient.Create(ctx, input.operatorConfig)).To(Succeed())
 	})
 
 	It("ensure the DPF controllers are running and ready", func() {
@@ -272,7 +233,7 @@ func DeployDPFSystemComponents(ctx context.Context, input DeployDPFSystemCompone
 			// Check the DPUService controller manager is up and ready.
 			dpuServiceDeployment := &appsv1.Deployment{}
 			g.Expect(testClient.Get(ctx, client.ObjectKey{
-				Namespace: dpfOperatorSystemNamespace,
+				Namespace: input.systemNamespace,
 				Name:      "dpuservice-controller-manager"},
 				dpuServiceDeployment)).To(Succeed())
 			g.Expect(dpuServiceDeployment.Status.ReadyReplicas).To(Equal(*dpuServiceDeployment.Spec.Replicas))
@@ -280,7 +241,7 @@ func DeployDPFSystemComponents(ctx context.Context, input DeployDPFSystemCompone
 			// Check the DPF provisioning controller manager is up and ready.
 			dpfProvisioningDeployment := &appsv1.Deployment{}
 			g.Expect(testClient.Get(ctx, client.ObjectKey{
-				Namespace: dpfOperatorSystemNamespace,
+				Namespace: input.systemNamespace,
 				Name:      "dpf-provisioning-controller-manager"},
 				dpfProvisioningDeployment)).To(Succeed())
 			g.Expect(dpfProvisioningDeployment.Status.ReadyReplicas).To(Equal(*dpfProvisioningDeployment.Spec.Replicas))
@@ -315,33 +276,18 @@ type ProvisionDPUClustersInput struct {
 	dpuClusterPrerequisites []client.Object
 	nodeAnnotations         map[string]string
 	dpuClusterClientOptions []dpucluster.ClientOption
-	dpuClusterFile          string
-	dpuSetFile              string
-	bfbFile                 string
+	dpuCluster              *provisioningv1.DPUCluster
+	bfb                     *provisioningv1.BFB
+	dpuSet                  *provisioningv1.DPUSet
 }
 
 func ProvisionDPUClusters(ctx context.Context, input ProvisionDPUClustersInput) {
-	dpuCluster := &provisioningv1.DPUCluster{}
-	baseBFB := &provisioningv1.BFB{}
-	baseDPUSet := &provisioningv1.DPUSet{}
-
-	It("read provisioning objects from files", func() {
-		dpuClusterUnstructured := unstructuredFromFile(input.dpuClusterFile)
-		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpuClusterUnstructured.Object, dpuCluster)).To(Succeed())
-
-		bfbUnstructured := unstructuredFromFile(input.bfbFile)
-		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(bfbUnstructured.Object, baseBFB)).To(Succeed())
-
-		dpusetUnstructured := unstructuredFromFile(input.dpuSetFile)
-		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(dpusetUnstructured.Object, baseDPUSet)).To(Succeed())
-	})
-
+	// TODO: Pass this in as config instead of as a global.
 	if bfbImageURL != "" {
 		It("override BFB URL with the value from the env BFB_IMAGE_URL", func() {
-			baseBFB.Spec.URL = bfbImageURL
+			input.bfb.Spec.URL = bfbImageURL
 		})
 	}
-
 	// Add additional annotations to the Nodes.
 	if len(input.nodeAnnotations) > 0 {
 		It("annotate nodes from cluster", func() {
@@ -372,10 +318,10 @@ func ProvisionDPUClusters(ctx context.Context, input ProvisionDPUClustersInput) 
 		}
 	})
 
-	It("create DPUClusters ", func() {
-		dpuCluster.SetLabels(cleanupLabels)
-		By(fmt.Sprintf("Creating DPU Cluster %s/%s", dpuCluster.GetNamespace(), dpuCluster.GetName()))
-		Expect(testClient.Create(ctx, dpuCluster)).To(Succeed())
+	It("create DPUCluster", func() {
+		input.dpuCluster.SetLabels(cleanupLabels)
+		By(fmt.Sprintf("Creating DPU Cluster %s/%s", input.dpuCluster.GetNamespace(), input.dpuCluster.GetName()))
+		Expect(testClient.Create(ctx, input.dpuCluster)).To(Succeed())
 
 		Eventually(func(g Gomega) {
 			clusters := &provisioningv1.DPUClusterList{}
@@ -390,14 +336,14 @@ func ProvisionDPUClusters(ctx context.Context, input ProvisionDPUClustersInput) 
 	It("create the BFB and DPUSet", func() {
 		Eventually(func(g Gomega) {
 			By("creating the BFB")
-			bfb := baseBFB.DeepCopy()
+			bfb := input.bfb.DeepCopy()
 			bfb.SetLabels(cleanupLabels)
 			g.Expect(testClient.Create(ctx, bfb)).To(Succeed())
 		}).WithTimeout(10 * time.Second).Should(Succeed())
 
 		Eventually(func(g Gomega) {
 			By("Creating the DPUSet")
-			dpuset := baseDPUSet.DeepCopy()
+			dpuset := input.dpuSet.DeepCopy()
 			// TODO: Test the cleanup of the node related to the DPU.
 			dpuset.SetLabels(cleanupLabels)
 			g.Expect(testClient.Create(ctx, dpuset)).To(Succeed())
@@ -470,10 +416,10 @@ func ProvisionDPUClusters(ctx context.Context, input ProvisionDPUClustersInput) 
 // It changes the images for all system components to arbitrary values, checks that the changes have propagated
 // and then changes them back to their default versions.
 // This function tests DPUService image setting as it is complex and requires e2e testing.
-func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFOperatorConfig) {
+func VerifyDPFOperatorConfiguration(ctx context.Context, input systemTestInput) {
 	It("verify ImageConfiguration from DPUServices", func() {
-		modifiedConfig := config.DeepCopy()
-		Expect(testClient.Get(ctx, client.ObjectKeyFromObject(modifiedConfig), modifiedConfig)).To(Succeed())
+		modifiedConfig := &operatorv1.DPFOperatorConfig{}
+		Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: configName}, modifiedConfig)).To(Succeed())
 		originalConfig := modifiedConfig.DeepCopy()
 
 		dummyRegistryName := "dummy-registry.com"
@@ -536,7 +482,7 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 			// Verify images in the DPUClusters
 			for name := range deploymentDPUservices {
 				deployments := appsv1.DeploymentList{}
-				nameForCluster := fmt.Sprintf("%s-%s", dpuClusterName, name)
+				nameForCluster := fmt.Sprintf("%s-%s", input.dpuCluster.Name, name)
 				g.Expect(dpuClusterClient.List(ctx, &deployments,
 					client.MatchingLabels{argoCDInstanceLabel: nameForCluster})).To(Succeed())
 				g.Expect(deployments.Items).To(HaveLen(1))
@@ -546,7 +492,7 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 			}
 			for name := range daemonSetDPUServices {
 				daemonSets := appsv1.DaemonSetList{}
-				nameForCluster := fmt.Sprintf("%s-%s", dpuClusterName, name)
+				nameForCluster := fmt.Sprintf("%s-%s", input.dpuCluster.Name, name)
 				g.Expect(dpuClusterClient.List(ctx, &daemonSets,
 					client.MatchingLabels{argoCDInstanceLabel: nameForCluster})).To(Succeed())
 				g.Expect(daemonSets.Items).To(HaveLen(1))
@@ -566,16 +512,17 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 	})
 
 	It("verify that the current MTU in the DPU clusters flannel configmap is 1500", func() {
-		By("verify flannel configmap for cluster " + dpuClusterName)
+		By("verify flannel configmap for cluster " + input.dpuCluster.Name)
 		flannelConfigMap := &corev1.ConfigMap{}
 		Expect(dpuClusterClient.Get(ctx, client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: "kube-flannel-cfg"}, flannelConfigMap)).To(Succeed())
 		Expect(flannelConfigMap.Data["net-conf.json"]).To(ContainSubstring("MTU\": 1500,"))
 	})
 
-	It("change the MTUs in the DPFOperatorConfig and verify that DPU Clusters are updated", func() {
-		By("get the DPFOperatorConfig")
-		Expect(testClient.Get(ctx, client.ObjectKeyFromObject(config), config)).To(Succeed())
-		By("update the MTU in the DPFOperatorConfig")
+	It("change the MTUs in the operatorConfig and verify that DPU Clusters are updated", func() {
+		By("get the operatorConfig")
+		config := &operatorv1.DPFOperatorConfig{}
+		Expect(testClient.Get(ctx, client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: configName}, config)).To(Succeed())
+		By("update the MTU in the operatorConfig")
 		originalConfig := config.DeepCopy()
 		if config.Spec.Networking == nil {
 			config.Spec.Networking = &operatorv1.Networking{}
@@ -586,7 +533,7 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 			g.Expect(testClient.Patch(ctx, config, client.MergeFrom(originalConfig))).To(Succeed())
 		}).Should(Succeed())
 
-		By("verify flannel and multus for cluster " + dpuClusterName)
+		By("verify flannel and multus for cluster " + input.dpuCluster.Name)
 		Eventually(func(g Gomega) {
 			flannelConfigMap := &corev1.ConfigMap{}
 			g.Expect(dpuClusterClient.Get(ctx, client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: "kube-flannel-cfg"}, flannelConfigMap)).To(Succeed())
@@ -615,11 +562,11 @@ func VerifyDPFOperatorConfiguration(ctx context.Context, config *operatorv1.DPFO
 	})
 }
 
-func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfig, metricsURI string) {
+func ValidateDPUService(ctx context.Context, input systemTestInput) {
 	dpuServiceName := "dpu-01"
 	hostDPUServiceName := "host-dpu-service"
 	dpuServiceNamespace := "dpu-test-ns"
-
+	testNSImagePullSecret := &corev1.Secret{}
 	It("create a DPUService and check Objects and ImagePullSecrets are mirrored correctly", func() {
 		By("create namespace for DPUService")
 		testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: dpuServiceNamespace}}
@@ -627,9 +574,9 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 		Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testNS))).To(Succeed())
 
 		By("create ImagePullSecret for DPUService in user namespace")
-		testNSImagePullSecret := &corev1.Secret{
+		testNSImagePullSecret = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      pullSecretName,
+				Name:      input.pullSecretNames[0],
 				Namespace: dpuServiceNamespace,
 				Labels: map[string]string{
 					dpuservicev1.DPFImagePullSecretLabelKey: "",
@@ -639,7 +586,7 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 		Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testNSImagePullSecret))).ToNot(HaveOccurred())
 
 		By("create a DPUServiceInterface")
-		dsi := unstructuredFromFile("application/dpuserviceinterface_service_type.yaml")
+		dsi := input.dpuServiceInterface.DeepCopy()
 		dsi.SetName("net1-service")
 		dsi.SetNamespace(dpuServiceNamespace)
 		dsi.SetLabels(cleanupLabels)
@@ -647,16 +594,21 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 
 		By("create a DPUService to be deployed on the DPUCluster")
 		// Create DPUCluster DPUService and check it's correctly reconciled.
-		dpuService := getDPUService(dpuServiceNamespace, dpuServiceName, false)
-		Expect(unstructured.SetNestedSlice(dpuService.UnstructuredContent(), []interface{}{"net1-service"}, "spec", "interfaces")).Should(Succeed())
-		Expect(unstructured.SetNestedField(dpuService.UnstructuredContent(), "my-service", "spec", "serviceID")).Should(Succeed())
+		dpuService := input.dpuService.DeepCopy()
+		dpuService.SetName(dpuServiceName)
+		dpuService.SetNamespace(dpuServiceNamespace)
+		dpuService.Spec.Interfaces = []string{"net1-service"}
+		dpuService.Spec.ServiceID = ptr.To("my-service")
 		dpuService.SetLabels(cleanupLabels)
 		Expect(testClient.Create(ctx, dpuService)).To(Succeed())
 
 		By("create a DPUService to be deployed on the host cluster")
 		// Create a host DPUService and check it's correctly reconciled
 		// Read the DPUService from file and create it.
-		hostDPUService := getDPUService(dpuServiceNamespace, hostDPUServiceName, true)
+		hostDPUService := input.dpuService.DeepCopy()
+		hostDPUService.SetName(hostDPUServiceName)
+		hostDPUService.SetNamespace(dpuServiceNamespace)
+		hostDPUService.Spec.DeployInCluster = ptr.To(true)
 		hostDPUService.SetLabels(cleanupLabels)
 		Expect(testClient.Create(ctx, hostDPUService)).To(Succeed())
 
@@ -671,7 +623,7 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 			// Check an imagePullSecret was created in the same namespace in the destination cluster.
 			g.Expect(dpuClusterClient.Get(ctx, client.ObjectKey{
 				Namespace: dpuService.GetNamespace(),
-				Name:      config.Spec.ImagePullSecrets[0]}, &corev1.Secret{})).To(Succeed())
+				Name:      input.pullSecretNames[0]}, &corev1.Secret{})).To(Succeed())
 		}).WithTimeout(600 * time.Second).Should(Succeed())
 
 		By("verify DPUService is created in the host cluster")
@@ -770,10 +722,10 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 		verifyImagePullSecretsCount(dpfOperatorSystemNamespace, 2)
 
 		desiredConf := &operatorv1.DPFOperatorConfig{}
-		Eventually(testClient.Get).WithArguments(ctx, client.ObjectKeyFromObject(config), desiredConf).Should(Succeed())
+		Eventually(testClient.Get).WithArguments(ctx, client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: configName}, desiredConf).Should(Succeed())
 		currentConf := desiredConf.DeepCopy()
 
-		// Patch the DPFOperatorConfig to remove the second secret. This causes the label to be removed.
+		// Patch the operatorConfig to remove the second secret. This causes the label to be removed.
 		desiredConf.Spec.ImagePullSecrets = append(desiredConf.Spec.ImagePullSecrets[:1], desiredConf.Spec.ImagePullSecrets[2:]...)
 
 		Eventually(testClient.Patch).WithArguments(ctx, desiredConf, client.MergeFrom(currentConf)).Should(Succeed())
@@ -781,31 +733,12 @@ func ValidateDPUService(ctx context.Context, config *operatorv1.DPFOperatorConfi
 		// Patch a DPUService to trigger a reconciliation. The DPUService should clean  this secret up from
 		// clusters to which it was previously mirrored.
 		Eventually(utils.ForceObjectReconcileWithAnnotation).WithArguments(ctx, testClient,
-			&dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: operatorv1.MultusName, Namespace: "dpf-operator-system"}}).Should(Succeed())
+			&dpuservicev1.DPUService{ObjectMeta: metav1.ObjectMeta{Name: operatorv1.MultusName, Namespace: dpfOperatorSystemNamespace}}).Should(Succeed())
 		// Verify we only have one image pull secret.
 		verifyImagePullSecretsCount(dpfOperatorSystemNamespace, 1)
 	})
 }
-func getDPUService(namespace, name string, host bool) *unstructured.Unstructured {
-	// Create a host DPUService and check it's correctly reconciled
-	// Read the DPUService from file and create it.
-	svc := unstructuredFromFile("application/dpuservice.yaml")
-	svc.SetName(name)
-	svc.SetNamespace(namespace)
 
-	// This annotation is what defines a host DPUService.
-	if host {
-		dpuService := &dpuservicev1.DPUService{}
-		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(svc.UnstructuredContent(), dpuService)).ToNot(HaveOccurred())
-		dpuService.Spec.DeployInCluster = &host
-		obj, err := machineryruntime.DefaultUnstructuredConverter.ToUnstructured(dpuService)
-		Expect(err).ToNot(HaveOccurred())
-		svc = &unstructured.Unstructured{
-			Object: obj,
-		}
-	}
-	return svc
-}
 func verifyImagePullSecretsCount(namespace string, count int) {
 	secrets := &corev1.SecretList{}
 	Expect(testClient.List(ctx, secrets,
@@ -823,19 +756,19 @@ func verifyImagePullSecretsCount(namespace string, count int) {
 	}).WithTimeout(60 * time.Second).Should(Succeed())
 }
 
-func ValidateDPUDeployment(ctx context.Context, ksmMetricsURI string) {
+func ValidateDPUDeployment(ctx context.Context, input systemTestInput) {
 	It("create a DPUDeployment with its dependencies and ensure that the underlying objects are created", func() {
 		By("creating the dependencies")
-		dpuServiceTemplate := unstructuredFromFile("application/dpuservicetemplate.yaml")
+		dpuServiceTemplate := input.dpuServiceTemplate.DeepCopy()
 		dpuServiceTemplate.SetLabels(cleanupLabels)
 		Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 
-		dpuServiceConfiguration := unstructuredFromFile("application/dpuserviceconfiguration.yaml")
+		dpuServiceConfiguration := input.dpuServiceConfiguration.DeepCopy()
 		dpuServiceConfiguration.SetLabels(cleanupLabels)
 		Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
 
 		By("creating the dpudeployment")
-		dpuDeployment := unstructuredFromFile("application/dpudeployment.yaml")
+		dpuDeployment := input.dpuDeployment.DeepCopy()
 		dpuDeployment.SetLabels(cleanupLabels)
 		Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 
@@ -891,7 +824,7 @@ func ValidateDPUDeployment(ctx context.Context, ksmMetricsURI string) {
 			"dpuserviceinterface": {"created", "info", "status_conditions", "status_condition_last_transition_time"},
 		}
 		Eventually(func(g Gomega) {
-			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, ksmMetricsURI)
+			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, metricsURI)
 			g.Expect(actualMetricsNames).NotTo(BeEmpty(), "Actual metrics are empty")
 			g.Expect(metrics.VerifyMetrics(expectedMetricsNames, actualMetricsNames)).To(BeEmpty())
 		}).WithTimeout(5 * time.Second).Should(Succeed())
@@ -904,7 +837,7 @@ func ValidateDPUDeployment(ctx context.Context, ksmMetricsURI string) {
 		}
 
 		By("deleting the dpudeployment")
-		dpuDeployment := unstructuredFromFile("application/dpudeployment.yaml")
+		dpuDeployment := input.dpuDeployment.DeepCopy()
 		Expect(testClient.Delete(ctx, dpuDeployment)).To(Succeed())
 
 		By("checking that the underlying objects are deleted")
@@ -952,7 +885,7 @@ func ValidateDPUDeployment(ctx context.Context, ksmMetricsURI string) {
 	})
 }
 
-func ValidateDPUServiceIPAM(ctx context.Context, ksmMetricsURI string) {
+func ValidateDPUServiceIPAM(ctx context.Context, input systemTestInput) {
 	dpuServiceIPAMWithIPPoolName := "switched-application"
 	dpuServiceIPAMWithCIDRPoolName := "routed-application"
 	dpuServiceIPAMNamespace := dpfOperatorSystemNamespace
@@ -975,7 +908,7 @@ func ValidateDPUServiceIPAM(ctx context.Context, ksmMetricsURI string) {
 
 	It("create a DPUServiceIPAM with subnet split per node configuration and check NVIPAM IPPool is created to each cluster", func() {
 		By("creating the DPUServiceIPAM CR")
-		dpuServiceIPAM := unstructuredFromFile("application/dpuserviceipam_subnet.yaml")
+		dpuServiceIPAM := input.ipPoolDPUServiceIPAM.DeepCopy()
 		dpuServiceIPAM.SetName(dpuServiceIPAMWithIPPoolName)
 		dpuServiceIPAM.SetNamespace(dpuServiceIPAMNamespace)
 		dpuServiceIPAM.SetLabels(cleanupLabels)
@@ -1004,7 +937,7 @@ func ValidateDPUServiceIPAM(ctx context.Context, ksmMetricsURI string) {
 			"dpuserviceipam": {"created", "info", "status_conditions", "status_condition_last_transition_time"}, //  "network_info", "subnet_info" missed
 		}
 		Eventually(func(g Gomega) {
-			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, ksmMetricsURI)
+			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, metricsURI)
 			g.Expect(actualMetricsNames).NotTo(BeEmpty(), "Actual metrics are empty")
 			g.Expect(metrics.VerifyMetrics(expectedMetricsNames, actualMetricsNames)).To(BeEmpty())
 		}).WithTimeout(5 * time.Second).Should(Succeed())
@@ -1032,7 +965,7 @@ func ValidateDPUServiceIPAM(ctx context.Context, ksmMetricsURI string) {
 
 	It("create a DPUServiceIPAM with cidr split in subnet per node configuration and check NVIPAM CIDRPool is created to each cluster", func() {
 		By("creating the DPUServiceIPAM CR")
-		dpuServiceIPAM := unstructuredFromFile("application/dpuserviceipam_cidr.yaml")
+		dpuServiceIPAM := input.cidrDPUServiceIPAM.DeepCopy()
 		dpuServiceIPAM.SetName(dpuServiceIPAMWithCIDRPoolName)
 		dpuServiceIPAM.SetNamespace(dpuServiceIPAMNamespace)
 		dpuServiceIPAM.SetLabels(cleanupLabels)
@@ -1073,7 +1006,7 @@ func ValidateDPUServiceIPAM(ctx context.Context, ksmMetricsURI string) {
 
 }
 
-func ValidateDPUServiceCredentialRequest(ctx context.Context, ksmMetricsURI string) {
+func ValidateDPUServiceCredentialRequest(ctx context.Context, input systemTestInput) {
 	hostDPUServiceCredentialRequestName := "host-dpu-credential-request"
 	dpuServiceCredentialRequestName := "dpu-01-credential-request"
 	dpuServiceCredentialRequestNamespace := "dpucr-test-ns"
@@ -1085,15 +1018,19 @@ func ValidateDPUServiceCredentialRequest(ctx context.Context, ksmMetricsURI stri
 		Expect(client.IgnoreAlreadyExists(testClient.Create(ctx, testNS))).To(Succeed())
 
 		By("create a DPUServiceCredentialRequest targeting the DPUCluster")
-		dcr := getDPUServiceCredentialRequest(dpuServiceCredentialRequestNamespace, dpuServiceCredentialRequestName,
-			&dpuservicev1.NamespacedName{Name: dpuClusterName, Namespace: ptr.To(dpfOperatorSystemNamespace)})
+		dcr := input.dpuServiceCredentialRequest.DeepCopy()
+		dcr.SetName(dpuServiceCredentialRequestName)
+		dcr.SetNamespace(dpuServiceCredentialRequestNamespace)
+		dcr.Spec.TargetCluster = &dpuservicev1.NamespacedName{Name: input.dpuCluster.Name, Namespace: ptr.To(dpfOperatorSystemNamespace)}
 		dcr.SetLabels(cleanupLabels)
 		Expect(testClient.Create(ctx, dcr)).To(Succeed())
 
 		By("create a DPUServiceCredentialRequest targeting the host cluster")
-		hostDsr := getDPUServiceCredentialRequest(dpuServiceCredentialRequestNamespace, hostDPUServiceCredentialRequestName, nil)
-		hostDsr.SetLabels(cleanupLabels)
-		Expect(testClient.Create(ctx, hostDsr)).To(Succeed())
+		hostDcr := input.dpuServiceCredentialRequest.DeepCopy()
+		hostDcr.SetName(hostDPUServiceCredentialRequestName)
+		hostDcr.SetNamespace(dpuServiceCredentialRequestNamespace)
+		hostDcr.SetLabels(cleanupLabels)
+		Expect(testClient.Create(ctx, hostDcr)).To(Succeed())
 
 		By("verify reconciled DPUServiceCredentialRequest for DPUCluster")
 		Eventually(func(g Gomega) {
@@ -1102,7 +1039,7 @@ func ValidateDPUServiceCredentialRequest(ctx context.Context, ksmMetricsURI stri
 
 		By("verify reconciled DPUServiceCredentialRequest for host cluster")
 		Eventually(func(g Gomega) {
-			assertDPUServiceCredentialRequest(g, testClient, hostDsr, true)
+			assertDPUServiceCredentialRequest(g, testClient, hostDcr, true)
 		}).WithTimeout(600 * time.Second).Should(Succeed())
 
 	})
@@ -1116,7 +1053,7 @@ func ValidateDPUServiceCredentialRequest(ctx context.Context, ksmMetricsURI stri
 			"dpuservicecredentialrequest": {"created", "info", "expiration", "issued_at", "status_conditions", "status_condition_last_transition_time"},
 		}
 		Eventually(func(g Gomega) {
-			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, ksmMetricsURI)
+			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, metricsURI)
 			g.Expect(actualMetricsNames).NotTo(BeEmpty(), "Actual metrics are empty")
 			g.Expect(metrics.VerifyMetrics(expectedMetricsNames, actualMetricsNames)).To(BeEmpty())
 		}).WithTimeout(5 * time.Second).Should(Succeed())
@@ -1146,20 +1083,6 @@ func ValidateDPUServiceCredentialRequest(ctx context.Context, ksmMetricsURI stri
 
 }
 
-func getDPUServiceCredentialRequest(namespace, name string, targetCluster *dpuservicev1.NamespacedName) *dpuservicev1.DPUServiceCredentialRequest {
-	data, err := os.ReadFile(filepath.Join(testObjectsPath, "application/dpuservicecredentialrequest.yaml"))
-	Expect(err).ToNot(HaveOccurred())
-	dcr := &dpuservicev1.DPUServiceCredentialRequest{}
-	Expect(yaml.Unmarshal(data, dcr)).To(Succeed())
-	dcr.SetName(name)
-	dcr.SetNamespace(namespace)
-
-	// This annotation is what defines a host DPUService.
-	if targetCluster != nil {
-		dcr.Spec.TargetCluster = targetCluster
-	}
-	return dcr
-}
 func assertDPUServiceCredentialRequest(g Gomega, testClient client.Client, dcr *dpuservicev1.DPUServiceCredentialRequest, host bool) {
 	gotDsr := &dpuservicev1.DPUServiceCredentialRequest{}
 	g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dcr), gotDsr)).To(Succeed())
@@ -1180,7 +1103,7 @@ func assertDPUServiceCredentialRequest(g Gomega, testClient client.Client, dcr *
 	}
 }
 
-func ValidateDPUServiceChain(ctx context.Context, ksmMetricsURI string) {
+func ValidateDPUServiceChain(ctx context.Context, input systemTestInput) {
 	dpuServiceInterfaceName := "pf0-vf2"
 	dpuServiceInterfaceNamespace := "test"
 	dpuServiceChainName := "svc-chain-test"
@@ -1192,7 +1115,7 @@ func ValidateDPUServiceChain(ctx context.Context, ksmMetricsURI string) {
 		testNS.SetLabels(cleanupLabels)
 		Expect(testClient.Create(ctx, testNS)).To(Succeed())
 		By("create DPUServiceInterface")
-		dpuServiceInterface := unstructuredFromFile("application/dpuserviceinterface.yaml")
+		dpuServiceInterface := input.dpuServiceInterface.DeepCopy()
 		dpuServiceInterface.SetName(dpuServiceInterfaceName)
 		dpuServiceInterface.SetNamespace(dpuServiceInterfaceNamespace)
 		dpuServiceInterface.SetLabels(cleanupLabels)
@@ -1210,7 +1133,7 @@ func ValidateDPUServiceChain(ctx context.Context, ksmMetricsURI string) {
 		testNS.SetLabels(cleanupLabels)
 		Expect(testClient.Create(ctx, testNS)).To(Succeed())
 		By("create DPUServiceChain")
-		dpuServiceChain := unstructuredFromFile("application/dpuservicechain.yaml")
+		dpuServiceChain := input.dpuServiceChain.DeepCopy()
 		dpuServiceChain.SetName(dpuServiceChainName)
 		dpuServiceChain.SetNamespace(dpuServiceChainNamespace)
 		dpuServiceChain.SetLabels(cleanupLabels)
@@ -1232,7 +1155,7 @@ func ValidateDPUServiceChain(ctx context.Context, ksmMetricsURI string) {
 			"dpuservicechain": {"created", "info", "status_conditions", "status_condition_last_transition_time"},
 		}
 		Eventually(func(g Gomega) {
-			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, ksmMetricsURI)
+			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, metricsURI)
 			g.Expect(actualMetricsNames).NotTo(BeEmpty(), "Actual metrics are empty")
 			g.Expect(metrics.VerifyMetrics(expectedMetricsNames, actualMetricsNames)).To(BeEmpty())
 		}).WithTimeout(5 * time.Second).Should(Succeed())
@@ -1262,7 +1185,7 @@ func ValidateDPUServiceChain(ctx context.Context, ksmMetricsURI string) {
 	})
 }
 
-func ValidateOperatorCleanup(ctx context.Context, config *operatorv1.DPFOperatorConfig) {
+func ValidateOperatorCleanup(ctx context.Context, input systemTestInput) {
 	It("delete DPUs and DPUSets and ensure they are deleted", func() {
 		if skipCleanup {
 			Skip("Skip cleanup resources")
@@ -1291,8 +1214,7 @@ func ValidateOperatorCleanup(ctx context.Context, config *operatorv1.DPFOperator
 			Skip("Skip cleanup resources")
 		}
 		By("creating the dpudeployment")
-		dpuDeployment := &dpuservicev1.DPUDeployment{}
-		Expect(machineryruntime.DefaultUnstructuredConverter.FromUnstructured(unstructuredFromFile("application/dpudeployment.yaml").UnstructuredContent(), dpuDeployment)).ToNot(HaveOccurred())
+		dpuDeployment := input.dpuDeployment.DeepCopy()
 		dpuDeployment.Name = "example-two"
 		dpuDeployment.Spec.DPUs.DPUSets[0].NodeSelector = &metav1.LabelSelector{
 			MatchLabels: map[string]string{"feature.node.kubernetes.io/dpu-enabled": "true"},
@@ -1339,16 +1261,16 @@ func ValidateOperatorCleanup(ctx context.Context, config *operatorv1.DPFOperator
 			g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
 		}).WithTimeout(180 * time.Second).Should(Succeed())
 
-		By(fmt.Sprintf("checking that the number of nodes is equal to %d", numNodes))
+		By(fmt.Sprintf("checking that the number of nodes is equal to %d", input.numberOfDPUNodes))
 		Eventually(func(g Gomega) {
 			// If we're not expecting any nodes in the cluster return with success.
-			if numNodes == 0 {
+			if input.numberOfDPUNodes == 0 {
 				return
 			}
 			nodes := &corev1.NodeList{}
 			g.Expect(dpuClusterClient.List(ctx, nodes)).To(Succeed())
-			By(fmt.Sprintf("Expected number of nodes %d to equal %d", len(nodes.Items), numNodes))
-			g.Expect(nodes.Items).To(HaveLen(numNodes))
+			By(fmt.Sprintf("Expected number of nodes %d to equal %d", len(nodes.Items), input.numberOfDPUNodes))
+			g.Expect(nodes.Items).To(HaveLen(input.numberOfDPUNodes))
 		}).WithTimeout(30 * time.Minute).WithPolling(120 * time.Second).Should(Succeed())
 	})
 
@@ -1363,7 +1285,7 @@ func ValidateOperatorCleanup(ctx context.Context, config *operatorv1.DPFOperator
 		testNS.SetLabels(cleanupLabels)
 		Expect(testClient.Create(ctx, testNS)).To(Succeed())
 		By("create DPUServiceInterface")
-		dpuServiceInterface := unstructuredFromFile("application/dpuserviceinterface.yaml")
+		dpuServiceInterface := input.dpuServiceInterface.DeepCopy()
 		dpuServiceInterface.SetName(dpuServiceInterfaceName)
 		dpuServiceInterface.SetNamespace(dpuServiceInterfaceNamespace)
 		dpuServiceInterface.SetLabels(cleanupLabels)
@@ -1377,11 +1299,11 @@ func ValidateOperatorCleanup(ctx context.Context, config *operatorv1.DPFOperator
 		}, time.Second*300, time.Millisecond*250).Should(Succeed())
 
 		// If we're not expecting any nodes in the cluster return with success.
-		if numNodes == 0 {
+		if input.numberOfDPUNodes == 0 {
 			return
 		}
 
-		By(fmt.Sprintf("verify ServiceInterface is created in %d nodes", numNodes))
+		By(fmt.Sprintf("verify ServiceInterface is created in %d nodes", input.numberOfDPUNodes))
 		Eventually(func(g Gomega) {
 			serviceInterfaceList := &dpuservicev1.ServiceInterfaceList{}
 			g.Expect(dpuClusterClient.List(ctx, serviceInterfaceList)).To(Succeed())
@@ -1389,21 +1311,22 @@ func ValidateOperatorCleanup(ctx context.Context, config *operatorv1.DPFOperator
 		}).WithTimeout(30 * time.Minute).WithPolling(120 * time.Second).Should(Succeed())
 	})
 
-	// we expect all resources, the DPUCluster included to be deleted as part of the DPFOperatorConfig cleanup
-	It("delete the DPFOperatorConfig and ensure it is deleted", func() {
+	// we expect all resources, the DPUCluster included to be deleted as part of the operatorConfig cleanup
+	It("delete the operatorConfig and ensure it is deleted", func() {
 		if skipCleanup {
 			Skip("Skip cleanup resources")
 		}
 		// Check that all deployments and DPUServices are deleted.
 		Eventually(func(g Gomega) {
-			g.Expect(client.IgnoreNotFound(testClient.Delete(ctx, config))).To(Succeed())
-			g.Expect(apierrors.IsNotFound(testClient.Get(ctx, client.ObjectKeyFromObject(config), config))).To(BeTrue())
+			key := client.ObjectKey{Namespace: dpfOperatorSystemNamespace, Name: configName}
+			g.Expect(client.IgnoreNotFound(testClient.DeleteAllOf(ctx, &operatorv1.DPFOperatorConfig{}, client.InNamespace(dpfOperatorSystemNamespace)))).To(Succeed())
+			g.Expect(apierrors.IsNotFound(testClient.Get(ctx, key, &operatorv1.DPFOperatorConfig{}))).To(BeTrue())
 		}).WithTimeout(600 * time.Second).Should(Succeed())
 	})
 }
 
 func unstructuredFromFile(path string) *unstructured.Unstructured {
-	data, err := os.ReadFile(filepath.Join(testObjectsPath, path))
+	data, err := os.ReadFile(path)
 	Expect(err).ToNot(HaveOccurred())
 	obj := &unstructured.Unstructured{}
 	Expect(yaml.Unmarshal(data, obj)).To(Succeed())
@@ -1423,7 +1346,7 @@ func collectResourcesAndLogs(ctx context.Context) error {
 		Colors:              true,
 	}
 	t, err := dpfctl.Discover(ctx, testClient, opts, "all")
-	// Only print if at least a DPFOperatorConfig is found.
+	// Only print if at least a operatorConfig is found.
 	if !apierrors.IsNotFound(err) {
 		if err := dpfctl.PrintObjectTree(t); err != nil {
 			return err
@@ -1441,7 +1364,7 @@ func collectResourcesAndLogs(ctx context.Context) error {
 	return collector.New(clusters).Run(ctx)
 }
 
-func VerifyKSMMetricsCollection(ctx context.Context, metricsURI string) {
+func VerifyKSMMetricsCollection(ctx context.Context, input systemTestInput) {
 	It("validate DPF metrics services are accessible", func() {
 		if !deployKSM {
 			Skip("Skip KSM metrics accessibility test due to KSM is not deployed")
@@ -1457,7 +1380,7 @@ func VerifyKSMMetricsCollection(ctx context.Context, metricsURI string) {
 	})
 }
 
-func ValidateGeneralDPFMetrics(ctx context.Context) {
+func ValidateGeneralDPFMetrics(ctx context.Context, input systemTestInput) {
 	hostPrometheusName := "prometheus"
 	It("validate DPF metrics services are accessible", func() {
 		if !deployPrometheus {
@@ -1500,8 +1423,8 @@ func ValidateGeneralDPFMetrics(ctx context.Context) {
 
 		By("verify metrics keys Prometheus")
 		Eventually(func(g Gomega) {
-			// No checks for bfb metrics if numNodes is 0
-			if numNodes == 0 {
+			// No checks for bfb metrics if the numberOfDPUNodes is 0
+			if input.numberOfDPUNodes == 0 {
 				delete(expectedMetricsNames, "bfb")
 			}
 			actualMetricsNames := metrics.GetPrometheusMetrics(ctx, testRESTClient, g, maps.Keys(expectedMetricsNames), dpfOperatorSystemNamespace)

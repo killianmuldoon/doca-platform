@@ -35,6 +35,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes"
@@ -46,21 +49,23 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	// testKubeconfig path to be used for this test.
-	testKubeconfig string
-)
-
 func init() {
 	flag.StringVar(&testKubeconfig, "e2e.testKubeconfig", "", "path to the testKubeconfig file")
+	flag.StringVar(&configPath, "e2e.config", "", "path to the configuration file")
+
 	getEnvVariables()
 }
 
+const (
+	configName                 = "dpfoperatorconfig"
+	dpfOperatorSystemNamespace = "dpf-operator-system"
+)
+
 // These variables can be set from the environment when running the DPF tests.
 var (
-	// numNodes can be overwritten by setting DPF_E2E_NUM_DPU_NODES in the environment.
-	// This tells the test how many Kubernetes nodes to expect in the DPU Cluster.
-	numNodes = 0
+	configPath string
+	// testKubeconfig path to be used for this test.
+	testKubeconfig string
 	// skipCleanup indicates whether to skip the cleanup of resources created during the e2e test run.
 	// When set to true, resources will not be removed after the test completes.
 	skipCleanup = false
@@ -75,17 +80,38 @@ var (
 	deployPrometheus = false
 	// deployKSM indicates whether metrics are collected by KSM.
 	// When set to true, KMS metrics will be verified for the resources.
-	deployKSM = false
+	deployKSM           = false
+	argoCDInstanceLabel = "argocd.argoproj.io/instance"
+
+	// Labels and resources targeted for cleanup before running our e2e tests.
+	// This cleanup is typically handled by cleanupObjs, but if an e2e test fails, the standard cleanup may not be executed.
+	cleanupLabels     = map[string]string{"dpf-operator-e2e-test-cleanup": "true"}
+	labelSelector     = labels.SelectorFromSet(cleanupLabels)
+	resourcesToDelete = []client.ObjectList{
+		&dpuservicev1.DPUDeploymentList{},
+		&dpuservicev1.DPUServiceCredentialRequestList{},
+		&dpuservicev1.DPUServiceList{},
+		&dpuservicev1.DPUServiceConfigurationList{},
+		&dpuservicev1.DPUServiceTemplateList{},
+		&provisioningv1.DPUSetList{},
+		&provisioningv1.DPUList{},
+		&provisioningv1.BFBList{},
+		&provisioningv1.DPUClusterList{},
+		&dpuservicev1.DPUServiceIPAMList{},
+		&dpuservicev1.DPUServiceChainList{},
+		&dpuservicev1.DPUServiceInterfaceList{},
+		&kamajiv1.TenantControlPlaneList{},
+		&operatorv1.DPFOperatorConfigList{},
+		&appsv1.DeploymentList{},
+		&appsv1.DaemonSetList{},
+		&corev1.PersistentVolumeClaimList{},
+		&corev1.NamespaceList{},
+		&corev1.NodeList{},
+		&corev1.ServiceList{},
+	}
 )
 
 func getEnvVariables() {
-	if nodes, found := os.LookupEnv("DPF_E2E_NUM_DPU_NODES"); found {
-		var err error
-		numNodes, err = strconv.Atoi(nodes)
-		if err != nil {
-			panic(err)
-		}
-	}
 	if v, found := os.LookupEnv("E2E_SKIP_CLEANUP"); found {
 		var err error
 		skipCleanup, err = strconv.ParseBool(v)
@@ -132,6 +158,7 @@ var (
 	dpuClusterClient client.Client
 	testRESTClient   *rest.RESTClient
 	metricsURI       string
+	conf             *config
 )
 
 // Run e2e tests using the Ginkgo runner.
@@ -154,6 +181,9 @@ func TestE2E(t *testing.T) {
 
 	// SchemeGroupVersion is group version used to register these objects
 	var SchemeGroupVersion = schema.GroupVersion{Group: "", Version: "v1"}
+
+	conf, err = readConfig(configPath)
+	g.Expect(err).NotTo(HaveOccurred())
 
 	// If testKubeconfig is not set default it to $HOME/.kube/config
 	home, exists := os.LookupEnv("HOME")
