@@ -370,10 +370,7 @@ func addArgoApplication(ctx context.Context, o objectScope, dpuService dpuservic
 	}
 
 	applications := argov1.ApplicationList{}
-	if err := o.client.List(ctx, &applications, client.MatchingLabels{
-		dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
-		dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
-	}); err != nil {
+	if err := o.client.List(ctx, &applications, dpuService.MatchLabels()); err != nil {
 		return err
 	}
 	for _, appObj := range applications.Items {

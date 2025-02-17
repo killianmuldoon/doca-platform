@@ -37,14 +37,17 @@ import (
 	"github.com/fluxcd/pkg/runtime/patch"
 	multusTypes "gopkg.in/k8snetworkplumbingwg/multus-cni.v4/pkg/types"
 	corev1 "k8s.io/api/core/v1"
+	discoveryv1 "k8s.io/api/discovery/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/klog/v2"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -68,12 +71,15 @@ var pauseDPUServiceReconciler bool
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuservices/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=svc.dpu.nvidia.com,resources=dpuservices/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=configmaps;secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=services,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups="",resources=namespaces,verbs=create
+// +kubebuilder:rbac:groups=discovery.k8s.io,resources=endpointslices,verbs=get;list;watch;create;update;patch;delete;deletecollection
 // +kubebuilder:rbac:groups=argoproj.io,resources=appprojects;applications,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=kamaji.clastix.io,resources=tenantcontrolplanes,verbs=get;list;watch
 // +kubebuilder:rbac:groups=operator.dpu.nvidia.com,resources=dpfoperatorconfigs,verbs=get;list;watch
 // +kubebuilder:rbac:groups=operator.dpu.nvidia.com,resources=dpfoperatorconfigs/finalizers,verbs=update
 // +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpuclusters,verbs=get;list;watch
+// +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpus,verbs=get;list;watch
 
 const (
 	dpuServiceControllerName = "dpuservice-manager"
@@ -110,7 +116,9 @@ func (r *DPUServiceReconciler) SetupWithManager(ctx context.Context, mgr ctrl.Ma
 
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&dpuservicev1.DPUService{}).
-		Watches(&argov1.Application{}, handler.EnqueueRequestsFromMapFunc(r.ArgoApplicationToDPUService)).
+		Watches(&argov1.Application{}, handler.EnqueueRequestsFromMapFunc(r.requestsForChangeByLabel)).
+		Watches(&corev1.Service{}, handler.EnqueueRequestsFromMapFunc(r.requestsForChangeByLabel)).
+		Watches(&discoveryv1.EndpointSlice{}, handler.EnqueueRequestsFromMapFunc(r.requestsForChangeByLabel)).
 		Watches(
 			&dpuservicev1.DPUServiceInterface{},
 			handler.EnqueueRequestsFromMapFunc(r.requestsForDPUServiceInterfaceChange),
@@ -146,6 +154,10 @@ func (r *DPUServiceReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		if err := r.summary(ctx, dpuService); err != nil {
 			reterr = kerrors.NewAggregate([]error{reterr, err})
 		}
+		if err := r.updateConfigPortsStatus(ctx, dpuService); err != nil {
+			reterr = kerrors.NewAggregate([]error{reterr, err})
+		}
+
 		if err := patcher.Patch(ctx, dpuService,
 			patch.WithFieldOwner(dpuServiceControllerName),
 			patch.WithStatusObservedGeneration{},
@@ -195,6 +207,9 @@ func (r *DPUServiceReconciler) reconcileDelete(ctx context.Context, dpuService *
 	if err := r.reconcileDeleteImagePullSecrets(ctx, dpuService); err != nil {
 		return ctrl.Result{}, err
 	}
+	if err := r.cleanupAllConfigPorts(ctx, dpuService); err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// Add AwaitingDeletion condition to true. Probably this will never going to apply on the DPUService as it will be
 	// deleted in the next step anyway.
@@ -232,10 +247,7 @@ func (r *DPUServiceReconciler) deleteInterfaceAnnotation(ctx context.Context, in
 func (r *DPUServiceReconciler) reconcileDeleteApplications(ctx context.Context, dpuService *dpuservicev1.DPUService) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
 	applications := &argov1.ApplicationList{}
-	if err := r.Client.List(ctx, applications, client.MatchingLabels{
-		dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
-		dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
-	}); err != nil {
+	if err := r.Client.List(ctx, applications, dpuService.MatchLabels()); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -267,10 +279,7 @@ func (r *DPUServiceReconciler) reconcileDeleteApplications(ctx context.Context, 
 
 	// List Applications again to verify if it is in deletion.
 	// Already deleted Applications will not be listed.
-	if err := r.Client.List(ctx, applications, client.MatchingLabels{
-		dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
-		dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
-	}); err != nil {
+	if err := r.Client.List(ctx, applications, dpuService.MatchLabels()); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -424,25 +433,16 @@ func (r *DPUServiceReconciler) reconcile(ctx context.Context, dpuService *dpuser
 	}
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionApplicationsReconciled)
 
-	if dpuService.Spec.ConfigPorts != nil {
-		if err := r.reconcileConfigPorts(ctx, dpuService, dpuClusterConfigs); err != nil {
-			message := fmt.Sprintf("Unable to reconcile Config Ports: %v", err)
-			conditions.AddFalse(
-				dpuService,
-				dpuservicev1.ConditionConfigPortsReconciled,
-				conditions.ReasonError,
-				conditions.ConditionMessage(message),
-			)
-			return err
-		}
+	if err = r.reconcileConfigPorts(ctx, dpuService, dpuClusterConfigs); err != nil {
+		message := fmt.Sprintf("Unable to reconcile Config Ports: %v", err)
+		conditions.AddFalse(
+			dpuService,
+			dpuservicev1.ConditionConfigPortsReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(message),
+		)
+		return err
 	}
-	conditions.AddTrue(dpuService, dpuservicev1.ConditionConfigPortsReconciled)
-
-	return nil
-}
-
-func (r *DPUServiceReconciler) reconcileConfigPorts(_ context.Context, dpuService *dpuservicev1.DPUService, _ []*dpucluster.Config) error {
-	// Not implemented.
 	conditions.AddTrue(dpuService, dpuservicev1.ConditionConfigPortsReconciled)
 
 	return nil
@@ -601,10 +601,7 @@ func (r *DPUServiceReconciler) summary(ctx context.Context, dpuService *dpuservi
 
 	applicationList := &argov1.ApplicationList{}
 	// List all of the applications matching this DPUService.
-	if err := r.Client.List(ctx, applicationList, client.MatchingLabels{
-		dpuservicev1.DPUServiceNameLabelKey:      dpuService.Name,
-		dpuservicev1.DPUServiceNamespaceLabelKey: dpuService.Namespace,
-	}); err != nil {
+	if err := r.Client.List(ctx, applicationList, dpuService.MatchLabels()); err != nil {
 		return err
 	}
 
@@ -837,6 +834,385 @@ func (r *DPUServiceReconciler) skipApplicationReconcile(ctx context.Context, dpf
 	return nil
 }
 
+func (r *DPUServiceReconciler) reconcileConfigPorts(ctx context.Context, dpuService *dpuservicev1.DPUService, dpuClusterConfigs []*dpucluster.Config) (reterr error) {
+	// If there are no ConfigPorts, we can cleanup the ConfigPorts completely.
+	if dpuService.Spec.ConfigPorts == nil || len(dpuClusterConfigs) == 0 {
+		if err := r.cleanupAllConfigPorts(ctx, dpuService); err != nil {
+			return fmt.Errorf("cleanup config ports: %w", err)
+		}
+		return nil
+	}
+
+	var errs []error
+	for _, dpuClusterConfig := range dpuClusterConfigs {
+		dpuClusterClient, err := dpuClusterConfig.Client(ctx)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("get client for cluster %q: %w", dpuClusterConfig.Cluster.Name, err))
+			continue
+		}
+
+		serviceList := &corev1.ServiceList{}
+		err = dpuClusterClient.List(ctx, serviceList, dpuService.MatchLabels())
+		if err != nil {
+			errs = append(errs, fmt.Errorf("list services for cluster %q: %w", dpuClusterConfig.Cluster.Name, err))
+			continue
+		}
+
+		dpuNodePorts, err := dpuNodePortsToMap(dpuService, serviceList)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("config ports not ready yet for cluster %q: %w", dpuClusterConfig.Cluster.Name, err))
+			continue
+		}
+		if err := r.reconcileConfigPortEndpointSlices(ctx, dpuClusterConfig.Cluster.Name, dpuService, dpuNodePorts); err != nil {
+			errs = append(errs, fmt.Errorf("reconcile endpoint slices for cluster %q: %w", dpuClusterConfig.Cluster.Name, err))
+			continue
+		}
+		if err := r.reconcileConfigPortServices(ctx, dpuClusterConfig.Cluster.Name, dpuService, dpuNodePorts); err != nil {
+			errs = append(errs, fmt.Errorf("reconcile services for cluster %q: %w", dpuClusterConfig.Cluster.Name, err))
+			continue
+		}
+	}
+
+	return kerrors.NewAggregate(errs)
+}
+
+func (r *DPUServiceReconciler) cleanupAllConfigPorts(ctx context.Context, dpuService *dpuservicev1.DPUService) error {
+	// TODO: rethink if we want to use DeleteAllOf or a List and Delete.
+	// With List and Delete we are able to add proper logging.
+	if err := r.Client.DeleteAllOf(ctx, &discoveryv1.EndpointSlice{},
+		client.InNamespace(dpuService.GetNamespace()),
+		client.HasLabels{dpuservicev1.DPUServiceExposedPortForDPUClusterLabelKey},
+		dpuService.MatchLabels(),
+	); err != nil {
+		return fmt.Errorf("delete endpoint slices: %w", err)
+	}
+
+	if err := r.Client.DeleteAllOf(ctx, &corev1.Service{},
+		client.InNamespace(dpuService.GetNamespace()),
+		client.HasLabels{dpuservicev1.DPUServiceExposedPortForDPUClusterLabelKey},
+		dpuService.MatchLabels(),
+	); err != nil {
+		return fmt.Errorf("delete services: %w", err)
+	}
+	return nil
+}
+
+func (r *DPUServiceReconciler) reconcileConfigPortEndpointSlices(ctx context.Context, clusterName string, dpuService *dpuservicev1.DPUService, dpuNodePorts map[string]int32) error {
+	log := ctrllog.FromContext(ctx)
+	// First build the EndpointPorts. If there are no ports to expose, return early.
+	endpointPorts := []discoveryv1.EndpointPort{}
+	for _, port := range dpuService.Spec.ConfigPorts.Ports {
+		// TODO: We have to merge the old and new DPU NodePorts for un-disruptive DPUDeployment upgrades.
+		dpuNodePort := dpuNodePorts[port.Name]
+		p := discoveryv1.EndpointPort{
+			Name:     &port.Name,
+			Port:     &dpuNodePort,
+			Protocol: &port.Protocol,
+		}
+		endpointPorts = append(endpointPorts, p)
+	}
+
+	// TODO: Take care of long names, as the service name is limited to 63 characters.
+	configPortName := fmt.Sprintf("%s-%s", clusterName, dpuService.GetName())
+	endpointSlice := &discoveryv1.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configPortName,
+			Namespace: dpuService.GetNamespace(),
+		},
+	}
+
+	// Cleanup and return early if nothing is to do.
+	if len(endpointPorts) == 0 {
+		if err := r.Client.Delete(ctx, endpointSlice); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("delete endpoint slice: %w", err)
+			}
+			return nil
+		}
+		log.Info("Deleted EndpointSlice", "Service", klog.KObj(endpointSlice))
+		return nil
+	}
+
+	log.Info("Reconciling EndpointSlice", "Service", klog.KObj(endpointSlice))
+	// Get the list of DPUs in the cluster to build the Endpoints.
+	dpuList := &provisioningv1.DPUList{}
+	if err := r.Client.List(ctx, dpuList); err != nil {
+		return err
+	}
+	endpoints := []discoveryv1.Endpoint{}
+	for _, dpu := range dpuList.Items {
+		var hostname, address string
+		for _, a := range dpu.Status.Addresses {
+			switch a.Type {
+			case corev1.NodeInternalIP:
+				address = a.Address
+			case corev1.NodeHostName:
+				hostname = a.Address
+			}
+		}
+		endpoints = append(endpoints, discoveryv1.Endpoint{
+			Addresses: []string{address},
+			Conditions: discoveryv1.EndpointConditions{
+				Ready: ptr.To(true),
+			},
+			Hostname: &hostname,
+			NodeName: &dpu.Name,
+		})
+	}
+
+	// Check if the EndpointSlice already exists. If not, create it, otherwise use the patcher.
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(endpointSlice), endpointSlice); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	endpointSlice.ObjectMeta.Name = configPortName
+	endpointSlice.ObjectMeta.Namespace = dpuService.GetNamespace()
+	if endpointSlice.ObjectMeta.Labels == nil {
+		endpointSlice.ObjectMeta.Labels = map[string]string{}
+	}
+	endpointSlice.ObjectMeta.Labels[dpuservicev1.DPUServiceNameLabelKey] = dpuService.GetName()
+	endpointSlice.ObjectMeta.Labels[dpuservicev1.DPUServiceNamespaceLabelKey] = dpuService.GetNamespace()
+	endpointSlice.ObjectMeta.Labels[dpuservicev1.DPUServiceExposedPortForDPUClusterLabelKey] = clusterName
+	endpointSlice.ObjectMeta.Labels[discoveryv1.LabelServiceName] = configPortName
+	endpointSlice.ObjectMeta.Labels[discoveryv1.LabelManagedBy] = dpuServiceControllerName
+
+	endpointSlice.AddressType = discoveryv1.AddressTypeIPv4
+	endpointSlice.Ports = endpointPorts
+	endpointSlice.Endpoints = endpoints
+
+	endpointSlice.SetManagedFields(nil)
+	endpointSlice.SetGroupVersionKind(discoveryv1.SchemeGroupVersion.WithKind("EndpointSlice"))
+
+	// Add ownerReference to let the EndpointSlice be garbage collected when the DPUService is deleted.
+	if endpointSlice.OwnerReferences == nil {
+		endpointSlice.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion: dpuservicev1.GroupVersion.String(),
+				Kind:       dpuservicev1.DPUServiceKind,
+				Name:       dpuService.GetName(),
+				UID:        dpuService.GetUID(),
+			},
+		}
+	}
+	return r.Client.Patch(ctx, endpointSlice, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName))
+}
+
+func (r *DPUServiceReconciler) reconcileConfigPortServices(ctx context.Context, clusterName string, dpuService *dpuservicev1.DPUService, dpuNodePorts map[string]int32) error {
+	log := ctrllog.FromContext(ctx)
+	// First build the ServicePorts. If there are no ports to expose, return early.
+	servicePorts := []corev1.ServicePort{}
+	for _, port := range dpuService.Spec.ConfigPorts.Ports {
+		dpuNodePort := dpuNodePorts[port.Name]
+		p := corev1.ServicePort{
+			Name:       port.Name,
+			TargetPort: intstr.IntOrString{IntVal: dpuNodePort},
+			Protocol:   port.Protocol,
+			Port:       int32(port.Port),
+		}
+		if dpuService.Spec.ConfigPorts.ServiceType == corev1.ServiceTypeNodePort {
+			// If the NodePort is spec'd, use that. Otherwise, try to get the NodePort from the status.
+			// Using the NodePort from the status is useful if the Service gets deleted without the DPUService being deleted.
+			if port.NodePort != nil {
+				p.NodePort = int32(*port.NodePort)
+			} else {
+				nodePort := getNodePortFromStatus(dpuService, port.Name, clusterName)
+				if nodePort != 0 {
+					p.NodePort = int32(nodePort)
+				}
+			}
+		}
+		servicePorts = append(servicePorts, p)
+	}
+
+	// TODO: take care of long names, as the service name is limited to 63 characters.
+	configPortName := fmt.Sprintf("%s-%s", clusterName, dpuService.GetName())
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configPortName,
+			Namespace: dpuService.GetNamespace(),
+		},
+	}
+
+	// Cleanup and return early if nothing is to do.
+	if len(servicePorts) == 0 {
+		if err := r.Client.Delete(ctx, service); err != nil {
+			if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("delete endpoint slice: %w", err)
+			}
+			return nil
+		}
+		log.Info("Deleted Service", "Service", klog.KObj(service))
+		return nil
+	}
+
+	log.Info("Reconciling Service", "Service", klog.KObj(service))
+	// Check if the Service already exists. If not, create it, otherwise use the patcher.
+	if err := r.Client.Get(ctx, client.ObjectKeyFromObject(service), service); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return err
+		}
+	}
+
+	service.ObjectMeta.Name = configPortName
+	service.ObjectMeta.Namespace = dpuService.GetNamespace()
+	if service.ObjectMeta.Labels == nil {
+		service.ObjectMeta.Labels = map[string]string{}
+	}
+	service.ObjectMeta.Labels[dpuservicev1.DPUServiceNameLabelKey] = dpuService.GetName()
+	service.ObjectMeta.Labels[dpuservicev1.DPUServiceNamespaceLabelKey] = dpuService.GetNamespace()
+	service.ObjectMeta.Labels[dpuservicev1.DPUServiceExposedPortForDPUClusterLabelKey] = clusterName
+
+	service.Spec.InternalTrafficPolicy = ptr.To(corev1.ServiceInternalTrafficPolicyLocal)
+	if dpuService.Spec.ConfigPorts.ServiceType == corev1.ServiceTypeNodePort {
+		service.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeLocal
+	}
+	service.Spec.Ports = servicePorts
+
+	// Either set the Service type to NodePort or if it's a headless service set the ClusterIP to None.
+	switch dpuService.Spec.ConfigPorts.ServiceType {
+	case corev1.ServiceTypeNodePort:
+		service.Spec.Type = dpuService.Spec.ConfigPorts.ServiceType
+	case corev1.ClusterIPNone:
+		service.Spec.ClusterIP = corev1.ClusterIPNone
+	}
+
+	service.SetManagedFields(nil)
+	service.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Service"))
+
+	// Add ownerReference to let the Serviceb be garbage collected when the DPUService is deleted.
+	if service.OwnerReferences == nil {
+		service.OwnerReferences = []metav1.OwnerReference{
+			{
+				APIVersion: dpuservicev1.GroupVersion.String(),
+				Kind:       dpuservicev1.DPUServiceKind,
+				Name:       dpuService.GetName(),
+				UID:        dpuService.GetUID(),
+			},
+		}
+	}
+	return r.Client.Patch(ctx, service, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName))
+}
+
+func (r *DPUServiceReconciler) updateConfigPortsStatus(ctx context.Context, dpuService *dpuservicev1.DPUService) error {
+	// Create a map of the service type and port names that should be exposed.
+	configPorts := map[string]bool{}
+	if dpuService.Spec.ConfigPorts != nil {
+		for _, portSpec := range dpuService.Spec.ConfigPorts.Ports {
+			configPorts[portSpec.Name] = true
+		}
+	}
+
+	dpuClusterConfigs, err := dpucluster.GetConfigs(ctx, r.Client)
+	if err != nil {
+		return err
+	}
+
+	// Create a map of the cluster names to check if all clusters are present.
+	// If not we have to cleanup the ConfigPorts status for the missing clusters.
+	dpuClusters := map[string]bool{}
+	for _, dpuClusterConfig := range dpuClusterConfigs {
+		dpuClusters[dpuClusterConfig.Cluster.Name] = true
+	}
+
+	serviceList := &corev1.ServiceList{}
+	if err := r.Client.List(context.Background(), serviceList,
+		client.HasLabels{dpuservicev1.DPUServiceExposedPortForDPUClusterLabelKey},
+		dpuService.MatchLabels(),
+	); err != nil {
+		return err
+	}
+
+	// Loop over all the services and set the status.
+	dpuService.Status.ConfigPorts = map[string][]dpuservicev1.ConfigPort{}
+	for _, s := range serviceList.Items {
+		dpuCluster := s.Labels[dpuservicev1.DPUServiceExposedPortForDPUClusterLabelKey]
+		if !dpuClusters[dpuCluster] {
+			ctrllog.FromContext(ctx).Info("DPUCluster to expose service not found", "cluster", dpuCluster, "service", s.Name, "namespace", s.Namespace)
+			continue
+		}
+		// If it's a headless service, set the service type to None.
+		serviceType := s.Spec.Type
+		if s.Spec.ClusterIP == corev1.ClusterIPNone {
+			serviceType = corev1.ClusterIPNone
+		}
+
+		for _, port := range s.Spec.Ports {
+			// If the port is not in the configPorts, skip it.
+			if _, ok := configPorts[port.Name]; !ok {
+				continue
+			}
+			if serviceType == corev1.ServiceTypeNodePort && port.NodePort == 0 {
+				ctrllog.FromContext(ctx).Error(fmt.Errorf("NodePort is not set for port %q", port.Name), "service", s.Name, "namespace", s.Namespace)
+				continue
+			}
+
+			p := dpuservicev1.ConfigPort{
+				Name:     port.Name,
+				Port:     uint16(port.Port),
+				Protocol: port.Protocol,
+			}
+			if serviceType == corev1.ServiceTypeNodePort {
+				p.NodePort = ptr.To(uint16(port.NodePort))
+			}
+
+			dpuService.Status.ConfigPorts[dpuCluster] = append(dpuService.Status.ConfigPorts[dpuCluster], p)
+		}
+	}
+
+	for clusterName, exists := range dpuClusters {
+		if exists {
+			continue
+		}
+		delete(dpuService.Status.ConfigPorts, clusterName)
+	}
+	return nil
+}
+
+func dpuNodePortsToMap(dpuService *dpuservicev1.DPUService, serviceList *corev1.ServiceList) (map[string]int32, error) {
+	if len(serviceList.Items) == 0 || len(serviceList.Items) > 1 {
+		return nil, fmt.Errorf("expected 1 service, got %d", len(serviceList.Items))
+	}
+
+	// Create a map of the port names that should be exposed.
+	configPorts := map[string]bool{}
+	for _, portSpec := range dpuService.Spec.ConfigPorts.Ports {
+		configPorts[portSpec.Name] = true
+	}
+
+	// Loop over all the services and get the nodePort for each port.
+	nodePorts := map[string]int32{}
+	for _, s := range serviceList.Items {
+		for _, port := range s.Spec.Ports {
+			if _, ok := configPorts[port.Name]; !ok {
+				continue
+			}
+			if port.NodePort == 0 {
+				return nil, fmt.Errorf("nodePort is not set for service %q", s.Name)
+			}
+			// If it's a match, we add it to the nodePorts map.
+			nodePorts[port.Name] = port.NodePort
+		}
+	}
+
+	// Check if the service has the correct number of ports.
+	if len(nodePorts) != len(configPorts) {
+		return nil, fmt.Errorf("expected %d nodePorts, got %d", len(dpuService.Spec.ConfigPorts.Ports), len(nodePorts))
+	}
+
+	return nodePorts, nil
+}
+
+func getNodePortFromStatus(dpuService *dpuservicev1.DPUService, portName, clusterName string) uint16 {
+	for _, configPort := range dpuService.Status.ConfigPorts[clusterName] {
+		if configPort.Name == portName && configPort.NodePort != nil {
+			return *configPort.NodePort
+		}
+	}
+	return 0
+}
+
 // config is used to marshal the config section of the argoCD secret data.
 type config struct {
 	TLSClientConfig tlsClientConfig `json:"tlsClientConfig"`
@@ -945,6 +1321,12 @@ func argoCDValuesFromDPUService(serviceDaemonSet *dpuservicev1.ServiceDaemonSetV
 	// Combine values
 	combinedValues := dpuserviceutils.MergeMaps(serviceDaemonSetValuesWithKey, otherValues)
 
+	// Override with values to expose config ports.
+	if dpuService.Spec.ConfigPorts != nil {
+		configPortsValues := argoCDValuesForConfigPorts(dpuService)
+		combinedValues = dpuserviceutils.MergeMaps(combinedValues, configPortsValues)
+	}
+
 	data, err := json.Marshal(combinedValues)
 	if err != nil {
 		return nil, err
@@ -952,8 +1334,23 @@ func argoCDValuesFromDPUService(serviceDaemonSet *dpuservicev1.ServiceDaemonSetV
 	return &runtime.RawExtension{Raw: data}, nil
 }
 
+func argoCDValuesForConfigPorts(dpuService *dpuservicev1.DPUService) map[string]interface{} {
+	ports := map[string]interface{}{}
+	for _, p := range dpuService.Spec.ConfigPorts.Ports {
+		ports[p.Name] = true
+	}
+
+	values := map[string]interface{}{
+		"exposedPorts": map[string]interface{}{
+			"labels": dpuService.MatchLabels(),
+			"ports":  ports,
+		},
+	}
+	return values
+}
+
 // DPUClusterToDPUService ensures all DPUServices are updated each time there is an update to a DPUCluster.
-func (r *DPUServiceReconciler) DPUClusterToDPUService(ctx context.Context, o client.Object) []ctrl.Request {
+func (r *DPUServiceReconciler) DPUClusterToDPUService(ctx context.Context, _ client.Object) []ctrl.Request {
 	result := []ctrl.Request{}
 	dpuServiceList := &dpuservicev1.DPUServiceList{}
 	if err := r.Client.List(ctx, dpuServiceList); err != nil {
@@ -966,8 +1363,8 @@ func (r *DPUServiceReconciler) DPUClusterToDPUService(ctx context.Context, o cli
 	return result
 }
 
-// ArgoApplicationToDPUService ensures a DPUService is updated each time there is an update to the linked Argo Application.
-func (r *DPUServiceReconciler) ArgoApplicationToDPUService(ctx context.Context, o client.Object) []ctrl.Request {
+// requestsForChangeByLabel ensures a DPUService is updated each time there is an update to the linked Argo Application.
+func (r *DPUServiceReconciler) requestsForChangeByLabel(_ context.Context, o client.Object) []ctrl.Request {
 	namespace, ok := o.GetLabels()[dpuservicev1.DPUServiceNamespaceLabelKey]
 	if !ok {
 		return nil

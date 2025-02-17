@@ -8,6 +8,7 @@ Dummydpuservice chart for Kubernetes
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| exposedPorts | string | `nil` |  |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.repository | string | `"example.com/dummydpuservice"` |  |
 | image.tag | string | `"v0.1.0"` |  |
@@ -18,6 +19,5 @@ Dummydpuservice chart for Kubernetes
 | serviceDaemonSet.annotations | object | `{}` |  |
 | serviceDaemonSet.labels | object | `{}` |  |
 | serviceDaemonSet.updateStrategy | object | `{}` |  |
-| serviceID | string | `""` |  |
 | tolerations | list | `[]` |  |
 

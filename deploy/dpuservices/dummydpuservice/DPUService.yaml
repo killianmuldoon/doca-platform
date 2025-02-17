@@ -29,3 +29,12 @@ spec:
       dpuservice.dpu.nvidia.com/name: dummydpuservice
     annotations:
       dpuservice.dpu.nvidia.com/name: dummydpuservice
+  configPorts:
+    serviceType: NodePort
+    ports:
+      - name: exampletcp
+        port: 8080
+        protocol: TCP
+      - name: exampleudp
+        port: 8081
+        protocol: UDP

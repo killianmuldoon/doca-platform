@@ -27,6 +27,19 @@ rules:
   verbs:
   - create
 - apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
   - argoproj.io
   resources:
   - applications
@@ -51,6 +64,19 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - kamaji.clastix.io
   resources:
@@ -107,6 +133,7 @@ rules:
   - provisioning.dpu.nvidia.com
   resources:
   - dpuclusters
+  - dpus
   verbs:
   - get
   - list

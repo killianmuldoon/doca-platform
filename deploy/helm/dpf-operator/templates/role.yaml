@@ -17,7 +17,6 @@ rules:
   - secrets
   - serviceaccounts
   - serviceaccounts/token
-  - services
   verbs:
   - create
   - delete
@@ -32,6 +31,19 @@ rules:
   - namespaces
   verbs:
   - create
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - admissionregistration.k8s.io
   resources:
@@ -111,6 +123,19 @@ rules:
   - '*'
   verbs:
   - '*'
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
 - apiGroups:
   - kamaji.clastix.io
   resources:

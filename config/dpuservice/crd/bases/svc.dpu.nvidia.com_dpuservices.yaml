@@ -363,6 +363,8 @@ spec:
             - message: serviceID must be provided when interfaces are provided
               rule: (has(self.interfaces) && has(self.serviceID)) || (!has(self.interfaces)
                 && !has(self.serviceID)) || has(self.serviceID)
+            - message: configPorts cannot be set when deployInCluster is true
+              rule: '!(has(self.deployInCluster) && has(self.configPorts))'
           status:
             description: DPUServiceStatus defines the observed state of DPUService
             properties:

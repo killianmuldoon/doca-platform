@@ -25,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -40,6 +41,8 @@ const (
 	DPUServiceNamespaceLabelKey = "dpu.nvidia.com/dpuservice-namespace"
 	// DPFServiceIDLabelKey is a label of DPU Service pods with a value of service identifier.
 	DPFServiceIDLabelKey = "svc.dpu.nvidia.com/service"
+	// DPUServiceExposedPortForDPUClusterLabelKey is the label key that is used to store the exposed port of the DPUService.
+	DPUServiceExposedPortForDPUClusterLabelKey = "dpu.nvidia.com/exposed-port-for-dpucluster"
 
 	// DPFImagePullSecretLabelKey marks a secret as being an ImagePullSecret used by DPF which should be mirrored to DPUClusters.
 	DPFImagePullSecretLabelKey = "dpu.nvidia.com/image-pull-secret"
@@ -116,6 +119,7 @@ type DPUService struct {
 
 // DPUServiceSpec defines the desired state of DPUService
 // +kubebuilder:validation:XValidation:rule="(has(self.interfaces) && has(self.serviceID)) || (!has(self.interfaces) && !has(self.serviceID)) || has(self.serviceID)", message="serviceID must be provided when interfaces are provided"
+// +kubebuilder:validation:XValidation:rule="!(has(self.deployInCluster) && has(self.configPorts))", message="configPorts cannot be set when deployInCluster is true"
 type DPUServiceSpec struct {
 	// HelmChart reflects the Helm related configuration
 	// +required
@@ -326,4 +330,12 @@ func init() {
 
 func (a *ApplicationSource) GetArgoRepoURL() string {
 	return strings.TrimPrefix(a.RepoURL, "oci://")
+}
+
+// MatchLabels returns the labels that match the DPUService.
+func (s *DPUService) MatchLabels() client.MatchingLabels {
+	return map[string]string{
+		DPUServiceNameLabelKey:      s.Name,
+		DPUServiceNamespaceLabelKey: s.Namespace,
+	}
 }

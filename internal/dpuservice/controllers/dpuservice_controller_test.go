@@ -18,6 +18,8 @@ package controllers
 
 import (
 	"fmt"
+	"reflect"
+	"testing"
 	"time"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
@@ -909,4 +911,112 @@ func clusterConfigs(c client.Client, clusters []provisioningv1.DPUCluster) []*dp
 		clusterConfigs = append(clusterConfigs, clusterConfig)
 	}
 	return clusterConfigs
+}
+
+func Test_dpuNodePortsToMap(t *testing.T) {
+	type args struct {
+		dpuService  *dpuservicev1.DPUService
+		serviceList *corev1.ServiceList
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    map[string]int32
+		wantErr bool
+	}{
+		{
+			name: "Expect 1 service with 1 port, but got 0",
+			args: args{
+				dpuService: &dpuservicev1.DPUService{
+					Spec: dpuservicev1.DPUServiceSpec{
+						ConfigPorts: &dpuservicev1.ConfigPorts{
+							ServiceType: corev1.ServiceTypeNodePort,
+							Ports: []dpuservicev1.ConfigPort{
+								{Name: "port1", Port: 80},
+							},
+						},
+					},
+				},
+				serviceList: &corev1.ServiceList{},
+			},
+			wantErr: true,
+		},
+		{
+			name: "Expect 1 service with 1 port, got 1",
+			args: args{
+				dpuService: &dpuservicev1.DPUService{
+					Spec: dpuservicev1.DPUServiceSpec{
+						ConfigPorts: &dpuservicev1.ConfigPorts{
+							ServiceType: corev1.ServiceTypeNodePort,
+							Ports: []dpuservicev1.ConfigPort{
+								{Name: "port1", Port: 80},
+							},
+						},
+					},
+				},
+				serviceList: &corev1.ServiceList{
+					Items: []corev1.Service{
+						{
+							Spec: corev1.ServiceSpec{
+								Type: corev1.ServiceTypeNodePort,
+								Ports: []corev1.ServicePort{
+									{Name: "port1", NodePort: 30000},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: map[string]int32{
+				"port1": 30000,
+			},
+			wantErr: false,
+		},
+		{
+			name: "2 ports configured, expect 2",
+			args: args{
+				dpuService: &dpuservicev1.DPUService{
+					Spec: dpuservicev1.DPUServiceSpec{
+						ConfigPorts: &dpuservicev1.ConfigPorts{
+							ServiceType: corev1.ServiceTypeNodePort,
+							Ports: []dpuservicev1.ConfigPort{
+								{Name: "port1", Port: 80},
+								{Name: "port2", Port: 81},
+							},
+						},
+					},
+				},
+				serviceList: &corev1.ServiceList{
+					Items: []corev1.Service{
+						{
+							Spec: corev1.ServiceSpec{
+								Type: corev1.ServiceTypeNodePort,
+								Ports: []corev1.ServicePort{
+									{Name: "port1", NodePort: 30000},
+									{Name: "port2", NodePort: 30001},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: map[string]int32{
+				"port1": 30000,
+				"port2": 30001,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := dpuNodePortsToMap(tt.args.dpuService, tt.args.serviceList)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("dpuNodePortsToMap() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("dpuNodePortsToMap() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

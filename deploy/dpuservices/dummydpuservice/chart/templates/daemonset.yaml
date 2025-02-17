@@ -26,7 +26,6 @@ spec:
           {{- toYaml . | nindent 8 }}
         {{- end }}
       labels:
-        svc.dpu.nvidia.com/service: {{.Values.serviceID}}
         {{- include "dummydpuservice.selectorLabels" . | nindent 8 }}
         {{- with .Values.serviceDaemonSet.labels }}
           {{- toYaml . | nindent 8 }}

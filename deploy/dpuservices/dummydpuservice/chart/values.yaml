@@ -1,7 +1,5 @@
 ### DPF contract ###
 
-# id of the service
-serviceID: ""
 # configuration for the se
 serviceDaemonSet:
 #  nodeSelector:
@@ -19,7 +17,11 @@ serviceDaemonSet:
   #  type: RollingUpdate
   #  rollingUpdate:
   #    maxUnavailable: 1
-
+exposedPorts:
+#  labels: {}           # custom labels for the doca-platform
+#  ports:
+#    exampletcp: false  # name of the port inside the service
+#    exampleudp: false  # name of the port inside the service
 
 
 ### Service specific values ###
