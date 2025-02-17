@@ -186,7 +186,8 @@ func TestDMSServerReconciler(t *testing.T) {
 					g.Expect(dpu.Annotations).To(HaveKey(cutil.OverrideDMSPodNameAnnotationKey))
 					g.Expect(dpu.Annotations).To(HaveKey(cutil.OverrideHostNetworkAnnotationKey))
 					g.Expect(dpu.Annotations).To(HaveKey(cutil.OverrideDMSPortAnnotationKey))
-					g.Expect(dpu.Status.Phase).To(Equal(provisioningv1.DPUReady))
+					// mock-dms relies on an external component to put the Node in a Ready state.
+					g.Expect(dpu.Status.Phase).To(Equal(provisioningv1.DPUClusterConfig))
 				}
 			}).WithTimeout(100 * time.Second).Should(Succeed())
 		})

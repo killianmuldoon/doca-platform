@@ -19,6 +19,7 @@ rules:
   - nodes
   - pods
   - pods/exec
+  - secrets
   verbs:
   - create
   - delete
@@ -42,6 +43,7 @@ rules:
 - apiGroups:
   - provisioning.dpu.nvidia.com
   resources:
+  - dpuclusters
   - dpus
   verbs:
   - create
@@ -54,12 +56,14 @@ rules:
 - apiGroups:
   - provisioning.dpu.nvidia.com
   resources:
+  - dpuclusters/finalizers
   - dpus/finalizers
   verbs:
   - update
 - apiGroups:
   - provisioning.dpu.nvidia.com
   resources:
+  - dpuclusters/status
   - dpus/status
   verbs:
   - get

@@ -27,6 +27,7 @@ import (
 	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
@@ -46,11 +47,16 @@ type DMSServerReconciler struct {
 // +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpus,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpus/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpus/finalizers,verbs=update
+// +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpuclusters,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=nodes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpuclusters/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=provisioning.dpu.nvidia.com,resources=dpuclusters/finalizers,verbs=update
 // +kubebuilder:rbac:groups="",resources=pods;pods/exec;nodes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=patch;update;delete;create
 
 func (r *DMSServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
-	log := ctrllog.FromContext(ctx).WithValues("namespace", req.Namespace, "name", req.Name)
+	log := ctrllog.FromContext(ctx)
 	ctrllog.IntoContext(ctx, log)
 	log.Info("Reconciling")
 	dpu := &provisioningv1.DPU{}
@@ -97,6 +103,12 @@ func (r *DMSServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 
 // createNodeForDPU creates a Kubernetes node with a Ready conditions for the DPU.
 func (r *DMSServerReconciler) createNodeForDPU(ctx context.Context, dpu *provisioningv1.DPU) error {
+	// Only create the node in the DPUClusterConfig phase.
+	if dpu.Status.Phase != provisioningv1.DPUClusterConfig {
+		return nil
+	}
+	log := ctrllog.FromContext(ctx)
+	log.Info("Ensuring node is up to date for DPU")
 	dpuCluster := &provisioningv1.DPUCluster{}
 	err := r.Client.Get(ctx, types.NamespacedName{Namespace: dpu.Spec.Cluster.Namespace, Name: dpu.Spec.Cluster.Name}, dpuCluster)
 	if err != nil {
@@ -113,29 +125,50 @@ func (r *DMSServerReconciler) createNodeForDPU(ctx context.Context, dpu *provisi
 			// The Node should have the same name as the DPU.
 			Name:      dpu.Name,
 			Namespace: dpu.Namespace,
+			Annotations: map[string]string{
+				"kwok.x-k8s.io/node": "fake",
+			},
 		},
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Node",
 			APIVersion: "v1",
 		},
+		Spec: corev1.NodeSpec{
+			PodCIDR:    "",
+			PodCIDRs:   nil,
+			ProviderID: "",
+		},
+	}
+	// Return early if the node already exists. Do not repeatedly reconcile the object to avoid conflicts with kwok.
+	if err := dpuClient.Get(ctx, client.ObjectKeyFromObject(node), &corev1.Node{}); err == nil {
+		return nil
 	}
 	node.ManagedFields = nil
 	if err := dpuClient.Patch(ctx, node, client.Apply, client.ForceOwnership, client.FieldOwner("mock-dms")); err != nil {
 		return err
 	}
 
-	node.ManagedFields = nil
 	node.Status = corev1.NodeStatus{
-		// Node conditions are checked in the DPU Cluster Config phase.
-		Conditions: []corev1.NodeCondition{
-			{
-				Type:   corev1.NodeReady,
-				Status: corev1.ConditionTrue,
-			},
+		NodeInfo: corev1.NodeSystemInfo{
+			Architecture: "arm64",
+		},
+		Allocatable: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1000"),
+			corev1.ResourceMemory: resource.MustParse("2Ti"),
+			corev1.ResourcePods:   resource.MustParse("1000"),
+		},
+		Capacity: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("1000"),
+			corev1.ResourceMemory: resource.MustParse("2Ti"),
+			corev1.ResourcePods:   resource.MustParse("1000"),
 		},
 	}
 
-	return dpuClient.Status().Patch(ctx, node, client.Apply, client.ForceOwnership, client.FieldOwner("mock-dms"))
+	node.ManagedFields = nil
+	if err := dpuClient.Status().Patch(ctx, node, client.Apply, client.ForceOwnership, client.FieldOwner("mock-dms")); err != nil {
+		return err
+	}
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

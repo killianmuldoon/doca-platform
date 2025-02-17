@@ -83,7 +83,6 @@ func TestMain(m *testing.M) {
 	if err := provisioningv1.AddToScheme(s); err != nil {
 		panic(fmt.Sprintf("Failed to add provisioningv1 scheme: %v", err))
 	}
-
 	// cfg is defined in this file globally in this package. This allows the resource collector to use this
 	// config when it runs.
 	cfg, err = testEnv.Start()

@@ -404,6 +404,9 @@ test-release-e2e-quick: # Build images required for the quick DPF e2e test.
 	# Build and push all the helm charts
 	$(MAKE) helm-package-all helm-push-all
 
+.PHONY: test-release-mock-dms
+test-release-mock-dms: docker-build-hostdriver docker-build-mock-dms docker-push-mock-dms docker-push-mock-dms helm-package-mock-dms helm-push-mock-dms
+
 TEST_CLUSTER_NAME := dpf-test
 ADD_CONTROL_PLANE_TAINTS ?= true
 test-env-e2e: minikube helm ## Setup a Kubernetes environment to run tests.
@@ -440,6 +443,14 @@ test-deploy-operator-helm: helm helm-package-operator ## Deploy the DPF Operator
 
 .PHONY: test-deploy-mock-dms
 test-deploy-mock-dms: helm
+	## Add the test cluster node IPs to the cert generated for mock-dms.
+	## TODO: Update this for multinode clusters
+	$(YQ) e -i 'select(di == 0).spec.helmChart.source.repoURL = env(HELM_REGISTRY)'  test/mock/kwok/dpuservice.yaml
+	$(YQ) e -i 'select(di == 0).spec.helmChart.source.version = env(TAG)'  test/mock/kwok/dpuservice.yaml
+	$(YQ) e -i 'select(di == 1).spec.helmChart.source.repoURL = env(HELM_REGISTRY)'  test/mock/kwok/dpuservice.yaml
+	$(YQ) e -i 'select(di == 1).spec.helmChart.source.version = env(TAG)'  test/mock/kwok/dpuservice.yaml
+
+	$(YQ) e -i '.certIPAddresses = ["$(shell kubectl get nodes $(TEST_CLUSTER_NAME) -o yaml | $(YQ) .status.addresses | $(YQ) 'filter(.type == "InternalIP")' | $(YQ) .0.address)"]'  test/mock/dms/chart/values.yaml
 	$(HELM) upgrade --install --create-namespace --namespace $(OPERATOR_NAMESPACE) \
 		--set controllerManager.manager.image.repository=$(MOCK_DMS_IMAGE)\
 		--set controllerManager.manager.image.tag=$(TAG) \
@@ -1197,6 +1208,8 @@ SNAP_DPU_CHART_VER ?= $(TAG)
 
 # metadata for mock dms.
 MOCK_DMS_HELM_CHART ?=test/mock/dms/chart
+export KWOK_HELM_CHART=test/mock/kwok/chart
+KWOK_HELM_CHART_NAME=kwok
 
 .PHONY: helm-package-all
 helm-package-all: $(addprefix helm-package-,$(HELM_TARGETS))  ## Package the helm charts for all components.
@@ -1252,6 +1265,14 @@ helm-package-spdk-csi-controller: $(CHARTSDIR) helm
 helm-package-snap-dpu: $(CHARTSDIR) helm generate-manifests-storage-snap
 	cp -r config/snap/crd $(SNAP_DPU_CHART)/templates
 	$(HELM) package $(SNAP_DPU_CHART) --version $(SNAP_DPU_CHART_VER) --destination $(CHARTSDIR)
+
+.PHONY: helm-package-mock-dms
+helm-package-mock-dms:
+	$(HELM) package $(KWOK_HELM_CHART) --version $(TAG) --destination $(CHARTSDIR)
+
+.PHONY: helm-push-mock-dms
+helm-push-mock-dms:
+	$(HELM) push $(CHARTSDIR)/$(KWOK_HELM_CHART_NAME)-$(TAG).tgz $(HELM_REGISTRY)
 
 .PHONY: helm-push-all
 helm-push-all: $(addprefix helm-push-,$(HELM_TARGETS))  ## Push the helm charts for all components.
