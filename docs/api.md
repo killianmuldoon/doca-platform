@@ -2203,8 +2203,8 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `serviceType` _[ServiceType](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#servicetype-v1-core)_ | ServiceType specifies the type of Kubernetes Service to create.<br />All ports within this ConfigPorts will have the same ServiceType.<br />The value is immutable and cannot be changed after creation.<br />Supported values:<br />- "NodePort": Exposes ports externally on a node.<br />- "None": Internal-only service with no cluster IP.<br />Default: "NodePort" | NodePort | Enum: [NodePort None] <br /> |
-| `ports` _[ConfigPort](#configport) array_ | Ports defines the list of port configurations that will be exposed by the DPUService.<br />Each port must specify a name, port number, and protocol.<br /><br />Constraints:<br />- If ServiceType is "NodePort", ports may optionally specify a NodePort.<br />- If ServiceType is "None", ports **cannot** specify a NodePort. |  |  |
+| `serviceType` _[ServiceType](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#servicetype-v1-core)_ | ServiceType specifies the type of Kubernetes Service to create.<br />All ports within this ConfigPorts will have the same ServiceType.<br />The value is immutable and cannot be changed after creation.<br />Supported values:<br />- "NodePort": Exposes ports externally on a node.<br />- "ClusterIP": Exposes ports internally within the cluster.<br />- "None": Internal-only service with no cluster IP.<br />Default: "NodePort" | NodePort | Enum: [NodePort ClusterIP None] <br /> |
+| `ports` _[ConfigPort](#configport) array_ | Ports defines the list of port configurations that will be exposed by the DPUService.<br />Each port must specify a name, port number, and protocol.<br /><br />Constraints:<br />- If ServiceType is "NodePort", ports may optionally specify a NodePort.<br />- If ServiceType is "None" or "ClusterIP", ports **cannot** specify a NodePort. |  |  |
 
 
 #### DPUDeployment

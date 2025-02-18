@@ -63,7 +63,7 @@ spec:
 
                       Constraints:
                       - If ServiceType is "NodePort", ports may optionally specify a NodePort.
-                      - If ServiceType is "None", ports **cannot** specify a NodePort.
+                      - If ServiceType is "None" or "ClusterIP", ports **cannot** specify a NodePort.
                     items:
                       description: |-
                         ConfigPort defines the configuration of a single port within a DPUService.
@@ -112,10 +112,12 @@ spec:
                       The value is immutable and cannot be changed after creation.
                       Supported values:
                       - "NodePort": Exposes ports externally on a node.
+                      - "ClusterIP": Exposes ports internally within the cluster.
                       - "None": Internal-only service with no cluster IP.
                       Default: "NodePort"
                     enum:
                     - NodePort
+                    - ClusterIP
                     - None
                     type: string
                     x-kubernetes-validations:

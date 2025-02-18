@@ -1193,9 +1193,9 @@ func (r *DPUServiceReconciler) reconcileConfigPortServices(ctx context.Context, 
 	}
 	service.Spec.Ports = servicePorts
 
-	// Either set the Service type to NodePort or if it's a headless service set the ClusterIP to None.
+	// Set the Service type to NodePort or ClusterIP. If it's a headless service set the ClusterIP to None.
 	switch dpuService.Spec.ConfigPorts.ServiceType {
-	case corev1.ServiceTypeNodePort:
+	case corev1.ServiceTypeNodePort, corev1.ServiceTypeClusterIP:
 		service.Spec.Type = dpuService.Spec.ConfigPorts.ServiceType
 	case corev1.ClusterIPNone:
 		service.Spec.ClusterIP = corev1.ClusterIPNone

@@ -172,11 +172,12 @@ type ConfigPorts struct {
 	// The value is immutable and cannot be changed after creation.
 	// Supported values:
 	// - "NodePort": Exposes ports externally on a node.
+	// - "ClusterIP": Exposes ports internally within the cluster.
 	// - "None": Internal-only service with no cluster IP.
 	// Default: "NodePort"
 	//
 	// +required
-	// +kubebuilder:validation:Enum=NodePort;None
+	// +kubebuilder:validation:Enum=NodePort;ClusterIP;None
 	// +kubebuilder:default:=NodePort
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf", message="Value is immutable"
 	ServiceType corev1.ServiceType `json:"serviceType"`
@@ -186,7 +187,7 @@ type ConfigPorts struct {
 	//
 	// Constraints:
 	// - If ServiceType is "NodePort", ports may optionally specify a NodePort.
-	// - If ServiceType is "None", ports **cannot** specify a NodePort.
+	// - If ServiceType is "None" or "ClusterIP", ports **cannot** specify a NodePort.
 	//
 	// +required
 	Ports []ConfigPort `json:"ports"`
