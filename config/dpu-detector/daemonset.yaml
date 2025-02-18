@@ -12,7 +12,7 @@ spec:
     metadata:
       labels:
     spec:
-      serviceAccountName: dpf-operator-controller-manager
+      serviceAccountName: dpu-detector
       hostNetwork: true
       containers:
         - name: dpu-detector

@@ -1,3 +1,12 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  labels:
+    app.kubernetes.io/part-of: dpu-detector
+    dpu.nvidia.com/component: dpu-detector
+  name: dpu-detector
+  namespace: dpf-operator-system
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -37,7 +46,7 @@ spec:
           name: host-sys
           readOnly: true
       hostNetwork: true
-      serviceAccountName: dpf-operator-controller-manager
+      serviceAccountName: dpu-detector
       terminationGracePeriodSeconds: 10
       volumes:
       - hostPath:
