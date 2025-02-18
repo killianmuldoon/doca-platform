@@ -24,6 +24,7 @@ set -o errexit
 
 files=(.gitlab
   .gitlab-ci.yml
+  sonar-project.properties
   CONTRIBUTING.md
   docs/do_not_publish
   hack/scripts/ci-rebind-dev-wrapper.sh

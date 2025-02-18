@@ -393,7 +393,7 @@ test: envtest ## Run tests.
 
 .PHONY: test-report
 test-report: envtest gotestsum ## Run tests and generate a junit style report
-	set +o errexit; KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLSDIR) -p path)" go test -count 1 -race -json $$(go list ./... | grep -v /e2e) > junit.stdout; echo $$? > junit.exitcode;
+	set +o errexit; KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(TOOLSDIR) -p path)" go test -count 1 -race -json $$(go list ./... | grep -v /e2e) -coverprofile cover.out > junit.stdout; echo $$? > junit.exitcode;
 	$(GOTESTSUM) --junitfile junit.xml --raw-command cat junit.stdout
 	exit $$(cat junit.exitcode)
 
