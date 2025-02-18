@@ -76,6 +76,9 @@ func TestRemoteCache_Reconcile(t *testing.T) {
 	g.Expect(err).ToNot(HaveOccurred())
 	g.Expect(res.IsZero()).To(BeTrue())
 
+	// check that the accessor is created
+	g.Expect(rc.accessors).To(HaveKey(dpuClusterKey))
+
 	// Get client and test Get & List
 	c, err := rc.GetClient(dpuClusterKey)
 	g.Expect(err).ToNot(HaveOccurred())
@@ -83,4 +86,12 @@ func TestRemoteCache_Reconcile(t *testing.T) {
 	nodeList := &provisioningv1.DPUNodeList{}
 	g.Expect(c.List(ctx, nodeList)).To(Succeed())
 	g.Expect(nodeList.Items).To(BeEmpty())
+
+	// delete the DPUCluster
+	g.Expect(testClient.Delete(ctx, &dpuCluster)).To(Succeed())
+	res, err = rc.Reconcile(ctx, reconcile.Request{NamespacedName: dpuClusterKey})
+	g.Expect(err).ToNot(HaveOccurred())
+
+	// check that the accessor is removed
+	g.Expect(rc.accessors).ToNot(HaveKey(dpuClusterKey))
 }

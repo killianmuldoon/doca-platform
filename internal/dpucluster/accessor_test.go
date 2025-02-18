@@ -85,4 +85,56 @@ func TestConnect(t *testing.T) {
 
 	// Connect again (no-op)
 	g.Expect(accessor.connect(ctx, opts)).To(Succeed())
+
+	// Disconnect
+	accessor.disconnect()
+	g.Expect(accessor.isConnected()).To(BeFalse())
+}
+
+func TestDisConnect(t *testing.T) {
+	g := NewWithT(t)
+
+	testNS := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{GenerateName: "testns-"}}
+	// Create the namespace for the test.
+	g.Expect(testClient.Create(ctx, testNS)).To(Succeed())
+
+	// Create a secret which marks envtest as a DPUCluster.
+	dpuCluster := testutils.GetTestDPUCluster(testNS.Name, "envtest")
+	kamajiSecret, err := testutils.GetFakeKamajiClusterSecretFromEnvtest(dpuCluster, cfg)
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(testClient.Create(ctx, kamajiSecret)).To(Succeed())
+
+	clusterKey := client.ObjectKeyFromObject(&dpuCluster)
+
+	// Create a DPUCluster.
+	g.Expect(testClient.Create(ctx, &dpuCluster)).To(Succeed())
+	g.Eventually(func(g Gomega) {
+		gotdpuCluster := &provisioningv1.DPUCluster{}
+		g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(&dpuCluster), gotdpuCluster)).To(Succeed())
+	}).WithTimeout(10 * time.Second).Should(Succeed())
+	objs := []client.Object{kamajiSecret, &dpuCluster}
+	defer func() {
+		g.Expect(testutils.CleanupAndWait(ctx, testClient, objs...)).To(Succeed())
+		g.Expect(testClient.Delete(ctx, testNS)).To(Succeed())
+	}()
+
+	accessor := newAccessor(clusterKey)
+	opts := makeRemoteCacheOptions(OptionScheme{Scheme: testEnv.GetScheme()},
+		OptionHostClient{Client: testEnv.Manager.GetClient()},
+		OptionUserAgent(fmt.Sprintf("test-controller-%s", t.Name())),
+		OptionTimeout(10*time.Second))
+
+	g.Expect(accessor.connect(ctx, opts)).To(Succeed())
+	g.Expect(accessor.isConnected()).To(BeTrue())
+	g.Expect(accessor.state.connection.cachedClient).ToNot(BeNil())
+	g.Expect(accessor.state.connection.cache).ToNot(BeNil())
+	g.Expect(accessor.state.connection.watches).ToNot(BeNil())
+
+	// Disconnect
+	accessor.disconnect()
+	g.Expect(accessor.isConnected()).To(BeFalse())
+
+	// Disconnect again (no-op)
+	accessor.disconnect()
+	g.Expect(accessor.isConnected()).To(BeFalse())
 }

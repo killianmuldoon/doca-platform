@@ -213,7 +213,7 @@ type RemoteCache struct {
 
 	options *Options
 
-	// accessorsLock is used to synchronize arcess to accessors.
+	// Lock to synchronize acess to accessors.
 	sync.RWMutex
 }
 
@@ -226,6 +226,7 @@ func (rc *RemoteCache) Reconcile(ctx context.Context, req reconcile.Request) (re
 	if err := rc.client.Get(ctx, req.NamespacedName, cluster); err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Info("dpuCluster has been deleted, disconnecting")
+			rc.deleteAccessor(client.ObjectKey{Namespace: req.Namespace, Name: req.Name})
 			return ctrl.Result{}, nil
 		}
 
@@ -243,6 +244,11 @@ func (rc *RemoteCache) reconcile(ctx context.Context, cluster *provisioningv1.DP
 
 	// wait until the cluster is ready
 	if cluster.Status.Phase != provisioningv1.PhaseReady {
+		// If the object is not ready, disconnect the accessor if it exists.
+		log.Info("dpuCluster is not ready, disconnecting")
+		rc.deleteAccessor(client.ObjectKey{Namespace: cluster.Namespace, Name: cluster.Name})
+		// TODO: add a backoff mechanism
+		// TODO: check connection status before disconnecting
 		return ctrl.Result{RequeueAfter: defaultRequeueAfter}, nil
 	}
 
@@ -284,6 +290,20 @@ func (rc *RemoteCache) getAccessor(cluster client.ObjectKey) *accessor {
 	}
 
 	return nil
+}
+
+// deleteAccessor disconnects and deletes the accessor for the given cluster.
+func (rc *RemoteCache) deleteAccessor(cluster client.ObjectKey) {
+	rc.Lock()
+	defer rc.Unlock()
+
+	accessor, ok := rc.accessors[cluster]
+	if !ok {
+		// accessor does not exist
+		return
+	}
+	accessor.disconnect()
+	delete(rc.accessors, cluster)
 }
 
 // Watch can be used to watch specific resources in the dpu cluster.

@@ -32,9 +32,9 @@ import (
 type accessor struct {
 	cluster client.ObjectKey
 
-	// The methods lock, or rLock should always be used to access this field.
 	state accessorState
 
+	// Lock to synchronize access to the accessor's state.
 	sync.RWMutex
 }
 
@@ -83,17 +83,31 @@ func (a *accessor) connect(ctx context.Context, opts *Options) (retErr error) {
 		return err
 	}
 
+	a.setState(cachedClient, cache)
+	return nil
+}
+
+func (a *accessor) setState(c client.Client, cache *cacheWithCancel) {
 	a.Lock()
 	defer a.Unlock()
 
 	a.state.connection = &accessorConnectionState{
-		cachedClient: cachedClient,
+		cachedClient: c,
 		cache:        cache,
 		watches:      sets.Set[string]{},
 	}
+}
 
-	return nil
+func (a *accessor) disconnect() {
+	if !a.isConnected() {
+		return
+	}
 
+	a.Lock()
+	defer a.Unlock()
+
+	a.state.connection.cache.cancel()
+	a.state.connection = nil
 }
 
 func (a *accessor) isConnected() bool {
