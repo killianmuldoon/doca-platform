@@ -5,6 +5,7 @@ namePrefix: dpf-operator-
 resources:
   - ../dpuservice/crd
   - ../provisioning/crd
+  - operator.dpu.nvidia.com_dpfoperatorconfigs.yaml
 
 labels:
   - includeSelectors: true

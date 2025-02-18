@@ -220,10 +220,10 @@ generate-manifests-operator: controller-gen kustomize ## Generate manifests e.g.
 	paths="./api/operator/..." \
 	crd:crdVersions=v1 \
 	rbac:roleName="dpf-operator-manager-role" \
-	output:crd:dir=./deploy/helm/dpf-operator/templates/crds \
+	output:crd:dir=./config/operator-crds \
 	output:rbac:dir=./deploy/helm/dpf-operator/templates
-	## Copy all other CRD definitions to the operator helm directory
-	$(KUSTOMIZE) build config/operator-additional-crds -o  deploy/helm/dpf-operator/templates/crds/;
+	## Copy CRD definitions to the operator helm directory
+	$(KUSTOMIZE) build config/operator-crds -o  deploy/helm/dpf-operator/templates/crds/;
 
 .PHONE: generate-manifests-mock-dms
 generate-manifests-mock-dms: controller-gen
@@ -1226,12 +1226,6 @@ helm-package-operator: $(CHARTSDIR) helm yq ## Package helm chart for DPF Operat
 	$(YQ) e -i '.controllerManager.image.repository = env(DPF_SYSTEM_IMAGE)'  deploy/helm/dpf-operator/values.yaml
 	$(YQ) e -i '.controllerManager.image.tag = env(TAG)'  deploy/helm/dpf-operator/values.yaml
 
-	## Update the helm dependencies for the chart.
-	$(HELM) repo add argo https://argoproj.github.io/argo-helm
-	$(HELM) repo add nfd https://kubernetes-sigs.github.io/node-feature-discovery/charts
-	$(HELM) repo add prometheus https://prometheus-community.github.io/helm-charts
-	$(HELM) repo add grafana https://grafana.github.io/helm-charts
-	$(HELM) repo add clastix https://clastix.github.io/charts
 	$(HELM) dependency update $(OPERATOR_HELM_CHART)
 	for tag in $(OPERATOR_CHART_TAGS); do \
 		$(HELM) package $(OPERATOR_HELM_CHART) --version $$tag --destination $(CHARTSDIR); \
