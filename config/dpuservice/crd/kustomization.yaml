@@ -12,3 +12,6 @@ resources:
 - bases/svc.dpu.nvidia.com_dpuserviceinterfaces.yaml
 - bases/svc.dpu.nvidia.com_dpuserviceipams.yaml
 - bases/svc.dpu.nvidia.com_dpuservicenads.yaml
+- bases/svc.dpu.nvidia.com_dpuvirtualnetworks.yaml
+- bases/svc.dpu.nvidia.com_dpuvpcs.yaml
+- bases/svc.dpu.nvidia.com_isolationclasses.yaml
