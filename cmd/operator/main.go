@@ -66,6 +66,7 @@ func init() {
 
 var (
 	metricsAddr              string
+	pprofBindAddr            string
 	enableLeaderElection     bool
 	probeAddr                string
 	insecureMetrics          bool
@@ -79,6 +80,7 @@ var (
 func initFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	fs.StringVar(&pprofBindAddr, "pprof-bind-address", ":8082", "The address the pprof endpoint binds to.")
 	fs.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -123,6 +125,7 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 scheme,
 		Metrics:                metricsOpts,
+		PprofBindAddress:       pprofBindAddr,
 		HealthProbeBindAddress: probeAddr,
 		Cache: cache.Options{
 			SyncPeriod: &syncPeriod,

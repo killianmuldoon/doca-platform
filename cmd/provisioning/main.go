@@ -80,6 +80,7 @@ func init() {
 
 func main() {
 	var metricsAddr string
+	var pprofBindAddr string
 	var enableLeaderElection bool
 	var insecureMetrics bool
 	var enableHTTP2 bool
@@ -97,8 +98,10 @@ func main() {
 	var bfCFGTemplateFile string
 	var bfbRegistry string
 	var concurrency int
+
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	fs.StringVar(&pprofBindAddr, "pprof-bind-address", ":8082", "The address the pprof endpoint binds to.")
 	fs.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -167,6 +170,7 @@ func main() {
 		Cache: cache.Options{
 			SyncPeriod: &syncPeriod,
 		},
+		PprofBindAddress: pprofBindAddr,
 		Controller: config.Controller{
 			MaxConcurrentReconciles: concurrency,
 		},

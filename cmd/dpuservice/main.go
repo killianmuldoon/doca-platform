@@ -70,14 +70,17 @@ func init() {
 
 func main() {
 	var metricsAddr string
+	var pprofBindAddr string
 	var enableLeaderElection bool
 	var probeAddr string
 	var insecureMetrics bool
 	var enableHTTP2 bool
 	var syncPeriod time.Duration
 	var concurrency int
+
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
+	fs.StringVar(&pprofBindAddr, "pprof-bind-address", ":8082", "The address the pprof endpoint binds to.")
 	fs.BoolVar(&enableLeaderElection, "leader-elect", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -131,6 +134,7 @@ func main() {
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:                 clientgoscheme.Scheme,
 		Metrics:                metricsOpts,
+		PprofBindAddress:       pprofBindAddr,
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		Client: client.Options{
