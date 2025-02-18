@@ -405,7 +405,7 @@ test-release-e2e-quick: # Build images required for the quick DPF e2e test.
 	$(MAKE) helm-package-all helm-push-all
 
 .PHONY: test-release-mock-dms
-test-release-mock-dms: docker-build-hostdriver docker-build-mock-dms docker-push-mock-dms docker-push-mock-dms helm-package-mock-dms helm-push-mock-dms
+test-release-mock-dms: docker-build-hostdriver docker-build-mock-dms docker-push-mock-dms docker-push-hostdriver helm-package-mock-dms helm-push-mock-dms
 
 TEST_CLUSTER_NAME := dpf-test
 ADD_CONTROL_PLANE_TAINTS ?= true
@@ -443,13 +443,13 @@ test-deploy-operator-helm: helm helm-package-operator ## Deploy the DPF Operator
 
 .PHONY: test-deploy-mock-dms
 test-deploy-mock-dms: helm
-	## Add the test cluster node IPs to the cert generated for mock-dms.
 	## TODO: Update this for multinode clusters
-	$(YQ) e -i 'select(di == 0).spec.helmChart.source.repoURL = env(HELM_REGISTRY)'  test/mock/kwok/dpuservice.yaml
-	$(YQ) e -i 'select(di == 0).spec.helmChart.source.version = env(TAG)'  test/mock/kwok/dpuservice.yaml
-	$(YQ) e -i 'select(di == 1).spec.helmChart.source.repoURL = env(HELM_REGISTRY)'  test/mock/kwok/dpuservice.yaml
-	$(YQ) e -i 'select(di == 1).spec.helmChart.source.version = env(TAG)'  test/mock/kwok/dpuservice.yaml
+	$(YQ) e -i '.spec.helmChart.source.repoURL = env(HELM_REGISTRY)'  test/objects/mock/dpuservice-dpucluster.yaml
+	$(YQ) e -i '.spec.helmChart.source.version = env(TAG)'  test/objects/mock/dpuservice-dpucluster.yaml
+	$(YQ) e -i '.spec.helmChart.source.repoURL = env(HELM_REGISTRY)'  test/objects/mock/dpuservice-incluster.yaml
+	$(YQ) e -i '.spec.helmChart.source.version = env(TAG)'  test/objects/mock/dpuservice-incluster.yaml
 
+	## Add the test cluster node IPs to the cert generated for mock-dms.
 	$(YQ) e -i '.certIPAddresses = ["$(shell kubectl get nodes $(TEST_CLUSTER_NAME) -o yaml | $(YQ) .status.addresses | $(YQ) 'filter(.type == "InternalIP")' | $(YQ) .0.address)"]'  test/mock/dms/chart/values.yaml
 	$(HELM) upgrade --install --create-namespace --namespace $(OPERATOR_NAMESPACE) \
 		--set controllerManager.manager.image.repository=$(MOCK_DMS_IMAGE)\
@@ -463,7 +463,7 @@ test-cache-images: minikube ## Add images to the minikube cache based on the art
 	# Run a script which will cache images which were pulled in the test run to the minikube cache.
 	CLUSTER_NAME=$(TEST_CLUSTER_NAME) MINIKUBE_BIN=$(MINIKUBE) ARTIFACTS_DIR=${ARTIFACTS_DIR} $(CURDIR)/hack/scripts/add-images-to-minikube-cache.sh
 
-E2E_TEST_ARGS ?= -v -ginkgo.v -e2e.config=./config-quick.yaml
+E2E_TEST_ARGS ?= -v -ginkgo.v -ginkgo.label-filter="!SCALE" -e2e.config=./config-quick.yaml
 # Utilize Kind or modify the e2e tests to load the image locally, enabling compatibility with other vendors.
 .PHONY: test-e2e ## Run the e2e tests against a Kind k8s instance that is spun up.
 test-e2e: stern ## Run e2e tests

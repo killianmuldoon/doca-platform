@@ -57,7 +57,6 @@ type DMSServerReconciler struct {
 
 func (r *DMSServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (_ ctrl.Result, reterr error) {
 	log := ctrllog.FromContext(ctx)
-	ctrllog.IntoContext(ctx, log)
 	log.Info("Reconciling")
 	dpu := &provisioningv1.DPU{}
 	if err := r.Client.Get(ctx, req.NamespacedName, dpu); err != nil {

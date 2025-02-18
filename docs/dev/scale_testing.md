@@ -40,9 +40,9 @@ The initial scale targets for the test are shown in the table below. Testing wil
 | DPFOperatorConfigs           | 1            |
 
 ### Testing targets
-The scale testing will rely on [DPF metrics](../operations/observability_guide.md) to assess the performance of the components.
+The scale tests rely on [DPF metrics](../operations/observability_guide.md) to assess the performance of the components.
 
-The following categories of metrics are of interest. Testing will be an iterative process and these targets will be further specified and updated on in response to test results.
+The following categories of metrics are of interest. The testing process is iterative and these targets will be further specified and updated in response to test results.
 
 1. time to provision target number of DPU nodes 
 2. time to provision target number of DPUServices
@@ -68,6 +68,21 @@ This scale testing approach does not adequately test the following at scale:
 - Specific DPUServices - i.e. OVN-Kubernetes, HBN at scale
 - DMS operations at scale
 
+
+### Running the scale tests
+
+You can set up a scale testing environment locally with the DPF developer environment. This builds and pushes the required images, spins up a new minikube cluster, deploys dpf and mock-dms.
+```yaml
+export REGISTRY=$YOUR_REGISTRY
+export TAG=$YOUR_TAG
+export IMAGE_PULL_KEY=$YOUR_IMAGE_KEY
+export NODE_MEMORY=16g
+export DEPLOY_KSM=true
+export DEPLOY_GRAFANA=true
+export DEPLOY_PROMETHEUS=true
+
+make  test-env-e2e generate test-release-e2e-quick test-deploy-operator-helm test-release-mock-dms test-deploy-mock-dms
+```
 
 ### Future work
 
