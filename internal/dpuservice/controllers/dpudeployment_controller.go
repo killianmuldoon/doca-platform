@@ -271,7 +271,18 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 	}
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionResourceFittingReady)
 
-	requeue, err := reconcileDPUServices(ctx, r.Client, dpuDeployment, deps, dpuNodeLabels)
+	interfaceNameByServiceName, err := constructDPUServiceInterfaceNames(ctx, r.Client, dpuDeployment, deps)
+	if err != nil {
+		conditions.AddFalse(
+			dpuDeployment,
+			dpuservicev1.ConditionDPUServiceInterfacesReconciled,
+			conditions.ReasonError,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
+		return ctrl.Result{}, fmt.Errorf("error while constructing the DPUServiceInterfaces names: %w", err)
+	}
+
+	requeue, err := reconcileDPUServices(ctx, r.Client, dpuDeployment, deps, interfaceNameByServiceName, dpuNodeLabels)
 	if err != nil {
 		conditions.AddFalse(
 			dpuDeployment,
@@ -283,7 +294,7 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 	}
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServicesReconciled)
 
-	err = reconcileDPUServiceInterfaces(ctx, r.Client, dpuDeployment, deps, dpuNodeLabels)
+	req, err := reconcileDPUServiceInterfaces(ctx, r.Client, r.Scheme, dpuDeployment, deps, interfaceNameByServiceName, dpuNodeLabels)
 	if err != nil {
 		conditions.AddFalse(
 			dpuDeployment,
@@ -295,7 +306,11 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 	}
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionDPUServiceInterfacesReconciled)
 
-	req, err := reconcileDPUServiceChain(ctx, r.Client, dpuDeployment, dpuNodeLabels)
+	if !req.IsZero() {
+		requeue = req
+	}
+
+	req, err = reconcileDPUServiceChain(ctx, r.Client, dpuDeployment, dpuNodeLabels)
 	if err != nil {
 		conditions.AddFalse(
 			dpuDeployment,
@@ -703,100 +718,6 @@ func generateDPUSet(dpuDeploymentNamespacedName types.NamespacedName,
 	return dpuSet
 }
 
-// reconcileDPUServiceInterfaces reconciles the DPUServiceInterfaces created by the DPUDeployment
-func reconcileDPUServiceInterfaces(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment, dependencies *dpuDeploymentDependencies, dpuNodeLabels map[string]string) error {
-	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
-
-	// Grab existing DPUServiceInterface
-	existingDPUServiceInterfaces := &dpuservicev1.DPUServiceInterfaceList{}
-	if err := c.List(ctx,
-		existingDPUServiceInterfaces,
-		client.MatchingLabels{
-			dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(client.ObjectKeyFromObject(dpuDeployment)),
-		},
-		client.InNamespace(dpuDeployment.Namespace)); err != nil {
-		return fmt.Errorf("error while listing DPUServiceInterfaces: %w", err)
-	}
-
-	existingDPUServiceInterfacesMap := make(map[string]dpuservicev1.DPUServiceInterface)
-	for _, dpuServiceInterface := range existingDPUServiceInterfaces.Items {
-		existingDPUServiceInterfacesMap[dpuServiceInterface.Name] = dpuServiceInterface
-	}
-
-	// Create or update DPUServiceInterfaces to match what is defined in the DPUDeployment
-	for dpuServiceName := range dpuDeployment.Spec.Services {
-		for _, serviceInterface := range dependencies.DPUServiceConfigurations[dpuServiceName].Spec.Interfaces {
-			dpuServiceInterface := generateDPUServiceInterface(client.ObjectKeyFromObject(dpuDeployment),
-				owner,
-				dpuServiceName,
-				serviceInterface,
-				dpuNodeLabels,
-			)
-
-			if err := c.Patch(ctx, dpuServiceInterface, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
-				return fmt.Errorf("error while patching %s %s: %w", dpuServiceInterface.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(dpuServiceInterface), err)
-			}
-
-			delete(existingDPUServiceInterfacesMap, dpuServiceInterface.Name)
-		}
-	}
-
-	// Cleanup the remaining stale DPUServiceInterfaces
-	for _, dpuServiceInterface := range existingDPUServiceInterfacesMap {
-		if err := c.Delete(ctx, &dpuServiceInterface); err != nil {
-			return fmt.Errorf("error while deleting %s %s: %w", dpuServiceInterface.GetObjectKind().GroupVersionKind().String(), client.ObjectKeyFromObject(&dpuServiceInterface), err)
-		}
-	}
-
-	return nil
-}
-
-// generateDPUServiceInterface generates a DPUServiceInterface according to the DPUDeployment
-func generateDPUServiceInterface(dpuDeploymentNamespacedName types.NamespacedName, owner *metav1.OwnerReference, dpuServiceName string, serviceInterface dpuservicev1.ServiceInterfaceTemplate, dpuNodeLabels map[string]string) *dpuservicev1.DPUServiceInterface {
-	dpuServiceLabelKey := getDPUServiceVersionLabelKey(dpuServiceName)
-	dpuServiceInterface := &dpuservicev1.DPUServiceInterface{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      generateDPUServiceInterfaceName(dpuDeploymentNamespacedName.Name, dpuServiceName, serviceInterface.Name),
-			Namespace: dpuDeploymentNamespacedName.Namespace,
-			Labels: map[string]string{
-				// TODO: Add additional label to select in the DPUServiceChain accordingly
-				dpuservicev1.ParentDPUDeploymentNameLabel: getParentDPUDeploymentLabelValue(dpuDeploymentNamespacedName),
-			},
-		},
-		Spec: dpuservicev1.DPUServiceInterfaceSpec{
-			// TODO: Derive and add cluster selector
-			Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
-				Spec: dpuservicev1.ServiceInterfaceSetSpec{
-					NodeSelector: newObjectLabelSelectorWithOwner(dpuServiceLabelKey, dpuNodeLabels[dpuServiceLabelKey], dpuDeploymentNamespacedName),
-					Template: dpuservicev1.ServiceInterfaceSpecTemplate{
-						ObjectMeta: dpuservicev1.ObjectMeta{
-							Labels: map[string]string{
-								dpuservicev1.DPFServiceIDLabelKey:  getServiceID(dpuDeploymentNamespacedName, dpuServiceName),
-								ServiceInterfaceInterfaceNameLabel: serviceInterface.Name,
-							},
-						},
-						Spec: dpuservicev1.ServiceInterfaceSpec{
-							InterfaceType: dpuservicev1.InterfaceTypeService,
-							Service: &dpuservicev1.ServiceDef{
-								ServiceID:      getServiceID(dpuDeploymentNamespacedName, dpuServiceName),
-								Network:        serviceInterface.Network,
-								InterfaceName:  serviceInterface.Name,
-								VirtualNetwork: serviceInterface.VirtualNetwork,
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	dpuServiceInterface.SetOwnerReferences([]metav1.OwnerReference{*owner})
-	dpuServiceInterface.ObjectMeta.ManagedFields = nil
-	dpuServiceInterface.SetGroupVersionKind(dpuservicev1.DPUServiceInterfaceGroupVersionKind)
-
-	return dpuServiceInterface
-}
-
 // reconcileDelete handles the deletion reconciliation loop.
 func (r *DPUDeploymentReconciler) reconcileDelete(ctx context.Context, dpuDeployment *dpuservicev1.DPUDeployment) (ctrl.Result, error) {
 	log := ctrllog.FromContext(ctx)
@@ -1133,8 +1054,4 @@ func deleteElementOrNil[S ~[]E, E any](s S, i, j int) S {
 		s = slices.Delete[S](s, i, j)
 	}
 	return s
-}
-
-func generateDPUServiceInterfaceName(dpuDeploymentName, dpuServiceName, serviceInterfaceName string) string {
-	return fmt.Sprintf("%s-%s-%s", dpuDeploymentName, dpuServiceName, strings.ReplaceAll(serviceInterfaceName, "_", "-"))
 }

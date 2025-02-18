@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -1172,8 +1173,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceTemplate := &dpuservicev1.DPUServiceTemplate{}
 				Expect(testClient.Get(ctx, types.NamespacedName{Namespace: testNS.Name, Name: "sometemplate"}, dpuServiceTemplate)).To(Succeed())
 
-				itf := []string{fmt.Sprintf("dpudeployment-someservice-%s", dpuServiceConfiguration.Spec.Interfaces[0].Name)}
-				versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate, itf)
+				versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 
 				By("checking that the DPUServices are correctly updated")
 				Eventually(func(g Gomega) {
@@ -1270,8 +1270,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceTemplate := &dpuservicev1.DPUServiceTemplate{}
 				Expect(testClient.Get(ctx, types.NamespacedName{Namespace: testNS.Name, Name: "sometemplate"}, dpuServiceTemplate)).To(Succeed())
 
-				itf := []string{fmt.Sprintf("dpudeployment-someservice-%s", dpuServiceConfiguration.Spec.Interfaces[0].Name)}
-				versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate, itf)
+				versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 
 				var gotDPUService *dpuservicev1.DPUService
 				By("checking that the DPUServices are correctly updated")
@@ -1989,6 +1988,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
 
+				versionDigest := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 				By("checking that correct DPUServiceInterfaces are created")
 				Eventually(func(g Gomega) {
 					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
@@ -1999,7 +1999,8 @@ var _ = Describe("DPUDeployment Controller", func() {
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
 						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
-						g.Expect(dpuServiceInterface.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
+						g.Expect(dpuServiceInterface.Annotations).To(HaveKeyWithValue("svc.dpu.nvidia.com/dpuservice-version", versionDigest))
+						g.Expect(dpuServiceInterface.OwnerReferences).To(ContainElement(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
 					By("retrieving the DPUService")
@@ -2063,7 +2064,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
-			It("should update the existing DPUServiceInterfaces on update of the DPUServiceConfiguration", func() {
+			It("should update the existing DPUServiceInterfaces on update of non-disruptive DPUServiceConfiguration", func() {
 				By("Creating the dependencies")
 				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
 				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
@@ -2097,11 +2098,15 @@ var _ = Describe("DPUDeployment Controller", func() {
 					g.Expect(gotDPUService).ToNot(BeNil())
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 
-				By("waiting for the initial DPUServiceInterface to be applied")
+				By("waiting for the initial DPUServiceInterfaces to be applied")
+				firstDPUServiceInterfaceUIDs := make([]types.UID, 0, 2)
 				Eventually(func(g Gomega) {
 					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
 					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
+					for _, dpuService := range gotDPUServiceInterfaceList.Items {
+						firstDPUServiceInterfaceUIDs = append(firstDPUServiceInterfaceUIDs, dpuService.UID)
+					}
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 
 				By("modifying the DPUServiceConfiguration object and checking the outcome")
@@ -2120,17 +2125,24 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
 				Expect(testClient.Patch(ctx, dpuServiceConfiguration, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
 
+				versionDigest := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 				By("checking that the DPUServiceInterfaces are updated")
 				Eventually(func(g Gomega) {
 					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
 					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
 
+					// Validate that these are the same objects
+					for _, serviceInterface := range gotDPUServiceInterfaceList.Items {
+						g.Expect(firstDPUServiceInterfaceUIDs).To(ContainElement(serviceInterface.UID))
+					}
+
 					By("checking the object metadata")
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
 						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
-						g.Expect(dpuServiceInterface.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
+						g.Expect(dpuServiceInterface.Annotations).To(HaveKeyWithValue("svc.dpu.nvidia.com/dpuservice-version", versionDigest))
+						g.Expect(dpuServiceInterface.OwnerReferences).To(ContainElement(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
 					By("checking the specs")
@@ -2214,7 +2226,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
-			It("should update the existing Disruptive DPUServiceInterfaces on update of the DPUServiceConfiguration", func() {
+			It("should create new DPUServiceInterfaces on update of disruptive DPUServiceConfiguration", func() {
 				By("Creating the dependencies")
 				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
 				// Make the dpuService disruptive
@@ -2236,14 +2248,14 @@ var _ = Describe("DPUDeployment Controller", func() {
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
 
-				versionDigest := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate, []string{"dpudeployment-someservice-someinterface", "dpudeployment-someservice-someotherinterface"})
+				versionDigest := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 
 				By("Creating the DPUDeployment")
 				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
 				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
 
-				By("retrieving the DPUService")
+				By("retrieving the initial DPUService")
 				var gotInitialDPUService *dpuservicev1.DPUService
 				Eventually(func(g Gomega) {
 					dpuServiceList := getDPUServiceList()
@@ -2275,22 +2287,216 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
 				Expect(testClient.Patch(ctx, dpuServiceConfiguration, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
 
-				versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate, []string{"dpudeployment-someservice-someinterface", "dpudeployment-someservice-someotherinterface"})
+				versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 				Expect(versionDigest).ToNot(Equal(versionDigest2))
 
+				By("retrieving the new DPUService")
 				var gotDPUService *dpuservicev1.DPUService
 				Eventually(func(g Gomega) {
-					dpuServiceList := &dpuservicev1.DPUServiceList{}
-					Expect(testClient.List(ctx, dpuServiceList)).To(Succeed())
-					g.Expect(dpuServiceList.Items).To(HaveLen(2))
-					for _, dpuSvc := range dpuServiceList.Items {
-						if dpuSvc.Spec.Paused == nil {
-							gotDPUService = &dpuSvc
+					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+					g.Expect(gotDPUServiceList.Items).To(HaveLen(2))
+					for _, dpuService := range gotDPUServiceList.Items {
+						if dpuService.GetAnnotations()[dpuServiceVersionAnnotationKey] == versionDigest2 {
+							gotDPUService = &dpuService
 						}
 					}
-					g.Expect(gotDPUService).ToNot(BeNil())
-					g.Expect(gotDPUService).ToNot(Equal(gotInitialDPUService))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
+
+				By("checking that the old DPUServiceInterfaces co-exist with the new ones until the current DPUService becomes ready")
+				Eventually(func(g Gomega) {
+					instancesThatShouldExistPerVersionDigest := map[string]int{
+						versionDigest:  2,
+						versionDigest2: 2,
+					}
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(4))
+
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
+						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
+						g.Expect(dpuServiceInterface.OwnerReferences).To(ContainElement(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
+
+						versionAnnotationKey := "svc.dpu.nvidia.com/dpuservice-version"
+						g.Expect(dpuServiceInterface.Annotations).To(HaveKey(versionAnnotationKey))
+						versionAnnotationValue := dpuServiceInterface.Annotations["svc.dpu.nvidia.com/dpuservice-version"]
+						g.Expect(instancesThatShouldExistPerVersionDigest).To(HaveKey(versionAnnotationValue))
+						instancesThatShouldExistPerVersionDigest[versionAnnotationValue]--
+					}
+					for k := range instancesThatShouldExistPerVersionDigest {
+						g.Expect(instancesThatShouldExistPerVersionDigest[k]).To(BeZero())
+					}
+
+					By("checking the specs")
+					specs := make([]dpuservicev1.DPUServiceInterfaceSpec, 0, len(gotDPUServiceInterfaceList.Items))
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						specs = append(specs, dpuServiceInterface.Spec)
+					}
+					g.Expect(specs).To(ConsistOf([]dpuservicev1.DPUServiceInterfaceSpec{
+						// Old
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotInitialDPUService.Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_someservice",
+												ServiceInterfaceInterfaceNameLabel: "someinterface",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_someservice",
+												Network:       "nad1",
+												InterfaceName: "someinterface",
+											},
+										},
+									},
+								},
+							},
+						},
+						// Old
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotInitialDPUService.Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_someservice",
+												ServiceInterfaceInterfaceNameLabel: "someotherinterface",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_someservice",
+												Network:       "nad2",
+												InterfaceName: "someotherinterface",
+											},
+										},
+									},
+								},
+							},
+						},
+						// New
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotDPUService.Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_someservice",
+												ServiceInterfaceInterfaceNameLabel: "someinterface",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_someservice",
+												Network:       "nad3",
+												InterfaceName: "someinterface",
+											},
+										},
+									},
+								},
+							},
+						},
+						// New
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotDPUService.Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_someservice",
+												ServiceInterfaceInterfaceNameLabel: "someotherinterface",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_someservice",
+												Network:       "nad4",
+												InterfaceName: "someotherinterface",
+											},
+										},
+									},
+								},
+							},
+						},
+					}))
+				}).WithTimeout(30 * time.Second).MustPassRepeatedly(10).Should(Succeed())
+
+				By("Marking the DPUService ready")
+				gotDPUService.Status.Conditions = []metav1.Condition{
+					{
+						Type:               string(conditions.TypeReady),
+						Status:             metav1.ConditionTrue,
+						Reason:             string(conditions.ReasonSuccess),
+						LastTransitionTime: metav1.NewTime(time.Now()),
+					},
+				}
+				gotDPUService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
+				gotDPUService.SetManagedFields(nil)
+				Expect(testClient.Status().Patch(ctx, gotDPUService, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
 
 				By("checking that the DPUServiceInterfaces are updated")
 				Eventually(func(g Gomega) {
@@ -2302,7 +2508,8 @@ var _ = Describe("DPUDeployment Controller", func() {
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
 						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
-						g.Expect(dpuServiceInterface.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
+						g.Expect(dpuServiceInterface.Annotations).To(HaveKeyWithValue("svc.dpu.nvidia.com/dpuservice-version", versionDigest2))
+						g.Expect(dpuServiceInterface.OwnerReferences).To(ContainElement(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
 					By("checking the specs")
@@ -2377,6 +2584,954 @@ var _ = Describe("DPUDeployment Controller", func() {
 												ServiceID:     "dpudeployment_dpudeployment_someservice",
 												Network:       "nad4",
 												InterfaceName: "someotherinterface",
+											},
+										},
+									},
+								},
+							},
+						},
+					}))
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+			})
+			It("should not delete the old DPUServiceInterfaces on update of disruptive DPUServiceConfiguration "+
+				"that changes the name of an interface", func() {
+				By("Creating the dependencies")
+				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
+				// Make the dpuService disruptive
+				dpuServiceConfiguration.Spec.NodeEffect = ptr.To(true)
+				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
+					{
+						Name:    "someinterface",
+						Network: "nad1",
+					},
+					{
+						Name:    "someotherinterface",
+						Network: "nad2",
+					},
+				}
+				Expect(testClient.Create(ctx, dpuServiceConfiguration)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration)
+
+				dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+				versionDigest := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
+
+				By("Creating the DPUDeployment")
+				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+				By("retrieving the initial DPUService")
+				var gotInitialDPUService *dpuservicev1.DPUService
+				Eventually(func(g Gomega) {
+					dpuServiceList := getDPUServiceList()
+					g.Expect(dpuServiceList.Items).To(HaveLen(1))
+					gotInitialDPUService = &dpuServiceList.Items[0]
+					g.Expect(gotInitialDPUService).ToNot(BeNil())
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+
+				By("waiting for the initial DPUServiceInterface to be applied")
+				Eventually(func(g Gomega) {
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+
+				By("modifying the DPUServiceConfiguration object and checking the outcome")
+				Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceConfiguration), dpuServiceConfiguration)).To(Succeed())
+				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
+					{
+						Name:    "newnameforsomeinterface",
+						Network: "nad3",
+					},
+					{
+						Name:    "someotherinterface",
+						Network: "nad4",
+					},
+				}
+				dpuServiceConfiguration.SetManagedFields(nil)
+				dpuServiceConfiguration.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
+				Expect(testClient.Patch(ctx, dpuServiceConfiguration, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
+
+				versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
+				Expect(versionDigest).ToNot(Equal(versionDigest2))
+
+				By("retrieving the new DPUService")
+				var gotDPUService *dpuservicev1.DPUService
+				Eventually(func(g Gomega) {
+					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
+					g.Expect(gotDPUServiceList.Items).To(HaveLen(2))
+					for _, dpuService := range gotDPUServiceList.Items {
+						if dpuService.GetAnnotations()[dpuServiceVersionAnnotationKey] == versionDigest2 {
+							gotDPUService = &dpuService
+						}
+					}
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+
+				By("checking that the old DPUServiceInterfaces co-exist with the new ones until the current DPUService becomes ready")
+				Eventually(func(g Gomega) {
+					instancesThatShouldExistPerVersionDigest := map[string]int{
+						versionDigest:  2,
+						versionDigest2: 2,
+					}
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(4))
+
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
+						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
+						g.Expect(dpuServiceInterface.OwnerReferences).To(ContainElement(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
+
+						versionAnnotationKey := "svc.dpu.nvidia.com/dpuservice-version"
+						g.Expect(dpuServiceInterface.Annotations).To(HaveKey(versionAnnotationKey))
+						versionAnnotationValue := dpuServiceInterface.Annotations["svc.dpu.nvidia.com/dpuservice-version"]
+						g.Expect(instancesThatShouldExistPerVersionDigest).To(HaveKey(versionAnnotationValue))
+						instancesThatShouldExistPerVersionDigest[versionAnnotationValue]--
+					}
+					for k := range instancesThatShouldExistPerVersionDigest {
+						g.Expect(instancesThatShouldExistPerVersionDigest[k]).To(BeZero())
+					}
+
+					By("checking the specs")
+					specs := make([]dpuservicev1.DPUServiceInterfaceSpec, 0, len(gotDPUServiceInterfaceList.Items))
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						specs = append(specs, dpuServiceInterface.Spec)
+					}
+					g.Expect(specs).To(ConsistOf([]dpuservicev1.DPUServiceInterfaceSpec{
+						// Old
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotInitialDPUService.Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_someservice",
+												ServiceInterfaceInterfaceNameLabel: "someinterface",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_someservice",
+												Network:       "nad1",
+												InterfaceName: "someinterface",
+											},
+										},
+									},
+								},
+							},
+						},
+						// Old
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotInitialDPUService.Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_someservice",
+												ServiceInterfaceInterfaceNameLabel: "someotherinterface",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_someservice",
+												Network:       "nad2",
+												InterfaceName: "someotherinterface",
+											},
+										},
+									},
+								},
+							},
+						},
+						// New
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotDPUService.Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_someservice",
+												ServiceInterfaceInterfaceNameLabel: "newnameforsomeinterface",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_someservice",
+												Network:       "nad3",
+												InterfaceName: "newnameforsomeinterface",
+											},
+										},
+									},
+								},
+							},
+						},
+						// New
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotDPUService.Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_someservice",
+												ServiceInterfaceInterfaceNameLabel: "someotherinterface",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_someservice",
+												Network:       "nad4",
+												InterfaceName: "someotherinterface",
+											},
+										},
+									},
+								},
+							},
+						},
+					}))
+				}).WithTimeout(30 * time.Second).MustPassRepeatedly(10).Should(Succeed())
+
+				By("Marking the DPUService ready")
+				gotDPUService.Status.Conditions = []metav1.Condition{
+					{
+						Type:               string(conditions.TypeReady),
+						Status:             metav1.ConditionTrue,
+						Reason:             string(conditions.ReasonSuccess),
+						LastTransitionTime: metav1.NewTime(time.Now()),
+					},
+				}
+				gotDPUService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
+				gotDPUService.SetManagedFields(nil)
+				Expect(testClient.Status().Patch(ctx, gotDPUService, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+				By("checking that the DPUServiceInterfaces are updated")
+				Eventually(func(g Gomega) {
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
+
+					By("checking the object metadata")
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
+						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
+						g.Expect(dpuServiceInterface.Annotations).To(HaveKeyWithValue("svc.dpu.nvidia.com/dpuservice-version", versionDigest2))
+						g.Expect(dpuServiceInterface.OwnerReferences).To(ContainElement(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
+					}
+
+					By("checking the specs")
+					specs := make([]dpuservicev1.DPUServiceInterfaceSpec, 0, len(gotDPUServiceInterfaceList.Items))
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						specs = append(specs, dpuServiceInterface.Spec)
+					}
+					g.Expect(specs).To(ConsistOf([]dpuservicev1.DPUServiceInterfaceSpec{
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotDPUService.Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_someservice",
+												ServiceInterfaceInterfaceNameLabel: "newnameforsomeinterface",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_someservice",
+												Network:       "nad3",
+												InterfaceName: "newnameforsomeinterface",
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-someservice-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotDPUService.Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_someservice",
+												ServiceInterfaceInterfaceNameLabel: "someotherinterface",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_someservice",
+												Network:       "nad4",
+												InterfaceName: "someotherinterface",
+											},
+										},
+									},
+								},
+							},
+						},
+					}))
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+			})
+			It("should not delete any of the DPUServiceInterfaces associated with service 2 on update of disruptive "+
+				"DPUServiceConfiguration that changes the name of an interface that is associated with service 1", func() {
+				By("Creating the dependencies for service 1")
+				dpuServiceConfiguration1 := getMinimalDPUServiceConfiguration(testNS.Name)
+				// Make the dpuService disruptive
+				dpuServiceConfiguration1.Name = "service-1"
+				dpuServiceConfiguration1.Spec.DeploymentServiceName = "service-1"
+				dpuServiceConfiguration1.Spec.NodeEffect = ptr.To(true)
+				dpuServiceConfiguration1.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
+					{
+						Name:    "someinterface",
+						Network: "nad1",
+					},
+					{
+						Name:    "someotherinterface",
+						Network: "nad2",
+					},
+				}
+				Expect(testClient.Create(ctx, dpuServiceConfiguration1)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration1)
+
+				dpuServiceTemplate1 := getMinimalDPUServiceTemplate(testNS.Name)
+				dpuServiceTemplate1.Name = "service-1"
+				dpuServiceTemplate1.Spec.DeploymentServiceName = "service-1"
+				Expect(testClient.Create(ctx, dpuServiceTemplate1)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate1)
+
+				versionDigest1 := calculateDPUServiceVersionDigest(dpuServiceConfiguration1, dpuServiceTemplate1)
+
+				By("Creating the dependencies for service 2")
+				dpuServiceConfiguration2 := getMinimalDPUServiceConfiguration(testNS.Name)
+				// Make the dpuService disruptive
+				dpuServiceConfiguration2.Name = "service-2"
+				dpuServiceConfiguration2.Spec.DeploymentServiceName = "service-2"
+				dpuServiceConfiguration2.Spec.NodeEffect = ptr.To(true)
+				dpuServiceConfiguration2.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
+					{
+						Name:    "if1",
+						Network: "nad3",
+					},
+					{
+						Name:    "if2",
+						Network: "nad4",
+					},
+				}
+				Expect(testClient.Create(ctx, dpuServiceConfiguration2)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceConfiguration2)
+
+				dpuServiceTemplate2 := getMinimalDPUServiceTemplate(testNS.Name)
+				dpuServiceTemplate2.Name = "service-2"
+				dpuServiceTemplate2.Spec.DeploymentServiceName = "service-2"
+				Expect(testClient.Create(ctx, dpuServiceTemplate2)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate2)
+
+				versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration2, dpuServiceTemplate2)
+
+				By("Creating the DPUDeployment")
+				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
+				dpuDeployment.Spec.Services = map[string]dpuservicev1.DPUDeploymentServiceConfiguration{
+					"service-1": {
+						ServiceTemplate:      dpuServiceTemplate1.Name,
+						ServiceConfiguration: dpuServiceConfiguration1.Name,
+					},
+					"service-2": {
+						ServiceTemplate:      dpuServiceTemplate2.Name,
+						ServiceConfiguration: dpuServiceConfiguration2.Name,
+					},
+				}
+				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
+				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
+
+				By("retrieving the initial DPUServices and DPUServiceInterfaces")
+				gotInitialDPUServices := make(map[string]dpuservicev1.DPUService)
+				gotInitialDPUServiceInterfaces := make(map[string][]dpuservicev1.DPUServiceInterface)
+				Eventually(func(g Gomega) {
+					dpuServiceList := getDPUServiceList()
+					g.Expect(dpuServiceList.Items).To(HaveLen(2))
+					for _, dpuService := range dpuServiceList.Items {
+						versionAnnotationKey := "svc.dpu.nvidia.com/dpuservice-version"
+						g.Expect(dpuService.Annotations).To(HaveKey(versionAnnotationKey))
+						gotInitialDPUServices[dpuService.Annotations[versionAnnotationKey]] = dpuService
+					}
+
+					dpuServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, dpuServiceInterfaceList)).To(Succeed())
+					g.Expect(dpuServiceInterfaceList.Items).To(HaveLen(4))
+					for _, dpuServiceInterface := range dpuServiceInterfaceList.Items {
+						versionAnnotationKey := "svc.dpu.nvidia.com/dpuservice-version"
+						g.Expect(dpuServiceInterface.Annotations).To(HaveKey(versionAnnotationKey))
+						gotInitialDPUServiceInterfaces[dpuServiceInterface.Annotations[versionAnnotationKey]] = append(gotInitialDPUServiceInterfaces[dpuServiceInterface.Annotations[versionAnnotationKey]], dpuServiceInterface)
+					}
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+
+				By("waiting for the initial DPUServiceInterfaces to be applied")
+				Eventually(func(g Gomega) {
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(4))
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+
+				By("modifying the DPUServiceConfiguration object and checking the outcome")
+				Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuServiceConfiguration1), dpuServiceConfiguration1)).To(Succeed())
+				dpuServiceConfiguration1.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
+					{
+						Name:    "newnameif1",
+						Network: "nad15",
+					},
+					{
+						Name:    "newnameif2",
+						Network: "nad23",
+					},
+				}
+				dpuServiceConfiguration1.SetManagedFields(nil)
+				dpuServiceConfiguration1.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
+				Expect(testClient.Patch(ctx, dpuServiceConfiguration1, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
+
+				versionDigest1b := calculateDPUServiceVersionDigest(dpuServiceConfiguration1, dpuServiceTemplate1)
+				Expect(versionDigest1b).ToNot(Equal(versionDigest1))
+
+				By("retrieving the updated DPUServices")
+				gotUpdatedDPUServices := make(map[string]dpuservicev1.DPUService)
+				Eventually(func(g Gomega) {
+					dpuServiceList := getDPUServiceList()
+					g.Expect(dpuServiceList.Items).To(HaveLen(3))
+					for _, dpuService := range dpuServiceList.Items {
+						versionAnnotationKey := "svc.dpu.nvidia.com/dpuservice-version"
+						g.Expect(dpuService.Annotations).To(HaveKey(versionAnnotationKey))
+						gotUpdatedDPUServices[dpuService.Annotations[versionAnnotationKey]] = dpuService
+					}
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+
+				By("checking that the old DPUServiceInterfaces co-exist with the new ones until the current DPUService becomes ready")
+				Eventually(func(g Gomega) {
+					instancesThatShouldExistPerVersionDigest := map[string]int{
+						versionDigest1:  2,
+						versionDigest2:  2,
+						versionDigest1b: 2,
+					}
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(6))
+
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
+						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
+						g.Expect(dpuServiceInterface.OwnerReferences).To(ContainElement(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
+
+						versionAnnotationKey := "svc.dpu.nvidia.com/dpuservice-version"
+						g.Expect(dpuServiceInterface.Annotations).To(HaveKey(versionAnnotationKey))
+						versionAnnotationValue := dpuServiceInterface.Annotations["svc.dpu.nvidia.com/dpuservice-version"]
+						g.Expect(instancesThatShouldExistPerVersionDigest).To(HaveKey(versionAnnotationValue))
+						instancesThatShouldExistPerVersionDigest[versionAnnotationValue]--
+					}
+					for k := range instancesThatShouldExistPerVersionDigest {
+						g.Expect(instancesThatShouldExistPerVersionDigest[k]).To(BeZero())
+					}
+
+					By("checking the specs")
+					specs := make([]dpuservicev1.DPUServiceInterfaceSpec, 0, len(gotDPUServiceInterfaceList.Items))
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						specs = append(specs, dpuServiceInterface.Spec)
+					}
+					g.Expect(specs).To(ConsistOf([]dpuservicev1.DPUServiceInterfaceSpec{
+						// service 2 - intact
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-service-2-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotInitialDPUServices[versionDigest2].Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_service-2",
+												ServiceInterfaceInterfaceNameLabel: "if1",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_service-2",
+												Network:       "nad3",
+												InterfaceName: "if1",
+											},
+										},
+									},
+								},
+							},
+						},
+						// service 2 - intact
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-service-2-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotInitialDPUServices[versionDigest2].Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_service-2",
+												ServiceInterfaceInterfaceNameLabel: "if2",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_service-2",
+												Network:       "nad4",
+												InterfaceName: "if2",
+											},
+										},
+									},
+								},
+							},
+						},
+						// service 1 - old
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-service-1-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotInitialDPUServices[versionDigest1].Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_service-1",
+												ServiceInterfaceInterfaceNameLabel: "someinterface",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_service-1",
+												Network:       "nad1",
+												InterfaceName: "someinterface",
+											},
+										},
+									},
+								},
+							},
+						},
+						// service 1 - old
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-service-1-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotInitialDPUServices[versionDigest1].Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_service-1",
+												ServiceInterfaceInterfaceNameLabel: "someotherinterface",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_service-1",
+												Network:       "nad2",
+												InterfaceName: "someotherinterface",
+											},
+										},
+									},
+								},
+							},
+						},
+						// service 1 - new
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-service-1-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotUpdatedDPUServices[versionDigest1b].Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_service-1",
+												ServiceInterfaceInterfaceNameLabel: "newnameif1",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_service-1",
+												Network:       "nad15",
+												InterfaceName: "newnameif1",
+											},
+										},
+									},
+								},
+							},
+						},
+						// service 1 - new
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-service-1-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotUpdatedDPUServices[versionDigest1b].Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_service-1",
+												ServiceInterfaceInterfaceNameLabel: "newnameif2",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_service-1",
+												Network:       "nad23",
+												InterfaceName: "newnameif2",
+											},
+										},
+									},
+								},
+							},
+						},
+					}))
+				}).WithTimeout(30 * time.Second).MustPassRepeatedly(10).Should(Succeed())
+
+				By("Marking the DPUService ready")
+				currentDPUService := gotUpdatedDPUServices[versionDigest1b]
+				currentDPUService.Status.Conditions = []metav1.Condition{
+					{
+						Type:               string(conditions.TypeReady),
+						Status:             metav1.ConditionTrue,
+						Reason:             string(conditions.ReasonSuccess),
+						LastTransitionTime: metav1.NewTime(time.Now()),
+					},
+				}
+				currentDPUService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
+				currentDPUService.SetManagedFields(nil)
+				Expect(testClient.Status().Patch(ctx, &currentDPUService, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
+				By("checking that the DPUServiceInterfaces are updated")
+				Eventually(func(g Gomega) {
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(4))
+
+					By("checking the object metadata")
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
+						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
+						g.Expect(dpuServiceInterface.Annotations).To(HaveKey("svc.dpu.nvidia.com/dpuservice-version"))
+						g.Expect(dpuServiceInterface.OwnerReferences).To(ContainElement(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
+					}
+
+					By("Checking that original objects associated with service-2 are not deleted")
+					for _, originalDPUServiceInterface := range gotInitialDPUServiceInterfaces[versionDigest2] {
+						var found bool
+						for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+							if originalDPUServiceInterface.UID == dpuServiceInterface.UID {
+								found = true
+							}
+						}
+						g.Expect(found).To(BeTrue())
+					}
+
+					By("checking the specs")
+					specs := make([]dpuservicev1.DPUServiceInterfaceSpec, 0, len(gotDPUServiceInterfaceList.Items))
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						specs = append(specs, dpuServiceInterface.Spec)
+					}
+					g.Expect(specs).To(ConsistOf([]dpuservicev1.DPUServiceInterfaceSpec{
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-service-2-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotInitialDPUServices[versionDigest2].Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_service-2",
+												ServiceInterfaceInterfaceNameLabel: "if1",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_service-2",
+												Network:       "nad3",
+												InterfaceName: "if1",
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-service-2-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotInitialDPUServices[versionDigest2].Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_service-2",
+												ServiceInterfaceInterfaceNameLabel: "if2",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_service-2",
+												Network:       "nad4",
+												InterfaceName: "if2",
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-service-1-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotUpdatedDPUServices[versionDigest1b].Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_service-1",
+												ServiceInterfaceInterfaceNameLabel: "newnameif1",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_service-1",
+												Network:       "nad15",
+												InterfaceName: "newnameif1",
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Template: dpuservicev1.ServiceInterfaceSetSpecTemplate{
+								Spec: dpuservicev1.ServiceInterfaceSetSpec{
+									NodeSelector: &metav1.LabelSelector{
+										MatchExpressions: []metav1.LabelSelectorRequirement{
+											{
+												Key:      "svc.dpu.nvidia.com/dpuservice-service-1-version",
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{gotUpdatedDPUServices[versionDigest1b].Name},
+											},
+											{
+												Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
+												Operator: metav1.LabelSelectorOpIn,
+												Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
+											},
+										},
+									},
+									Template: dpuservicev1.ServiceInterfaceSpecTemplate{
+										ObjectMeta: dpuservicev1.ObjectMeta{
+											Labels: map[string]string{
+												dpuservicev1.DPFServiceIDLabelKey:  "dpudeployment_dpudeployment_service-1",
+												ServiceInterfaceInterfaceNameLabel: "newnameif2",
+											},
+										},
+										Spec: dpuservicev1.ServiceInterfaceSpec{
+											InterfaceType: dpuservicev1.InterfaceTypeService,
+											Service: &dpuservicev1.ServiceDef{
+												ServiceID:     "dpudeployment_dpudeployment_service-1",
+												Network:       "nad23",
+												InterfaceName: "newnameif2",
 											},
 										},
 									},
@@ -2439,6 +3594,19 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
 				Expect(testClient.Patch(ctx, dpuServiceConfiguration, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
 
+				By("Marking the DPUService ready")
+				gotDPUService.Status.Conditions = []metav1.Condition{
+					{
+						Type:               string(conditions.TypeReady),
+						Status:             metav1.ConditionTrue,
+						Reason:             string(conditions.ReasonSuccess),
+						LastTransitionTime: metav1.NewTime(time.Now()),
+					},
+				}
+				gotDPUService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
+				gotDPUService.SetManagedFields(nil)
+				Expect(testClient.Status().Patch(ctx, gotDPUService, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
 				By("checking that the DPUServiceInterfaces are updated")
 				Eventually(func(g Gomega) {
 					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
@@ -2449,7 +3617,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
 						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
-						g.Expect(dpuServiceInterface.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
+						g.Expect(dpuServiceInterface.OwnerReferences).To(ContainElement(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
 					By("checking the specs")
@@ -2560,7 +3728,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
 						g.Expect(dpuServiceInterface.Labels).To(HaveLen(1))
 						g.Expect(dpuServiceInterface.Labels).To(HaveKeyWithValue("svc.dpu.nvidia.com/owned-by-dpudeployment", fmt.Sprintf("%s_dpudeployment", testNS.Name)))
-						g.Expect(dpuServiceInterface.OwnerReferences).To(ConsistOf(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
+						g.Expect(dpuServiceInterface.OwnerReferences).To(ContainElement(*metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)))
 					}
 
 					By("checking the specs")
@@ -2644,7 +3812,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
-			It("should delete the DPUServiceInterfaces on manual delete of the DPUServiceInterfaces", func() {
+			It("should recreate the DPUServiceInterfaces on manual delete of the DPUServiceInterfaces", func() {
 				By("Creating the dependencies")
 				dpuServiceConfiguration := getMinimalDPUServiceConfiguration(testNS.Name)
 				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{
@@ -2724,7 +3892,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceTemplate.Spec.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key1":"someothervalue"}`)}
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
-				versionDigest1 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate, nil)
+				versionDigest1 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 
 				dpuServiceConfiguration = getMinimalDPUServiceConfiguration(testNS.Name)
 				dpuServiceConfiguration.Name = "service-2"
@@ -2744,11 +3912,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceTemplate.Spec.HelmChart.Values = &runtime.RawExtension{Raw: []byte(`{"key3":"value3"}`)}
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
-				itfs := []string{}
-				for _, itf := range dpuServiceConfiguration.Spec.Interfaces {
-					itfs = append(itfs, fmt.Sprintf("dpudeployment-service-2-%s", itf.Name))
-				}
-				versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate, itfs)
+				versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 
 				dpuServiceConfiguration = getDisruptiveDPUServiceConfiguration(testNS.Name)
 				dpuServiceConfiguration.Name = "service-3"
@@ -2766,7 +3930,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceTemplate.Spec.DeploymentServiceName = "service-3"
 				Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
 				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
-				versionDigest3 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate, nil)
+				versionDigest3 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 
 				By("Creating the DPUDeployment")
 				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
@@ -2792,6 +3956,20 @@ var _ = Describe("DPUDeployment Controller", func() {
 					"service-3": versionDigest3}
 				By("checking that correct DPUServices are created")
 				Eventually(func(g Gomega) {
+					By("capturing the created DPUServiceInterfaces")
+					gotDPUServiceInterfaceNames := make(map[string][]string)
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						for serviceName := range dpuDeployment.Spec.Services {
+							if strings.Contains(dpuServiceInterface.Name, serviceName) {
+								gotDPUServiceInterfaceNames[serviceName] = append(gotDPUServiceInterfaceNames[serviceName], dpuServiceInterface.Name)
+								slices.Sort(gotDPUServiceInterfaceNames[serviceName])
+							}
+						}
+					}
+
 					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 					g.Expect(gotDPUServiceList.Items).To(HaveLen(3))
@@ -2862,7 +4040,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									},
 								},
 							},
-							Interfaces: []string{"dpudeployment-service-2-if2", "dpudeployment-service-2-if3"},
+							Interfaces: gotDPUServiceInterfaceNames["service-2"],
 						},
 						{
 							HelmChart: dpuservicev1.HelmChart{
@@ -2900,7 +4078,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
-			It("should update the existing DPUService on update of the DPUServiceConfiguration", func() {
+			It("should update the existing DPUService on update of non-disruptive DPUServiceConfiguration", func() {
 				By("Creating the dependencies")
 				versionDigest1, _ := createReconcileDPUServicesNonDisruptiveDependencies(testNS.Name)
 
@@ -2920,15 +4098,17 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("waiting for the initial DPUServices to be applied")
 				firstDPUServiceUIDs := make([]types.UID, 0, 2)
-				var fistDPUServiceName string
+				gotFirstDPUServiceNames := make(map[string]string)
 				Eventually(func(g Gomega) {
 					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 					g.Expect(gotDPUServiceList.Items).To(HaveLen(2))
 					for _, dpuService := range gotDPUServiceList.Items {
 						firstDPUServiceUIDs = append(firstDPUServiceUIDs, dpuService.UID)
-						if dpuService.Annotations[dpuServiceVersionAnnotationKey] == versionDigest1 {
-							fistDPUServiceName = dpuService.Name
+						for serviceName := range dpuDeployment.Spec.Services {
+							if strings.Contains(dpuService.Name, serviceName) {
+								gotFirstDPUServiceNames[serviceName] = dpuService.Name
+							}
 						}
 					}
 				}).WithTimeout(30 * time.Second).Should(Succeed())
@@ -2936,35 +4116,44 @@ var _ = Describe("DPUDeployment Controller", func() {
 				By("modifying the first DPUServiceConfiguration object")
 				dpuServiceConfiguration := &dpuservicev1.DPUServiceConfiguration{}
 				Expect(testClient.Get(ctx, types.NamespacedName{Namespace: testNS.Name, Name: "service-1"}, dpuServiceConfiguration)).To(Succeed())
-				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{{Name: "if1", Network: "nad1"}}
+				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = map[string]string{"newlabel": "newvalue"}
 				dpuServiceConfiguration.SetManagedFields(nil)
 				dpuServiceConfiguration.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
 				Expect(testClient.Patch(ctx, dpuServiceConfiguration, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
 
 				dpuServiceTemplate := &dpuservicev1.DPUServiceTemplate{}
 				Expect(testClient.Get(ctx, types.NamespacedName{Namespace: testNS.Name, Name: "service-1"}, dpuServiceTemplate)).To(Succeed())
-				itfs := []string{}
-				for _, i := range dpuServiceConfiguration.Spec.Interfaces {
-					itfs = append(itfs, fmt.Sprintf("dpudeployment-service-1-%s", i.Name))
-				}
-				versionDigest1b := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate, itfs)
+				versionDigest1b := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 				Expect(versionDigest1b).ToNot(Equal(versionDigest1))
 
 				By("modifying the second DPUServiceConfiguration object")
 				dpuServiceConfiguration = &dpuservicev1.DPUServiceConfiguration{}
 				Expect(testClient.Get(ctx, types.NamespacedName{Namespace: testNS.Name, Name: "service-2"}, dpuServiceConfiguration)).To(Succeed())
-				dpuServiceConfiguration.Spec.ServiceConfiguration.DeployInCluster = ptr.To(true)
-				dpuServiceConfiguration.Spec.Interfaces = nil
+				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = map[string]string{"newlabel2": "newvalue2"}
 				dpuServiceConfiguration.SetManagedFields(nil)
 				dpuServiceConfiguration.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
 				Expect(testClient.Update(ctx, dpuServiceConfiguration)).To(Succeed())
 
 				dpuServiceTemplate = &dpuservicev1.DPUServiceTemplate{}
 				Expect(testClient.Get(ctx, types.NamespacedName{Namespace: testNS.Name, Name: "service-2"}, dpuServiceTemplate)).To(Succeed())
-				versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate, nil)
+				versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 
 				By("checking that the DPUServices are updated as expected")
 				Eventually(func(g Gomega) {
+					By("capturing the created DPUServiceInterfaces")
+					gotDPUServiceInterfaceNames := make(map[string][]string)
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						for serviceName := range dpuDeployment.Spec.Services {
+							if strings.Contains(dpuServiceInterface.Name, serviceName) {
+								gotDPUServiceInterfaceNames[serviceName] = append(gotDPUServiceInterfaceNames[serviceName], dpuServiceInterface.Name)
+								slices.Sort(gotDPUServiceInterfaceNames[serviceName])
+							}
+						}
+					}
+
 					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 					g.Expect(gotDPUServiceList.Items).To(HaveLen(2))
@@ -2988,7 +4177,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					for _, dpuService := range gotDPUServiceList.Items {
 						specs = append(specs, dpuService.Spec)
 					}
-					g.Expect(specs).To(ConsistOf([]dpuservicev1.DPUServiceSpec{
+					g.Expect(specs).To(BeComparableTo([]dpuservicev1.DPUServiceSpec{
 						{
 							HelmChart: dpuservicev1.HelmChart{
 								Source: dpuservicev1.ApplicationSource{
@@ -2999,8 +4188,9 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 							},
 							ServiceID:  ptr.To("dpudeployment_dpudeployment_service-1"),
-							Interfaces: []string{"dpudeployment-service-1-if1"},
+							Interfaces: gotDPUServiceInterfaceNames["service-1"],
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+								Labels: map[string]string{"newlabel": "newvalue"},
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
 										{
@@ -3008,7 +4198,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 												{
 													Key:      "svc.dpu.nvidia.com/dpuservice-service-1-version",
 													Operator: corev1.NodeSelectorOpIn,
-													Values:   []string{fistDPUServiceName},
+													Values:   []string{gotFirstDPUServiceNames["service-1"]},
 												},
 												{
 													Key:      "svc.dpu.nvidia.com/owned-by-dpudeployment",
@@ -3030,8 +4220,29 @@ var _ = Describe("DPUDeployment Controller", func() {
 									Chart:   "somechart",
 								},
 							},
-							ServiceID:       ptr.To("dpudeployment_dpudeployment_service-2"),
-							DeployInCluster: ptr.To(true),
+							ServiceID:  ptr.To("dpudeployment_dpudeployment_service-2"),
+							Interfaces: gotDPUServiceInterfaceNames["service-2"],
+							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+								Labels: map[string]string{"newlabel2": "newvalue2"},
+								NodeSelector: &corev1.NodeSelector{
+									NodeSelectorTerms: []corev1.NodeSelectorTerm{
+										{
+											MatchExpressions: []corev1.NodeSelectorRequirement{
+												{
+													Key:      "svc.dpu.nvidia.com/dpuservice-service-2-version",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{gotFirstDPUServiceNames["service-2"]},
+												},
+												{
+													Key:      "svc.dpu.nvidia.com/owned-by-dpudeployment",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{fmt.Sprintf("%s_%s", dpuDeployment.Namespace, dpuDeployment.Name)},
+												},
+											},
+										},
+									},
+								},
+							},
 						},
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
@@ -3071,7 +4282,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 				dpuServiceConfiguration := &dpuservicev1.DPUServiceConfiguration{}
 				Expect(testClient.Get(ctx, types.NamespacedName{Namespace: testNS.Name, Name: "service-2"}, dpuServiceConfiguration)).To(Succeed())
 				origConfig := dpuServiceConfiguration.DeepCopy()
-				dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{{Name: "if2", Network: "nad2"}}
+				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = map[string]string{"newlabel": "newvalue"}
 				// make non-disruptive
 				dpuServiceConfiguration.Spec.NodeEffect = nil
 				dpuServiceConfiguration.SetManagedFields(nil)
@@ -3082,9 +4293,31 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("checking that the DPUService is updated as expected")
 				Eventually(func(g Gomega) {
+					By("capturing the created DPUServiceInterfaces")
+					gotDPUServiceInterfaceNames := make(map[string][]string)
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						for serviceName := range dpuDeployment.Spec.Services {
+							if strings.Contains(dpuServiceInterface.Name, serviceName) {
+								gotDPUServiceInterfaceNames[serviceName] = append(gotDPUServiceInterfaceNames[serviceName], dpuServiceInterface.Name)
+								slices.Sort(gotDPUServiceInterfaceNames[serviceName])
+							}
+						}
+					}
 					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 					g.Expect(gotDPUServiceList.Items).To(HaveLen(2))
+
+					By("Checking that one of the services has the correct new version annotation")
+					var found bool
+					for _, dpuService := range gotDPUServiceList.Items {
+						if dpuService.GetAnnotations()[dpuServiceVersionAnnotationKey] == versionDigest2b {
+							found = true
+						}
+					}
+					g.Expect(found).To(BeTrue())
 
 					By("checking the specs")
 					specs := make([]dpuservicev1.DPUServiceSpec, 0, len(gotDPUServiceList.Items))
@@ -3122,7 +4355,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									},
 								},
 							},
-							Interfaces: []string{"dpudeployment-service-1-someinterface"},
+							Interfaces: gotDPUServiceInterfaceNames["service-1"],
 						},
 						{
 							HelmChart: dpuservicev1.HelmChart{
@@ -3135,6 +4368,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 							},
 							ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+								Labels: map[string]string{"newlabel": "newvalue"},
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
 										{
@@ -3154,7 +4388,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									},
 								},
 							},
-							Interfaces: []string{"dpudeployment-service-2-if2"},
+							Interfaces: gotDPUServiceInterfaceNames["service-2"],
 						},
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
@@ -3185,6 +4419,19 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("checking that the DPUService is updated as expected")
 				Eventually(func(g Gomega) {
+					By("capturing the created DPUServiceInterfaces")
+					gotDPUServiceInterfaceNames := make(map[string][]string)
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						for serviceName := range dpuDeployment.Spec.Services {
+							if strings.Contains(dpuServiceInterface.Name, serviceName) {
+								gotDPUServiceInterfaceNames[serviceName] = append(gotDPUServiceInterfaceNames[serviceName], dpuServiceInterface.Name)
+								slices.Sort(gotDPUServiceInterfaceNames[serviceName])
+							}
+						}
+					}
 					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 					g.Expect(gotDPUServiceList.Items).To(HaveLen(2))
@@ -3242,7 +4489,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									},
 								},
 							},
-							Interfaces: []string{"dpudeployment-service-1-someinterface"},
+							Interfaces: gotDPUServiceInterfaceNames["service-1"],
 						},
 						{
 							HelmChart: dpuservicev1.HelmChart{
@@ -3255,6 +4502,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 							},
 							ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+								Labels: map[string]string{"newlabel": "newvalue"},
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
 										{
@@ -3274,192 +4522,13 @@ var _ = Describe("DPUDeployment Controller", func() {
 									},
 								},
 							},
-							Interfaces: []string{"dpudeployment-service-2-if2"},
+							Interfaces: gotDPUServiceInterfaceNames["service-2"],
 						},
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
-			It("should update DPUServiceInterface on update of the DPUServiceConfiguration", func() {
-				By("Creating the dependencies")
-				_, versionDigest2 := createReconcileDPUServicesDisruptiveDependencies(testNS.Name)
-
-				By("Creating the DPUDeployment")
-				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
-				dpuDeployment.Spec.Services = make(map[string]dpuservicev1.DPUDeploymentServiceConfiguration)
-				dpuDeployment.Spec.Services["service-1"] = dpuservicev1.DPUDeploymentServiceConfiguration{
-					ServiceTemplate:      "service-1",
-					ServiceConfiguration: "service-1",
-				}
-				dpuDeployment.Spec.Services["service-2"] = dpuservicev1.DPUDeploymentServiceConfiguration{
-					ServiceTemplate:      "service-2",
-					ServiceConfiguration: "service-2",
-				}
-				Expect(testClient.Create(ctx, dpuDeployment)).To(Succeed())
-				DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuDeployment)
-
-				By("waiting for the initial DPUServices to be applied")
-				names := make(map[string]string)
-				Eventually(func(g Gomega) {
-					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
-					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
-					g.Expect(gotDPUServiceList.Items).To(HaveLen(2))
-					for _, dpuService := range gotDPUServiceList.Items {
-						names[strings.Join(strings.SplitN(dpuService.Name, "-", 3)[0:2], "-")] = dpuService.Name
-					}
-				}).WithTimeout(30 * time.Second).Should(Succeed())
-
-				By("simulating the DPUServiceInterface being used")
-				Eventually(func(g Gomega) {
-					interfaceName := "dpudeployment-service-2-someinterface"
-					gotDPUServiceInterface := &dpuservicev1.DPUServiceInterface{}
-					g.Expect(testClient.Get(ctx, types.NamespacedName{Namespace: testNS.Name, Name: interfaceName}, gotDPUServiceInterface)).To(Succeed())
-					g.Expect(gotDPUServiceInterface.GetAnnotations()).NotTo(HaveKey(dpuservicev1.DPUServiceInterfaceAnnotationKey))
-					gotDPUServiceInterface.SetAnnotations(map[string]string{
-						dpuservicev1.DPUServiceInterfaceAnnotationKey: names["service-2"],
-					})
-					g.Expect(testClient.Update(ctx, gotDPUServiceInterface)).To(Succeed())
-				}).WithTimeout(30 * time.Second).Should(Succeed())
-
-				By("modifying the DPUServiceConfiguration object")
-				dpuServiceConfiguration := &dpuservicev1.DPUServiceConfiguration{}
-				Expect(testClient.Get(ctx, types.NamespacedName{Namespace: testNS.Name, Name: "service-2"}, dpuServiceConfiguration)).To(Succeed())
-				dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet = dpuservicev1.DPUServiceConfigurationServiceDaemonSetValues{
-					Labels: map[string]string{"labelkey2": "labelval2"},
-				}
-				dpuServiceConfiguration.SetManagedFields(nil)
-				dpuServiceConfiguration.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
-				Expect(testClient.Patch(ctx, dpuServiceConfiguration, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName))).To(Succeed())
-				versionDigest2b := calculateVersionDigest("service-2", testNS.Name)
-				Expect(versionDigest2b).ToNot(Equal(versionDigest2))
-
-				By("checking that the DPUService is updated as expected")
-				Eventually(func(g Gomega) {
-					var gotNewDPUServiceName string
-					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
-					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
-					g.Expect(gotDPUServiceList.Items).To(HaveLen(3))
-
-					By("checking the specs")
-					specs := make([]dpuservicev1.DPUServiceSpec, 0, len(gotDPUServiceList.Items))
-					for _, dpuService := range gotDPUServiceList.Items {
-						specs = append(specs, dpuService.Spec)
-						if dpuService.GetAnnotations()[dpuServiceVersionAnnotationKey] == versionDigest2b {
-							gotNewDPUServiceName = dpuService.Name
-						}
-					}
-					g.Expect(specs).To(ConsistOf([]dpuservicev1.DPUServiceSpec{
-						{
-							HelmChart: dpuservicev1.HelmChart{
-								Source: dpuservicev1.ApplicationSource{
-									RepoURL: "oci://someurl/repo",
-									Path:    "somepath",
-									Version: "someversion",
-									Chart:   "somechart",
-								},
-							},
-							ServiceID: ptr.To("dpudeployment_dpudeployment_service-1"),
-							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
-								NodeSelector: &corev1.NodeSelector{
-									NodeSelectorTerms: []corev1.NodeSelectorTerm{
-										{
-											MatchExpressions: []corev1.NodeSelectorRequirement{
-												{
-													Key:      "svc.dpu.nvidia.com/dpuservice-service-1-version",
-													Operator: corev1.NodeSelectorOpIn,
-													Values:   []string{names["service-1"]},
-												},
-												{
-													Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
-													Operator: corev1.NodeSelectorOpIn,
-													Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
-												},
-											},
-										},
-									},
-								},
-							},
-							Interfaces: []string{"dpudeployment-service-1-someinterface"},
-						},
-						{
-							HelmChart: dpuservicev1.HelmChart{
-								Source: dpuservicev1.ApplicationSource{
-									RepoURL: "oci://someurl/repo",
-									Path:    "somepath",
-									Version: "someversion",
-									Chart:   "somechart",
-								},
-							},
-							ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
-							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
-								NodeSelector: &corev1.NodeSelector{
-									NodeSelectorTerms: []corev1.NodeSelectorTerm{
-										{
-											MatchExpressions: []corev1.NodeSelectorRequirement{
-												{
-													Key:      "svc.dpu.nvidia.com/dpuservice-service-2-version",
-													Operator: corev1.NodeSelectorOpIn,
-													Values:   []string{names["service-2"]},
-												},
-												{
-													Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
-													Operator: corev1.NodeSelectorOpIn,
-													Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
-												},
-											},
-										},
-									},
-								},
-							},
-							Interfaces: []string{"dpudeployment-service-2-someinterface"},
-							// paused while waiting for the new version to be ready
-							Paused: ptr.To(true),
-						},
-						{
-							HelmChart: dpuservicev1.HelmChart{
-								Source: dpuservicev1.ApplicationSource{
-									RepoURL: "oci://someurl/repo",
-									Path:    "somepath",
-									Version: "someversion",
-									Chart:   "somechart",
-								},
-							},
-							ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
-							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
-								Labels: map[string]string{"labelkey2": "labelval2"},
-								NodeSelector: &corev1.NodeSelector{
-									NodeSelectorTerms: []corev1.NodeSelectorTerm{
-										{
-											MatchExpressions: []corev1.NodeSelectorRequirement{
-												{
-													Key:      "svc.dpu.nvidia.com/dpuservice-service-2-version",
-													Operator: corev1.NodeSelectorOpIn,
-													Values:   []string{gotNewDPUServiceName},
-												},
-												{
-													Key:      dpuservicev1.ParentDPUDeploymentNameLabel,
-													Operator: corev1.NodeSelectorOpIn,
-													Values:   []string{fmt.Sprintf("%s_%s", testNS.Name, dpuDeployment.Name)},
-												},
-											},
-										},
-									},
-								},
-							},
-							Interfaces: []string{"dpudeployment-service-2-someinterface"},
-						},
-					}))
-				}).WithTimeout(30 * time.Second).Should(Succeed())
-
-				By("checking that the DPUServiceInterface is released")
-				Eventually(func(g Gomega) {
-					interfaceName := "dpudeployment-service-2-someinterface"
-					gotDPUServiceInterface := &dpuservicev1.DPUServiceInterface{}
-					g.Expect(testClient.Get(ctx, types.NamespacedName{Namespace: testNS.Name, Name: interfaceName}, gotDPUServiceInterface)).To(Succeed())
-					// should be released by the stale DPUService
-					g.Expect(gotDPUServiceInterface.GetAnnotations()).NotTo(HaveKey(dpuservicev1.DPUServiceInterfaceAnnotationKey))
-				}).WithTimeout(30 * time.Second).Should(Succeed())
-			})
-			It("should update the existing disruptive DPUService on update of the DPUServiceConfiguration", func() {
+			// TODO: Split the test for disruptive upgrade and revision history check
+			It("should create new DPUService on update of disruptive DPUServiceConfiguration and respect revision history", func() {
 				revisionHistoryLimit := 5
 				By("Creating the dependencies")
 				versionDigest1, _ := createReconcileDPUServicesDisruptiveDependencies(testNS.Name)
@@ -3489,6 +4558,22 @@ var _ = Describe("DPUDeployment Controller", func() {
 					for _, dpuService := range gotDPUServiceList.Items {
 						firstDPUServiceUIDs[dpuService.UID] = struct{}{}
 						names[strings.Join(strings.SplitN(dpuService.Name, "-", 3)[0:2], "-")] = dpuService.Name
+					}
+				}).WithTimeout(30 * time.Second).Should(Succeed())
+
+				By("capturing the created DPUServiceInterfaces")
+				gotDPUServiceInterfaceNames := make(map[string][]string)
+				Eventually(func(g Gomega) {
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						for serviceName := range dpuDeployment.Spec.Services {
+							if strings.Contains(dpuServiceInterface.Name, serviceName) {
+								gotDPUServiceInterfaceNames[serviceName] = append(gotDPUServiceInterfaceNames[serviceName], dpuServiceInterface.Name)
+								slices.Sort(gotDPUServiceInterfaceNames[serviceName])
+							}
+						}
 					}
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 
@@ -3524,7 +4609,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 							},
 						},
-						Interfaces: []string{"dpudeployment-service-1-someinterface"},
+						Interfaces: gotDPUServiceInterfaceNames["service-1"],
 					},
 					{
 						HelmChart: dpuservicev1.HelmChart{
@@ -3556,7 +4641,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 							},
 						},
-						Interfaces: []string{"dpudeployment-service-2-someinterface"},
+						Interfaces: gotDPUServiceInterfaceNames["service-2"],
 						// paused while waiting for the new version to be ready
 						Paused: ptr.To(true),
 					},
@@ -3574,7 +4659,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					dpuServiceConfiguration := &dpuservicev1.DPUServiceConfiguration{}
 					Expect(testClient.Get(ctx, types.NamespacedName{Namespace: testNS.Name, Name: "service-2"}, dpuServiceConfiguration)).To(Succeed())
 					initialConfig := dpuServiceConfiguration.DeepCopy()
-					dpuServiceConfiguration.Spec.Interfaces = []dpuservicev1.ServiceInterfaceTemplate{{Name: fmt.Sprintf("if%d", i), Network: fmt.Sprintf("nad%d", i)}}
+					dpuServiceConfiguration.Spec.ServiceConfiguration.ServiceDaemonSet.Labels = map[string]string{fmt.Sprintf("somelabel%d", i): "val"}
 					dpuServiceConfiguration.SetManagedFields(nil)
 					dpuServiceConfiguration.SetGroupVersionKind(dpuservicev1.DPUServiceConfigurationGroupVersionKind)
 					Expect(testClient.Patch(ctx, dpuServiceConfiguration, client.MergeFrom(initialConfig))).To(Succeed())
@@ -3582,6 +4667,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 					Expect(newVersionDigest).ToNot(Equal(versionDigest))
 					versionDigest = newVersionDigest
 					var newDPUServiceName string
+					var newDPUServiceInterface string
 
 					Eventually(func(g Gomega) {
 						gotDPUServiceList := &dpuservicev1.DPUServiceList{}
@@ -3592,6 +4678,14 @@ var _ = Describe("DPUDeployment Controller", func() {
 							}
 						}
 						g.Expect(newDPUServiceName).ToNot(BeEmpty())
+						gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+						g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+						for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+							if dpuServiceInterface.GetAnnotations()[dpuServiceVersionAnnotationKey] == versionDigest {
+								newDPUServiceInterface = dpuServiceInterface.Name
+							}
+						}
+						g.Expect(newDPUServiceInterface).ToNot(BeEmpty())
 					}).WithTimeout(30 * time.Second).Should(Succeed())
 
 					Expect(newDPUServiceName).ToNot(Equal(dpuServiceName))
@@ -3607,6 +4701,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 						},
 						ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
 						ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+							Labels: map[string]string{fmt.Sprintf("somelabel%d", i): "val"},
 							NodeSelector: &corev1.NodeSelector{
 								NodeSelectorTerms: []corev1.NodeSelectorTerm{
 									{
@@ -3626,7 +4721,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 							},
 						},
-						Interfaces: []string{fmt.Sprintf("dpudeployment-service-2-if%d", i)},
+						Interfaces: []string{newDPUServiceInterface},
 					}
 
 					// remove the oldest version from the expected list
@@ -3642,11 +4737,16 @@ var _ = Describe("DPUDeployment Controller", func() {
 						expected[i].Paused = ptr.To(true)
 					}
 
-					By("checking that the DPUService is updated as expected")
+					By("checking that the DPUService is updated as expected and that we have as many DPUServiceInterfaces")
 					Eventually(func(g Gomega) {
 						gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 						g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 						g.Expect(gotDPUServiceList.Items).To(HaveLen(len(expected)))
+
+						By("Checking that the DPUServiceInterfaces that have exceeded the revision history have been deleted")
+						gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+						g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+						g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(len(expected)))
 
 						By("checking the specs")
 						specs := make([]dpuservicev1.DPUServiceSpec, 0, len(gotDPUServiceList.Items))
@@ -3683,6 +4783,20 @@ var _ = Describe("DPUDeployment Controller", func() {
 
 				By("checking that the DPUService is updated as expected")
 				Eventually(func(g Gomega) {
+					By("capturing the created DPUServiceInterfaces")
+					gotDPUServiceInterfaceNames := make(map[string][]string)
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						for serviceName := range dpuDeployment.Spec.Services {
+							if strings.Contains(dpuServiceInterface.Name, serviceName) {
+								gotDPUServiceInterfaceNames[serviceName] = append(gotDPUServiceInterfaceNames[serviceName], dpuServiceInterface.Name)
+								slices.Sort(gotDPUServiceInterfaceNames[serviceName])
+							}
+						}
+					}
+
 					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 					g.Expect(gotDPUServiceList.Items).To(HaveLen(2))
@@ -3740,7 +4854,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 									},
 								},
 							},
-							Interfaces: []string{"dpudeployment-service-1-someinterface"},
+							Interfaces: gotDPUServiceInterfaceNames["service-1"],
 						},
 						{
 							HelmChart: dpuservicev1.HelmChart{
@@ -3753,6 +4867,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 							},
 							ServiceID: ptr.To("dpudeployment_dpudeployment_service-2"),
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
+								Labels: map[string]string{"somelabel4": "val"},
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
 										{
@@ -3772,14 +4887,14 @@ var _ = Describe("DPUDeployment Controller", func() {
 									},
 								},
 							},
-							Interfaces: []string{fmt.Sprintf("dpudeployment-service-2-if%d", revisionHistoryLimit-1)},
+							Interfaces: gotDPUServiceInterfaceNames["service-2"],
 						},
 					}))
 				}).WithTimeout(30 * time.Second).Should(Succeed())
 			})
 			It("should delete DPUServices that are no longer part of the DPUDeployment", func() {
 				By("Creating the dependencies")
-				_, versionDigest := createReconcileDPUServicesNonDisruptiveDependencies(testNS.Name)
+				_, versionDigest2 := createReconcileDPUServicesNonDisruptiveDependencies(testNS.Name)
 
 				By("Creating the DPUDeployment")
 				dpuDeployment := getMinimalDPUDeployment(testNS.Name)
@@ -3797,14 +4912,14 @@ var _ = Describe("DPUDeployment Controller", func() {
 				patcher := patch.NewSerialPatcher(dpuDeployment, testClient)
 
 				By("waiting for the initial DPUServices to be applied")
-				var gotDPUServiceName string
+				var gotDPUService *dpuservicev1.DPUService
 				Eventually(func(g Gomega) {
 					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 					g.Expect(gotDPUServiceList.Items).To(HaveLen(2))
 					for _, dpuService := range gotDPUServiceList.Items {
-						if dpuService.GetAnnotations()[dpuServiceVersionAnnotationKey] == versionDigest {
-							gotDPUServiceName = dpuService.Name
+						if dpuService.GetAnnotations()[dpuServiceVersionAnnotationKey] == versionDigest2 {
+							gotDPUService = &dpuService
 						}
 					}
 				}).WithTimeout(30 * time.Second).Should(Succeed())
@@ -3813,8 +4928,35 @@ var _ = Describe("DPUDeployment Controller", func() {
 				delete(dpuDeployment.Spec.Services, "service-1")
 				Expect(patcher.Patch(ctx, dpuDeployment, patch.WithFieldOwner(dpuDeploymentControllerName))).To(Succeed())
 
+				By("Marking the DPUService ready")
+				gotDPUService.Status.Conditions = []metav1.Condition{
+					{
+						Type:               string(conditions.TypeReady),
+						Status:             metav1.ConditionTrue,
+						Reason:             string(conditions.ReasonSuccess),
+						LastTransitionTime: metav1.NewTime(time.Now()),
+					},
+				}
+				gotDPUService.SetGroupVersionKind(dpuservicev1.DPUServiceGroupVersionKind)
+				gotDPUService.SetManagedFields(nil)
+				Expect(testClient.Status().Patch(ctx, gotDPUService, client.Apply, client.ForceOwnership, client.FieldOwner("test"))).To(Succeed())
+
 				By("checking that only one DPUService exists")
 				Eventually(func(g Gomega) {
+					By("capturing the created DPUServiceInterfaces")
+					gotDPUServiceInterfaceNames := make(map[string][]string)
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						for serviceName := range dpuDeployment.Spec.Services {
+							if strings.Contains(dpuServiceInterface.Name, serviceName) {
+								gotDPUServiceInterfaceNames[serviceName] = append(gotDPUServiceInterfaceNames[serviceName], dpuServiceInterface.Name)
+								slices.Sort(gotDPUServiceInterfaceNames[serviceName])
+							}
+						}
+					}
+
 					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 					g.Expect(gotDPUServiceList.Items).To(HaveLen(1))
@@ -3830,7 +4972,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 							},
 						},
 						ServiceID:  ptr.To("dpudeployment_dpudeployment_service-2"),
-						Interfaces: []string{"dpudeployment-service-2-someinterface"},
+						Interfaces: gotDPUServiceInterfaceNames["service-2"],
 						ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 							NodeSelector: &corev1.NodeSelector{
 								NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -3839,7 +4981,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 											{
 												Key:      "svc.dpu.nvidia.com/dpuservice-service-2-version",
 												Operator: corev1.NodeSelectorOpIn,
-												Values:   []string{gotDPUServiceName},
+												Values:   []string{gotDPUService.Name},
 											},
 											{
 												Key:      "svc.dpu.nvidia.com/owned-by-dpudeployment",
@@ -3888,6 +5030,20 @@ var _ = Describe("DPUDeployment Controller", func() {
 				By("checking that two DPUServices exist")
 				var gotDPUServiceName string
 				Eventually(func(g Gomega) {
+					By("capturing the created DPUServiceInterfaces")
+					gotDPUServiceInterfaceNames := make(map[string][]string)
+					gotDPUServiceInterfaceList := &dpuservicev1.DPUServiceInterfaceList{}
+					g.Expect(testClient.List(ctx, gotDPUServiceInterfaceList)).To(Succeed())
+					g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(2))
+					for _, dpuServiceInterface := range gotDPUServiceInterfaceList.Items {
+						for serviceName := range dpuDeployment.Spec.Services {
+							if strings.Contains(dpuServiceInterface.Name, serviceName) {
+								gotDPUServiceInterfaceNames[serviceName] = append(gotDPUServiceInterfaceNames[serviceName], dpuServiceInterface.Name)
+								slices.Sort(gotDPUServiceInterfaceNames[serviceName])
+							}
+						}
+					}
+
 					gotDPUServiceList := &dpuservicev1.DPUServiceList{}
 					g.Expect(testClient.List(ctx, gotDPUServiceList)).To(Succeed())
 					g.Expect(gotDPUServiceList.Items).To(HaveLen(2))
@@ -3916,7 +5072,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 							},
 							ServiceID:  ptr.To("dpudeployment_dpudeployment_service-1"),
-							Interfaces: []string{"dpudeployment-service-1-someinterface"},
+							Interfaces: gotDPUServiceInterfaceNames["service-1"],
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -3948,7 +5104,7 @@ var _ = Describe("DPUDeployment Controller", func() {
 								},
 							},
 							ServiceID:  ptr.To("dpudeployment_dpudeployment_service-2"),
-							Interfaces: []string{"dpudeployment-service-2-someinterface"},
+							Interfaces: gotDPUServiceInterfaceNames["service-2"],
 							ServiceDaemonSet: &dpuservicev1.ServiceDaemonSetValues{
 								NodeSelector: &corev1.NodeSelector{
 									NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -5845,18 +7001,10 @@ func cleanDPUDeploymentDerivatives(namespace string) {
 // reconcileDPUSets tests
 func createReconcileDPUServicesNonDisruptiveDependencies(namespace string) (string, string) {
 	dpuServiceConfiguration, dpuServiceTemplate := createDPUServicesDependencies(namespace, "service-1", false)
-	itfs := make([]string, 0)
-	for _, i := range dpuServiceConfiguration.Spec.Interfaces {
-		itfs = append(itfs, fmt.Sprintf("dpudeployment-service-1-%s", i.Name))
-	}
-	versionDigest1 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate, itfs)
+	versionDigest1 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 
 	dpuServiceConfiguration, dpuServiceTemplate = createDPUServicesDependencies(namespace, "service-2", false)
-	itfs = make([]string, 0)
-	for _, i := range dpuServiceConfiguration.Spec.Interfaces {
-		itfs = append(itfs, fmt.Sprintf("dpudeployment-service-2-%s", i.Name))
-	}
-	versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate, itfs)
+	versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 
 	return versionDigest1, versionDigest2
 }
@@ -5865,18 +7013,10 @@ func createReconcileDPUServicesNonDisruptiveDependencies(namespace string) (stri
 // reconcileDPUSets tests
 func createReconcileDPUServicesDisruptiveDependencies(namespace string) (string, string) {
 	dpuServiceConfiguration, dpuServiceTemplate := createDPUServicesDependencies(namespace, "service-1", true)
-	itfs := make([]string, 0)
-	for _, i := range dpuServiceConfiguration.Spec.Interfaces {
-		itfs = append(itfs, fmt.Sprintf("dpudeployment-service-1-%s", i.Name))
-	}
-	versionDigest1 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate, itfs)
+	versionDigest1 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 
 	dpuServiceConfiguration, dpuServiceTemplate = createDPUServicesDependencies(namespace, "service-2", true)
-	itfs = make([]string, 0)
-	for _, i := range dpuServiceConfiguration.Spec.Interfaces {
-		itfs = append(itfs, fmt.Sprintf("dpudeployment-service-2-%s", i.Name))
-	}
-	versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate, itfs)
+	versionDigest2 := calculateDPUServiceVersionDigest(dpuServiceConfiguration, dpuServiceTemplate)
 
 	return versionDigest1, versionDigest2
 }
@@ -5905,11 +7045,7 @@ func calculateVersionDigest(name, namespace string) string {
 	Expect(testClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, config)).To(Succeed())
 	template := &dpuservicev1.DPUServiceTemplate{}
 	Expect(testClient.Get(ctx, client.ObjectKey{Name: name, Namespace: namespace}, template)).To(Succeed())
-	interfaces := []string{}
-	for _, i := range config.Spec.Interfaces {
-		interfaces = append(interfaces, fmt.Sprintf("dpudeployment-%s-%s", name, i.Name))
-	}
-	versionDigest := calculateDPUServiceVersionDigest(config, template, interfaces)
+	versionDigest := calculateDPUServiceVersionDigest(config, template)
 	return versionDigest
 }
 

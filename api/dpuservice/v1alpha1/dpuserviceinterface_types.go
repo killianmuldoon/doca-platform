@@ -83,6 +83,11 @@ type DPUServiceInterfaceStatus struct {
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
+// SetServiceInterfaceSetLabelSelector sets the label selector for the ServiceInterfaceSet
+func (c *DPUServiceInterface) SetServiceInterfaceSetLabelSelector(selector *metav1.LabelSelector) {
+	c.Spec.Template.Spec.NodeSelector = selector
+}
+
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:metadata:annotations=helm.sh/resource-policy=keep

@@ -20,6 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
@@ -46,11 +48,13 @@ func reconcileDPUServices(
 	c client.Client,
 	dpuDeployment *dpuservicev1.DPUDeployment,
 	dependencies *dpuDeploymentDependencies,
+	interfaceNameByServiceName map[string]interfaceNameToDPUServiceInterfaceName,
 	dpuNodeLabels map[string]string,
 ) (ctrl.Result, error) {
 	owner := metav1.NewControllerRef(dpuDeployment, dpuservicev1.DPUDeploymentGroupVersionKind)
 	requeue := ctrl.Result{}
 
+	// Get all existing DPUServices
 	existingDPUServices := &dpuservicev1.DPUServiceList{}
 	if err := c.List(ctx,
 		existingDPUServices,
@@ -71,15 +75,13 @@ func reconcileDPUServices(
 	for dpuServiceName := range dpuDeployment.Spec.Services {
 		serviceConfig := dependencies.DPUServiceConfigurations[dpuServiceName]
 		serviceTemplate := dependencies.DPUServiceTemplates[dpuServiceName]
-		interfaces := retrieveInterfacesFromDPUServiceConfiguration(dependencies.DPUServiceConfigurations[dpuServiceName], dpuServiceName, dpuDeployment.Name)
-		versionDigest := calculateDPUServiceVersionDigest(serviceConfig, serviceTemplate, interfaces)
-
+		versionDigest := calculateDPUServiceVersionDigest(serviceConfig, serviceTemplate)
 		newRevision, err := generateDPUService(client.ObjectKeyFromObject(dpuDeployment),
 			owner,
 			dpuServiceName,
 			serviceConfig,
 			serviceTemplate,
-			interfaces,
+			interfaceNameByServiceName[dpuServiceName],
 			versionDigest,
 		)
 		if err != nil {
@@ -268,11 +270,11 @@ func getCurrentAndStaleDPUServices(dpuServiceName, currentVersionDigest string, 
 }
 
 // CalculateDPUServiceVersionDigest calculates the digest of the DPUService.
-func calculateDPUServiceVersionDigest(configuration *dpuservicev1.DPUServiceConfiguration, template *dpuservicev1.DPUServiceTemplate, Interfaces []string) string {
+func calculateDPUServiceVersionDigest(configuration *dpuservicev1.DPUServiceConfiguration, template *dpuservicev1.DPUServiceTemplate) string {
 	// The nodeEffect change should not affect the digest
 	config := configuration.DeepCopy()
 	config.Spec.NodeEffect = nil
-	return digest.Short(digest.FromObjects(config.Spec, template.Spec, Interfaces), 10)
+	return digest.Short(digest.FromObjects(config.Spec, template.Spec), 10)
 }
 
 func getDPUServiceVersionLabelKey(name string) string {
@@ -283,25 +285,25 @@ func getDPUServiceVersionLabelKey(name string) string {
 func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 	owner *metav1.OwnerReference,
 	name string,
-	ServiceConfig *dpuservicev1.DPUServiceConfiguration,
-	ServiceTemplate *dpuservicev1.DPUServiceTemplate,
-	Interfaces []string,
+	serviceConfig *dpuservicev1.DPUServiceConfiguration,
+	serviceTemplate *dpuservicev1.DPUServiceTemplate,
+	interfaces map[string]string,
 	versionDigest string,
 ) (*dpuservicev1.DPUService, error) {
 
-	var ServiceConfigValues, ServiceTemplateValues map[string]interface{}
-	if ServiceConfig.Spec.ServiceConfiguration.HelmChart.Values != nil {
-		if err := json.Unmarshal(ServiceConfig.Spec.ServiceConfiguration.HelmChart.Values.Raw, &ServiceConfigValues); err != nil {
-			return nil, fmt.Errorf("error while unmarshaling ServiceConfig values: %w", err)
+	var serviceConfigValues, serviceTemplateValues map[string]interface{}
+	if serviceConfig.Spec.ServiceConfiguration.HelmChart.Values != nil {
+		if err := json.Unmarshal(serviceConfig.Spec.ServiceConfiguration.HelmChart.Values.Raw, &serviceConfigValues); err != nil {
+			return nil, fmt.Errorf("error while unmarshaling serviceConfig values: %w", err)
 		}
 	}
-	if ServiceTemplate.Spec.HelmChart.Values != nil {
-		if err := json.Unmarshal(ServiceTemplate.Spec.HelmChart.Values.Raw, &ServiceTemplateValues); err != nil {
-			return nil, fmt.Errorf("error while unmarshaling ServiceTemplate values: %w", err)
+	if serviceTemplate.Spec.HelmChart.Values != nil {
+		if err := json.Unmarshal(serviceTemplate.Spec.HelmChart.Values.Raw, &serviceTemplateValues); err != nil {
+			return nil, fmt.Errorf("error while unmarshaling serviceTemplate values: %w", err)
 		}
 	}
 
-	mergedValues := utils.MergeMaps(ServiceConfigValues, ServiceTemplateValues)
+	mergedValues := utils.MergeMaps(serviceConfigValues, serviceTemplateValues)
 	var mergedValuesRawExtension *runtime.RawExtension
 	if mergedValues != nil {
 		mergedValuesRaw, err := json.Marshal(mergedValues)
@@ -326,20 +328,20 @@ func generateDPUService(dpuDeploymentNamespacedName types.NamespacedName,
 		},
 		Spec: dpuservicev1.DPUServiceSpec{
 			HelmChart: dpuservicev1.HelmChart{
-				Source: ServiceTemplate.Spec.HelmChart.Source,
+				Source: serviceTemplate.Spec.HelmChart.Source,
 				Values: mergedValuesRawExtension,
 			},
 			ServiceID:       ptr.To[string](getServiceID(dpuDeploymentNamespacedName, name)),
-			DeployInCluster: ServiceConfig.Spec.ServiceConfiguration.DeployInCluster,
-			Interfaces:      Interfaces,
+			DeployInCluster: serviceConfig.Spec.ServiceConfiguration.DeployInCluster,
+			Interfaces:      slices.Sorted(maps.Values(interfaces)),
 		},
 	}
 
-	if ServiceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Labels != nil ||
-		ServiceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations != nil {
+	if serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Labels != nil ||
+		serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations != nil {
 		dpuService.Spec.ServiceDaemonSet = &dpuservicev1.ServiceDaemonSetValues{
-			Labels:      ServiceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Labels,
-			Annotations: ServiceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations,
+			Labels:      serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Labels,
+			Annotations: serviceConfig.Spec.ServiceConfiguration.ServiceDaemonSet.Annotations,
 		}
 	}
 
@@ -389,46 +391,15 @@ func getNodeSelectorDPUServiceVersionValue(nodeSelector *corev1.NodeSelector, dp
 
 // pauseStaleDPUServices disable reconciliation on previous versions of a DPUService up to the revisionHistoryLimit.
 // All older versions will be deleted.
-// Any used Interfaces will also be released so that they can be used by new revisions.
 func pauseStaleDPUServices(ctx context.Context, c client.Client, dpuServices []dpuservicev1.DPUService) error {
-	Interfaces := map[types.NamespacedName]struct{}{}
-	dpuServiceNames := make(map[string]struct{})
 	for _, dpuService := range dpuServices {
 		dpuService.Spec.Paused = ptr.To(true)
 		dpuService.SetManagedFields(nil)
 		if err := c.Patch(ctx, &dpuService, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
 			return fmt.Errorf("failed to patch DPUService %s: %w", client.ObjectKeyFromObject(&dpuService), err)
 		}
-		dpuServiceNames[dpuService.Name] = struct{}{}
-		// collect Interfaces to release
-		for _, intf := range dpuService.Spec.Interfaces {
-			Interfaces[types.NamespacedName{Namespace: dpuService.Namespace, Name: intf}] = struct{}{}
-		}
 	}
 
-	// attempt to release the Interfaces so that they can be used by new revisions
-	for intf := range Interfaces {
-		dpuServiceInterface := &dpuservicev1.DPUServiceInterface{}
-		if err := c.Get(ctx, intf, dpuServiceInterface); err != nil {
-			// if the interface is not found, we can ignore it
-			if !apierrors.IsNotFound(err) {
-				return fmt.Errorf("failed to get DPUServiceInterface %s: %w", intf.String(), err)
-			}
-			continue
-		}
-		annotations := dpuServiceInterface.GetAnnotations()
-		// remove the DPUServiceInterface annotation to release it from the DPUService
-		if annotations != nil {
-			if _, ok := dpuServiceNames[annotations[dpuservicev1.DPUServiceInterfaceAnnotationKey]]; ok {
-				delete(annotations, dpuservicev1.DPUServiceInterfaceAnnotationKey)
-				dpuServiceInterface.SetManagedFields(nil)
-				dpuServiceInterface.SetGroupVersionKind(dpuservicev1.DPUServiceInterfaceGroupVersionKind)
-				if err := c.Update(ctx, dpuServiceInterface); err != nil {
-					return fmt.Errorf("failed to update DPUServiceInterface %s: %w", client.ObjectKeyFromObject(dpuServiceInterface), err)
-				}
-			}
-		}
-	}
 	return nil
 }
 
@@ -457,17 +428,4 @@ func clientObjectToDPUServiceList(oldRevisions []client.Object) []dpuservicev1.D
 		oldRevs = append(oldRevs, *svc.(*dpuservicev1.DPUService))
 	}
 	return oldRevs
-}
-
-func retrieveInterfacesFromDPUServiceConfiguration(dpuServiceConfiguration *dpuservicev1.DPUServiceConfiguration, dpuServiceName, dpuDeploymentName string) []string {
-	if len(dpuServiceConfiguration.Spec.Interfaces) == 0 {
-		return nil
-	}
-
-	interfaces := make([]string, 0, len(dpuServiceConfiguration.Spec.Interfaces))
-	for _, serviceInterface := range dpuServiceConfiguration.Spec.Interfaces {
-		interfaces = append(interfaces, generateDPUServiceInterfaceName(dpuDeploymentName, dpuServiceName, serviceInterface.Name))
-	}
-
-	return interfaces
 }
