@@ -65,9 +65,10 @@ RUN echo "echo 'running rshim'; rshim" > rshim.sh && chmod +x rshim.sh
 
 RUN curl -O https://raw.githubusercontent.com/Mellanox/bfscripts/${BFVER_COMMIT_HASH}/bfver && chmod +x bfver && mv bfver /usr/local/bin
 RUN curl -O https://raw.githubusercontent.com/Mellanox/bfscripts/${BFVER_COMMIT_HASH}/mlx-mkbfb && chmod +x mlx-mkbfb && mv mlx-mkbfb /usr/local/bin
-
+RUN curl -LO https://dl.k8s.io/release/v1.32.0/bin/linux/amd64/kubectl && chmod +x kubectl && mv kubectl /usr/local/bin
 
 COPY ./internal/bf-slr/bf-slr.sh /usr/sbin
 COPY --from=builder /workspace/bin/dpu-detector .
 COPY ./internal/hostnetwork/hostnetwork.sh /usr/local/bin
 COPY ./internal/bfbdownloader/bfbdownloader.sh /usr/sbin
+COPY ./internal/dmsinit/dmsinit.sh /usr/sbin
