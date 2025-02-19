@@ -1035,11 +1035,10 @@ func (r *DPUServiceReconciler) reconcileConfigPortEndpointSlices(ctx context.Con
 		endpointPorts = append(endpointPorts, p)
 	}
 
-	// TODO: Take care of long names, as the service name is limited to 63 characters.
-	configPortName := fmt.Sprintf("%s-%s", clusterName, dpuService.GetName())
+	endpointSliceName := getConfigPortName(clusterName, dpuService.GetName())
 	endpointSlice := &discoveryv1.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      configPortName,
+			Name:      endpointSliceName,
 			Namespace: dpuService.GetNamespace(),
 		},
 	}
@@ -1090,7 +1089,7 @@ func (r *DPUServiceReconciler) reconcileConfigPortEndpointSlices(ctx context.Con
 		}
 	}
 
-	endpointSlice.ObjectMeta.Name = configPortName
+	endpointSlice.ObjectMeta.Name = endpointSliceName
 	endpointSlice.ObjectMeta.Namespace = dpuService.GetNamespace()
 	if endpointSlice.ObjectMeta.Labels == nil {
 		endpointSlice.ObjectMeta.Labels = map[string]string{}
@@ -1098,8 +1097,11 @@ func (r *DPUServiceReconciler) reconcileConfigPortEndpointSlices(ctx context.Con
 	endpointSlice.ObjectMeta.Labels[dpuservicev1.DPUServiceNameLabelKey] = dpuService.GetName()
 	endpointSlice.ObjectMeta.Labels[dpuservicev1.DPUServiceNamespaceLabelKey] = dpuService.GetNamespace()
 	endpointSlice.ObjectMeta.Labels[dpuservicev1.DPUServiceExposedPortForDPUClusterLabelKey] = clusterName
-	endpointSlice.ObjectMeta.Labels[discoveryv1.LabelServiceName] = configPortName
 	endpointSlice.ObjectMeta.Labels[discoveryv1.LabelManagedBy] = dpuServiceControllerName
+
+	// Set the kubernetes.io/service-name to the Service name to label to link the EndpointSlice to the Service.
+	// In our case both Service and EndpointSlice have the exact same name.
+	endpointSlice.ObjectMeta.Labels[discoveryv1.LabelServiceName] = endpointSliceName
 
 	endpointSlice.AddressType = discoveryv1.AddressTypeIPv4
 	endpointSlice.Ports = endpointPorts
@@ -1109,16 +1111,8 @@ func (r *DPUServiceReconciler) reconcileConfigPortEndpointSlices(ctx context.Con
 	endpointSlice.SetGroupVersionKind(discoveryv1.SchemeGroupVersion.WithKind("EndpointSlice"))
 
 	// Add ownerReference to let the EndpointSlice be garbage collected when the DPUService is deleted.
-	if endpointSlice.OwnerReferences == nil {
-		endpointSlice.OwnerReferences = []metav1.OwnerReference{
-			{
-				APIVersion: dpuservicev1.GroupVersion.String(),
-				Kind:       dpuservicev1.DPUServiceKind,
-				Name:       dpuService.GetName(),
-				UID:        dpuService.GetUID(),
-			},
-		}
-	}
+	owner := metav1.NewControllerRef(dpuService, dpuservicev1.DPUServiceGroupVersionKind)
+	endpointSlice.SetOwnerReferences([]metav1.OwnerReference{*owner})
 	return r.Client.Patch(ctx, endpointSlice, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName))
 }
 
@@ -1149,11 +1143,10 @@ func (r *DPUServiceReconciler) reconcileConfigPortServices(ctx context.Context, 
 		servicePorts = append(servicePorts, p)
 	}
 
-	// TODO: take care of long names, as the service name is limited to 63 characters.
-	configPortName := fmt.Sprintf("%s-%s", clusterName, dpuService.GetName())
+	serviceName := getConfigPortName(clusterName, dpuService.GetName())
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      configPortName,
+			Name:      serviceName,
 			Namespace: dpuService.GetNamespace(),
 		},
 	}
@@ -1178,7 +1171,7 @@ func (r *DPUServiceReconciler) reconcileConfigPortServices(ctx context.Context, 
 		}
 	}
 
-	service.ObjectMeta.Name = configPortName
+	service.ObjectMeta.Name = serviceName
 	service.ObjectMeta.Namespace = dpuService.GetNamespace()
 	if service.ObjectMeta.Labels == nil {
 		service.ObjectMeta.Labels = map[string]string{}
@@ -1205,16 +1198,8 @@ func (r *DPUServiceReconciler) reconcileConfigPortServices(ctx context.Context, 
 	service.SetGroupVersionKind(corev1.SchemeGroupVersion.WithKind("Service"))
 
 	// Add ownerReference to let the Serviceb be garbage collected when the DPUService is deleted.
-	if service.OwnerReferences == nil {
-		service.OwnerReferences = []metav1.OwnerReference{
-			{
-				APIVersion: dpuservicev1.GroupVersion.String(),
-				Kind:       dpuservicev1.DPUServiceKind,
-				Name:       dpuService.GetName(),
-				UID:        dpuService.GetUID(),
-			},
-		}
-	}
+	owner := metav1.NewControllerRef(dpuService, dpuservicev1.DPUServiceGroupVersionKind)
+	service.SetOwnerReferences([]metav1.OwnerReference{*owner})
 	return r.Client.Patch(ctx, service, client.Apply, client.ForceOwnership, client.FieldOwner(dpuServiceControllerName))
 }
 
@@ -1320,8 +1305,10 @@ func dpuNodePortsToMap(dpuService *dpuservicev1.DPUService, serviceList *corev1.
 	}
 
 	// Check if the service has the correct number of ports.
+	// This can happen if Kubernetes has not assigned a NodePort yet.
 	if len(nodePorts) != len(configPorts) {
-		return nil, fmt.Errorf("expected %d nodePorts, got %d", len(dpuService.Spec.ConfigPorts.Ports), len(nodePorts))
+		return nil, fmt.Errorf("creation of Service on DPU not ready yet, expected %d nodePorts, got %d",
+			len(dpuService.Spec.ConfigPorts.Ports), len(nodePorts))
 	}
 
 	return nodePorts, nil
@@ -1334,6 +1321,11 @@ func getNodePortFromStatus(dpuService *dpuservicev1.DPUService, portName, cluste
 		}
 	}
 	return 0
+}
+
+// TODO: take care of long names, as the service name is limited to 63 characters.
+func getConfigPortName(clusterName, dpuService string) string {
+	return fmt.Sprintf("%s-%s", clusterName, dpuService)
 }
 
 // config is used to marshal the config section of the argoCD secret data.

@@ -142,7 +142,7 @@ func GetFakeKamajiClusterSecretFromEnvtest(cluster provisioningv1.DPUCluster, cf
 	}
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%v-admin-kubeconfig", cluster.Name),
+			Name:      fmt.Sprintf("%s-admin-kubeconfig", cluster.Name),
 			Namespace: cluster.Namespace,
 			Labels: map[string]string{
 				"kamaji.clastix.io/component": "admin-kubeconfig",
