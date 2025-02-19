@@ -197,7 +197,7 @@ e2e-provisioning:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST_FULL == "true"
       when: on_success
   variables:
-    E2E_TEST_ARGS: "-v -ginkgo.v -ginkgo.labels-filter=\"!SCALE\" -e2e.config=./config-provisioning.yaml"
+    E2E_TEST_ARGS: "-v -ginkgo.v -ginkgo.label-filter=\"!SCALE\" -e2e.config=./config-provisioning.yaml"
     PIPELINE_NAME: "Provisioning end-to-end tests"
     DEPLOY_PROMETHEUS: true
     DEPLOY_KSM: true
