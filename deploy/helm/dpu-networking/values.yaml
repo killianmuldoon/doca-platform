@@ -3,6 +3,7 @@
 # These names must also match the names of the DPUServices that use the dpu-networking helm chart in the operator inventory.
 flannel:
     enabled: false
+    podCidr: 10.244.0.0/14
 multus:
     enabled: false
 sriov-device-plugin:

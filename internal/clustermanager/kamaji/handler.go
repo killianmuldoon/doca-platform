@@ -386,6 +386,7 @@ func expectedTenantControlPlane(dc *provisioningv1.DPUCluster, scheme *runtime.S
 		tcp.Spec.NetworkProfile = kamajiv1.NetworkProfileSpec{
 			Address: dc.Spec.ClusterEndpoint.Keepalived.VIP,
 			Port:    nodePort,
+			PodCIDR: "10.244.0.0/14",
 		}
 	}
 	if err := controllerutil.SetOwnerReference(dc, tcp, scheme); err != nil {

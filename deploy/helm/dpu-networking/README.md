@@ -22,6 +22,7 @@ A Helm chart for Kubernetes
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | flannel.enabled | bool | `false` |  |
+| flannel.podCidr | string | `"10.244.0.0/14"` |  |
 | multus.enabled | bool | `false` |  |
 | nvidia-k8s-ipam.enabled | bool | `false` |  |
 | ovs-cni.enabled | bool | `false` |  |
