@@ -1092,28 +1092,6 @@ DPUNodeList contains a list of DPUNode
 | `items` _[DPUNode](#dpunode) array_ |  |  |  |
 
 
-#### DPUNodePhaseType
-
-_Underlying type:_ _string_
-
-DPUNodePhaseType describes current state of DPUNode.
-Only one of the following state may be specified.
-
-_Validation:_
-- Enum: [Not Ready Ready Invalid DPU Details DPUNode Reboot In Progress DPU Update In Progress]
-
-_Appears in:_
-- [DPUNodeStatus](#dpunodestatus)
-
-| Field | Description |
-| --- | --- |
-| `Not Ready` | DPUNodeNotReady means the DPU is not ready.<br /> |
-| `Ready` | DPUNodeReady means the DPU is ready to be used.<br /> |
-| `Invalid DPU Details` | DPUNodeInvalidDPUDetails means the DPU details provided are invalid.<br /> |
-| `DPUNode Reboot In Progress` | DPUNodeRebootInProgress means the DPUNode is in the process of rebooting.<br /> |
-| `DPU Update In Progress` | DPUNodeDPUUpdateInProgress means the DPU is in the process of being updated.<br /> |
-
-
 
 
 #### DPUNodeSpec
@@ -1147,7 +1125,6 @@ _Appears in:_
 
 | Field | Description | Default | Validation |
 | --- | --- | --- | --- |
-| `phase` _[DPUNodePhaseType](#dpunodephasetype)_ | The current state of DPUNode.<br />Can be one of the following:<br />   - DPUNodeNotReady: Not Ready<br />   - DPUNodeReady: Ready<br />   - DPUNodeInvalidDPUDetails: Invalid DPU Details<br />   - DPUNodeRebootInProgress: DPUNode Reboot In Progress<br />   - DPUNodeDPUUpdateInProgress: DPU Update In Progress | Not Ready | Enum: [Not Ready Ready Invalid DPU Details DPUNode Reboot In Progress DPU Update In Progress] <br /> |
 | `conditions` _[Condition](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#condition-v1-meta) array_ | Conditions represent the latest available observations of an object's state. |  | Type: array <br /> |
 | `dpuInstallInterface` _string_ | The name of the interface which will be used to install the bfb image, can be one of gNOI,redfish |  | Enum: [gNOI redfish] <br /> |
 | `kubeNodeRef` _string_ | The name of the Kubernetes Node object that this DPUNode represents.<br />This field is optional and only relevant if the x86 host is part of the DPF Kubernetes cluster. |  |  |

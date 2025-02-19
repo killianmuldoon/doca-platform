@@ -155,33 +155,8 @@ spec:
                 x-kubernetes-validations:
                 - message: KubeNodeRef is immutable
                   rule: self == oldSelf
-              phase:
-                allOf:
-                - enum:
-                  - Not Ready
-                  - Ready
-                  - Invalid DPU Details
-                  - DPUNode Reboot In Progress
-                  - DPU Update In Progress
-                - enum:
-                  - Not Ready
-                  - Ready
-                  - Invalid DPU Details
-                  - DPUNode Reboot In Progress
-                  - DPU Update In Progress
-                default: Not Ready
-                description: |-
-                  The current state of DPUNode.
-                  Can be one of the following:
-                     - DPUNodeNotReady: Not Ready
-                     - DPUNodeReady: Ready
-                     - DPUNodeInvalidDPUDetails: Invalid DPU Details
-                     - DPUNodeRebootInProgress: DPUNode Reboot In Progress
-                     - DPUNodeDPUUpdateInProgress: DPU Update In Progress
-                type: string
             required:
             - dpuInstallInterface
-            - phase
             type: object
         type: object
     served: true

@@ -307,7 +307,6 @@ spec:
 				Message:            "DPUNode is ready",
 			}
 			obj.Status.Conditions = append(obj.Status.Conditions, condition)
-			obj.Status.Phase = provisioningv1.DPUNodeReady
 			obj.Status.DPUInstallInterface = string(provisioningv1.DPUNodeInstallInterfaceGNOI)
 			err = k8sClient.Status().Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
@@ -332,14 +331,27 @@ spec:
 				Message:            "DPUNode is ready",
 			}
 			condition2 := metav1.Condition{
-				Type:               string(provisioningv1.DPUNodeConditionNotReady),
+				Type:               string(provisioningv1.DPUNodeConditionRebootInProgress),
 				Status:             metav1.ConditionFalse,
 				LastTransitionTime: metav1.Now(),
 				Reason:             "RebootNotStarted",
 				Message:            "DPUNode reboot has not started",
 			}
-			obj.Status.Conditions = append(obj.Status.Conditions, condition1, condition2)
-			obj.Status.Phase = provisioningv1.DPUNodeRebootInProgress
+			condition3 := metav1.Condition{
+				Type:               string(provisioningv1.DPUNodeConditionInvalidDPUDetails),
+				Status:             metav1.ConditionTrue,
+				LastTransitionTime: metav1.Now(),
+				Reason:             "InvalidDetails",
+				Message:            "Invalid DPU details provided",
+			}
+			condition4 := metav1.Condition{
+				Type:               string(provisioningv1.DPUNodeConditionRebootInProgress),
+				Status:             metav1.ConditionTrue,
+				LastTransitionTime: metav1.Now(),
+				Reason:             "RebootInProgress",
+				Message:            "DPUNode reboot in progress",
+			}
+			obj.Status.Conditions = append(obj.Status.Conditions, condition1, condition2, condition3, condition4)
 			obj.Status.DPUInstallInterface = string(provisioningv1.DPUNodeInstallInterfaceGNOI)
 			err = k8sClient.Status().Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
@@ -347,53 +359,21 @@ spec:
 			objFetched := &provisioningv1.DPUNode{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(objFetched.Status.Conditions).To(HaveLen(2))
+			Expect(objFetched.Status.Conditions).To(HaveLen(4))
 			Expect(objFetched.Status.Conditions[0].Type).To(Equal(string(provisioningv1.DPUNodeConditionReady)))
 			Expect(objFetched.Status.Conditions[0].Status).To(Equal(metav1.ConditionTrue))
-			Expect(objFetched.Status.Conditions[1].Type).To(Equal(string(provisioningv1.DPUNodeConditionNotReady)))
+			Expect(objFetched.Status.Conditions[1].Type).To(Equal(string(provisioningv1.DPUNodeConditionRebootInProgress)))
 			Expect(objFetched.Status.Conditions[1].Status).To(Equal(metav1.ConditionFalse))
+			Expect(objFetched.Status.Conditions[2].Type).To(Equal(string(provisioningv1.DPUNodeConditionInvalidDPUDetails)))
+			Expect(objFetched.Status.Conditions[2].Status).To(Equal(metav1.ConditionTrue))
+			Expect(objFetched.Status.Conditions[3].Type).To(Equal(string(provisioningv1.DPUNodeConditionRebootInProgress)))
+			Expect(objFetched.Status.Conditions[3].Status).To(Equal(metav1.ConditionTrue))
 		})
-		It("update DPUNode status to Ready", func() {
+		It("create DPUNode with DPUInstallInterface", func() {
 			obj := createObj("obj-18")
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
-			obj.Status.Phase = provisioningv1.DPUNodeReady
 			obj.Status.DPUInstallInterface = string(provisioningv1.DPUNodeInstallInterfaceGNOI)
-			err = k8sClient.Status().Update(ctx, obj)
-			Expect(err).NotTo(HaveOccurred())
-			objFetched := &provisioningv1.DPUNode{}
-			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(objFetched.Status.Phase).To(Equal(provisioningv1.DPUNodeReady))
-		})
-		It("update DPUNode status to InvalidDPUDetails", func() {
-			obj := createObj("obj-19")
-			err := k8sClient.Create(ctx, obj)
-			Expect(err).NotTo(HaveOccurred())
-			obj.Status.Phase = provisioningv1.DPUNodeInvalidDPUDetails
-			obj.Status.DPUInstallInterface = string(provisioningv1.DPUNodeInstallIntrefaceRedfish)
-			err = k8sClient.Status().Update(ctx, obj)
-			Expect(err).NotTo(HaveOccurred())
-			objFetched := &provisioningv1.DPUNode{}
-			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(objFetched.Status.Phase).To(Equal(provisioningv1.DPUNodeInvalidDPUDetails))
-		})
-		It("update DPUNode status to invalid condition", func() {
-			obj := createObj("obj-20")
-			err := k8sClient.Create(ctx, obj)
-			Expect(err).NotTo(HaveOccurred())
-			obj.Status.Phase = "Invalid Phase"
-			obj.Status.DPUInstallInterface = string(provisioningv1.DPUNodeInstallIntrefaceRedfish)
-			err = k8sClient.Status().Update(ctx, obj)
-			Expect(err).To(HaveOccurred())
-		})
-		It("create DPUNode with DPUInstallInterface", func() {
-			obj := createObj("obj-21")
-			err := k8sClient.Create(ctx, obj)
-			Expect(err).NotTo(HaveOccurred())
-			obj.Status.DPUInstallInterface = string(provisioningv1.DPUNodeInstallInterfaceGNOI)
-			obj.Status.Phase = provisioningv1.DPUNodeInvalidDPUDetails
 			err = k8sClient.Status().Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			objFetched := &provisioningv1.DPUNode{}
@@ -403,11 +383,10 @@ spec:
 		})
 
 		It("update DPUNode DPUInstallInterface", func() {
-			obj := createObj("obj-22")
+			obj := createObj("obj-19")
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			obj.Status.DPUInstallInterface = string(provisioningv1.DPUNodeInstallIntrefaceRedfish)
-			obj.Status.Phase = provisioningv1.DPUNodeReady
 			err = k8sClient.Status().Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			objFetched := &provisioningv1.DPUNode{}
@@ -417,11 +396,10 @@ spec:
 		})
 
 		It("update DPUNode DPUInstallInterface to invalid value", func() {
-			obj := createObj("obj-23")
+			obj := createObj("obj-20")
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			obj.Status.DPUInstallInterface = "InvalidInterface"
-			obj.Status.Phase = provisioningv1.DPUNodeReady
 			err = k8sClient.Status().Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})

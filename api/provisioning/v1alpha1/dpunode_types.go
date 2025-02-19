@@ -28,26 +28,6 @@ const (
 // DPUNodeGroupVersionKind is the GroupVersionKind of the DPUNode object
 var DPUNodeGroupVersionKind = GroupVersion.WithKind(DPUNodeKind)
 
-// DPUNodePhaseType describes current state of DPUNode.
-// Only one of the following state may be specified.
-// +kubebuilder:validation:Enum="Not Ready";"Ready";"Invalid DPU Details";"DPUNode Reboot In Progress";"DPU Update In Progress"
-// +kubebuilder:default=NotReady
-type DPUNodePhaseType string
-
-// These are the valid statuses of DPUNode.
-const (
-	// DPUNodeNotReady means the DPU is not ready.
-	DPUNodeNotReady DPUNodePhaseType = "Not Ready"
-	// DPUNodeReady means the DPU is ready to be used.
-	DPUNodeReady DPUNodePhaseType = "Ready"
-	// DPUNodeInvalidDPUDetails means the DPU details provided are invalid.
-	DPUNodeInvalidDPUDetails DPUNodePhaseType = "Invalid DPU Details"
-	// DPUNodeRebootInProgress means the DPUNode is in the process of rebooting.
-	DPUNodeRebootInProgress DPUNodePhaseType = "DPUNode Reboot In Progress"
-	// DPUNodeDPUUpdateInProgress means the DPU is in the process of being updated.
-	DPUNodeDPUUpdateInProgress DPUNodePhaseType = "DPU Update In Progress"
-)
-
 type DPUNodeInstallInterfaceType string
 
 // List of valid Install Interface types
@@ -60,8 +40,14 @@ type DPUNodeConditionType string
 
 // List of valid condition types
 const (
-	DPUNodeConditionNotReady DPUNodeConditionType = "NotReady"
-	DPUNodeConditionReady    DPUNodeConditionType = "Ready"
+	// DPUNodeConditionReady means the DPU is ready.
+	DPUNodeConditionReady DPUNodeConditionType = "Ready"
+	// DPUNodeConditionInvalidDPUDetails means the DPU details provided are invalid.
+	DPUNodeConditionInvalidDPUDetails DPUNodeConditionType = "InvalidDPUDetails"
+	// DPUNodeConditionRebootInProgress means the DPUNode is in the process of rebooting.
+	DPUNodeConditionRebootInProgress DPUNodeConditionType = "DPUNodeRebootInProgress"
+	// DPUNodeConditionDPUUpdateInProgress means the DPU is in the process of being updated.
+	DPUNodeConditionDPUUpdateInProgress DPUNodeConditionType = "DPUUpdateInProgress"
 )
 
 type DPUNodeRebootMethod string
@@ -125,17 +111,6 @@ type DMSAddress struct {
 
 // DPUNodeStatus defines the observed state of DPUNode
 type DPUNodeStatus struct {
-	// The current state of DPUNode.
-	// Can be one of the following:
-	//    - DPUNodeNotReady: Not Ready
-	//    - DPUNodeReady: Ready
-	//    - DPUNodeInvalidDPUDetails: Invalid DPU Details
-	//    - DPUNodeRebootInProgress: DPUNode Reboot In Progress
-	//    - DPUNodeDPUUpdateInProgress: DPU Update In Progress
-	// +kubebuilder:validation:Enum=Not Ready;Ready;Invalid DPU Details;DPUNode Reboot In Progress;DPU Update In Progress
-	// +kubebuilder:default="Not Ready"
-	// +required
-	Phase DPUNodePhaseType `json:"phase"`
 	// Conditions represent the latest available observations of an object's state.
 	// +kubebuilder:validation:Type=array
 	// +optional
