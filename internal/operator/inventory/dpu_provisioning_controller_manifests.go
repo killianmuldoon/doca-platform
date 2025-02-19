@@ -166,6 +166,7 @@ func (p *provisioningControllerObjects) dpfProvisioningDeploymentEdit(vars Varia
 			p.setDefaultImageNames,
 			p.setDMSTimeout,
 			p.addBFCFGConfigMapMountEdit,
+			p.setCustomCASecretName,
 		}
 		for _, mod := range mods {
 			if err := mod(deployment, vars); err != nil {
@@ -306,6 +307,17 @@ func (p *provisioningControllerObjects) setImagePullSecrets(deploy *appsv1.Deplo
 		return nil
 	}
 	return p.setFlags(c, fmt.Sprintf("--image-pull-secrets=%s", strings.Join(vars.ImagePullSecrets, ",")))
+}
+
+func (p *provisioningControllerObjects) setCustomCASecretName(deploy *appsv1.Deployment, vars Variables) error {
+	c := p.getContainer(deploy)
+	if c == nil {
+		return fmt.Errorf("container %q not found in Provisioning Controller deployment", dpfProvisioningControllerContainerName)
+	}
+	if vars.DPFProvisioningController.CustomCASecretName == nil {
+		return nil
+	}
+	return p.setFlags(c, fmt.Sprintf("--custom-CA-secret=%s", *vars.DPFProvisioningController.CustomCASecretName))
 }
 
 func (p *provisioningControllerObjects) setDMSTimeout(deploy *appsv1.Deployment, vars Variables) error {

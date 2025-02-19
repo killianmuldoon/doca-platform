@@ -135,16 +135,8 @@ func GenerateDMSPodName(dpu *provisioningv1.DPU) string {
 	return fmt.Sprintf("%s-%s", dpu.Name, "dms")
 }
 
-func GenerateCACertName(dpuNamespace string) string {
-	return fmt.Sprintf("%s-%s", dpuNamespace, "ca-cert")
-}
-
 func GenerateDMSServerCertName(dpuName string) string {
 	return fmt.Sprintf("%s-%s", dpuName, "dms-server-cert")
-}
-
-func GenerateCASecretName(dpuNamespace string) string {
-	return fmt.Sprintf("%s-%s", dpuNamespace, "ca-secret")
 }
 
 func GenerateHostnetworkPodName(dpu *provisioningv1.DPU) string {

@@ -23,6 +23,7 @@ import (
 	"fmt"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	"github.com/nvidia/doca-platform/internal/provisioning/controllers/util/dms"
 
@@ -35,7 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func createGRPCConnection(ctx context.Context, client client.Client, dpu *provisioningv1.DPU) (*grpc.ClientConn, error) {
+func createGRPCConnection(ctx context.Context, client client.Client, dpu *provisioningv1.DPU, ctrlContext *dutil.ControllerContext) (*grpc.ClientConn, error) {
 	nn := types.NamespacedName{
 		Namespace: dpu.Namespace,
 		Name:      cutil.GenerateDMSPodName(dpu),
@@ -45,9 +46,14 @@ func createGRPCConnection(ctx context.Context, client client.Client, dpu *provis
 		return nil, fmt.Errorf("failed to get pod: %v", err)
 	}
 
+	dmsClientSecretName := dms.DMSClientSecret
+	if ctrlContext.Options.CustomCASecretName != "" {
+		dmsClientSecretName = ctrlContext.Options.CustomCASecretName
+	}
+
 	nn = types.NamespacedName{
 		Namespace: dpu.Namespace,
-		Name:      dms.DMSClientSecret,
+		Name:      dmsClientSecretName,
 	}
 	dmsClientSecret := &corev1.Secret{}
 	if err := client.Get(ctx, nn, dmsClientSecret); err != nil {

@@ -53,6 +53,7 @@ type DPUOptions struct {
 	DPUInstallInterface      string
 	BFCFGTemplateFile        string
 	BFBRegistry              string
+	CustomCASecretName       string
 }
 
 type ControllerContext struct {

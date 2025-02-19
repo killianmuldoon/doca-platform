@@ -277,6 +277,11 @@ spec:
                       used by dpf-provisioning-controller
                     minLength: 1
                     type: string
+                  customCASecretName:
+                    description: |-
+                      CustomCASecretName indicates the name of the Kubernetes secret object
+                      which containing the custom CA certificate
+                    type: string
                   disable:
                     description: Disable ensures the component is not deployed when
                       set to true.

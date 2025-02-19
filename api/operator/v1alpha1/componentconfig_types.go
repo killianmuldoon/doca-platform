@@ -147,6 +147,11 @@ type ProvisioningControllerConfiguration struct {
 	// +kubebuilder:validation:Minimum=1
 	// +optional
 	DMSTimeout *int `json:"dmsTimeout,omitempty"`
+
+	// CustomCASecretName indicates the name of the Kubernetes secret object
+	// which containing the custom CA certificate
+	// +optional
+	CustomCASecretName *string `json:"customCASecretName,omitempty"`
 }
 
 func (c ProvisioningControllerConfiguration) Name() string {

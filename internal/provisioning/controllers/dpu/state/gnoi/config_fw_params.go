@@ -51,7 +51,7 @@ func ConfigFWParameters(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *d
 
 	logger.V(3).Info(fmt.Sprintf("DMS %s start config fw parameters installation", dmsTaskName))
 
-	conn, err := createGRPCConnection(ctx, ctrlCtx.Client, dpu)
+	conn, err := createGRPCConnection(ctx, ctrlCtx.Client, dpu, ctrlCtx)
 	if err != nil {
 		msg := fmt.Sprintf("Error creating gRPC connection: %v", err)
 		logger.Error(err, msg)

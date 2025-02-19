@@ -131,7 +131,7 @@ func dmsHandler(ctx context.Context, k8sClient client.Client, inDPU *provisionin
 		logger := log.FromContext(ctx)
 		logger.V(3).Info(fmt.Sprintf("DMS %s start os installation", dmsTaskName))
 
-		conn, err := createGRPCConnection(ctx, k8sClient, dpu)
+		conn, err := createGRPCConnection(ctx, k8sClient, dpu, ctrlContext)
 		if err != nil {
 			logger.Error(err, fmt.Sprintf("Error creating gRPC connection: %v", err))
 			return nil, err

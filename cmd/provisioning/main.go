@@ -98,6 +98,7 @@ func main() {
 	var bfCFGTemplateFile string
 	var bfbRegistry string
 	var concurrency int
+	var customCASecretName string
 
 	fs.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	fs.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
@@ -122,6 +123,7 @@ func main() {
 	fs.StringVar(&dpuInstallInterface, "dpu-install-interface", string(provisioningv1.InstallViaHost), "the interface used to provision DPUs")
 	fs.StringVar(&bfCFGTemplateFile, "bf-cfg-template-file", "", "A custom bf.cfg template used as part of DPU provisioning.")
 	fs.StringVar(&bfbRegistry, "bfb-registry", "", "hostname of the BFB registry from which BFBs are downloaded")
+	fs.StringVar(&customCASecretName, "custom-CA-secret", "", "the secret object which containing the custom CA certificate")
 
 	logsv1.AddFlags(logOptions, fs)
 
@@ -213,6 +215,7 @@ func main() {
 		DPUInstallInterface:     dpuInstallInterface,
 		BFCFGTemplateFile:       bfCFGTemplateFile,
 		BFBRegistry:             bfbRegistry,
+		CustomCASecretName:      customCASecretName,
 	}
 
 	setupLog.Info("DPU", "options", dpuOptions)
