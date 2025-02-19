@@ -190,7 +190,7 @@ e2e:
 
 e2e-provisioning:
   stage: test
-  needs: [release]
+  needs: [release-e2e-slow]
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       when: on_success
@@ -236,9 +236,6 @@ release:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'push' && $CI_COMMIT_BRANCH == "main"
       when: always
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-      when: manual
-      allow_failure: true
     - if: $CI_PIPELINE_SOURCE == "schedule" && $NIGHTLY_RELEASE == "true"
       when: always
   variables:
@@ -248,6 +245,27 @@ release:
   script:
     - ./hack/scripts/ci_helm_docker_prereqs.sh
     - timeout 50m make release clean-images-for-registry
+  after_script:
+    - ./hack/scripts/slack-notification.sh
+
+release-e2e-slow:
+  interruptible: false
+  stage: build
+  retry: 2
+  needs: []
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      when: manual
+      allow_failure: true
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $E2E_TEST_FULL == "true"
+      when: always
+  variables:
+    PIPELINE_NAME: "release-e2e-slow"
+  tags:
+    - release
+  script:
+    - ./hack/scripts/ci_helm_docker_prereqs.sh
+    - timeout 50m make test-release-e2e-slow clean-images-for-registry
   after_script:
     - ./hack/scripts/slack-notification.sh
 
@@ -349,7 +367,7 @@ triage:
 
 scan:
   stage: test
-  needs: [release]
+  needs: [release-e2e-slow]
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       when: manual

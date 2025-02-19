@@ -406,6 +406,10 @@ test-release-e2e-quick: # Build images required for the quick DPF e2e test.
 	$(MAKE) helm-package-all helm-push-all
 	$(MAKE) helm-package-dummydpuservice helm-push-dummydpuservice
 
+.PHONY: test-release-e2e-slow
+test-release-e2e-slow: release # Build images required for the slow DPF e2e test.
+	$(MAKE) helm-package-dummydpuservice helm-push-dummydpuservice
+
 .PHONY: test-release-mock-dms
 test-release-mock-dms: docker-build-hostdriver docker-build-mock-dms docker-push-mock-dms docker-push-hostdriver helm-package-mock-dms helm-push-mock-dms
 
@@ -684,7 +688,7 @@ install-dpfctl: binary-dpfctl ## Install the dpfctl binary.
 DOCKER_BUILD_TARGETS=$(HOST_ARCH_DOCKER_BUILD_TARGETS) $(DPU_ARCH_DOCKER_BUILD_TARGETS) $(MULTI_ARCH_DOCKER_BUILD_TARGETS)
 HOST_ARCH_DOCKER_BUILD_TARGETS=hostdriver
 DPU_ARCH_DOCKER_BUILD_TARGETS=$(DPU_ARCH_BUILD_TARGETS) ovs-cni
-MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools snap-csi-plugin snap-controller mock-dms vpc-system
+MULTI_ARCH_DOCKER_BUILD_TARGETS= dpf-system ovn-kubernetes dpf-tools snap-csi-plugin snap-controller vpc-system
 
 .PHONY: docker-build-all
 docker-build-all: $(addprefix docker-build-,$(DOCKER_BUILD_TARGETS)) ## Build docker images for all DOCKER_BUILD_TARGETS. Architecture defaults to build system architecture unless overridden or hardcoded.
