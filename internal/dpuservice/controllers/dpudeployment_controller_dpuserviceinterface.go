@@ -263,11 +263,11 @@ func reconcileCurrentDPUServiceInterfaceRevision(ctx context.Context,
 
 // getCurrentAndStaleDPUServiceInterfaces returns the current and stale DPUServiceInterface objects filtered by the name
 // of the interface as defined in the DPUServiceConfiguration.
-func getCurrentAndStaleDPUServiceInterfaces(dpuServiceInterfaceName string, dpuServiceName string, currentVersionDigest string, existingDPUServiceInterfaces *dpuservicev1.DPUServiceInterfaceList) (client.Object, []client.Object) {
+func getCurrentAndStaleDPUServiceInterfaces(serviceInterfaceName string, serviceName string, currentVersionDigest string, existingDPUServiceInterfaces *dpuservicev1.DPUServiceInterfaceList) (client.Object, []client.Object) {
 	match := []client.Object{}
 	var current client.Object
 	for _, dpuServiceInterface := range existingDPUServiceInterfaces.Items {
-		if strings.HasPrefix(dpuServiceInterface.Name, fmt.Sprintf("%s-%s", dpuServiceName, dpuServiceInterfaceName)) {
+		if strings.HasPrefix(dpuServiceInterface.Name, fmt.Sprintf("%s-%s", serviceName, strings.ReplaceAll(serviceInterfaceName, "_", "-"))) {
 			if dpuServiceInterface.Annotations[dpuServiceVersionAnnotationKey] == currentVersionDigest {
 				current = &dpuServiceInterface
 			} else {
@@ -406,7 +406,7 @@ func constructCurrentDPUServiceInterfaceNamesForService(dpuDeployment *dpuservic
 
 	m := make(map[string]string)
 	for _, serviceInterface := range interfacesFromDependencies {
-		generatedServiceInterfaceName := fmt.Sprintf("%s-%s-%s", dpuServiceName, serviceInterface.Name, utilrand.String(randomLength))
+		generatedServiceInterfaceName := fmt.Sprintf("%s-%s-%s", dpuServiceName, strings.ReplaceAll(serviceInterface.Name, "_", "-"), utilrand.String(randomLength))
 		// filter the existing DPUServiceInterfaces by name and extract the most current one, if any
 		currentRevision, oldRevisions := getCurrentAndStaleDPUServiceInterfaces(serviceInterface.Name, dpuServiceName, dpuServiceVersionDigest, existingDPUServiceInterfaces)
 		switch {
