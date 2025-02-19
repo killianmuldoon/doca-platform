@@ -7,6 +7,7 @@ dpuClusterPrerequisiteObjectPath:
   - "../objects/mock/dpuservice-dpucluster.yaml"
   - "../objects/mock/dpuservice-incluster.yaml"
   - "../objects/mock/dpuservice-stages.yaml"
+  - "../objects/infrastructure/kamaji-quick.yaml"
   - "../objects/mock/dpuservicecredentialrequest.yaml"
 dpuServiceInterface: "../objects/application/dpuserviceinterface_service_type.yaml"
 dpuServiceChain: "../objects/application/dpuservicechain.yaml"

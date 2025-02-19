@@ -38,6 +38,7 @@ helm.sh/chart: {{ include "servicechain.chart" . }}
 {{ include "servicechain.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+dpu.nvidia.com/component: servicechainset-controller-manager
 {{- end }}
 app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{- end }}

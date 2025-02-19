@@ -431,6 +431,7 @@ OPERATOR_NAMESPACE ?= dpf-operator-system
 DEPLOY_KSM ?= false
 DEPLOY_GRAFANA ?= false
 DEPLOY_PROMETHEUS ?= false
+DEPLOY_PARCA ?= false
 
 .PHONY: test-deploy-operator-helm
 test-deploy-operator-helm: helm helm-package-operator ## Deploy the DPF Operator using helm
@@ -441,6 +442,7 @@ test-deploy-operator-helm: helm helm-package-operator ## Deploy the DPF Operator
 		--set kube-state-metrics.enabled=$(DEPLOY_KSM) \
 		--set grafana.enabled=$(DEPLOY_GRAFANA) \
 		--set prometheus.enabled=$(DEPLOY_PROMETHEUS) \
+		--set parca.enabled=$(DEPLOY_PARCA) \
 		dpf-operator $(OPERATOR_HELM_CHART)
 
 .PHONY: test-deploy-mock-dms

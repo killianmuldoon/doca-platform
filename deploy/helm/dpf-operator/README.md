@@ -13,6 +13,7 @@ DPF Operator manages the lifecycle of a DOCA Platform Framework system.
 | https://clastix.github.io/charts | kamaji-etcd | 0.9.0 |
 | https://grafana.github.io/helm-charts | grafana | 8.4.6 |
 | https://kubernetes-sigs.github.io/node-feature-discovery/charts | node-feature-discovery | 0.17.1 |
+| https://parca-dev.github.io/helm-charts | parca | 4.19.0 |
 | https://prometheus-community.github.io/helm-charts | kube-state-metrics | 5.25.1 |
 | https://prometheus-community.github.io/helm-charts | prometheus | 25.26.0 |
 | oci://ghcr.io/mellanox | maintenance-operator-chart | 0.2.0 |
@@ -201,6 +202,50 @@ DPF Operator manages the lifecycle of a DOCA Platform Framework system.
 | node-feature-discovery.worker.hostNetwork | bool | `true` |  |
 | node-feature-discovery.worker.tolerations[0].key | string | `"node.kubernetes.io/not-ready"` |  |
 | node-feature-discovery.worker.tolerations[0].operator | string | `"Exists"` |  |
+| parca.agent.enabled | bool | `false` |  |
+| parca.enabled | bool | `false` |  |
+| parca.server.logLevel | string | `"info"` |  |
+| parca.server.scrapeConfigs[0].job_name | string | `"doca-platform"` |  |
+| parca.server.scrapeConfigs[0].kubernetes_sd_configs[0].role | string | `"pod"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[0].action | string | `"keep"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[0].regex | string | `".*-controller-manager"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[0].source_labels[0] | string | `"__meta_kubernetes_pod_label_dpu_nvidia_com_component"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[1].regex | string | `"([^:]+):.*"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[1].replacement | string | `"${1}:8082"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[1].source_labels[0] | string | `"__address__"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[1].target_label | string | `"__address__"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[2].action | string | `"labelmap"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[2].regex | string | `"__meta_kubernetes_pod_label_(.+)"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[3].action | string | `"replace"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[3].source_labels[0] | string | `"__meta_kubernetes_namespace"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[3].target_label | string | `"kubernetes_namespace"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[4].action | string | `"replace"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[4].source_labels[0] | string | `"__meta_kubernetes_pod_name"` |  |
+| parca.server.scrapeConfigs[0].relabel_configs[4].target_label | string | `"kubernetes_pod_name"` |  |
+| parca.server.scrapeConfigs[1].job_name | string | `"argo-cd"` |  |
+| parca.server.scrapeConfigs[1].kubernetes_sd_configs[0].role | string | `"pod"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[0].action | string | `"keep"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[0].regex | string | `"application-controller"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[0].source_labels[0] | string | `"__meta_kubernetes_pod_label_app_kubernetes_io_component"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[1].regex | string | `"([^:]+):.*"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[1].replacement | string | `"${1}:8082"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[1].source_labels[0] | string | `"__address__"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[1].target_label | string | `"__address__"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[2].action | string | `"labelmap"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[2].regex | string | `"__meta_kubernetes_pod_label_(.+)"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[3].action | string | `"replace"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[3].source_labels[0] | string | `"__meta_kubernetes_namespace"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[3].target_label | string | `"kubernetes_namespace"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[4].action | string | `"replace"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[4].source_labels[0] | string | `"__meta_kubernetes_pod_name"` |  |
+| parca.server.scrapeConfigs[1].relabel_configs[4].target_label | string | `"kubernetes_pod_name"` |  |
+| parca.server.tolerations[0].effect | string | `"NoSchedule"` |  |
+| parca.server.tolerations[0].key | string | `"node-role.kubernetes.io/master"` |  |
+| parca.server.tolerations[0].operator | string | `"Exists"` |  |
+| parca.server.tolerations[1].effect | string | `"NoSchedule"` |  |
+| parca.server.tolerations[1].key | string | `"node-role.kubernetes.io/control-plane"` |  |
+| parca.server.tolerations[1].operator | string | `"Exists"` |  |
+| parca.serviceAccount.name | string | `"dpf-operator-parca"` |  |
 | prometheus.alertmanager.enabled | bool | `false` |  |
 | prometheus.enabled | bool | `false` |  |
 | prometheus.extraScrapeConfigs | string | `"- job_name: 'doca-platform-framework'\n  # 15s is a bit often for production but helps to get metrics quicker for development.\n  scrape_interval: 15s\n  metrics_path: /metrics\n  scheme: https\n  authorization:\n    type: Bearer\n    credentials_file: /var/run/secrets/kubernetes.io/serviceaccount/token\n  tls_config:\n    ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt\n    insecure_skip_verify: true\n  kubernetes_sd_configs:\n    - role: pod\n  relabel_configs:\n    - source_labels: [__meta_kubernetes_pod_label_dpu_nvidia_com_component]\n      action: keep\n      regex: \".*-controller-manager\"\n    - source_labels: [__meta_kubernetes_pod_container_port_name]\n      action: keep\n      regex: metrics\n"` |  |

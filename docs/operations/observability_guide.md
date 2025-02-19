@@ -14,7 +14,7 @@
 ### Introduction
 
 This guide covers the steps to enable observability components such as
-[Prometheus](https://prometheus.io/), [Grafana](https://grafana.com/),
+[Prometheus](https://prometheus.io/), [Grafana](https://grafana.com/), [Parca](https://www.parca.dev)
 and
 [kube-state-metrics](https://github.com/kubernetes/kube-state-metrics)
 for the operator. By default, these components are disabled in the Helm
@@ -33,7 +33,7 @@ managed by the operator.
 
 ### Enabling Observability Components
 
-To enable Prometheus, Grafana, and Kube-State-Metrics, you can modify
+To enable Prometheus, Grafana, Parca and Kube-State-Metrics, you can modify
 the `values.yaml` file as shown below:
 
 ``` yaml
@@ -42,6 +42,8 @@ prometheus:
 grafana:
   enabled: true
 kube-state-metrics:
+  enabled: true
+parca:
   enabled: true
 ```
 
@@ -56,6 +58,7 @@ helm -n dpf-operator-system \
   --values <(helm -n dpf-operator-system get values dpf-operator) \
   --set grafana.enabled=true \
   --set prometheus.enabled=true \
+  --set parca.enabled=true \
   --set kube-state-metrics.enabled=true
 ```
 
@@ -102,7 +105,7 @@ Grafana.
 
 ### Note on Storage Solution
 
-By default, both Grafana and Prometheus use `hostPath` for storage. This
+By default, Grafana and Prometheus use `hostPath` for storage. This
 is not recommended for production environments due to the potential for
 data loss and lack of scalability. You should configure a more reliable
 storage solution.
@@ -124,3 +127,5 @@ grafana:
 
 Make sure to replace `<your-storage-class>` with the appropriate storage
 class for your environment.
+
+Parca also uses local storage by default. Parca [supports an S3 storage bucket](https://www.parca.dev/docs/configuration/) for storing larger collections of profile data. 
