@@ -131,6 +131,8 @@ sonarqube-check:
   stage: test
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $RUN_SONARQUBE == "true"
+      when: always
   needs:
     - job: test
       artifacts: true
