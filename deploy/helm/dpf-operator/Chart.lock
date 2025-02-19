@@ -1,7 +1,7 @@
 dependencies:
 - name: argo-cd
   repository: https://argoproj.github.io/argo-helm
-  version: 7.6.8
+  version: 7.8.2
 - name: node-feature-discovery
   repository: https://kubernetes-sigs.github.io/node-feature-discovery/charts
   version: 0.17.1
@@ -23,5 +23,5 @@ dependencies:
 - name: maintenance-operator-chart
   repository: oci://ghcr.io/mellanox
   version: 0.2.0
-digest: sha256:b9c60099b7f83d454413dd26c6cf1e140abbbab994c70ed82e31c7bcdabc043d
-generated: "2025-02-12T08:38:16.70455849+02:00"
+digest: sha256:88ccb58274b06eeffacdf76cc031e8f98cc8ff655aa90d59323d633b38a38e4e
+generated: "2025-02-19T08:30:52.965049Z"

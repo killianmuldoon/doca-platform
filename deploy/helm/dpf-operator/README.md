@@ -8,7 +8,7 @@ DPF Operator manages the lifecycle of a DOCA Platform Framework system.
 
 | Repository | Name | Version |
 |------------|------|---------|
-| https://argoproj.github.io/argo-helm | argo-cd | 7.6.8 |
+| https://argoproj.github.io/argo-helm | argo-cd | 7.8.2 |
 | https://clastix.github.io/charts | kamaji | 1.0.0 |
 | https://clastix.github.io/charts | kamaji-etcd | 0.9.0 |
 | https://grafana.github.io/helm-charts | grafana | 8.4.6 |
