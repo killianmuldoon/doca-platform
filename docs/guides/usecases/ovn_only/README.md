@@ -207,20 +207,17 @@ envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm u
 
 [embedmd]:#(manifests/01-cni-installation/helm-values/ovn-kubernetes.yml)
 ```yml
-tags:
-  ovn-kubernetes-resource-injector: false
-global:
-  imagePullSecretName: "dpf-pull-secret"
+ovn-kubernetes-resource-injector:
+  enabled: false
+imagePullSecretName: "dpf-pull-secret"
 k8sAPIServer: https://$TARGETCLUSTER_API_SERVER_HOST:$TARGETCLUSTER_API_SERVER_PORT
-ovnkube-node-dpu-host:
+nodeWithDPUManifests:
   nodeMgmtPortNetdev: $DPU_P0_VF1
-  gatewayOpts: --gateway-interface=$DPU_P0
+  dpuServiceAccountNamespace: dpf-operator-system
+gatewayOpts: --gateway-interface=$DPU_P0
 ## Note this CIDR is followed by a trailing /24 which informs OVN Kubernetes on how to split the CIDR per node.
 podNetwork: $POD_CIDR/24
 serviceNetwork: $SERVICE_CIDR
-ovn-kubernetes-resource-injector:
-  resourceName: nvidia.com/bf3-p0-vfs
-dpuServiceAccountNamespace: dpf-operator-system
 ```
 </details>
 
@@ -596,21 +593,18 @@ envsubst < manifests/04-enable-accelerated-cni/helm-values/ovn-kubernetes.yml | 
 
 [embedmd]:#(manifests/04-enable-accelerated-cni/helm-values/ovn-kubernetes.yml)
 ```yml
-tags:
+ovn-kubernetes-resource-injector:
   ## Enable the ovn-kubernetes-resource-injector
-  ovn-kubernetes-resource-injector: true
-global:
-  imagePullSecretName: "dpf-pull-secret"
+  enabled: true
+imagePullSecretName: "dpf-pull-secret"
 k8sAPIServer: https://$TARGETCLUSTER_API_SERVER_HOST:$TARGETCLUSTER_API_SERVER_PORT
-ovnkube-node-dpu-host:
+nodeWithDPUManifests:
   nodeMgmtPortNetdev: $DPU_P0_VF1
-  gatewayOpts: --gateway-interface=$DPU_P0
+  dpuServiceAccountNamespace: dpf-operator-system
+gatewayOpts: --gateway-interface=$DPU_P0
 ## Note this CIDR is followed by a trailing /24 which informs OVN Kubernetes on how to split the CIDR per node.
 podNetwork: $POD_CIDR/24
 serviceNetwork: $SERVICE_CIDR
-ovn-kubernetes-resource-injector:
-  resourceName: nvidia.com/bf3-p0-vfs
-dpuServiceAccountNamespace: dpf-operator-system
 ```
 </details>
 
@@ -775,23 +769,24 @@ spec:
       chart: ovn-kubernetes-chart
       version: $TAG
     values:
-      tags:
-        ovn-kubernetes-resource-injector: false
-        ovnkube-node-dpu: true
-        ovnkube-node-dpu-host: false
-        ovnkube-single-node-zone: false
-        ovnkube-control-plane: false
-      k8sAPIServer: https://$TARGETCLUSTER_API_SERVER_HOST:$TARGETCLUSTER_API_SERVER_PORT
-      podNetwork: $POD_CIDR/24
-      serviceNetwork: $SERVICE_CIDR
-      global:
-        gatewayOpts: "--gateway-interface=br-ovn --gateway-uplink-port=puplinkbrovn"
-        imagePullSecretName: dpf-pull-secret
-      ovnkube-node-dpu:
+      ovn-kubernetes-resource-injector:
+        enabled: false
+      nodeWithDPUManifests:
+        enabled: false
+      nodeWithoutDPUManifests:
+        enabled: false
+      controlPlaneManifests:
+        enabled: false
+      dpuManifests:
+        enabled: true
         kubernetesSecretName: "ovn-dpu" # user needs to populate based on DPUServiceCredentialRequest
         hostCIDR: $TARGETCLUSTER_NODE_CIDR
         externalDHCP: true
-        gatewayDiscoveryNetwork: "169.254.99.100/32" # This is a "dummy" subnet used to get the default gateway address from DHCP server (via option 121)
+      imagePullSecretName: dpf-pull-secret
+      k8sAPIServer: https://$TARGETCLUSTER_API_SERVER_HOST:$TARGETCLUSTER_API_SERVER_PORT
+      podNetwork: $POD_CIDR/24
+      serviceNetwork: $SERVICE_CIDR
+      gatewayOpts: "--gateway-interface=br-ovn --gateway-uplink-port=puplinkbrovn"
 ```
 </details>
 
@@ -1024,9 +1019,9 @@ spec:
         k8sAPIServer: https://$TARGETCLUSTER_API_SERVER_HOST:$TARGETCLUSTER_API_SERVER_PORT
         podNetwork: $POD_CIDR/24
         serviceNetwork: $SERVICE_CIDR
-        ovnkube-node-dpu:
+        dpuManifests:
           kubernetesSecretName: "ovn-dpu" # user needs to populate based on DPUServiceCredentialRequest
-          hostCIDR: $TARGETCLUSTER_NODE_CIDR # user needs to populate
+          hostCIDR: $TARGETCLUSTER_NODE_CIDR
           externalDHCP: true
           gatewayDiscoveryNetwork: "169.254.99.100/32" # This is a "dummy" subnet used to get the default gateway address from DHCP server (via option 121)
 ```
@@ -1047,15 +1042,18 @@ spec:
       chart: ovn-kubernetes-chart
       version: $TAG
     values:
-      tags:
-        ovn-kubernetes-resource-injector: false
-        ovnkube-node-dpu: true
-        ovnkube-node-dpu-host: false
-        ovnkube-single-node-zone: false
-        ovnkube-control-plane: false
-      global:
-        gatewayOpts: "--gateway-interface=br-ovn --gateway-uplink-port=puplinkbrovn"
-        imagePullSecretName: dpf-pull-secret
+      ovn-kubernetes-resource-injector:
+        enabled: false
+      nodeWithDPUManifests:
+        enabled: false
+      nodeWithoutDPUManifests:
+        enabled: false
+      controlPlaneManifests:
+        enabled: false
+      dpuManifests:
+        enabled: true
+      gatewayOpts: "--gateway-interface=br-ovn --gateway-uplink-port=puplinkbrovn"
+      imagePullSecretName: dpf-pull-secret
 ```
 </details>
 

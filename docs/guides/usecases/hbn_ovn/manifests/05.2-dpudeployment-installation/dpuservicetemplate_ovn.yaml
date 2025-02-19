@@ -12,12 +12,15 @@ spec:
       chart: ovn-kubernetes-chart
       version: $TAG
     values:
-      tags:
-        ovn-kubernetes-resource-injector: false
-        ovnkube-node-dpu: true
-        ovnkube-node-dpu-host: false
-        ovnkube-single-node-zone: false
-        ovnkube-control-plane: false
-      global:
-        gatewayOpts: "--gateway-interface=br-ovn --gateway-uplink-port=puplinkbrovn"
-        imagePullSecretName: dpf-pull-secret
+      ovn-kubernetes-resource-injector:
+        enabled: false
+      nodeWithDPUManifests:
+        enabled: false
+      nodeWithoutDPUManifests:
+        enabled: false
+      controlPlaneManifests:
+        enabled: false
+      dpuManifests:
+        enabled: true
+      gatewayOpts: "--gateway-interface=br-ovn --gateway-uplink-port=puplinkbrovn"
+      imagePullSecretName: dpf-pull-secret

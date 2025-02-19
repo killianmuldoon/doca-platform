@@ -109,7 +109,7 @@ clean-images-for-registry: ## Clean release deletes local images with the $REGIS
 OVS_CNI_DIR=$(THIRDPARTYDIR)/ovs-cni
 
 # OVN Kubernetes dependencies to be able to build its docker image
-OVNKUBERNETES_REF=d7ce0d0b9799bfbd9bb4cb7be7f025ed9a181ff0
+OVNKUBERNETES_REF=9cd204d26bdf2eac680828afb2eff86b9eb8c864
 OVNKUBERNETES_DIR=$(REPOSDIR)/ovn-kubernetes-$(OVNKUBERNETES_REF)
 $(OVNKUBERNETES_DIR): | $(REPOSDIR)
 	git clone https://github.com/aserdean/ovn-kubernetes $(OVNKUBERNETES_DIR)-tmp
@@ -1174,7 +1174,7 @@ DPU_NETWORKING_HELM_CHART_VER ?= $(TAG)
 
 ## metadata for ovn-kubernetes
 export OVNKUBERNETES_HELM_CHART_NAME = ovn-kubernetes-chart
-OVNKUBERNETES_HELM_CHART ?= $(OVNKUBERNETES_DIR)/helm/ovn-kubernetes
+OVNKUBERNETES_HELM_CHART ?= $(OVNKUBERNETES_DIR)/helm/ovn-kubernetes-dpf
 OVNKUBERNETES_HELM_CHART_VER ?= $(TAG)
 
 ## metadata for ovn-kubernetes-resource-injector
