@@ -27,11 +27,12 @@ import (
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 
-	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -82,8 +83,6 @@ var _ = BeforeSuite(func() {
 
 	scheme := scheme.Scheme
 	err = provisioningv1.AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
-	err = certmanagerv1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
@@ -141,10 +140,17 @@ var createNode = func(ctx context.Context, name string, labels map[string]string
 	return node
 }
 
-var createIssuer = func(ctx context.Context, name string, namespace string) *certmanagerv1.Issuer {
-	issuer := &certmanagerv1.Issuer{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace}}
+var createIssuer = func(ctx context.Context, name string, namespace string) {
+	issuer := &unstructured.Unstructured{}
+	issuer.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "cert-manager.io",
+		Version: "v1",
+		Kind:    "Issuer",
+	})
+	issuer.SetName(name)
+	issuer.SetNamespace(namespace)
+	Expect(unstructured.SetNestedMap(issuer.Object, map[string]interface{}{}, "spec")).NotTo(HaveOccurred())
 	Expect(k8sClient.Create(ctx, issuer)).NotTo(HaveOccurred())
-	return issuer
 }
 
 // Generate kubeconfig from rest.Config
@@ -308,11 +314,24 @@ var _ = Describe("DMSInit", func() {
 			certName := nodeName + "-dms-server-cert"
 			secretName := nodeName + "-server-secret"
 			Eventually(func(g Gomega) {
-				certList := &certmanagerv1.CertificateList{}
+				certList := &unstructured.UnstructuredList{}
+				certList.SetGroupVersionKind(schema.GroupVersionKind{
+					Group:   "cert-manager.io",
+					Version: "v1",
+					Kind:    "CertificateList",
+				})
 				g.Expect(k8sClient.List(ctx, certList, client.InNamespace(testNS.Name))).To(Succeed())
 				g.Expect(certList.Items).To(HaveLen(1))
-				g.Expect(certList.Items[0].Spec.SecretName).Should(Equal(secretName))
-				g.Expect(certList.Items[0].Spec.CommonName).Should(Equal(certName))
+
+				gotSecretName, found, err := unstructured.NestedString(certList.Items[0].Object, "spec", "secretName")
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(found).To(BeTrue())
+				g.Expect(gotSecretName).Should(Equal(secretName))
+
+				gotCommonName, found, err := unstructured.NestedString(certList.Items[0].Object, "spec", "commonName")
+				g.Expect(err).ToNot(HaveOccurred())
+				g.Expect(found).To(BeTrue())
+				g.Expect(gotCommonName).Should(Equal(certName))
 			}).WithTimeout(10 * time.Second).Should(Succeed())
 
 			// certFetched := &certmanagerv1.Certificate{}

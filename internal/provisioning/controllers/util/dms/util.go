@@ -25,11 +25,11 @@ import (
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
-	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -59,24 +59,29 @@ func Address(ip string, dpu *provisioningv1.DPU) string {
 	return fmt.Sprintf("%s:%d", ip, dmsServerPort)
 }
 
-func createServerCertificate(ctx context.Context, client client.Client, name string, namespace string, secretName string, commonName string, issuerRef cmmeta.ObjectReference, owner *metav1.OwnerReference, ipAddresses []string) error {
-	cert := &certmanagerv1.Certificate{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            name,
-			Namespace:       namespace,
-			OwnerReferences: []metav1.OwnerReference{*owner},
+func createServerCertificate(ctx context.Context, client client.Client, name string, namespace string, secretName string, commonName string, issuerRef map[string]interface{}, owner *metav1.OwnerReference, ipAddresses []interface{}) error {
+	cert := &unstructured.Unstructured{}
+	cert.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "cert-manager.io",
+		Version: "v1",
+		Kind:    "Certificate",
+	})
+	cert.SetName(name)
+	cert.SetNamespace(namespace)
+	cert.SetOwnerReferences([]metav1.OwnerReference{*owner})
+	err := unstructured.SetNestedMap(cert.Object, map[string]interface{}{
+		"secretName":  secretName,
+		"duration":    metav1.Duration{Duration: 24 * time.Hour}.ToUnstructured(),
+		"renewBefore": metav1.Duration{Duration: 8 * time.Hour}.ToUnstructured(),
+		"issuerRef":   issuerRef,
+		"usages": []interface{}{
+			"server auth",
 		},
-		Spec: certmanagerv1.CertificateSpec{
-			SecretName:  secretName,
-			Duration:    &metav1.Duration{Duration: 24 * time.Hour},
-			RenewBefore: &metav1.Duration{Duration: 8 * time.Hour},
-			IssuerRef:   issuerRef,
-			Usages: []certmanagerv1.KeyUsage{
-				certmanagerv1.UsageServerAuth,
-			},
-			CommonName:  commonName,
-			IPAddresses: ipAddresses,
-		},
+		"commonName":  commonName,
+		"ipAddresses": ipAddresses,
+	}, "spec")
+	if err != nil {
+		return fmt.Errorf("failed to set spec to Certificate: %w", err)
 	}
 
 	nn := types.NamespacedName{
@@ -84,7 +89,12 @@ func createServerCertificate(ctx context.Context, client client.Client, name str
 		Name:      name,
 	}
 
-	existingCert := &certmanagerv1.Certificate{}
+	existingCert := &unstructured.Unstructured{}
+	existingCert.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "cert-manager.io",
+		Version: "v1",
+		Kind:    "Certificate",
+	})
 	if err := client.Get(ctx, nn, existingCert); err != nil {
 		if apierrors.IsNotFound(err) {
 			err = client.Create(ctx, cert)
@@ -108,9 +118,9 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 	dmsServerSecretName := cutil.GenerateDMSServerSecretName(dpu.Name)
 	dmsServerCertName := cutil.GenerateDMSServerCertName(dpu.Name)
 
-	issuerRef := cmmeta.ObjectReference{
-		Name: provisioningIssuerName,
-		Kind: issuerKind,
+	issuerRef := map[string]interface{}{
+		"name": provisioningIssuerName,
+		"kind": issuerKind,
 	}
 
 	nn := types.NamespacedName{
@@ -127,7 +137,7 @@ func CreateDMSPod(ctx context.Context, client client.Client, dpu *provisioningv1
 	nodeInternalIP := node.Status.Addresses[0].Address
 
 	// Create server certificate with Server Issuer
-	if err := createServerCertificate(ctx, client, dmsServerCertName, dpu.Namespace, dmsServerSecretName, dmsServerCertName, issuerRef, owner, []string{nodeInternalIP}); err != nil {
+	if err := createServerCertificate(ctx, client, dmsServerCertName, dpu.Namespace, dmsServerSecretName, dmsServerCertName, issuerRef, owner, []interface{}{nodeInternalIP}); err != nil {
 		logger.Error(err, "Failed to create Server certificate", "dms", err)
 		return err
 	}

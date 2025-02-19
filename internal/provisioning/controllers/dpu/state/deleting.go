@@ -25,10 +25,11 @@ import (
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
-	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -54,13 +55,26 @@ func Deleting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Contr
 		return *state, err
 	}
 
+	certificate := &unstructured.Unstructured{}
+	certificate.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "cert-manager.io",
+		Version: "v1",
+		Kind:    "Certificate",
+	})
+	certificate.SetName(cutil.GenerateDMSServerCertName(dpu.Name))
+	certificate.SetNamespace(dpu.Namespace)
+
+	certificateRequest := &unstructured.Unstructured{}
+	certificateRequest.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "cert-manager.io",
+		Version: "v1",
+		Kind:    "CertificateRequest",
+	})
+	certificateRequest.SetName(dpu.Name)
+	certificateRequest.SetNamespace(dpu.Namespace)
+
 	deleteObjects := []crclient.Object{
-		&certmanagerv1.Certificate{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      cutil.GenerateDMSServerCertName(dpu.Name),
-				Namespace: dpu.Namespace,
-			},
-		},
+		certificate,
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      cutil.GenerateDMSServerSecretName(dpu.Name),
@@ -79,12 +93,7 @@ func Deleting(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Contr
 				Namespace: dpu.Namespace,
 			},
 		},
-		&certmanagerv1.CertificateRequest{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      dpu.Name,
-				Namespace: dpu.Namespace,
-			},
-		},
+		certificateRequest,
 	}
 
 	objects, err := cutil.GetObjects(ctrlCtx.Client, deleteObjects)

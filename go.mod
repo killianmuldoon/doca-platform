@@ -9,7 +9,6 @@ require (
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/Mellanox/maintenance-operator/api v0.1.1
-	github.com/cert-manager/cert-manager v1.16.2
 	github.com/containernetworking/cni v1.2.3
 	github.com/fatih/color v1.17.0
 	github.com/fluxcd/pkg/runtime v0.52.0
@@ -45,6 +44,8 @@ require (
 	github.com/cenkalti/hub v1.0.2 // indirect
 	github.com/cenkalti/rpc2 v1.0.4 // indirect
 	github.com/contiv/libovsdb v0.0.0-20170227191248-d0061a53e358 // indirect
+	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
+	github.com/miekg/dns v1.1.62 // indirect
 	github.com/orcaman/concurrent-map/v2 v2.0.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
@@ -75,7 +76,6 @@ require (
 	github.com/docker/docker-credential-helpers v0.7.0 // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-metrics v0.0.1 // indirect
-	github.com/evanphx/json-patch v5.9.0+incompatible // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
@@ -133,7 +133,6 @@ require (
 	k8s.io/cli-runtime v0.32.1 // indirect
 	k8s.io/kubectl v0.32.1 // indirect
 	oras.land/oras-go v1.2.5 // indirect
-	sigs.k8s.io/gateway-api v1.2.1 // indirect
 	sigs.k8s.io/kustomize/api v0.18.0 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.18.1 // indirect
 )

@@ -34,12 +34,13 @@ import (
 	testutils "github.com/nvidia/doca-platform/test/utils"
 	"github.com/nvidia/doca-platform/test/utils/informer"
 
-	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/ptr"
@@ -1124,13 +1125,7 @@ var _ = Describe("DMS Pod", func() {
 
 		It("create DMS Pod w/o Node", func() {
 			By("creating Issuer")
-			obj := &certmanagerv1.Issuer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "dpf-provisioning-selfsigned-issuer",
-					Namespace: testNS.Name,
-				},
-			}
-			Expect(k8sClient.Create(ctx, obj)).NotTo(HaveOccurred())
+			createIssuer(ctx, "dpf-provisioning-selfsigned-issuer", testNS.Name)
 
 			By("creating the dpu")
 			objDPU := &provisioningv1.DPU{
@@ -1152,13 +1147,7 @@ var _ = Describe("DMS Pod", func() {
 
 		It("create DMS Pod w/o options", func() {
 			By("creating Issuer")
-			obj := &certmanagerv1.Issuer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "dpf-provisioning-selfsigned-issuer",
-					Namespace: testNS.Name,
-				},
-			}
-			Expect(k8sClient.Create(ctx, obj)).NotTo(HaveOccurred())
+			createIssuer(ctx, "dpf-provisioning-selfsigned-issuer", testNS.Name)
 
 			By("creating the dpu")
 			objDPU := &provisioningv1.DPU{
@@ -1186,13 +1175,7 @@ var _ = Describe("DMS Pod", func() {
 
 		It("creating DMS Pod wit minimal options", func() {
 			By("creating Issuer")
-			obj := &certmanagerv1.Issuer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "dpf-provisioning-selfsigned-issuer",
-					Namespace: testNS.Name,
-				},
-			}
-			Expect(k8sClient.Create(ctx, obj)).NotTo(HaveOccurred())
+			createIssuer(ctx, "dpf-provisioning-selfsigned-issuer", testNS.Name)
 
 			By("creating the dpu")
 			objDPU := &provisioningv1.DPU{
@@ -1232,13 +1215,7 @@ var _ = Describe("DMS Pod", func() {
 
 		It("creating Hostnetwork Pod with minimal options", func() {
 			By("creating Issuer")
-			obj := &certmanagerv1.Issuer{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      "dpf-provisioning-selfsigned-issuer",
-					Namespace: testNS.Name,
-				},
-			}
-			Expect(k8sClient.Create(ctx, obj)).NotTo(HaveOccurred())
+			createIssuer(ctx, "dpf-provisioning-selfsigned-issuer", testNS.Name)
 
 			By("creating the dpu flavor")
 			objDPUFlavor := &provisioningv1.DPUFlavor{
@@ -1318,4 +1295,17 @@ func getMinimalDPFOperatorConfig() *operatorv1.DPFOperatorConfig {
 			},
 		},
 	}
+}
+
+var createIssuer = func(ctx context.Context, name string, namespace string) {
+	issuer := &unstructured.Unstructured{}
+	issuer.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "cert-manager.io",
+		Version: "v1",
+		Kind:    "Issuer",
+	})
+	issuer.SetName(name)
+	issuer.SetNamespace(namespace)
+	Expect(unstructured.SetNestedMap(issuer.Object, map[string]interface{}{}, "spec")).ToNot(HaveOccurred())
+	Expect(k8sClient.Create(ctx, issuer)).NotTo(HaveOccurred())
 }

@@ -29,12 +29,12 @@ import (
 	dutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/dpu/util"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 
-	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
-	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
@@ -161,25 +161,41 @@ func setUpMTLS(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 
 	// step 2: replace server certificate
 	log.FromContext(ctx).Info("Replace server certificate...")
-	cr := &certmanagerv1.CertificateRequest{}
-	if err := ctrlCtx.Client.Get(ctx, types.NamespacedName{Name: dpu.Name, Namespace: dpu.Namespace}, cr); apierrors.IsNotFound(err) {
-		log.FromContext(ctx).Info("cert-manager CertificateRequest does not exist, try create one...")
-		resp, csrInfo, err := basicAuthClient.GenerateCSR(dpu.Spec.BMCIP)
-		if err != nil {
-			return fmt.Errorf("failed to generate CSR, err: %v", err)
-		} else if resp.StatusCode() != http.StatusOK {
-			return fmt.Errorf("failed to generate CSR, unexpected response status: %s", resp.Status())
+	cr := &unstructured.Unstructured{}
+	cr.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "cert-manager.io",
+		Version: "v1",
+		Kind:    "CertificateRequest",
+	})
+	err = ctrlCtx.Client.Get(ctx, types.NamespacedName{Name: dpu.Name, Namespace: dpu.Namespace}, cr)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			log.FromContext(ctx).Info("cert-manager CertificateRequest does not exist, try create one...")
+			resp, csrInfo, err := basicAuthClient.GenerateCSR(dpu.Spec.BMCIP)
+			if err != nil {
+				return fmt.Errorf("failed to generate CSR, err: %v", err)
+			} else if resp.StatusCode() != http.StatusOK {
+				return fmt.Errorf("failed to generate CSR, unexpected response status: %s", resp.Status())
+			}
+			if err := createCR(ctx, dpu, ctrlCtx, []byte(csrInfo.CSRString)); err != nil {
+				return fmt.Errorf("failed to create cert-manager CertificateRequest, err: %v", err)
+			}
+			log.FromContext(ctx).Info("successfully created cert-manager CertificateRequest")
+		} else {
+			return fmt.Errorf("failed to get existing cert-manager CertificateRequest, err: %v", err)
+
 		}
-		if err := createCR(ctx, dpu, ctrlCtx, []byte(csrInfo.CSRString)); err != nil {
-			return fmt.Errorf("failed to create cert-manager CertificateRequest, err: %v", err)
-		}
-		log.FromContext(ctx).Info("successfully created cert-manager CertificateRequest")
-	} else if err != nil {
-		return fmt.Errorf("failed to get existing cert-manager CertificateRequest, err: %v", err)
-	} else if cr.Status.Certificate == nil {
+	}
+
+	certificate, found, err := unstructured.NestedString(cr.Object, "status", "certificate")
+	if err != nil {
+		return fmt.Errorf("failed to extract certificate %w", err)
+	}
+	if !found {
 		return fmt.Errorf("cert-manager CertificateRequest is not issued yet, retry later")
 	}
-	resp, _, err = basicAuthClient.ReplaceServerCert(string(cr.Status.Certificate))
+
+	resp, _, err = basicAuthClient.ReplaceServerCert(certificate)
 	if err != nil {
 		return fmt.Errorf("failed to replace server cert, err: %v", err)
 	} else if resp.StatusCode() != http.StatusOK {
@@ -222,30 +238,35 @@ func setUpMTLS(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.Cont
 
 // createCR creates a cert-manager CertificateRequest for the given CSR
 func createCR(ctx context.Context, dpu *provisioningv1.DPU, ctrlCtx *dutil.ControllerContext, csr []byte) error {
-	cr := &certmanagerv1.CertificateRequest{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:            dpu.Name,
-			Namespace:       dpu.Namespace,
-			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(dpu, provisioningv1.DPUGroupVersionKind)},
+	cr := &unstructured.Unstructured{}
+	cr.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "cert-manager.io",
+		Version: "v1",
+		Kind:    "CertificateRequest",
+	})
+	cr.SetName(dpu.Name)
+	cr.SetNamespace(dpu.Namespace)
+	cr.SetOwnerReferences([]metav1.OwnerReference{*metav1.NewControllerRef(dpu, provisioningv1.DPUGroupVersionKind)})
+	err := unstructured.SetNestedMap(cr.Object, map[string]interface{}{
+		"request": csr,
+		"isCA":    false,
+		"usages": []interface{}{
+			"server auth",
+			"key encipherment",
+			"digital signature",
 		},
-		Spec: certmanagerv1.CertificateRequestSpec{
-			Request: csr,
-			IsCA:    false,
-			Usages: []certmanagerv1.KeyUsage{
-				certmanagerv1.UsageServerAuth,
-				certmanagerv1.UsageKeyEncipherment,
-				certmanagerv1.UsageDigitalSignature,
-			},
-			Duration: &metav1.Duration{
-				// 365 days
-				Duration: 8796 * time.Hour,
-			},
-			IssuerRef: cmmeta.ObjectReference{
-				Name:  rfclient.Issuer,
-				Kind:  "Issuer",
-				Group: "cert-manager.io",
-			},
+		"duration": metav1.Duration{
+			// 365 days
+			Duration: 8796 * time.Hour,
+		}.ToUnstructured(),
+		"issuerRef": map[string]interface{}{
+			"name":  rfclient.Issuer,
+			"kind":  "Issuer",
+			"group": "cert-manager.io",
 		},
+	}, "spec")
+	if err != nil {
+		return fmt.Errorf("failed to set spec to CertificateRequest: %w", err)
 	}
 	return ctrlCtx.Client.Create(ctx, cr)
 }

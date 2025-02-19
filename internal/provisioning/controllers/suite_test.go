@@ -41,7 +41,6 @@ import (
 	provisioningwebhooks "github.com/nvidia/doca-platform/internal/provisioning/webhooks"
 
 	nvidiaNodeMaintenancev1 "github.com/Mellanox/maintenance-operator/api/v1alpha1"
-	certmanagerv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	admissionv1 "k8s.io/api/admission/v1"
@@ -107,9 +106,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	err = nvidiaNodeMaintenancev1.AddToScheme(scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = certmanagerv1.AddToScheme(scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	// +kubebuilder:scaffold:scheme
