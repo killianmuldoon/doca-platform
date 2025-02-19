@@ -1,5 +1,5 @@
 /*
-Copyright 2024 NVIDIA
+Copyright 2025 NVIDIA
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package controllers
+package utils
 
 import (
 	"context"
@@ -23,11 +23,7 @@ import (
 	"runtime"
 	"testing"
 
-	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
-	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
-	"github.com/nvidia/doca-platform/internal/dpuservice/utils"
-	argov1 "github.com/nvidia/doca-platform/third_party/api/argocd/api/application/v1alpha1"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,19 +34,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"sigs.k8s.io/controller-runtime/pkg/metrics/server"
 )
 
 var cfg *rest.Config
 var testClient client.Client
 var testEnv *envtest.Environment
-var ctx, testManagerCancelFunc = context.WithCancel(ctrl.SetupSignalHandler())
-var chartHelper *utils.FakeChartHelper
+var ctx, cancelFunc = context.WithCancel(ctrl.SetupSignalHandler())
 
-func TestDPUService(t *testing.T) {
+func TestUtils(t *testing.T) {
 	RegisterFailHandler(Fail)
-
-	RunSpecs(t, "Controller Suite")
+	RunSpecs(t, "DPUService Utils Suite")
 }
 
 var _ = BeforeSuite(func() {
@@ -59,12 +52,7 @@ var _ = BeforeSuite(func() {
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "..", "config", "dpuservice", "crd", "bases"),
-			filepath.Join("..", "..", "..", "config", "provisioning", "crd", "bases"),
 			filepath.Join("..", "..", "..", "deploy", "helm", "dpf-operator", "templates", "crds"),
-			filepath.Join("..", "..", "..", "test", "objects", "crd", "argocd"),
-			filepath.Join("..", "..", "..", "test", "objects", "crd", "kamaji"),
-			filepath.Join("..", "..", "..", "test", "objects", "crd", "multus"),
 		},
 		ErrorIfCRDPathMissing: true,
 
@@ -83,15 +71,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = dpuservicev1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = provisioningv1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
-	err = argov1.AddToScheme(scheme.Scheme)
-	Expect(err).NotTo(HaveOccurred())
-
 	err = operatorv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
@@ -101,54 +80,12 @@ var _ = BeforeSuite(func() {
 	testClient, err = client.New(cfg, client.Options{Scheme: s})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(testClient).NotTo(BeNil())
-
-	By("setting up and running the test reconciler")
-	testManager, err := ctrl.NewManager(cfg,
-		ctrl.Options{
-			Scheme: scheme.Scheme,
-			// Set metrics server bind address to 0 to disable it.
-			Metrics: server.Options{
-				BindAddress: "0",
-			}})
-	Expect(err).ToNot(HaveOccurred())
-
-	err = (&DPUServiceReconciler{
-		Client: testClient,
-		Scheme: testManager.GetScheme(),
-	}).SetupWithManager(ctx, testManager)
-	Expect(err).ToNot(HaveOccurred())
-
-	err = (&DPUDeploymentReconciler{
-		Client: testClient,
-		Scheme: testManager.GetScheme(),
-	}).SetupWithManager(testManager)
-	Expect(err).ToNot(HaveOccurred())
-
-	err = (&DPUServiceCredentialRequestReconciler{
-		Client: testClient,
-		Scheme: testManager.GetScheme(),
-	}).SetupWithManager(testManager)
-	Expect(err).ToNot(HaveOccurred())
-
-	chartHelper = utils.NewFakeChartHelper()
-	err = (&DPUServiceTemplateReconciler{
-		Client:      testClient,
-		Scheme:      testManager.GetScheme(),
-		ChartHelper: chartHelper,
-	}).SetupWithManager(testManager)
-	Expect(err).ToNot(HaveOccurred())
-
-	go func() {
-		defer GinkgoRecover()
-		err = testManager.Start(ctx)
-		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
-	}()
 })
 
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
-	if testManagerCancelFunc != nil {
-		testManagerCancelFunc()
+	if cancelFunc != nil {
+		cancelFunc()
 	}
 	err := testEnv.Stop()
 	Expect(err).NotTo(HaveOccurred())

@@ -25,6 +25,7 @@ import (
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	dpuservicecontroller "github.com/nvidia/doca-platform/internal/dpuservice/controllers"
+	"github.com/nvidia/doca-platform/internal/dpuservice/utils"
 	dpuservicechaincontroller "github.com/nvidia/doca-platform/internal/dpuservicechain/controllers"
 	dpuservicechainwebhooks "github.com/nvidia/doca-platform/internal/dpuservicechain/webhooks"
 	argov1 "github.com/nvidia/doca-platform/third_party/api/argocd/api/application/v1alpha1"
@@ -225,8 +226,9 @@ func main() {
 	}
 
 	if err = (&dpuservicecontroller.DPUServiceTemplateReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
+		Client:      mgr.GetClient(),
+		Scheme:      mgr.GetScheme(),
+		ChartHelper: utils.NewChartHelper(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "DPUServiceTemplate")
 		os.Exit(1)

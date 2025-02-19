@@ -28,8 +28,9 @@ import (
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	operatorv1 "github.com/nvidia/doca-platform/api/operator/v1alpha1"
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/conditions"
 	"github.com/nvidia/doca-platform/internal/dpfctl"
-	"github.com/nvidia/doca-platform/internal/dpucluster"
+	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
 	"github.com/nvidia/doca-platform/test/utils"
 	"github.com/nvidia/doca-platform/test/utils/collector"
 	"github.com/nvidia/doca-platform/test/utils/metrics"
@@ -44,6 +45,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	machineryruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -1182,6 +1184,84 @@ func ValidateDPUServiceChain(ctx context.Context, input systemTestInput) {
 				&client.ListOptions{Namespace: dpuServiceInterfaceNamespace})).To(Succeed())
 			g.Expect(serviceInterfaceSetList.Items).To(BeEmpty())
 		}).WithTimeout(300 * time.Second).Should(Succeed())
+	})
+}
+func ValidateDPUServiceTemplate(ctx context.Context, input systemTestInput) {
+	It("create a DPUServiceTemplate with a chart that doesn't include annotations and expect no versions in status", func() {
+		By("creating the DPUServiceTemplate")
+		dpuServiceTemplate := input.dpuServiceTemplate.DeepCopy()
+		dpuServiceTemplate.SetName("dpuservice-without-annotations")
+		dpuServiceTemplate.SetLabels(cleanupLabels)
+		Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+
+		By("checking that status is ready and no versions")
+		Eventually(func(g Gomega) {
+			gotDPUServiceTemplate := &dpuservicev1.DPUServiceTemplate{}
+			g.Expect(testClient.Get(ctx,
+				types.NamespacedName{Name: dpuServiceTemplate.GetName(), Namespace: dpuServiceTemplate.GetNamespace()},
+				gotDPUServiceTemplate,
+			)).To(Succeed())
+			g.Expect(gotDPUServiceTemplate.Status.Conditions).To(ContainElement(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+			))
+
+			g.Expect(gotDPUServiceTemplate.Status.Versions).To(BeEmpty())
+		}).WithTimeout(180 * time.Second).Should(Succeed())
+	})
+
+	It("create a DPUServiceTemplate with a chart that includes annotations and expect versions in status", func() {
+		By("creating the DPUServiceTemplate")
+		dpuServiceTemplate := input.dpuServiceTemplate.DeepCopy()
+		dpuServiceTemplate.Spec.HelmChart.Source = dpuservicev1.ApplicationSource{
+			Chart:   "dummydpuservice-chart",
+			Version: tag,
+			// The library is able to handle both unauthenticated and authenticated OCI and Helm Registry. As part of this
+			// test we don't cover all these permutations, but based on the provided HELM_REGISTRY, it's possible to test
+			// all of them.
+			RepoURL: helmRegistry,
+		}
+		dpuServiceTemplate.SetName("dpuservice-with-annotations")
+		dpuServiceTemplate.SetLabels(cleanupLabels)
+		Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+
+		By("checking that status is ready and versions are set")
+		Eventually(func(g Gomega) {
+			gotDPUServiceTemplate := &dpuservicev1.DPUServiceTemplate{}
+			g.Expect(testClient.Get(ctx,
+				types.NamespacedName{Name: dpuServiceTemplate.GetName(), Namespace: dpuServiceTemplate.GetNamespace()},
+				gotDPUServiceTemplate,
+			)).To(Succeed())
+
+			g.Expect(gotDPUServiceTemplate.Status.Conditions).To(ContainElement(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionTrue),
+					HaveField("Reason", string(conditions.ReasonSuccess)),
+				),
+			))
+
+			g.Expect(gotDPUServiceTemplate.Status.Versions).To(HaveKeyWithValue("dpu.nvidia.com/doca-version", ">= 2.9"))
+		}).WithTimeout(180 * time.Second).Should(Succeed())
+	})
+
+	It("verify DPUServiceTemplate metrics", func() {
+		if !deployKSM {
+			Skip("Skip KSM metrics accessibility test due to KSM is not deployed")
+		}
+
+		By("verify DPUServiceTemplate metrics in KSM")
+		expectedMetricsNames := map[string][]string{
+			"dpuservicetemplate": {"created", "info", "status_conditions", "status_condition_last_transition_time"},
+		}
+		Eventually(func(g Gomega) {
+			actualMetricsNames := metrics.GetKSMMetrics(ctx, testRESTClient, metricsURI)
+			g.Expect(actualMetricsNames).NotTo(BeEmpty(), "Actual metrics are empty")
+			g.Expect(metrics.VerifyMetrics(expectedMetricsNames, actualMetricsNames)).To(BeEmpty())
+		}).WithTimeout(5 * time.Second).Should(Succeed())
 	})
 }
 

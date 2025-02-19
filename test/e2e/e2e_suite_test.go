@@ -66,6 +66,11 @@ var (
 	configPath string
 	// testKubeconfig path to be used for this test.
 	testKubeconfig string
+
+	// helmRegistry holds the Helm registry in which the artifacts used in e2e are pushed
+	helmRegistry = ""
+	// tag holds the tag which the artifacts used in e2e are using
+	tag = ""
 	// skipCleanup indicates whether to skip the cleanup of resources created during the e2e test run.
 	// When set to true, resources will not be removed after the test completes.
 	skipCleanup = false
@@ -147,6 +152,18 @@ func getEnvVariables() {
 		if err != nil {
 			panic(fmt.Errorf("string must be a bool: %v", err))
 		}
+	}
+
+	if reg, found := os.LookupEnv("HELM_REGISTRY"); found {
+		helmRegistry = reg
+	} else {
+		panic("HELM_REGISTRY env variable must be set")
+	}
+
+	if t, found := os.LookupEnv("TAG"); found {
+		tag = t
+	} else {
+		panic("TAG env variable must be set")
 	}
 }
 

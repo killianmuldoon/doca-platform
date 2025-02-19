@@ -173,6 +173,12 @@ spec:
                   the object the last time it was patched.
                 format: int64
                 type: integer
+              versions:
+                additionalProperties:
+                  type: string
+                description: Versions reflects the required versions the generated
+                  DPUService needs in order to function correctly.
+                type: object
             type: object
         type: object
     served: true

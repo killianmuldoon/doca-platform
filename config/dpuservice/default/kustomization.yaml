@@ -67,6 +67,8 @@ resources:
 patchesStrategicMerge:
   - manager_webhook_patch.yaml
   - webhookcainjection_patch.yaml
+  # TODO: Remove this mount when moving to oras.
+  - manager_dpuservicetemplate_controller_patch.yaml
 
 replacements:
   - source: # Add cert-manager annotation to MutatingWebhookConfiguration

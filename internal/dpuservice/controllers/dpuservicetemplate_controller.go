@@ -18,13 +18,17 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 
 	dpuservicev1 "github.com/nvidia/doca-platform/api/dpuservice/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
+	"github.com/nvidia/doca-platform/internal/digest"
+	"github.com/nvidia/doca-platform/internal/dpuservice/utils"
 
 	"github.com/fluxcd/pkg/runtime/patch"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	kerrors "k8s.io/apimachinery/pkg/util/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -44,6 +48,14 @@ const (
 type DPUServiceTemplateReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
+	// ChartHelper is used to do relevant operations on a chart
+	ChartHelper utils.ChartHelper
+	// versionsForChart holds the versions for a given chart. The key is a hash of the chart reference in the
+	// DPUServiceTemplate. The value is the set of versions for that particular chart.
+	versionsForChart map[string]map[string]string
+	// namespacedNameToHash holds the hash of the DPUServiceTemplate associated with a particular DPUServiceTemplate.
+	// Used so that the versionsForChart is kept up to date.
+	namespacedNameToHash map[types.NamespacedName]string
 }
 
 // pauseDPUServiceTemplateReconciler pauses the DPUServiceTemplate Reconciler by doing noop reconciliation loops. This
@@ -111,7 +123,35 @@ func (r *DPUServiceTemplateReconciler) Reconcile(ctx context.Context, req ctrl.R
 //
 //nolint:unparam
 func (r *DPUServiceTemplateReconciler) reconcile(ctx context.Context, dpuServiceTemplate *dpuservicev1.DPUServiceTemplate) (ctrl.Result, error) {
+	log := ctrllog.FromContext(ctx)
+	if r.versionsForChart == nil {
+		r.versionsForChart = make(map[string]map[string]string)
+	}
+	if r.namespacedNameToHash == nil {
+		r.namespacedNameToHash = make(map[types.NamespacedName]string)
+	}
+
+	versions, found := getVersionsFromMemory(r.namespacedNameToHash, r.versionsForChart, dpuServiceTemplate)
+	if !found {
+		var err error
+		log.Info("Pulling chart locally")
+		versions, err = r.ChartHelper.GetAnnotationsFromChart(ctx, r.Client, dpuServiceTemplate.Spec.HelmChart.Source)
+		if err != nil {
+			conditions.AddTrue(dpuServiceTemplate, dpuservicev1.ConditionDPUServiceTemplateReconciled)
+			conditions.AddFalse(
+				dpuServiceTemplate,
+				dpuservicev1.ConditionDPUServiceTemplateReconciled,
+				conditions.ReasonError,
+				conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+			)
+			return ctrl.Result{}, err
+		}
+	}
+
+	setVersionsInMemory(r.namespacedNameToHash, r.versionsForChart, dpuServiceTemplate, versions)
+	dpuServiceTemplate.Status.Versions = versions
 	conditions.AddTrue(dpuServiceTemplate, dpuservicev1.ConditionDPUServiceTemplateReconciled)
+
 	return ctrl.Result{}, nil
 }
 
@@ -122,7 +162,52 @@ func (r *DPUServiceTemplateReconciler) reconcileDelete(ctx context.Context, dpuS
 	log := ctrllog.FromContext(ctx)
 	log.Info("Reconciling delete")
 
+	deleteVersionsFromMemory(r.namespacedNameToHash, r.versionsForChart, dpuServiceTemplate)
+
 	log.Info("Removing finalizer")
 	controllerutil.RemoveFinalizer(dpuServiceTemplate, dpuservicev1.DPUServiceTemplateFinalizer)
 	return ctrl.Result{}, nil
+}
+
+// getVersionsFromMemory returns the versions from memory if they are fetched before. The boolean indicates whether they
+// were found in memory.
+func getVersionsFromMemory(namespacedNameToHash map[types.NamespacedName]string, versionsForChart map[string]map[string]string, dpuServiceTemplate *dpuservicev1.DPUServiceTemplate) (map[string]string, bool) {
+	hash, ok := namespacedNameToHash[types.NamespacedName{Name: dpuServiceTemplate.Name, Namespace: dpuServiceTemplate.Namespace}]
+	if !ok {
+		return nil, false
+	}
+
+	newHash := digest.FromObjects(dpuServiceTemplate.Spec.HelmChart.Source)
+	if newHash.String() != hash {
+		return nil, false
+	}
+
+	versions, ok := versionsForChart[hash]
+	if !ok {
+		return nil, false
+	}
+	return versions, true
+}
+
+// setVersionsInMemory sets the found versions in memory for further reconciliations. It also cleans up the maps from
+// stale entries.
+func setVersionsInMemory(namespacedNameToHash map[types.NamespacedName]string, versionsForChart map[string]map[string]string, dpuServiceTemplate *dpuservicev1.DPUServiceTemplate, versions map[string]string) {
+	namespacedName := types.NamespacedName{Name: dpuServiceTemplate.Name, Namespace: dpuServiceTemplate.Namespace}
+	if hash, ok := namespacedNameToHash[namespacedName]; ok {
+		delete(versionsForChart, hash)
+	}
+	hash := digest.FromObjects(dpuServiceTemplate.Spec.HelmChart.Source)
+	namespacedNameToHash[namespacedName] = hash.String()
+	versionsForChart[hash.String()] = versions
+}
+
+// deleteVersionsFromMemory deletes the versions from memory for a resource.
+func deleteVersionsFromMemory(namespacedNameToHash map[types.NamespacedName]string, versionsForChart map[string]map[string]string, dpuServiceTemplate *dpuservicev1.DPUServiceTemplate) {
+	namespacedName := types.NamespacedName{Name: dpuServiceTemplate.Name, Namespace: dpuServiceTemplate.Namespace}
+	if hash, ok := namespacedNameToHash[namespacedName]; ok {
+		delete(namespacedNameToHash, namespacedName)
+		// If we have another DPUServiceTemplate relying on the same hash, we force the pull of the chart again on the
+		// next reconciliation.
+		delete(versionsForChart, hash)
+	}
 }

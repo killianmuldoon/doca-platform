@@ -88,6 +88,7 @@ var _ = Describe("DPF System tests", Ordered, func() {
 			ValidateDPUServiceIPAM,
 			ValidateDPUServiceChain,
 			ValidateDPUServiceCredentialRequest,
+			ValidateDPUServiceTemplate,
 			ValidateGeneralDPFMetrics,
 			ValidateOperatorCleanup,
 		}

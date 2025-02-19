@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -134,6 +135,131 @@ var _ = Describe("DPUServiceTemplate Controller", func() {
 					HaveField("Reason", string(conditions.ReasonSuccess)),
 				),
 			))
+		})
+		It("DPUServiceTemplate has DPUServiceTemplateReconciled error if extracting annotations from the chart failed for some reason", func() {
+			dpuServiceTemplate := getMinimalDPUServiceTemplate(testNS.Name)
+
+			chartHelper.ReturnErrorForChart(dpuServiceTemplate.Spec.HelmChart.Source)
+			DeferCleanup(chartHelper.Reset)
+
+			Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+			DeferCleanup(testutils.CleanupAndWait, ctx, testClient, dpuServiceTemplate)
+
+			By("Checking the conditions")
+			Eventually(func(g Gomega) []metav1.Condition {
+				ev := &informer.Event{}
+				g.Eventually(i.UpdateEvents).Should(Receive(ev))
+				oldObj := &dpuservicev1.DPUServiceTemplate{}
+				newObj := &dpuservicev1.DPUServiceTemplate{}
+				g.Expect(testClient.Scheme().Convert(ev.OldObj, oldObj, nil)).ToNot(HaveOccurred())
+				g.Expect(testClient.Scheme().Convert(ev.NewObj, newObj, nil)).ToNot(HaveOccurred())
+
+				g.Expect(oldObj.Status.Conditions).To(ContainElement(
+					And(
+						HaveField("Type", string(dpuservicev1.ConditionDPUServiceTemplateReconciled)),
+						HaveField("Status", metav1.ConditionUnknown),
+						HaveField("Reason", string(conditions.ReasonPending)),
+					),
+				))
+				return newObj.Status.Conditions
+			}).WithTimeout(10 * time.Second).Should(ConsistOf(
+				And(
+					HaveField("Type", string(conditions.TypeReady)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonPending)),
+				),
+				And(
+					HaveField("Type", string(dpuservicev1.ConditionDPUServiceTemplateReconciled)),
+					HaveField("Status", metav1.ConditionFalse),
+					HaveField("Reason", string(conditions.ReasonError)),
+					HaveField("Message", ContainSubstring("error for")),
+				),
+			))
+		})
+	})
+	Context("When testing the internal cache of versions", func() {
+		var namespacedNameToHash map[types.NamespacedName]string
+		var versionsForChart map[string]map[string]string
+		BeforeEach(func() {
+			namespacedNameToHash = make(map[types.NamespacedName]string)
+			versionsForChart = make(map[string]map[string]string)
+		})
+		It("should add, retrieve and remove the versions for a DPUServiceTemplate", func() {
+			By("Adding the versions")
+			dpuServiceTemplate := getMinimalDPUServiceTemplate("myns")
+			setVersionsInMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate, map[string]string{"doca-version": "2.9"})
+
+			By("Retrieving the versions")
+			versions, found := getVersionsFromMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate)
+			Expect(found).To(BeTrue())
+			Expect(versions).To(BeEquivalentTo(map[string]string{"doca-version": "2.9"}))
+			Expect(versionsForChart).To(HaveLen(1))
+			Expect(namespacedNameToHash).To(HaveLen(1))
+
+			By("Removing the versions")
+			deleteVersionsFromMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate)
+			Expect(versionsForChart).To(BeEmpty())
+			Expect(namespacedNameToHash).To(BeEmpty())
+		})
+		It("should not return any version if DPUServiceTemplate was not processed before", func() {
+			dpuServiceTemplate := getMinimalDPUServiceTemplate("myns")
+			_, found := getVersionsFromMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate)
+			Expect(found).To(BeFalse())
+		})
+		It("should retrieve the correct versions for an unchanged, processed DPUServiceTemplate", func() {
+			dpuServiceTemplate := getMinimalDPUServiceTemplate("myns")
+			setVersionsInMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate, map[string]string{"doca-version": "2.9"})
+			versions, found := getVersionsFromMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate)
+			Expect(found).To(BeTrue())
+			Expect(versions).To(BeEquivalentTo(map[string]string{"doca-version": "2.9"}))
+		})
+		It("should cleanup the outdated version for an updated DPUServiceTemplate", func() {
+			dpuServiceTemplate := getMinimalDPUServiceTemplate("myns")
+			setVersionsInMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate, map[string]string{"doca-version": "2.9"})
+			dpuServiceTemplate.Spec.HelmChart.Source.Chart = "some-other-chart"
+			setVersionsInMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate, map[string]string{"doca-version": "2.10"})
+			versions, found := getVersionsFromMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate)
+			Expect(found).To(BeTrue())
+			Expect(versions).To(BeEquivalentTo(map[string]string{"doca-version": "2.10"}))
+			Expect(versionsForChart).To(HaveLen(1))
+		})
+		It("should cleanup the versions for an updated DPUServiceTemplate", func() {
+			dpuServiceTemplate := getMinimalDPUServiceTemplate("myns")
+			setVersionsInMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate, map[string]string{"doca-version": "2.9"})
+			dpuServiceTemplate.Spec.HelmChart.Source.Chart = "some-other-chart"
+			setVersionsInMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate, map[string]string{"doca-version": "2.10"})
+			versions, found := getVersionsFromMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate)
+			Expect(found).To(BeTrue())
+			Expect(versions).To(BeEquivalentTo(map[string]string{"doca-version": "2.10"}))
+			Expect(versionsForChart).To(HaveLen(1))
+		})
+		It("should handle 2 DPUServiceTemplates with the same chart", func() {
+			By("Adding the versions")
+			dpuServiceTemplate1 := getMinimalDPUServiceTemplate("myns")
+			dpuServiceTemplate1.SetName("template1")
+			setVersionsInMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate1, map[string]string{"doca-version": "2.9"})
+			dpuServiceTemplate2 := getMinimalDPUServiceTemplate("myns")
+			dpuServiceTemplate2.SetName("template2")
+			setVersionsInMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate2, map[string]string{"doca-version": "2.9"})
+
+			By("Retrieving the versions")
+			versions, found := getVersionsFromMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate1)
+			Expect(found).To(BeTrue())
+			Expect(versions).To(BeEquivalentTo(map[string]string{"doca-version": "2.9"}))
+			versions, found = getVersionsFromMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate2)
+			Expect(found).To(BeTrue())
+			Expect(versions).To(BeEquivalentTo(map[string]string{"doca-version": "2.9"}))
+			Expect(versionsForChart).To(HaveLen(1))
+			Expect(namespacedNameToHash).To(HaveLen(2))
+
+			By("Removing one of the DPUServiceTemplates")
+			deleteVersionsFromMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate1)
+			Expect(versionsForChart).To(BeEmpty())
+			Expect(namespacedNameToHash).To(HaveLen(1))
+
+			By("Retrieving the version for the remaining DPUServiceTemplate")
+			_, found = getVersionsFromMemory(namespacedNameToHash, versionsForChart, dpuServiceTemplate2)
+			Expect(found).To(BeFalse())
 		})
 	})
 })

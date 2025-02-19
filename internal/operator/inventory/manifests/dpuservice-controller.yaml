@@ -382,12 +382,16 @@ spec:
             drop:
             - ALL
         volumeMounts:
+        - mountPath: /.cache/helm
+          name: helm-cache
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cert
           readOnly: true
       serviceAccountName: dpuservice-controller-manager
       terminationGracePeriodSeconds: 10
       volumes:
+      - emptyDir: {}
+        name: helm-cache
       - name: cert
         secret:
           defaultMode: 420

@@ -7,6 +7,6 @@ spec:
   deploymentServiceName: "example"
   helmChart:
     source:
-      repoURL: https://github.com/argoproj/argocd-example-apps
-      path: helm-guestbook
-      version: HEAD
+      repoURL: https://helm.github.io/examples
+      chart: hello-world
+      version: 0.1.0
