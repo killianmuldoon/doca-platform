@@ -1,18 +1,18 @@
 ### DPF contract ###
-
-# configuration for the se
 serviceDaemonSet:
-#  nodeSelector:
-#   nodeSelectorTerms:
-#     - matchExpressions:
-#         - key: dpu
-#           operator: In
-#           values:
-#             - dpu
+  # selects nodes on which this service will run by label. Can be set in DPUService `.spec.serviceDaemonSet.nodeSelector`
+  # nodeSelector:
+  #   nodeSelectorTerms:
+  #   - matchExpressions:
+  #       - key: dpu
+  #         operator: In
+  #         values:
+  #           - dpu
+  # labels on the DaemonSet and pod template. Can be set in DPUService `.spec.serviceDaemonSet.labels`
   labels: {}
+  # annotations on the DaemonSet and pod template. Can be set in DPUService `.spec.serviceDaemonSet.annotations`
   annotations: {}
-  #  k8s.v1.cni.cncf.io/networks: | 
-  #   [{"name" : "mybrsfc", "interface" : "p0_sf"}]
+  # updateStrategy on the DaemonSet. Can be set in DPUService `.spec.serviceDaemonSet.updateStrategy.`
   updateStrategy: {}
   #  type: RollingUpdate
   #  rollingUpdate:

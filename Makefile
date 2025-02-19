@@ -188,7 +188,7 @@ grpc-format: buf  ## Format GRPC files
 ##@ Development
 GENERATE_TARGETS ?= dpuservice provisioning servicechainset sfc-controller operator \
 	operator-embedded release-defaults kamaji-cluster-manager static-cluster-manager \
-	ovn-kubernetes storage-snap mock-dms ovn-vpc
+	ovn-kubernetes storage-snap mock-dms ovn-vpc dummydpuservice
 
 .PHONY: generate
 generate: ## Run all generate-* targets: generate-modules generate-manifests-* and generate-go-deepcopy-*.
