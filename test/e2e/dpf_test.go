@@ -18,8 +18,10 @@ package e2e
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -30,7 +32,9 @@ import (
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 	"github.com/nvidia/doca-platform/internal/conditions"
 	"github.com/nvidia/doca-platform/internal/dpfctl"
-	dpucluster "github.com/nvidia/doca-platform/internal/dpucluster"
+	"github.com/nvidia/doca-platform/internal/dpucluster"
+	"github.com/nvidia/doca-platform/internal/dummydpuservice"
+	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	"github.com/nvidia/doca-platform/test/utils"
 	"github.com/nvidia/doca-platform/test/utils/collector"
 	"github.com/nvidia/doca-platform/test/utils/metrics"
@@ -1186,6 +1190,7 @@ func ValidateDPUServiceChain(ctx context.Context, input systemTestInput) {
 		}).WithTimeout(300 * time.Second).Should(Succeed())
 	})
 }
+
 func ValidateDPUServiceTemplate(ctx context.Context, input systemTestInput) {
 	It("create a DPUServiceTemplate with a chart that doesn't include annotations and expect no versions in status", func() {
 		By("creating the DPUServiceTemplate")
@@ -1262,6 +1267,87 @@ func ValidateDPUServiceTemplate(ctx context.Context, input systemTestInput) {
 			g.Expect(actualMetricsNames).NotTo(BeEmpty(), "Actual metrics are empty")
 			g.Expect(metrics.VerifyMetrics(expectedMetricsNames, actualMetricsNames)).To(BeEmpty())
 		}).WithTimeout(5 * time.Second).Should(Succeed())
+	})
+}
+
+func ValidateDPUServiceConfigPorts(ctx context.Context, input systemTestInput) {
+	It("expose ConfigPorts via DPUService and test reachability", func() {
+		if input.numberOfDPUNodes == 0 {
+			Skip("Skip DPUService ConfigPorts test as there are no DPU nodes")
+		}
+
+		By("create a DPUService with ConfigPorts")
+		dpuService := input.dpuService.DeepCopy()
+		dpuService.Name = "dummydpuservice"
+		dpuService.Namespace = dpfOperatorSystemNamespace
+		dpuService.SetLabels(cleanupLabels)
+		dpuService.Spec.HelmChart.Source = dpuservicev1.ApplicationSource{
+			Chart:   "dummydpuservice-chart",
+			Version: tag,
+			RepoURL: helmRegistry,
+		}
+		dpuService.Spec.HelmChart.Values = &machineryruntime.RawExtension{
+			Raw: []byte(`{"imagePullSecrets": [{"name": "dpf-pull-secret"}]}`),
+		}
+		dpuService.Spec.ConfigPorts = &dpuservicev1.ConfigPorts{
+			// TODO: test also ClusterIP. Currently this is not working as k3s doesn't have kube-proxy deployed.
+			ServiceType: corev1.ServiceTypeNodePort,
+			Ports: []dpuservicev1.ConfigPort{
+				{
+					Name:     "exampletcp",
+					Port:     8080,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+		}
+		Expect(testClient.Create(ctx, dpuService)).To(Succeed())
+
+		By("verify the ConfigPorts are exposed via the DPUService")
+		Eventually(func(g Gomega) {
+			g.Expect(testClient.Get(ctx, client.ObjectKeyFromObject(dpuService), dpuService)).To(Succeed())
+			g.Expect(dpuService.Status.ConfigPorts).NotTo(BeNil())
+		}).WithTimeout(120 * time.Second).Should(Succeed())
+
+		By("verify reachability to ConfigPorts from the DPU Cluster")
+		// First get the nodePort of the ConfigPort exposed on the host cluster.
+		var nodePort *uint16
+		for _, port := range dpuService.Status.ConfigPorts {
+			if port[0].Name == "exampletcp" {
+				nodePort = port[0].NodePort
+			}
+		}
+		// Then get the IPs of the host nodes and check reachability.
+		var nodeIPs []string
+		nodeList := &corev1.NodeList{}
+		Expect(testClient.List(ctx, nodeList, client.MatchingLabels{
+			"feature.node.kubernetes.io/dpu-enabled": "true",
+		})).To(Succeed())
+		for _, node := range nodeList.Items {
+			for _, addr := range node.Status.Addresses {
+				if addr.Type != corev1.NodeInternalIP {
+					continue
+				}
+				nodeIPs = append(nodeIPs, addr.Address)
+			}
+		}
+		// And finally check reachability by looping over all nodes.
+		for _, nodeIP := range nodeIPs {
+			dpuNodeIP, err := getDPUIPForHost(ctx, testClient, nodeIP)
+			Expect(err).NotTo(HaveOccurred())
+			Eventually(func(g Gomega) {
+				resp, err := http.Get(fmt.Sprintf("http://%s:%d", nodeIP, *nodePort))
+				g.Expect(err).NotTo(HaveOccurred())
+				defer func() {
+					err := resp.Body.Close()
+					g.Expect(err).NotTo(HaveOccurred())
+				}()
+
+				var podInfo dummydpuservice.PodInfo
+				g.Expect(json.NewDecoder(resp.Body).Decode(&podInfo)).To(Succeed())
+				g.Expect(podInfo.NodeIP).To(Equal(dpuNodeIP))
+				g.Expect(podInfo.PodNamespace).To(Equal(dpfOperatorSystemNamespace))
+			}).WithTimeout(5 * time.Minute).Should(Succeed())
+		}
 	})
 }
 
@@ -1512,4 +1598,22 @@ func ValidateGeneralDPFMetrics(ctx context.Context, input systemTestInput) {
 			g.Expect(metrics.VerifyMetrics(expectedMetricsNames, actualMetricsNames)).To(BeEmpty())
 		}).WithTimeout(20 * time.Second).Should(Succeed())
 	})
+}
+
+func getDPUIPForHost(ctx context.Context, c client.Client, nodeIP string) (string, error) {
+	var dpuList provisioningv1.DPUList
+	if err := c.List(ctx, &dpuList, client.MatchingLabels{
+		cutil.DPUHostIPLabel: nodeIP,
+	}); err != nil {
+		return "", err
+	}
+	if len(dpuList.Items) == 0 || len(dpuList.Items) > 1 {
+		return "", fmt.Errorf("no DPU found for host %s", nodeIP)
+	}
+	for _, addr := range dpuList.Items[0].Status.Addresses {
+		if addr.Type == corev1.NodeInternalIP {
+			return addr.Address, nil
+		}
+	}
+	return "", fmt.Errorf("no DPU IP found for host %s", nodeIP)
 }
