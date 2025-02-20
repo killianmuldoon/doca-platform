@@ -71,3 +71,6 @@ COPY --chown=${uid} --from=builder /workspace/bin/static-cluster-manager .
 COPY --chown=${uid} --from=builder /workspace/bin/ovshelper .
 COPY --chown=${uid} --from=builder /workspace/bin/dpfctl .
 COPY --chown=${uid} --from=builder /workspace/bin/dpfctl-darwin .
+
+# Add the source code to comply with Open Source Licensing.
+COPY ./ ./src
