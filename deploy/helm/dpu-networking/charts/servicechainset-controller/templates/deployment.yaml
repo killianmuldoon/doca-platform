@@ -25,6 +25,16 @@ spec:
       annotations:
         kubectl.kubernetes.io/default-container: manager
     spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: node-role.kubernetes.io/master
+                operator: Exists
+            - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: Exists
       volumes:
         {{- toYaml .Values.volumes | nindent 8 }}
       containers:
