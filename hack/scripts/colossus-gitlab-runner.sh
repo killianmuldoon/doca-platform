@@ -21,7 +21,7 @@ set -eou pipefail
 : ${GITLAB_RUNNER_TOKEN:?env not set}
 : ${GITLAB_REGISTRY_TOKEN:?env not set}
 : ${LEASE_POOL_SIZE:=10}
-: ${LEASES_PER_JOB:=2}
+: ${LEASES_PER_JOB:=1}
 : ${REGISTER_DOCKER_RUNNER:="true"}
 : ${INSTALL_DOCKER:="true"}
 : ${INSTALL_OPENJDK_JRE:="true"}
@@ -61,7 +61,7 @@ check_gitlab_runners_count() {
     local tag=$1
     local runners_count
 
-    runners_count=$(curl --silent --header "PRIVATE-TOKEN: $GITLAB_REGISTRY_TOKEN" "https://gitlab-master.nvidia.com/api/v4/projects/112105/runners?tag_list[]=$tag" | jq '[.[] | select(.active == true)] | length')
+    runners_count=$(curl --silent --header "PRIVATE-TOKEN: $GITLAB_REGISTRY_TOKEN" "https://gitlab-master.nvidia.com/api/v4/projects/112105/runners?tag_list[]=$tag&per_page=100&page=1" | jq '[.[] | select(.active == true)] | length')
 
     if [ $? -ne 0 ]; then
         echo -e "\e[31mFailed to retrieve the number of GitLab runners.\e[0m"
@@ -99,16 +99,31 @@ release_unactive_runners_by_tag "$DOCKER_TAG_LIST"
 release_unactive_runners_by_tag "$SHELL_TAG_LIST"
 docker_runners_count=$(check_gitlab_runners_count "$DOCKER_TAG_LIST")
 shell_runners_count=$(check_gitlab_runners_count "$SHELL_TAG_LIST")
-
-if [ "$docker_runners_count" -eq "$LEASE_POOL_SIZE" ] && [ "$shell_runners_count" -eq "$LEASE_POOL_SIZE" ]; then
-    echo "shell & docker runners on gitlab equals the required amount. Exiting..."
-    exit 0
-fi
-
 num_existing_leases=$(colossus bm lease list -c --json | jq '. | length') || { echo -e "\e[31mFailed to retrieve the number of existing leases.\e[0m"; exit 1; }
 num_existing_leases=$((num_existing_leases)) # Convert to integer
-if [ "$num_existing_leases" -eq 0 ]; then
-    echo "Failed to retrieve the number of existing leases or no leases found."
+
+# enough leases but not enough runners - release the leases with no runners.
+if [ "$num_existing_leases" -eq "$LEASE_POOL_SIZE" ] && { [ "$shell_runners_count" -lt "$LEASE_POOL_SIZE" ] || [ "$docker_runners_count" -lt "$LEASE_POOL_SIZE" ]; }; then
+    echo -e "\e[32mNumber of existing leases is equal to the lease pool size, but the number of shell or docker runners is less than the lease pool size. Finding and deleting leases with no runners...\e[0m"
+    leases=$(colossus bm lease list -c --json)
+
+    for lease_id in $(echo "$leases" | jq -r '.[].lease_id'); do
+        lease_ip=$(colossus bm lease list --lease-id "$lease_id" --json | jq -r '.[0].entity_details.ipAddress')
+        runner_description=$(curl --silent --header "PRIVATE-TOKEN: $GITLAB_REGISTRY_TOKEN" "https://gitlab-master.nvidia.com/api/v4/projects/112105/runners?per_page=100" | jq -r --arg lease_ip "$lease_ip" '.[] | select(.description | contains($lease_ip)) | .description')
+        runner_ip=$(echo "$runner_description" | awk '{print $NF}')
+        runner_count=$(curl --silent --header "PRIVATE-TOKEN: $GITLAB_REGISTRY_TOKEN" "https://gitlab-master.nvidia.com/api/v4/projects/112105/runners?per_page=100" | jq --arg runner_ip "$runner_ip" '[.[] | select(.description | contains($runner_ip) and .active == true)] | length')
+        if [ "$runner_count" -lt 2 ]; then
+            echo "Deleting lease with ID: $lease_id and IP: $lease_ip as it has less than 2 active runners."
+            colossus bm lease delete --lease-id "$lease_id"
+        fi
+    done
+fi
+
+if [ "$num_existing_leases" -eq "$LEASE_POOL_SIZE" ]; then
+    echo -e "\e[32mNumber of existing leases: ($num_existing_leases), is equal to the lease pool size: ($LEASE_POOL_SIZE). Exiting...\e[0m"
+    echo -e "\e[32mNumber of Docker runners: $docker_runners_count\e[0m"
+    echo -e "\e[32mNumber of Shell runners: $shell_runners_count\e[0m"
+    exit 0
 else
     echo -e "\e[32mNumber of existing leases: $num_existing_leases\e[0m"
 fi
@@ -126,7 +141,6 @@ export GITLAB_REGISTRY_TOKEN=$GITLAB_REGISTRY_TOKEN
 EOF
 chmod 777 "$runner_env_file"
 echo "Environment file created: $runner_env_file"
-
 
 check_lease_ready() {
     local lease_id=$1
