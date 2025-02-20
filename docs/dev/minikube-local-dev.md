@@ -27,9 +27,11 @@ export TAG=v0.1.0-$(git rev-parse --short HEAD)-$USER-test
 ```
 _Note:_ For MAC users add:
 ```
-export MINIKUBE_DRIVER=qemu
 export MINIKUBE_EXTRA_ARGS="--network=socket_vmnet"
 ```
+
+On Mac the development environment is designed to work with Docker Desktop running with Apple Virtualization.
+
 _Note:_ Example using NVIDIA Gitlab container registry:
   - Fork the repo https://gitlab-master.nvidia.com/doca-platform-foundation
   - Add the token with write_registry permission https://gitlab-master.nvidia.com/azala/doca-platform-foundation/-/settings/access_tokens
