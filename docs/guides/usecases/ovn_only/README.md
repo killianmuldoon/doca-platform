@@ -209,7 +209,8 @@ envsubst < manifests/01-cni-installation/helm-values/ovn-kubernetes.yml | helm u
 ```yml
 ovn-kubernetes-resource-injector:
   enabled: false
-imagePullSecretName: "dpf-pull-secret"
+global:
+  imagePullSecretName: "dpf-pull-secret"
 k8sAPIServer: https://$TARGETCLUSTER_API_SERVER_HOST:$TARGETCLUSTER_API_SERVER_PORT
 nodeWithDPUManifests:
   nodeMgmtPortNetdev: $DPU_P0_VF1
@@ -596,7 +597,8 @@ envsubst < manifests/04-enable-accelerated-cni/helm-values/ovn-kubernetes.yml | 
 ovn-kubernetes-resource-injector:
   ## Enable the ovn-kubernetes-resource-injector
   enabled: true
-imagePullSecretName: "dpf-pull-secret"
+global:
+  imagePullSecretName: "dpf-pull-secret"
 k8sAPIServer: https://$TARGETCLUSTER_API_SERVER_HOST:$TARGETCLUSTER_API_SERVER_PORT
 nodeWithDPUManifests:
   nodeMgmtPortNetdev: $DPU_P0_VF1
@@ -782,7 +784,8 @@ spec:
         kubernetesSecretName: "ovn-dpu" # user needs to populate based on DPUServiceCredentialRequest
         hostCIDR: $TARGETCLUSTER_NODE_CIDR
         externalDHCP: true
-      imagePullSecretName: dpf-pull-secret
+      global:
+        imagePullSecretName: dpf-pull-secret
       k8sAPIServer: https://$TARGETCLUSTER_API_SERVER_HOST:$TARGETCLUSTER_API_SERVER_PORT
       podNetwork: $POD_CIDR/24
       serviceNetwork: $SERVICE_CIDR
@@ -1053,7 +1056,8 @@ spec:
       dpuManifests:
         enabled: true
       gatewayOpts: "--gateway-interface=br-ovn --gateway-uplink-port=puplinkbrovn"
-      imagePullSecretName: dpf-pull-secret
+      global:
+        imagePullSecretName: dpf-pull-secret
 ```
 </details>
 

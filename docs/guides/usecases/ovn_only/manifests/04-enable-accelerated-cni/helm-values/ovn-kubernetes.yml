@@ -1,7 +1,8 @@
 ovn-kubernetes-resource-injector:
   ## Enable the ovn-kubernetes-resource-injector
   enabled: true
-imagePullSecretName: "dpf-pull-secret"
+global:
+  imagePullSecretName: "dpf-pull-secret"
 k8sAPIServer: https://$TARGETCLUSTER_API_SERVER_HOST:$TARGETCLUSTER_API_SERVER_PORT
 nodeWithDPUManifests:
   nodeMgmtPortNetdev: $DPU_P0_VF1

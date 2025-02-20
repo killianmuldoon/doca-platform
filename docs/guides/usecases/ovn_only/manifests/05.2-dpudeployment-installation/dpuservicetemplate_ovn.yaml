@@ -23,4 +23,5 @@ spec:
       dpuManifests:
         enabled: true
       gatewayOpts: "--gateway-interface=br-ovn --gateway-uplink-port=puplinkbrovn"
-      imagePullSecretName: dpf-pull-secret
+      global:
+        imagePullSecretName: dpf-pull-secret
