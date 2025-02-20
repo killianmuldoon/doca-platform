@@ -31,6 +31,7 @@ import (
 	"time"
 
 	provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
+	"github.com/nvidia/doca-platform/internal/dpucluster"
 	cutil "github.com/nvidia/doca-platform/internal/provisioning/controllers/util"
 	"github.com/nvidia/doca-platform/test/mock/dms/pkg/certs"
 	"github.com/nvidia/doca-platform/test/utils"
@@ -39,6 +40,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/utils/ptr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -51,6 +53,7 @@ var (
 func TestDMSServerReconciler(t *testing.T) {
 	g := NewWithT(t)
 
+	numDPUs := 30
 	// 1) Initializing phase requires a node with the DPUOOBBridgeConfiguredLabel exists.
 	node := &corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
@@ -168,7 +171,7 @@ func TestDMSServerReconciler(t *testing.T) {
 	}{
 		{
 			name:  "Provision many DPUs until ready",
-			input: createDPUs(30),
+			input: createDPUs(numDPUs),
 		},
 	}
 
@@ -178,6 +181,12 @@ func TestDMSServerReconciler(t *testing.T) {
 			for _, dpu := range tt.input {
 				g.Expect(testClient.Create(ctx, dpu)).To(Succeed())
 			}
+			// Construct the client for the DPU cluster.
+			cluster, err := dpucluster.GetConfigs(ctx, testClient)
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(cluster).To(HaveLen(1))
+			dpuClient, err := cluster[0].Client(ctx)
+			g.Expect(err).NotTo(HaveOccurred())
 
 			g.Eventually(func(g Gomega) {
 				got := &provisioningv1.DPUList{}
@@ -189,6 +198,18 @@ func TestDMSServerReconciler(t *testing.T) {
 					// mock-dms relies on an external component to put the Node in a Ready state.
 					g.Expect(dpu.Status.Phase).To(Equal(provisioningv1.DPUClusterConfig))
 				}
+				// Check a node has been created for each DPU.
+				nodeList := &corev1.NodeList{}
+				g.Expect(dpuClient.List(ctx, nodeList, client.HasLabels{fakeNodeLabel})).To(Succeed())
+				g.Expect(nodeList.Items).To(HaveLen(numDPUs))
+			}).WithTimeout(100 * time.Second).Should(Succeed())
+
+			g.Eventually(func(g Gomega) {
+				nodeList := &corev1.NodeList{}
+				// Delete the DPUs and check the nodes have been cleaned up.
+				g.Expect(testClient.DeleteAllOf(ctx, &provisioningv1.DPU{}, client.InNamespace("default"))).To(Succeed())
+				g.Expect(dpuClient.List(ctx, nodeList, client.HasLabels{fakeNodeLabel})).To(Succeed())
+				g.Expect(nodeList.Items).To(BeEmpty())
 			}).WithTimeout(100 * time.Second).Should(Succeed())
 		})
 	}

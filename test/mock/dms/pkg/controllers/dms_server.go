@@ -36,6 +36,8 @@ import (
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+const fakeNodeLabel = "node-role.dpf.nvidia.com/fake"
+
 // DMSServerReconciler reconciles a DPU object
 type DMSServerReconciler struct {
 	Client client.Client
@@ -82,6 +84,10 @@ func (r *DMSServerReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		dpu.Annotations = map[string]string{}
 	}
 
+	if !dpu.DeletionTimestamp.IsZero() {
+		return ctrl.Result{}, nil
+	}
+
 	// Set the mock dms pod as both the DMS and hostnetwork pod using override annotations on the DPU.
 	// This enables the DPU To pass checks related to deploying the DMS pod and waiting for the hostnetwork pod to become ready.
 	dpu.Annotations[cutil.OverrideDMSPodNameAnnotationKey] = r.PodName
@@ -126,6 +132,9 @@ func (r *DMSServerReconciler) createNodeForDPU(ctx context.Context, dpu *provisi
 			Namespace: dpu.Namespace,
 			Annotations: map[string]string{
 				"kwok.x-k8s.io/node": "fake",
+			},
+			Labels: map[string]string{
+				fakeNodeLabel: "true",
 			},
 		},
 		TypeMeta: metav1.TypeMeta{
