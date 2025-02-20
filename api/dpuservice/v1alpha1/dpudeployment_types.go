@@ -36,6 +36,7 @@ var DPUDeploymentGroupVersionKind = GroupVersion.WithKind(DPUDeploymentKind)
 const (
 	ConditionPreReqsReady                   conditions.ConditionType = "PrerequisitesReady"
 	ConditionResourceFittingReady           conditions.ConditionType = "ResourceFittingReady"
+	ConditionVersionMatchingReady           conditions.ConditionType = "VersionMatchingReady"
 	ConditionDPUSetsReconciled              conditions.ConditionType = "DPUSetsReconciled"
 	ConditionDPUSetsReady                   conditions.ConditionType = "DPUSetsReady"
 	ConditionDPUServicesReconciled          conditions.ConditionType = "DPUServicesReconciled"
@@ -51,6 +52,7 @@ var (
 		conditions.TypeReady,
 		ConditionPreReqsReady,
 		ConditionResourceFittingReady,
+		ConditionVersionMatchingReady,
 		ConditionDPUSetsReconciled,
 		ConditionDPUSetsReady,
 		ConditionDPUServicesReconciled,

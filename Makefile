@@ -401,6 +401,7 @@ test-report: envtest gotestsum ## Run tests and generate a junit style report
 test-release-e2e-quick: # Build images required for the quick DPF e2e test.
 	$(MAKE) docker-build-dpf-system-for-$(ARCH) docker-push-dpf-system-for-$(ARCH)
 	$(MAKE) docker-build-dummydpuservice docker-push-dummydpuservice
+	$(MAKE) docker-build-hostdriver docker-push-hostdriver
 
 	# Build and push all the helm charts
 	$(MAKE) helm-package-all helm-push-all

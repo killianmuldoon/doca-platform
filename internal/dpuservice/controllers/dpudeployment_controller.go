@@ -30,6 +30,7 @@ import (
 	"github.com/nvidia/doca-platform/internal/digest"
 	dpfutils "github.com/nvidia/doca-platform/internal/utils"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/fluxcd/pkg/runtime/patch"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -256,6 +257,17 @@ func (r *DPUDeploymentReconciler) reconcile(ctx context.Context, dpuDeployment *
 		return ctrl.Result{}, fmt.Errorf("error while preparing the DPUDeployment dependencies: %w", err)
 	}
 	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionPreReqsReady)
+
+	if err := verifyVersionMatching(deps); err != nil {
+		conditions.AddFalse(
+			dpuDeployment,
+			dpuservicev1.ConditionVersionMatchingReady,
+			conditions.ReasonError,
+			conditions.ConditionMessage(fmt.Sprintf("Error occurred: %s", err.Error())),
+		)
+		return ctrl.Result{}, fmt.Errorf("error while verifying that versions are matching: %w", err)
+	}
+	conditions.AddTrue(dpuDeployment, dpuservicev1.ConditionVersionMatchingReady)
 
 	if err := verifyResourceFitting(deps); err != nil {
 		conditions.AddFalse(
@@ -546,6 +558,42 @@ func verifyResourceFitting(dependencies *dpuDeploymentDependencies) error {
 	return nil
 }
 
+// verifyVersionMatching verifies that the user provided BFB and DPUServices have versions that match
+func verifyVersionMatching(dependencies *dpuDeploymentDependencies) error {
+	var errs []error
+	for _, dpuServiceTemplate := range dependencies.DPUServiceTemplates {
+		for dpuServiceVersionKey, bfbVersion := range GetServiceVersionKeyToBFBVersionValue(dependencies.BFB) {
+			bfbValue, err := semver.NewVersion(bfbVersion)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("version '%s' found in bfb is not parsable: %w", bfbVersion, err))
+				continue
+			}
+
+			if dpuServiceTemplate.Status.Versions == nil {
+				continue
+			}
+
+			serviceVersionConstraint, ok := dpuServiceTemplate.Status.Versions[dpuServiceVersionKey]
+			if !ok {
+				continue
+			}
+
+			dpuServiceTemplateValue, err := semver.NewConstraint(serviceVersionConstraint)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("version constraint '%s' found in DPUServiceTemplate '%s' is not parsable: %w", serviceVersionConstraint, dpuServiceTemplate.Name, err))
+				continue
+			}
+
+			if !dpuServiceTemplateValue.Check(bfbValue) {
+				errs = append(errs, fmt.Errorf("version constraint for '%s' found in DPUServiceTemplate '%s' is not satisfied by the version '%s' found in the given BFB", dpuServiceVersionKey, dpuServiceTemplate.Name, bfbVersion))
+				continue
+			}
+		}
+	}
+
+	return kerrors.NewAggregate(errs)
+}
+
 // getDependencies gets the DPUDeployment dependencies from the Kubernetes API Server.
 func getDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuservicev1.DPUDeployment) (*dpuDeploymentDependencies, error) {
 	deps := &dpuDeploymentDependencies{
@@ -557,6 +605,9 @@ func getDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuser
 	key := client.ObjectKey{Namespace: dpuDeployment.Namespace, Name: dpuDeployment.Spec.DPUs.BFB}
 	if err := c.Get(ctx, key, bfb); err != nil {
 		return deps, fmt.Errorf("error while getting %s %s: %w", provisioningv1.BFBGroupVersionKind.String(), key.String(), err)
+	}
+	if bfb.Status.Phase != provisioningv1.BFBReady {
+		return deps, errors.New("BFB is not ready yet")
 	}
 	deps.BFB = bfb
 
@@ -575,6 +626,13 @@ func getDependencies(ctx context.Context, c client.Client, dpuDeployment *dpuser
 		}
 		if serviceTemplate.Spec.DeploymentServiceName != service {
 			return deps, fmt.Errorf("service in DPUServiceTemplate %s doesn't match requested service in DPUDeployment", key.String())
+		}
+		// We can't check against the ObservedGeneration of the individual Ready condition because flux patcher patches
+		// first the status conditions, then the spec and then the status of an object, meaning that we may have a
+		// race condition where the conditions are updated, the versions in status field is outdated => version matching
+		// passes on the first reconcile => service is updated => disruption.
+		if !(conditions.IsTrue(serviceTemplate, conditions.TypeReady) && serviceTemplate.Generation == serviceTemplate.Status.ObservedGeneration) {
+			return deps, fmt.Errorf("DPUServiceTemplate %s is not ready yet", key.String())
 		}
 		deps.DPUServiceTemplates[service] = serviceTemplate
 

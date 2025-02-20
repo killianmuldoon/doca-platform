@@ -768,6 +768,11 @@ func ValidateDPUDeployment(ctx context.Context, input systemTestInput) {
 		dpuServiceTemplate := input.dpuServiceTemplate.DeepCopy()
 		dpuServiceTemplate.SetLabels(cleanupLabels)
 		Expect(testClient.Create(ctx, dpuServiceTemplate)).To(Succeed())
+		dpuServiceTemplate.Spec.HelmChart.Source = dpuservicev1.ApplicationSource{
+			Chart:   "dummydpuservice-chart",
+			Version: tag,
+			RepoURL: helmRegistry,
+		}
 
 		dpuServiceConfiguration := input.dpuServiceConfiguration.DeepCopy()
 		dpuServiceConfiguration.SetLabels(cleanupLabels)
@@ -815,7 +820,9 @@ func ValidateDPUDeployment(ctx context.Context, input systemTestInput) {
 					"svc.dpu.nvidia.com/owned-by-dpudeployment": fmt.Sprintf("%s_%s", dpuDeployment.GetNamespace(), dpuDeployment.GetName()),
 				})).To(Succeed())
 			g.Expect(gotDPUServiceInterfaceList.Items).To(HaveLen(1))
-		}).WithTimeout(180 * time.Second).Should(Succeed())
+			// A couple of dependencies must become ready before the DPUDeployment can take action, therefore we have to wait
+			// a little longer here.
+		}).WithTimeout(15 * time.Minute).WithPolling(time.Second).Should(Succeed())
 	})
 
 	It("verify DPUDeployment and DPUServiceInterface metrics", func() {
