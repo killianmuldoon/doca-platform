@@ -48,6 +48,9 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     make binaries-dpf-system
 
+# Copy the go source code so it can be distributed in the final image.
+RUN mkdir src && find . -name '*.go' -not -path "./hack/*" -exec cp --parents \{\}  src/ \;
+
 # 3) Final stage copies artefacts from the builder and dependency stages.
 FROM ${base_image}
 ARG TARGETARCH
@@ -58,9 +61,14 @@ WORKDIR /
 ENV uid=65532
 USER ${uid}:${uid}
 
+# Add the source code.
+COPY --chown=${uid} --from=builder /workspace/src src
+
+# Add the dependencies
 COPY --chown=${uid} --from=dependency /workspace/kubeadm-${TARGETARCH} /bin/kubeadm
 COPY --chown=${uid} --from=dependency /kubeconfig /kubeconfig
 
+# Add the DPF system binaries
 COPY --chown=${uid} --from=builder /workspace/bin/operator .
 COPY --chown=${uid} --from=builder /workspace/bin/provisioning .
 COPY --chown=${uid} --from=builder /workspace/bin/dpuservice .
@@ -72,5 +80,3 @@ COPY --chown=${uid} --from=builder /workspace/bin/ovshelper .
 COPY --chown=${uid} --from=builder /workspace/bin/dpfctl .
 COPY --chown=${uid} --from=builder /workspace/bin/dpfctl-darwin .
 
-# Add the source code to comply with Open Source Licensing.
-COPY ./ ./src
