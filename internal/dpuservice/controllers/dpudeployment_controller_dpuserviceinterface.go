@@ -91,7 +91,8 @@ func reconcileDPUServiceInterfaces(
 		currentDPUServiceClientObj, _ := getCurrentAndStaleDPUServices(dpuServiceName, versionDigest, existingDPUServices)
 		// One case where this can happen is if the DPUService was manually deleted
 		if currentDPUServiceClientObj == nil {
-			return requeue, fmt.Errorf("failed to find current DPUService for service '%s' as defined in DPUDeployment", dpuServiceName)
+			errs = append(errs, fmt.Errorf("failed to find current DPUService for service '%s' as defined in DPUDeployment", dpuServiceName))
+			continue
 		}
 		currentDPUService := currentDPUServiceClientObj.(*dpuservicev1.DPUService)
 		dpuServiceLabelKey := getDPUServiceVersionLabelKey(dpuServiceName)
@@ -117,12 +118,11 @@ func reconcileDPUServiceInterfaces(
 			switch {
 			case currentRevision != nil:
 				// we found the current revision based on the digest, there might be old revisions to handle
-				req := reconcileCurrentDPUServiceInterfaceRevision(ctx, c, currentRevision, currentDPUService, oldRevisions, existingDPUServiceInterfacesMap)
+				req := reconcileCurrentDPUServiceInterfaceRevision(ctx, c, newRevision, currentRevision, currentDPUService, oldRevisions, serviceConfig, existingDPUServiceInterfacesMap, currentDPUServiceNodeSelector)
 
 				if !req.IsZero() {
 					requeue = req
 				}
-				continue
 			case len(oldRevisions) > 0:
 				// we have only previous revisions
 				req := reconcileDPUServiceInterfaceWithOldRevisions(newRevision, oldRevisions, dpuDeployment, serviceConfig, existingDPUServiceInterfacesMap, currentDPUServiceNodeSelector)
@@ -134,6 +134,8 @@ func reconcileDPUServiceInterfaces(
 				reconcileNewDPUServiceInterfaceRevision(newRevision, serviceConfig, currentDPUServiceNodeSelector)
 			}
 
+			newRevision.SetManagedFields(nil)
+			newRevision.SetGroupVersionKind(dpuservicev1.DPUServiceInterfaceGroupVersionKind)
 			if err := c.Patch(ctx, newRevision, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
 				errs = append(errs, fmt.Errorf("failed to patch DPUServiceInterface %s: %w", client.ObjectKeyFromObject(newRevision), err))
 			}
@@ -233,19 +235,36 @@ func reconcileDPUServiceInterfaceWithOldRevisions(newRevision *dpuservicev1.DPUS
 // It cleans the old revisions if the current object is ready
 func reconcileCurrentDPUServiceInterfaceRevision(ctx context.Context,
 	c client.Client,
+	newRevision *dpuservicev1.DPUServiceInterface,
 	currentRevision client.Object,
 	currentDPUService *dpuservicev1.DPUService,
 	oldRevisions []client.Object,
+	serviceConfig *dpuservicev1.DPUServiceConfiguration,
 	existingDPUServiceInterfacesMap map[string]dpuservicev1.DPUServiceInterface,
+	currentDPUServiceNodeSelector *metav1.LabelSelector,
 ) ctrl.Result {
 	log := ctrl.LoggerFrom(ctx)
 	requeue := ctrl.Result{RequeueAfter: reconcileRequeueDuration}
 	oldRevs := clientObjectToDPUServiceInterfaceList(oldRevisions)
 
+	// We update the name of the newRevision to the currentRevision so that we can patch the existing object
+	newRevision.Name = currentRevision.GetName()
+
+	// We update the newRevision nodeSelector to match the currentRevision nodeSelector since it relies on the revision name
+	if !serviceConfig.Spec.ServiceConfiguration.ShouldDeployInCluster() {
+		newRevision.SetServiceInterfaceSetLabelSelector(currentDPUServiceNodeSelector)
+	}
+
+	// We delete the current revision so that it doesn't get cleaned up
 	delete(existingDPUServiceInterfacesMap, currentRevision.GetName())
 
-	// if the current revision is still not ready, keep the eventual old revisions and requeue
-	// otherwise, clean old revisions
+	// If there are no old revisions, we don't need to enqueue as there are no old revisions that need cleanup.
+	if len(oldRevs) == 0 {
+		return ctrl.Result{}
+	}
+
+	// if the current revision is ready, clean old revisions. If not, the stale entries won't be removed in the caller
+	// function unless they have their DPUService deleted.
 	if conditions.IsTrue(currentDPUService, conditions.TypeReady) {
 		err := cleanStaleDPUServiceInterfaces(ctx, c, oldRevs)
 		if err != nil {
@@ -255,9 +274,6 @@ func reconcileCurrentDPUServiceInterfaceRevision(ctx context.Context,
 		return ctrl.Result{}
 	}
 
-	// Never patch the current DPUServiceInterface, it could have stale nodeSelector terms that we don't want to remove
-	// The user should not change the DPUServiceInterfaae manually, because the controller will overwrite the changes
-	// at some point as part of the upgrade process.
 	return requeue
 }
 
@@ -325,8 +341,6 @@ func generateDPUServiceInterface(name string,
 	}
 
 	dpuServiceInterface.SetOwnerReferences(owners)
-	dpuServiceInterface.ObjectMeta.ManagedFields = nil
-	dpuServiceInterface.SetGroupVersionKind(dpuservicev1.DPUServiceInterfaceGroupVersionKind)
 
 	return dpuServiceInterface
 }

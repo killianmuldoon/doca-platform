@@ -66,7 +66,11 @@ func reconcileDPUServiceChain(ctx context.Context,
 	switch {
 	case currentRevision != nil:
 		// we found the current revision based on the digest, there might be old revisions to handle
-		return reconcileCurrentRevision(ctx, c, currentRevision, oldRevisions, dpuNodeLabels, existingDPUServiceChainsMap)
+		req := reconcileCurrentDPUServiceChainRevision(ctx, c, newRevision, currentRevision, oldRevisions, dpuNodeLabels, existingDPUServiceChainsMap)
+
+		if !req.IsZero() {
+			requeue = req
+		}
 	case len(oldRevisions) > 0:
 		// we have only previous revisions
 		req := reconcileDPUServiceChainWithOldRevisions(newRevision, oldRevisions, dpuDeployment, dpuNodeLabels, existingDPUServiceChainsMap)
@@ -78,6 +82,8 @@ func reconcileDPUServiceChain(ctx context.Context,
 		reconcileNewDPUServiceChainRevision(newRevision, dpuDeployment, dpuNodeLabels)
 	}
 
+	newRevision.SetManagedFields(nil)
+	newRevision.SetGroupVersionKind(dpuservicev1.DPUServiceChainGroupVersionKind)
 	if err := c.Patch(ctx, newRevision, client.Apply, client.ForceOwnership, client.FieldOwner(dpuDeploymentControllerName)); err != nil {
 		return requeue, fmt.Errorf("failed to patch DPUServiceChain %s: %w", client.ObjectKeyFromObject(newRevision), err)
 	}
@@ -144,19 +150,37 @@ func reconcileDPUServiceChainWithOldRevisions(newRevision *dpuservicev1.DPUServi
 	return ctrl.Result{RequeueAfter: reconcileRequeueDuration}
 }
 
-// ReconcileCurrentRevision reconciles the current revision of the DPUServiceChain and the old revisions.
+// reconcileCurrentDPUServiceChainRevision reconciles the current revision of the DPUServiceChain and the old revisions.
 // It accepts the current DPUServiceChain objec and  the old revisions of the DPUServiceChain.
 // It cleans the old revisions and updates the DPUNodeLabels.
-func reconcileCurrentRevision(ctx context.Context, c client.Client,
+func reconcileCurrentDPUServiceChainRevision(ctx context.Context, c client.Client,
+	newRevision *dpuservicev1.DPUServiceChain,
 	currentRevision client.Object,
 	oldRevisions []client.Object,
 	dpuNodeLabels map[string]string,
-	existingDPUServiceChainsMap map[string]dpuservicev1.DPUServiceChain) (ctrl.Result, error) {
+	existingDPUServiceChainsMap map[string]dpuservicev1.DPUServiceChain) ctrl.Result {
 	log := ctrllog.FromContext(ctx)
 	requeue := ctrl.Result{RequeueAfter: reconcileRequeueDuration}
 	currentRev, oldRevs := currentRevision.(*dpuservicev1.DPUServiceChain), clientObjectToDPUServiceChainList(oldRevisions)
 
+	// We update the name of the newRevision to the currentRevision so that we can patch the existing object
+	newRevision.Name = currentRev.Name
+
+	// We update the newRevision nodeSelector to match the currentRevision nodeSelector since it relies on the revision name
+	newRevision.SetServiceChainSetLabelSelector(&metav1.LabelSelector{
+		MatchExpressions: currentRev.Spec.Template.Spec.NodeSelector.MatchExpressions,
+	})
+
+	// We delete the current revision so that it doesn't get cleaned up
 	delete(existingDPUServiceChainsMap, currentRev.GetName())
+
+	// This is needed because we don't know if a dpuSet will be updated or created
+	setDPUServiceChainNodeLabelValue(getLabelSelectorDPUServiceChainVersionValue(currentRev.Spec.Template.Spec.NodeSelector), dpuNodeLabels)
+
+	// If there are no old revisions, we don't need to enqueue as there are no old revisions that need cleanup.
+	if len(oldRevs) == 0 {
+		return ctrl.Result{}
+	}
 
 	// if the current revision is still not ready, keep the eventual old revisions and requeue
 	// otherwise, clean old revisions
@@ -173,13 +197,7 @@ func reconcileCurrentRevision(ctx context.Context, c client.Client,
 		delete(existingDPUServiceChainsMap, svcChain.Name)
 	}
 
-	// This is needed because we don't know if a dpuSet will be updated or created
-	setDPUServiceChainNodeLabelValue(getLabelSelectorDPUServiceChainVersionValue(currentRev.Spec.Template.Spec.NodeSelector), dpuNodeLabels)
-
-	// Never patch the current revision, it could have stale nodeSelector terms that we don't want to remove
-	// The user should not change the dpuservice chain manually, because the controller will overwrite the changes
-	// at some point as part of the upgrade process.
-	return requeue, nil
+	return requeue
 }
 
 // setDPUServiceChainNodeLabelValue sets the value of the DPUServiceChain version label.
@@ -248,8 +266,6 @@ func generateDPUServiceChain(dpuDeploymentNamespacedName types.NamespacedName, o
 		},
 	}
 	dpuServiceChain.SetOwnerReferences([]metav1.OwnerReference{*owner})
-	dpuServiceChain.ObjectMeta.ManagedFields = nil
-	dpuServiceChain.SetGroupVersionKind(dpuservicev1.DPUServiceChainGroupVersionKind)
 
 	return dpuServiceChain
 }
