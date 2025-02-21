@@ -409,6 +409,7 @@ test-release-e2e-quick: # Build images required for the quick DPF e2e test.
 
 .PHONY: test-release-e2e-slow
 test-release-e2e-slow: release # Build images required for the slow DPF e2e test.
+	$(MAKE) docker-build-dummydpuservice docker-push-dummydpuservice
 	$(MAKE) helm-package-dummydpuservice helm-push-dummydpuservice
 
 .PHONY: test-release-mock-dms

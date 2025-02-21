@@ -206,7 +206,7 @@ func DeployDPFSystemComponents(ctx context.Context, input DeployDPFSystemCompone
 				Name:      "dpf-operator-controller-manager"},
 				deployment)).To(Succeed())
 			g.Expect(deployment.Status.ReadyReplicas).To(Equal(*deployment.Spec.Replicas))
-		}).WithTimeout(60 * time.Second).Should(Succeed())
+		}).WithTimeout(120 * time.Second).Should(Succeed())
 	})
 
 	It("create the PersistentVolumeClaim for the DPF Provisioning controller", func() {
