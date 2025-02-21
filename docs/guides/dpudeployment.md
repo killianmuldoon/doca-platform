@@ -12,6 +12,7 @@
 - [DPUDeployment Updates](#dpudeployment-updates)
   - [Non-disruptive DPUService Update](#non-disruptive-dpuservice-update)
   - [Disruptive DPUService Update](#disruptive-dpuservice-update)
+- [DPUService and BFB version matching](#dpuservice-and-bfb-version-matching)
 <!-- /toc -->
 
 This document describes how a user can work with the `DPUDeployment` Custom Resource.
@@ -38,11 +39,15 @@ related to fields that are set for more context. The theoretical example is abou
 
 ## Capabilities
 
-- Validates dependencies to ensure that they are configured correctly and reports 
+- Validates dependencies to ensure that they are configured correctly and reports
   errors in the `DPUDeployment` status conditions accordingly.
 - Validates that requested `DPUService` resources fit the DPUs they are targeting
   and report errors in the `DPUDeployment` status conditions accordingly.
-- Gracefully handles synchronized disruptive and non-disruptive updates of the underlying objects.
+- Validates that the version requirements of the `DPUService` fit the versions
+  found in the given `BFB` and reports errors in the `DPUDeployment` status conditions
+  accordingly.
+- Gracefully handles synchronized disruptive and non-disruptive updates of the underlying
+  objects.
 
 ## Created Child Custom Resources
 
@@ -357,7 +362,6 @@ producer-consumer-consumer   36m
 producer-consumer-producer   36m
 ```
 
-
 ## DPUDeployment Updates
 
 A `DPUDeployment` can be updated by modifying `.spec` of the custom resource or by
@@ -444,7 +448,7 @@ spec:
 ### Disruptive DPUService Update
 
 Updating "disruptive DPUServices" involves creating a new instance for every new
-version. Up to `revisionHistoryLimit` instances can exist at a given time, e.g. 
+version. Up to `revisionHistoryLimit` instances can exist at a given time, e.g.
 when changes are made to the `DPUServiceConfiguration` or `DPUServiceTemplate`
 while no instance has reached a `ready` state yet.
 
@@ -487,7 +491,6 @@ $ kubectl patch dpuserviceconfiguration producer \
   -p='[{"op": "add", "path": "/spec/nodeEffect", "value": true }]'
 ```
 
-
 4. As an example let's update the requested `interface` name:
 
 ```bash
@@ -515,3 +518,24 @@ $ kubectl get dpuservices -n customer-namespace
 NAME                    READY   PHASE     AGE
 producer-consumer-rr45f False   Success   5m
 ```
+
+## DPUService and BFB version matching
+
+`DPUDeployment` has the capability of checking if the version constraints defined
+by the `DPUService` resources are satisfied against the `BFB`. A relevant condition
+in the `DPUDeployment` reflects whether the user provided `BFB` and `DPUServices`
+is a valid combination that can work. Below is an example of the condition when
+a mismatched combination is configured:
+
+```bash
+- lastTransitionTime: "2025-02-10T07:59:58Z"
+  message: 'Error occurred: version constraint for ''dpu.nvidia.com/doca-version''
+    found in DPUServiceTemplate ''producer'' is not satisfied by the version
+    ''2.9.1'' found in the given BFB'
+  observedGeneration: 1
+  reason: Error
+  status: "False"
+  type: VersionMatchingReady
+```
+
+

@@ -38,3 +38,29 @@ chart user may face issues deploying the chart in e.g. air-gapped or large scale
 
 An example of such a Helm Chart that aligns with the DPF contract and recommendations can be found in the [dummydpuservice](../../deploy/dpuservices/dummydpuservice)
 folder.
+
+
+## Additional information about supported features
+
+### Version Constraints
+
+The version constraints can be defined by setting specific annotations as part of the `Chart.yaml` file of the chart.
+An example of that can be seen below:
+
+[embedmd]:#(../../deploy/dpuservices/dummydpuservice/chart/Chart.yaml)
+```yaml
+apiVersion: v2
+name: dummydpuservice-chart
+description: Dummydpuservice chart for Kubernetes
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+annotations:
+  dpu.nvidia.com/doca-version: ">= 2.9"
+```
+
+The constraints must comply with https://github.com/Masterminds/semver/blob/v3.3.1/README.md?plain=1#L117-L212
+
+There is a specific set of annotations that are handled today, the rest are stripped:
+
+- `dpu.nvidia.com/doca-version`
