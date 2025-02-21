@@ -1078,7 +1078,7 @@ func (r *DPUServiceReconciler) reconcileConfigPortEndpointSlices(ctx context.Con
 				Ready: ptr.To(true),
 			},
 			Hostname: &hostname,
-			NodeName: &dpu.Name,
+			NodeName: &dpu.Spec.NodeName,
 		})
 	}
 
