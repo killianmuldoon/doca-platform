@@ -262,4 +262,15 @@ var _ = Describe("DPUServiceTemplate Controller", func() {
 			Expect(found).To(BeFalse())
 		})
 	})
+	Context("When testing the version filtering", func() {
+		DescribeTable("filters the versions correctly", func(input map[string]string, expectedOutput map[string]string) {
+			Expect(filterVersions(input)).To(BeComparableTo(expectedOutput))
+		},
+			Entry("nil input", nil, nil),
+			Entry("empty input", map[string]string{}, map[string]string{}),
+			Entry("no supported versions", map[string]string{"one": "1", "two": "2"}, map[string]string{}),
+			Entry("some supported versions", map[string]string{"dpu.nvidia.com/doca-version": "1.2.3", "one": "1"}, map[string]string{"dpu.nvidia.com/doca-version": "1.2.3"}),
+			Entry("only supported versions", map[string]string{"dpu.nvidia.com/doca-version": "1.2.3"}, map[string]string{"dpu.nvidia.com/doca-version": "1.2.3"}),
+		)
+	})
 })

@@ -19,10 +19,11 @@ package controllers
 import provisioningv1 "github.com/nvidia/doca-platform/api/provisioning/v1alpha1"
 
 // GetServiceVersionKeyToBFBVersionValue returns a map that defines the supported version matching in DPUDeployment
-// Controller. The key is the annotation we expect the chart author to define in the Chart.yaml -> annotations
+// Controller. In addition, it returns a boolean to indicate if the values are set correctly or are dummy.
+// The key is the annotation we expect the chart author to define in the Chart.yaml -> annotations
 // The value is the version found in a BFB object given as input that corresponds to the aforementioned key
-func GetServiceVersionKeyToBFBVersionValue(bfb *provisioningv1.BFB) map[string]string {
-	return map[string]string{
-		"dpu.nvidia.com/doca-version": bfb.Status.Versions.DOCA,
+func GetServiceVersionKeyToBFBVersionValue() map[string]func(*provisioningv1.BFB) string {
+	return map[string]func(*provisioningv1.BFB) string{
+		"dpu.nvidia.com/doca-version": func(bfb *provisioningv1.BFB) string { return bfb.Status.Versions.DOCA },
 	}
 }

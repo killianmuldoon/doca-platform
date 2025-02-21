@@ -133,9 +133,8 @@ func (r *DPUServiceTemplateReconciler) reconcile(ctx context.Context, dpuService
 
 	versions, found := getVersionsFromMemory(r.namespacedNameToHash, r.versionsForChart, dpuServiceTemplate)
 	if !found {
-		var err error
 		log.Info("Pulling chart locally")
-		versions, err = r.ChartHelper.GetAnnotationsFromChart(ctx, r.Client, dpuServiceTemplate.Spec.HelmChart.Source)
+		annotations, err := r.ChartHelper.GetAnnotationsFromChart(ctx, r.Client, dpuServiceTemplate.Spec.HelmChart.Source)
 		if err != nil {
 			conditions.AddTrue(dpuServiceTemplate, dpuservicev1.ConditionDPUServiceTemplateReconciled)
 			conditions.AddFalse(
@@ -146,6 +145,8 @@ func (r *DPUServiceTemplateReconciler) reconcile(ctx context.Context, dpuService
 			)
 			return ctrl.Result{}, err
 		}
+
+		versions = filterVersions(annotations)
 	}
 
 	setVersionsInMemory(r.namespacedNameToHash, r.versionsForChart, dpuServiceTemplate, versions)
@@ -153,6 +154,21 @@ func (r *DPUServiceTemplateReconciler) reconcile(ctx context.Context, dpuService
 	conditions.AddTrue(dpuServiceTemplate, dpuservicev1.ConditionDPUServiceTemplateReconciled)
 
 	return ctrl.Result{}, nil
+}
+
+// filterVersions returns the filtered versions from the given unfiltered versions
+func filterVersions(unfilteredVersions map[string]string) map[string]string {
+	if len(unfilteredVersions) == 0 {
+		return unfilteredVersions
+	}
+	versions := make(map[string]string)
+	serviceVersionKeyToBFBVersionValue := GetServiceVersionKeyToBFBVersionValue()
+	for annKey, annValue := range unfilteredVersions {
+		if _, ok := serviceVersionKeyToBFBVersionValue[annKey]; ok {
+			versions[annKey] = annValue
+		}
+	}
+	return versions
 }
 
 // reconcile handles the main reconciliation loop

@@ -562,10 +562,10 @@ func verifyResourceFitting(dependencies *dpuDeploymentDependencies) error {
 func verifyVersionMatching(dependencies *dpuDeploymentDependencies) error {
 	var errs []error
 	for _, dpuServiceTemplate := range dependencies.DPUServiceTemplates {
-		for dpuServiceVersionKey, bfbVersion := range GetServiceVersionKeyToBFBVersionValue(dependencies.BFB) {
-			bfbValue, err := semver.NewVersion(bfbVersion)
+		for dpuServiceVersionKey, bfbVersionFunc := range GetServiceVersionKeyToBFBVersionValue() {
+			bfbValue, err := semver.NewVersion(bfbVersionFunc(dependencies.BFB))
 			if err != nil {
-				errs = append(errs, fmt.Errorf("version '%s' found in bfb is not parsable: %w", bfbVersion, err))
+				errs = append(errs, fmt.Errorf("version '%s' found in bfb is not parsable: %w", bfbVersionFunc(dependencies.BFB), err))
 				continue
 			}
 
@@ -585,7 +585,7 @@ func verifyVersionMatching(dependencies *dpuDeploymentDependencies) error {
 			}
 
 			if !dpuServiceTemplateValue.Check(bfbValue) {
-				errs = append(errs, fmt.Errorf("version constraint for '%s' found in DPUServiceTemplate '%s' is not satisfied by the version '%s' found in the given BFB", dpuServiceVersionKey, dpuServiceTemplate.Name, bfbVersion))
+				errs = append(errs, fmt.Errorf("version constraint for '%s' found in DPUServiceTemplate '%s' is not satisfied by the version '%s' found in the given BFB", dpuServiceVersionKey, dpuServiceTemplate.Name, bfbVersionFunc(dependencies.BFB)))
 				continue
 			}
 		}
