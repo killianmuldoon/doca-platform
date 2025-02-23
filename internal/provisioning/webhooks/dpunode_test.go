@@ -204,14 +204,23 @@ spec:
 
 		It("update object - check immutability of kubeNodeRef", func() {
 			obj := createObj("obj-8")
-			node2Ref := "node-2"
-			obj.Status.KubeNodeRef = &node2Ref
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
+			objFetched := &provisioningv1.DPUNode{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
+			Expect(err).NotTo(HaveOccurred())
+			node2Ref := "node-2"
+			objFetched.Status.KubeNodeRef = &node2Ref
+			err = k8sClient.Status().Update(ctx, objFetched)
+			Expect(err).NotTo(HaveOccurred())
+
+			objUpdatedFetched := &provisioningv1.DPUNode{}
+			err = k8sClient.Get(ctx, getObjKey(obj), objUpdatedFetched)
+			Expect(err).NotTo(HaveOccurred())
 			node3Ref := "node-3"
-			obj.Status.KubeNodeRef = &node3Ref
-			err = k8sClient.Status().Update(ctx, obj)
+			objUpdatedFetched.Status.KubeNodeRef = &node3Ref
+			err = k8sClient.Status().Update(ctx, objUpdatedFetched)
 			Expect(err).To(HaveOccurred())
 		})
 		It("create from yaml without NodeRebootMethod - should fail", func() {
@@ -307,7 +316,8 @@ spec:
 				Message:            "DPUNode is ready",
 			}
 			obj.Status.Conditions = append(obj.Status.Conditions, condition)
-			obj.Status.DPUInstallInterface = string(provisioningv1.DPUNodeInstallInterfaceGNOI)
+			dpuInstallInterface := string(provisioningv1.DPUNodeInstallInterfaceGNOI)
+			obj.Status.DPUInstallInterface = &dpuInstallInterface
 			err = k8sClient.Status().Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -352,7 +362,6 @@ spec:
 				Message:            "DPUNode reboot in progress",
 			}
 			obj.Status.Conditions = append(obj.Status.Conditions, condition1, condition2, condition3, condition4)
-			obj.Status.DPUInstallInterface = string(provisioningv1.DPUNodeInstallInterfaceGNOI)
 			err = k8sClient.Status().Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 
@@ -369,37 +378,38 @@ spec:
 			Expect(objFetched.Status.Conditions[3].Type).To(Equal(string(provisioningv1.DPUNodeConditionRebootInProgress)))
 			Expect(objFetched.Status.Conditions[3].Status).To(Equal(metav1.ConditionTrue))
 		})
-		It("create DPUNode with DPUInstallInterface", func() {
+		It("create DPUNode with default DPUInstallInterface", func() {
 			obj := createObj("obj-18")
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
-			obj.Status.DPUInstallInterface = string(provisioningv1.DPUNodeInstallInterfaceGNOI)
 			err = k8sClient.Status().Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			objFetched := &provisioningv1.DPUNode{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(objFetched.Status.DPUInstallInterface).To(Equal(string(provisioningv1.DPUNodeInstallInterfaceGNOI)))
+			Expect(*objFetched.Status.DPUInstallInterface).To(Equal(string(provisioningv1.DPUNodeInstallInterfaceGNOI)))
 		})
 
 		It("update DPUNode DPUInstallInterface", func() {
 			obj := createObj("obj-19")
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
-			obj.Status.DPUInstallInterface = string(provisioningv1.DPUNodeInstallIntrefaceRedfish)
+			dpuInstallInterface := string(provisioningv1.DPUNodeInstallIntrefaceRedfish)
+			obj.Status.DPUInstallInterface = &dpuInstallInterface
 			err = k8sClient.Status().Update(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
 			objFetched := &provisioningv1.DPUNode{}
 			err = k8sClient.Get(ctx, getObjKey(obj), objFetched)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(objFetched.Status.DPUInstallInterface).To(Equal(string(provisioningv1.DPUNodeInstallIntrefaceRedfish)))
+			Expect(*objFetched.Status.DPUInstallInterface).To(Equal(string(provisioningv1.DPUNodeInstallIntrefaceRedfish)))
 		})
 
 		It("update DPUNode DPUInstallInterface to invalid value", func() {
 			obj := createObj("obj-20")
 			err := k8sClient.Create(ctx, obj)
 			Expect(err).NotTo(HaveOccurred())
-			obj.Status.DPUInstallInterface = "InvalidInterface"
+			dpuInstallInterface := "InvalidInterface"
+			obj.Status.DPUInstallInterface = &dpuInstallInterface
 			err = k8sClient.Status().Update(ctx, obj)
 			Expect(err).To(HaveOccurred())
 		})

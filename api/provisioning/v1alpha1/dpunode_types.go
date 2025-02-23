@@ -117,8 +117,9 @@ type DPUNodeStatus struct {
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 	// The name of the interface which will be used to install the bfb image, can be one of gNOI,redfish
 	// +kubebuilder:validation:Enum=gNOI;redfish
-	// +required
-	DPUInstallInterface string `json:"dpuInstallInterface,omitempty"`
+	// +kubebuilder:default=gNOI
+	// +optional
+	DPUInstallInterface *string `json:"dpuInstallInterface,omitempty"`
 	// The name of the Kubernetes Node object that this DPUNode represents.
 	// This field is optional and only relevant if the x86 host is part of the DPF Kubernetes cluster.
 	// +kubebuilder:validation:XValidation:rule="self == oldSelf",message="KubeNodeRef is immutable"

@@ -761,6 +761,11 @@ func (in *DPUNodeStatus) DeepCopyInto(out *DPUNodeStatus) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.DPUInstallInterface != nil {
+		in, out := &in.DPUInstallInterface, &out.DPUInstallInterface
+		*out = new(string)
+		**out = **in
+	}
 	if in.KubeNodeRef != nil {
 		in, out := &in.KubeNodeRef, &out.KubeNodeRef
 		*out = new(string)

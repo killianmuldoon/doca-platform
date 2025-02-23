@@ -141,6 +141,7 @@ spec:
                   type: object
                 type: array
               dpuInstallInterface:
+                default: gNOI
                 description: The name of the interface which will be used to install
                   the bfb image, can be one of gNOI,redfish
                 enum:
@@ -155,8 +156,6 @@ spec:
                 x-kubernetes-validations:
                 - message: KubeNodeRef is immutable
                   rule: self == oldSelf
-            required:
-            - dpuInstallInterface
             type: object
         type: object
     served: true
