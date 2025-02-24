@@ -749,6 +749,7 @@ spec:
       image:
         repository: $DPF_REGISTRY/snap-csi-plugin
         tag: $DPF_VERSION
+      imagePullSecrets: $DPF_IMAGE_PULL_SECRET
       controller:
         config:
           # required parameter, name of the secret that contains connection
