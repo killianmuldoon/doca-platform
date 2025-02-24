@@ -78,7 +78,11 @@ func (r *VolumeAttachmentReconciler) Reconcile(ctx context.Context, req ctrl.Req
 
 	// Check if marked for deletion
 	if volumeAttachment.ObjectMeta.DeletionTimestamp != nil {
-		return r.handleDetachment(ctx, volumeAttachment)
+		result, err := r.handleDetachment(ctx, volumeAttachment)
+		if finalizerErr := r.removeFinalizer(ctx, volumeAttachment); finalizerErr != nil {
+			return result, finalizerErr
+		}
+		return result, err
 	}
 
 	// Wait until storageAttached is set to true before proceeding
@@ -226,7 +230,6 @@ func (r *VolumeAttachmentReconciler) handleDetachment(ctx context.Context, volum
 	if volumeAttachment.Spec.Source.VolumeRef.Name == "" {
 		// No VolumeRef specified, just proceed with finalizer removal
 		logger.Info("No VolumeRef specified in VolumeAttachment, nothing to detach")
-		_ = r.removeFinalizer(ctx, volumeAttachment)
 		return ctrl.Result{}, nil
 	}
 
@@ -239,8 +242,6 @@ func (r *VolumeAttachmentReconciler) handleDetachment(ctx context.Context, volum
 	if err := r.Get(ctx, volumeKey, volume); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("Referenced Volume not found, no volume to detach from", "Volume", volumeKey)
-			// Still remove finalizer even if volume not found
-			_ = r.removeFinalizer(ctx, volumeAttachment)
 			return ctrl.Result{}, nil
 		}
 		logger.Error(err, "Failed to retrieve Volume during detachment", "Volume", volumeKey)
@@ -296,9 +297,6 @@ func (r *VolumeAttachmentReconciler) handleDetachment(ctx context.Context, volum
 		return ctrl.Result{}, err
 	}
 	logger.Info("VolumeAttachment DPU attributes updated", "Attached", volumeAttachment.Status.DPU.Attached)
-
-	// Finally, remove the finalizer
-	_ = r.removeFinalizer(ctx, volumeAttachment)
 
 	logger.Info("Detachment completed successfully for VolumeAttachment",
 		"Name", volumeAttachment.Name)

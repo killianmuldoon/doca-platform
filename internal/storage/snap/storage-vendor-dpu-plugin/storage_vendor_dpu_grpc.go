@@ -58,7 +58,7 @@ func CreateGRPCServer() (*grpc.Server, net.Listener, error) {
 	}
 
 	// Create a Unix domain socket listener
-	log.Printf("Creating Unix domain socket listener at %s", socketPathPluginRPC)
+	log.Printf("Creating GRPC socket listener at %s", socketPathPluginRPC)
 	listener, err := net.Listen("unix", socketPathPluginRPC)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create listener: %v", err)
@@ -141,6 +141,11 @@ func (s *StoragePluginServer) CreateDevice(ctx context.Context, req *pb.CreateDe
 		return nil, fmt.Errorf("%s", errMsg)
 	}
 
+	bdevs, err := c.BdevGetBdevs()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bdevs: %v", err)
+	}
+
 	attachRequest := BdevNvmeAttachControllerRequest{
 		Trtype:  req.VolumeContext["targetType"],
 		Traddr:  req.VolumeContext["targetAddr"],
@@ -150,7 +155,7 @@ func (s *StoragePluginServer) CreateDevice(ctx context.Context, req *pb.CreateDe
 	}
 
 	log.Printf("Checking if NVMe device already exists: %+v", attachRequest)
-	deviceName, err := c.CheckBdevNvmeExists(attachRequest)
+	deviceName, err := CheckBdevExistsByTrid(attachRequest, bdevs)
 	if err != nil {
 		errMsg := fmt.Sprintf("failed to check NVMe existence: %v", err)
 		log.Println(errMsg)
@@ -178,7 +183,6 @@ func (s *StoragePluginServer) CreateDevice(ctx context.Context, req *pb.CreateDe
 	return resp, nil
 }
 
-// DeleteDevice RPC
 func (s *StoragePluginServer) DeleteDevice(ctx context.Context, req *pb.DeleteDeviceRequest) (*pb.DeleteDeviceResponse, error) {
 	log.Printf("Received DeleteDevice request: %+v", req)
 
@@ -190,19 +194,62 @@ func (s *StoragePluginServer) DeleteDevice(ctx context.Context, req *pb.DeleteDe
 		return nil, fmt.Errorf("%s", errMsg)
 	}
 
+	bdevs, err := c.BdevGetBdevs()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bdevs: %v", err)
+	}
+
+	controllers, err := c.BdevNvmeGetControllers()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get NVMe controllers: %v", err)
+	}
+
+	// Check if the Bdev exists before proceeding
+	bdevExists, err := CheckBdevExistsByBdev(req.DeviceName, bdevs)
+	if err != nil {
+		errMsg := fmt.Sprintf("Error checking bdev existence: %v", err)
+		log.Println(errMsg)
+		return nil, fmt.Errorf("%s", errMsg)
+	}
+
+	if !bdevExists {
+		log.Printf("Bdev %s does not exist. Skipping deletion.", req.DeviceName)
+		return &pb.DeleteDeviceResponse{}, nil
+	}
+
+	// Extract the trid for the given Bdev name
+	targetTrid, err := getTridByBdev(req.DeviceName, bdevs)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to extract trid for bdev %s: %v", req.DeviceName, err)
+		log.Println(errMsg)
+		return nil, fmt.Errorf("%s", errMsg)
+	}
+	log.Printf("Found trid: %+v", targetTrid)
+
+	// Find the controller name that matches the trid
+	controllerName, err := getControllerByTrid(targetTrid, controllers)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to find controller for trid %+v: %v", targetTrid, err)
+		log.Println(errMsg)
+		return nil, fmt.Errorf("%s", errMsg)
+	}
+
+	log.Printf("Found controller name: %s", controllerName)
+
+	// Detach NVMe controller using the correct controller name
 	detachRequest := BdevNvmeDetachControllerRequest{
-		Name: req.DeviceName,
+		Name: controllerName,
 	}
 
 	log.Printf("Detaching NVMe controller: %+v", detachRequest)
 	err = c.BdevNvmeDetachController(detachRequest)
 	if err != nil {
-		errMsg := fmt.Sprintf("failed to detach NVMe controller for device %s: %v", req.DeviceName, err)
+		errMsg := fmt.Sprintf("Failed to detach NVMe controller %s: %v", controllerName, err)
 		log.Println(errMsg)
 		return nil, status.Errorf(codes.FailedPrecondition, "%s", errMsg)
 	}
 
 	resp := &pb.DeleteDeviceResponse{}
-	log.Printf("Responding with DeleteDevice: %+v", resp)
+	log.Printf("Successfully deleted device: %+v", controllerName)
 	return resp, nil
 }

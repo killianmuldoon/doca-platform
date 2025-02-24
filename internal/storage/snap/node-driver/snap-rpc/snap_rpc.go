@@ -137,6 +137,7 @@ func (client *JSONRPCSnapClient) connect(uri string) error {
 	return nil
 }
 
+// Send sends a JSON-RPC request with the given method and parameters
 func (client *JSONRPCSnapClient) Send(method string, params map[string]interface{}) (int, error) {
 	client.requestID++
 	req := map[string]interface{}{
@@ -163,6 +164,7 @@ func (client *JSONRPCSnapClient) Send(method string, params map[string]interface
 	return client.requestID, nil
 }
 
+// Recv reads a JSON-RPC response from the socket, decodes it, and returns the result
 func (client *JSONRPCSnapClient) Recv() (map[string]interface{}, error) {
 	var response map[string]interface{}
 
@@ -199,6 +201,7 @@ func (client *JSONRPCSnapClient) Call(method string, params map[string]interface
 	return response["result"], nil
 }
 
+// NvmeSubsystemList retrieves the list of NVMe subsystems
 func NvmeSubsystemList(client *JSONRPCSnapClient) (NvmeSubsystemListResponse, error) {
 	result, err := client.Call("nvme_subsystem_list", nil)
 
@@ -248,14 +251,9 @@ func EmulationFunctionList(client *JSONRPCSnapClient) (EmulationFunctionListResp
 	return emulationFunctions, nil
 }
 
-func NvmeNamespaceCreate(client *JSONRPCSnapClient, crdDeviceName string) (int, error) {
-	subsystems, err := NvmeSubsystemList(client)
-
-	if err != nil {
-		fmt.Println(err)
-		return 0, fmt.Errorf("failed to retrieve subsystems: %v", err)
-	}
-
+// NvmeNamespaceCreate creates a new NVMe namespace for a given device name
+// TODO: consider using uuid in NvmeNamespaceCreate
+func NvmeNamespaceCreate(client *JSONRPCSnapClient, crdDeviceName string, subsystems NvmeSubsystemListResponse) (int, error) {
 	if len(subsystems) == 0 {
 		fmt.Println("no subsystems found")
 		return 0, fmt.Errorf("no subsystems found")
@@ -289,25 +287,12 @@ func NvmeNamespaceCreate(client *JSONRPCSnapClient, crdDeviceName string) (int, 
 }
 
 // NvmeControllerCreate creates a new NVMe controller with only nqn, pf_id, and vf_id
-func NvmeControllerCreate(client *JSONRPCSnapClient) (string, string, error) {
-
-	subsystems, err := NvmeSubsystemList(client)
-	if err != nil {
-		fmt.Println(err)
-		return "", "", fmt.Errorf("failed to retrieve subsystems: %v", err)
-	}
-
+func NvmeControllerCreate(client *JSONRPCSnapClient, subsystems NvmeSubsystemListResponse, emulationFunctions EmulationFunctionListResponse) (string, string, error) {
 	if len(subsystems) == 0 {
 		fmt.Println("no subsystems found")
 		return "", "", fmt.Errorf("no subsystems found")
 	}
 	targetSubsystem := &subsystems[0]
-
-	emulationFunctions, err := EmulationFunctionList(client) // `true` to show all functions
-	if err != nil {
-		fmt.Println(err)
-		return "", "", fmt.Errorf("failed to retrieve emulation functions: %v", err)
-	}
 
 	var currEmFunc EmulationFunction
 	for _, emFunc := range emulationFunctions {
@@ -334,8 +319,6 @@ func NvmeControllerCreate(client *JSONRPCSnapClient) (string, string, error) {
 		"nqn":     targetSubsystem.NQN,
 		"pci_bdf": pciBDF,
 	}
-
-	//fmt.Printf("Sending parameters: %+v\n", params)
 
 	result, err := client.Call("nvme_controller_create", params)
 	if err != nil {
@@ -408,13 +391,7 @@ func NvmeControllerDestroy(client *JSONRPCSnapClient, ctrlID string) error {
 }
 
 // NvmeNamespaceDestroy destroys an NVMe namespace
-func NvmeNamespaceDestroy(client *JSONRPCSnapClient, nsid int) error {
-	subsystems, err := NvmeSubsystemList(client)
-	if err != nil {
-		fmt.Println(err)
-		return fmt.Errorf("failed to retrieve subsystems: %v", err)
-	}
-
+func NvmeNamespaceDestroy(client *JSONRPCSnapClient, nsid int, subsystems NvmeSubsystemListResponse) error {
 	if len(subsystems) == 0 {
 		fmt.Println("no subsystems found")
 		return fmt.Errorf("no subsystems found")
@@ -460,13 +437,8 @@ func NvmeControllerDetachNs(client *JSONRPCSnapClient, ctrlID string, nsid int) 
 	return nil
 }
 
-func findNvmeControllerByPciAddr(client *JSONRPCSnapClient, pciAddr string) (string, error) {
-	emulationFunctions, err := EmulationFunctionList(client)
-	if err != nil {
-		fmt.Println(err)
-		return "", fmt.Errorf("failed to retrieve emulation functions: %v", err)
-	}
-
+// getNvmeControllerByPciAddr retrieves the NVMe controller ID associated with a given PCI address
+func getNvmeControllerByPciAddr(pciAddr string, emulationFunctions EmulationFunctionListResponse) (string, error) {
 	var currEmFunc EmulationFunction
 	for _, emFunc := range emulationFunctions {
 		if emFunc.EmulationType == NVMeProtocol {
@@ -482,4 +454,76 @@ func findNvmeControllerByPciAddr(client *JSONRPCSnapClient, pciAddr string) (str
 	}
 
 	return "", fmt.Errorf("no NVMe controller found for PCI BDF %s", pciAddr)
+}
+
+// getPciAddrByCtrlID retrieves the PCI address associated with a given NVMe controller ID
+func getPciAddrByCtrlID(ctrlID string, emulationFunctions EmulationFunctionListResponse) (string, error) {
+	for _, emFunc := range emulationFunctions {
+		if emFunc.EmulationType != NVMeProtocol {
+			continue
+		}
+
+		for _, vf := range emFunc.VFs {
+			if vf.EmulationType != NVMeProtocol || vf.CtrlID != ctrlID {
+				continue
+			}
+			return vf.PCIBDF, nil
+		}
+	}
+
+	return "", fmt.Errorf("no PCI address found for NVMe controller ID %s", ctrlID)
+}
+
+// getNamespaceByDeviceName retrieves the namespace ID (NSID) associated with a given block device name
+func getNamespaceByDeviceName(deviceName string, subsystems NvmeSubsystemListResponse) int {
+	for _, subsystem := range subsystems {
+		for _, ns := range subsystem.Namespaces {
+			if ns.Bdev == deviceName {
+				fmt.Printf("Namespace found for device %s: NSID=%d", deviceName, ns.NSID)
+				return ns.NSID
+			}
+		}
+	}
+
+	fmt.Printf("No namespace found for device %s", deviceName)
+	return -1
+}
+
+// checkNamespaceExist checks if the namespace exists and returns its ID if found; otherwise, it returns -1
+func checkNamespaceExist(nsid int, subsystems NvmeSubsystemListResponse) bool {
+	for _, subsystem := range subsystems {
+		for _, ns := range subsystem.Namespaces {
+			if ns.NSID == nsid {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// getCtrlByDeviceName retrieves the controller ID associated with a given block device name
+func getCtrlByDeviceName(deviceName string, subsystems NvmeSubsystemListResponse) string {
+	for _, subsystem := range subsystems {
+		for _, ns := range subsystem.Namespaces {
+			if ns.Bdev != deviceName {
+				continue
+			}
+			for _, ctrl := range ns.Controllers {
+				ctrlMap, ok := ctrl.(map[string]interface{})
+				if !ok {
+					continue
+				}
+				ctrlID, exists := ctrlMap["ctrl_id"].(string)
+				if !exists {
+					continue
+				}
+				fmt.Printf("Controller found for device %s: CtrlID=%s\n", deviceName, ctrlID)
+				return ctrlID
+			}
+		}
+	}
+
+	fmt.Printf("No controller found for device %s\n", deviceName)
+	return ""
 }

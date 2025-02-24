@@ -163,6 +163,47 @@ func (c *rpcClient) BdevGetBdevs() (BdevGetBdevsResponse, error) {
 	return BdevGetBdevsResponse{Bdevs: bdevs}, nil
 }
 
+type NVMeTrid struct {
+	TrType  string `json:"trtype"`
+	AdrFam  string `json:"adrfam"`
+	TrAddr  string `json:"traddr"`
+	TrSvcID string `json:"trsvcid"`
+	SubNQN  string `json:"subnqn"`
+}
+
+type NvmeController struct {
+	Name   string `json:"name"`
+	Ctrlrs []struct {
+		Trid NVMeTrid `json:"trid"`
+	} `json:"ctrlrs"`
+}
+
+type BdevNvmeGetControllersResponse struct {
+	Controllers []NvmeController `json:"controllers"`
+}
+
+// BdevNvmeGetControllers retrieves the list of NVMe controllers
+func (c *rpcClient) BdevNvmeGetControllers() (BdevNvmeGetControllersResponse, error) {
+	log.Println("Calling BdevNvmeGetControllers RPC")
+
+	result, err := c.Call("bdev_nvme_get_controllers", nil)
+	if err != nil {
+		return BdevNvmeGetControllersResponse{}, err
+	}
+
+	raw, ok := result.(*json.RawMessage)
+	if !ok {
+		return BdevNvmeGetControllersResponse{}, fmt.Errorf("unexpected result type")
+	}
+
+	var controllers []NvmeController
+	if err := json.Unmarshal(*raw, &controllers); err != nil {
+		return BdevNvmeGetControllersResponse{}, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+
+	return BdevNvmeGetControllersResponse{Controllers: controllers}, nil
+}
+
 type BdevNvmeAttachControllerRequest struct {
 	Name    string `json:"name"`
 	Trtype  string `json:"trtype"`
@@ -176,15 +217,11 @@ type BdevNvmeAttachControllerResponse struct {
 	BdevName string `json:"bdev_name"`
 }
 
-// CheckBdevNvmeExists checks if an NVMe controller with the given parameters already exists.
-func (c *rpcClient) CheckBdevNvmeExists(req BdevNvmeAttachControllerRequest) (string, error) {
+// CheckBdevExistsByTrid checks if an NVMe controller with the given parameters already exists.
+func CheckBdevExistsByTrid(req BdevNvmeAttachControllerRequest, bdevResponse BdevGetBdevsResponse) (string, error) {
 	log.Printf("Checking if NVMe controller exists: %+v", req)
-	bdevList, err := c.BdevGetBdevs()
-	if err != nil {
-		return "", fmt.Errorf("failed to retrieve bdev list: %v", err)
-	}
 
-	for _, bdev := range bdevList.Bdevs {
+	for _, bdev := range bdevResponse.Bdevs {
 		nvmeData, ok := bdev.DriverSpecific["nvme"]
 		if !ok {
 			continue
@@ -219,6 +256,19 @@ func (c *rpcClient) CheckBdevNvmeExists(req BdevNvmeAttachControllerRequest) (st
 
 	log.Println("No matching NVMe controller found.")
 	return "", nil
+}
+
+// CheckBdevExistsByBdev verifies if a block device (bdev) with the given device name exists.
+func CheckBdevExistsByBdev(deviceName string, bdevResponse BdevGetBdevsResponse) (bool, error) {
+	for _, bdev := range bdevResponse.Bdevs {
+		if bdev.Name == deviceName {
+			log.Printf("Bdev found: %s", deviceName)
+			return true, nil
+		}
+	}
+
+	log.Printf("Bdev not found: %s", deviceName)
+	return false, nil
 }
 
 func (c *rpcClient) BdevNvmeAttachController(req BdevNvmeAttachControllerRequest) (BdevNvmeAttachControllerResponse, error) {
@@ -268,16 +318,71 @@ type BdevNvmeDetachControllerRequest struct {
 	Name string `json:"name"`
 }
 
+// getTridByBdev extracts the NVMeTrid from a given bdev name
+func getTridByBdev(bdevName string, bdevResponse BdevGetBdevsResponse) (NVMeTrid, error) {
+	for _, bdev := range bdevResponse.Bdevs {
+		if bdev.Name != bdevName {
+			continue
+		}
+
+		nvmeInterfaces, ok := bdev.DriverSpecific["nvme"].([]interface{})
+		if !ok || len(nvmeInterfaces) == 0 {
+			continue
+		}
+
+		nvmeMap, ok := nvmeInterfaces[0].(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		tridData, exists := nvmeMap["trid"]
+		if !exists {
+			continue
+		}
+
+		tridBytes, err := json.Marshal(tridData)
+		if err != nil {
+			return NVMeTrid{}, fmt.Errorf("failed to marshal trid: %v", err)
+		}
+
+		var targetTrid NVMeTrid
+		err = json.Unmarshal(tridBytes, &targetTrid)
+		if err != nil {
+			return NVMeTrid{}, fmt.Errorf("failed to unmarshal trid into NVMeTrid: %v", err)
+		}
+
+		return targetTrid, nil
+	}
+
+	return NVMeTrid{}, fmt.Errorf("could not find trid for bdev name: %s", bdevName)
+}
+
+// getControllerByTrid extracts the NVMeTrid from a given bdev name
+func getControllerByTrid(targetTrid NVMeTrid, controllersResponse BdevNvmeGetControllersResponse) (string, error) {
+	for _, controller := range controllersResponse.Controllers {
+		for _, ctrlr := range controller.Ctrlrs {
+			if ctrlr.Trid == targetTrid {
+				return controller.Name, nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no matching controller found for trid: %+v", targetTrid)
+}
+
 func (c *rpcClient) BdevNvmeDetachController(req BdevNvmeDetachControllerRequest) error {
 	log.Printf("Detaching NVMe controller: %+v", req)
+
 	_, err := c.Call("bdev_nvme_detach_controller", req)
 	if err != nil {
 		if errorMatches(err, ErrJSONNoSuchDevice) {
+			log.Printf("NVMe controller %s not found: %v", req.Name, err)
 			return ErrJSONNoSuchDevice
 		}
+		log.Printf("Error detaching NVMe controller %s: %v", req.Name, err)
 		return fmt.Errorf("failed to detach NVMe controller %s: %v", req.Name, err)
 	}
 
-	log.Printf("NVMe controller %s successfully detached.", req.Name)
+	log.Printf("Successfully detached NVMe controller: %s", req.Name)
 	return nil
 }

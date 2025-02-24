@@ -25,86 +25,143 @@ import (
 const basePath = "/var/lib/nvidia/storage/snap/providers"
 const timeout = 60
 
-// ExposeDevice creates a new NVMe namespace, controller, and attaches them.
 func ExposeDevice(snapProvider, deviceName string) (int, string, error) {
 	unixSocketPath := filepath.Join(basePath, snapProvider, "snap.sock")
 	log.Printf("Constructed Socket Path: %s", unixSocketPath)
 
-	// Create the JSON-RPC client from the given Unix socket path
 	client, err := NewJSONRPCSnapClient(unixSocketPath, timeout)
 	if err != nil {
 		return 0, "", fmt.Errorf("failed to create JSON-RPC client: %v", err)
 	}
 
-	// Create the NVMe Namespace
-	nsid, err := NvmeNamespaceCreate(client, deviceName)
+	emulationFunctions, err := EmulationFunctionList(client)
 	if err != nil {
-		return 0, "", fmt.Errorf("failed to create namespace: %v", err)
+		fmt.Println(err)
+		return 0, "", fmt.Errorf("failed to retrieve emulation functions: %v", err)
 	}
 
-	// Create the NVMe Controller
-	ctrlID, pciBDF, err := NvmeControllerCreate(client)
+	subsystems, err := NvmeSubsystemList(client)
 	if err != nil {
-		return 0, "", fmt.Errorf("failed to create controller: %v", err)
+		return 0, "", fmt.Errorf("failed to retrieve NVMe subsystems: %v", err)
 	}
 
-	// Attach the Namespace to the Controller
-	err = NvmeControllerAttachNs(client, ctrlID, nsid)
+	nsid := getNamespaceByDeviceName(deviceName, subsystems)
+
+	if nsid == -1 {
+		nsid, err = NvmeNamespaceCreate(client, deviceName, subsystems)
+		if err != nil {
+			return 0, "", fmt.Errorf("failed to create namespace: %v", err)
+		}
+		log.Printf("Created new namespace: NSID=%d", nsid)
+	} else {
+		log.Printf("Namespace already exists: NSID=%d", nsid)
+	}
+
+	ctrlID := getCtrlByDeviceName(deviceName, subsystems)
 	if err != nil {
-		return 0, "", fmt.Errorf("failed to attach namespace to controller: %v", err)
+		log.Printf("Error retrieving NVMe controllers: %v", err)
+		return 0, "", err
 	}
 
-	// Resume the Controller
-	err = NvmeControllerResume(client, ctrlID)
-	if err != nil {
-		return 0, "", fmt.Errorf("failed to resume controller: %v", err)
+	var pciBDF string
+	if ctrlID != "" {
+		log.Printf("Controller already exists: ID=%s", ctrlID)
+		pciBDF, err = getPciAddrByCtrlID(ctrlID, emulationFunctions)
+		if err != nil {
+			return 0, "", fmt.Errorf("failed to get PCI BDF for controller: %v", err)
+		}
+	} else {
+		ctrlID, pciBDF, err = NvmeControllerCreate(client, subsystems, emulationFunctions)
+		if err != nil {
+			return 0, "", fmt.Errorf("failed to create controller: %v", err)
+		}
+
+		err = NvmeControllerAttachNs(client, ctrlID, nsid)
+		if err != nil {
+			return 0, "", fmt.Errorf("failed to attach namespace to controller: %v", err)
+		}
+
+		err = NvmeControllerResume(client, ctrlID)
+		if err != nil {
+			return 0, "", fmt.Errorf("failed to resume controller: %v", err)
+		}
+
+		log.Printf("Created new controller: ID=%s, PCI BDF=%s", ctrlID, pciBDF)
 	}
 
-	log.Printf("nsID=%d, pciBDF=%s", nsid, pciBDF)
-
-	if err := client.Close(); err != nil {
-		log.Printf("Failed to close client: %v", err)
-	}
-
+	log.Printf("Final Device State -> NSID=%d, PCI BDF=%s", nsid, pciBDF)
 	return nsid, pciBDF, nil
 }
 
-// DestroyDevice detaches and destroys the NVMe namespace and controller.
 func DestroyDevice(snapProvider string, nsid int, pciAddr string) error {
 	unixSocketPath := filepath.Join(basePath, snapProvider, "snap.sock")
 	log.Printf("Constructed Socket Path: %s", unixSocketPath)
 
-	// Create the JSON-RPC client from the given Unix socket path
 	client, err := NewJSONRPCSnapClient(unixSocketPath, timeout)
 	if err != nil {
 		return fmt.Errorf("failed to create JSON-RPC client: %v", err)
 	}
 
-	ctrlID, err := findNvmeControllerByPciAddr(client, pciAddr)
+	emulationFunctions, err := EmulationFunctionList(client)
 	if err != nil {
-		return fmt.Errorf("failed to detach namespace: %v", err)
+		log.Printf("Failed to get emulation functions list: %v", err)
+		return fmt.Errorf("failed to retrieve emulation functions: %v", err)
 	}
 
-	// Detach the Namespace from the Controller
-	err = NvmeControllerDetachNs(client, ctrlID, nsid)
+	subsystems, err := NvmeSubsystemList(client)
 	if err != nil {
-		return fmt.Errorf("failed to detach namespace: %v", err)
+		return fmt.Errorf("failed to retrieve NVMe subsystems: %v", err)
 	}
 
-	// Destroy the Controller
-	err = NvmeControllerDestroy(client, ctrlID)
+	ctrlID, err := getNvmeControllerByPciAddr(pciAddr, emulationFunctions)
 	if err != nil {
-		return fmt.Errorf("failed to destroy controller: %v", err)
+		log.Printf("Error finding NVMe controller for PCI Address %s: %v", pciAddr, err)
+		return fmt.Errorf("error finding NVMe controller: %v", err)
 	}
 
-	// Destroy the Namespace
-	err = NvmeNamespaceDestroy(client, nsid)
+	namespaceExists := checkNamespaceExist(nsid, subsystems)
 	if err != nil {
-		return fmt.Errorf("failed to destroy namespace: %v", err)
+		log.Printf("Failed to check namespace existence: %v", err)
+		return err
 	}
 
-	if err := client.Close(); err != nil {
-		log.Printf("Failed to close client: %v", err)
+	if ctrlID == "" && !namespaceExists {
+		log.Printf("NVMe Controller and namespace not found for PCI Address %s. Skipping detach and destroy.", pciAddr)
+		return nil
+	}
+
+	// Detach the namespace only if both exist
+	if ctrlID == "" || !namespaceExists {
+		log.Printf("Namespace/Controller does not exist. Skipping detach.")
+	} else {
+		err = NvmeControllerDetachNs(client, ctrlID, nsid)
+		if err != nil {
+			log.Printf("Failed to detach namespace: %v", err)
+			return fmt.Errorf("failed to detach namespace: %v", err)
+		}
+		log.Printf("Successfully detached namespace ID %d", nsid)
+	}
+
+	if ctrlID == "" {
+		log.Printf("Controller ID does not exist. Skipping destroy.")
+	} else {
+		err = NvmeControllerDestroy(client, ctrlID)
+		if err != nil {
+			log.Printf("Failed to destroy controller: %v", err)
+			return fmt.Errorf("failed to destroy controller: %v", err)
+		}
+		log.Printf("Successfully destroyed controller ID %s", ctrlID)
+	}
+
+	if !namespaceExists {
+		log.Printf("Namespace ID %d does not exist. Skipping detach.", nsid)
+	} else {
+		err = NvmeNamespaceDestroy(client, nsid, subsystems)
+		if err != nil {
+			log.Printf("Failed to destroy namespace ID %d: %v", nsid, err)
+			return fmt.Errorf("failed to destroy namespace: %v", err)
+		}
+		log.Printf("Successfully destroyed namespace ID %d", nsid)
 	}
 
 	return nil
