@@ -29,6 +29,7 @@ Refer to the installation guide for setup details, dependencies, and prerequisit
   - [Create DPUService](#create-dpuservice)
   - [Update DPUService](#update-dpuservice)
   - [Delete DPUServices](#delete-dpuservices)
+- [DPUServiceInterface flow](#dpuserviceinterface-flow)
 <!-- /toc -->
 
 ## DPF system components
@@ -361,4 +362,19 @@ sequenceDiagram
 
 TODO: DPUDeployment flow
 
-TODO: DPUServiceInterface flow
+## DPUServiceInterface flow
+```mermaid
+sequenceDiagram
+    participant User
+    participant DPUServiceInterface Controller
+    participant ServiceInterfaceSet Controller
+    participant Target Node
+
+    User->>DPUServiceInterface Controller: Create DPUServiceInterface object on Host Cluster
+    DPUServiceInterface Controller->>ServiceInterfaceSet Controller: Sync ServiceInterfaceSet object to DPU Cluster
+    ServiceInterfaceSet Controller->>Target Node: Create ServiceInterface object based on target ndoes based on nodeSelector
+```
+1) User creates the DPUServiceInterface object on the host cluster.
+2) DPUServiceInterface controller creates the ServiceInterfaceSet object and syncs it to the DPU cluster.
+3) ServiceInterfaceSet controller creates the ServiceInterface object for individual nodes based on the nodeSelector.
+4) User refers to the DPUServiceInterface in DPUService to make actual use of it.

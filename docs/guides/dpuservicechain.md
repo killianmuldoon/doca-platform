@@ -5,9 +5,9 @@ This document describes how to use DPUServiceChain in DPF.
 
 The purpose of DPUServiceChain is to allow user to define how to steer traffic on DPU through DPUServiceInterfaces.The following controllers are used internally to achieve this.
 
-1) User creates DPUServiceChain CRD, servicechaincontroller consumes it on the host cluster.
-2) ServiceChainSet CRD is created on DPU clusters
-3) ServiceChain CRD is created for individual nodes based on nodeSelector.
+1) User creates DPUServiceChain, servicechaincontroller consumes it on the host cluster.
+2) ServiceChainSet is created on DPU clusters
+3) ServiceChain is created for individual nodes based on nodeSelector.
 4) SFC controller provisions the necessary network configurations on DPU.
 
 ```mermaid
@@ -15,18 +15,19 @@ sequenceDiagram
     participant User
     participant DPUServiceChain Controller
     participant ServiceChainSet Controller
+    participant SFC Controller
     participant Target Node
 
     User->>DPUServiceChain Controller: Create DPUServiceChain on Host Cluster(references DPUService and DPUServiceInterface)
-    DPUServiceChain Controller->>ServiceChainSet Controller: Sync ServiceChainSet CRD on all DPU clusters
-    ServiceChainSet Controller->>SFC Controller: Create ServiceChain CRD based on nodeSelector
+    DPUServiceChain Controller->>ServiceChainSet Controller: Sync ServiceChainSet  on all DPU clusters
+    ServiceChainSet Controller->>SFC Controller: Create ServiceChain  based on nodeSelector
     SFC Controller->>Target Node: Provision the necessary network configurations on the target node
 ```
 
 # How to Use DPUServiceChain
-DPUServiceChain CRD example:
+DPUServiceChain example:
 
-The following YAML manifest defines a DPUServiceChain (CRD) named `example-chain` and refers to one DPUService named `example-service` and 4 DPUServiceInterfaces. DPUServiceChain will define how the traffic will flow through those DPUServiceInterfaces.
+The following YAML manifest defines a DPUServiceChain named `example-chain` and refers to one DPUService named `example-service` and 4 DPUServiceInterfaces. DPUServiceChain will define how the traffic will flow through those DPUServiceInterfaces.
 
 `DPUServiceInterfaces`
 
