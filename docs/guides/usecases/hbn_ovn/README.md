@@ -69,7 +69,7 @@ This guide uses the following tools which must be installed on the machine where
 
 #### Control plane Nodes
 - Open vSwitch (OVS) packages installed - i.e. `openvswitch-switch` for Ubuntu 24.04
-- out-of-band management port should be configured as OVS bridge port with "bridge-uplink" OVS metadata [This addresses a known issue](../../../release-notes/v24.10.0.md#known-issues-and-limitations).
+- out-of-band management port should be configured as OVS bridge port with "bridge-uplink" OVS metadata [This addresses a known issue](../../../release-notes/v25.1.0.md#known-issues-and-limitations).
 - DNS stub resolver should be disabled if using systemd resolvd
 
 #### Worker Nodes
@@ -81,7 +81,7 @@ This guide uses the following tools which must be installed on the machine where
 ### Kubernetes prerequisites
 - CNI not installed
 - kube-proxy not installed
-- coreDNS should be configured to run only on control plane nodes - e.g. using NodeAffinity. [This addresses a known issue](../../../release-notes/v24.10.0.md#known-issues-and-limitations).
+- coreDNS should be configured to run only on control plane nodes - e.g. using NodeAffinity. [This addresses a known issue](../../../release-notes/v25.1.0.md#known-issues-and-limitations).
 - control plane setup is complete before starting this guide
 - worker nodes are not added until indicated by this guide
 
@@ -165,10 +165,10 @@ export SERVICE_CIDR=10.233.0.0/18
 export REGISTRY=oci://ghcr.io/nvidia/dpf-operator
 
 ## The DPF TAG is the version of the DPF components which will be deployed in this guide.
-export TAG=v24.10.0
+export TAG=v25.1.1
 
 ## URL to the BFB used in the `bfb.yaml` and linked by the DPUSet.
-export BLUEFIELD_BITSTREAM="https://content.mellanox.com/BlueField/BFBs/Ubuntu22.04/bf-bundle-2.9.1-30_24.11_ubuntu-22.04_prod.bfb"
+export BLUEFIELD_BITSTREAM="https://content.mellanox.com/BlueField/BFBs/Ubuntu22.04/bf-bundle-2.9.1-40_24.11_ubuntu-22.04_prod.bfb"
 ```
 
 ### 1. CNI installation
@@ -668,9 +668,9 @@ spec:
 
 These verification commands may need to be run multiple times to ensure the condition is met.
 
-Verify the DPF System with:
+Verify that the accelerated CNI is enabled with:
 ```shell
-## Ensure the provisioning and DPUService controller manager deployments are available.
+## Ensure the nvidia-network-operator pods are ready.
 kubectl wait --for=condition=Ready --namespace nvidia-network-operator pods --all
 ## Expect the following Daemonsets to be successfully rolled out.
 kubectl rollout status daemonset --namespace nvidia-network-operator kube-multus-ds sriov-network-config-daemon sriov-device-plugin 
